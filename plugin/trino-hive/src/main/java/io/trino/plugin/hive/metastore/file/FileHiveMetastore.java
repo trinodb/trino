@@ -32,27 +32,26 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
-import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.HiveType;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveBasicStatistics;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.HivePrivilegeInfo;
+import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Partition;
+import io.trino.metastore.PartitionStatistics;
+import io.trino.metastore.PartitionWithStatistics;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.StatisticsUpdateMode;
+import io.trino.metastore.Table;
+import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.PartitionNotFoundException;
-import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TableType;
-import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.PartitionWithStatistics;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
-import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnNotFoundException;
@@ -81,6 +80,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -91,16 +91,18 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.hash.Hashing.sha256;
+import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static io.trino.metastore.Partition.toPartitionValues;
+import static io.trino.metastore.Partition.unescapePathName;
+import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.MATERIALIZED_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.isSomeKindOfAView;
-import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
@@ -117,8 +119,6 @@ import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
-import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
-import static io.trino.plugin.hive.util.HiveUtil.unescapePathName;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -484,7 +484,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public synchronized void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Location tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
         TableMetadata tableMetadata = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
@@ -1070,7 +1070,7 @@ public class FileHiveMetastore
         }
     }
 
-    private List<List<String>> listPartitions(Location directory, List<io.trino.plugin.hive.metastore.Column> partitionColumns)
+    private List<List<String>> listPartitions(Location directory, List<io.trino.metastore.Column> partitionColumns)
     {
         if (partitionColumns.isEmpty()) {
             return ImmutableList.of();

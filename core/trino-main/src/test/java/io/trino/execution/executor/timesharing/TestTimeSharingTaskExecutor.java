@@ -86,7 +86,7 @@ public class TestTimeSharingTaskExecutor
             assertThat(driver1.getCompletedPhases()).isEqualTo(0);
             assertThat(driver2.getCompletedPhases()).isEqualTo(0);
             ticker.increment(60, SECONDS);
-            assertThat(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true).isEmpty()).isTrue();
+            assertThat(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true)).isEmpty();
             assertThat(taskExecutor.getRunAwaySplitCount()).isEqualTo(0);
             ticker.increment(600, SECONDS);
             assertThat(taskExecutor.getRunAwaySplitCount()).isEqualTo(2);
@@ -146,7 +146,7 @@ public class TestTimeSharingTaskExecutor
 
             // no splits remaining
             ticker.increment(610, SECONDS);
-            assertThat(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true).isEmpty()).isTrue();
+            assertThat(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true)).isEmpty();
             assertThat(taskExecutor.getRunAwaySplitCount()).isEqualTo(0);
         }
         finally {

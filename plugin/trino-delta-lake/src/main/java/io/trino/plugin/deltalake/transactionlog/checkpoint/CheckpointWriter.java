@@ -23,6 +23,7 @@ import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
@@ -61,6 +62,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatistic
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toNullCounts;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY;
@@ -159,7 +161,7 @@ public class CheckpointWriter
         }
         List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(entries.metadataEntry(), entries.protocolEntry(), typeManager);
         List<RowType.Field> partitionValuesParsedFieldTypes = partitionColumns.stream()
-                .map(column -> RowType.field(column.getColumnName(), column.getType()))
+                .map(column -> RowType.field(column.columnName(), column.type()))
                 .collect(toImmutableList());
         for (AddFileEntry addFileEntry : entries.addFileEntries()) {
             writeAddFileEntry(pageBuilder, addEntryType, addFileEntry, entries.metadataEntry(), entries.protocolEntry(), partitionColumns, partitionValuesParsedFieldTypes, writeStatsAsJson, writeStatsAsStruct);
@@ -246,6 +248,7 @@ public class CheckpointWriter
             boolean writeStatsAsJson,
             boolean writeStatsAsStruct)
     {
+        boolean deletionVectorEnabled = isDeletionVectorEnabled(metadataEntry, protocolEntry);
         pageBuilder.declarePosition();
         RowBlockBuilder blockBuilder = (RowBlockBuilder) pageBuilder.getBlockBuilder(ADD_BLOCK_CHANNEL);
         blockBuilder.buildEntry(fieldBuilders -> {
@@ -279,8 +282,12 @@ public class CheckpointWriter
                 writeParsedStats(fieldBuilders.get(fieldId), entryType, addFileEntry, fieldId);
                 fieldId++;
             }
-
             writeStringMap(fieldBuilders.get(fieldId), entryType, fieldId, "tags", addFileEntry.getTags());
+            fieldId++;
+
+            if (deletionVectorEnabled) {
+                writeDeletionVector(fieldBuilders.get(fieldId), entryType, addFileEntry.getDeletionVector(), fieldId);
+            }
         });
 
         // null for others
@@ -381,6 +388,23 @@ public class CheckpointWriter
                 }
                 writeNullCountAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "nullCount", stats.getNullCount());
             }
+        });
+    }
+
+    private void writeDeletionVector(BlockBuilder entryBlockBuilder, RowType entryType, Optional<DeletionVectorEntry> deletionVector, int fieldId)
+    {
+        if (deletionVector.isEmpty()) {
+            entryBlockBuilder.appendNull();
+            return;
+        }
+
+        RowType type = getInternalRowType(entryType, fieldId, "deletionVector");
+        ((RowBlockBuilder) entryBlockBuilder).buildEntry(builders -> {
+            writeString(builders.get(0), type, 0, "storageType", deletionVector.get().storageType());
+            writeString(builders.get(1), type, 1, "pathOrInlineDv", deletionVector.get().pathOrInlineDv());
+            writeLong(builders.get(2), type, 2, "offset", (long) deletionVector.get().offset().orElse(0));
+            writeLong(builders.get(4), type, 4, "sizeInBytes", (long) deletionVector.get().sizeInBytes());
+            writeLong(builders.get(5), type, 5, "cardinality", deletionVector.get().cardinality());
         });
     }
 

@@ -275,7 +275,8 @@ public abstract class BaseIcebergConnectorTest
     @Override
     protected void verifyConcurrentUpdateFailurePermissible(Exception e)
     {
-        assertThat(e).hasMessageContaining("Failed to commit Iceberg update to table");
+        assertThat(e).hasMessageMatching("Failed to commit the transaction during write.*|" +
+                "Failed to commit during write.*");
     }
 
     @Override
@@ -926,8 +927,8 @@ public abstract class BaseIcebergConnectorTest
                                 "  ('a_double', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                                 "  ('a_short_decimal', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                                 "  ('a_long_decimal', NULL, 1e0, 0.5e0, NULL, '11.0', '11.0'), " +
-                                "  ('a_varchar', 234e0, 1e0, 0.5e0, NULL, NULL, NULL), " +
-                                "  ('a_varbinary', 114e0, 1e0, 0.5e0, NULL, NULL, NULL), " +
+                                "  ('a_varchar', 213e0, 1e0, 0.5e0, NULL, NULL, NULL), " +
+                                "  ('a_varbinary', 103e0, 1e0, 0.5e0, NULL, NULL, NULL), " +
                                 "  ('a_date', NULL, 1e0, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
                                 "  ('a_time', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
                                 "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, '2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'), " +
@@ -936,7 +937,7 @@ public abstract class BaseIcebergConnectorTest
                                 "  ('a_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
                                 "  ('an_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
                                 "  ('a_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
-                                "  ('a quoted, field', 224e0, 1e0, 0.5e0, NULL, NULL, NULL), " +
+                                "  ('a quoted, field', 202e0, 1e0, 0.5e0, NULL, NULL, NULL), " +
                                 "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
             }
             case AVRO -> {
@@ -1584,7 +1585,7 @@ public abstract class BaseIcebergConnectorTest
             assertQuery(
                     "SELECT custkey, name, address, nationkey, phone, acctbal, mktsegment, comment FROM " + table.getName(),
                     "SELECT custkey, name, address, nationkey, phone, acctbal, mktsegment, substring(comment, 2) FROM customer");
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\" WHERE content != 1").getOnlyColumnAsSet()) {
                 assertThat(isFileSorted((String) filePath, "comment")).isTrue();
             }
         }
@@ -3298,7 +3299,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_truncate_text_transform"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', " + (format == PARQUET ? "550e0" : "NULL") + ", 7e0, " + (format == AVRO ? "0.1e0" : "0.125e0") + ", NULL, NULL, NULL), " +
+                        "  ('d', " + (format == PARQUET ? "507e0" : "NULL") + ", 7e0, " + (format == AVRO ? "0.1e0" : "0.125e0") + ", NULL, NULL, NULL), " +
                         "  ('b', NULL, 8e0, 0e0, NULL, " + (format == AVRO ? "NULL, NULL" : "'1', '101'") + "), " +
                         "  (NULL, NULL, NULL, NULL, 8e0, NULL, NULL)");
 
@@ -3588,7 +3589,7 @@ public abstract class BaseIcebergConnectorTest
                     "  ('b', NULL, 7e0, 0e0, NULL, '1', '7'), " +
                     "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)";
             case PARQUET -> "VALUES " +
-                    "  ('d', 364e0, 7e0, 0e0, NULL, NULL, NULL), " +
+                    "  ('d', 342e0, 7e0, 0e0, NULL, NULL, NULL), " +
                     "  ('b', NULL, 7e0, 0e0, NULL, '1', '7'), " +
                     "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)";
             case AVRO -> "VALUES " +
@@ -3645,7 +3646,7 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SHOW STATS FOR test_void_transform"))
                     .skippingTypesCheck()
                     .matches("VALUES " +
-                            "  ('d', " + (format == PARQUET ? "205e0" : "NULL") + ", 5e0, 0.2857142857142857, NULL, NULL, NULL), " +
+                            "  ('d', " + (format == PARQUET ? "194e0" : "NULL") + ", 5e0, 0.2857142857142857, NULL, NULL, NULL), " +
                             "  ('b', NULL, 7e0, 0e0, NULL, '1', '7'), " +
                             "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)");
         }
@@ -3810,8 +3811,8 @@ public abstract class BaseIcebergConnectorTest
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)")
                 : ("VALUES " +
                 "  ('regionkey', NULL, NULL, 0e0, NULL, '0', '4'), " +
-                "  ('name', " + (format == PARQUET ? "234e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
-                "  ('comment', " + (format == PARQUET ? "639e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                "  ('name', " + (format == PARQUET ? "224e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                "  ('comment', " + (format == PARQUET ? "626e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
 
         String statsWithNdv = format == AVRO
@@ -3822,8 +3823,8 @@ public abstract class BaseIcebergConnectorTest
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)")
                 : ("VALUES " +
                 "  ('regionkey', NULL, 5e0, 0e0, NULL, '0', '4'), " +
-                "  ('name', " + (format == PARQUET ? "234e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
-                "  ('comment', " + (format == PARQUET ? "639e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
+                "  ('name', " + (format == PARQUET ? "224e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
+                "  ('comment', " + (format == PARQUET ? "626e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
 
         assertThat(query(defaultSession, "SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithNdv);
@@ -4310,8 +4311,8 @@ public abstract class BaseIcebergConnectorTest
                             "  ('dbl', NULL, 1e0, 0e0, NULL, '1.0', '1.0'), " +
                             "  ('mp', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('dec', NULL, 1e0, 0e0, NULL, '1.0', '1.0'), " +
-                            "  ('vc', " + (format == PARQUET ? "116e0" : "NULL") + ", 1e0, 0e0, NULL, NULL, NULL), " +
-                            "  ('vb', " + (format == PARQUET ? "77e0" : "NULL") + ", 1e0, 0e0, NULL, NULL, NULL), " +
+                            "  ('vc', " + (format == PARQUET ? "105e0" : "NULL") + ", 1e0, 0e0, NULL, NULL, NULL), " +
+                            "  ('vb', " + (format == PARQUET ? "71e0" : "NULL") + ", 1e0, 0e0, NULL, NULL, NULL), " +
                             "  ('ts', NULL, 1e0, 0e0, NULL, '2021-07-24 02:43:57.348000', " + (format == ORC ? "'2021-07-24 02:43:57.348999'" : "'2021-07-24 02:43:57.348000'") + "), " +
                             "  ('tstz', NULL, 1e0, 0e0, NULL, '2021-07-24 02:43:57.348 UTC', '2021-07-24 02:43:57.348 UTC'), " +
                             "  ('str', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
@@ -4373,7 +4374,7 @@ public abstract class BaseIcebergConnectorTest
                             "  ('dbl', NULL, 1e0, 0e0, NULL, '1.0', '1.0'), " +
                             "  ('mp', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('dec', NULL, 1e0, 0e0, NULL, '1.0', '1.0'), " +
-                            "  ('vc', " + (format == PARQUET ? "116e0" : "NULL") + ", 1e0, 0e0, NULL, NULL, NULL), " +
+                            "  ('vc', " + (format == PARQUET ? "105e0" : "NULL") + ", 1e0, 0e0, NULL, NULL, NULL), " +
                             "  ('str', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                             "  (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)");
         }
@@ -4699,8 +4700,8 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_double', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_short_decimal', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_long_decimal', NULL, 1e0, 0.5e0, NULL, '11.0', '11.0'), " +
-                            "  ('a_varchar', " + (format == PARQUET ? "234e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_varbinary', " + (format == PARQUET ? "114e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varchar', " + (format == PARQUET ? "213e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', " + (format == PARQUET ? "103e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_date', NULL, 1e0, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
                             "  ('a_time', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
@@ -4753,8 +4754,8 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_double', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_short_decimal', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_long_decimal', NULL, 1e0, 0.5e0, NULL, '11.0', '11.0'), " +
-                            "  ('a_varchar', " + (format == PARQUET ? "234e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_varbinary', " + (format == PARQUET ? "114e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varchar', " + (format == PARQUET ? "213e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', " + (format == PARQUET ? "103e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_date', NULL, 1e0, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
                             "  ('a_time', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
@@ -5185,11 +5186,6 @@ public abstract class BaseIcebergConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("tinyint")
-                || typeName.equals("smallint")) {
-            // These types are not supported by Iceberg
-            return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
         if (typeName.equals("char(3)")) {
             // Use explicitly padded literal in char mapping test due to whitespace padding on coercion to varchar
             return Optional.of(new DataMappingTestSetup(typeName, "'ab '", dataMappingTestSetup.getHighValueLiteral()));
@@ -7630,7 +7626,8 @@ public abstract class BaseIcebergConnectorTest
                 "iceberg",
                 ImmutableMap.of(
                         "iceberg.catalog.type", "TESTING_FILE_METASTORE",
-                        "hive.metastore.catalog.dir", dataDirectory.getPath()));
+                        "hive.metastore.catalog.dir", dataDirectory.getPath(),
+                        "fs.hadoop.enabled", "true"));
 
         queryRunner.installPlugin(new TestingHivePlugin(dataDirectory.toPath()));
         queryRunner.createCatalog(
@@ -7969,6 +7966,43 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(session, "DROP TABLE " + tableName2);
     }
 
+    @Test
+    public void testPartitionFilterRequiredSchemas()
+    {
+        String schemaName = "test_unenforced_schema_" + randomNameSuffix();
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = Session.builder(withPartitionFilterRequired(getSession()))
+                .setCatalogSessionProperty("iceberg", "query_partition_filter_required_schemas", "[\"tpch\"]")
+                .build();
+
+        assertUpdate(session, "CREATE SCHEMA " + schemaName);
+        assertUpdate(session, format("CREATE TABLE %s.%s (id, a, ds) WITH (partitioning = ARRAY['ds']) AS SELECT 1, '1', '1'", schemaName, tableName), 1);
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id, a, ds) WITH (partitioning = ARRAY['ds']) AS SELECT 1, '1', '1'", 1);
+
+        String enforcedQuery = "SELECT id FROM tpch." + tableName + " WHERE a = '1'";
+        assertQueryFails(session, enforcedQuery, "Filter required for tpch\\." + tableName + " on at least one of the partition columns: ds");
+
+        String unenforcedQuery = format("SELECT id FROM %s.%s WHERE a = '1'", schemaName, tableName);
+        assertQuerySucceeds(session, unenforcedQuery);
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+        assertUpdate(session, "DROP SCHEMA " + schemaName + " CASCADE");
+    }
+
+    @Test
+    public void testIgnorePartitionFilterRequiredSchemas()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "query_partition_filter_required_schemas", "[\"tpch\"]")
+                .build();
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id, a, ds) WITH (partitioning = ARRAY['ds']) AS SELECT 1, '1', '1'", 1);
+        assertQuerySucceeds(session, "SELECT id FROM " + tableName + " WHERE a = '1'");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
     private static Session withPartitionFilterRequired(Session session)
     {
         return Session.builder(session)
@@ -8132,6 +8166,8 @@ public abstract class BaseIcebergConnectorTest
     private List<TypeCoercionTestSetup> typeCoercionOnCreateTableAsSelectData()
     {
         return ImmutableList.<TypeCoercionTestSetup>builder()
+                .add(new TypeCoercionTestSetup("TINYINT '127'", "integer", "INTEGER '127'"))
+                .add(new TypeCoercionTestSetup("SMALLINT '32767'", "integer", "INTEGER '32767'"))
                 .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
                 .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.9'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.900000'"))
                 .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.56'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.560000'"))
@@ -8193,6 +8229,20 @@ public abstract class BaseIcebergConnectorTest
                 // TODO Add test case for MAP type with ARRAY keys once https://github.com/trinodb/trino/issues/1146 is resolved
                 .add(new TypeCoercionTestSetup("CAST(ROW('a') AS ROW(x CHAR))", "row(x varchar)", "CAST(ROW('a') AS ROW(x VARCHAR))"))
                 .add(new TypeCoercionTestSetup("CAST(ROW(ROW('a')) AS ROW(x ROW(y CHAR)))", "row(x row(y varchar))", "CAST(ROW(ROW('a')) AS ROW(x ROW(y VARCHAR)))"))
+                // tinyint -> integer
+                .add(new TypeCoercionTestSetup("ARRAY[TINYINT '127']", "array(integer)", "ARRAY[127]"))
+                .add(new TypeCoercionTestSetup("ARRAY[ARRAY[TINYINT '127']]", "array(array(integer))", "ARRAY[ARRAY[127]]"))
+                .add(new TypeCoercionTestSetup("MAP(ARRAY[TINYINT '1'], ARRAY[TINYINT '10'])", "map(integer, integer)", "MAP(ARRAY[1], ARRAY[10])"))
+                .add(new TypeCoercionTestSetup("MAP(ARRAY[TINYINT '1'], ARRAY[ARRAY[TINYINT '10']])", "map(integer, array(integer))", "MAP(ARRAY[1], ARRAY[ARRAY[10]])"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(127) AS ROW(x TINYINT))", "row(x integer)", "CAST(ROW(127) AS ROW(x INTEGER))"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(ROW(127)) AS ROW(x ROW(y TINYINT)))", "row(x row(y integer))", "CAST(ROW(ROW(127)) AS ROW(x ROW(y INTEGER)))"))
+                // smallint -> integer
+                .add(new TypeCoercionTestSetup("ARRAY[SMALLINT '32767']", "array(integer)", "ARRAY[32767]"))
+                .add(new TypeCoercionTestSetup("ARRAY[ARRAY[SMALLINT '32767']]", "array(array(integer))", "ARRAY[ARRAY[32767]]"))
+                .add(new TypeCoercionTestSetup("MAP(ARRAY[SMALLINT '1'], ARRAY[SMALLINT '10'])", "map(integer, integer)", "MAP(ARRAY[1], ARRAY[10])"))
+                .add(new TypeCoercionTestSetup("MAP(ARRAY[SMALLINT '1'], ARRAY[ARRAY[SMALLINT '10']])", "map(integer, array(integer))", "MAP(ARRAY[1], ARRAY[ARRAY[10]])"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(32767) AS ROW(x SMALLINT))", "row(x integer)", "CAST(ROW(32767) AS ROW(x INTEGER))"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(ROW(32767)) AS ROW(x ROW(y SMALLINT)))", "row(x row(y integer))", "CAST(ROW(ROW(32767)) AS ROW(x ROW(y INTEGER)))"))
                 .build();
     }
 
@@ -8214,6 +8264,9 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testAddColumnWithTypeCoercion()
     {
+        testAddColumnWithTypeCoercion("tinyint", "integer");
+        testAddColumnWithTypeCoercion("smallint", "integer");
+
         testAddColumnWithTypeCoercion("timestamp with time zone", "timestamp(6) with time zone");
         testAddColumnWithTypeCoercion("timestamp(0) with time zone", "timestamp(6) with time zone");
         testAddColumnWithTypeCoercion("timestamp(1) with time zone", "timestamp(6) with time zone");
@@ -8264,6 +8317,14 @@ public abstract class BaseIcebergConnectorTest
         testAddColumnWithTypeCoercion("array(char(10))", "array(varchar)");
         testAddColumnWithTypeCoercion("map(char(20), char(30))", "map(varchar, varchar)");
         testAddColumnWithTypeCoercion("row(x char(40))", "row(x varchar)");
+
+        testAddColumnWithTypeCoercion("array(tinyint)", "array(integer)");
+        testAddColumnWithTypeCoercion("map(tinyint, tinyint)", "map(integer, integer)");
+        testAddColumnWithTypeCoercion("row(x tinyint)", "row(x integer)");
+
+        testAddColumnWithTypeCoercion("array(smallint)", "array(integer)");
+        testAddColumnWithTypeCoercion("map(smallint, smallint)", "map(integer, integer)");
+        testAddColumnWithTypeCoercion("row(x smallint)", "row(x integer)");
     }
 
     private void testAddColumnWithTypeCoercion(String columnType, String expectedColumnType)
@@ -8305,6 +8366,7 @@ public abstract class BaseIcebergConnectorTest
             return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
         }
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "tinyint -> smallint":
             case "bigint -> integer":
             case "decimal(5,3) -> decimal(5,2)":
             case "varchar -> char(20)":
@@ -8330,13 +8392,14 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(e).hasMessageMatching(".*(Failed to set column type: Cannot change (column type:|type from .* to )" +
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
-                "|Type not supported for Iceberg: char\\(20\\)).*");
+                "|Type not supported for Iceberg: smallint|char\\(20\\)).*");
     }
 
     @Override
     protected Optional<SetColumnTypeSetup> filterSetFieldTypesDataProvider(SetColumnTypeSetup setup)
     {
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "tinyint -> smallint":
             case "bigint -> integer":
             case "decimal(5,3) -> decimal(5,2)":
             case "varchar -> char(20)":
@@ -8371,7 +8434,7 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(e).hasMessageMatching(".*(Failed to set field type: Cannot change (column type:|type from .* to )" +
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
-                "|Type not supported for Iceberg: char\\(20\\)" +
+                "|Type not supported for Iceberg: smallint|char\\(20\\)" +
                 "|Iceberg doesn't support changing field type (from|to) non-primitive types).*");
     }
 

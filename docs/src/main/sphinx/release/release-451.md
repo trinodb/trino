@@ -1,4 +1,4 @@
-# Release 451 (27 June 2024)
+# Release 451 (27 Jun 2024)
 
 ## General
 

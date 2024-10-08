@@ -13,7 +13,9 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
@@ -26,6 +28,7 @@ import io.trino.security.AccessControlManager;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -94,6 +97,7 @@ public class TestDeallocateTask
                 emptyEventListenerManager(),
                 new AccessControlConfig(),
                 OpenTelemetry.noop(),
+                new SecretsResolver(ImmutableMap.of()),
                 DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine stateMachine = QueryStateMachine.begin(
@@ -113,7 +117,7 @@ public class TestDeallocateTask
                 Optional.empty(),
                 true,
                 new NodeVersion("test"));
-        Deallocate deallocate = new Deallocate(new Identifier(statementName));
+        Deallocate deallocate = new Deallocate(new NodeLocation(1, 1), new Identifier(statementName));
         new DeallocateTask().execute(deallocate, stateMachine, emptyList(), WarningCollector.NOOP);
         return stateMachine.getDeallocatedPreparedStatements();
     }

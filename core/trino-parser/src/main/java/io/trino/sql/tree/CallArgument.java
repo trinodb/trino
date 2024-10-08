@@ -28,29 +28,9 @@ public final class CallArgument
     private final Optional<Identifier> name;
     private final Expression value;
 
-    public CallArgument(Expression value)
+    public CallArgument(NodeLocation location, Optional<Identifier> name, Expression value)
     {
-        this(Optional.empty(), Optional.empty(), value);
-    }
-
-    public CallArgument(NodeLocation location, Expression value)
-    {
-        this(Optional.of(location), Optional.empty(), value);
-    }
-
-    public CallArgument(Identifier name, Expression value)
-    {
-        this(Optional.empty(), Optional.of(name), value);
-    }
-
-    public CallArgument(NodeLocation location, Identifier name, Expression value)
-    {
-        this(Optional.of(location), Optional.of(name), value);
-    }
-
-    public CallArgument(Optional<NodeLocation> location, Optional<Identifier> name, Expression value)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = requireNonNull(name, "name is null");
         this.value = requireNonNull(value, "value is null");
     }

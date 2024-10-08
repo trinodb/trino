@@ -14,7 +14,6 @@
 package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteSource;
 import com.google.common.io.CountingInputStream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -30,6 +29,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeUtils;
 import io.trino.spi.type.VarcharType;
+import okhttp3.ResponseBody;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -64,12 +64,14 @@ public class PrometheusRecordCursor
 
     private final Iterator<PrometheusStandardizedRow> metricsItr;
     private final long totalBytes;
+    private final Runnable closeResponse;
 
     private PrometheusStandardizedRow fields;
 
-    public PrometheusRecordCursor(List<PrometheusColumnHandle> columnHandles, ByteSource byteSource)
+    public PrometheusRecordCursor(List<PrometheusColumnHandle> columnHandles, ResponseBody responseBody)
     {
         this.columnHandles = columnHandles;
+        this.closeResponse = responseBody::close;
 
         fieldToColumnIndex = new int[columnHandles.size()];
         for (int i = 0; i < columnHandles.size(); i++) {
@@ -77,7 +79,7 @@ public class PrometheusRecordCursor
             fieldToColumnIndex[i] = columnHandle.ordinalPosition();
         }
 
-        try (CountingInputStream input = new CountingInputStream(byteSource.openStream())) {
+        try (CountingInputStream input = new CountingInputStream(responseBody.byteStream())) {
             metricsItr = prometheusResultsInStandardizedForm(new PrometheusQueryResponseParse(input).getResults()).iterator();
             totalBytes = input.getCount();
         }
@@ -284,5 +286,8 @@ public class PrometheusRecordCursor
     }
 
     @Override
-    public void close() {}
+    public void close()
+    {
+        closeResponse.run();
+    }
 }

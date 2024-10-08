@@ -184,7 +184,8 @@ public class TestCheckpointWriter
                 "removeFilePath",
                 ImmutableMap.of("part_key", "7.0"),
                 1000,
-                true);
+                true,
+                Optional.empty());
 
         CheckpointEntries entries = new CheckpointEntries(
                 metadataEntry,
@@ -325,7 +326,8 @@ public class TestCheckpointWriter
                 "removeFilePath",
                 ImmutableMap.of("part_key", "7.0"),
                 1000,
-                true);
+                true,
+                Optional.empty());
 
         CheckpointEntries entries = new CheckpointEntries(
                 metadataEntry,

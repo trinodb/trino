@@ -26,8 +26,8 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.log.Logger;
+import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.operator.PageWithPositionComparator;
 import io.trino.operator.PagesIndex;
@@ -271,7 +271,7 @@ public class OrderingCompiler
             comparator = pageWithPositionsComparatorClass.getConstructor().newInstance();
         }
         catch (Throwable t) {
-            log.error(t, "Error compiling comparator for channels %s with order %s", sortChannels, sortChannels);
+            log.error(t, "Error compiling comparator for channels %s with order %s", sortChannels, sortOrders);
             comparator = new SimplePageWithPositionComparator(types, sortChannels, sortOrders, typeOperators);
         }
         return comparator;

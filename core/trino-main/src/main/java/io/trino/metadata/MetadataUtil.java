@@ -161,9 +161,9 @@ public final class MetadataUtil
 
     public static TrinoPrincipal createPrincipal(Session session, GrantorSpecification specification)
     {
-        GrantorSpecification.Type type = specification.getType();
+        GrantorSpecification.Type type = specification.type();
         return switch (type) {
-            case PRINCIPAL -> createPrincipal(specification.getPrincipal().get());
+            case PRINCIPAL -> createPrincipal(specification.principal().get());
             case CURRENT_USER -> new TrinoPrincipal(USER, session.getIdentity().getUser());
             // TODO: will be implemented once the "SET ROLE" statement is introduced
             case CURRENT_ROLE -> throw new UnsupportedOperationException("CURRENT_ROLE is not yet supported");
@@ -172,10 +172,10 @@ public final class MetadataUtil
 
     public static TrinoPrincipal createPrincipal(PrincipalSpecification specification)
     {
-        PrincipalSpecification.Type type = specification.getType();
+        PrincipalSpecification.Type type = specification.type();
         return switch (type) {
-            case UNSPECIFIED, USER -> new TrinoPrincipal(USER, specification.getName().getValue());
-            case ROLE -> new TrinoPrincipal(ROLE, specification.getName().getValue());
+            case UNSPECIFIED, USER -> new TrinoPrincipal(USER, specification.name().getValue());
+            case ROLE -> new TrinoPrincipal(ROLE, specification.name().getValue());
         };
     }
 

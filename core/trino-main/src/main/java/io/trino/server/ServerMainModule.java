@@ -22,7 +22,6 @@ import com.google.inject.Singleton;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.http.server.HttpServerConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
 import io.airlift.stats.JmxGcMonitor;
@@ -39,10 +38,10 @@ import io.trino.dispatcher.DispatchManager;
 import io.trino.event.SplitMonitor;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
-import io.trino.execution.FailureInjectionConfig;
 import io.trino.execution.FailureInjector;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.MemoryRevokingScheduler;
+import io.trino.execution.NoOpFailureInjector;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.SqlTaskManager;
@@ -101,6 +100,7 @@ import io.trino.server.PluginManager.PluginsProvider;
 import io.trino.server.SliceSerialization.SliceDeserializer;
 import io.trino.server.SliceSerialization.SliceSerializer;
 import io.trino.server.protocol.PreparedStatementEncoder;
+import io.trino.server.protocol.spooling.SpoolingServerModule;
 import io.trino.server.remotetask.HttpLocationFactory;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -205,14 +205,10 @@ public class ServerMainModule
         }
 
         binder.bind(StartupStatus.class).in(Scopes.SINGLETON);
-
-        configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
-            httpServerConfig.setAdminEnabled(false);
-        });
-
         binder.bind(PreparedStatementEncoder.class).in(Scopes.SINGLETON);
         binder.bind(HttpRequestSessionContextFactory.class).in(Scopes.SINGLETON);
         install(new InternalCommunicationModule());
+        install(new SpoolingServerModule());
 
         QueryManagerConfig queryManagerConfig = buildConfigObject(QueryManagerConfig.class);
         RetryPolicy retryPolicy = queryManagerConfig.getRetryPolicy();
@@ -252,7 +248,6 @@ public class ServerMainModule
         binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(DiscoveryNodeManager.class).withGeneratedName();
         install(internalHttpClientModule("node-manager", ForNodeManager.class)
-                .withTracing()
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
@@ -277,8 +272,7 @@ public class ServerMainModule
                 new TopologyAwareNodeSelectorModule()));
 
         // task execution
-        configBinder(binder).bindConfig(FailureInjectionConfig.class);
-        binder.bind(FailureInjector.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, FailureInjector.class).setDefault().to(NoOpFailureInjector.class).in(Scopes.SINGLETON);
         jaxrsBinder(binder).bind(TaskResource.class);
         newExporter(binder).export(TaskResource.class).withGeneratedName();
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
@@ -293,17 +287,12 @@ public class ServerMainModule
         newExporter(binder).export(PauseMeter.class).withGeneratedName();
 
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
-        if (retryPolicy == TASK) {
-            configBinder(binder).bindConfigDefaults(MemoryManagerConfig.class, MemoryManagerConfig::applyFaultTolerantExecutionDefaults);
-        }
-
         configBinder(binder).bindConfig(NodeMemoryConfig.class);
         binder.bind(LocalMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalMemoryManagerExporter.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, VersionEmbedder.class).setDefault().to(EmbedVersion.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SqlTaskManager.class).withGeneratedName();
 
-        newExporter(binder).export(TaskExecutor.class).withGeneratedName();
         binder.bind(MultilevelSplitQueue.class).in(Scopes.SINGLETON);
         newExporter(binder).export(MultilevelSplitQueue.class).withGeneratedName();
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
@@ -326,6 +315,7 @@ public class ServerMainModule
         else {
             jaxrsBinder(binder).bind(TaskExecutorResource.class);
             newExporter(binder).export(TaskExecutorResource.class).withGeneratedName();
+            newExporter(binder).export(TimeSharingTaskExecutor.class).withGeneratedName();
 
             binder.bind(TaskExecutor.class)
                     .to(TimeSharingTaskExecutor.class)
@@ -355,8 +345,6 @@ public class ServerMainModule
         // exchange client
         binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
         install(internalHttpClientModule("exchange", ForExchange.class)
-                .withTracing()
-                .withFilter(GenerateTraceTokenRequestFilter.class)
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));

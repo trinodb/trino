@@ -42,21 +42,28 @@ To use Iceberg, you need:
   {ref}`Snowflake catalog <iceberg-snowflake-catalog>`.
 
 - Data files stored in the file formats
-  [Parquet](hive-parquet-configuration)(default), [ORC](hive-orc-configuration),
-  or Avro on a [supported file system](iceberg-file-system-configuration).
+  [Parquet](parquet-format-configuration)(default),
+  [ORC](orc-format-configuration), or Avro on a [supported file
+  system](iceberg-file-system-configuration).
 
 ## General configuration
 
 To configure the Iceberg connector, create a catalog properties file
-`etc/catalog/example.properties` that references the `iceberg`
-connector and defines a metastore type. The Hive metastore catalog is the
-default implementation. To use a {ref}`Hive metastore <hive-thrift-metastore>`,
-`hive.metastore.uri` must be configured:
+`etc/catalog/example.properties` that references the `iceberg` connector.
+
+The [Hive metastore catalog](hive-thrift-metastore) is the default
+implementation.
+
+You must select and configure one of the [supported file
+systems](iceberg-file-system-configuration).
 
 ```properties
 connector.name=iceberg
 hive.metastore.uri=thrift://example.net:9083
+fs.x.enabled=true
 ```
+
+Replace the `fs.x.enabled` configuration property with the desired file system.
 
 Other metadata catalog types as listed in the requirements section of this topic
 are available. Each metastore type has specific configuration properties along
@@ -162,10 +169,17 @@ implementation is used:
   - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
   - `false`
 * - `iceberg.query-partition-filter-required`
-  - Set to `true` to force a query to use a partition filter. You can use the
-    `query_partition_filter_required` catalog session property for temporary,
-    catalog specific use.
+  - Set to `true` to force a query to use a partition filter for schemas
+    specified with `iceberg.query-partition-filter-required-schemas`. Equivalent
+    catalog session property is `query_partition_filter_required`.
   - `false`
+* - `iceberg.query-partition-filter-required-schemas`
+  - Specify the list of schemas for which Trino can enforce that queries use a
+    filter on partition keys for source tables. Equivalent session property is
+    `query_partition_filter_required_schemas`. The list is used if the
+    `iceberg.query-partition-filter-required` configuration property or the
+    `query_partition_filter_required` catalog session property is set to `true`.
+  - `[]`
 * - `iceberg.incremental-refresh-enabled`
   - Set to `false` to force the materialized view refresh operation to always
     perform a full refresh. You can use the `incremental_refresh_enabled`
@@ -176,22 +190,32 @@ implementation is used:
     creation of more data files, since it uses the append operation to insert
     the new records.
   - `true`
+* - `iceberg.metadata-cache.enabled`
+  - Set to `false` to disable in-memory caching of metadata files on the 
+    coordinator. This cache is not used when `fs.cache.enabled` is set to true.
+  - `true`
+
 :::
+
+(iceberg-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 
 (iceberg-file-system-configuration)=
 ## File system access configuration
 
-The connector supports native, high-performance file system access to object
-storage systems:
+The connector supports accessing the following file systems:
 
-* [](/object-storage)
 * [](/object-storage/file-system-azure)
 * [](/object-storage/file-system-gcs)
 * [](/object-storage/file-system-s3)
+* [](/object-storage/file-system-hdfs)
 
-You must enable and configure the specific native file system access. If none is
-activated, the [legacy support](file-system-legacy) is used and must be
-configured.
+You must enable and configure the specific file system access. [Legacy
+support](file-system-legacy) is not recommended and will be removed.
 
 ## Type mapping
 
@@ -1534,17 +1558,11 @@ use the data from the storage tables, even after the grace period expired.
 Dropping a materialized view with {doc}`/sql/drop-materialized-view` removes
 the definition and the storage table.
 
-(iceberg-fte-support)=
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
-
-## Table functions
+### Table functions
 
 The connector supports the table functions described in the following sections.
 
-### table_changes
+#### table_changes
 
 Allows reading row-level changes between two versions of an Iceberg table.
 The following query shows an example of displaying the changes of the `t1`

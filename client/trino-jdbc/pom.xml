@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>452</version>
+        <version>460</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -66,6 +66,12 @@
         <dependency>
             <groupId>io.opentelemetry.instrumentation</groupId>
             <artifactId>opentelemetry-okhttp-3.0</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -89,6 +95,18 @@
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -178,6 +196,24 @@
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-trace</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -402,6 +438,10 @@
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>io.opentelemetry.instrumentation.okhttp.v3_0</pattern>
+                                    <shadedPattern>${shadeBase}.opentelemetry.okhttp.v3_0</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.fasterxml.jackson</pattern>
                                     <shadedPattern>${shadeBase}.jackson</shadedPattern>
                                 </relocation>
@@ -432,18 +472,6 @@
                                 <relocation>
                                     <pattern>okhttp3</pattern>
                                     <shadedPattern>${shadeBase}.okhttp3</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>io.opentelemetry.extension</pattern>
-                                    <shadedPattern>${shadeBase}.opentelemetry.extension</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>io.opentelemetry.instrumentation</pattern>
-                                    <shadedPattern>${shadeBase}.opentelemetry.instrumentation</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>io.opentelemetry.api.incubator</pattern>
-                                    <shadedPattern>${shadeBase}.opentelemetry.api.incubator</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>okio</pattern>

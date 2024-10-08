@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkState;
+
 public final class HdfsFileSystemManager
 {
     private final Bootstrap bootstrap;
@@ -89,6 +91,7 @@ public final class HdfsFileSystemManager
 
     public TrinoFileSystemFactory create()
     {
+        checkState(lifecycleManager == null, "Already created");
         Injector injector = bootstrap.initialize();
         lifecycleManager = injector.getInstance(LifeCycleManager.class);
         return injector.getInstance(HdfsFileSystemFactory.class);

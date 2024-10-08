@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hudi.partition;
 
+import io.trino.metastore.Partition;
 import io.trino.plugin.hive.HivePartitionKey;
-import io.trino.plugin.hive.metastore.Partition;
 
 import java.util.List;
 import java.util.Optional;

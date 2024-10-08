@@ -21,19 +21,9 @@ import java.util.Optional;
 public class CurrentUser
         extends Expression
 {
-    public CurrentUser()
-    {
-        this(Optional.empty());
-    }
-
     public CurrentUser(NodeLocation location)
     {
-        this(Optional.of(location));
-    }
-
-    private CurrentUser(Optional<NodeLocation> location)
-    {
-        super(location);
+        super(Optional.of(location));
     }
 
     @Override

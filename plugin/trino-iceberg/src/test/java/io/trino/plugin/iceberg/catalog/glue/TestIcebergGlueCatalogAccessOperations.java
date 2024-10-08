@@ -540,19 +540,21 @@ public class TestIcebergGlueCatalogAccessOperations
                                 .add(GET_TABLE)
                                 .build(),
                         ImmutableMultiset.<FileOperation>builder()
-                                .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                                .add(new FileOperation(METADATA_JSON, "InputFile.length"))
+                                .add(new FileOperation(METADATA_JSON, "InputFile.newInput"))
                                 .build());
 
                 // Pointed columns lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
                 assertInvocations(
                         session,
-                        "DESCRIBE test_select_i_s_columns0",
+                        "DESCRIBE test_select_i_s_columns1",
                         ImmutableMultiset.<GlueMetastoreMethod>builder()
                                 .add(GET_DATABASE)
                                 .add(GET_TABLE)
                                 .build(),
                         ImmutableMultiset.<FileOperation>builder()
-                                .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                                .add(new FileOperation(METADATA_JSON, "InputFile.length"))
+                                .add(new FileOperation(METADATA_JSON, "InputFile.newInput"))
                                 .build());
             }
             finally {
@@ -611,7 +613,8 @@ public class TestIcebergGlueCatalogAccessOperations
                                 .add(GET_TABLE)
                                 .build(),
                         ImmutableMultiset.<FileOperation>builder()
-                                .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                                .add(new FileOperation(METADATA_JSON, "InputFile.length"))
+                                .add(new FileOperation(METADATA_JSON, "InputFile.newInput"))
                                 .build());
             }
             finally {

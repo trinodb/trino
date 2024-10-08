@@ -27,14 +27,14 @@ public class PageProcessorMetrics
     private static final String FILTER_TIME = "Filter CPU time";
     private static final String PROJECTION_TIME = "Projection CPU time";
     public static final String DYNAMIC_FILTER_TIME = "Dynamic Filter CPU time";
-    public static final String DYNAMIC_FILTER_INPUT_POSITIONS = "Dynamic Filter input positions";
+    public static final String DYNAMIC_FILTER_OUTPUT_POSITIONS = "Dynamic Filter output positions";
 
     private long filterTimeNanos;
     private boolean hasFilter;
     private long projectionTimeNanos;
     private boolean hasProjection;
     private long dynamicFilterTimeNanos;
-    private long dynamicFilterInputPositions;
+    private long dynamicFilterOutputPositions;
 
     public void recordFilterTime(long filterTimeNanos)
     {
@@ -42,10 +42,10 @@ public class PageProcessorMetrics
         hasFilter = true;
     }
 
-    public void recordDynamicFilterMetrics(long filterTimeNanos, long inputPositions)
+    public void recordDynamicFilterMetrics(long filterTimeNanos, long outputPositions)
     {
         dynamicFilterTimeNanos += filterTimeNanos;
-        dynamicFilterInputPositions += inputPositions;
+        dynamicFilterOutputPositions += outputPositions;
     }
 
     public void recordProjectionTime(long projectionTimeNanos)
@@ -60,9 +60,9 @@ public class PageProcessorMetrics
         if (hasFilter) {
             builder.put(FILTER_TIME, new DurationTiming(new Duration(filterTimeNanos, NANOSECONDS)));
         }
-        if (dynamicFilterInputPositions > 0) {
+        if (dynamicFilterOutputPositions > 0) {
             builder.put(DYNAMIC_FILTER_TIME, new DurationTiming(new Duration(dynamicFilterTimeNanos, NANOSECONDS)));
-            builder.put(DYNAMIC_FILTER_INPUT_POSITIONS, new LongCount(dynamicFilterInputPositions));
+            builder.put(DYNAMIC_FILTER_OUTPUT_POSITIONS, new LongCount(dynamicFilterOutputPositions));
         }
         if (hasProjection) {
             builder.put(PROJECTION_TIME, new DurationTiming(new Duration(projectionTimeNanos, NANOSECONDS)));

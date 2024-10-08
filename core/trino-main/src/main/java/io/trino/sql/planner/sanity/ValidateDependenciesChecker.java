@@ -88,7 +88,9 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Collections2.filter;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_SYMBOL;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
 
@@ -497,7 +499,7 @@ public final class ValidateDependenciesChecker
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
 
-            checkDependencies(source.getOutputSymbols(), node.getOutputSymbols(), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getOutputSymbols(), source.getOutputSymbols());
+            checkDependencies(source.getOutputSymbols(), filter(node.getOutputSymbols(), symbol -> !symbol.equals(SPOOLING_METADATA_SYMBOL)), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getOutputSymbols(), source.getOutputSymbols());
 
             return null;
         }

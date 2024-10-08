@@ -121,7 +121,7 @@ statement
     | CREATE ROLE name=identifier
         (WITH ADMIN grantor)?
         (IN catalog=identifier)?                                       #createRole
-    | DROP ROLE name=identifier (IN catalog=identifier)?               #dropRole
+    | DROP ROLE (IF EXISTS)? name=identifier (IN catalog=identifier)?  #dropRole
     | GRANT
         privilegeOrRole (',' privilegeOrRole)*
         TO principal (',' principal)*
@@ -961,7 +961,7 @@ roles
     ;
 
 privilegeOrRole
-    : CREATE | SELECT | DELETE | INSERT | UPDATE | EXECUTE | identifier
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
     ;
 
 identifier
@@ -989,7 +989,7 @@ nonReserved
     | BEGIN | BERNOULLI | BOTH
     | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
-    | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDING | EXPLAIN
+    | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDING | EXECUTE | EXPLAIN
     | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
     | GRACE | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR

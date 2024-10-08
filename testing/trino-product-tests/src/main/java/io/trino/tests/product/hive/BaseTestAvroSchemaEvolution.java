@@ -42,12 +42,12 @@ public abstract class BaseTestAvroSchemaEvolution
         extends ProductTest
 {
     // TODO move Avro schema files to classpath and use tempto SshClient to upload them
-    private static final String ORIGINAL_SCHEMA = "file:///docker/presto-product-tests/avro/original_schema.avsc";
-    private static final String RENAMED_COLUMN_SCHEMA = "file:///docker/presto-product-tests/avro/rename_column_schema.avsc";
-    private static final String REMOVED_COLUMN_SCHEMA = "file:///docker/presto-product-tests/avro/remove_column_schema.avsc";
-    private static final String ADDED_COLUMN_SCHEMA = "file:///docker/presto-product-tests/avro/add_column_schema.avsc";
-    private static final String CHANGE_COLUMN_TYPE_SCHEMA = "file:///docker/presto-product-tests/avro/change_column_type_schema.avsc";
-    private static final String INCOMPATIBLE_TYPE_SCHEMA = "file:///docker/presto-product-tests/avro/incompatible_type_schema.avsc";
+    private static final String ORIGINAL_SCHEMA = "file:///docker/trino-product-tests/avro/original_schema.avsc";
+    private static final String RENAMED_COLUMN_SCHEMA = "file:///docker/trino-product-tests/avro/rename_column_schema.avsc";
+    private static final String REMOVED_COLUMN_SCHEMA = "file:///docker/trino-product-tests/avro/remove_column_schema.avsc";
+    private static final String ADDED_COLUMN_SCHEMA = "file:///docker/trino-product-tests/avro/add_column_schema.avsc";
+    private static final String CHANGE_COLUMN_TYPE_SCHEMA = "file:///docker/trino-product-tests/avro/change_column_type_schema.avsc";
+    private static final String INCOMPATIBLE_TYPE_SCHEMA = "file:///docker/trino-product-tests/avro/incompatible_type_schema.avsc";
 
     private final String tableWithSchemaUrl;
     private final String tableWithSchemaLiteral;

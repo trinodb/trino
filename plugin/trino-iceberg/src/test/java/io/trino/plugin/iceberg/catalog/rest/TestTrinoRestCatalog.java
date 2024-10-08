@@ -16,8 +16,8 @@ package io.trino.plugin.iceberg.catalog.rest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
@@ -45,7 +45,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.plugin.hive.metastore.TableInfo.ExtendedRelationType.OTHER_VIEW;
+import static io.trino.metastore.TableInfo.ExtendedRelationType.OTHER_VIEW;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.NONE;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -79,7 +79,7 @@ public class TestTrinoRestCatalog
 
         restSessionCatalog.initialize(catalogName, properties);
 
-        return new TrinoRestCatalog(restSessionCatalog, new CatalogName(catalogName), NONE, "test", new TestingTypeManager(), useUniqueTableLocations);
+        return new TrinoRestCatalog(restSessionCatalog, new CatalogName(catalogName), NONE, ImmutableMap.of(), "test", new TestingTypeManager(), useUniqueTableLocations);
     }
 
     @Test

@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
@@ -69,8 +70,10 @@ public class TestIcebergConfig
                 .setCatalogCacheSize(10)
                 .setSortedWritingEnabled(true)
                 .setQueryPartitionFilterRequired(false)
+                .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of())
                 .setSplitManagerThreads(Runtime.getRuntime().availableProcessors() * 2)
-                .setIncrementalRefreshEnabled(true));
+                .setIncrementalRefreshEnabled(true)
+                .setMetadataCacheEnabled(true));
     }
 
     @Test
@@ -103,8 +106,10 @@ public class TestIcebergConfig
                 .put("iceberg.catalog.cache-size", "3")
                 .put("iceberg.sorted-writing-enabled", "false")
                 .put("iceberg.query-partition-filter-required", "true")
+                .put("iceberg.query-partition-filter-required-schemas", "bronze,silver")
                 .put("iceberg.split-manager-threads", "42")
                 .put("iceberg.incremental-refresh-enabled", "false")
+                .put("iceberg.metadata-cache.enabled", "false")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -134,8 +139,10 @@ public class TestIcebergConfig
                 .setCatalogCacheSize(3)
                 .setSortedWritingEnabled(false)
                 .setQueryPartitionFilterRequired(true)
+                .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of("bronze", "silver"))
                 .setSplitManagerThreads(42)
-                .setIncrementalRefreshEnabled(false);
+                .setIncrementalRefreshEnabled(false)
+                .setMetadataCacheEnabled(false);
 
         assertFullMapping(properties, expected);
     }

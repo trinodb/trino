@@ -1,0 +1,45 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            final aggregation over (expr_gid)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, [expr_gid])
+                        partial aggregation over (expr_gid)
+                            join (INNER, REPLICATED):
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        join (INNER, PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, [custkey])
+                                                join (INNER, PARTITIONED):
+                                                    remote exchange (REPARTITION, HASH, [orderkey])
+                                                        join (INNER, PARTITIONED):
+                                                            remote exchange (REPARTITION, HASH, [suppkey_5])
+                                                                join (INNER, PARTITIONED):
+                                                                    remote exchange (REPARTITION, HASH, [partkey_4])
+                                                                        dynamic filter (orderkey::EQUAL, partkey_4::EQUAL, suppkey_5::EQUAL)
+                                                                            scan lineitem
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPARTITION, HASH, [partkey])
+                                                                            scan part
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPARTITION, HASH, [suppkey])
+                                                                    dynamic filter (nationkey::EQUAL)
+                                                                        scan supplier
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPARTITION, HASH, [orderkey_9])
+                                                            dynamic filter (custkey::EQUAL)
+                                                                scan orders
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, [custkey_13])
+                                                    dynamic filter (nationkey_16::EQUAL)
+                                                        scan customer
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                dynamic filter (regionkey::EQUAL)
+                                                    scan nation
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan nation
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan region

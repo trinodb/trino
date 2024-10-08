@@ -1,7 +1,7 @@
 ---
 myst:
   substitutions:
-      default_domain_compaction_threshold: '`32`'
+      default_domain_compaction_threshold: '`256`'
 ---
 
 # Druid connector
@@ -65,9 +65,6 @@ properties files.
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
 
-```{include} jdbc-procedures.fragment
-```
-
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
@@ -123,13 +120,20 @@ The connector provides {ref}`globally available <sql-globally-available>` and
 {ref}`read operation <sql-read-operations>` statements to access data and
 metadata in the Druid database.
 
-## Table functions
+### Procedures
+
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} procedures-execute.fragment
+```
+
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access Druid.
 
 (druid-query-function)=
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
 requires syntax native to Druid, because the full query is pushed down and

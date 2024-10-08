@@ -211,7 +211,7 @@ public class TestCassandraConnector
                     rowNumber++;
 
                     String keyValue = cursor.getSlice(columnIndex.get("key")).toStringUtf8();
-                    assertThat(keyValue.startsWith("key ")).isTrue();
+                    assertThat(keyValue).startsWith("key ");
                     int rowId = Integer.parseInt(keyValue.substring(4));
 
                     assertThat(keyValue).isEqualTo("key " + rowId);

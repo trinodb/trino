@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>452</version>
+        <version>460</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -18,6 +18,7 @@
     </properties>
 
     <dependencies>
+
         <dependency>
             <groupId>com.clearspring.analytics</groupId>
             <artifactId>stream</artifactId>
@@ -86,7 +87,7 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>aircompressor</artifactId>
+            <artifactId>aircompressor-v3</artifactId>
         </dependency>
 
         <dependency>
@@ -187,11 +188,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>stats</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>trace-token</artifactId>
         </dependency>
 
         <dependency>
@@ -305,6 +301,11 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-web-ui</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
         </dependency>
@@ -342,7 +343,7 @@
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-analysis-common</artifactId>
-            <version>9.11.1</version>
+            <version>9.12.0</version>
         </dependency>
 
         <dependency>
@@ -530,15 +531,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-                <excludes>
-                    <exclude>**/node_modules/**</exclude>
-                </excludes>
-            </resource>
-        </resources>
-    </build>
 </project>

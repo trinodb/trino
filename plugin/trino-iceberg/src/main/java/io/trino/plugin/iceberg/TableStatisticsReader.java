@@ -40,12 +40,10 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.puffin.StandardBlobTypes;
-import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +53,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verifyNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -66,7 +66,6 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatist
 import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimePathDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
-import static io.trino.plugin.iceberg.IcebergUtil.getTopLevelColumns;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -76,6 +75,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableMap;
+import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
 
 public final class TableStatisticsReader
 {
@@ -85,7 +85,13 @@ public final class TableStatisticsReader
 
     public static final String APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY = "ndv";
 
-    public static TableStatistics getTableStatistics(TypeManager typeManager, ConnectorSession session, IcebergTableHandle tableHandle, Table icebergTable, TrinoFileSystem fileSystem)
+    public static TableStatistics getTableStatistics(
+            TypeManager typeManager,
+            ConnectorSession session,
+            IcebergTableHandle tableHandle,
+            Set<IcebergColumnHandle> projectedColumns,
+            Table icebergTable,
+            TrinoFileSystem fileSystem)
     {
         return makeTableStatistics(
                 typeManager,
@@ -93,6 +99,7 @@ public final class TableStatisticsReader
                 tableHandle.getSnapshotId(),
                 tableHandle.getEnforcedPredicate(),
                 tableHandle.getUnenforcedPredicate(),
+                projectedColumns,
                 isExtendedStatisticsEnabled(session),
                 fileSystem);
     }
@@ -104,6 +111,7 @@ public final class TableStatisticsReader
             Optional<Long> snapshot,
             TupleDomain<IcebergColumnHandle> enforcedConstraint,
             TupleDomain<IcebergColumnHandle> unenforcedConstraint,
+            Set<IcebergColumnHandle> projectedColumns,
             boolean extendedStatisticsEnabled,
             TrinoFileSystem fileSystem)
     {
@@ -125,22 +133,26 @@ public final class TableStatisticsReader
                     .build();
         }
 
-        Schema icebergTableSchema = icebergTable.schema();
-        List<Types.NestedField> columns = icebergTableSchema.columns();
-
-        List<IcebergColumnHandle> columnHandles = getTopLevelColumns(icebergTableSchema, typeManager);
-        Map<Integer, IcebergColumnHandle> idToColumnHandle = columnHandles.stream()
-                .collect(toUnmodifiableMap(IcebergColumnHandle::getId, identity()));
+        List<Types.NestedField> columns = icebergTable.schema().columns();
         Map<Integer, org.apache.iceberg.types.Type> idToType = columns.stream()
                 .map(column -> Maps.immutableEntry(column.fieldId(), column.type()))
                 .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
+        Set<Integer> columnIds = projectedColumns.stream()
+                .map(IcebergColumnHandle::getId)
+                .collect(toImmutableSet());
+
         Domain pathDomain = getPathDomain(effectivePredicate);
         Domain fileModifiedTimeDomain = getFileModifiedTimePathDomain(effectivePredicate);
+        Schema snapshotSchema = schemaFor(icebergTable, snapshotId);
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(effectivePredicate.filter((column, domain) -> !isMetadataColumnId(column.getId()))))
                 .useSnapshot(snapshotId)
-                .includeColumnStats();
+                .includeColumnStats(
+                        columnIds.stream()
+                                .map(snapshotSchema::findColumnName)
+                                .filter(Objects::nonNull)
+                                .collect(toImmutableList()));
 
         IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, typeManager);
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
@@ -173,23 +185,19 @@ public final class TableStatisticsReader
         Map<Integer, Long> ndvs = readNdvs(
                 icebergTable,
                 snapshotId,
-                // TODO We don't need NDV information for columns not involved in filters/joins. Engine should provide set of columns
-                //  it makes sense to find NDV information for.
-                idToColumnHandle.keySet(),
+                columnIds,
                 extendedStatisticsEnabled);
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
         double recordCount = summary.recordCount();
-        for (Entry<Integer, IcebergColumnHandle> columnHandleTuple : idToColumnHandle.entrySet()) {
-            IcebergColumnHandle columnHandle = columnHandleTuple.getValue();
+        for (IcebergColumnHandle columnHandle : projectedColumns) {
             int fieldId = columnHandle.getId();
             ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
             Long nullCount = summary.nullCounts().get(fieldId);
             if (nullCount != null) {
                 columnBuilder.setNullsFraction(Estimate.of(nullCount / recordCount));
             }
-            if (idToType.get(columnHandleTuple.getKey()).typeId() == Type.TypeID.FIXED) {
-                Types.FixedType fixedType = (Types.FixedType) idToType.get(columnHandleTuple.getKey());
+            if (idToType.get(columnHandle.getId()) instanceof Types.FixedType fixedType) {
                 long columnSize = fixedType.length();
                 columnBuilder.setDataSize(Estimate.of(columnSize));
             }
@@ -239,13 +247,12 @@ public final class TableStatisticsReader
         }
 
         ImmutableMap.Builder<Integer, Long> ndvByColumnId = ImmutableMap.builder();
-        Set<Integer> remainingColumnIds = new HashSet<>(columnIds);
 
         getLatestStatisticsFile(icebergTable, snapshotId).ifPresent(statisticsFile -> {
             Map<Integer, BlobMetadata> thetaBlobsByFieldId = statisticsFile.blobMetadata().stream()
                     .filter(blobMetadata -> blobMetadata.type().equals(StandardBlobTypes.APACHE_DATASKETCHES_THETA_V1))
                     .filter(blobMetadata -> blobMetadata.fields().size() == 1)
-                    .filter(blobMetadata -> remainingColumnIds.contains(getOnlyElement(blobMetadata.fields())))
+                    .filter(blobMetadata -> columnIds.contains(getOnlyElement(blobMetadata.fields())))
                     // Fail loud upon duplicates (there must be none)
                     .collect(toImmutableMap(blobMetadata -> getOnlyElement(blobMetadata.fields()), identity()));
 
@@ -255,10 +262,8 @@ public final class TableStatisticsReader
                 String ndv = blobMetadata.properties().get(APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY);
                 if (ndv == null) {
                     log.debug("Blob %s is missing %s property", blobMetadata.type(), APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY);
-                    remainingColumnIds.remove(fieldId);
                 }
                 else {
-                    remainingColumnIds.remove(fieldId);
                     ndvByColumnId.put(fieldId, parseLong(ndv));
                 }
             }

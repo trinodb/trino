@@ -21,7 +21,7 @@ import io.opentelemetry.semconv.ExceptionAttributes;
 
 import java.util.Optional;
 
-final class Tracing
+public final class Tracing
 {
     private Tracing() {}
 

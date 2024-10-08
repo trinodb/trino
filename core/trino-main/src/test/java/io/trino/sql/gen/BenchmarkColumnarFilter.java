@@ -25,6 +25,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.ShortArrayBlock;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -165,7 +166,7 @@ public class BenchmarkColumnarFilter
                         ImmutableList.of(field(0, type)),
                         Optional.empty(),
                         OptionalInt.empty())
-                .get();
+                .apply(DynamicFilter.EMPTY);
     }
 
     @Benchmark

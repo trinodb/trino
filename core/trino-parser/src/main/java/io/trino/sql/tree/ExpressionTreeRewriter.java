@@ -459,7 +459,7 @@ public final class ExpressionTreeRewriter<C>
             Expression expression = rewrite(node.getInnerExpression(), context.get());
 
             if (node.getInnerExpression() != expression) {
-                return new TryExpression(expression);
+                return new TryExpression(node.getLocation().orElseThrow(), expression);
             }
 
             return node;
@@ -544,8 +544,7 @@ public final class ExpressionTreeRewriter<C>
 
         private Window rewriteWindow(Window window, Context<C> context)
         {
-            if (window instanceof WindowReference) {
-                WindowReference windowReference = (WindowReference) window;
+            if (window instanceof WindowReference windowReference) {
                 Identifier rewrittenName = rewrite(windowReference.getName(), context.get());
                 if (windowReference.getName() != rewrittenName) {
                     return new WindowReference(rewrittenName);
@@ -636,7 +635,7 @@ public final class ExpressionTreeRewriter<C>
             Window window = rewriteWindow(node.getWindow(), context);
 
             if (name != node.getName() || window != node.getWindow()) {
-                return new WindowOperation(name, window);
+                return new WindowOperation(node.getLocation().orElseThrow(), name, window);
             }
 
             return node;
@@ -834,7 +833,7 @@ public final class ExpressionTreeRewriter<C>
             Expression expression = rewrite(node.getExpression(), context.get());
 
             if (node.getExpression() != expression) {
-                return new Extract(expression, node.getField());
+                return new Extract(node.getLocation().orElseThrow(), expression, node.getField());
             }
 
             return node;
@@ -986,8 +985,7 @@ public final class ExpressionTreeRewriter<C>
                 if (argument instanceof NumericParameter) {
                     arguments.add(argument);
                 }
-                else if (argument instanceof TypeParameter) {
-                    TypeParameter parameter = (TypeParameter) argument;
+                else if (argument instanceof TypeParameter parameter) {
                     DataType value = (DataType) process(parameter.getValue(), context);
 
                     if (value != parameter.getValue()) {
@@ -1150,7 +1148,7 @@ public final class ExpressionTreeRewriter<C>
             Optional<Expression> trimChar = node.getTrimCharacter().isPresent() ? Optional.of(rewrite(node.getTrimCharacter().get(), context.get())) : Optional.empty();
 
             if (trimSource != node.getTrimSource() || !sameElements(trimChar, node.getTrimCharacter())) {
-                return new Trim(node.getSpecification(), trimSource, trimChar);
+                return new Trim(node.getLocation().orElseThrow(), node.getSpecification(), trimSource, trimChar);
             }
 
             return node;

@@ -34,19 +34,9 @@ public class SetRole
     private final Optional<Identifier> role;
     private final Optional<Identifier> catalog;
 
-    public SetRole(Type type, Optional<Identifier> role, Optional<Identifier> catalog)
-    {
-        this(Optional.empty(), type, role, catalog);
-    }
-
     public SetRole(NodeLocation location, Type type, Optional<Identifier> role, Optional<Identifier> catalog)
     {
-        this(Optional.of(location), type, role, catalog);
-    }
-
-    private SetRole(Optional<NodeLocation> location, Type type, Optional<Identifier> role, Optional<Identifier> catalog)
-    {
-        super(location);
+        super(Optional.of(location));
         this.type = requireNonNull(type, "type is null");
         this.role = requireNonNull(role, "role is null");
         this.catalog = requireNonNull(catalog, "catalog is null");

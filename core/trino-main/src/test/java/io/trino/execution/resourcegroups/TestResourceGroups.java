@@ -1276,6 +1276,7 @@ public class TestResourceGroups
         long actualMillis = group.getResourceUsageSnapshot().getCpuUsageMillis();
         assertThat(actualMillis).isEqualTo(expectedMillis);
         assertThat(actualMillis >= group.getHardCpuLimit().toMillis()).isTrue();
+        assertThat(group.getCpuUsageMillis()).isEqualTo(expectedMillis);
     }
 
     private static void assertWithinCpuLimit(InternalResourceGroup group, long expectedMillis)
@@ -1283,6 +1284,7 @@ public class TestResourceGroups
         long actualMillis = group.getResourceUsageSnapshot().getCpuUsageMillis();
         assertThat(actualMillis).isEqualTo(expectedMillis);
         assertThat(actualMillis < group.getHardCpuLimit().toMillis()).isTrue();
+        assertThat(group.getCpuUsageMillis()).isEqualTo(expectedMillis);
     }
 
     private static void assertExceedsMemoryLimit(InternalResourceGroup group, long expectedBytes)
@@ -1290,6 +1292,7 @@ public class TestResourceGroups
         long actualBytes = group.getResourceUsageSnapshot().getMemoryUsageBytes();
         assertThat(actualBytes).isEqualTo(expectedBytes);
         assertThat(actualBytes).isGreaterThan(group.getSoftMemoryLimitBytes());
+        assertThat(group.getMemoryUsageBytes()).isEqualTo(expectedBytes);
     }
 
     private static void assertWithinMemoryLimit(InternalResourceGroup group, long expectedBytes)
@@ -1297,5 +1300,6 @@ public class TestResourceGroups
         long actualBytes = group.getResourceUsageSnapshot().getMemoryUsageBytes();
         assertThat(actualBytes).isEqualTo(expectedBytes);
         assertThat(actualBytes).isLessThanOrEqualTo(group.getSoftMemoryLimitBytes());
+        assertThat(group.getMemoryUsageBytes()).isEqualTo(expectedBytes);
     }
 }

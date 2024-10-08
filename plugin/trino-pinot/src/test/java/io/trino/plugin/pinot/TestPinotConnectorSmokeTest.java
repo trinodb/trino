@@ -53,6 +53,7 @@ import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.data.DateTimeFormatSpec;
 import org.apache.pinot.spi.data.readers.GenericRow;
 import org.apache.pinot.spi.data.readers.RecordReader;
+import org.apache.pinot.spi.recordenricher.RecordEnricherPipeline;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -81,6 +82,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.io.Resources.getResource;
 import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
+import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.String.format;
@@ -132,7 +134,7 @@ public class TestPinotConnectorSmokeTest
     {
         TestingKafka kafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         kafka.start();
-        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), false));
+        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(PINOT_LATEST_IMAGE_NAME, kafka.getNetwork(), false));
         pinot.start();
 
         createAndPopulateAllTypesTopic(kafka, pinot, ALL_TYPES_TABLE);
@@ -646,7 +648,7 @@ public class TestPinotConnectorSmokeTest
                 return record;
             };
             SegmentIndexCreationDriverImpl driver = new SegmentIndexCreationDriverImpl();
-            driver.init(segmentGeneratorConfig, dataSource, new TransformPipeline(recordTransformer, null));
+            driver.init(segmentGeneratorConfig, dataSource, new RecordEnricherPipeline(), new TransformPipeline(recordTransformer, null));
             driver.build();
             File segmentOutputDirectory = driver.getOutputDirectory();
             File tgzPath = new File(String.join(File.separator, outputDirectory, segmentOutputDirectory.getName() + ".tar.gz"));

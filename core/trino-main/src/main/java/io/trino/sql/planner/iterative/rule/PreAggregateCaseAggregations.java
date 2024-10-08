@@ -161,6 +161,11 @@ public class PreAggregateCaseAggregations
         }
 
         Map<PreAggregationKey, PreAggregation> preAggregations = getPreAggregations(aggregations, context);
+        if (preAggregations.size() == aggregations.size()) {
+            // Prevent rule execution if number of pre-aggregations is equal to number of case aggregations.
+            // In such case there is no gain in performance, and it could lead to infinite rule execution loop.
+            return Result.empty();
+        }
 
         Assignments.Builder preGroupingExpressionsBuilder = Assignments.builder();
         preGroupingExpressionsBuilder.putIdentities(extraGroupingKeys);
@@ -383,36 +388,39 @@ public class PreAggregateCaseAggregations
         }
 
         Expression defaultValue = optimizeExpression(caseExpression.defaultValue(), context);
-        if (defaultValue instanceof Constant(Type type, Object value) && value != null) {
-            if (!name.equals(SUM)) {
-                return Optional.empty();
-            }
+        if (defaultValue instanceof Constant(Type type, Object value)) {
+            if (value != null) {
+                if (!name.equals(SUM)) {
+                    return Optional.empty();
+                }
 
-            // sum aggregation is only supported if default value is null or 0, otherwise it wouldn't be cumulative
-            if (type instanceof BigintType
-                    || type == INTEGER
-                    || type == SMALLINT
-                    || type == TINYINT
-                    || type == DOUBLE
-                    || type == REAL
-                    || type instanceof DecimalType) {
+                // sum aggregation is only supported if default value is null or 0, otherwise it wouldn't be cumulative
                 if (!value.equals(0L) && !value.equals(0.0d) && !value.equals(Int128.ZERO)) {
                     return Optional.empty();
                 }
+
+                if (!(type instanceof BigintType)
+                        && type != INTEGER
+                        && type != SMALLINT
+                        && type != TINYINT
+                        && type != DOUBLE
+                        && type != REAL
+                        && !(type instanceof DecimalType)) {
+                    return Optional.empty();
+                }
             }
-            else {
-                return Optional.empty();
-            }
+
+            return Optional.of(new CaseAggregation(
+                    aggregationSymbol,
+                    resolvedFunction,
+                    cumulativeFunction,
+                    name,
+                    caseExpression.whenClauses().get(0).getOperand(),
+                    caseExpression.whenClauses().get(0).getResult(),
+                    new Cast(caseExpression.defaultValue(), aggregationType)));
         }
 
-        return Optional.of(new CaseAggregation(
-                aggregationSymbol,
-                resolvedFunction,
-                cumulativeFunction,
-                name,
-                caseExpression.whenClauses().get(0).getOperand(),
-                caseExpression.whenClauses().get(0).getResult(),
-                new Cast(caseExpression.defaultValue(), aggregationType)));
+        return Optional.empty();
     }
 
     private Type getType(Expression expression)

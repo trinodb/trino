@@ -33,8 +33,8 @@ import java.util.List;
 import java.util.Locale;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.hive.util.SerdeConstants.CHAR_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.VARCHAR_TYPE_NAME;
+import static io.trino.metastore.type.TypeConstants.CHAR_TYPE_NAME;
+import static io.trino.metastore.type.TypeConstants.VARCHAR_TYPE_NAME;
 
 /**
  * This class is copied from org.apache.hadoop.hive.ql.io.parquet.convert.HiveSchemaConverter

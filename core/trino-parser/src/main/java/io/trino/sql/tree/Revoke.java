@@ -30,19 +30,9 @@ public class Revoke
     private final GrantObject grantObject;
     private final PrincipalSpecification grantee;
 
-    public Revoke(boolean grantOptionFor, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
-    {
-        this(Optional.empty(), grantOptionFor, privileges, grantObject, grantee);
-    }
-
     public Revoke(NodeLocation location, boolean grantOptionFor, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
     {
-        this(Optional.of(location), grantOptionFor, privileges, grantObject, grantee);
-    }
-
-    private Revoke(Optional<NodeLocation> location, boolean grantOptionFor, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
-    {
-        super(location);
+        super(Optional.of(location));
         this.grantOptionFor = grantOptionFor;
         requireNonNull(privileges, "privileges is null");
         this.privileges = privileges.map(ImmutableList::copyOf);

@@ -27,13 +27,13 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.LowMemoryKiller.ForQueryLowMemoryKiller;
 import io.trino.memory.LowMemoryKiller.ForTaskLowMemoryKiller;
 import io.trino.memory.LowMemoryKiller.RunningQueryInfo;
@@ -72,7 +72,6 @@ import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.airlift.units.Duration.nanosSince;
 import static io.trino.ExceededMemoryLimitException.exceededGlobalTotalLimit;
 import static io.trino.ExceededMemoryLimitException.exceededGlobalUserLimit;
 import static io.trino.SystemSessionProperties.RESOURCE_OVERCOMMIT;
@@ -102,8 +101,8 @@ public class ClusterMemoryManager
     private final JsonCodec<MemoryInfo> memoryInfoCodec;
     private final DataSize maxQueryMemory;
     private final DataSize maxQueryTotalMemory;
+    private final boolean includeCoordinator;
     private final List<LowMemoryKiller> lowMemoryKillers;
-    private final Duration killOnOutOfMemoryDelay;
     private final AtomicLong totalAvailableProcessors = new AtomicLong();
     private final AtomicLong clusterUserMemoryReservation = new AtomicLong();
     private final AtomicLong clusterTotalMemoryReservation = new AtomicLong();
@@ -120,9 +119,6 @@ public class ClusterMemoryManager
     private final ClusterMemoryPool pool;
 
     @GuardedBy("this")
-    private long lastTimeNotOutOfMemory = System.nanoTime();
-
-    @GuardedBy("this")
     private Optional<KillTarget> lastKillTarget = Optional.empty();
 
     @Inject
@@ -135,7 +131,8 @@ public class ClusterMemoryManager
             @ForTaskLowMemoryKiller LowMemoryKiller taskLowMemoryKiller,
             @ForQueryLowMemoryKiller LowMemoryKiller queryLowMemoryKiller,
             ServerConfig serverConfig,
-            MemoryManagerConfig config)
+            MemoryManagerConfig config,
+            NodeSchedulerConfig nodeSchedulerConfig)
     {
         checkState(serverConfig.isCoordinator(), "ClusterMemoryManager must not be bound on worker");
 
@@ -151,7 +148,7 @@ public class ClusterMemoryManager
                 queryLowMemoryKiller);
         this.maxQueryMemory = config.getMaxQueryMemory();
         this.maxQueryTotalMemory = config.getMaxQueryTotalMemory();
-        this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
+        this.includeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
 
         verify(maxQueryMemory.toBytes() <= maxQueryTotalMemory.toBytes(),
                 "maxQueryMemory cannot be greater than maxQueryTotalMemory");
@@ -182,9 +179,6 @@ public class ClusterMemoryManager
         memoryLeakDetector.checkForMemoryLeaks(allQueryInfoSupplier, pool.getQueryMemoryReservations());
 
         boolean outOfMemory = isClusterOutOfMemory();
-        if (!outOfMemory) {
-            lastTimeNotOutOfMemory = System.nanoTime();
-        }
 
         boolean queryKilled = false;
         long totalUserMemoryBytes = 0L;
@@ -228,10 +222,7 @@ public class ClusterMemoryManager
         clusterUserMemoryReservation.set(totalUserMemoryBytes);
         clusterTotalMemoryReservation.set(totalMemoryBytes);
 
-        if (!lowMemoryKillers.isEmpty() &&
-                outOfMemory &&
-                !queryKilled &&
-                nanosSince(lastTimeNotOutOfMemory).compareTo(killOnOutOfMemoryDelay) > 0) {
+        if (!lowMemoryKillers.isEmpty() && outOfMemory && !queryKilled) {
             if (isLastKillTargetGone()) {
                 callOomKiller(runningQueries);
             }
@@ -494,7 +485,20 @@ public class ClusterMemoryManager
         }
     }
 
-    public synchronized Map<String, Optional<MemoryInfo>> getWorkerMemoryInfo()
+    public synchronized Map<String, Optional<MemoryInfo>> getWorkersMemoryInfo()
+    {
+        Map<String, Optional<MemoryInfo>> memoryInfo = new HashMap<>();
+        for (Entry<String, RemoteNodeMemory> entry : nodes.entrySet()) {
+            if (!includeCoordinator && entry.getValue().getNode().isCoordinator()) {
+                continue;
+            }
+            String workerId = entry.getKey();
+            memoryInfo.put(workerId, entry.getValue().getInfo());
+        }
+        return memoryInfo;
+    }
+
+    public synchronized Map<String, Optional<MemoryInfo>> getAllNodesMemoryInfo()
     {
         Map<String, Optional<MemoryInfo>> memoryInfo = new HashMap<>();
         for (Entry<String, RemoteNodeMemory> entry : nodes.entrySet()) {

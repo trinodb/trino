@@ -29,19 +29,9 @@ public class CreateRole
     private final Optional<GrantorSpecification> grantor;
     private final Optional<Identifier> catalog;
 
-    public CreateRole(Identifier name, Optional<GrantorSpecification> grantor, Optional<Identifier> catalog)
-    {
-        this(Optional.empty(), name, grantor, catalog);
-    }
-
     public CreateRole(NodeLocation location, Identifier name, Optional<GrantorSpecification> grantor, Optional<Identifier> catalog)
     {
-        this(Optional.of(location), name, grantor, catalog);
-    }
-
-    private CreateRole(Optional<NodeLocation> location, Identifier name, Optional<GrantorSpecification> grantor, Optional<Identifier> catalog)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = requireNonNull(name, "name is null");
         this.grantor = requireNonNull(grantor, "grantor is null");
         this.catalog = requireNonNull(catalog, "catalog is null");

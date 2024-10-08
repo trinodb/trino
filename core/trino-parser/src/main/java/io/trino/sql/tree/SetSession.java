@@ -27,19 +27,9 @@ public class SetSession
     private final QualifiedName name;
     private final Expression value;
 
-    public SetSession(QualifiedName name, Expression value)
-    {
-        this(Optional.empty(), name, value);
-    }
-
     public SetSession(NodeLocation location, QualifiedName name, Expression value)
     {
-        this(Optional.of(location), name, value);
-    }
-
-    private SetSession(Optional<NodeLocation> location, QualifiedName name, Expression value)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = name;
         this.value = value;
     }

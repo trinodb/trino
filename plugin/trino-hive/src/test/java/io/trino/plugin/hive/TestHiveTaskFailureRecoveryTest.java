@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.inject.Module;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
@@ -49,7 +50,8 @@ public class TestHiveTaskFailureRecoveryTest
     protected QueryRunner createQueryRunner(
             List<TpchTable<?>> requiredTpchTables,
             Map<String, String> configProperties,
-            Map<String, String> coordinatorProperties)
+            Map<String, String> coordinatorProperties,
+            Module failureInjectionModule)
             throws Exception
     {
         String bucketName = "test-hive-insert-overwrite-" + randomNameSuffix(); // randomizing bucket name to ensure cached TrinoS3FileSystem objects are not reused
@@ -66,6 +68,7 @@ public class TestHiveTaskFailureRecoveryTest
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
+                .setAdditionalModule(failureInjectionModule)
                 .setInitialTables(requiredTpchTables)
                 .build();
     }

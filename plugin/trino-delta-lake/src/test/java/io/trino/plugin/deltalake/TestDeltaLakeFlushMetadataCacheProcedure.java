@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;

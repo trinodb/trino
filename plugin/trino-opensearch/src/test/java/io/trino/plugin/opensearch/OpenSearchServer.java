@@ -18,6 +18,7 @@ import io.trino.testing.ResourcePresence;
 import org.opensearch.testcontainers.OpensearchContainer;
 import org.testcontainers.containers.Network;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +31,7 @@ import static java.nio.file.Files.createTempDirectory;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class OpenSearchServer
+        implements Closeable
 {
     public static final String OPENSEARCH_IMAGE = "opensearchproject/opensearch:2.11.0";
 
@@ -64,13 +66,6 @@ public class OpenSearchServer
         container.start();
     }
 
-    public void stop()
-            throws IOException
-    {
-        container.close();
-        deleteRecursively(configurationPath, ALLOW_INSECURE);
-    }
-
     @ResourcePresence
     public boolean isRunning()
     {
@@ -80,5 +75,13 @@ public class OpenSearchServer
     public HostAndPort getAddress()
     {
         return HostAndPort.fromParts(container.getHost(), container.getMappedPort(9200));
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        container.close();
+        deleteRecursively(configurationPath, ALLOW_INSECURE);
     }
 }

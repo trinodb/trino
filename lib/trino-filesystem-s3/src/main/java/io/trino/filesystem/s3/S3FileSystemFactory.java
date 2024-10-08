@@ -15,160 +15,45 @@ package io.trino.filesystem.s3;
 
 import com.google.inject.Inject;
 import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.http.apache.ApacheHttpClient;
-import software.amazon.awssdk.http.apache.ProxyConfiguration;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3ClientBuilder;
-import software.amazon.awssdk.services.sts.StsClient;
-import software.amazon.awssdk.services.sts.StsClientBuilder;
-import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
-import software.amazon.awssdk.services.sts.auth.StsWebIdentityTokenFileCredentialsProvider;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
-import java.net.URI;
-import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryStrategy;
-import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
-import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
-import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
-import static java.lang.Math.toIntExact;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import java.util.concurrent.Executor;
 
 public final class S3FileSystemFactory
         implements TrinoFileSystemFactory
 {
+    private final S3FileSystemLoader loader;
     private final S3Client client;
     private final S3Context context;
-    private final ExecutorService uploadExecutor;
+    private final Executor uploadExecutor;
+    private final S3Presigner preSigner;
 
     @Inject
-    public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config)
+    public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
     {
-        S3ClientBuilder s3 = S3Client.builder();
-        s3.overrideConfiguration(ClientOverrideConfiguration.builder()
-                .addExecutionInterceptor(AwsSdkTelemetry.builder(openTelemetry)
-                        .setCaptureExperimentalSpanAttributes(true)
-                        .setRecordIndividualHttpError(true)
-                        .build().newExecutionInterceptor())
-                .retryStrategy(getRetryStrategy(config.getRetryMode()).toBuilder()
-                        .maxAttempts(config.getMaxErrorRetries())
-                        .build())
-                .build());
-
-        Optional.ofNullable(config.getRegion()).map(Region::of).ifPresent(s3::region);
-        Optional.ofNullable(config.getEndpoint()).map(URI::create).ifPresent(s3::endpointOverride);
-        s3.forcePathStyle(config.isPathStyleAccess());
-
-        Optional<StaticCredentialsProvider> staticCredentialsProvider = getStaticCredentialsProvider(config);
-
-        if (config.isUseWebIdentityTokenCredentialsProvider()) {
-            s3.credentialsProvider(StsWebIdentityTokenFileCredentialsProvider.builder()
-                    .stsClient(getStsClient(config, staticCredentialsProvider))
-                    .asyncCredentialUpdateEnabled(true)
-                    .build());
-        }
-        else if (config.getIamRole() != null) {
-            s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
-                    .refreshRequest(request -> request
-                            .roleArn(config.getIamRole())
-                            .roleSessionName(config.getRoleSessionName())
-                            .externalId(config.getExternalId()))
-                    .stsClient(getStsClient(config, staticCredentialsProvider))
-                    .asyncCredentialUpdateEnabled(true)
-                    .build());
-        }
-        else {
-            staticCredentialsProvider.ifPresent(s3::credentialsProvider);
-        }
-
-        ApacheHttpClient.Builder httpClient = ApacheHttpClient.builder()
-                .maxConnections(config.getMaxConnections())
-                .tcpKeepAlive(config.getTcpKeepAlive());
-
-        config.getConnectionTtl().ifPresent(connectionTtl -> httpClient.connectionTimeToLive(connectionTtl.toJavaTime()));
-        config.getConnectionMaxIdleTime().ifPresent(connectionMaxIdleTime -> httpClient.connectionMaxIdleTime(connectionMaxIdleTime.toJavaTime()));
-        config.getSocketConnectTimeout().ifPresent(socketConnectTimeout -> httpClient.connectionTimeout(socketConnectTimeout.toJavaTime()));
-        config.getSocketReadTimeout().ifPresent(socketReadTimeout -> httpClient.socketTimeout(socketReadTimeout.toJavaTime()));
-
-        if (config.getHttpProxy() != null) {
-            URI endpoint = URI.create("%s://%s".formatted(
-                    config.isHttpProxySecure() ? "https" : "http",
-                    config.getHttpProxy()));
-            httpClient.proxyConfiguration(ProxyConfiguration.builder()
-                    .endpoint(endpoint)
-                    .username(config.getHttpProxyUsername())
-                    .password(config.getHttpProxyPassword())
-                    .nonProxyHosts(config.getNonProxyHosts())
-                    .preemptiveBasicAuthenticationEnabled(config.getHttpProxyPreemptiveBasicProxyAuth())
-                    .build());
-        }
-
-        s3.httpClientBuilder(httpClient);
-
-        this.client = s3.build();
-
-        context = new S3Context(
-                toIntExact(config.getStreamingPartSize().toBytes()),
-                config.isRequesterPays(),
-                config.getSseType(),
-                config.getSseKmsKeyId(),
-                Optional.empty(),
-                config.getCannedAcl());
-
-        this.uploadExecutor = newCachedThreadPool(daemonThreadsNamed("s3-upload-%s"));
+        this.loader = new S3FileSystemLoader(openTelemetry, config, stats);
+        this.client = loader.createClient();
+        this.preSigner = loader.createPreSigner();
+        this.context = loader.context();
+        this.uploadExecutor = loader.uploadExecutor();
     }
 
     @PreDestroy
     public void destroy()
     {
-        client.close();
-        uploadExecutor.shutdownNow();
+        try (client) {
+            loader.destroy();
+        }
     }
 
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        if (identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY)) {
-            AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(AwsSessionCredentials.create(
-                    identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY),
-                    identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY),
-                    identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY)));
-            return new S3FileSystem(uploadExecutor, client, context.withCredentialsProviderOverride(credentialsProvider));
-        }
-
-        return new S3FileSystem(uploadExecutor, client, context);
-    }
-
-    private static Optional<StaticCredentialsProvider> getStaticCredentialsProvider(S3FileSystemConfig config)
-    {
-        if ((config.getAwsAccessKey() != null) || (config.getAwsSecretKey() != null)) {
-            return Optional.of(StaticCredentialsProvider.create(
-                    AwsBasicCredentials.create(config.getAwsAccessKey(), config.getAwsSecretKey())));
-        }
-        return Optional.empty();
-    }
-
-    private static StsClient getStsClient(S3FileSystemConfig config, Optional<StaticCredentialsProvider> staticCredentialsProvider)
-    {
-        StsClientBuilder sts = StsClient.builder();
-        Optional.ofNullable(config.getStsEndpoint()).map(URI::create).ifPresent(sts::endpointOverride);
-        Optional.ofNullable(config.getStsRegion())
-                .or(() -> Optional.ofNullable(config.getRegion()))
-                .map(Region::of).ifPresent(sts::region);
-        staticCredentialsProvider.ifPresent(sts::credentialsProvider);
-        return sts.build();
+        return new S3FileSystem(uploadExecutor, client, preSigner, context.withCredentials(identity));
     }
 }

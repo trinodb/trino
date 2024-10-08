@@ -45,11 +45,11 @@ import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TrinoViewUtil;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.ViewReaderUtil;
-import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergMetadata;
@@ -114,10 +114,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
+import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.TrinoViewUtil.createViewProperties;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
@@ -141,6 +141,7 @@ import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_NOT_NULL_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_TYPE_ID_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_COMMENT_CACHE_PREVENTED;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_METADATA_INFO_VALID_FOR;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
@@ -173,7 +174,6 @@ public class TrinoGlueCatalog
     private static final int PER_QUERY_CACHES_SIZE = 1000;
 
     private final String trinoVersion;
-    private final TypeManager typeManager;
     private final boolean cacheTableMetadata;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final Optional<String> defaultSchemaLocation;
@@ -213,7 +213,6 @@ public class TrinoGlueCatalog
     {
         super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, useUniqueTableLocation);
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.cacheTableMetadata = cacheTableMetadata;
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
@@ -503,7 +502,8 @@ public class TrinoGlueCatalog
                     else {
                         String metadataLocation = tableParameters.get(METADATA_LOCATION_PROP);
                         String metadataValidForMetadata = tableParameters.get(TRINO_TABLE_METADATA_INFO_VALID_FOR);
-                        if (metadataValidForMetadata != null && metadataValidForMetadata.equals(metadataLocation)) {
+                        boolean tableCommentWasCached = tableParameters.getOrDefault(TRINO_TABLE_COMMENT_CACHE_PREVENTED, "false").equals("false");
+                        if (metadataValidForMetadata != null && metadataValidForMetadata.equals(metadataLocation) && tableCommentWasCached) {
                             Optional<String> comment = Optional.ofNullable(tableParameters.get(TABLE_COMMENT));
                             unfilteredResult.add(RelationCommentMetadata.forRelation(name, comment));
                         }
@@ -941,7 +941,8 @@ public class TrinoGlueCatalog
         Failsafe.with(RetryPolicy.builder()
                         .withMaxRetries(3)
                         .withDelay(Duration.ofMillis(100))
-                        .abortIf(throwable -> !replace || throwable instanceof ViewAlreadyExistsException)
+                        .handleIf(throwable -> replace && !(throwable instanceof ViewAlreadyExistsException))
+                        .abortOn(TrinoFileSystem::isUnrecoverableException)
                         .build())
                 .run(() -> doCreateView(session, schemaViewName, viewTableInput, replace));
     }

@@ -33,6 +33,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.type.CharParametricType;
 import io.trino.type.DecimalParametricType;
@@ -196,7 +197,12 @@ public final class TypeRegistry
 
     public Type fromSqlType(String sqlType)
     {
-        return getType(toTypeSignature(SQL_PARSER.createType(sqlType)));
+        try {
+            return getType(toTypeSignature(SQL_PARSER.createType(sqlType)));
+        }
+        catch (ParsingException e) {
+            throw new TypeNotFoundException(sqlType, e);
+        }
     }
 
     private Type instantiateParametricType(TypeSignature signature)

@@ -13,53 +13,15 @@
  */
 package io.trino.connector.informationschema;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
-
-import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class InformationSchemaColumnHandle
+public record InformationSchemaColumnHandle(String columnName)
         implements ColumnHandle
 {
-    private final String columnName;
-
-    @JsonCreator
-    public InformationSchemaColumnHandle(@JsonProperty("columnName") String columnName)
+    public InformationSchemaColumnHandle
     {
-        this.columnName = requireNonNull(columnName, "columnName is null");
-    }
-
-    @JsonProperty
-    public String getColumnName()
-    {
-        return columnName;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return columnName.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        InformationSchemaColumnHandle other = (InformationSchemaColumnHandle) obj;
-        return Objects.equals(columnName, other.columnName);
-    }
-
-    @Override
-    public String toString()
-    {
-        return columnName;
+        requireNonNull(columnName, "columnName is null");
     }
 }

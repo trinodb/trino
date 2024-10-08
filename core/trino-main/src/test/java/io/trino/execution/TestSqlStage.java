@@ -221,7 +221,7 @@ public class TestSqlStage
 
         // once the final stage info is available, verify that it is complete
         stageInfo = finalStageInfo.get(1, MINUTES);
-        assertThat(stageInfo.getTasks().isEmpty()).isFalse();
+        assertThat(stageInfo.getTasks()).isNotEmpty();
         assertThat(stageInfo.isFinalStageInfo()).isTrue();
         assertThat(stage.getStageInfo()).isSameAs(stageInfo);
     }

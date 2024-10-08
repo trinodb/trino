@@ -18,7 +18,6 @@ import com.google.inject.Inject;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeException;
 import dev.failsafe.RetryPolicy;
-import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -39,7 +38,7 @@ public class RetryingConnectionFactory
     private final ConnectionFactory delegate;
 
     @Inject
-    public RetryingConnectionFactory(StatisticsAwareConnectionFactory delegate, Set<RetryStrategy> retryStrategies)
+    public RetryingConnectionFactory(@ForRetrying ConnectionFactory delegate, Set<RetryStrategy> retryStrategies)
     {
         requireNonNull(retryStrategies);
         this.delegate = requireNonNull(delegate, "delegate is null");

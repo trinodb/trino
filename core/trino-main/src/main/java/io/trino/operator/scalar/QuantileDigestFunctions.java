@@ -141,13 +141,13 @@ public final class QuantileDigestFunctions
 
     public static double verifyAccuracy(double accuracy)
     {
-        checkCondition(accuracy > 0 && accuracy < 1, INVALID_FUNCTION_ARGUMENT, "Percentile accuracy must be exclusively between 0 and 1, was %s", accuracy);
+        checkCondition(accuracy > 0 && accuracy < 1, INVALID_FUNCTION_ARGUMENT, () -> String.format("Percentile accuracy must be exclusively between 0 and 1, was %s", accuracy));
         return accuracy;
     }
 
     public static long verifyWeight(long weight)
     {
-        checkCondition(weight > 0, INVALID_FUNCTION_ARGUMENT, "Percentile weight must be > 0, was %s", weight);
+        checkCondition(weight > 0, INVALID_FUNCTION_ARGUMENT, () -> String.format("Percentile weight must be > 0, was %s", weight));
         return weight;
     }
 }

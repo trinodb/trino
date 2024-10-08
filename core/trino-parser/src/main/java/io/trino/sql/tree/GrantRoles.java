@@ -41,28 +41,7 @@ public class GrantRoles
             Optional<GrantorSpecification> grantor,
             Optional<Identifier> catalog)
     {
-        this(Optional.of(location), roles, grantees, adminOption, grantor, catalog);
-    }
-
-    public GrantRoles(
-            Set<Identifier> roles,
-            Set<PrincipalSpecification> grantees,
-            boolean adminOption,
-            Optional<GrantorSpecification> grantor,
-            Optional<Identifier> catalog)
-    {
-        this(Optional.empty(), roles, grantees, adminOption, grantor, catalog);
-    }
-
-    private GrantRoles(
-            Optional<NodeLocation> location,
-            Set<Identifier> roles,
-            Set<PrincipalSpecification> grantees,
-            boolean adminOption,
-            Optional<GrantorSpecification> grantor,
-            Optional<Identifier> catalog)
-    {
-        super(location);
+        super(Optional.of(location));
         this.roles = ImmutableSet.copyOf(requireNonNull(roles, "roles is null"));
         this.grantees = ImmutableSet.copyOf(requireNonNull(grantees, "grantees is null"));
         this.adminOption = adminOption;

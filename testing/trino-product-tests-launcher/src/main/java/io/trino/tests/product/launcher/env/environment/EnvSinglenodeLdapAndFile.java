@@ -13,38 +13,46 @@
  */
 package io.trino.tests.product.launcher.env.environment;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
-import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
+import io.trino.tests.product.launcher.env.common.OpenLdap;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
+import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public class EnvSinglenodeLdapAndFile
-        extends AbstractEnvSinglenodeLdap
+        extends EnvironmentProvider
 {
+    private final PortBinder portBinder;
+    private final DockerFiles dockerFiles;
+
     @Inject
-    public EnvSinglenodeLdapAndFile(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentConfig config)
+    public EnvSinglenodeLdapAndFile(Standard standard, Hadoop hadoop, OpenLdap openLdap, DockerFiles dockerFiles, PortBinder portBinder)
     {
-        super(ImmutableList.of(standard, hadoop), dockerFiles, portBinder, config);
+        super(standard, hadoop, openLdap);
+        this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
 
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        super.extendEnvironment(builder);
         ResourceProvider configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-ldap-and-file");
+        builder.addPasswordAuthenticator("ldap", forHostPath(configDir.getPath("password-authenticator.properties")));
         builder.addPasswordAuthenticator(
                 "file",
                 forHostPath(configDir.getPath("file-authenticator.properties")),
@@ -57,14 +65,15 @@ public class EnvSinglenodeLdapAndFile
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("password.db")),
                             CONTAINER_TRINO_ETC + "/password.db");
+            portBinder.exposePort(dockerContainer, 8443);
+        });
+
+        builder.configureContainer(TESTS, dockerContainer -> {
+            dockerContainer.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-ldap.yaml")),
+                    CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
 
         configureTempto(builder, configDir);
-    }
-
-    @Override
-    protected String getPasswordAuthenticatorConfigPath()
-    {
-        return "conf/environment/singlenode-ldap/password-authenticator.properties";
     }
 }

@@ -32,7 +32,7 @@ public class NoMemoryPartitionMemoryEstimator
     }
 
     @Override
-    public MemoryRequirements getNextRetryMemoryRequirements(MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode)
+    public MemoryRequirements getNextRetryMemoryRequirements(MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode, int remainingAttempts)
     {
         return new MemoryRequirements(DataSize.ofBytes(0));
     }

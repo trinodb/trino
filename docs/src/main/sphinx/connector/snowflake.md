@@ -1,3 +1,8 @@
+---
+myst:
+  substitutions:
+    default_domain_compaction_threshold: "`256`"
+---
 # Snowflake connector
 
 ```{raw} html
@@ -44,6 +49,21 @@ The Snowflake connector can only access a single database within
 a Snowflake account. Thus, if you have multiple Snowflake databases,
 or want to connect to multiple Snowflake accounts, you must configure
 multiple instances of the Snowflake connector.
+
+```{include} jdbc-common-configurations.fragment
+```
+
+```{include} query-comment-format.fragment
+```
+
+```{include} jdbc-domain-compaction-threshold.fragment
+```
+
+```{include} jdbc-case-insensitive-matching.fragment
+```
+
+```{include} non-transactional-insert.fragment
+```
 
 % snowflake-type-mapping:
 
@@ -228,13 +248,20 @@ statements, the connector supports the following features:
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
 
-## Table functions
+### Procedures
+
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} procedures-execute.fragment
+```
+
+### Table functions
 
 The connector provides specific [table functions](/functions/table) to
 access Snowflake.
 
 (snowflake-query-function)=
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
 requires syntax native to Snowflake, because the full query is pushed down and

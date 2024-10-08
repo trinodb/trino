@@ -2,7 +2,14 @@
 
 Configure the {doc}`/connector/hive` to support [IBM Cloud Object Storage COS](https://www.ibm.com/cloud/object-storage) access.
 
+:::{warning}
+Legacy support is not recommended and will be removed. Use [](file-system-s3).
+:::
+
 ## Configuration
+
+To use legacy support, the `fs.hadoop.enabled` property must be set to `true` in
+your catalog configuration file.
 
 To use COS, you need to configure a catalog file to use the Hive
 connector. For example, create a file `etc/ibmcos.properties` and

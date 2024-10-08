@@ -106,11 +106,11 @@ public class DeltaLakePartitionsTable
 
         this.partitionColumns = getPartitionColumns();
         this.partitionFields = this.partitionColumns.stream()
-                .map(column -> RowType.field(column.getBaseColumnName(), column.getType()))
+                .map(column -> RowType.field(column.baseColumnName(), column.type()))
                 .collect(toImmutableList());
 
         this.regularColumns = getColumns().stream()
-                .filter(column -> column.getColumnType() == REGULAR)
+                .filter(column -> column.columnType() == REGULAR)
                 .collect(toImmutableList());
         this.dataColumnType = getMetricsColumnType(regularColumns);
 
@@ -176,8 +176,8 @@ public class DeltaLakePartitionsTable
             SqlRow partitionValuesRow = buildRowValue(partitionValuesRowType, fields -> {
                 for (int i = 0; i < partitionColumns.size(); i++) {
                     DeltaLakeColumnHandle column = partitionColumns.get(i);
-                    Type type = column.getType();
-                    Optional<String> value = partitionValue.get(column.getBasePhysicalColumnName());
+                    Type type = column.type();
+                    Optional<String> value = partitionValue.get(column.basePhysicalColumnName());
                     Object deserializedPartitionValue = deserializePartitionValue(column, value);
                     writeNativeValue(type, fields.get(i), deserializedPartitionValue);
                 }
@@ -192,7 +192,7 @@ public class DeltaLakePartitionsTable
             dataColumnType.ifPresent(dataColumnType -> {
                 SqlRow dataColumnRow = buildRowValue(dataColumnType, fields -> {
                     for (int i = 0; i < columnMetricTypes.size(); i++) {
-                        String fieldName = regularColumns.get(i).getBaseColumnName();
+                        String fieldName = regularColumns.get(i).baseColumnName();
                         Object min = deltaLakePartitionStatistics.minValues().getOrDefault(fieldName, null);
                         Object max = deltaLakePartitionStatistics.maxValues().getOrDefault(fieldName, null);
                         Long nullCount = deltaLakePartitionStatistics.nullCounts().getOrDefault(fieldName, null);
@@ -271,10 +271,10 @@ public class DeltaLakePartitionsTable
     {
         List<RowType.Field> metricColumns = columns.stream()
                 .map(column -> RowType.field(
-                        column.getBaseColumnName(),
+                        column.baseColumnName(),
                         RowType.from(ImmutableList.of(
-                                new RowType.Field(Optional.of("min"), column.getType()),
-                                new RowType.Field(Optional.of("max"), column.getType()),
+                                new RowType.Field(Optional.of("min"), column.type()),
+                                new RowType.Field(Optional.of("max"), column.type()),
                                 new RowType.Field(Optional.of("null_count"), BIGINT)))))
                 .collect(toImmutableList());
         if (metricColumns.isEmpty()) {
@@ -325,12 +325,12 @@ public class DeltaLakePartitionsTable
                 addFileEntry.getStats().ifPresentOrElse(stats -> {
                     for (DeltaLakeColumnHandle column : columns) {
                         updateMinMaxStats(
-                                column.getBaseColumnName(),
-                                column.getType(),
+                                column.baseColumnName(),
+                                column.type(),
                                 stats.getMinColumnValue(column).orElse(null),
                                 stats.getMaxColumnValue(column).orElse(null),
                                 stats.getNumRecords().orElse(0L));
-                        updateNullCountStats(column.getBaseColumnName(), stats.getNullCount(column.getBasePhysicalColumnName()).orElse(null));
+                        updateNullCountStats(column.baseColumnName(), stats.getNullCount(column.basePhysicalColumnName()).orElse(null));
                     }
                 }, () -> {
                     columnStatistics.clear();

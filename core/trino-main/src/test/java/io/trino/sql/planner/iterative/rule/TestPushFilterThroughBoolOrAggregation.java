@@ -372,7 +372,6 @@ public class TestPushFilterThroughBoolOrAggregation
                                 ImmutableMap.of("aggrbool", expression(new Reference(BOOLEAN, "aggrbool"))),
                                 project(
                                         ImmutableMap.of("g", expression(new Reference(BIGINT, "g")),
-                                                "bool", expression(new Reference(BOOLEAN, "bool")),
                                                 "aggrbool", expression(TRUE)),
                                         aggregation(
                                                 ImmutableMap.of(),
@@ -405,7 +404,6 @@ public class TestPushFilterThroughBoolOrAggregation
                                 ImmutableMap.of("aggrbool", expression(new Reference(BOOLEAN, "aggrbool"))),
                                 project(
                                         ImmutableMap.of("g", expression(new Reference(BIGINT, "g")),
-                                                "bool", expression(new Reference(BOOLEAN, "bool")),
                                                 "aggrbool", expression(TRUE)),
                                         aggregation(
                                                 ImmutableMap.of(),
@@ -437,12 +435,43 @@ public class TestPushFilterThroughBoolOrAggregation
                                         ImmutableMap.of("aggrbool", expression(new Reference(BOOLEAN, "aggrbool")), "g", expression(new Reference(BIGINT, "g"))),
                                         project(
                                                 ImmutableMap.of("g", expression(new Reference(BIGINT, "g")),
-                                                        "bool", expression(new Reference(BOOLEAN, "bool")),
                                                         "aggrbool", expression(TRUE)),
                                                 aggregation(
                                                         ImmutableMap.of(),
                                                         filter(
                                                                 new Reference(BOOLEAN, "bool"),
                                                                 values("g", "bool")))))));
+    }
+
+    @Test
+    public void testFilterAggregation()
+    {
+        tester().assertThat(new PushFilterThroughBoolOrAggregationWithoutProject(tester().getPlannerContext()))
+                .on(p -> {
+                    Symbol g = p.symbol("g", BIGINT);
+                    Symbol bool = p.symbol("bool", BOOLEAN);
+                    Symbol aggrBool = p.symbol("aggrbool", BOOLEAN);
+                    return p.filter(
+                            new Comparison(EQUAL, aggrBool.toSymbolReference(), TRUE),
+                            p.aggregation(builder -> builder
+                                    .singleGroupingSet(g)
+                                    .addAggregation(
+                                            aggrBool,
+                                            PlanBuilder.aggregation("bool_or", ImmutableList.of(bool.toSymbolReference())),
+                                            ImmutableList.of(BOOLEAN))
+                                    .source(p.values(g, bool))));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("g", expression(new Reference(BIGINT, "g")),
+                                        "aggrbool", expression(TRUE)),
+                                aggregation(
+                                        singleGroupingSet("g"),
+                                        ImmutableMap.of(),
+                                        Optional.empty(),
+                                        AggregationNode.Step.SINGLE,
+                                        filter(
+                                                new Reference(BOOLEAN, "bool"),
+                                                values("g", "bool")))));
     }
 }

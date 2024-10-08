@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.prometheus;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
@@ -25,43 +23,14 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public final class PrometheusTableHandle
+public record PrometheusTableHandle(String schemaName, String tableName, Optional<TupleDomain<ColumnHandle>> predicate)
         implements ConnectorTableHandle
 {
-    private final String schemaName;
-    private final String tableName;
-    private final Optional<TupleDomain<ColumnHandle>> predicate;
-
-    @JsonCreator
-    public PrometheusTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+    public PrometheusTableHandle
     {
-        this(schemaName, tableName, Optional.empty());
-    }
-
-    private PrometheusTableHandle(String schemaName, String tableName, Optional<TupleDomain<ColumnHandle>> predicate)
-    {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.predicate = requireNonNull(predicate, "predicate is null");
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    public Optional<TupleDomain<ColumnHandle>> getPredicate()
-    {
-        return this.predicate;
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(predicate, "predicate is null");
     }
 
     public SchemaTableName toSchemaTableName()

@@ -45,7 +45,7 @@ Find detailed description for the available properties in
 [](/admin/properties-http-server) and the following table:
 
 :::{list-table}
-:widths: 15, 85
+:widths: 20, 80
 :header-rows: 1
 
 * - Property
@@ -70,19 +70,45 @@ ldap.ssl.truststore.path=/path/to/ldap_server.pem
 ldap.user-bind-pattern=<Refer below for usage>
 ```
 
-| Property                       | Description                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ldap.url`                     | The URL to the LDAP server. The URL scheme must be `ldap://` or `ldaps://`. Connecting to the LDAP server without TLS enabled requires `ldap.allow-insecure=true`.                                                                                                                                                                                                                                                                         |
-| `ldap.allow-insecure`          | Allow using an LDAP connection that is not secured with TLS.                                                                                                                                                                                                                                                                                                                                                                               |
-| `ldap.ssl.keystore.path`       | The path to the {doc}`PEM </security/inspect-pem>` or {doc}`JKS </security/inspect-jks>` keystore file.                                                                                                                                                                                                                                                                                                                                    |
-| `ldap.ssl.keystore.password`   | Password for the key store.                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `ldap.ssl.truststore.path`     | The path to the {doc}`PEM </security/inspect-pem>` or {doc}`JKS </security/inspect-jks>` truststore file.                                                                                                                                                                                                                                                                                                                                  |
-| `ldap.ssl.truststore.password` | Password for the truststore.                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `ldap.user-bind-pattern`       | This property can be used to specify the LDAP user bind string for password authentication. This property must contain the pattern `${USER}`, which is replaced by the actual username during the password authentication.The property can contain multiple patterns separated by a colon. Each pattern will be checked in order until a login succeeds or all logins fail. Example: `${USER}@corp.example.com:${USER}@corp.example.co.uk` |
-| `ldap.ignore-referrals`        | Ignore referrals to other LDAP servers while performing search queries. Defaults to `false`.                                                                                                                                                                                                                                                                                                                                               |
-| `ldap.cache-ttl`               | LDAP cache duration. Defaults to `1h`.                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `ldap.timeout.connect`         | Timeout for establishing an LDAP connection.                                                                                                                                                                                                                                                                                                                                                                                               |
-| `ldap.timeout.read`            | Timeout for reading data from an LDAP connection.                                                                                                                                                                                                                                                                                                                                                                                          |
+:::{list-table}
+:widths: 20, 80
+:header-rows: 1
+
+* - Property
+  - Description
+* - `ldap.url`
+  - The URL to the LDAP server. The URL scheme must be `ldap://` or `ldaps://`.
+    Connecting to the LDAP server without TLS enabled requires
+    `ldap.allow-insecure=true`.
+* - `ldap.allow-insecure`
+  - Allow using an LDAP connection that is not secured with TLS.
+* - `ldap.ssl.keystore.path`
+  - The path to the {doc}`PEM </security/inspect-pem>` or {doc}`JKS
+    </security/inspect-jks>` keystore file.
+* - `ldap.ssl.keystore.password`
+  - Password for the key store.
+* - `ldap.ssl.truststore.path`
+  - The path to the {doc}`PEM </security/inspect-pem>` or {doc}`JKS
+    </security/inspect-jks>` truststore file.
+* - `ldap.ssl.truststore.password`
+  - Password for the truststore.
+* - `ldap.user-bind-pattern`
+  - This property can be used to specify the LDAP user bind string for password
+    authentication. This property must contain the pattern `${USER}`, which is
+    replaced by the actual username during the password authentication. The
+    property can contain multiple patterns separated by a colon. Each pattern is
+    checked in order until a login succeeds or all logins fail. Example:
+    `${USER}@corp.example.com:${USER}@corp.example.co.uk`
+* - `ldap.ignore-referrals`
+  - Ignore referrals to other LDAP servers while performing search queries.
+    Defaults to `false`.
+* - `ldap.cache-ttl`
+  - LDAP cache duration. Defaults to `1h`.
+* - `ldap.timeout.connect`
+  - Timeout for establishing an LDAP connection.
+* - `ldap.timeout.read`
+  - Timeout for reading data from an LDAP connection.
+:::
 
 Based on the LDAP server implementation type, the property
 `ldap.user-bind-pattern` can be used as described below.
@@ -118,30 +144,64 @@ coordinator, based on their group membership, by setting the optional
 `ldap.group-auth-pattern` and `ldap.user-base-dn` properties, in addition
 to the basic LDAP authentication properties.
 
-| Property                  | Description                                                                                                                                                                                                                                                                                                                                 |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ldap.user-base-dn`       | The base LDAP distinguished name for the user who tries to connect to the server. Example: `OU=America,DC=corp,DC=example,DC=com`                                                                                                                                                                                                           |
-| `ldap.group-auth-pattern` | This property is used to specify the LDAP query for the LDAP group membership authorization. This query is executed against the LDAP server and if successful, the user is authorized. This property must contain a pattern `${USER}`, which is replaced by the actual username in the group authorization search query. See samples below. |
+:::{list-table}
+:widths: 35, 65
+:header-rows: 1
 
-Based on the LDAP server implementation type, the property
-`ldap.group-auth-pattern` can be used as described below.
+* - Property
+  - Description
+* - `ldap.user-base-dn`
+  - The base LDAP distinguished name for the user who tries to connect to the
+    server. Example: `OU=America,DC=corp,DC=example,DC=com`
+* - `ldap.group-auth-pattern`
+  - This property is used to specify the LDAP query for the LDAP group
+    membership authorization. This query is executed against the LDAP server and
+    if successful, the user is authorized.
+
+    This property must contain a pattern `${USER}`, which is replaced by the
+    actual username in the group authorization search query. See details in the
+    [examples section](ldap-group-auth-examples).
+:::
 
 #### Authorization using Trino LDAP service user
 
-Trino server can use dedicated LDAP service user for doing user group membership queries.
-In such case Trino will first issue a group membership query for a Trino user that needs
-to be authenticated. A user distinguished name will be extracted from a group membership
-query result. Trino will then validate user password by creating LDAP context with
-user distinguished name and user password. In order to use this mechanism `ldap.bind-dn`,
-`ldap.bind-password` and `ldap.group-auth-pattern` properties need to be defined.
+Trino server can use dedicated LDAP service user for doing user group membership
+queries. In such case Trino first issues a group membership query for a Trino
+user that needs to be authenticated. A user distinguished name is extracted from
+a group membership query result. Trino then validates user password by creating
+LDAP context with user distinguished name and user password. In order to use
+this mechanism `ldap.bind-dn`, `ldap.bind-password` and
+`ldap.group-auth-pattern` properties need to be defined.
 
-| Property                  | Description                                                                                                                                                                                                                                                                                                                                          |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ldap.bind-dn`            | Bind distinguished name used by Trino when issuing group membership queries. Example: `CN=admin,OU=CITY_OU,OU=STATE_OU,DC=domain`                                                                                                                                                                                                                    |
-| `ldap.bind-password`      | Bind password used by Trino when issuing group membership queries. Example: `password1234`                                                                                                                                                                                                                                                           |
-| `ldap.group-auth-pattern` | This property is used to specify the LDAP query for the LDAP group membership authorization. This query will be executed against the LDAP server and if successful, a user distinguished name will be extracted from a query result. Trino will then validate user password by creating LDAP context with user distinguished name and user password. |
+:::{list-table}
+:widths: 35, 65
+:header-rows: 1
 
-##### Active Directory
+* - Property
+  - Description
+* - `ldap.bind-dn`
+  - Bind distinguished name used by Trino when issuing group membership queries.
+    Example: `CN=admin,OU=CITY_OU,OU=STATE_OU,DC=domain`
+* - `ldap.bind-password`
+  - Bind password used by Trino when issuing group membership queries. Example:
+    `password1234`
+* - `ldap.group-auth-pattern`
+  - This property is used to specify the LDAP query for the LDAP group
+    membership authorization. This query is executed against the LDAP server
+    during login to check if the user belongs to the specified group. If
+    successful, a user distinguished name is extracted from the query result.
+    Trino then validates the user and password by creating an LDAP context with
+    the user's distinguished name and password.
+
+    This property must contain a pattern `${USER}`, which is replaced by the
+    actual username in the group authorization search query. See details in the
+    [examples section](ldap-group-auth-examples).
+:::
+
+(ldap-group-auth-examples)=
+##### LDAP group authorization examples
+
+With Active Directory, the following syntax can be used:
 
 ```text
 ldap.group-auth-pattern=(&(objectClass=<objectclass_of_user>)(sAMAccountName=${USER})(memberof=<dn_of_the_authorized_group>))
@@ -153,7 +213,7 @@ Example:
 ldap.group-auth-pattern=(&(objectClass=person)(sAMAccountName=${USER})(memberof=CN=AuthorizedGroup,OU=Asia,DC=corp,DC=example,DC=com))
 ```
 
-##### OpenLDAP
+With OpenLDAP, the following syntax can be used:
 
 ```text
 ldap.group-auth-pattern=(&(objectClass=<objectclass_of_user>)(uid=${USER})(memberof=<dn_of_the_authorized_group>))

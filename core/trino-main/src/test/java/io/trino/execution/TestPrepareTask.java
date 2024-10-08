@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
@@ -27,6 +28,7 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.Execute;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
@@ -102,7 +104,7 @@ public class TestPrepareTask
     @Test
     public void testPrepareInvalidStatement()
     {
-        Statement statement = new Execute(identifier("foo"), emptyList());
+        Statement statement = new Execute(new NodeLocation(1, 1), identifier("foo"), emptyList());
         String sqlString = "PREPARE my_query FROM EXECUTE foo";
         assertTrinoExceptionThrownBy(() -> executePrepare("my_query", statement, sqlString, TEST_SESSION))
                 .hasErrorCode(NOT_SUPPORTED)
@@ -118,6 +120,7 @@ public class TestPrepareTask
                 emptyEventListenerManager(),
                 new AccessControlConfig(),
                 OpenTelemetry.noop(),
+                new SecretsResolver(ImmutableMap.of()),
                 DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine stateMachine = QueryStateMachine.begin(

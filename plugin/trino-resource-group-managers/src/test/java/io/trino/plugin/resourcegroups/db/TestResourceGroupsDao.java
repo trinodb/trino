@@ -252,15 +252,15 @@ public class TestResourceGroupsDao
             dao.insertResourceGroupsGlobalProperties("invalid_property", "1h");
         }
         catch (UnableToExecuteStatementException ex) {
-            assertThat(ex.getCause() instanceof JdbcException).isTrue();
-            assertThat(ex.getCause().getMessage().startsWith("Check constraint violation:")).isTrue();
+            assertThat(ex.getCause()).isInstanceOf(JdbcException.class);
+            assertThat(ex.getCause().getMessage()).startsWith("Check constraint violation:");
         }
         try {
             dao.updateResourceGroupsGlobalProperties("invalid_property_name");
         }
         catch (UnableToExecuteStatementException ex) {
-            assertThat(ex.getCause() instanceof JdbcException).isTrue();
-            assertThat(ex.getCause().getMessage().startsWith("Check constraint violation:")).isTrue();
+            assertThat(ex.getCause()).isInstanceOf(JdbcException.class);
+            assertThat(ex.getCause().getMessage()).startsWith("Check constraint violation:");
         }
     }
 

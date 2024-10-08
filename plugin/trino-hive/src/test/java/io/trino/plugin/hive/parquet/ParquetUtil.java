@@ -21,11 +21,13 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.HiveStorageFormat;
+import io.trino.plugin.hive.Schema;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
+import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,9 +42,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 
 final class ParquetUtil
 {
@@ -54,7 +55,25 @@ final class ParquetUtil
         return createPageSource(session, parquetFile, getBaseColumns(columnNames, columnTypes), TupleDomain.all());
     }
 
+    public static ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, List<String> columnNames, List<Type> columnTypes, DateTimeZone timeZone)
+            throws IOException
+    {
+        return createPageSource(session, parquetFile, getBaseColumns(columnNames, columnTypes), TupleDomain.all(), new HiveConfig().setParquetTimeZone(timeZone.toString()));
+    }
+
+    public static ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, List<HiveColumnHandle> columns, TupleDomain<HiveColumnHandle> domain, DateTimeZone timeZone)
+            throws IOException
+    {
+        return createPageSource(session, parquetFile, columns, domain, new HiveConfig().setParquetTimeZone(timeZone.toString()));
+    }
+
     public static ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, List<HiveColumnHandle> columns, TupleDomain<HiveColumnHandle> domain)
+            throws IOException
+    {
+        return createPageSource(session, parquetFile, columns, domain, new HiveConfig());
+    }
+
+    private static ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, List<HiveColumnHandle> columns, TupleDomain<HiveColumnHandle> domain, HiveConfig hiveConfig)
             throws IOException
     {
         // copy the test file into the memory filesystem
@@ -68,7 +87,7 @@ final class ParquetUtil
                 fileSystemFactory,
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig(),
-                new HiveConfig());
+                hiveConfig);
 
         return hivePageSourceFactory.createPageSource(
                         session,
@@ -76,7 +95,8 @@ final class ParquetUtil
                         0,
                         parquetFile.length(),
                         parquetFile.length(),
-                        ImmutableMap.of(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde()),
+                        parquetFile.lastModified(),
+                        new Schema(HiveStorageFormat.PARQUET.getSerde(), false, ImmutableMap.of()),
                         columns,
                         domain,
                         Optional.empty(),

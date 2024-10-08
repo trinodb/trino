@@ -15,6 +15,7 @@ package io.trino.parquet.writer.valuewriter;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
@@ -34,11 +35,14 @@ public class IntegerValueWriter
     @Override
     public void write(Block block)
     {
+        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
+        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); ++i) {
-            if (!block.isNull(i)) {
+            if (!mayHaveNull || !block.isNull(i)) {
                 int value = (int) type.getLong(block, i);
-                getValueWriter().writeInteger(value);
-                getStatistics().updateStats(value);
+                valuesWriter.writeInteger(value);
+                statistics.updateStats(value);
             }
         }
     }

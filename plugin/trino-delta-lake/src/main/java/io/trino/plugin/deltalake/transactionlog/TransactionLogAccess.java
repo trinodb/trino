@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
-import io.airlift.jmx.CacheStatsMBean;
+import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
@@ -323,7 +323,7 @@ public class TransactionLogAccess
     {
         Set<String> baseColumnNames = projectedColumns.stream()
                 .filter(DeltaLakeColumnHandle::isBaseColumn) // Only base column stats are supported
-                .map(DeltaLakeColumnHandle::getColumnName)
+                .map(DeltaLakeColumnHandle::columnName)
                 .collect(toImmutableSet());
         return getActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, baseColumnNames::contains);
     }
@@ -596,7 +596,7 @@ public class TransactionLogAccess
             }
             catch (FileNotFoundException e) {
                 // no longer exists, break iteration
-                return null;
+                break;
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);

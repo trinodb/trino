@@ -14,6 +14,8 @@
 package io.trino.server.security;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.PasswordAuthenticator;
@@ -40,8 +42,10 @@ public class TestPasswordAuthenticatorManager
         Files.write(config1, ImmutableList.of("password-authenticator.name=type1"));
         Files.write(config2, ImmutableList.of("password-authenticator.name=type2"));
 
-        PasswordAuthenticatorManager manager = new PasswordAuthenticatorManager(new PasswordAuthenticatorConfig()
-                .setPasswordAuthenticatorFiles(ImmutableList.of(config1.toAbsolutePath().toString(), config2.toAbsolutePath().toString())));
+        PasswordAuthenticatorManager manager = new PasswordAuthenticatorManager(
+                new PasswordAuthenticatorConfig()
+                        .setPasswordAuthenticatorFiles(ImmutableList.of(config1.toAbsolutePath().toString(), config2.toAbsolutePath().toString())),
+                new SecretsResolver(ImmutableMap.of()));
         manager.setRequired();
         manager.addPasswordAuthenticatorFactory(new TestingPasswordAuthenticatorFactory("type1", "password1"));
         manager.addPasswordAuthenticatorFactory(new TestingPasswordAuthenticatorFactory("type2", "password2"));

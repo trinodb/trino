@@ -19,12 +19,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.HiveTypeName;
+import io.trino.metastore.type.TypeInfo;
 import io.trino.plugin.hive.HivePageSource.BucketValidator;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
-import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -69,7 +71,7 @@ import static io.trino.plugin.hive.coercions.CoercionUtils.createTypeFromCoercer
 import static io.trino.plugin.hive.coercions.CoercionUtils.extractHiveStorageFormat;
 import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
-import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
 import static io.trino.plugin.hive.util.HiveUtil.getPrefilledColumnValue;
 import static java.util.Objects.requireNonNull;
@@ -141,6 +143,7 @@ public class HivePageSourceProvider
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
                 hiveSplit.getEstimatedFileSize(),
+                hiveSplit.getFileModifiedTime(),
                 hiveSplit.getSchema(),
                 hiveTable.getCompactEffectivePredicate().intersect(
                                 dynamicFilter.getCurrentPredicate().transformKeys(HiveColumnHandle.class::cast))
@@ -158,8 +161,8 @@ public class HivePageSourceProvider
         }
 
         throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Unsupported input format: serde=%s, format=%s, partition=%s, path=%s".formatted(
-                getDeserializerClassName(hiveSplit.getSchema()),
-                getInputFormatName(hiveSplit.getSchema()).orElse(null),
+                hiveSplit.getSchema().serializationLibraryName(),
+                getInputFormatName(hiveSplit.getSchema().serdeProperties()).orElse(null),
                 hiveSplit.getPartitionName(),
                 hiveSplit.getPath()));
     }
@@ -172,7 +175,8 @@ public class HivePageSourceProvider
             long start,
             long length,
             long estimatedFileSize,
-            Map<String, String> schema,
+            long fileModifiedTime,
+            Schema schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
             Optional<BucketConversion> bucketConversion,
@@ -191,7 +195,7 @@ public class HivePageSourceProvider
         Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, tableBucketNumber, regularAndInterimColumnMappings);
         Optional<BucketValidator> bucketValidator = createBucketValidator(path, bucketValidation, tableBucketNumber, regularAndInterimColumnMappings);
 
-        CoercionContext coercionContext = new CoercionContext(getTimestampPrecision(session), extractHiveStorageFormat(getDeserializerClassName(schema)));
+        CoercionContext coercionContext = new CoercionContext(getTimestampPrecision(session), extractHiveStorageFormat(schema.serializationLibraryName()));
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, typeManager, coercionContext);
@@ -202,6 +206,7 @@ public class HivePageSourceProvider
                     start,
                     length,
                     estimatedFileSize,
+                    fileModifiedTime,
                     schema,
                     desiredColumns,
                     effectivePredicate,
@@ -464,7 +469,7 @@ public class HivePageSourceProvider
         private static boolean projectionValidForType(HiveType baseType, Optional<HiveColumnProjectionInfo> projection)
         {
             List<Integer> dereferences = projection.map(HiveColumnProjectionInfo::getDereferenceIndices).orElse(ImmutableList.of());
-            Optional<HiveType> targetType = baseType.getHiveTypeForDereferences(dereferences);
+            Optional<HiveType> targetType = getHiveTypeForDereferences(baseType, dereferences);
             return targetType.isPresent();
         }
 
@@ -486,7 +491,7 @@ public class HivePageSourceProvider
                         HiveType fromHiveTypeBase = columnMapping.getBaseTypeCoercionFrom().get();
 
                         Optional<HiveColumnProjectionInfo> newColumnProjectionInfo = columnHandle.getHiveColumnProjectionInfo().map(projectedColumn -> {
-                            HiveType fromHiveType = fromHiveTypeBase.getHiveTypeForDereferences(projectedColumn.getDereferenceIndices()).get();
+                            HiveType fromHiveType = getHiveTypeForDereferences(fromHiveTypeBase, projectedColumn.getDereferenceIndices()).get();
                             return new HiveColumnProjectionInfo(
                                     projectedColumn.getDereferenceIndices(),
                                     projectedColumn.getDereferenceNames(),
@@ -596,7 +601,7 @@ public class HivePageSourceProvider
         }
     }
 
-    private static Optional<BucketValidator> createBucketValidator(Location path, Optional<BucketValidation> bucketValidation, OptionalInt bucketNumber, List<ColumnMapping> columnMappings)
+    static Optional<BucketValidator> createBucketValidator(Location path, Optional<BucketValidation> bucketValidation, OptionalInt bucketNumber, List<ColumnMapping> columnMappings)
     {
         return bucketValidation.flatMap(validation -> {
             Map<Integer, ColumnMapping> baseHiveColumnToBlockIndex = columnMappings.stream()

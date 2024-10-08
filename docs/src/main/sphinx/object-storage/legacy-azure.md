@@ -4,6 +4,11 @@ The {doc}`/connector/hive` can be configured to use [Azure Data Lake Storage
 (Gen2)](https://azure.microsoft.com/products/storage/data-lake-storage/). Trino
 supports Azure Blob File System (ABFS) to access data in ADLS Gen2.
 
+:::{warning}
+Legacy support is not recommended and will be removed. Use
+[](file-system-azure).
+:::
+
 ## Hive connector configuration for Azure Storage credentials
 
 To configure Trino to use the Azure Storage credentials, set the following
@@ -16,6 +21,9 @@ properties from the following sections in the catalog properties file.
 For more complex use cases, such as configuring multiple secondary storage
 accounts using Hadoop's `core-site.xml`, see the
 {ref}`hive-azure-advanced-config` options.
+
+To use legacy support, the `fs.hadoop.enabled` property must be set to `true` in
+your catalog configuration file.
 
 ### ADLS Gen2 / ABFS storage
 
@@ -192,3 +200,54 @@ CREATE TABLE hive.abfs_export.orders_abfs
 WITH (format = 'ORC')
 AS SELECT * FROM tpch.sf1.orders;
 ```
+
+(fs-legacy-azure-migration)=
+## Migration to Azure Storage file system
+
+Trino includes a [native implementation to access Azure
+Storage](/object-storage/file-system-azure) with a catalog using the Delta Lake,
+Hive, Hudi, or Iceberg connectors. Upgrading existing deployments to the new
+native implementation is recommended. Legacy support will be deprecated and
+removed.
+
+To migrate a catalog to use the native file system implementation for Azure,
+make the following edits to your catalog configuration:
+
+1. Add the `fs.native-azure.enabled=true` catalog configuration property.
+2. Configure the `azure.auth-type` catalog configuration property.
+3. Refer to the following table to rename your existing legacy catalog
+   configuration properties to the corresponding native configuration
+   properties. Supported configuration values are identical unless otherwise
+   noted.
+
+  :::{list-table}
+  :widths: 35, 35, 65
+  :header-rows: 1
+   * - Legacy property
+     - Native property
+     - Notes
+   * - `hive.azure.abfs-access-key`
+     - `azure.access-key`
+     -
+   * - `hive.azure.abfs.oauth.endpoint`
+     - `azure.oauth.endpoint`
+     - Also see `azure.oauth.tenant-id` in [](azure-oauth-authentication).
+   * - `hive.azure.abfs.oauth.client-id`
+     - `azure.oauth.client-id`
+     -
+   * - `hive.azure.abfs.oauth.secret`
+     - `azure.oauth.secret`
+     -
+   * - `hive.azure.abfs.oauth2.passthrough`
+     - `azure.use-oauth-passthrough-token`
+     -
+  :::
+
+4. Remove the following legacy configuration properties if they exist in your
+   catalog configuration:
+
+      * `hive.azure.abfs-storage-account`
+      * `hive.azure.wasb-access-key`
+      * `hive.azure.wasb-storage-account`
+
+For more information, see the [](/object-storage/file-system-azure).

@@ -51,7 +51,7 @@ public class TestTransactionLogTail
         TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
         TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tableLocation, Optional.of(10L), Optional.of(12L));
         Optional<TransactionLogTail> updatedLogTail = transactionLogTail.getUpdatedTail(fileSystem, tableLocation, Optional.empty());
-        assertThat(updatedLogTail.isPresent()).isTrue();
+        assertThat(updatedLogTail).isPresent();
         return updatedLogTail.get().getFileEntries();
     }
 

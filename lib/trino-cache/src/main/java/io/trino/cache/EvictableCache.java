@@ -24,6 +24,7 @@ import com.google.common.cache.RemovalCause;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import jakarta.annotation.Nullable;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
@@ -40,7 +41,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
@@ -68,9 +68,6 @@ class EvictableCache<K, V>
     // The dataCache must be bounded.
     private final LoadingCache<Token<K>, V> dataCache;
 
-    // Logically a concurrent Multiset
-    private final ConcurrentHashMap<Token<K>, Long> ongoingLoads = new ConcurrentHashMap<>();
-
     EvictableCache(CacheBuilder<? super Token<K>, ? super V> cacheBuilder, CacheLoader<? super K, V> cacheLoader)
     {
         dataCache = buildUnsafeCache(
@@ -78,13 +75,16 @@ class EvictableCache<K, V>
                         .<Token<K>, V>removalListener(removal -> {
                             Token<K> token = removal.getKey();
                             verify(token != null, "token is null");
-                            if (removal.getCause() == RemovalCause.REPLACED) {
-                                return;
+                            // synchronize ongoing load check and token removal
+                            synchronized (token) {
+                                if (removal.getCause() == RemovalCause.REPLACED) {
+                                    return;
+                                }
+                                if (removal.getCause() == RemovalCause.EXPIRED && token.hasOngoingLoad()) {
+                                    return;
+                                }
+                                tokens.remove(token.getKey(), token);
                             }
-                            if (removal.getCause() == RemovalCause.EXPIRED && ongoingLoads.containsKey(token)) {
-                                return;
-                            }
-                            tokens.remove(token.getKey(), token);
                         }),
                 new TokenCacheLoader<>(cacheLoader));
     }
@@ -113,12 +113,12 @@ class EvictableCache<K, V>
         Token<K> newToken = new Token<>(key);
         Token<K> token = tokens.computeIfAbsent(key, _ -> newToken);
         try {
-            startLoading(token);
+            token.startLoading();
             try {
                 return dataCache.get(token, valueLoader);
             }
             finally {
-                endLoading(token);
+                token.endLoading();
             }
         }
         catch (Throwable e) {
@@ -142,12 +142,12 @@ class EvictableCache<K, V>
         Token<K> newToken = new Token<>(key);
         Token<K> token = tokens.computeIfAbsent(key, _ -> newToken);
         try {
-            startLoading(token);
+            token.startLoading();
             try {
                 return dataCache.get(token);
             }
             finally {
-                endLoading(token);
+                token.endLoading();
             }
         }
         catch (Throwable e) {
@@ -215,27 +215,14 @@ class EvictableCache<K, V>
         }
     }
 
-    private void startLoading(Token<K> token)
-    {
-        ongoingLoads.compute(token, (_, count) -> firstNonNull(count, 0L) + 1);
-    }
-
-    private void endLoading(Token<K> token)
-    {
-        ongoingLoads.compute(token, (_, count) -> {
-            verify(count != null && count > 0, "Incorrect count for token %s: %s", token, count);
-            if (count == 1) {
-                return null;
-            }
-            return count - 1;
-        });
-    }
-
     // Token eviction via removalListener is blocked during loading, so we may need to do manual cleanup
     private void removeDangling(Token<K> token)
     {
-        if (!dataCache.asMap().containsKey(token)) {
-            tokens.remove(token.getKey(), token);
+        // synchronize to make accessing both collections thread-safe
+        synchronized (token) {
+            if (!dataCache.asMap().containsKey(token) && !token.hasOngoingLoad()) {
+                tokens.remove(token.getKey(), token);
+            }
         }
     }
 
@@ -431,6 +418,8 @@ class EvictableCache<K, V>
     static final class Token<K>
     {
         private final K key;
+        @GuardedBy("this")
+        private int ongoingLoads;
 
         Token(K key)
         {
@@ -446,6 +435,22 @@ class EvictableCache<K, V>
         public String toString()
         {
             return format("CacheToken(%s; %s)", Integer.toHexString(hashCode()), key);
+        }
+
+        synchronized boolean hasOngoingLoad()
+        {
+            return ongoingLoads > 0;
+        }
+
+        synchronized void startLoading()
+        {
+            ongoingLoads++;
+        }
+
+        synchronized void endLoading()
+        {
+            ongoingLoads--;
+            verify(ongoingLoads >= 0, "ongoingLoads must be greater than or equal 0");
         }
     }
 

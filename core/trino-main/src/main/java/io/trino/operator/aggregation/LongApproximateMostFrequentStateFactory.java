@@ -74,13 +74,11 @@ public class LongApproximateMostFrequentStateFactory
         @Override
         public void set(ApproximateMostFrequentHistogram<Long> histogram)
         {
-            ApproximateMostFrequentHistogram<Long> previous = get();
+            ApproximateMostFrequentHistogram<Long> previous = histograms.getAndSet(getGroupId(), histogram);
+            size += histogram.estimatedInMemorySize();
             if (previous != null) {
                 size -= previous.estimatedInMemorySize();
             }
-
-            histograms.set(getGroupId(), histogram);
-            size += histogram.estimatedInMemorySize();
         }
 
         @Override

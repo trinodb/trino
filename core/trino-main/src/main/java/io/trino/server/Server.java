@@ -22,6 +22,9 @@ import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.compress.v3.lz4.Lz4NativeCompressor;
+import io.airlift.compress.v3.snappy.SnappyNativeCompressor;
+import io.airlift.compress.v3.zstd.ZstdNativeCompressor;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceAnnouncement;
@@ -36,7 +39,6 @@ import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
-import io.airlift.tracetoken.TraceTokenModule;
 import io.airlift.tracing.TracingModule;
 import io.airlift.units.Duration;
 import io.trino.client.NodeVersion;
@@ -57,6 +59,7 @@ import io.trino.metadata.CatalogManager;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AccessControlModule;
 import io.trino.security.GroupProviderManager;
+import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
@@ -118,7 +121,6 @@ public class Server
                 new JmxHttpModule(),
                 new JmxOpenMetricsModule(),
                 new LogJmxModule(),
-                new TraceTokenModule(),
                 new TracingModule("trino", trinoVersion),
                 new EventModule(),
                 new JsonEventModule(),
@@ -135,21 +137,24 @@ public class Server
 
         modules.addAll(getAdditionalModules());
 
-        Bootstrap app = new Bootstrap(modules.build());
+        Bootstrap app = new Bootstrap(modules.build())
+                .loadSecretsPlugins();
 
         try {
             Injector injector = app.initialize();
 
             log.info("Trino version: %s", injector.getInstance(NodeVersion.class).getVersion());
+            log.info("Zstandard native compression: %s", formatEnabled(ZstdNativeCompressor.isEnabled()));
+            log.info("Lz4 native compression: %s", formatEnabled(Lz4NativeCompressor.isEnabled()));
+            log.info("Snappy native compression: %s", formatEnabled(SnappyNativeCompressor.isEnabled()));
+
             logLocation(log, "Working directory", Paths.get("."));
             logLocation(log, "Etc directory", Paths.get("etc"));
 
             injector.getInstance(PluginInstaller.class).loadPlugins();
 
             var catalogStoreManager = injector.getInstance(Key.get(new TypeLiteral<Optional<CatalogStoreManager>>() {}));
-            if (catalogStoreManager.isPresent()) {
-                catalogStoreManager.get().loadConfiguredCatalogStore();
-            }
+            catalogStoreManager.ifPresent(CatalogStoreManager::loadConfiguredCatalogStore);
 
             ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
             connectorServicesProvider.loadInitialCatalogs();
@@ -173,12 +178,16 @@ public class Server
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             injector.getInstance(Key.get(new TypeLiteral<Optional<PasswordAuthenticatorManager>>() {}))
                     .ifPresent(PasswordAuthenticatorManager::loadPasswordAuthenticator);
-            injector.getInstance(EventListenerManager.class).loadEventListeners();
             injector.getInstance(GroupProviderManager.class).loadConfiguredGroupProvider();
             injector.getInstance(ExchangeManagerRegistry.class).loadExchangeManager();
+            injector.getInstance(SpoolingManagerRegistry.class).loadSpoolingManager();
             injector.getInstance(CertificateAuthenticatorManager.class).loadCertificateAuthenticator();
             injector.getInstance(Key.get(new TypeLiteral<Optional<HeaderAuthenticatorManager>>() {}))
                     .ifPresent(HeaderAuthenticatorManager::loadHeaderAuthenticator);
+
+            if (injector.getInstance(ServerConfig.class).isCoordinator()) {
+                injector.getInstance(EventListenerManager.class).loadEventListeners();
+            }
 
             injector.getInstance(Key.get(new TypeLiteral<Optional<OAuth2Client>>() {}))
                     .ifPresent(OAuth2Client::load);
@@ -186,7 +195,6 @@ public class Server
             injector.getInstance(Announcer.class).start();
 
             injector.getInstance(StartupStatus.class).startupComplete();
-
             log.info("Server startup completed in %s", Duration.nanosSince(startTime).convertToMostSuccinctTimeUnit());
             log.info("======== SERVER STARTED ========");
         }
@@ -287,5 +295,10 @@ public class Server
             return;
         }
         log.info("%s: %s", name, path);
+    }
+
+    private static String formatEnabled(boolean flag)
+    {
+        return flag ? "enabled" : "disabled";
     }
 }

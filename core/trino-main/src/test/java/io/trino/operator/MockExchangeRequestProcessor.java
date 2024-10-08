@@ -100,7 +100,7 @@ public class MockExchangeRequestProcessor
         }
 
         // verify we got a data size and it parses correctly
-        assertThat(!request.getHeaders().get(InternalHeaders.TRINO_MAX_SIZE).isEmpty()).isTrue();
+        assertThat(request.getHeaders().get(InternalHeaders.TRINO_MAX_SIZE)).isNotEmpty();
         DataSize maxSize = DataSize.valueOf(request.getHeader(InternalHeaders.TRINO_MAX_SIZE));
         assertThat(maxSize).isEqualTo(expectedMaxSize);
 

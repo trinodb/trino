@@ -69,6 +69,7 @@ class TestSqlParserRoutines
         assertThat(functionSpecification("FUNCTION foo() RETURNS bigint RETURN 42"))
                 .ignoringLocation()
                 .isEqualTo(new FunctionSpecification(
+                        location(),
                         QualifiedName.of("foo"),
                         ImmutableList.of(),
                         returns(type("bigint")),
@@ -89,6 +90,7 @@ class TestSqlParserRoutines
                 .ignoringLocation()
                 .isEqualTo(query(
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("answer"),
                                 ImmutableList.of(),
                                 returns(type("BIGINT")),
@@ -112,16 +114,18 @@ class TestSqlParserRoutines
                 """))
                 .ignoringLocation()
                 .isEqualTo(new CreateFunction(
+                        location(),
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("hello"),
                                 ImmutableList.of(parameter("s", type("VARCHAR"))),
                                 returns(type("varchar")),
                                 ImmutableList.of(
-                                        new LanguageCharacteristic(identifier("SQL")),
-                                        new DeterministicCharacteristic(true),
+                                        new LanguageCharacteristic(location(), identifier("SQL")),
+                                        new DeterministicCharacteristic(location(), true),
                                         calledOnNullInput(),
-                                        new SecurityCharacteristic(INVOKER),
-                                        new CommentCharacteristic("hello world function")),
+                                        new SecurityCharacteristic(location(), INVOKER),
+                                        new CommentCharacteristic(new NodeLocation(1, 1), "hello world function")),
                                 new ReturnStatement(location(), functionCall(
                                         "CONCAT",
                                         literal("Hello, "),
@@ -140,7 +144,9 @@ class TestSqlParserRoutines
                 """))
                 .ignoringLocation()
                 .isEqualTo(new CreateFunction(
+                        location(),
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("answer"),
                                 ImmutableList.of(),
                                 returns(type("bigint")),
@@ -173,7 +179,9 @@ class TestSqlParserRoutines
                 """))
                 .ignoringLocation()
                 .isEqualTo(new CreateFunction(
+                        location(),
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("fib"),
                                 ImmutableList.of(parameter("n", type("bigint"))),
                                 returns(type("bigint")),
@@ -224,13 +232,15 @@ class TestSqlParserRoutines
                 """))
                 .ignoringLocation()
                 .isEqualTo(new CreateFunction(
+                        location(),
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("CustomerLevel"),
                                 ImmutableList.of(parameter("p_creditLimit", type("DOUBLE"))),
                                 returns(type("varchar")),
                                 ImmutableList.of(
                                         returnsNullOnNullInput(),
-                                        new SecurityCharacteristic(DEFINER)),
+                                        new SecurityCharacteristic(location(), DEFINER)),
                                 beginEnd(
                                         ImmutableList.of(declare("lvl", type("VarChar"))),
                                         new IfStatement(

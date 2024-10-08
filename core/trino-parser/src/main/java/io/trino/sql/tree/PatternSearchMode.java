@@ -27,19 +27,9 @@ public final class PatternSearchMode
 {
     private final Mode mode;
 
-    public PatternSearchMode(Mode mode)
-    {
-        this(Optional.empty(), mode);
-    }
-
     public PatternSearchMode(NodeLocation location, Mode mode)
     {
-        this(Optional.of(location), mode);
-    }
-
-    public PatternSearchMode(Optional<NodeLocation> location, Mode mode)
-    {
-        super(location);
+        super(Optional.of(location));
         this.mode = requireNonNull(mode, "mode is null");
     }
 

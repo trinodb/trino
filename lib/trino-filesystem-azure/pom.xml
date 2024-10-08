@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>452</version>
+        <version>460</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -20,12 +20,6 @@
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-core</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.dataformat</groupId>
-                    <artifactId>jackson-dataformat-xml</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -64,10 +58,6 @@
                 <exclusion>
                     <groupId>com.azure</groupId>
                     <artifactId>azure-core-http-netty</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.dataformat</groupId>
-                    <artifactId>jackson-dataformat-xml</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -150,9 +140,21 @@
         </dependency>
 
         <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-xml</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.nimbusds</groupId>
             <artifactId>oauth2-oidc-sdk</artifactId>
             <classifier>jdk11</classifier>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -167,6 +169,12 @@
             <artifactId>trino-filesystem</artifactId>
             <version>${project.version}</version>
             <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -196,10 +204,10 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestAzureFileSystemGen2Flat.java</exclude>
-                                <exclude>**/TestAzureFileSystemGen2Hierarchical.java</exclude>
-                                <exclude>**/TestAzureFileSystemOAuthGen2Flat.java</exclude>
-                                <exclude>**/TestAzureFileSystemOAuthGen2Hierarchical.java</exclude>
+                                <exclude>**/TestAzureFileSystemGen2Flat*.java</exclude>
+                                <exclude>**/TestAzureFileSystemGen2Hierarchical*.java</exclude>
+                                <exclude>**/TestAzureFileSystemOAuthGen2Flat*.java</exclude>
+                                <exclude>**/TestAzureFileSystemOAuthGen2Hierarchical*.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -216,10 +224,10 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestAzureFileSystemGen2Flat.java</include>
-                                <include>**/TestAzureFileSystemGen2Hierarchical.java</include>
-                                <include>**/TestAzureFileSystemOAuthGen2Flat.java</include>
-                                <include>**/TestAzureFileSystemOAuthGen2Hierarchical.java</include>
+                                <include>**/TestAzureFileSystemGen2Flat*.java</include>
+                                <include>**/TestAzureFileSystemGen2Hierarchical*.java</include>
+                                <include>**/TestAzureFileSystemOAuthGen2Flat*.java</include>
+                                <include>**/TestAzureFileSystemOAuthGen2Hierarchical*.java</include>
                             </includes>
                         </configuration>
                     </plugin>

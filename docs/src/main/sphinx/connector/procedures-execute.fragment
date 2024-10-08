@@ -1,0 +1,28 @@
+#### `system.execute('query')`
+
+The `execute` procedure allows you to execute a query in the underlying data
+source directly. The query must use supported syntax of the connected data
+source. Use the procedure to access features which are not available in Trino
+or to execute queries that return no result set and therefore can not be used
+with the `query` or `raw_query` pass-through table function. Typical use cases
+are statements that create or alter objects, and require native feature such
+as constraints, default values, automatic identifier creation, or indexes.
+Queries can also invoke statements that insert, update, or delete data, and do
+not return any data as a result.
+
+The query text is not parsed by Trino, only passed through, and therefore only
+subject to any security or access control of the underlying data source.
+
+The following example sets the current database to the `example_schema` of the
+`example` catalog. Then it calls the procedure in that schema to drop the
+default value from `your_column` on `your_table` table using the standard SQL
+syntax in the parameter value assigned for `query`:
+
+```sql
+USE example.example_schema;
+CALL system.execute(query => 'ALTER TABLE your_table ALTER COLUMN your_column DROP DEFAULT');
+```
+
+Verify that the specific database supports this syntax, and adapt as necessary
+based on the documentation for the specific connected database and database
+version.

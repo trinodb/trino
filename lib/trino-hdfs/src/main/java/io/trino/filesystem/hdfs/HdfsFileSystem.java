@@ -34,6 +34,7 @@ import org.apache.hadoop.hdfs.DistributedFileSystem;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -81,13 +82,19 @@ class HdfsFileSystem
     @Override
     public TrinoInputFile newInputFile(Location location)
     {
-        return new HdfsInputFile(location, null, environment, context, stats.getOpenFileCalls());
+        return new HdfsInputFile(location, null, null, environment, context, stats.getOpenFileCalls());
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
-        return new HdfsInputFile(location, length, environment, context, stats.getOpenFileCalls());
+        return new HdfsInputFile(location, length, null, environment, context, stats.getOpenFileCalls());
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+    {
+        return new HdfsInputFile(location, length, lastModified, environment, context, stats.getOpenFileCalls());
     }
 
     @Override
@@ -225,6 +232,7 @@ class HdfsFileSystem
     }
 
     @Override
+    // Warning: HDFS does not guarantee order of the returned files for local ViewFS which breaks the contract of this method.
     public FileIterator listFiles(Location location)
             throws IOException
     {

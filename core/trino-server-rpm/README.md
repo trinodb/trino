@@ -32,7 +32,7 @@ After installing Trino from the RPM, you can run:
 We use the following directory structure to deploy various Trino artifacts.
 
 * `/usr/lib/trino/lib/`: Various libraries needed to run the product. Plugins go in a `plugin` subdirectory.
-* `/etc/trino`: General Trino configuration files like `node.properties`, `jvm.config`, `config.properties`. Connector configs go in a `catalog` subdirectory
+* `/etc/trino`: General Trino configuration files like `node.properties`, `jvm.config`, `config.properties`, `secrets.toml`. Connector configs go in a `catalog` subdirectory
 * `/etc/trino/env.sh`: Java installation path used by Trino
 * `/var/log/trino`: Log files
 * `/var/lib/trino/data`: Data directory

@@ -22,6 +22,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FunctionName;
@@ -57,7 +58,7 @@ public class RewriteStringReverseFunction
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(ConnectorExpression projectionExpression, Captures captures, RewriteContext<ParameterizedExpression> context)
+    public Optional<JdbcExpression> rewrite(ConnectorTableHandle handle, ConnectorExpression projectionExpression, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         Variable argument = captures.get(ARGUMENT);
         JdbcTypeHandle typeHandle = ((JdbcColumnHandle) context.getAssignment(argument.getName())).getJdbcTypeHandle();

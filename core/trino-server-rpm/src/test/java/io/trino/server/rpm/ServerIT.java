@@ -75,8 +75,8 @@ public class ServerIT
             throws Exception
     {
         // Release names as in the https://api.adoptium.net/q/swagger-ui/#/Release%20Info/getReleaseNames
-        testInstall("jdk-22.0.1+8", "/usr/lib/jvm/temurin-22", "22");
-        testUninstall("jdk-22.0.1+8", "/usr/lib/jvm/temurin-22");
+        testInstall("jdk-23+37", "/usr/lib/jvm/temurin-23", "23");
+        testUninstall("jdk-23+37", "/usr/lib/jvm/temurin-23");
     }
 
     private void testInstall(String temurinReleaseName, String javaHome, String expectedJavaVersion)
@@ -176,6 +176,7 @@ public class ServerIT
             assertThatPaths(files)
                     .path("/usr/lib/trino/etc").linksTo("/etc/trino")
                     .exists("/etc/trino/config.properties")
+                    .exists("/etc/trino/secrets.toml")
                     .exists("/etc/trino/jvm.config")
                     .exists("/etc/trino/env.sh")
                     .exists("/etc/trino/log.properties")
@@ -188,6 +189,11 @@ public class ServerIT
                     .exists("/usr/shared/doc/trino/README.txt")
                     // Plugins' libs are always hardlinks
                     .paths("/usr/lib/trino/plugin/[a-z_]+\\.jar", path -> {
+                        String filename = Path.of(path.getPath()).getFileName().toString();
+                        path.isLink().linksTo("../../shared/" + filename);
+                    })
+                    // secrets-plugins libs are always hardlinks
+                    .paths("/usr/lib/trino/secrets-plugin/[a-z_]+\\.jar", path -> {
                         String filename = Path.of(path.getPath()).getFileName().toString();
                         path.isLink().linksTo("../../shared/" + filename);
                     });

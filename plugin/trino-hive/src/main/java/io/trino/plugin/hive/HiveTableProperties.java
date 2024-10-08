@@ -15,8 +15,8 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.trino.metastore.SortingColumn;
 import io.trino.plugin.hive.HiveWritableTableHandle.BucketInfo;
-import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.plugin.hive.util.HiveUtil;

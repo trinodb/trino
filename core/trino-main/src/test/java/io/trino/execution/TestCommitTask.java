@@ -14,6 +14,8 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
@@ -25,6 +27,7 @@ import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.Commit;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.AfterAll;
@@ -77,14 +80,14 @@ public class TestCommitTask
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, transactionManager);
-        assertThat(stateMachine.getSession().getTransactionId().isPresent()).isTrue();
+        assertThat(stateMachine.getSession().getTransactionId()).isPresent();
         assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
 
-        getFutureValue(new CommitTask(transactionManager).execute(new Commit(), stateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(new CommitTask(transactionManager).execute(new Commit(new NodeLocation(1, 1)), stateMachine, emptyList(), WarningCollector.NOOP));
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isTrue();
-        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isEmpty();
 
-        assertThat(transactionManager.getAllTransactionInfos().isEmpty()).isTrue();
+        assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
     }
 
     @Test
@@ -97,13 +100,13 @@ public class TestCommitTask
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, transactionManager);
 
         assertTrinoExceptionThrownBy(
-                () -> getFutureValue(new CommitTask(transactionManager).execute(new Commit(), stateMachine, emptyList(), WarningCollector.NOOP)))
+                () -> getFutureValue(new CommitTask(transactionManager).execute(new Commit(new NodeLocation(1, 1)), stateMachine, emptyList(), WarningCollector.NOOP)))
                 .hasErrorCode(NOT_IN_TRANSACTION);
 
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
-        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isEmpty();
 
-        assertThat(transactionManager.getAllTransactionInfos().isEmpty()).isTrue();
+        assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
     }
 
     @Test
@@ -116,14 +119,14 @@ public class TestCommitTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, transactionManager);
 
-        Future<?> future = new CommitTask(transactionManager).execute(new Commit(), stateMachine, emptyList(), WarningCollector.NOOP);
+        Future<?> future = new CommitTask(transactionManager).execute(new Commit(new NodeLocation(1, 1)), stateMachine, emptyList(), WarningCollector.NOOP);
         assertTrinoExceptionThrownBy(() -> getFutureValue(future))
                 .hasErrorCode(UNKNOWN_TRANSACTION);
 
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isTrue(); // Still issue clear signal
-        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isEmpty();
 
-        assertThat(transactionManager.getAllTransactionInfos().isEmpty()).isTrue();
+        assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
     }
 
     private QueryStateMachine createQueryStateMachine(String query, Session session, TransactionManager transactionManager)
@@ -137,7 +140,7 @@ public class TestCommitTask
                 new ResourceGroupId("test"),
                 true,
                 transactionManager,
-                new AccessControlManager(NodeVersion.UNKNOWN, transactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), DefaultSystemAccessControl.NAME),
+                new AccessControlManager(NodeVersion.UNKNOWN, transactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), new SecretsResolver(ImmutableMap.of()), DefaultSystemAccessControl.NAME),
                 executor,
                 metadata,
                 WarningCollector.NOOP,

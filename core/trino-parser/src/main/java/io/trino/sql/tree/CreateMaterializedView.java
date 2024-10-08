@@ -34,7 +34,7 @@ public class CreateMaterializedView
     private final Optional<String> comment;
 
     public CreateMaterializedView(
-            Optional<NodeLocation> location,
+            NodeLocation location,
             QualifiedName name,
             Query query,
             boolean replace,
@@ -43,7 +43,7 @@ public class CreateMaterializedView
             List<Property> properties,
             Optional<String> comment)
     {
-        super(location);
+        super(Optional.of(location));
         this.name = requireNonNull(name, "name is null");
         this.query = requireNonNull(query, "query is null");
         this.replace = replace;

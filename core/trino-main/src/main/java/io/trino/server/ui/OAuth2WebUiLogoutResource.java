@@ -13,7 +13,6 @@
  */
 package io.trino.server.ui;
 
-import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.security.oauth2.OAuth2Client;
@@ -22,7 +21,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriInfo;
 
@@ -34,7 +32,7 @@ import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
 import static io.trino.server.ui.OAuthWebUiCookie.delete;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.trino.web.ui.WebUiResources.webUiResource;
 import static java.util.Objects.requireNonNull;
 
 @Path(UI_LOGOUT)
@@ -50,7 +48,7 @@ public class OAuth2WebUiLogoutResource
 
     @ResourceSecurity(WEB_UI)
     @GET
-    public Response logout(@Context HttpHeaders httpHeaders, @Context UriInfo uriInfo, @Context SecurityContext securityContext)
+    public Response logout(@Context HttpHeaders httpHeaders, @Context UriInfo uriInfo)
             throws IOException
     {
         Optional<String> idToken = OAuthIdTokenCookie.read(httpHeaders.getCookies());
@@ -67,10 +65,9 @@ public class OAuth2WebUiLogoutResource
     @ResourceSecurity(PUBLIC)
     @GET
     @Path("/logout.html")
-    public Response logoutPage(@Context HttpHeaders httpHeaders, @Context UriInfo uriInfo, @Context SecurityContext securityContext)
+    public Response logoutPage()
             throws IOException
     {
-        return Response.ok(Resources.toString(Resources.getResource(getClass(), "/oauth2/logout.html"), UTF_8))
-                .build();
+        return webUiResource("/oauth2/logout.html");
     }
 }

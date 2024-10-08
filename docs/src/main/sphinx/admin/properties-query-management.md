@@ -109,15 +109,6 @@ memory availability. Supports the following values:
 Only applies for queries with task level retries enabled (`retry-policy=TASK`)
 :::
 
-## `query.low-memory-killer.delay`
-
-- **Type:** {ref}`prop-type-duration`
-- **Default value:** `30s`
-
-The amount of time a query is allowed to recover between running out of memory
-and being killed, if `query.low-memory-killer.policy` or
-`task.low-memory-killer.policy` is set to value different from `none`.
-
 ## `query.max-execution-time`
 
 - **Type:** {ref}`prop-type-duration`

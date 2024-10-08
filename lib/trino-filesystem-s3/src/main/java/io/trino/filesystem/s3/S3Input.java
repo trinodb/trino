@@ -16,6 +16,7 @@ package io.trino.filesystem.s3;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import software.amazon.awssdk.core.exception.AbortedException;
+import software.amazon.awssdk.core.exception.RetryableException;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -24,7 +25,6 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import java.io.EOFException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InterruptedIOException;
 
 import static java.util.Objects.checkFromIndexSize;
@@ -61,11 +61,9 @@ final class S3Input
         String range = "bytes=%s-%s".formatted(position, (position + length) - 1);
         GetObjectRequest rangeRequest = request.toBuilder().range(range).build();
 
-        try (InputStream in = getObject(rangeRequest)) {
-            int n = readNBytes(in, buffer, offset, length);
-            if (n < length) {
-                throw new EOFException("Read %s of %s requested bytes: %s".formatted(n, length, location));
-            }
+        int n = read(buffer, offset, length, rangeRequest);
+        if (n < length) {
+            throw new EOFException("Read %s of %s requested bytes: %s".formatted(n, length, location));
         }
     }
 
@@ -82,9 +80,7 @@ final class S3Input
         String range = "bytes=-%s".formatted(length);
         GetObjectRequest rangeRequest = request.toBuilder().range(range).build();
 
-        try (InputStream in = getObject(rangeRequest)) {
-            return readNBytes(in, buffer, offset, length);
-        }
+        return read(buffer, offset, length, rangeRequest);
     }
 
     @Override
@@ -101,28 +97,27 @@ final class S3Input
         }
     }
 
-    private InputStream getObject(GetObjectRequest request)
+    private int read(byte[] buffer, int offset, int length, GetObjectRequest rangeRequest)
             throws IOException
     {
         try {
-            return client.getObject(request);
+            return client.getObject(rangeRequest, (_, inputStream) -> {
+                try {
+                    return inputStream.readNBytes(buffer, offset, length);
+                }
+                catch (AbortedException _) {
+                    throw new InterruptedIOException();
+                }
+                catch (IOException e) {
+                    throw RetryableException.create("Error reading getObject response", e);
+                }
+            });
         }
-        catch (NoSuchKeyException e) {
+        catch (NoSuchKeyException _) {
             throw new FileNotFoundException(location.toString());
         }
         catch (SdkException e) {
             throw new IOException("Failed to open S3 file: " + location, e);
-        }
-    }
-
-    private static int readNBytes(InputStream in, byte[] buffer, int offset, int length)
-            throws IOException
-    {
-        try {
-            return in.readNBytes(buffer, offset, length);
-        }
-        catch (AbortedException e) {
-            throw new InterruptedIOException();
         }
     }
 }

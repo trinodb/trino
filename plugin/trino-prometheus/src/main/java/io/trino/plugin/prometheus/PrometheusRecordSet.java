@@ -14,10 +14,10 @@
 package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
+import okhttp3.ResponseBody;
 
 import java.net.URI;
 import java.util.List;
@@ -29,7 +29,7 @@ public class PrometheusRecordSet
 {
     private final List<PrometheusColumnHandle> columnHandles;
     private final List<Type> columnTypes;
-    private final ByteSource byteSource;
+    private final ResponseBody responseBody;
 
     public PrometheusRecordSet(PrometheusClient prometheusClient, PrometheusSplit split, List<PrometheusColumnHandle> columnHandles)
     {
@@ -43,7 +43,7 @@ public class PrometheusRecordSet
         }
         this.columnTypes = types.build();
 
-        this.byteSource = ByteSource.wrap(prometheusClient.fetchUri(URI.create(split.getUri())));
+        this.responseBody = prometheusClient.fetchUri(URI.create(split.getUri()));
     }
 
     @Override
@@ -55,6 +55,6 @@ public class PrometheusRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new PrometheusRecordCursor(columnHandles, byteSource);
+        return new PrometheusRecordCursor(columnHandles, responseBody);
     }
 }

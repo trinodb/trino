@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-class InMemoryTrinoResultSet
+public class InMemoryTrinoResultSet
         extends AbstractTrinoResultSet
 {
     private final AtomicBoolean closed = new AtomicBoolean();

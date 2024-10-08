@@ -146,8 +146,8 @@ public class TestPagesSerde
     {
         Optional<SecretKey> encryptionKey = encryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
         for (CompressionCodec compressionCodec : CompressionCodec.values()) {
-            PageSerializer serializer = new PageSerializer(blockEncodingSerde, createCompressor(compressionCodec), encryptionKey, blockSizeInBytes);
-            PageDeserializer deserializer = new PageDeserializer(blockEncodingSerde, createDecompressor(compressionCodec), encryptionKey, blockSizeInBytes);
+            PageSerializer serializer = new PageSerializer(blockEncodingSerde, createCompressor(compressionCodec), encryptionKey, blockSizeInBytes, compressionCodec.maxCompressedLength(blockSizeInBytes));
+            PageDeserializer deserializer = new PageDeserializer(blockEncodingSerde, createDecompressor(compressionCodec), encryptionKey, blockSizeInBytes, compressionCodec.maxCompressedLength(blockSizeInBytes));
             for (Page page : pages) {
                 Slice serialized = serializer.serialize(page);
                 Page deserialized = deserializer.deserialize(serialized);
@@ -270,8 +270,8 @@ public class TestPagesSerde
         RolloverBlockSerde blockSerde = new RolloverBlockSerde();
         Optional<SecretKey> encryptionKey = encryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
         for (CompressionCodec compressionCodec : CompressionCodec.values()) {
-            PageSerializer serializer = new PageSerializer(blockSerde, createCompressor(compressionCodec), encryptionKey, blockSize);
-            PageDeserializer deserializer = new PageDeserializer(blockSerde, createDecompressor(compressionCodec), encryptionKey, blockSize);
+            PageSerializer serializer = new PageSerializer(blockSerde, createCompressor(compressionCodec), encryptionKey, blockSize, compressionCodec.maxCompressedLength(blockSize));
+            PageDeserializer deserializer = new PageDeserializer(blockSerde, createDecompressor(compressionCodec), encryptionKey, blockSize, compressionCodec.maxCompressedLength(blockSize));
 
             Page page = createTestPage(numberOfEntries);
             Slice serialized = serializer.serialize(page);

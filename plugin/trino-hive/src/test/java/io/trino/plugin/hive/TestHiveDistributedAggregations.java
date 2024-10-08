@@ -15,6 +15,10 @@ package io.trino.plugin.hive;
 
 import io.trino.testing.AbstractTestAggregations;
 import io.trino.testing.QueryRunner;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestHiveDistributedAggregations
         extends AbstractTestAggregations
@@ -26,5 +30,21 @@ public class TestHiveDistributedAggregations
         return HiveQueryRunner.builder()
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    @Test
+    public void testDistinctAggregationWithSystemTable()
+    {
+        String tableName = "test_dist_aggr_" + randomNameSuffix();
+        @Language("SQL") String createTable = """
+                CREATE TABLE %s
+                WITH (
+                partitioned_by = ARRAY[ 'regionkey', 'nationkey' ]
+                ) AS (SELECT name, comment, regionkey, nationkey FROM nation)
+                """.formatted(tableName);
+
+        assertUpdate(getSession(), createTable, 25);
+
+        assertQuerySucceeds("SELECT count(distinct regionkey), count(distinct nationkey) FROM \"%s$partitions\"".formatted(tableName));
     }
 }

@@ -313,13 +313,18 @@ statements, the connector supports the following features:
 - {doc}`/sql/create-table-as`
 - {doc}`/sql/drop-table`
 
-## Table functions
+### Procedures
+
+```{include} procedures-execute.fragment
+```
+
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access Cassandra.
 .. \_cassandra-query-function:
 
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying Cassandra directly. It
 requires syntax native to Cassandra, because the full query is pushed down and

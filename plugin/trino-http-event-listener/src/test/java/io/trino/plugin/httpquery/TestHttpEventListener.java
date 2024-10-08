@@ -128,6 +128,7 @@ final class TestHttpEventListener
         queryMetadata = new QueryMetadata(
                 "queryId",
                 Optional.empty(),
+                Optional.empty(),
                 "query",
                 Optional.of("updateType"),
                 Optional.of("preparedQuery"),
@@ -154,6 +155,7 @@ final class TestHttpEventListener
                 ofSeconds(1),
                 ofSeconds(1),
                 ofSeconds(1),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

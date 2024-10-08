@@ -27,19 +27,9 @@ public class SetPath
 {
     private final PathSpecification pathSpecification;
 
-    public SetPath(PathSpecification pathSpecification)
-    {
-        this(Optional.empty(), pathSpecification);
-    }
-
     public SetPath(NodeLocation location, PathSpecification pathSpecification)
     {
-        this(Optional.of(location), pathSpecification);
-    }
-
-    private SetPath(Optional<NodeLocation> location, PathSpecification pathSpecification)
-    {
-        super(location);
+        super(Optional.of(location));
         this.pathSpecification = requireNonNull(pathSpecification, "pathSpecification is null");
     }
 

@@ -129,9 +129,11 @@ public final class JsonUtil
     {
         // Jackson tries to detect the character encoding automatically when using InputStream
         // so we pass StringReader or an InputStreamReader instead.
+        // Despite the https://github.com/FasterXML/jackson-core/pull/1081, the below performance optimization
+        // is still valid for small inputs.
         if (json.length() < STRING_READER_LENGTH_LIMIT) {
             // StringReader is more performant than InputStreamReader for small inputs
-            return factory.createParser(new StringReader(new String(json.getBytes(), UTF_8)));
+            return factory.createParser(new StringReader(json.toStringUtf8()));
         }
 
         return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));

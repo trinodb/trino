@@ -527,8 +527,7 @@ public final class SqlFormatter
             builder.append("TABLE(");
             process(unaliased, indent);
             builder.append(")");
-            if (relation instanceof AliasedRelation) {
-                AliasedRelation aliasedRelation = (AliasedRelation) relation;
+            if (relation instanceof AliasedRelation aliasedRelation) {
                 builder.append(" AS ")
                         .append(formatName(aliasedRelation.getAlias()));
                 appendAliasColumns(builder, aliasedRelation.getColumnNames());
@@ -851,14 +850,12 @@ public final class SqlFormatter
             process(node.getRight(), indent);
 
             if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
-                if (criteria instanceof JoinUsing) {
-                    JoinUsing using = (JoinUsing) criteria;
+                if (criteria instanceof JoinUsing using) {
                     builder.append(" USING (")
                             .append(Joiner.on(", ").join(using.getColumns()))
                             .append(")");
                 }
-                else if (criteria instanceof JoinOn) {
-                    JoinOn on = (JoinOn) criteria;
+                else if (criteria instanceof JoinOn on) {
                     builder.append(" ON ")
                             .append(formatExpression(on.getExpression()));
                 }
@@ -1596,12 +1593,10 @@ public final class SqlFormatter
             String elementIndent = indentString(indent + 1);
             String columnList = node.getElements().stream()
                     .map(element -> {
-                        if (element instanceof ColumnDefinition) {
-                            ColumnDefinition column = (ColumnDefinition) element;
+                        if (element instanceof ColumnDefinition column) {
                             return elementIndent + formatColumnDefinition(column);
                         }
-                        if (element instanceof LikeClause) {
-                            LikeClause likeClause = (LikeClause) element;
+                        if (element instanceof LikeClause likeClause) {
                             StringBuilder builder = new StringBuilder(elementIndent);
                             builder.append("LIKE ")
                                     .append(formatName(likeClause.getTableName()));
@@ -1660,19 +1655,19 @@ public final class SqlFormatter
 
         private static String formatGrantor(GrantorSpecification grantor)
         {
-            GrantorSpecification.Type type = grantor.getType();
+            GrantorSpecification.Type type = grantor.type();
             return switch (type) {
                 case CURRENT_ROLE, CURRENT_USER -> type.name();
-                case PRINCIPAL -> formatPrincipal(grantor.getPrincipal().get());
+                case PRINCIPAL -> formatPrincipal(grantor.principal().get());
             };
         }
 
         private static String formatPrincipal(PrincipalSpecification principal)
         {
-            PrincipalSpecification.Type type = principal.getType();
+            PrincipalSpecification.Type type = principal.type();
             return switch (type) {
-                case UNSPECIFIED -> principal.getName().toString();
-                case USER, ROLE -> type.name() + " " + principal.getName();
+                case UNSPECIFIED -> principal.name().toString();
+                case USER, ROLE -> type.name() + " " + principal.name();
             };
         }
 
@@ -2071,7 +2066,11 @@ public final class SqlFormatter
         @Override
         protected Void visitDropRole(DropRole node, Integer indent)
         {
-            builder.append("DROP ROLE ").append(formatName(node.getName()));
+            builder.append("DROP ROLE ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getName()));
             node.getCatalog().ifPresent(catalog -> builder
                     .append(" IN ")
                     .append(formatName(catalog)));

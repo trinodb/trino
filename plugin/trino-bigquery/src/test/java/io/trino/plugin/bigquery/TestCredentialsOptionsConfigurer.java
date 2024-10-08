@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.Optional;
 
-import static io.trino.plugin.bigquery.CredentialsOptionsConfigurer.calculateBillingProjectId;
+import static io.trino.plugin.bigquery.CredentialsOptionsConfigurer.resolveProjectId;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCredentialsOptionsConfigurer
@@ -28,7 +28,7 @@ public class TestCredentialsOptionsConfigurer
     @Test
     public void testConfigurationOnly()
     {
-        String projectId = calculateBillingProjectId(Optional.of("pid"), Optional.empty());
+        String projectId = resolveProjectId(Optional.of("pid"), Optional.empty());
         assertThat(projectId).isEqualTo("pid");
     }
 
@@ -36,7 +36,7 @@ public class TestCredentialsOptionsConfigurer
     public void testCredentialsOnly()
             throws Exception
     {
-        String projectId = calculateBillingProjectId(Optional.empty(), credentials());
+        String projectId = resolveProjectId(Optional.empty(), credentials());
         assertThat(projectId).isEqualTo("presto-bq-credentials-test");
     }
 
@@ -44,7 +44,7 @@ public class TestCredentialsOptionsConfigurer
     public void testBothConfigurationAndCredentials()
             throws Exception
     {
-        String projectId = calculateBillingProjectId(Optional.of("pid"), credentials());
+        String projectId = resolveProjectId(Optional.of("pid"), credentials());
         assertThat(projectId).isEqualTo("pid");
     }
 

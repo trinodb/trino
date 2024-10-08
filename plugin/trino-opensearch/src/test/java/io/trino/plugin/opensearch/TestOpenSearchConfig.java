@@ -57,6 +57,7 @@ public class TestOpenSearchConfig
                 .setTruststorePassword(null)
                 .setVerifyHostnames(true)
                 .setIgnorePublishAddress(false)
+                .setProjectionPushdownEnabled(true)
                 .setSecurity(null));
     }
 
@@ -88,6 +89,7 @@ public class TestOpenSearchConfig
                 .put("opensearch.tls.truststore-password", "truststore-password")
                 .put("opensearch.tls.verify-hostnames", "false")
                 .put("opensearch.ignore-publish-address", "true")
+                .put("opensearch.projection-pushdown-enabled", "false")
                 .put("opensearch.security", "AWS")
                 .buildOrThrow();
 
@@ -112,6 +114,7 @@ public class TestOpenSearchConfig
                 .setTruststorePassword("truststore-password")
                 .setVerifyHostnames(false)
                 .setIgnorePublishAddress(true)
+                .setProjectionPushdownEnabled(false)
                 .setSecurity(AWS);
 
         assertFullMapping(properties, expected);

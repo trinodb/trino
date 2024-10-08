@@ -20,8 +20,8 @@ import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
-import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
+import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.IdentityCacheMapping.IdentityCacheKey;
@@ -93,7 +93,7 @@ public class CachingJdbcClient
 
     @Inject
     public CachingJdbcClient(
-            @StatsCollecting JdbcClient delegate,
+            @ForCaching JdbcClient delegate,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             IdentityCacheMapping identityMapping,
             BaseJdbcConfig config)
@@ -240,9 +240,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public Optional<JdbcExpression> convertProjection(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    public Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
-        return delegate.convertProjection(session, expression, assignments);
+        return delegate.convertProjection(session, handle, expression, assignments);
     }
 
     @Override
@@ -388,7 +388,7 @@ public class CachingJdbcClient
     public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
         delegate.commitCreateTable(session, handle, pageSinkIds);
-        invalidateTableCaches(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        invalidateTableCaches(handle.getRemoteTableName().getSchemaTableName());
     }
 
     @Override
@@ -401,7 +401,7 @@ public class CachingJdbcClient
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
         delegate.finishInsertTable(session, handle, pageSinkIds);
-        onDataChanged(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        onDataChanged(handle.getRemoteTableName().getSchemaTableName());
     }
 
     @Override
@@ -427,6 +427,13 @@ public class CachingJdbcClient
     public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
         return delegate.buildInsertSql(handle, columnWriters);
+    }
+
+    @Override
+    public Connection getConnection(ConnectorSession session)
+            throws SQLException
+    {
+        return delegate.getConnection(session);
     }
 
     @Override

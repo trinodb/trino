@@ -72,9 +72,6 @@ configured connector to create a catalog named `sales`.
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
 
-```{include} jdbc-procedures.fragment
-```
-
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
@@ -188,6 +185,13 @@ statements, the connector supports the following features:
 ```
 
 ```{include} alter-table-limitation.fragment
+```
+
+### Procedures
+
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} procedures-execute.fragment
 ```
 
 (ignite-pushdown)=

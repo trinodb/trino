@@ -151,6 +151,41 @@ public final class StateCompiler
         return ObjectBigArray.class;
     }
 
+    private static Class<?> bigArrayElementType(Class<?> bigArrayType)
+    {
+        if (bigArrayType.equals(LongBigArray.class)) {
+            return long.class;
+        }
+        if (bigArrayType.equals(ByteBigArray.class)) {
+            return byte.class;
+        }
+        if (bigArrayType.equals(DoubleBigArray.class)) {
+            return double.class;
+        }
+        if (bigArrayType.equals(BooleanBigArray.class)) {
+            return boolean.class;
+        }
+        if (bigArrayType.equals(IntBigArray.class)) {
+            return int.class;
+        }
+        if (bigArrayType.equals(SliceBigArray.class)) {
+            return Slice.class;
+        }
+        if (bigArrayType.equals(BlockBigArray.class)) {
+            return Block.class;
+        }
+        if (bigArrayType.equals(SqlMapBigArray.class)) {
+            return SqlMap.class;
+        }
+        if (bigArrayType.equals(SqlRowBigArray.class)) {
+            return SqlRow.class;
+        }
+        if (bigArrayType.equals(ObjectBigArray.class)) {
+            return Object.class;
+        }
+        throw new IllegalArgumentException("Unsupported bigArrayType: " + bigArrayType.getName());
+    }
+
     public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
     {
         return generateStateSerializer(clazz, ImmutableMap.of());
@@ -475,8 +510,9 @@ public final class StateCompiler
 
         ImmutableList.Builder<FieldDefinition> fieldDefinitions = ImmutableList.builder();
         FieldDefinition groupIdField = definition.declareField(a(PRIVATE), "groupId", int.class);
-        Class<?> valueElementType = inOutGetterReturnType(type);
-        FieldDefinition valueField = definition.declareField(a(PRIVATE, FINAL), "value", getBigArrayType(valueElementType));
+        Class<?> bigArrayType = getBigArrayType(type.getJavaType());
+        Class<?> valueElementType = bigArrayElementType(bigArrayType);
+        FieldDefinition valueField = definition.declareField(a(PRIVATE, FINAL), "value", bigArrayType);
         fieldDefinitions.add(valueField);
         constructor.getBody().append(constructor.getThis().setField(valueField, newInstance(valueField.getType())));
         Function<Scope, BytecodeExpression> valueGetter = scope -> scope.getThis().getField(valueField).invoke("get", valueElementType, scope.getThis().getField(groupIdField).cast(long.class));

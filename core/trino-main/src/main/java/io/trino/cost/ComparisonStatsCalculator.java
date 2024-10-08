@@ -97,7 +97,7 @@ public final class ComparisonStatsCalculator
                     .setNullsFraction(0.0)
                     .setDistinctValuesCount(max(expressionStatistics.getDistinctValuesCount() - 1, 0))
                     .build();
-            estimate = estimate.addSymbolStatistics(expressionSymbol.get(), symbolNewEstimate);
+            estimate.addSymbolStatistics(expressionSymbol.get(), symbolNewEstimate);
         }
         return estimate.build();
     }

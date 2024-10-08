@@ -39,6 +39,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertiesOnDelta;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertyOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -185,6 +186,27 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoDeletionVectors()
+    {
+        String tableName = "test_trino_deletion_vectors_" + randomNameSuffix();
+        onTrino().executeQuery("" +
+                "CREATE TABLE delta.default." + tableName +
+                "(a INT)" +
+                "WITH (deletion_vectors_enabled = true, location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "')");
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES 1, 2");
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 2");
+
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).containsOnly(row(1));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).containsOnly(row(1));
+            assertThat(getTablePropertyOnDelta("default", tableName, "delta.enableDeletionVectors")).isEqualTo("true");
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
     // Databricks 12.1 and OSS Delta 2.4.0 added support for deletion vectors
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
@@ -233,16 +255,16 @@ public class TestDeltaLakeDeleteCompatibility
             assertThat(onTrino().executeQuery("DESCRIBE delta.default." + tableName))
                     .contains(row("a", "integer", "", ""), row("b", "integer", "", ""));
 
-            // TODO https://github.com/trinodb/trino/issues/17063 Use Delta Deletion Vectors for row-level deletes
-            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (3, 33)"))
-                    .hasMessageContaining("Unsupported writer features: [deletionVectors]");
-            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName))
-                    .hasMessageContaining("Unsupported writer features: [deletionVectors]");
-            assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = 3"))
-                    .hasMessageContaining("Unsupported writer features: [deletionVectors]");
-            assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
-                    "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = -1"))
-                    .hasMessageContaining("Unsupported writer features: [deletionVectors]");
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (3, 33)");
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 1");
+            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = 30 WHERE b = 33");
+            onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
+                    "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = -1");
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(2, -1), row(30, -1));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(2, -1), row(30, -1));
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);

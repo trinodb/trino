@@ -40,19 +40,9 @@ public class WindowOperation
     private final Identifier name;
     private final Window window;
 
-    public WindowOperation(Identifier name, Window window)
-    {
-        this(Optional.empty(), name, window);
-    }
-
     public WindowOperation(NodeLocation location, Identifier name, Window window)
     {
-        this(Optional.of(location), name, window);
-    }
-
-    private WindowOperation(Optional<NodeLocation> location, Identifier name, Window window)
-    {
-        super(location);
+        super(Optional.of(location));
         requireNonNull(name, "name is null");
         requireNonNull(window, "window is null");
         checkArgument(window instanceof WindowReference || window instanceof WindowSpecification, "unexpected window: %s", window.getClass().getSimpleName());

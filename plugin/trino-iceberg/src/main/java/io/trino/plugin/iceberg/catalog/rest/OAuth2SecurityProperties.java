@@ -33,7 +33,11 @@ public class OAuth2SecurityProperties
 
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         securityConfig.getCredential().ifPresent(
-                value -> propertiesBuilder.put(OAuth2Properties.CREDENTIAL, value));
+                credential -> {
+                    propertiesBuilder.put(OAuth2Properties.CREDENTIAL, credential);
+                    securityConfig.getScope()
+                            .ifPresent(scope -> propertiesBuilder.put(OAuth2Properties.SCOPE, scope));
+                });
         securityConfig.getToken().ifPresent(
                 value -> propertiesBuilder.put(OAuth2Properties.TOKEN, value));
 

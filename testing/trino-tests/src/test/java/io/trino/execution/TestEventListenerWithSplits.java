@@ -117,17 +117,17 @@ public class TestEventListenerWithSplits
         assertThat(queryCreatedEvent.getContext().getEnvironment()).isEqualTo("testing");
         assertThat(queryCreatedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
         assertThat(queryCreatedEvent.getMetadata().getQuery()).isEqualTo("SELECT sum(linenumber) FROM lineitem");
-        assertThat(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent()).isFalse();
+        assertThat(queryCreatedEvent.getMetadata().getPreparedQuery()).isEmpty();
 
         QueryCompletedEvent queryCompletedEvent = queryEvents.getQueryCompletedEvent();
-        assertThat(queryCompletedEvent.getContext().getResourceGroupId().isPresent()).isTrue();
+        assertThat(queryCompletedEvent.getContext().getResourceGroupId()).isPresent();
         assertThat(queryCompletedEvent.getContext().getResourceGroupId().get()).isEqualTo(createResourceGroupId("global", "user-user"));
         assertThat(queryCompletedEvent.getIoMetadata().getOutput()).isEqualTo(Optional.empty());
         assertThat(queryCompletedEvent.getIoMetadata().getInputs().size()).isEqualTo(1);
         assertThat(queryCompletedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
         assertThat(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getCatalogName()).isEqualTo("tpch");
         assertThat(queryCreatedEvent.getMetadata().getQueryId()).isEqualTo(queryCompletedEvent.getMetadata().getQueryId());
-        assertThat(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent()).isFalse();
+        assertThat(queryCompletedEvent.getMetadata().getPreparedQuery()).isEmpty();
         assertThat(queryCompletedEvent.getStatistics().getCompletedSplits()).isEqualTo(SPLITS_PER_NODE + 2);
 
         List<SplitCompletedEvent> splitCompletedEvents = queryEvents.waitForSplitCompletedEvents(SPLITS_PER_NODE + 2, new Duration(30, SECONDS));
@@ -174,12 +174,12 @@ public class TestEventListenerWithSplits
         assertThat(statistics.isComplete()).isTrue();
 
         // Check only the presence because they are non-deterministic.
-        assertThat(statistics.getScheduledTime().isPresent()).isTrue();
-        assertThat(statistics.getResourceWaitingTime().isPresent()).isTrue();
-        assertThat(statistics.getAnalysisTime().isPresent()).isTrue();
-        assertThat(statistics.getPlanningTime().isPresent()).isTrue();
-        assertThat(statistics.getExecutionTime().isPresent()).isTrue();
-        assertThat(statistics.getPlanNodeStatsAndCosts().isPresent()).isTrue();
+        assertThat(statistics.getScheduledTime()).isPresent();
+        assertThat(statistics.getResourceWaitingTime()).isPresent();
+        assertThat(statistics.getAnalysisTime()).isPresent();
+        assertThat(statistics.getPlanningTime()).isPresent();
+        assertThat(statistics.getExecutionTime()).isPresent();
+        assertThat(statistics.getPlanNodeStatsAndCosts()).isPresent();
         assertThat(statistics.getCpuTime().getSeconds() >= 0).isTrue();
         assertThat(statistics.getWallTime().getSeconds() >= 0).isTrue();
         assertThat(statistics.getCpuTimeDistribution().size() > 0).isTrue();
@@ -201,15 +201,15 @@ public class TestEventListenerWithSplits
         assertThat(queryCreatedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
         assertThat(queryCreatedEvent.getContext().getQueryType().get()).isEqualTo(QueryType.SELECT);
         assertThat(queryCreatedEvent.getMetadata().getQuery()).isEqualTo("SELECT 1");
-        assertThat(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent()).isFalse();
+        assertThat(queryCreatedEvent.getMetadata().getPreparedQuery()).isEmpty();
 
         QueryCompletedEvent queryCompletedEvent = queryEvents.getQueryCompletedEvent();
-        assertThat(queryCompletedEvent.getContext().getResourceGroupId().isPresent()).isTrue();
+        assertThat(queryCompletedEvent.getContext().getResourceGroupId()).isPresent();
         assertThat(queryCompletedEvent.getContext().getResourceGroupId().get()).isEqualTo(createResourceGroupId("global", "user-user"));
         assertThat(queryCompletedEvent.getStatistics().getTotalRows()).isEqualTo(0L);
         assertThat(queryCompletedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
         assertThat(queryCreatedEvent.getMetadata().getQueryId()).isEqualTo(queryCompletedEvent.getMetadata().getQueryId());
-        assertThat(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent()).isFalse();
+        assertThat(queryCompletedEvent.getMetadata().getPreparedQuery()).isEmpty();
         assertThat(queryCompletedEvent.getContext().getQueryType().get()).isEqualTo(QueryType.SELECT);
 
         List<SplitCompletedEvent> splitCompletedEvents = queryEvents.waitForSplitCompletedEvents(1, new Duration(30, SECONDS));

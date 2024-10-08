@@ -227,7 +227,7 @@ public class TestJdbcWarnings
     private static SQLWarning fromTrinoWarnings(List<TrinoWarning> warnings)
     {
         requireNonNull(warnings, "warnings is null");
-        assertThat(warnings.isEmpty()).isFalse();
+        assertThat(warnings).isNotEmpty();
         Iterator<TrinoWarning> iterator = warnings.iterator();
         TrinoSqlWarning first = toTrinoSqlWarning(iterator.next());
         SQLWarning current = first;

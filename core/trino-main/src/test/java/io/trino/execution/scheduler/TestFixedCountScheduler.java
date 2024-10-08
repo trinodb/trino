@@ -78,7 +78,7 @@ public class TestFixedCountScheduler
         assertThat(result.isFinished()).isTrue();
         assertThat(result.getBlocked().isDone()).isTrue();
         assertThat(result.getNewTasks().size()).isEqualTo(1);
-        assertThat(result.getNewTasks().iterator().next().getNodeId().equals("other 0")).isTrue();
+        assertThat(result.getNewTasks().iterator().next().getNodeId()).isEqualTo("other 0");
     }
 
     @Test

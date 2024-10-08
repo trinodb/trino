@@ -71,7 +71,8 @@ public class TestS3FileSystemAwsS3
                 .setAwsAccessKey(accessKey)
                 .setAwsSecretKey(secretKey)
                 .setRegion(region)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")));
+                .setSupportsExclusiveCreate(true)
+                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
     }
 
     private static String environmentVariable(String name)
@@ -99,7 +100,7 @@ public class TestS3FileSystemAwsS3
                 List<FileEntry> listing = toList(getFileSystem().listFiles(getRootLocation().appendPath("test")));
                 FileEntry fileEntry = getOnlyElement(listing);
 
-                assertThat(fileEntry.tags().contains("s3:glacier")).isTrue();
+                assertThat(fileEntry.tags()).contains("s3:glacier");
             }
             finally {
                 s3Client.deleteObject(delete -> delete.bucket(bucket()).key(key));

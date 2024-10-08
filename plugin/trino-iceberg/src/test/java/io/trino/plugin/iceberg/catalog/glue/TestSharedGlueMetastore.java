@@ -84,22 +84,24 @@ public class TestSharedGlueMetastore
                 "iceberg",
                 ImmutableMap.of(
                         "iceberg.catalog.type", "glue",
-                        "hive.metastore.glue.default-warehouse-dir", dataDirectory.toString()));
+                        "hive.metastore.glue.default-warehouse-dir", dataDirectory.toString(),
+                        "fs.hadoop.enabled", "true"));
         queryRunner.createCatalog(
                 "iceberg_with_redirections",
                 "iceberg",
                 ImmutableMap.of(
                         "iceberg.catalog.type", "glue",
                         "hive.metastore.glue.default-warehouse-dir", dataDirectory.toString(),
-                        "iceberg.hive-catalog-name", "hive"));
+                        "iceberg.hive-catalog-name", "hive",
+                        "fs.hadoop.enabled", "true"));
 
         this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory, this::closeAfterClass);
         queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"), glueMetastore));
-        queryRunner.createCatalog(HIVE_CATALOG, "hive");
+        queryRunner.createCatalog(HIVE_CATALOG, "hive", ImmutableMap.of("fs.hadoop.enabled", "true"));
         queryRunner.createCatalog(
                 "hive_with_redirections",
                 "hive",
-                ImmutableMap.of("hive.iceberg-catalog-name", "iceberg"));
+                ImmutableMap.of("hive.iceberg-catalog-name", "iceberg", "fs.hadoop.enabled", "true"));
 
         queryRunner.execute("CREATE SCHEMA " + tpchSchema + " WITH (location = '" + dataDirectory.toUri() + "')");
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, icebergSession, ImmutableList.of(TpchTable.NATION));

@@ -66,6 +66,7 @@ public class TestCachedHiveGlueMetastore
                 .addHiveProperty("hive.metastore", "glue")
                 .addHiveProperty("hive.metastore.glue.default-warehouse-dir", "local:///glue")
                 .addHiveProperty("hive.metastore-cache-ttl", "1d")
+                .addHiveProperty("hive.metastore-refresh-interval", "1h")
                 .addHiveProperty("hive.security", "allow-all")
                 .setCreateTpchSchemas(false)
                 .build();
@@ -148,7 +149,7 @@ public class TestCachedHiveGlueMetastore
             // next query fails too, because query failure does not invalidate the cache
             assertQueryFails(select, "Partition location does not exist: " + partitionLocation);
             // flush cache
-            assertQuerySucceeds("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_flush_table')");
+            assertQuerySucceeds("CALL system.flush_metadata_cache()");
             assertInvocations(select, ImmutableMultiset.<GlueMetastoreMethod>builder()
                     .add(GET_TABLE)
                     .addCopies(GET_PARTITION_NAMES, 5)

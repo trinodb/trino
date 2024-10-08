@@ -27,8 +27,8 @@ The Hive connector requires a
 implementation of the Hive metastore, such as
 {ref}`AWS Glue <hive-glue-metastore>`.
 
-Many [distributed storage systems](hive-file-system-configuration) can be
-queried with the Hive connector.
+You must select and configure a [supported
+file system](hive-file-system-configuration) in your catalog configuration file.
 
 The coordinator and all workers must have network access to the Hive metastore
 and the storage system. Hive metastore access with the Thrift protocol defaults
@@ -38,8 +38,8 @@ Data files must be in a supported file format. File formats can be
 configured using the [`format` table property](hive-table-properties)
 and other specific properties:
 
-- {ref}`ORC <hive-orc-configuration>`
-- {ref}`Parquet <hive-parquet-configuration>`
+- {ref}`ORC <orc-format-configuration>`
+- {ref}`Parquet <parquet-format-configuration>`
 - Avro
 
 In the case of serializable formats, only specific
@@ -58,15 +58,21 @@ In the case of serializable formats, only specific
 ## General configuration
 
 To configure the Hive connector, create a catalog properties file
-`etc/catalog/example.properties` that references the `hive`
-connector and defines a metastore. You must configure a metastore for table
-metadata. If you are using a {ref}`Hive metastore <hive-thrift-metastore>`,
-`hive.metastore.uri` must be configured:
+`etc/catalog/example.properties` that references the `hive` connector.
+
+You must configure a [metastore for metadata](/object-storage/metastores).
+
+You must select and configure one of the [supported file
+systems](hive-file-system-configuration).
+
 
 ```properties
 connector.name=hive
 hive.metastore.uri=thrift://example.net:9083
+fs.x.enabled=true
 ```
+
+Replace the `fs.x.enabled` configuration property with the desired file system.
 
 If you are using {ref}`AWS Glue <hive-glue-metastore>` as your metastore, you
 must instead set `hive.metastore` to `glue`:
@@ -77,7 +83,7 @@ hive.metastore=glue
 ```
 
 Each metastore type has specific configuration properties along with
-{ref}`general metastore configuration properties <general-metastore-properties>`.
+[](general-metastore-properties).
 
 ### Multiple Hive clusters
 
@@ -115,6 +121,21 @@ Hive connector documentation.
 * - `hive.storage-format`
   - The default file format used when creating new tables.
   - `ORC`
+* - `hive.orc.use-column-names`
+  - Access ORC columns by name. By default, columns in ORC files are accessed by
+    their ordinal position in the Hive table definition. The equivalent catalog
+    session property is `orc_use_column_names`. See also,
+    [](orc-format-configuration)
+  - `false`
+* - `hive.parquet.use-column-names`
+  - Access Parquet columns by name by default. Set this property to `false` to
+    access columns by their ordinal position in the Hive table definition. The
+    equivalent catalog session property is `parquet_use_column_names`. See also,
+    [](parquet-format-configuration)
+  - `true`
+* - `hive.parquet.time-zone`
+  - Time zone for Parquet read and write.
+  - JVM default
 * - `hive.compression-codec`
   - The compression codec to use when writing files. Possible values are `NONE`,
     `SNAPPY`, `LZ4`, `ZSTD`, or `GZIP`.
@@ -275,17 +296,26 @@ Hive connector documentation.
 (hive-file-system-configuration)=
 ### File system access configuration
 
-The connector supports native, high-performance file system access to object
-storage systems:
+The connector supports accessing the following file systems:
 
-* [](/object-storage)
 * [](/object-storage/file-system-azure)
 * [](/object-storage/file-system-gcs)
 * [](/object-storage/file-system-s3)
+* [](/object-storage/file-system-hdfs)
 
-You must enable and configure the specific native file system access. If none is
-activated, the [legacy support](file-system-legacy) is used and must be
-configured.
+You must enable and configure the specific file system access. [Legacy
+support](file-system-legacy) is not recommended and will be removed.
+
+(hive-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy
+on non-transactional tables.
+
+Read operations are supported with any retry policy on transactional tables.
+Write operations and `CREATE TABLE ... AS` operations are not supported with
+any retry policy on transactional tables.
 
 (hive-security)=
 ## Security
@@ -641,7 +671,7 @@ type conversions.
 * - `TIMESTAMP`
   - `VARCHAR`, `DATE`
 * - `VARBINARY`
-  - `VARCHAR` 
+  - `VARCHAR`
 :::
 
 Any conversion failure results in null, which is the same behavior
@@ -1103,16 +1133,6 @@ functionality:
 - Support all Hive data types and correct mapping to Trino types
 - Ability to process custom UDFs
 
-(hive-fte-support)=
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy
-on non-transactional tables.
-
-Read operations are supported with any retry policy on transactional tables.
-Write operations and `CREATE TABLE ... AS` operations are not supported with
-any retry policy on transactional tables.
 
 ## Performance
 
@@ -1250,11 +1270,15 @@ session property `<hive-catalog>.dynamic_filtering_wait_timeout`.
 ```{include} table-redirection.fragment
 ```
 
-The connector supports redirection from Hive tables to Iceberg
-and Delta Lake tables with the following catalog configuration properties:
+The connector supports redirection from Hive tables to Iceberg, Delta Lake, and
+Hudi tables with the following catalog configuration properties:
 
-- `hive.iceberg-catalog-name` for redirecting the query to {doc}`/connector/iceberg`
-- `hive.delta-lake-catalog-name` for redirecting the query to {doc}`/connector/delta-lake`
+- `hive.iceberg-catalog-name`: Name of the catalog, configured with the
+  [](/connector/iceberg), to use for reading Iceberg tables.
+- `hive.delta-lake-catalog-name`: Name of the catalog, configured with the
+  [](/connector/delta-lake), to use for reading Delta Lake tables.
+- `hive.hudi-catalog-name`: Name of the catalog, configured with the
+  [](/connector/hudi), to use for reading Hudi tables.
 
 ### File system cache
 

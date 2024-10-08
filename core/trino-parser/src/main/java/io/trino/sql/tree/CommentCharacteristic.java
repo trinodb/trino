@@ -26,19 +26,9 @@ public final class CommentCharacteristic
 {
     private final String comment;
 
-    public CommentCharacteristic(String comment)
-    {
-        this(Optional.empty(), comment);
-    }
-
     public CommentCharacteristic(NodeLocation location, String comment)
     {
-        this(Optional.of(location), comment);
-    }
-
-    private CommentCharacteristic(Optional<NodeLocation> location, String comment)
-    {
-        super(location);
+        super(Optional.of(location));
         this.comment = requireNonNull(comment, "comment is null");
     }
 

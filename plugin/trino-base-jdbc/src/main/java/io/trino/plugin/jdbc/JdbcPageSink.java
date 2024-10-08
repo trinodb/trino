@@ -58,7 +58,13 @@ public class JdbcPageSink
     private final LongWriteFunction pageSinkIdWriteFunction;
     private final boolean includePageSinkIdColumn;
 
-    public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient, ConnectorPageSinkId pageSinkId, RemoteQueryModifier remoteQueryModifier)
+    public JdbcPageSink(
+            ConnectorSession session,
+            JdbcOutputTableHandle handle,
+            JdbcClient jdbcClient,
+            ConnectorPageSinkId pageSinkId,
+            RemoteQueryModifier remoteQueryModifier,
+            SinkSqlProvider sinkSqlProvider)
     {
         try {
             connection = jdbcClient.getConnection(session, handle);
@@ -111,7 +117,7 @@ public class JdbcPageSink
                     .collect(toImmutableList());
         }
 
-        String sinkSql = getSinkSql(jdbcClient, handle, columnWriters);
+        String sinkSql = sinkSqlProvider.getSinkSql(jdbcClient, handle, columnWriters);
         try {
             sinkSql = remoteQueryModifier.apply(session, sinkSql);
             statement = connection.prepareStatement(sinkSql);
@@ -126,11 +132,6 @@ public class JdbcPageSink
 
         // Making batch size configurable allows performance tuning for insert/write-heavy workloads over multiple connections.
         this.maxBatchSize = getWriteBatchSize(session);
-    }
-
-    protected String getSinkSql(JdbcClient jdbcClient, JdbcOutputTableHandle outputTableHandle, List<WriteFunction> columnWriters)
-    {
-        return jdbcClient.buildInsertSql(outputTableHandle, columnWriters);
     }
 
     @Override

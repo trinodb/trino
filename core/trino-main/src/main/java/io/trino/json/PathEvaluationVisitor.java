@@ -723,7 +723,7 @@ class PathEvaluationVisitor
         if (type instanceof DecimalType decimalType) {
             int precision = decimalType.getPrecision();
             int scale = decimalType.getScale();
-            if (((DecimalType) type).isShort()) {
+            if (decimalType.isShort()) {
                 long tenToScale = longTenToNth(DecimalConversions.intScale(scale));
                 return new TypedValue(DOUBLE, shortDecimalToDouble(typedValue.getLongValue(), precision, scale, tenToScale));
             }
@@ -852,7 +852,7 @@ class PathEvaluationVisitor
 
             // non-unique keys are not supported. if they were, we should follow the spec here on handling them.
             // see the comment in `visitIrMemberAccessor` method.
-            ((JsonNode) object).fields().forEachRemaining(
+            jsonNode.fields().forEachRemaining(
                     field -> outputSequence.add(new ObjectNode(
                             JsonNodeFactory.instance,
                             ImmutableMap.of(

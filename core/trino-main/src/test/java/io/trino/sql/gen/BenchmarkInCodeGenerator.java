@@ -24,6 +24,7 @@ import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -196,7 +197,7 @@ public class BenchmarkInCodeGenerator
                             ImmutableList.of(project),
                             Optional.empty(),
                             OptionalInt.empty())
-                    .get();
+                    .apply(DynamicFilter.EMPTY);
         }
     }
 

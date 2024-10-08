@@ -65,7 +65,6 @@ import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
-import static io.trino.spi.connector.SaveMode.IGNORE;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.expression.Constant.FALSE;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
@@ -133,7 +132,10 @@ public interface ConnectorMetadata
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
      * </pre>
      * unless {@code retryMode} is set to {@code NO_RETRIES}.
+     *
+     * @deprecated {Use {@link #getTableHandleForExecute(ConnectorSession, ConnectorAccessControl, ConnectorTableHandle, String, Map, RetryMode)}}
      */
+    @Deprecated
     default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
@@ -142,6 +144,27 @@ public interface ConnectorMetadata
             RetryMode retryMode)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
+    }
+
+    /**
+     * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
+     * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
+     * <p>
+     * If connector does not support execution with retries, the method should throw:
+     * <pre>
+     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
+     * </pre>
+     * unless {@code retryMode} is set to {@code NO_RETRIES}.
+     */
+    default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
+            ConnectorSession session,
+            ConnectorAccessControl accessControl,
+            ConnectorTableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties,
+            RetryMode retryMode)
+    {
+        return getTableHandleForExecute(session, tableHandle, procedureName, executeProperties, retryMode);
     }
 
     default Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
@@ -481,18 +504,6 @@ public interface ConnectorMetadata
 
     /**
      * Creates a table using the specified table metadata.
-     *
-     * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@code ignoreExisting} is not set
-     * @deprecated use {@link #createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)}
-     */
-    @Deprecated
-    default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
-    }
-
-    /**
-     * Creates a table using the specified table metadata.
      * IGNORE means the table is created using CREATE ... IF NOT EXISTS syntax.
      * REPLACE means the table is created using CREATE OR REPLACE syntax.
      *
@@ -503,8 +514,7 @@ public interface ConnectorMetadata
         if (saveMode == REPLACE) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
-        // Delegate to deprecated SPI to not break existing connectors
-        createTable(session, tableMetadata, saveMode == IGNORE);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
 
     /**
@@ -744,23 +754,6 @@ public interface ConnectorMetadata
 
     /**
      * Begin the atomic creation of a table with data.
-     * <p>
-     * If connector does not support execution with retries, the method should throw:
-     * <pre>
-     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
-     * </pre>
-     * unless {@code retryMode} is set to {@code NO_RETRIES}.
-     *
-     * @deprecated use {@link #beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional layout, RetryMode retryMode, boolean replace)}
-     */
-    @Deprecated
-    default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
-    }
-
-    /**
-     * Begin the atomic creation of a table with data.
      * If connector does not support execution with retries, the method should throw:
      * <pre>
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
@@ -770,10 +763,10 @@ public interface ConnectorMetadata
     default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode, boolean replace)
     {
         // Redirect to deprecated SPI to not break existing connectors
-        if (!replace) {
-            return beginCreateTable(session, tableMetadata, layout, retryMode);
+        if (replace) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
     }
 
     /**
@@ -819,17 +812,6 @@ public interface ConnectorMetadata
 
     /**
      * Finish insert query
-     *
-     * @deprecated use {@link #finishInsert(ConnectorSession, ConnectorInsertTableHandle, List, Collection, Collection)}
-     */
-    @Deprecated
-    default Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
-    {
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginInsert() is implemented without finishInsert()");
-    }
-
-    /**
-     * Finish insert query
      */
     default Optional<ConnectorOutputMetadata> finishInsert(
             ConnectorSession session,
@@ -838,8 +820,7 @@ public interface ConnectorMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics)
     {
-        // Delegate to deprecated SPI to not break existing connectors
-        return finishInsert(session, insertHandle, fragments, computedStatistics);
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginInsert() is implemented without finishInsert()");
     }
 
     /**
@@ -867,29 +848,12 @@ public interface ConnectorMetadata
      * </pre>
      * unless {@code retryMode} is set to {@code NO_RETRIES}.
      *
-     * @deprecated Please use new method which includes {@code RefreshType}: {@link ConnectorMetadata#beginRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, List, RetryMode, RefreshType)}
-     */
-    @Deprecated
-    default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
-    }
-
-    /**
-     * Begin materialized view query.
-     * <p>
-     * If connector does not support execution with retries, the method should throw:
-     * <pre>
-     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
-     * </pre>
-     * unless {@code retryMode} is set to {@code NO_RETRIES}.
-     *
      * {@code refreshType} is a signal from the engine to the connector whether the MV refresh could be done incrementally or only fully, based on the plan.
      * The connector is not obligated to perform the refresh in the fashion prescribed by {@code refreshType}, this is merely a hint from the engine that the refresh could be append-only.
      */
     default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode, RefreshType refreshType)
     {
-        return beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, retryMode);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
 
     /**
@@ -949,22 +913,6 @@ public interface ConnectorMetadata
      *
      * @param session The session
      * @param mergeTableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
-     * @param fragments All fragments returned by the merge plan
-     * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
-     *
-     * @deprecated Use {@link #finishMerge(ConnectorSession, ConnectorMergeTableHandle, List, Collection, Collection)}
-     */
-    @Deprecated
-    default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
-    {
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginMerge() is implemented without finishMerge()");
-    }
-
-    /**
-     * Finish a merge query
-     *
-     * @param session The session
-     * @param mergeTableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
      * @param sourceTableHandles All source table handles belonging to the connector from which the operation is reading data
      * @param fragments All fragments returned by the merge plan
      * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
@@ -976,8 +924,7 @@ public interface ConnectorMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics)
     {
-        // Delegate to deprecated SPI to not break existing connectors
-        finishMerge(session, mergeTableHandle, fragments, computedStatistics);
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginMerge() is implemented without finishMerge()");
     }
 
     /**
@@ -985,22 +932,6 @@ public interface ConnectorMetadata
      * be serialized by the connector for permanent storage.
      */
     default void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
-    {
-        if (viewProperties.isEmpty()) {
-            createView(session, viewName, definition, replace);
-            return;
-        }
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating views");
-    }
-
-    /**
-     * Create the specified view. The view definition is intended to
-     * be serialized by the connector for permanent storage.
-     *
-     * @deprecated use {@link #createView(ConnectorSession, SchemaTableName, ConnectorViewDefinition, Map, boolean)}
-     */
-    @Deprecated
-    default void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating views");
     }
@@ -1833,6 +1764,15 @@ public interface ConnectorMetadata
     default OptionalInt getMaxWriterTasks(ConnectorSession session)
     {
         return OptionalInt.empty();
+    }
+
+    /**
+     * @return true if reading a subset of columns from a given table separately from reading a complement of the subset has similar or better
+     * performance as reading this table.
+     */
+    default boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return false;
     }
 
     default WriterScalingOptions getNewTableWriterScalingOptions(ConnectorSession session, SchemaTableName tableName, Map<String, Object> tableProperties)

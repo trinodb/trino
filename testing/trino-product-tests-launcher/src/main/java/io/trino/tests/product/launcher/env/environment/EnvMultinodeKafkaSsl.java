@@ -57,7 +57,7 @@ public final class EnvMultinodeKafkaSsl
         builder.configureContainer(TESTS, container -> container
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("secrets")),
-                        "/docker/presto-product-tests/conf/tempto/secrets"));
+                        "/docker/trino-product-tests/conf/tempto/secrets"));
     }
 
     private void addCatalogs(DockerContainer container)

@@ -24,7 +24,6 @@ import io.trino.sql.planner.plan.ValuesNode;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.plan.Patterns.filter;
-import static java.util.Collections.emptyList;
 
 public class RemoveTrivialFilters
         implements Rule<FilterNode>
@@ -48,7 +47,7 @@ public class RemoveTrivialFilters
 
         if (predicate.equals(FALSE) ||
                 predicate instanceof Constant literal && literal.value() == null) {
-            return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), filterNode.getOutputSymbols(), emptyList()));
+            return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), filterNode.getOutputSymbols()));
         }
 
         return Result.empty();

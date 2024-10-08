@@ -110,6 +110,18 @@ File path on the server to the truststore file.
 
 Host and port for an HTTP proxy with the format `example.net:8080`.
 
+### `http-client.http-proxy.user`
+
+- **Type:** {ref}`prop-type-string`
+
+Username for basic authentication with the HTTP proxy.
+
+### `http-client.http-proxy.password`
+
+- **Type:** {ref}`prop-type-string`
+
+Password for basic authentication with the HTTP proxy.
+
 ### `http-client.http-proxy.secure`
 
 - **Type:** {ref}`prop-type-boolean`

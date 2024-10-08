@@ -171,6 +171,11 @@ public class MinioClient
 
     public void makeBucket(String bucketName)
     {
+        makeBucket(bucketName, false);
+    }
+
+    public void makeBucket(String bucketName, boolean objectLock)
+    {
         if (!createdBuckets.add(bucketName)) {
             // Forbid to create a bucket with given name more than once per class loader.
             // The reason for that is that bucket name is used as a key in TrinoFileSystemCache which is
@@ -182,6 +187,7 @@ public class MinioClient
             client.makeBucket(
                     MakeBucketArgs.builder()
                             .bucket(bucketName)
+                            .objectLock(objectLock)
                             .build());
         }
         catch (Exception e) {

@@ -121,6 +121,7 @@ public class TestTrinoDatabaseMetaData
                 .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toAbsolutePath().toString())
                 .put("hive.security", "sql-standard")
                 .put("bootstrap.quiet", "true")
+                .put("fs.hadoop.enabled", "true")
                 .buildOrThrow());
 
         countingMockConnector = new CountingMockConnector();
@@ -2034,7 +2035,7 @@ public class TestTrinoDatabaseMetaData
                 "admin",
                 null))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property assumeLiteralNamesInMetadataCallsForNonConformingClients cannot be set if assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is enabled");
+                .hasMessageContaining("Connection property assumeLiteralNamesInMetadataCallsForNonConformingClients cannot be set if assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is enabled");
     }
 
     @Test

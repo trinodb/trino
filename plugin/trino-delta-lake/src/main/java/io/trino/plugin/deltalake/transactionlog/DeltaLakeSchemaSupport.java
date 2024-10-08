@@ -18,6 +18,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Enums;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +53,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -93,19 +95,23 @@ public final class DeltaLakeSchemaSupport
 
     private static final Logger log = Logger.get(DeltaLakeSchemaSupport.class);
 
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings().trimResults();
+
     public static final String APPEND_ONLY_CONFIGURATION_KEY = "delta.appendOnly";
     public static final String COLUMN_MAPPING_MODE_CONFIGURATION_KEY = "delta.columnMapping.mode";
     public static final String COLUMN_MAPPING_PHYSICAL_NAME_CONFIGURATION_KEY = "delta.columnMapping.physicalName";
     public static final String MAX_COLUMN_ID_CONFIGURATION_KEY = "delta.columnMapping.maxColumnId";
     public static final String ISOLATION_LEVEL_CONFIGURATION_KEY = "delta.isolationLevel";
-    private static final String DELETION_VECTORS_CONFIGURATION_KEY = "delta.enableDeletionVectors";
+    public static final String DELETION_VECTORS_CONFIGURATION_KEY = "delta.enableDeletionVectors";
+    // https://github.com/delta-io/delta/blob/master/docs/source/delta-uniform.md
+    private static final String UNIVERSAL_FORMAT_CONFIGURATION_KEY = "delta.universalFormat.enabledFormats";
 
     // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#valid-feature-names-in-table-features
     private static final String APPEND_ONLY_FEATURE_NAME = "appendOnly";
-    private static final String CHANGE_DATA_FEED_FEATURE_NAME = "changeDataFeed";
+    public static final String CHANGE_DATA_FEED_FEATURE_NAME = "changeDataFeed";
     private static final String CHECK_CONSTRAINTS_FEATURE_NAME = "checkConstraints";
     private static final String COLUMN_MAPPING_FEATURE_NAME = "columnMapping";
-    private static final String DELETION_VECTORS_FEATURE_NAME = "deletionVectors";
+    public static final String DELETION_VECTORS_FEATURE_NAME = "deletionVectors";
     private static final String ICEBERG_COMPATIBILITY_V1_FEATURE_NAME = "icebergCompatV1";
     private static final String ICEBERG_COMPATIBILITY_V2_FEATURE_NAME = "icebergCompatV2";
     private static final String IDENTITY_COLUMNS_FEATURE_NAME = "identityColumns";
@@ -131,6 +137,7 @@ public final class DeltaLakeSchemaSupport
             .build();
     private static final Set<String> SUPPORTED_WRITER_FEATURES = ImmutableSet.<String>builder()
             .add(APPEND_ONLY_FEATURE_NAME)
+            .add(DELETION_VECTORS_FEATURE_NAME)
             .add(INVARIANTS_FEATURE_NAME)
             .add(CHECK_CONSTRAINTS_FEATURE_NAME)
             .add(CHANGE_DATA_FEED_FEATURE_NAME)
@@ -195,6 +202,12 @@ public final class DeltaLakeSchemaSupport
             return false;
         }
         return parseBoolean(metadataEntry.getConfiguration().get(DELETION_VECTORS_CONFIGURATION_KEY));
+    }
+
+    public static List<String> enabledUniversalFormats(MetadataEntry metadataEntry)
+    {
+        String formats = metadataEntry.getConfiguration().get(UNIVERSAL_FORMAT_CONFIGURATION_KEY);
+        return formats == null ? ImmutableList.of() : SPLITTER.splitToList(formats);
     }
 
     public static ColumnMappingMode getColumnMappingMode(MetadataEntry metadata, ProtocolEntry protocolEntry)
@@ -397,7 +410,7 @@ public final class DeltaLakeSchemaSupport
             return Optional.of("string");
         }
         if (type instanceof DecimalType decimalType) {
-            return Optional.of(String.format("decimal(%s,%s)", decimalType.getPrecision(), decimalType.getScale()));
+            return Optional.of(format("decimal(%s,%s)", decimalType.getPrecision(), decimalType.getScale()));
         }
         return Optional.ofNullable(PRIMITIVE_TYPE_MAPPING.get(type));
     }
@@ -460,7 +473,7 @@ public final class DeltaLakeSchemaSupport
         ColumnMappingMode mappingMode = getColumnMappingMode(metadataEntry, protocolEntry);
         verifySupportedColumnMapping(mappingMode);
         return Optional.ofNullable(metadataEntry.getSchemaString())
-                .map(json -> getColumnMetadata(json, typeManager, mappingMode))
+                .map(json -> getColumnMetadata(json, typeManager, mappingMode, metadataEntry.getOriginalPartitionColumns()))
                 .orElseThrow(() -> new IllegalStateException("Serialized schema not found in transaction log for " + metadataEntry.getName()));
     }
 
@@ -471,18 +484,19 @@ public final class DeltaLakeSchemaSupport
         }
     }
 
-    public static List<DeltaLakeColumnMetadata> getColumnMetadata(String json, TypeManager typeManager, ColumnMappingMode mappingMode)
+    public static List<DeltaLakeColumnMetadata> getColumnMetadata(String json, TypeManager typeManager, ColumnMappingMode mappingMode, List<String> partitionColumns)
     {
         try {
             ImmutableList.Builder<DeltaLakeColumnMetadata> columns = ImmutableList.builder();
             Iterator<JsonNode> nodes = OBJECT_MAPPER.readTree(json).get("fields").elements();
             while (nodes.hasNext()) {
                 try {
-                    columns.add(mapColumn(typeManager, nodes.next(), mappingMode));
+                    columns.add(mapColumn(typeManager, nodes.next(), mappingMode, partitionColumns));
                 }
                 catch (UnsupportedTypeException e) {
-                    // Write operations are denied by unsupported 'variantType' writer feature
-                    log.debug("Skip unsupported column type: %s", e.type());
+                    // Write operations are denied by unsupported 'variantType' writer feature,
+                    // as well as reads of unsupported type-widened columns are skipped
+                    log.debug("Skip unsupported column type: %s", e.getMessage());
                 }
             }
             return columns.build();
@@ -492,7 +506,7 @@ public final class DeltaLakeSchemaSupport
         }
     }
 
-    private static DeltaLakeColumnMetadata mapColumn(TypeManager typeManager, JsonNode node, ColumnMappingMode mappingMode)
+    private static DeltaLakeColumnMetadata mapColumn(TypeManager typeManager, JsonNode node, ColumnMappingMode mappingMode, List<String> partitionColumns)
             throws UnsupportedTypeException
     {
         String fieldName = node.get("name").asText();
@@ -503,9 +517,7 @@ public final class DeltaLakeSchemaSupport
         String physicalName;
         Type physicalColumnType;
         JsonNode metadata = node.get("metadata");
-        if (metadata.has("delta.typeChanges")) {
-            metadata.get("delta.typeChanges").elements().forEachRemaining(DeltaLakeSchemaSupport::verifyTypeChange);
-        }
+        verifyTypeChanges(metadata, typeNode, partitionColumns.contains(fieldName));
         switch (mappingMode) {
             case ID:
                 String columnMappingId = metadata.get("delta.columnMapping.id").asText();
@@ -534,7 +546,44 @@ public final class DeltaLakeSchemaSupport
         return new DeltaLakeColumnMetadata(columnMetadata, fieldName, fieldId, physicalName, physicalColumnType);
     }
 
+    private static void verifyTypeChanges(JsonNode metadata, JsonNode typeNode, boolean isPartitionColumn)
+            throws UnsupportedTypeException
+    {
+        // struct cannot be a partition column
+        if (isStruct(typeNode)) {
+            verifyStructTypeChanges(typeNode);
+        }
+        // partition columns should not be skipped as we retrieve them from snapshot files
+        else if (!isPartitionColumn) {
+            verifyTypeChanges(metadata);
+        }
+    }
+
+    private static void verifyTypeChanges(JsonNode metadata)
+            throws UnsupportedTypeException
+    {
+        if (metadata.has("delta.typeChanges")) {
+            Iterator<JsonNode> typeChanges = metadata.get("delta.typeChanges").elements();
+            while (typeChanges.hasNext()) {
+                verifyTypeChange(typeChanges.next());
+            }
+        }
+    }
+
+    private static void verifyStructTypeChanges(JsonNode container)
+            throws UnsupportedTypeException
+    {
+        Iterator<JsonNode> fields = container.get("fields").elements();
+        while (fields.hasNext()) {
+            JsonNode field = fields.next();
+            JsonNode fieldMetadata = field.get("metadata");
+            JsonNode typeNode = field.get("type");
+            verifyTypeChanges(fieldMetadata, typeNode, false);
+        }
+    }
+
     private static void verifyTypeChange(JsonNode typeChange)
+            throws UnsupportedTypeException
     {
         String fromType = typeChange.get("fromType").asText();
         String toType = typeChange.get("toType").asText();
@@ -543,8 +592,12 @@ public final class DeltaLakeSchemaSupport
                 (fromType.equals("short") && toType.equals("integer"))) {
             return;
         }
-        // TODO: Skip unsupported columns instead of throwing an exception
-        throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Type change from '%s' to '%s' is not supported".formatted(fromType, toType));
+        throw new UnsupportedTypeException(fromType, toType);
+    }
+
+    private static boolean isStruct(JsonNode typeNode)
+    {
+        return typeNode.isContainerNode() && Objects.equals(typeNode.get("type").asText(), "struct");
     }
 
     public static Map<String, Object> getColumnTypes(MetadataEntry metadataEntry)
@@ -801,17 +854,14 @@ public final class DeltaLakeSchemaSupport
     public static class UnsupportedTypeException
             extends Exception
     {
-        private final String type;
-
         public UnsupportedTypeException(String type)
         {
-            super();
-            this.type = requireNonNull(type, "type is null");
+            super("Unsupported type: %s".formatted(requireNonNull(type, "type is null")));
         }
 
-        public String type()
+        public UnsupportedTypeException(String fromType, String toType)
         {
-            return type;
+            super("Type change from '%s' to '%s' is not supported".formatted(requireNonNull(fromType, "fromType is null"), requireNonNull(toType, "toType is null")));
         }
     }
 }

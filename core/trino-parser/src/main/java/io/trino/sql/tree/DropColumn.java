@@ -30,19 +30,9 @@ public class DropColumn
     private final boolean tableExists;
     private final boolean columnExists;
 
-    public DropColumn(QualifiedName table, QualifiedName field, boolean tableExists, boolean columnExists)
-    {
-        this(Optional.empty(), table, field, tableExists, columnExists);
-    }
-
     public DropColumn(NodeLocation location, QualifiedName table, QualifiedName field, boolean tableExists, boolean columnExists)
     {
-        this(Optional.of(location), table, field, tableExists, columnExists);
-    }
-
-    private DropColumn(Optional<NodeLocation> location, QualifiedName table, QualifiedName field, boolean tableExists, boolean columnExists)
-    {
-        super(location);
+        super(Optional.of(location));
         this.table = requireNonNull(table, "table is null");
         this.field = requireNonNull(field, "field is null");
         this.tableExists = tableExists;

@@ -26,19 +26,9 @@ public class TryExpression
 {
     private final Expression innerExpression;
 
-    public TryExpression(Expression innerExpression)
-    {
-        this(Optional.empty(), innerExpression);
-    }
-
     public TryExpression(NodeLocation location, Expression innerExpression)
     {
-        this(Optional.of(location), innerExpression);
-    }
-
-    private TryExpression(Optional<NodeLocation> location, Expression innerExpression)
-    {
-        super(location);
+        super(Optional.of(location));
         this.innerExpression = requireNonNull(innerExpression, "innerExpression is null");
     }
 

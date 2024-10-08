@@ -13,10 +13,8 @@
  */
 package io.trino.server.ui;
 
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.core.Response;
-
-import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 
 public class NoWebUiAuthenticationFilter
         implements WebUiAuthenticationFilter
@@ -24,6 +22,6 @@ public class NoWebUiAuthenticationFilter
     @Override
     public void filter(ContainerRequestContext request)
     {
-        request.abortWith(Response.status(NOT_FOUND).build());
+        throw new NotFoundException();
     }
 }

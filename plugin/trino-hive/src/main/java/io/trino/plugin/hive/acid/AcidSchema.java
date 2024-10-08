@@ -15,8 +15,8 @@ package io.trino.plugin.hive.acid;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.HiveTypeName;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.HiveTypeName;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.Type;
@@ -26,8 +26,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.hive.HiveType.HIVE_INT;
-import static io.trino.plugin.hive.HiveType.HIVE_LONG;
+import static io.trino.metastore.HiveType.HIVE_INT;
+import static io.trino.metastore.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.type.BigintType.BIGINT;

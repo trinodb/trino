@@ -83,6 +83,9 @@ The following table details all general configuration properties:
     queries. Some deployments map OpenSearch ports to a random public port and
     enabling this property can help in these cases.
   - `false`
+* - `opensearch.projection-pushdown-enabled`
+  - Read only projected fields from row columns while performing `SELECT` queries
+  - `true`
 :::
 
 ### Authentication
@@ -394,13 +397,13 @@ The connector provides [globally available](sql-globally-available) and
 [read operation](sql-read-operations) statements to access data and
 metadata in the OpenSearch catalog.
 
-## Table functions
+### Table functions
 
 The connector provides specific [table functions](/functions/table) to
 access OpenSearch.
 
 (opensearch-raw-query-function)=
-### `raw_query(varchar) -> table`
+#### `raw_query(varchar) -> table`
 
 The `raw_query` function allows you to query the underlying database directly
 using the [OpenSearch Query

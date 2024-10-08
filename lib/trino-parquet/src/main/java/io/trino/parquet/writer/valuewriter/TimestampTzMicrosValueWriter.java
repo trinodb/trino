@@ -15,6 +15,7 @@ package io.trino.parquet.writer.valuewriter;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
@@ -22,6 +23,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
+import static java.util.Objects.requireNonNull;
 
 public class TimestampTzMicrosValueWriter
         extends PrimitiveValueWriter
@@ -34,11 +36,14 @@ public class TimestampTzMicrosValueWriter
     @Override
     public void write(Block block)
     {
+        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
+        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!block.isNull(i)) {
+            if (!mayHaveNull || !block.isNull(i)) {
                 long micros = toMicros((LongTimestampWithTimeZone) TIMESTAMP_TZ_MICROS.getObject(block, i));
-                getValueWriter().writeLong(micros);
-                getStatistics().updateStats(micros);
+                valuesWriter.writeLong(micros);
+                statistics.updateStats(micros);
             }
         }
     }

@@ -20,11 +20,13 @@ import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
 import io.trino.client.ProtocolHeaders;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.server.protocol.PreparedStatementEncoder;
+import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
+import org.assertj.core.api.AbstractThrowableAssert;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -134,12 +136,7 @@ public class TestHttpRequestSessionContextFactory
                 Optional.of(Identity.ofUser("mappedUser")));
         assertThat(context.getIdentity()).isEqualTo(Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
 
-        assertThatThrownBy(
-                () -> sessionContextFactory(protocolHeaders).createSessionContext(
-                        emptyHeaders,
-                        Optional.of("testRemote"),
-                        Optional.empty()))
-                .isInstanceOf(WebApplicationException.class)
+        assertInvalidSession(protocolHeaders, emptyHeaders)
                 .matches(e -> ((WebApplicationException) e).getResponse().getStatus() == 400);
     }
 
@@ -164,13 +161,28 @@ public class TestHttpRequestSessionContextFactory
                 .put(protocolHeaders.requestPreparedStatement(), "query1=abcdefg")
                 .build());
 
-        assertThatThrownBy(
-                () -> sessionContextFactory(protocolHeaders).createSessionContext(
-                        headers,
-                        Optional.of("testRemote"),
-                        Optional.empty()))
-                .isInstanceOf(WebApplicationException.class)
+        assertInvalidSession(protocolHeaders, headers)
                 .hasMessageMatching("Invalid " + protocolHeaders.requestPreparedStatement() + " header: line 1:1: mismatched input 'abcdefg'. Expecting: .*");
+    }
+
+    @Test
+    public void testInternalExtraCredentialName()
+    {
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(TRINO_HEADERS.requestUser(), "testUser")
+                .put(TRINO_HEADERS.requestExtraCredential(), "internal$abc=xyz")
+                .build());
+
+        assertInvalidSession(TRINO_HEADERS, headers)
+                .hasMessage("Invalid extra credential name: internal$abc");
+    }
+
+    private static AbstractThrowableAssert<?, ? extends Throwable> assertInvalidSession(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
+    {
+        return assertThatThrownBy(
+                () -> sessionContextFactory(protocolHeaders)
+                        .createSessionContext(headers, Optional.of("testRemote"), Optional.empty()))
+                .isInstanceOf(WebApplicationException.class);
     }
 
     private static HttpRequestSessionContextFactory sessionContextFactory(ProtocolHeaders headers)
@@ -181,6 +193,7 @@ public class TestHttpRequestSessionContextFactory
                 ImmutableSet::of,
                 new AllowAllAccessControl(),
                 new ProtocolConfig()
-                        .setAlternateHeaderName(headers.getProtocolName()));
+                        .setAlternateHeaderName(headers.getProtocolName()),
+                QueryDataEncoder.EncoderSelector.noEncoder());
     }
 }

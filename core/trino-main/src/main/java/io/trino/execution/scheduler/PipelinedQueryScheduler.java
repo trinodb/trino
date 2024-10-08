@@ -391,8 +391,14 @@ public class PipelinedQueryScheduler
 
     private static boolean isRetryableErrorCode(ErrorCode errorCode)
     {
-        return errorCode == null
-                || errorCode.getType() == INTERNAL_ERROR
+        if (errorCode == null) {
+            return true;
+        }
+
+        if (errorCode.isFatal()) {
+            return false;
+        }
+        return errorCode.getType() == INTERNAL_ERROR
                 || errorCode.getType() == EXTERNAL
                 || errorCode.getCode() == CLUSTER_OUT_OF_MEMORY.toErrorCode().getCode();
     }

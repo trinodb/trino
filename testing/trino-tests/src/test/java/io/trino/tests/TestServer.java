@@ -25,6 +25,9 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
+import io.trino.client.QueryDataClientJacksonModule;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.plugin.memory.MemoryPlugin;
@@ -65,7 +68,6 @@ import static io.airlift.http.client.Request.Builder.prepareHead;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
@@ -92,7 +94,10 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestServer
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
+            .withModules(Set.of(new QueryDataClientJacksonModule())))
+            .jsonCodec(QueryResults.class);
+
     private TestingTrinoServer server;
     private HttpClient client;
 
@@ -169,7 +174,7 @@ public class TestServer
         assertThat(data).isPresent();
 
         QueryResults results = data.orElseThrow();
-        assertThat(results.getData()).containsOnly(ImmutableList.of("memory"), ImmutableList.of("system"));
+        assertThat(results.getData().getData()).containsOnly(ImmutableList.of("memory"), ImmutableList.of("system"));
     }
 
     @Test
@@ -199,7 +204,7 @@ public class TestServer
                 .peek(result -> assertThat(result.getError()).isNull())
                 .peek(results -> {
                     if (results.getData() != null) {
-                        data.addAll(results.getData());
+                        data.addAll(results.getData().getData());
                     }
                 })
                 .collect(last());

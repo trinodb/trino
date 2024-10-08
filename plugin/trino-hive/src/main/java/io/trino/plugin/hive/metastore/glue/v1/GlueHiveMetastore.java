@@ -26,7 +26,6 @@ import com.amazonaws.services.glue.model.BatchGetPartitionResult;
 import com.amazonaws.services.glue.model.BatchUpdatePartitionRequest;
 import com.amazonaws.services.glue.model.BatchUpdatePartitionRequestEntry;
 import com.amazonaws.services.glue.model.BatchUpdatePartitionResult;
-import com.amazonaws.services.glue.model.ConcurrentModificationException;
 import com.amazonaws.services.glue.model.CreateDatabaseRequest;
 import com.amazonaws.services.glue.model.CreateTableRequest;
 import com.amazonaws.services.glue.model.CreateUserDefinedFunctionRequest;
@@ -63,47 +62,42 @@ import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.amazonaws.services.glue.model.UpdateUserDefinedFunctionRequest;
 import com.amazonaws.services.glue.model.UserDefinedFunctionInput;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
-import dev.failsafe.Failsafe;
-import dev.failsafe.RetryPolicy;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.HiveType;
+import io.trino.metastore.Column;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveBasicStatistics;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.HivePrivilegeInfo;
+import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Partition;
+import io.trino.metastore.PartitionStatistics;
+import io.trino.metastore.PartitionWithStatistics;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.StatisticsUpdateMode;
+import io.trino.metastore.Table;
+import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.PartitionNotFoundException;
-import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
-import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.PartitionWithStatistics;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
-import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
 import io.trino.plugin.hive.metastore.glue.GlueExpressionUtil;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.GluePartitionConverter;
-import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -118,7 +112,6 @@ import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -143,10 +136,11 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.metastore.Partition.toPartitionValues;
+import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
@@ -156,13 +150,12 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParam
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter.convertFunction;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter.convertGlueTableToTableInput;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter.convertPartition;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
-import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -189,11 +182,6 @@ public class GlueHiveMetastore
     private static final int AWS_GLUE_GET_FUNCTIONS_MAX_RESULTS = 100;
     private static final int AWS_GLUE_GET_TABLES_MAX_RESULTS = 100;
     private static final Comparator<Iterable<String>> PARTITION_VALUE_COMPARATOR = lexicographical(String.CASE_INSENSITIVE_ORDER);
-    private static final RetryPolicy<?> CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY = RetryPolicy.builder()
-            .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof ConcurrentModificationException)
-            .withDelay(Duration.ofMillis(100))
-            .withMaxRetries(3)
-            .build();
 
     private final TrinoFileSystem fileSystem;
     private final AWSGlueAsync glueClient;
@@ -452,9 +440,7 @@ public class GlueHiveMetastore
                 .withDatabaseName(databaseName)
                 .withName(tableName);
         try {
-            Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
-                    .run(() -> stats.getDeleteTable().call(() ->
-                            glueClient.deleteTable(deleteTableRequest)));
+            stats.getDeleteTable().call(() -> glueClient.deleteTable(deleteTableRequest));
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -512,7 +498,7 @@ public class GlueHiveMetastore
             GetTableRequest getTableRequest = new GetTableRequest().withDatabaseName(databaseName)
                     .withName(tableName);
             GetTableResult glueTable = glueClient.getTable(getTableRequest);
-            TableInput tableInput = convertGlueTableToTableInput(glueTable.getTable(), newTableName);
+            TableInput tableInput = convertGlueTableToTableInput(glueTable.getTable()).withName(newTableName);
             CreateTableRequest createTableRequest = new CreateTableRequest()
                     .withDatabaseName(newDatabaseName)
                     .withTableInput(tableInput);
@@ -533,24 +519,6 @@ public class GlueHiveMetastore
             }
             throw e;
         }
-    }
-
-    private static TableInput convertGlueTableToTableInput(com.amazonaws.services.glue.model.Table glueTable, String newTableName)
-    {
-        return new TableInput()
-                .withName(newTableName)
-                .withDescription(glueTable.getDescription())
-                .withOwner(glueTable.getOwner())
-                .withLastAccessTime(glueTable.getLastAccessTime())
-                .withLastAnalyzedTime(glueTable.getLastAnalyzedTime())
-                .withRetention(glueTable.getRetention())
-                .withStorageDescriptor(glueTable.getStorageDescriptor())
-                .withPartitionKeys(glueTable.getPartitionKeys())
-                .withViewOriginalText(glueTable.getViewOriginalText())
-                .withViewExpandedText(glueTable.getViewExpandedText())
-                .withTableType(getTableTypeNullable(glueTable))
-                .withTargetTable(glueTable.getTargetTable())
-                .withParameters(getTableParameters(glueTable));
     }
 
     @Override
@@ -597,17 +565,11 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
-    {
-        Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
-                .run(() -> updateTableStatisticsInternal(databaseName, tableName, transaction, mode, statisticsUpdate));
-    }
-
-    private void updateTableStatisticsInternal(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Table table = getExistingTable(databaseName, tableName);
-        if (transaction.isAcidTransactionRunning()) {
-            table = Table.builder(table).setWriteId(OptionalLong.of(transaction.getWriteId())).build();
+        if (acidWriteId.isPresent()) {
+            table = Table.builder(table).setWriteId(acidWriteId).build();
         }
         // load current statistics
         HiveBasicStatistics currentBasicStatistics = getHiveBasicStatistics(table.getParameters());
@@ -876,7 +838,7 @@ public class GlueHiveMetastore
         List<Partition> partitions = batchGetPartition(table, partitionNames);
 
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
-                .collect(toMap(identity(), HiveUtil::toPartitionValues));
+                .collect(toMap(identity(), Partition::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = partitions.stream()
                 .collect(toMap(Partition::getValues, identity()));
 

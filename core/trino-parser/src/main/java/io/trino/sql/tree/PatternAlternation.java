@@ -30,12 +30,7 @@ public class PatternAlternation
 
     public PatternAlternation(NodeLocation location, List<RowPattern> patterns)
     {
-        this(Optional.of(location), patterns);
-    }
-
-    private PatternAlternation(Optional<NodeLocation> location, List<RowPattern> patterns)
-    {
-        super(location);
+        super(Optional.of(location));
         this.patterns = requireNonNull(patterns, "patterns is null");
         checkArgument(!patterns.isEmpty(), "patterns list is empty");
     }

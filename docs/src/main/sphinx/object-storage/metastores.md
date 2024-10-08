@@ -71,7 +71,7 @@ are also available. They are discussed later in this topic.
   - `5m`
 * - `hive.metastore-cache-maximum-size`
   - Maximum number of metastore data objects in the Hive metastore cache.
-  - `10000`
+  - `20000`
 * - `hive.metastore-refresh-interval`
   - Asynchronously refresh cached metastore data after access if it is older
     than this but is not yet expired, allowing subsequent accesses to see fresh
@@ -227,7 +227,7 @@ when the `hive.metastore.uri` uses the `http://` or `https://` protocol.
     `header1:value1,header2:value2` sends two headers `header1` and `header2`
     with the values as `value1` and `value2`. Escape comma (`,`) or colon(`:`)
     characters in a header name or value with a backslash (`\`). Use
-    `X-Databricks-Unity-Catalog-Name=[catalog_name]` to configure the required
+    `X-Databricks-Catalog-Name:[catalog_name]` to configure the required
     header values for Unity catalog.
 :::
 
@@ -367,10 +367,6 @@ properties:
   - AWS region of the STS service to authenticate with. This is required when
     running in a GovCloud region. Example: `us-gov-east-1`
   -
-* - `hive.metastore.glue.proxy-api-id`
-  - The ID of the Glue Proxy API, when accessing Glue via an VPC endpoint in API
-    Gateway.
-  -
 * - `hive.metastore.glue.sts.endpoint`
   - STS endpoint URL to use when authenticating to Glue (optional). Example:
     `https://sts.us-gov-east-1.amazonaws.com`
@@ -389,10 +385,12 @@ properties:
   - Default warehouse directory for schemas created without an explicit
     `location` property.
   -
-* - `hive.metastore.glue.aws-credentials-provider`
-  - Fully qualified name of the Java class to use for obtaining AWS credentials.
-    Can be used to supply a custom credentials provider.
-  -
+* - `hive.metastore.glue.use-web-identity-token-credentials-provider`
+  - If you are running Trino on Amazon EKS, and authenticate using a Kubernetes
+    service account, you can set this property to `true`. Setting to `true` forces
+    Trino to not try using different credential providers from the default credential
+    provider chain, and instead directly use credentials from the service account.
+  - `false`
 * - `hive.metastore.glue.aws-access-key`
   - AWS access key to use to connect to the Glue Catalog. If specified along
     with `hive.metastore.glue.aws-secret-key`, this parameter takes precedence
@@ -415,15 +413,6 @@ properties:
   -
 * - `hive.metastore.glue.partitions-segments`
   - Number of segments for partitioned Glue tables.
-  - `5`
-* - `hive.metastore.glue.get-partition-threads`
-  - Number of threads for parallel partition fetches from Glue.
-  - `20`
-* - `hive.metastore.glue.read-statistics-threads`
-  - Number of threads for parallel statistic fetches from Glue.
-  - `5`
-* - `hive.metastore.glue.write-statistics-threads`
-  - Number of threads for parallel statistic writes to Glue.
   - `5`
 :::
 
@@ -494,6 +483,9 @@ following properties:
   - The credential to exchange for a token in the OAuth2 client credentials flow
     with the server. A `token` or `credential` is required for `OAUTH2`
     security. Example: `AbCdEf123456`
+* - `iceberg.rest-catalog.oauth2.scope`
+  - Scope to be used when communicating with the REST Catalog. Applicable only
+    when using `credential`.
 :::
 
 The following example shows a minimal catalog configuration using an Iceberg
@@ -544,8 +536,7 @@ iceberg.jdbc-catalog.connection-password=test
 iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
 ```
 
-The JDBC catalog does not support [view management](sql-view-management) or
-[materialized view management](sql-materialized-view-management).
+The JDBC catalog does not support [materialized view management](sql-materialized-view-management).
 
 (iceberg-nessie-catalog)=
 ### Nessie catalog

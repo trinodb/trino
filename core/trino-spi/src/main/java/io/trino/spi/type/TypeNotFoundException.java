@@ -16,13 +16,10 @@ package io.trino.spi.type;
 import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
-import static java.util.Objects.requireNonNull;
 
 public class TypeNotFoundException
         extends TrinoException
 {
-    private final TypeSignature type;
-
     public TypeNotFoundException(TypeSignature type)
     {
         this(type, null);
@@ -30,12 +27,11 @@ public class TypeNotFoundException
 
     public TypeNotFoundException(TypeSignature type, Throwable cause)
     {
-        super(TYPE_NOT_FOUND, "Unknown type: " + type, cause);
-        this.type = requireNonNull(type, "type is null");
+        this(type.toString(), cause);
     }
 
-    public TypeSignature getType()
+    public TypeNotFoundException(String type, Throwable cause)
     {
-        return type;
+        super(TYPE_NOT_FOUND, "Unknown type: " + type, cause);
     }
 }

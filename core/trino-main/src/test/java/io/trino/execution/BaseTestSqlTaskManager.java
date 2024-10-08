@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.node.NodeInfo;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.tracing.Tracing;
@@ -337,7 +338,7 @@ public abstract class BaseTestSqlTaskManager
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
                 noopTracer(),
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()));
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())));
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)

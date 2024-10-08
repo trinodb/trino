@@ -32,16 +32,17 @@ import io.trino.hive.thrift.metastore.SerDeInfo;
 import io.trino.hive.thrift.metastore.SkewedInfo;
 import io.trino.hive.thrift.metastore.StorageDescriptor;
 import io.trino.hive.thrift.metastore.StringColumnStatsData;
-import io.trino.plugin.hive.metastore.BooleanStatistics;
-import io.trino.plugin.hive.metastore.DateStatistics;
-import io.trino.plugin.hive.metastore.DecimalStatistics;
-import io.trino.plugin.hive.metastore.DoubleStatistics;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.IntegerStatistics;
+import io.trino.metastore.BooleanStatistics;
+import io.trino.metastore.DateStatistics;
+import io.trino.metastore.DecimalStatistics;
+import io.trino.metastore.DoubleStatistics;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.IntegerStatistics;
+import io.trino.metastore.Partition;
+import io.trino.metastore.Table;
+import io.trino.plugin.hive.HiveErrorCode;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import org.junit.jupiter.api.Test;
@@ -65,23 +66,24 @@ import static io.trino.hive.thrift.metastore.ColumnStatisticsData.longStats;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.stringStats;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_OUTPUT_FORMAT;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.metastore.type.TypeConstants.BIGINT_TYPE_NAME;
+import static io.trino.metastore.type.TypeConstants.BINARY_TYPE_NAME;
+import static io.trino.metastore.type.TypeConstants.BOOLEAN_TYPE_NAME;
+import static io.trino.metastore.type.TypeConstants.DATE_TYPE_NAME;
+import static io.trino.metastore.type.TypeConstants.DECIMAL_TYPE_NAME;
+import static io.trino.metastore.type.TypeConstants.DOUBLE_TYPE_NAME;
+import static io.trino.metastore.type.TypeConstants.STRING_TYPE_NAME;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
-import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreDecimal;
-import static io.trino.plugin.hive.util.SerdeConstants.BIGINT_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.BINARY_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.BOOLEAN_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.DATE_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.DECIMAL_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.DOUBLE_TYPE_NAME;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
-import static io.trino.plugin.hive.util.SerdeConstants.STRING_TYPE_NAME;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestThriftMetastoreUtil
@@ -163,6 +165,25 @@ public class TestThriftMetastoreUtil
             1234567893,
             TEST_STORAGE_DESCRIPTOR_WITH_UNSUPPORTED_FIELDS,
             ImmutableMap.of("k1", "v1", "k2", "v2", "k3", "v3"));
+    private static final StorageDescriptor TEST_STORAGE_DESCRIPTOR_WITH_MISSING_COLUMNS = new StorageDescriptor(
+            null,
+            "hdfs://VOL1:9000/db_name/table_name",
+            "com.facebook.hive.orc.OrcInputFormat",
+            "com.facebook.hive.orc.OrcOutputFormat",
+            false,
+            100,
+            new SerDeInfo("table_name", "com.facebook.hive.orc.OrcSerde", ImmutableMap.of("sdk1", "sdv1", "sdk2", "sdv2")),
+            null,
+            null,
+            ImmutableMap.of());
+    private static final io.trino.hive.thrift.metastore.Partition TEST_PARTITION_WITH_MISSING_COLUMNS = new io.trino.hive.thrift.metastore.Partition(
+            ImmutableList.of("pk1v", "pk2v"),
+            "db_name",
+            "table_name",
+            1234567892,
+            1234567893,
+            TEST_STORAGE_DESCRIPTOR_WITH_MISSING_COLUMNS,
+            ImmutableMap.of("k1", "v1", "k2", "v2", "k3", "v3"));
 
     static {
         TEST_STORAGE_DESCRIPTOR_WITH_UNSUPPORTED_FIELDS.setSkewedInfo(new SkewedInfo(
@@ -235,6 +256,14 @@ public class TestThriftMetastoreUtil
 
         Map<String, String> actualPartition = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, testSchema));
         assertThat(actualPartition).isEqualTo(TEST_TABLE_METADATA);
+    }
+
+    @Test
+    public void testHiveSchemaPartitionWithMissingColumns()
+    {
+        assertTrinoExceptionThrownBy(() -> ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_MISSING_COLUMNS))
+                .hasErrorCode(HiveErrorCode.HIVE_INVALID_METADATA)
+                .hasMessageContaining("Partition storage descriptor does not contain columns to derive a schema");
     }
 
     @Test

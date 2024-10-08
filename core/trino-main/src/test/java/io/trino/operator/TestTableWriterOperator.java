@@ -253,7 +253,7 @@ public class TestTableWriterOperator
         assertThat(tableWriterMemoryContext.getRevocableMemory()).isEqualTo(0);
 
         Operator statisticAggregationOperator = tableWriterOperator.getStatisticAggregationOperator();
-        assertThat(statisticAggregationOperator instanceof AggregationOperator).isTrue();
+        assertThat(statisticAggregationOperator).isInstanceOf(AggregationOperator.class);
         AggregationOperator aggregationOperator = (AggregationOperator) statisticAggregationOperator;
         OperatorContext aggregationOperatorOperatorContext = aggregationOperator.getOperatorContext();
         MemoryTrackingContext aggregationOperatorMemoryContext = aggregationOperatorOperatorContext.getOperatorMemoryContext();

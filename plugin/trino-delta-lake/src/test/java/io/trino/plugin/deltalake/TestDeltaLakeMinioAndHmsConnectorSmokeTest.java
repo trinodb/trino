@@ -13,40 +13,24 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
-import io.airlift.units.Duration;
-import io.trino.plugin.deltalake.transactionlog.writer.S3NativeTransactionLogSynchronizer;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Delta Lake connector smoke test exercising Hive metastore and MinIO storage.
+ * Delta Lake connector smoke test exercising Hive metastore and MinIO storage with exclusive create support enabled.
  */
 public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
         extends BaseDeltaLakeAwsConnectorSmokeTest
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
-
     @Override
     protected Map<String, String> hiveStorageConfiguration()
     {
@@ -75,108 +59,7 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
                 .put("s3.path-style-access", "true")
                 .put("s3.streaming.part-size", "5MB") // minimize memory usage
                 .put("s3.max-connections", "4") // verify no leaks
-                .put("delta.enable-non-concurrent-writes", "true")
                 .buildOrThrow();
-    }
-
-    @Test
-    public void testWritesLocked()
-            throws Exception
-    {
-        testWritesLocked("INSERT INTO %s VALUES (3, 'kota'), (4, 'psa')");
-        testWritesLocked("UPDATE %s SET a_string = 'kota' WHERE a_number = 2");
-        testWritesLocked("DELETE FROM %s WHERE a_number = 1");
-    }
-
-    private void testWritesLocked(String writeStatement)
-            throws Exception
-    {
-        String tableName = "test_writes_locked" + randomNameSuffix();
-        try {
-            assertUpdate(
-                    format("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s') AS " +
-                                    "VALUES (1, 'ala'), (2, 'ma')",
-                            tableName,
-                            bucketName,
-                            tableName),
-                    2);
-
-            Set<String> originalFiles = ImmutableSet.copyOf(getTableFiles(tableName));
-            assertThat(originalFiles).isNotEmpty(); // sanity check
-
-            String lockFilePath = lockTable(tableName, java.time.Duration.ofMinutes(5));
-            assertThatThrownBy(() -> computeActual(format(writeStatement, tableName)))
-                    .hasStackTraceContaining("Transaction log locked(1); lockingCluster=some_cluster; lockingQuery=some_query");
-            assertThat(listLocks(tableName)).containsExactly(lockFilePath); // we should not delete exising, not-expired lock
-
-            // files from failed write should be cleaned up
-            Set<String> expectedFiles = ImmutableSet.<String>builder()
-                    .addAll(originalFiles)
-                    .add(lockFilePath)
-                    .build();
-            assertEventually(
-                    new Duration(5, TimeUnit.SECONDS),
-                    () -> assertThat(getTableFiles(tableName)).containsExactlyInAnyOrderElementsOf(expectedFiles));
-        }
-        finally {
-            assertUpdate("DROP TABLE " + tableName);
-        }
-    }
-
-    @Test
-    public void testWritesLockExpired()
-            throws Exception
-    {
-        testWritesLockExpired("INSERT INTO %s VALUES (3, 'kota')", "VALUES (1,'ala'), (2,'ma'), (3,'kota')");
-        testWritesLockExpired("UPDATE %s SET a_string = 'kota' WHERE a_number = 2", "VALUES (1,'ala'), (2,'kota')");
-        testWritesLockExpired("DELETE FROM %s WHERE a_number = 2", "VALUES (1,'ala')");
-    }
-
-    private void testWritesLockExpired(String writeStatement, String expectedValues)
-            throws Exception
-    {
-        String tableName = "test_writes_locked" + randomNameSuffix();
-        assertUpdate(
-                format("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s') AS " +
-                                "VALUES (1, 'ala'), (2, 'ma')",
-                        tableName,
-                        bucketName,
-                        tableName),
-                2);
-
-        lockTable(tableName, java.time.Duration.ofSeconds(-5));
-        assertUpdate(format(writeStatement, tableName), 1);
-        assertQuery("SELECT * FROM " + tableName, expectedValues);
-        assertThat(listLocks(tableName)).isEmpty(); // expired lock should be cleaned up
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testWritesLockInvalidContents()
-    {
-        testWritesLockInvalidContents("INSERT INTO %s VALUES (3, 'kota')", "VALUES (1,'ala'), (2,'ma'), (3,'kota')");
-        testWritesLockInvalidContents("UPDATE %s SET a_string = 'kota' WHERE a_number = 2", "VALUES (1,'ala'), (2,'kota')");
-        testWritesLockInvalidContents("DELETE FROM %s WHERE a_number = 2", "VALUES (1,'ala')");
-    }
-
-    private void testWritesLockInvalidContents(String writeStatement, String expectedValues)
-    {
-        String tableName = "test_writes_locked" + randomNameSuffix();
-        assertUpdate(
-                format("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s') AS " +
-                                "VALUES (1, 'ala'), (2, 'ma')",
-                        tableName,
-                        bucketName,
-                        tableName),
-                2);
-
-        String lockFilePath = invalidLockTable(tableName);
-        assertUpdate(format(writeStatement, tableName), 1);
-        assertQuery("SELECT * FROM " + tableName, expectedValues);
-        assertThat(listLocks(tableName)).containsExactly(lockFilePath); // we should not delete unparsable lock file
-
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -242,65 +125,5 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
 
         assertUpdate("INSERT INTO " + tableName + " VALUES(2, 20)", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL), (2, 20)");
-    }
-
-    @Override
-    @Test
-    @Disabled
-    public void testConcurrentInsertsReconciliationForBlindInserts()
-    {
-        // testConcurrentInsertsReconciliation requires safe writes capability to avoid test flakiness
-    }
-
-    @Override
-    @Test
-    @Disabled
-    public void testConcurrentInsertsSelectingFromTheSameTable()
-    {
-        // testConcurrentInsertsSelectingFromTheSameTable requires safe writes capability to avoid test flakiness
-    }
-
-    @Override
-    @Test
-    @Disabled
-    public void testConcurrentInsertsReconciliationForMixedInserts()
-    {
-        // testConcurrentInsertsReconciliationForMixedInserts requires safe writes capability to avoid test flakiness
-    }
-
-    private String lockTable(String tableName, java.time.Duration lockDuration)
-            throws Exception
-    {
-        String lockFilePath = format("%s/00000000000000000001.json.sb-lock_blah", getLockFileDirectory(tableName));
-        String lockFileContents = OBJECT_MAPPER.writeValueAsString(
-                new S3NativeTransactionLogSynchronizer.LockFileContents("some_cluster", "some_query", Instant.now().plus(lockDuration).toEpochMilli()));
-        hiveMinioDataLake.writeFile(lockFileContents.getBytes(UTF_8), lockFilePath);
-        String lockUri = format("s3://%s/%s", bucketName, lockFilePath);
-        assertThat(listLocks(tableName)).containsExactly(lockUri); // sanity check
-        return lockUri;
-    }
-
-    private String invalidLockTable(String tableName)
-    {
-        String lockFilePath = format("%s/00000000000000000001.json.sb-lock_blah", getLockFileDirectory(tableName));
-        String invalidLockFileContents = "some very wrong json contents";
-        hiveMinioDataLake.writeFile(invalidLockFileContents.getBytes(UTF_8), lockFilePath);
-        String lockUri = format("s3://%s/%s", bucketName, lockFilePath);
-        assertThat(listLocks(tableName)).containsExactly(lockUri); // sanity check
-        return lockUri;
-    }
-
-    private List<String> listLocks(String tableName)
-    {
-        List<String> paths = hiveMinioDataLake.listFiles(getLockFileDirectory(tableName));
-        return paths.stream()
-                .filter(path -> path.contains(".sb-lock_"))
-                .map(path -> format("s3://%s/%s", bucketName, path))
-                .collect(toImmutableList());
-    }
-
-    private String getLockFileDirectory(String tableName)
-    {
-        return format("%s/_delta_log/_sb_lock", tableName);
     }
 }

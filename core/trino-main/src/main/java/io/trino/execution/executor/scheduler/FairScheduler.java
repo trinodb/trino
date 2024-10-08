@@ -25,6 +25,8 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -53,6 +55,7 @@ public final class FairScheduler
 
     private final ExecutorService schedulerExecutor;
     private final ListeningExecutorService taskExecutor;
+    private final ThreadPoolExecutor executor; // instance underlying taskExecutor, for diagnostics
     private final BlockingSchedulingQueue<Group, TaskControl> queue = new BlockingSchedulingQueue<>();
     private final Reservation<TaskControl> concurrencyControl;
     private final Ticker ticker;
@@ -70,7 +73,8 @@ public final class FairScheduler
 
         schedulerExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("fair-scheduler-%d"));
 
-        taskExecutor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(daemonThreadsNamed(threadNameFormat)));
+        executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(), daemonThreadsNamed(threadNameFormat));
+        taskExecutor = MoreExecutors.listeningDecorator(executor);
     }
 
     public static FairScheduler newInstance(int maxConcurrentTasks)
@@ -295,6 +299,32 @@ public final class FairScheduler
     long getBlockedNanos(TaskControl task)
     {
         return task.getBlockedNanos();
+    }
+
+    public String diagnostics()
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append(queue);
+
+        builder.append("Task executor: pool=%s, active=%s, queue=%s\n".formatted(
+                executor.getPoolSize(),
+                executor.getActiveCount(),
+                executor.getQueue().size()));
+
+        builder.append("Concurrency control: slots=%s, available=%s\n".formatted(
+                concurrencyControl.totalSlots(),
+                concurrencyControl.availableSlots()));
+
+        builder.append("Reservations:\n");
+        if (concurrencyControl.totalSlots() - concurrencyControl.availableSlots() == 1) {
+            builder.append("    (pending)\n");
+        }
+        concurrencyControl.reservations().forEach(reservation ->
+                builder.append("    ")
+                        .append(reservation)
+                        .append("\n"));
+
+        return builder.toString();
     }
 
     @Override

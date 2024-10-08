@@ -168,25 +168,31 @@ public class PinotMetadata
         if (pinotTableName == null) {
             return null;
         }
-        return new PinotTableHandle(tableName.getSchemaName(), pinotTableName, getFromCache(pinotTableSchemaCache, pinotTableName).isEnableColumnBasedNullHandling());
+        return new PinotTableHandle(
+                tableName.getSchemaName(),
+                pinotTableName,
+                getFromCache(pinotTableSchemaCache, pinotTableName).isEnableColumnBasedNullHandling(),
+                TupleDomain.all(),
+                OptionalLong.empty(),
+                Optional.empty());
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         PinotTableHandle pinotTableHandle = (PinotTableHandle) table;
-        if (pinotTableHandle.getQuery().isPresent()) {
-            DynamicTable dynamicTable = pinotTableHandle.getQuery().get();
+        if (pinotTableHandle.query().isPresent()) {
+            DynamicTable dynamicTable = pinotTableHandle.query().get();
             ImmutableList.Builder<ColumnMetadata> columnMetadataBuilder = ImmutableList.builder();
             for (PinotColumnHandle pinotColumnHandle : dynamicTable.projections()) {
                 columnMetadataBuilder.add(pinotColumnHandle.getColumnMetadata());
             }
             dynamicTable.aggregateColumns()
                     .forEach(columnHandle -> columnMetadataBuilder.add(columnHandle.getColumnMetadata()));
-            SchemaTableName schemaTableName = new SchemaTableName(pinotTableHandle.getSchemaName(), dynamicTable.tableName());
+            SchemaTableName schemaTableName = new SchemaTableName(pinotTableHandle.schemaName(), dynamicTable.tableName());
             return new ConnectorTableMetadata(schemaTableName, columnMetadataBuilder.build());
         }
-        SchemaTableName tableName = new SchemaTableName(pinotTableHandle.getSchemaName(), pinotTableHandle.getTableName());
+        SchemaTableName tableName = new SchemaTableName(pinotTableHandle.schemaName(), pinotTableHandle.tableName());
 
         return new ConnectorTableMetadata(tableName, getColumnsMetadata(tableName.getTableName()));
     }
@@ -205,10 +211,10 @@ public class PinotMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
-        if (pinotTableHandle.getQuery().isPresent()) {
+        if (pinotTableHandle.query().isPresent()) {
             return getDynamicTableColumnHandles(pinotTableHandle);
         }
-        return getPinotColumnHandles(pinotTableHandle.getTableName());
+        return getPinotColumnHandles(pinotTableHandle.tableName());
     }
 
     public Map<String, ColumnHandle> getPinotColumnHandles(String tableName)
@@ -256,10 +262,10 @@ public class PinotMetadata
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         PinotTableHandle handle = (PinotTableHandle) table;
-        if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
+        if (handle.limit().isPresent() && handle.limit().getAsLong() <= limit) {
             return Optional.empty();
         }
-        Optional<DynamicTable> dynamicTable = handle.getQuery();
+        Optional<DynamicTable> dynamicTable = handle.query();
         if (dynamicTable.isPresent() &&
                 (dynamicTable.get().limit().isEmpty() || dynamicTable.get().limit().getAsLong() > limit)) {
             dynamicTable = Optional.of(new DynamicTable(dynamicTable.get().tableName(),
@@ -277,10 +283,10 @@ public class PinotMetadata
         }
 
         handle = new PinotTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.isEnableNullHandling(),
-                handle.getConstraint(),
+                handle.schemaName(),
+                handle.tableName(),
+                handle.enableNullHandling(),
+                handle.constraint(),
                 OptionalLong.of(limit),
                 dynamicTable);
         boolean singleSplit = dynamicTable.isPresent();
@@ -291,7 +297,7 @@ public class PinotMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         PinotTableHandle handle = (PinotTableHandle) table;
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = handle.constraint();
 
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         TupleDomain<ColumnHandle> remainingFilter;
@@ -329,12 +335,12 @@ public class PinotMetadata
         }
 
         handle = new PinotTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.isEnableNullHandling(),
+                handle.schemaName(),
+                handle.tableName(),
+                handle.enableNullHandling(),
                 newDomain,
-                handle.getLimit(),
-                handle.getQuery());
+                handle.limit(),
+                handle.query());
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
     }
 
@@ -373,7 +379,7 @@ public class PinotMetadata
         }
 
         PinotTableHandle tableHandle = (PinotTableHandle) handle;
-        Schema schema = getFromCache(pinotTableSchemaCache, tableHandle.getTableName());
+        Schema schema = getFromCache(pinotTableSchemaCache, tableHandle.tableName());
         if (schema.isEnableColumnBasedNullHandling()) {
             // Pinot has a correctness issue when null handling is enabled
             return Optional.empty();
@@ -390,11 +396,11 @@ public class PinotMetadata
         // If aggregates are present than no further aggregations
         // can be pushed down: there are currently no subqueries in pinot.
         // If there is an offset then do not push the aggregation down as the results will not be correct
-        if (tableHandle.getQuery().isPresent() &&
-                (!isAggregationPushdownSupported(session, tableHandle.getQuery(), aggregates, assignments) ||
-                        !tableHandle.getQuery().get().aggregateColumns().isEmpty() ||
-                        tableHandle.getQuery().get().aggregateInProjections() ||
-                        tableHandle.getQuery().get().offset().isPresent())) {
+        if (tableHandle.query().isPresent() &&
+                (!isAggregationPushdownSupported(session, tableHandle.query(), aggregates, assignments) ||
+                        !tableHandle.query().get().aggregateColumns().isEmpty() ||
+                        tableHandle.query().get().aggregateInProjections() ||
+                        tableHandle.query().get().offset().isPresent())) {
             return Optional.empty();
         }
 
@@ -424,15 +430,15 @@ public class PinotMetadata
         // Ensure that pinot default limit of 10 rows is not used
         // By setting the limit to maxRowsPerBrokerQuery + 1 the connector will
         // know when the limit was exceeded and throw an error
-        if (tableHandle.getLimit().isEmpty() && !groupingColumns.isEmpty()) {
+        if (tableHandle.limit().isEmpty() && !groupingColumns.isEmpty()) {
             limitForDynamicTable = OptionalLong.of(maxRowsPerBrokerQuery + 1);
         }
         List<PinotColumnHandle> aggregationColumns = aggregateColumnsBuilder.build();
         String newQuery = "";
         List<PinotColumnHandle> newSelections = groupingColumns;
-        if (tableHandle.getQuery().isPresent()) {
-            newQuery = tableHandle.getQuery().get().query();
-            Map<String, PinotColumnHandle> projectionsMap = tableHandle.getQuery().get().projections().stream()
+        if (tableHandle.query().isPresent()) {
+            newQuery = tableHandle.query().get().query();
+            Map<String, PinotColumnHandle> projectionsMap = tableHandle.query().get().projections().stream()
                     .collect(toImmutableMap(PinotColumnHandle::getColumnName, identity()));
             groupingColumns = groupingColumns.stream()
                     .map(groupIngColumn -> projectionsMap.getOrDefault(groupIngColumn.getColumnName(), groupIngColumn))
@@ -448,10 +454,10 @@ public class PinotMetadata
         }
 
         DynamicTable dynamicTable = new DynamicTable(
-                tableHandle.getTableName(),
+                tableHandle.tableName(),
                 Optional.empty(),
                 newSelections,
-                tableHandle.getQuery().flatMap(DynamicTable::filter),
+                tableHandle.query().flatMap(DynamicTable::filter),
                 groupingColumns,
                 aggregationColumns,
                 Optional.empty(),
@@ -461,11 +467,11 @@ public class PinotMetadata
                 ImmutableMap.of(),
                 newQuery);
         tableHandle = new PinotTableHandle(
-                tableHandle.getSchemaName(),
-                tableHandle.getTableName(),
-                tableHandle.isEnableNullHandling(),
-                tableHandle.getConstraint(),
-                tableHandle.getLimit(),
+                tableHandle.schemaName(),
+                tableHandle.tableName(),
+                tableHandle.enableNullHandling(),
+                tableHandle.constraint(),
+                tableHandle.limit(),
                 Optional.of(dynamicTable));
 
         return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
@@ -507,7 +513,7 @@ public class PinotMetadata
             // This is to avoid count(column_name) being pushed into pinot, which is currently unsupported.
             // Currently Pinot treats count(column_name) as count(*), i.e. it counts nulls.
             PinotColumnHandle columnHandle = (PinotColumnHandle) assignments.get(argument.getName());
-            if (tableHandle.getQuery().isEmpty() || tableHandle.getQuery().get().groupingColumns().stream()
+            if (tableHandle.query().isEmpty() || tableHandle.query().get().groupingColumns().stream()
                     .noneMatch(groupingExpression -> groupingExpression.getColumnName().equals(columnHandle.getColumnName()))) {
                 return Optional.empty();
             }
@@ -557,8 +563,8 @@ public class PinotMetadata
 
     private Map<String, ColumnHandle> getDynamicTableColumnHandles(PinotTableHandle pinotTableHandle)
     {
-        checkState(pinotTableHandle.getQuery().isPresent(), "dynamic table not present");
-        DynamicTable dynamicTable = pinotTableHandle.getQuery().get();
+        checkState(pinotTableHandle.query().isPresent(), "dynamic table not present");
+        DynamicTable dynamicTable = pinotTableHandle.query().get();
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandlesBuilder = ImmutableMap.builder();
         for (PinotColumnHandle pinotColumnHandle : dynamicTable.projections()) {

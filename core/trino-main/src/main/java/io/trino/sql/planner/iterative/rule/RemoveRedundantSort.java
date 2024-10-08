@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
@@ -40,7 +39,7 @@ public class RemoveRedundantSort
     {
         Cardinality cardinality = extractCardinality(node.getSource(), context.getLookup());
         if (cardinality.isEmpty()) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
         if (cardinality.isScalar()) {
             return Result.ofPlanNode(node.getSource());

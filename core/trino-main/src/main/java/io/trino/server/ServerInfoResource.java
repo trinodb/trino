@@ -19,13 +19,13 @@ import io.trino.client.NodeVersion;
 import io.trino.client.ServerInfo;
 import io.trino.metadata.NodeState;
 import io.trino.server.security.ResourceSecurity;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import java.util.Optional;
@@ -37,7 +37,6 @@ import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_WR
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN;
-import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -76,7 +75,6 @@ public class ServerInfoResource
     @Consumes(APPLICATION_JSON)
     @Produces(TEXT_PLAIN)
     public Response updateState(NodeState state)
-            throws WebApplicationException
     {
         requireNonNull(state, "state is null");
         return switch (state) {
@@ -84,11 +82,7 @@ public class ServerInfoResource
                 shutdownHandler.requestShutdown();
                 yield Response.ok().build();
             }
-            case ACTIVE, INACTIVE -> throw new WebApplicationException(Response
-                    .status(BAD_REQUEST)
-                    .type(MediaType.TEXT_PLAIN)
-                    .entity(format("Invalid state transition to %s", state))
-                    .build());
+            case ACTIVE, INACTIVE -> throw new BadRequestException(format("Invalid state transition to %s", state));
         };
     }
 
@@ -114,6 +108,6 @@ public class ServerInfoResource
             return Response.ok().build();
         }
         // return 404 to allow load balancers to only send traffic to the coordinator
-        return Response.status(Response.Status.NOT_FOUND).build();
+        throw new NotFoundException();
     }
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>452</version>
+        <version>460</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,7 +15,7 @@
     <properties>
         <project.build.targetJdk>8</project.build.targetJdk>
         <main-class>io.trino.cli.Trino</main-class>
-        <dep.jline.version>3.26.2</dep.jline.version>
+        <dep.jline.version>3.27.0</dep.jline.version>
     </properties>
 
     <dependencies>
@@ -45,11 +45,6 @@
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>logging-interceptor</artifactId>
         </dependency>
 
         <dependency>
@@ -112,6 +107,18 @@
             <groupId>org.jline</groupId>
             <artifactId>jline-terminal</artifactId>
             <version>${dep.jline.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jdk8</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>

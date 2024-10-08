@@ -34,19 +34,9 @@ public final class SetProperties
     private final QualifiedName name;
     private final List<Property> properties;
 
-    public SetProperties(Type type, QualifiedName name, List<Property> properties)
-    {
-        this(Optional.empty(), type, name, properties);
-    }
-
     public SetProperties(NodeLocation location, Type type, QualifiedName name, List<Property> properties)
     {
-        this(Optional.of(location), type, name, properties);
-    }
-
-    private SetProperties(Optional<NodeLocation> location, Type type, QualifiedName name, List<Property> properties)
-    {
-        super(location);
+        super(Optional.of(location));
         this.type = requireNonNull(type, "type is null");
         this.name = requireNonNull(name, "name is null");
         this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));

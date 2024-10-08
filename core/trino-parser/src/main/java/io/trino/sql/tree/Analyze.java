@@ -28,19 +28,9 @@ public class Analyze
     private final QualifiedName tableName;
     private final List<Property> properties;
 
-    public Analyze(QualifiedName tableName, List<Property> properties)
-    {
-        this(Optional.empty(), tableName, properties);
-    }
-
     public Analyze(NodeLocation location, QualifiedName tableName, List<Property> properties)
     {
-        this(Optional.of(location), tableName, properties);
-    }
-
-    private Analyze(Optional<NodeLocation> location, QualifiedName tableName, List<Property> properties)
-    {
-        super(location);
+        super(Optional.of(location));
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
     }

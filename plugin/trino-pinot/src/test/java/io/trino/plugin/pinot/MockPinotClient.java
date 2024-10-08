@@ -95,8 +95,8 @@ public class MockPinotClient
     public Multimap<String, String> getAllTables()
     {
         return ImmutableListMultimap.<String, String>builder()
-                .put(TestPinotSplitManager.realtimeOnlyTable.getTableName().toLowerCase(ENGLISH), TestPinotSplitManager.realtimeOnlyTable.getTableName())
-                .put(TestPinotSplitManager.hybridTable.getTableName().toLowerCase(ENGLISH), TestPinotSplitManager.hybridTable.getTableName())
+                .put(TestPinotSplitManager.realtimeOnlyTable.tableName().toLowerCase(ENGLISH), TestPinotSplitManager.realtimeOnlyTable.tableName())
+                .put(TestPinotSplitManager.hybridTable.tableName().toLowerCase(ENGLISH), TestPinotSplitManager.hybridTable.tableName())
                 .put(TEST_TABLE.toLowerCase(ENGLISH), TEST_TABLE)
                 .putAll(metadata.keySet().stream()
                         .map(key -> new AbstractMap.SimpleEntry<>(key.toLowerCase(ENGLISH), key))
@@ -109,13 +109,13 @@ public class MockPinotClient
     {
         ImmutableMap.Builder<String, Map<String, List<String>>> routingTable = ImmutableMap.builder();
 
-        if (TestPinotSplitManager.realtimeOnlyTable.getTableName().equalsIgnoreCase(tableName) || TestPinotSplitManager.hybridTable.getTableName().equalsIgnoreCase(tableName)) {
+        if (TestPinotSplitManager.realtimeOnlyTable.tableName().equalsIgnoreCase(tableName) || TestPinotSplitManager.hybridTable.tableName().equalsIgnoreCase(tableName)) {
             routingTable.put(tableName + "_REALTIME", ImmutableMap.of(
                     "server1", ImmutableList.of("segment11", "segment12"),
                     "server2", ImmutableList.of("segment21", "segment22")));
         }
 
-        if (TestPinotSplitManager.hybridTable.getTableName().equalsIgnoreCase(tableName)) {
+        if (TestPinotSplitManager.hybridTable.tableName().equalsIgnoreCase(tableName)) {
             routingTable.put(tableName + "_OFFLINE", ImmutableMap.of(
                     "server3", ImmutableList.of("segment31", "segment32"),
                     "server4", ImmutableList.of("segment41", "segment42")));
@@ -472,7 +472,7 @@ public class MockPinotClient
     @Override
     public TimeBoundary getTimeBoundaryForTable(String table)
     {
-        if (TestPinotSplitManager.hybridTable.getTableName().equalsIgnoreCase(table)) {
+        if (TestPinotSplitManager.hybridTable.tableName().equalsIgnoreCase(table)) {
             return new TimeBoundary("secondsSinceEpoch", "4562345");
         }
 

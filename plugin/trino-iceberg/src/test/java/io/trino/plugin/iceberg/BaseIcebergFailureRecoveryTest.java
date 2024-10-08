@@ -26,6 +26,7 @@ import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RE
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_TIMEOUT;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
+import static io.trino.operator.RetryPolicy.TASK;
 
 public abstract class BaseIcebergFailureRecoveryTest
         extends BaseFailureRecoveryTest
@@ -62,19 +63,43 @@ public abstract class BaseIcebergFailureRecoveryTest
         Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
         String deleteQuery = "DELETE FROM <table> WHERE orderkey = 1";
 
-        assertThatQuery(deleteQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(boundaryCoordinatorStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+        if (getRetryPolicy() == TASK) {
+            assertThatQuery(deleteQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(boundaryCoordinatorStage())
+                    .finishesSuccessfully()
+                    .cleansUpTemporaryTables();
+        }
+        else {
+            assertThatQuery(deleteQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(boundaryCoordinatorStage())
+                    .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
+                    .cleansUpTemporaryTables();
+        }
 
-        assertThatQuery(deleteQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(rootStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+        if (getRetryPolicy() == TASK) {
+            assertThatQuery(deleteQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(rootStage())
+                    .finishesSuccessfully()
+                    .cleansUpTemporaryTables();
+        }
+        else {
+            assertThatQuery(deleteQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(rootStage())
+                    .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
+                    .cleansUpTemporaryTables();
+        }
 
         assertThatQuery(deleteQuery)
                 .withSetupQuery(setupQuery)
@@ -82,7 +107,8 @@ public abstract class BaseIcebergFailureRecoveryTest
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(leafStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
-                .finishesSuccessfully();
+                .finishesSuccessfully()
+                .cleansUpTemporaryTables();
 
         // note: this is effectively same as test with `leafStage`. Should it be dropped?
         assertThatQuery(deleteQuery)
@@ -91,7 +117,8 @@ public abstract class BaseIcebergFailureRecoveryTest
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
-                .finishesSuccessfully();
+                .finishesSuccessfully()
+                .cleansUpTemporaryTables();
 
         assertThatQuery(deleteQuery)
                 .withSetupQuery(setupQuery)
@@ -99,7 +126,8 @@ public abstract class BaseIcebergFailureRecoveryTest
                 .experiencing(TASK_MANAGEMENT_REQUEST_FAILURE)
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
-                .finishesSuccessfully();
+                .finishesSuccessfully()
+                .cleansUpTemporaryTables();
 
         assertThatQuery(deleteQuery)
                 .withSetupQuery(setupQuery)
@@ -107,7 +135,8 @@ public abstract class BaseIcebergFailureRecoveryTest
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
-                .finishesSuccessfully();
+                .finishesSuccessfully()
+                .cleansUpTemporaryTables();
 
         if (getRetryPolicy() == RetryPolicy.QUERY) {
             assertThatQuery(deleteQuery)
@@ -116,7 +145,8 @@ public abstract class BaseIcebergFailureRecoveryTest
                     .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
                     .at(boundaryDistributedStage())
                     .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
-                    .finishesSuccessfully();
+                    .finishesSuccessfully()
+                    .cleansUpTemporaryTables();
 
             assertThatQuery(deleteQuery)
                     .withSetupQuery(setupQuery)
@@ -124,7 +154,8 @@ public abstract class BaseIcebergFailureRecoveryTest
                     .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                     .at(boundaryDistributedStage())
                     .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
-                    .finishesSuccessfully();
+                    .finishesSuccessfully()
+                    .cleansUpTemporaryTables();
         }
     }
 
@@ -140,19 +171,43 @@ public abstract class BaseIcebergFailureRecoveryTest
         Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
         String updateQuery = "UPDATE <table> SET shippriority = 101 WHERE custkey = 1";
 
-        assertThatQuery(updateQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(boundaryCoordinatorStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+        if (getRetryPolicy() == TASK) {
+            assertThatQuery(updateQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(boundaryCoordinatorStage())
+                    .finishesSuccessfully()
+                    .cleansUpTemporaryTables();
+        }
+        else {
+            assertThatQuery(updateQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(boundaryCoordinatorStage())
+                    .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
+                    .cleansUpTemporaryTables();
+        }
 
-        assertThatQuery(updateQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(rootStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+        if (getRetryPolicy() == TASK) {
+            assertThatQuery(updateQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(rootStage())
+                    .finishesSuccessfully()
+                    .cleansUpTemporaryTables();
+        }
+        else {
+            assertThatQuery(updateQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(rootStage())
+                    .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
+                    .cleansUpTemporaryTables();
+        }
 
         assertThatQuery(updateQuery)
                 .withSetupQuery(setupQuery)
@@ -160,7 +215,8 @@ public abstract class BaseIcebergFailureRecoveryTest
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(leafStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
-                .finishesSuccessfully();
+                .finishesSuccessfully()
+                .cleansUpTemporaryTables();
 
         assertThatQuery(updateQuery)
                 .withSetupQuery(setupQuery)
@@ -168,7 +224,8 @@ public abstract class BaseIcebergFailureRecoveryTest
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
-                .finishesSuccessfully();
+                .finishesSuccessfully()
+                .cleansUpTemporaryTables();
 
         assertThatQuery(updateQuery)
                 .withSetupQuery(setupQuery)
@@ -176,7 +233,8 @@ public abstract class BaseIcebergFailureRecoveryTest
                 .experiencing(TASK_MANAGEMENT_REQUEST_FAILURE)
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
-                .finishesSuccessfully();
+                .finishesSuccessfully()
+                .cleansUpTemporaryTables();
 
         assertThatQuery(updateQuery)
                 .withSetupQuery(setupQuery)
@@ -193,7 +251,8 @@ public abstract class BaseIcebergFailureRecoveryTest
                     .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
                     .at(boundaryDistributedStage())
                     .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
-                    .finishesSuccessfully();
+                    .finishesSuccessfully()
+                    .cleansUpTemporaryTables();
 
             assertThatQuery(updateQuery)
                     .withSetupQuery(setupQuery)
@@ -201,7 +260,8 @@ public abstract class BaseIcebergFailureRecoveryTest
                     .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                     .at(boundaryDistributedStage())
                     .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
-                    .finishesSuccessfully();
+                    .finishesSuccessfully()
+                    .cleansUpTemporaryTables();
         }
     }
 

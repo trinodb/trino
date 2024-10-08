@@ -28,19 +28,9 @@ public class Except
     private final Relation left;
     private final Relation right;
 
-    public Except(Relation left, Relation right, boolean distinct)
-    {
-        this(Optional.empty(), left, right, distinct);
-    }
-
     public Except(NodeLocation location, Relation left, Relation right, boolean distinct)
     {
-        this(Optional.of(location), left, right, distinct);
-    }
-
-    private Except(Optional<NodeLocation> location, Relation left, Relation right, boolean distinct)
-    {
-        super(location, distinct);
+        super(Optional.of(location), distinct);
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
 

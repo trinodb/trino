@@ -63,6 +63,7 @@ public class BigQueryConfig
     private String queryLabelName;
     private String queryLabelFormat;
     private boolean proxyEnabled;
+    private boolean projectionPushDownEnabled = true;
     private int metadataParallelism = 2;
 
     public Optional<String> getProjectId()
@@ -339,6 +340,19 @@ public class BigQueryConfig
     public BigQueryConfig setProxyEnabled(boolean proxyEnabled)
     {
         this.proxyEnabled = proxyEnabled;
+        return this;
+    }
+
+    public boolean isProjectionPushdownEnabled()
+    {
+        return projectionPushDownEnabled;
+    }
+
+    @Config("bigquery.projection-pushdown-enabled")
+    @ConfigDescription("Dereference push down for ROW type")
+    public BigQueryConfig setProjectionPushdownEnabled(boolean projectionPushDownEnabled)
+    {
+        this.projectionPushDownEnabled = projectionPushDownEnabled;
         return this;
     }
 

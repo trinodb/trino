@@ -25,6 +25,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.security.AccessDeniedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PUT;
@@ -43,6 +44,7 @@ import java.util.Optional;
 
 import static io.trino.connector.system.KillQueryProcedure.createKillQueryException;
 import static io.trino.connector.system.KillQueryProcedure.createPreemptQueryException;
+import static io.trino.execution.QueryStateMachine.pruneQueryInfo;
 import static io.trino.security.AccessControlUtil.checkCanKillQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.filterQueries;
@@ -88,13 +90,14 @@ public class QueryResource
     @ResourceSecurity(AUTHENTICATED_USER)
     @GET
     @Path("{queryId}")
-    public Response getQueryInfo(@PathParam("queryId") QueryId queryId, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+    public Response getQueryInfo(@PathParam("queryId") QueryId queryId, @QueryParam("pruned") @DefaultValue("false") boolean pruned, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
         requireNonNull(queryId, "queryId is null");
 
-        Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
+        Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId)
+                .map(info -> pruned ? pruneQueryInfo(info, info.getVersion()) : info);
         if (queryInfo.isEmpty()) {
-            return Response.status(Status.GONE).build();
+            throw new GoneException();
         }
         try {
             checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queryInfo.get().getSession().toIdentity(), accessControl);
@@ -162,7 +165,7 @@ public class QueryResource
             throw new ForbiddenException();
         }
         catch (NoSuchElementException e) {
-            return Response.status(Status.GONE).build();
+            throw new GoneException();
         }
     }
 }

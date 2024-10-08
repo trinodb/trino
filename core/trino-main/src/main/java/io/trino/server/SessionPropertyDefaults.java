@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.Session;
@@ -52,12 +53,14 @@ public class SessionPropertyDefaults
     private final AtomicReference<SessionPropertyConfigurationManager> delegate = new AtomicReference<>();
 
     private final AccessControl accessControl;
+    private final SecretsResolver secretsResolver;
 
     @Inject
-    public SessionPropertyDefaults(NodeInfo nodeInfo, AccessControl accessControl)
+    public SessionPropertyDefaults(NodeInfo nodeInfo, AccessControl accessControl, SecretsResolver secretsResolver)
     {
         this.configurationManagerContext = new SessionPropertyConfigurationManagerContextInstance(nodeInfo.getEnvironment());
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
     public void addConfigurationManagerFactory(SessionPropertyConfigurationManagerFactory sessionConfigFactory)
@@ -97,7 +100,7 @@ public class SessionPropertyDefaults
 
         SessionPropertyConfigurationManager manager;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            manager = factory.create(properties, configurationManagerContext);
+            manager = factory.create(secretsResolver.getResolvedConfiguration(properties), configurationManagerContext);
         }
 
         checkState(delegate.compareAndSet(null, manager), "sessionPropertyConfigurationManager is already set");

@@ -109,7 +109,7 @@ public class TestPasswordAuthentication
     {
         closeAll(
                 () -> assertions.close(),
-                () -> opensearch.stop(),
+                () -> opensearch.close(),
                 () -> client.close());
 
         assertions = null;

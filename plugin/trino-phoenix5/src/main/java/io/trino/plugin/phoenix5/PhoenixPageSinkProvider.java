@@ -15,6 +15,7 @@ package io.trino.plugin.phoenix5;
 
 import com.google.inject.Inject;
 import io.trino.plugin.jdbc.JdbcPageSinkProvider;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeSink;
@@ -26,19 +27,23 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
+import static java.util.Objects.requireNonNull;
+
 public class PhoenixPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final JdbcPageSinkProvider delegate;
     private final PhoenixClient jdbcClient;
     private final RemoteQueryModifier remoteQueryModifier;
+    private final QueryBuilder queryBuilder;
 
     @Inject
-    public PhoenixPageSinkProvider(PhoenixClient jdbcClient, RemoteQueryModifier remoteQueryModifier)
+    public PhoenixPageSinkProvider(PhoenixClient jdbcClient, RemoteQueryModifier remoteQueryModifier, QueryBuilder queryBuilder)
     {
         this.delegate = new JdbcPageSinkProvider(jdbcClient, remoteQueryModifier);
-        this.jdbcClient = jdbcClient;
-        this.remoteQueryModifier = remoteQueryModifier;
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.remoteQueryModifier = requireNonNull(remoteQueryModifier, "remoteQueryModifier is null");
+        this.queryBuilder = requireNonNull(queryBuilder, "queryBuilder is null");
     }
 
     @Override
@@ -56,6 +61,6 @@ public class PhoenixPageSinkProvider
     @Override
     public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
     {
-        return new PhoenixMergeSink(jdbcClient, remoteQueryModifier, session, mergeHandle, pageSinkId);
+        return new PhoenixMergeSink(session, mergeHandle, jdbcClient, pageSinkId, remoteQueryModifier, queryBuilder);
     }
 }

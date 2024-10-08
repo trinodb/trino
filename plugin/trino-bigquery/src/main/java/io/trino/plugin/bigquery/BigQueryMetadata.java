@@ -32,15 +32,18 @@ import com.google.cloud.bigquery.storage.v1.CreateWriteStreamRequest;
 import com.google.cloud.bigquery.storage.v1.JsonStreamWriter;
 import com.google.cloud.bigquery.storage.v1.TableName;
 import com.google.cloud.bigquery.storage.v1.WriteStream;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Ordering;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.bigquery.BigQueryClient.RemoteDatabaseObject;
 import io.trino.plugin.bigquery.BigQueryTableHandle.BigQueryPartitionType;
 import io.trino.plugin.bigquery.ptf.Query.QueryHandle;
@@ -68,6 +71,8 @@ import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.SampleApplicationResult;
+import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -76,18 +81,22 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.BigintType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.json.JSONArray;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -106,16 +115,22 @@ import static com.google.cloud.bigquery.StandardSQLTypeName.INT64;
 import static com.google.cloud.bigquery.storage.v1.WriteStream.Type.COMMITTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_BAD_WRITE;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_TABLE_ERROR;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_OPERATION;
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_DATE;
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_TIME;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.bigquery.BigQueryTableHandle.BigQueryPartitionType.INGESTION;
 import static io.trino.plugin.bigquery.BigQueryTableHandle.getPartitionType;
 import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
@@ -136,6 +151,8 @@ public class BigQueryMetadata
 {
     private static final Logger log = Logger.get(BigQueryMetadata.class);
     private static final Type TRINO_PAGE_SINK_ID_COLUMN_TYPE = BigintType.BIGINT;
+    private static final Ordering<BigQueryColumnHandle> COLUMN_HANDLE_ORDERING = Ordering
+            .from(Comparator.comparingInt(columnHandle -> columnHandle.dereferenceNames().size()));
 
     static final int DEFAULT_NUMERIC_TYPE_PRECISION = 38;
     static final int DEFAULT_NUMERIC_TYPE_SCALE = 9;
@@ -314,7 +331,7 @@ public class BigQueryMetadata
         String remoteSchemaName = client.toRemoteDataset(localDatasetId)
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElse(localDatasetId.getDataset());
-        String remoteTableName = client.toRemoteTable(localDatasetId.getProject(), remoteSchemaName, schemaTableName.getTableName())
+        String remoteTableName = client.toRemoteTable(session, localDatasetId.getProject(), remoteSchemaName, schemaTableName.getTableName())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElse(schemaTableName.getTableName());
         Optional<TableInfo> tableInfo = client.getTable(TableId.of(localDatasetId.getProject(), remoteSchemaName, remoteTableName));
@@ -348,7 +365,7 @@ public class BigQueryMetadata
         String remoteSchemaName = client.toRemoteDataset(localDatasetId)
                 .map(RemoteDatabaseObject::getAnyRemoteName)
                 .orElse(localDatasetId.getDataset());
-        String remoteTableName = client.toRemoteTable(localDatasetId.getProject(), remoteSchemaName, schemaTableName.getTableName())
+        String remoteTableName = client.toRemoteTable(session, localDatasetId.getProject(), remoteSchemaName, schemaTableName.getTableName())
                 .map(RemoteDatabaseObject::getAnyRemoteName)
                 .orElse(schemaTableName.getTableName());
         return client.getTable(TableId.of(localDatasetId.getProject(), remoteSchemaName, remoteTableName));
@@ -383,7 +400,7 @@ public class BigQueryMetadata
         String remoteSchemaName = client.toRemoteDataset(localDatasetId)
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElseThrow(() -> new TableNotFoundException(viewDefinitionTableName));
-        String remoteTableName = client.toRemoteTable(localDatasetId.getProject(), remoteSchemaName, sourceTableName.getTableName())
+        String remoteTableName = client.toRemoteTable(session, localDatasetId.getProject(), remoteSchemaName, sourceTableName.getTableName())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElseThrow(() -> new TableNotFoundException(viewDefinitionTableName));
         TableInfo tableInfo = client.getTable(TableId.of(localDatasetId.getProject(), remoteSchemaName, remoteTableName))
@@ -769,7 +786,7 @@ public class BigQueryMetadata
     @Override
     public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new BigQueryColumnHandle("$merge_row_id", BIGINT, INT64, true, Field.Mode.REQUIRED, ImmutableList.of(), null, true);
+        return new BigQueryColumnHandle("$merge_row_id", ImmutableList.of(), BIGINT, INT64, true, Field.Mode.REQUIRED, ImmutableList.of(), null, true);
     }
 
     @Override
@@ -828,6 +845,13 @@ public class BigQueryMetadata
     }
 
     @Override
+    public Optional<SampleApplicationResult<ConnectorTableHandle>> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
+    {
+        // TODO Enable BaseBigQueryConnectorTest.testTableSampleBernoulli when supporting this pushdown
+        return ConnectorMetadata.super.applySample(session, handle, sampleType, sampleRatio);
+    }
+
+    @Override
     public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> newComment)
     {
         BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
@@ -873,24 +897,150 @@ public class BigQueryMetadata
         log.debug("applyProjection(session=%s, handle=%s, projections=%s, assignments=%s)",
                 session, handle, projections, assignments);
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) handle;
+        if (!isProjectionPushdownEnabled(session)) {
+            List<ColumnHandle> newColumns = ImmutableList.copyOf(assignments.values());
+            if (bigQueryTableHandle.projectedColumns().isPresent() && containSameElements(newColumns, bigQueryTableHandle.projectedColumns().get())) {
+                return Optional.empty();
+            }
 
-        List<ColumnHandle> newColumns = ImmutableList.copyOf(assignments.values());
+            ImmutableList.Builder<BigQueryColumnHandle> projectedColumns = ImmutableList.builder();
+            ImmutableList.Builder<Assignment> assignmentList = ImmutableList.builder();
+            assignments.forEach((name, column) -> {
+                BigQueryColumnHandle columnHandle = (BigQueryColumnHandle) column;
+                projectedColumns.add(columnHandle);
+                assignmentList.add(new Assignment(name, column, columnHandle.trinoType()));
+            });
 
-        if (bigQueryTableHandle.projectedColumns().isPresent() && containSameElements(newColumns, bigQueryTableHandle.projectedColumns().get())) {
-            return Optional.empty();
+            bigQueryTableHandle = bigQueryTableHandle.withProjectedColumns(projectedColumns.build());
+
+            return Optional.of(new ProjectionApplicationResult<>(bigQueryTableHandle, projections, assignmentList.build(), false));
         }
 
-        ImmutableList.Builder<BigQueryColumnHandle> projectedColumns = ImmutableList.builder();
-        ImmutableList.Builder<Assignment> assignmentList = ImmutableList.builder();
-        assignments.forEach((name, column) -> {
-            BigQueryColumnHandle columnHandle = (BigQueryColumnHandle) column;
-            projectedColumns.add(columnHandle);
-            assignmentList.add(new Assignment(name, column, columnHandle.trinoType()));
-        });
+        // Create projected column representations for supported sub expressions. Simple column references and chain of
+        // dereferences on a variable are supported right now.
+        Set<ConnectorExpression> projectedExpressions = projections.stream()
+                .flatMap(expression -> extractSupportedProjectedColumns(expression).stream())
+                .collect(toImmutableSet());
 
-        bigQueryTableHandle = bigQueryTableHandle.withProjectedColumns(projectedColumns.build());
+        Map<ConnectorExpression, ProjectedColumnRepresentation> columnProjections = projectedExpressions.stream()
+                .collect(toImmutableMap(identity(), ApplyProjectionUtil::createProjectedColumnRepresentation));
 
-        return Optional.of(new ProjectionApplicationResult<>(bigQueryTableHandle, projections, assignmentList.build(), false));
+        // all references are simple variables
+        if (columnProjections.values().stream().allMatch(ProjectedColumnRepresentation::isVariable)) {
+            Set<BigQueryColumnHandle> projectedColumns = ImmutableSet.copyOf(projectParentColumns(assignments.values().stream()
+                    .map(BigQueryColumnHandle.class::cast)
+                    .collect(toImmutableList())));
+            if (bigQueryTableHandle.projectedColumns().isPresent() && containSameElements(projectedColumns, bigQueryTableHandle.projectedColumns().get())) {
+                return Optional.empty();
+            }
+            List<Assignment> assignmentsList = assignments.entrySet().stream()
+                    .map(assignment -> new Assignment(
+                            assignment.getKey(),
+                            assignment.getValue(),
+                            ((BigQueryColumnHandle) assignment.getValue()).trinoType()))
+                    .collect(toImmutableList());
+
+            return Optional.of(new ProjectionApplicationResult<>(
+                    bigQueryTableHandle.withProjectedColumns(ImmutableList.copyOf(projectedColumns)),
+                    projections,
+                    assignmentsList,
+                    false));
+        }
+
+        Map<String, Assignment> newAssignments = new HashMap<>();
+        ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
+        ImmutableSet.Builder<BigQueryColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
+
+        for (Map.Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
+            ConnectorExpression expression = entry.getKey();
+            ProjectedColumnRepresentation projectedColumn = entry.getValue();
+
+            BigQueryColumnHandle baseColumnHandle = (BigQueryColumnHandle) assignments.get(projectedColumn.getVariable().getName());
+            BigQueryColumnHandle projectedColumnHandle = createProjectedColumnHandle(baseColumnHandle, projectedColumn.getDereferenceIndices(), expression.getType());
+            String projectedColumnName = projectedColumnHandle.getQualifiedName();
+
+            Variable projectedColumnVariable = new Variable(projectedColumnName, expression.getType());
+            Assignment newAssignment = new Assignment(projectedColumnName, projectedColumnHandle, expression.getType());
+            newAssignments.putIfAbsent(projectedColumnName, newAssignment);
+
+            newVariablesBuilder.put(expression, projectedColumnVariable);
+            projectedColumnsBuilder.add(projectedColumnHandle);
+        }
+
+        // Modify projections to refer to new variables
+        Map<ConnectorExpression, Variable> newVariables = newVariablesBuilder.buildOrThrow();
+        List<ConnectorExpression> newProjections = projections.stream()
+                .map(expression -> replaceWithNewVariables(expression, newVariables))
+                .collect(toImmutableList());
+
+        List<Assignment> outputAssignments = newAssignments.values().stream().collect(toImmutableList());
+        return Optional.of(new ProjectionApplicationResult<>(
+                bigQueryTableHandle.withProjectedColumns(projectParentColumns(ImmutableList.copyOf(projectedColumnsBuilder.build()))),
+                newProjections,
+                outputAssignments,
+                false));
+    }
+
+    /**
+     * Creates a set of parent columns for the input projected columns. For example,
+     * if input {@param columns} include columns "a.b" and "a.b.c", then they will be projected from a single column "a.b".
+     */
+    @VisibleForTesting
+    static List<BigQueryColumnHandle> projectParentColumns(List<BigQueryColumnHandle> columnHandles)
+    {
+        List<BigQueryColumnHandle> sortedColumnHandles = COLUMN_HANDLE_ORDERING.sortedCopy(columnHandles);
+        List<BigQueryColumnHandle> parentColumns = new ArrayList<>();
+        for (BigQueryColumnHandle column : sortedColumnHandles) {
+            if (!parentColumnExists(parentColumns, column)) {
+                parentColumns.add(column);
+            }
+        }
+        return parentColumns;
+    }
+
+    private static boolean parentColumnExists(List<BigQueryColumnHandle> existingColumns, BigQueryColumnHandle column)
+    {
+        for (BigQueryColumnHandle existingColumn : existingColumns) {
+            List<String> existingColumnDereferenceNames = existingColumn.dereferenceNames();
+            verify(
+                    column.dereferenceNames().size() >= existingColumnDereferenceNames.size(),
+                    "Selected column's dereference size must be greater than or equal to the existing column's dereference size");
+            if (existingColumn.name().equals(column.name())
+                    && column.dereferenceNames().subList(0, existingColumnDereferenceNames.size()).equals(existingColumnDereferenceNames)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private BigQueryColumnHandle createProjectedColumnHandle(BigQueryColumnHandle baseColumn, List<Integer> indices, Type projectedColumnType)
+    {
+        if (indices.isEmpty()) {
+            return baseColumn;
+        }
+
+        ImmutableList.Builder<String> dereferenceNamesBuilder = ImmutableList.builder();
+        dereferenceNamesBuilder.addAll(baseColumn.dereferenceNames());
+
+        Type type = baseColumn.trinoType();
+        for (int index : indices) {
+            checkArgument(type instanceof RowType, "type should be Row type");
+            RowType rowType = (RowType) type;
+            RowType.Field field = rowType.getFields().get(index);
+            dereferenceNamesBuilder.add(field.getName()
+                    .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "ROW type does not have field names declared: " + rowType)));
+            type = field.getType();
+        }
+        return new BigQueryColumnHandle(
+                baseColumn.name(),
+                dereferenceNamesBuilder.build(),
+                projectedColumnType,
+                typeManager.toStandardSqlTypeName(projectedColumnType),
+                baseColumn.isPushdownSupported(),
+                baseColumn.mode(),
+                baseColumn.subColumns(),
+                baseColumn.description(),
+                baseColumn.hidden());
     }
 
     @Override

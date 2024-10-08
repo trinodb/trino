@@ -21,12 +21,12 @@ import com.amazonaws.services.glue.model.UserDefinedFunction;
 import com.amazonaws.services.glue.model.UserDefinedFunctionInput;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.trino.plugin.hive.HiveBucketProperty;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.Storage;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.Column;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveBucketProperty;
+import io.trino.metastore.Partition;
+import io.trino.metastore.Storage;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter;
 import io.trino.spi.function.LanguageFunction;
@@ -100,7 +100,7 @@ public class TestGlueInputConverter
                 .withResourceUris(input.getResourceUris());
         LanguageFunction actual = GlueToTrinoConverter.convertFunction(function);
 
-        assertThat(input.getResourceUris().size()).isEqualTo(4);
+        assertThat(input.getResourceUris().size()).isEqualTo(3);
         assertThat(actual).isEqualTo(expected);
 
         // verify that the owner comes from the metastore

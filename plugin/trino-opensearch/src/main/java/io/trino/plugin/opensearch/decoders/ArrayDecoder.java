@@ -21,6 +21,7 @@ import io.trino.spi.block.BlockBuilder;
 import org.opensearch.search.SearchHit;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public class ArrayDecoder
@@ -70,6 +71,25 @@ public class ArrayDecoder
         public Decoder createDecoder()
         {
             return new ArrayDecoder(elementDescriptor.createDecoder());
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Descriptor that = (Descriptor) o;
+            return Objects.equals(this.elementDescriptor, that.elementDescriptor);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return elementDescriptor.hashCode();
         }
     }
 }

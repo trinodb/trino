@@ -197,7 +197,7 @@ public class TableChangesFunctionProcessor
                 inputFile,
                 0,
                 split.fileSize(),
-                splitColumns.stream().filter(column -> column.getColumnType() == REGULAR).map(DeltaLakeColumnHandle::toHiveColumnHandle).collect(toImmutableList()),
+                splitColumns.stream().filter(column -> column.columnType() == REGULAR).map(DeltaLakeColumnHandle::toHiveColumnHandle).collect(toImmutableList()),
                 ImmutableList.of(TupleDomain.all()), // TODO add predicate pushdown https://github.com/trinodb/trino/issues/16990
                 true,
                 parquetDateTimeZone,

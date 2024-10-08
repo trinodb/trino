@@ -1,9 +1,13 @@
 # Introduction to SQL routines
 
 A SQL routine is a custom, user-defined function authored by a user of Trino and
-written in the SQL routine language. You can declare the routine body within a
-[](/routines/function) block as [inline routines](routine-inline) or [catalog
-routines](routine-catalog).
+written in the SQL routine language. Routines are scalar functions that return a
+single output value, similar to [built-in functions](/functions).
+
+[Declare the routine](routine-declaration) with a `FUNCTION` definition using
+the supported SQL routine statements. A routine can be declared and used as an
+[inline routine](routine-inline) or declared as a [catalog
+routine](routine-catalog) and used repeatedly.
 
 (routine-inline)=
 ## Inline routines
@@ -88,6 +92,7 @@ Use the [](/connector/memory) in a catalog for simple storing and
 testing of your SQL routines.
 :::
 
+(routine-declaration)=
 ## Routine declaration
 
 Refer to the documentation for the [](/routines/function) keyword for more

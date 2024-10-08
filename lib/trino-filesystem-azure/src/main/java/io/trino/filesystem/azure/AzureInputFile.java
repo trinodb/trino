@@ -37,13 +37,14 @@ class AzureInputFile
     private final int readBlockSizeBytes;
 
     private OptionalLong length;
-    private Optional<Instant> lastModified = Optional.empty();
+    private Optional<Instant> lastModified;
 
-    public AzureInputFile(AzureLocation location, OptionalLong length, BlobClient blobClient, int readBlockSizeBytes)
+    public AzureInputFile(AzureLocation location, OptionalLong length, Optional<Instant> lastModified, BlobClient blobClient, int readBlockSizeBytes)
     {
         this.location = requireNonNull(location, "location is null");
         location.location().verifyValidFileLocation();
         this.length = requireNonNull(length, "length is null");
+        this.lastModified = requireNonNull(lastModified, "lastModified is null");
         this.blobClient = requireNonNull(blobClient, "blobClient is null");
         checkArgument(readBlockSizeBytes >= 0, "readBlockSizeBytes is negative");
         this.readBlockSizeBytes = readBlockSizeBytes;

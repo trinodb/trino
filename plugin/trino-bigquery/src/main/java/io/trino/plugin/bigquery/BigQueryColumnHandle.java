@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -30,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 
 public record BigQueryColumnHandle(
         String name,
+        List<String> dereferenceNames,
         Type trinoType,
         StandardSQLTypeName bigqueryType,
         boolean isPushdownSupported,
@@ -44,6 +46,7 @@ public record BigQueryColumnHandle(
     public BigQueryColumnHandle
     {
         requireNonNull(name, "name is null");
+        dereferenceNames = ImmutableList.copyOf(requireNonNull(dereferenceNames, "dereferenceNames is null"));
         requireNonNull(trinoType, "trinoType is null");
         requireNonNull(bigqueryType, "bigqueryType is null");
         requireNonNull(mode, "mode is null");
@@ -60,6 +63,16 @@ public record BigQueryColumnHandle(
                 .setNullable(mode == Field.Mode.NULLABLE)
                 .setHidden(hidden)
                 .build();
+    }
+
+    @JsonIgnore
+    public String getQualifiedName()
+    {
+        return Joiner.on('.')
+                .join(ImmutableList.<String>builder()
+                        .add(name)
+                        .addAll(dereferenceNames)
+                        .build());
     }
 
     @JsonIgnore

@@ -26,19 +26,9 @@ public final class LanguageCharacteristic
 {
     private final Identifier language;
 
-    public LanguageCharacteristic(Identifier language)
-    {
-        this(Optional.empty(), language);
-    }
-
     public LanguageCharacteristic(NodeLocation location, Identifier language)
     {
-        this(Optional.of(location), language);
-    }
-
-    private LanguageCharacteristic(Optional<NodeLocation> location, Identifier language)
-    {
-        super(location);
+        super(Optional.of(location));
         this.language = requireNonNull(language, "comment is null");
     }
 

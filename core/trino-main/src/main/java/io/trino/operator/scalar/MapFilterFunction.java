@@ -87,7 +87,6 @@ public final class MapFilterFunction
                         .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
                         .argumentType(functionType(new TypeSignature("K"), new TypeSignature("V"), BOOLEAN.getTypeSignature()))
                         .build())
-                .nondeterministic()
                 .description("return map containing entries that match the given predicate")
                 .build());
     }

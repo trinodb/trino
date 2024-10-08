@@ -33,6 +33,7 @@ import picocli.CommandLine.ExitCode;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -111,6 +112,7 @@ public final class EnvironmentUp
         private final DockerContainer.OutputMode outputMode;
         private final Map<String, String> extraOptions;
         private final PrintStream printStream;
+        private final boolean debug;
 
         @Inject
         public Execution(EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions, PrintStream printStream)
@@ -124,6 +126,7 @@ public final class EnvironmentUp
             this.logsDirBase = requireNonNull(environmentUpOptions.logsDirBase, "environmentUpOptions.logsDirBase is null");
             this.extraOptions = ImmutableMap.copyOf(requireNonNull(environmentUpOptions.extraOptions, "environmentUpOptions.extraOptions is null"));
             this.printStream = requireNonNull(printStream, "printStream is null");
+            this.debug = options.debug;
         }
 
         @Override
@@ -137,6 +140,14 @@ public final class EnvironmentUp
 
             if (withoutCoordinator) {
                 builder.removeContainers(container -> isTrinoContainer(container.getLogicalName()));
+            }
+
+            if (debug) {
+                builder.configureContainers(container -> {
+                    if (isTrinoContainer(container.getLogicalName())) {
+                        container.withStartupTimeout(Duration.ofMillis(Integer.MAX_VALUE));
+                    }
+                });
             }
 
             log.info("Creating environment '%s' with configuration %s and options %s", environment, environmentConfig, extraOptions);

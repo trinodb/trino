@@ -538,7 +538,7 @@ public abstract class BaseConnectorTest
         assertQuery("" +
                 "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
                 "FROM orders " +
-                "WHERE orderkey BETWEEN 10 AND 50");
+                "WHERE orderkey BETWEEN 10 AND 50 OR orderkey BETWEEN 100 AND 150");
     }
 
     @Test
@@ -2205,7 +2205,9 @@ public abstract class BaseConnectorTest
         try {
             assertUpdate(createSchemaSql(schemaName));
             assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
-            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName + "_renamed");
+            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet())
+                    .doesNotContain(schemaName)
+                    .contains(schemaName + "_renamed");
         }
         finally {
             assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
@@ -4878,6 +4880,17 @@ public abstract class BaseConnectorTest
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_update", "AS SELECT * FROM nation")) {
             assertUpdate("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", 5);
             assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE nationkey = 100", "VALUES 5");
+        }
+    }
+
+    @Test
+    public void testUpdateMultipleCondition()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_update", "AS SELECT * FROM (VALUES (1, 10), (1, 20), (2, 10)) AS t(a, b)")) {
+            assertUpdate("UPDATE " + table.getName() + " SET b = 100 WHERE a = 1 AND b = 10", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 100), (1, 20), (2, 10)");
         }
     }
 

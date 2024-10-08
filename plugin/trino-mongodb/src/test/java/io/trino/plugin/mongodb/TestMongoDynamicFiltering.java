@@ -84,7 +84,7 @@ public class TestMongoDynamicFiltering
                 .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
         QualifiedObjectName tableName = new QualifiedObjectName("mongodb", "tpch", "orders");
         Optional<TableHandle> tableHandle = runner.getPlannerContext().getMetadata().getTableHandle(session, tableName);
-        assertThat(tableHandle.isPresent()).isTrue();
+        assertThat(tableHandle).isPresent();
         CompletableFuture<Void> dynamicFilterBlocked = new CompletableFuture<>();
         try {
             SplitSource splitSource = runner.getSplitManager()
@@ -94,7 +94,7 @@ public class TestMongoDynamicFiltering
                 splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
             }
             splitSource.close();
-            assertThat(splits.isEmpty()).isFalse();
+            assertThat(splits).isNotEmpty();
         }
         finally {
             dynamicFilterBlocked.complete(null);
@@ -156,15 +156,14 @@ public class TestMongoDynamicFiltering
     @Test
     public void testJoinDynamicFilteringBlockProbeSide()
     {
-        // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
+        // Wait for both build side to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
         assertDynamicFiltering(
                 "SELECT l.comment" +
-                        " FROM  lineitem l, part p, orders o" +
-                        " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '" +
-                        " AND p.partkey = l.partkey AND p.comment = 'onic deposits'",
+                        " FROM  lineitem l, orders o" +
+                        " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '",
                 withBroadcastJoinNonReordering(),
-                1,
-                1);
+                6,
+                6);
     }
 
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)

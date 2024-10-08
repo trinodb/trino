@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.pinot;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.pinot.query.DynamicTable;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -24,81 +22,24 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class PinotTableHandle
+public record PinotTableHandle(
+        String schemaName,
+        String tableName,
+        boolean enableNullHandling,
+        TupleDomain<ColumnHandle> constraint,
+        OptionalLong limit,
+        Optional<DynamicTable> query)
         implements ConnectorTableHandle
 {
-    private final String schemaName;
-    private final String tableName;
-    private final boolean enableNullHandling;
-    private final TupleDomain<ColumnHandle> constraint;
-    private final OptionalLong limit;
-    private final Optional<DynamicTable> query;
-
-    public PinotTableHandle(String schemaName, String tableName)
+    public PinotTableHandle
     {
-        this(schemaName, tableName, false, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
-    }
-
-    public PinotTableHandle(String schemaName, String tableName, boolean enableNullHandling)
-    {
-        this(schemaName, tableName, enableNullHandling, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
-    }
-
-    @JsonCreator
-    public PinotTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("enableNullHandling") boolean enableNullHandling,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("limit") OptionalLong limit,
-            @JsonProperty("query") Optional<DynamicTable> query)
-
-    {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.enableNullHandling = enableNullHandling;
-        this.constraint = requireNonNull(constraint, "constraint is null");
-        this.limit = requireNonNull(limit, "limit is null");
-        this.query = requireNonNull(query, "query is null");
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    @JsonProperty
-    public boolean isEnableNullHandling()
-    {
-        return enableNullHandling;
-    }
-
-    @JsonProperty
-    public TupleDomain<ColumnHandle> getConstraint()
-    {
-        return constraint;
-    }
-
-    @JsonProperty
-    public OptionalLong getLimit()
-    {
-        return limit;
-    }
-
-    @JsonProperty
-    public Optional<DynamicTable> getQuery()
-    {
-        return query;
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(constraint, "constraint is null");
+        requireNonNull(limit, "limit is null");
+        requireNonNull(query, "query is null");
     }
 
     @Override
@@ -119,18 +60,5 @@ public class PinotTableHandle
     public int hashCode()
     {
         return Objects.hash(schemaName, tableName);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("schemaName", schemaName)
-                .add("tableName", tableName)
-                .add("enableNullHandling", enableNullHandling)
-                .add("constraint", constraint)
-                .add("limit", limit)
-                .add("query", query)
-                .toString();
     }
 }

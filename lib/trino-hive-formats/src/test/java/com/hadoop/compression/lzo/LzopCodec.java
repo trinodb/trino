@@ -14,4 +14,4 @@
 package com.hadoop.compression.lzo;
 
 public class LzopCodec
-        extends io.airlift.compress.lzo.LzopCodec {}
+        extends io.airlift.compress.v3.lzo.LzopCodec {}

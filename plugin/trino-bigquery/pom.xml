@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>452</version>
+        <version>460</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -537,6 +537,7 @@
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
                                 <exclude>**/TestBigQuery*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestBigQueryWithProxyTest.java</exclude>
+                                <exclude>**/TestBigQueryParentProjectId.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -557,6 +558,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestBigQueryAvroConnectorTest.java</include>
+                                <include>**/TestBigQueryParentProjectId.java</include>
                             </includes>
                         </configuration>
                     </plugin>

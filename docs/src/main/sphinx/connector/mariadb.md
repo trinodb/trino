@@ -1,7 +1,7 @@
 ---
 myst:
   substitutions:
-    default_domain_compaction_threshold: '`32`'
+    default_domain_compaction_threshold: '`256`'
 ---
 
 # MariaDB connector
@@ -54,6 +54,12 @@ properties files.
 
 ```{include} non-transactional-insert.fragment
 ```
+
+(mariadb-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
 
 ## Querying MariaDB
 
@@ -192,7 +198,7 @@ to the following table:
     to avoid implicit default values and use `NULL` as the default value.
 * - `DATETIME(n)`
   - `TIMESTAMP(n)`
-  - 
+  -
 :::
 
 No other types are supported.
@@ -299,19 +305,20 @@ statements, the connector supports the following features:
 ```{include} sql-delete-limitation.fragment
 ```
 
-(mariadb-fte-support)=
-## Fault-tolerant execution support
+### Procedures
 
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} procedures-execute.fragment
+```
 
-## Table functions
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access MariaDB.
 
 (mariadb-query-function)=
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
 requires syntax native to MariaDB, because the full query is pushed down and

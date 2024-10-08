@@ -4,8 +4,8 @@ Trino includes support to access the [Hadoop Distributed File System
 (HDFS)](https://hadoop.apache.org/) with a catalog using the Delta Lake, Hive,
 Hudi, or Iceberg connectors.
 
-Support is enabled by default, but can be deactivated by setting
-`fs.hadoop.enabled` to `false`.
+Support for HDFS is not enabled by default, but can be activated by setting the
+`fs.hadoop.enabled` property to `true` in your catalog configuration file.
 
 Apache Hadoop HDFS 2.x and 3.x are supported.
 
@@ -20,8 +20,8 @@ Use the following properties to configure general aspects of HDFS support:
 * - Property
   - Description
 * - `fs.hadoop.enabled`
-  - Activate the support for HDFS access. Defaults to `true`. Must be set to
-    `true` for all other properties be used.
+  - Activate the support for HDFS access. Defaults to `false`. Set to `true` to
+    use HDFS and enable all other properties.
 * - `hive.config.resources`
   - An optional, comma-separated list of HDFS configuration files. These files
     must exist on the machines running Trino. For basic setups, Trino configures

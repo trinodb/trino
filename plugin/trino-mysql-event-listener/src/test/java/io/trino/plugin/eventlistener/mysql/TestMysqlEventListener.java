@@ -71,6 +71,7 @@ final class TestMysqlEventListener
     private static final QueryMetadata FULL_QUERY_METADATA = new QueryMetadata(
             "full_query",
             Optional.of("transactionId"),
+            Optional.of("encoding"),
             "query",
             Optional.of("updateType"),
             Optional.of("preparedQuery"),
@@ -95,6 +96,7 @@ final class TestMysqlEventListener
             Optional.of(ofMillis(108)),
             Optional.of(ofMillis(109)),
             Optional.of(ofMillis(1091)),
+            Optional.of(ofMillis(1092)),
             Optional.of(ofMillis(110)),
             Optional.of(ofMillis(111)),
             Optional.of(ofMillis(112)),
@@ -230,6 +232,7 @@ final class TestMysqlEventListener
     private static final QueryMetadata MINIMAL_QUERY_METADATA = new QueryMetadata(
             "minimal_query",
             Optional.empty(),
+            Optional.empty(),
             "query",
             Optional.empty(),
             Optional.empty(),
@@ -248,6 +251,7 @@ final class TestMysqlEventListener
             ofMillis(102),
             ofMillis(103),
             ofMillis(104),
+            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -424,6 +428,7 @@ final class TestMysqlEventListener
                     assertThat(resultSet.getLong("analysis_time_millis")).isEqualTo(108);
                     assertThat(resultSet.getLong("planning_time_millis")).isEqualTo(109);
                     assertThat(resultSet.getLong("planning_cpu_time_millis")).isEqualTo(1091);
+                    assertThat(resultSet.getLong("starting_time_millis")).isEqualTo(1092);
                     assertThat(resultSet.getLong("execution_time_millis")).isEqualTo(110);
                     assertThat(resultSet.getLong("input_blocked_time_millis")).isEqualTo(111);
                     assertThat(resultSet.getLong("failed_input_blocked_time_millis")).isEqualTo(112);

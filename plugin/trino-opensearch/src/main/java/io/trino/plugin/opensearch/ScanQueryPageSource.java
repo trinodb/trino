@@ -158,8 +158,17 @@ public class ScanQueryPageSource
             Map<String, Object> document = hit.getSourceAsMap();
 
             for (int i = 0; i < decoders.size(); i++) {
-                String field = columns.get(i).name();
-                decoders.get(i).decode(hit, () -> getField(document, field), columnBuilders[i]);
+                OpenSearchColumnHandle columnHandle = columns.get(i);
+                if (columnHandle.path().size() == 1) {
+                    decoders.get(i).decode(hit, () -> getField(document, columnHandle.path().getFirst()), columnBuilders[i]);
+                    continue;
+                }
+                Map<String, Object> resolvedField = resolveField(document, columnHandle);
+                decoders.get(i)
+                        .decode(
+                                hit,
+                                () -> resolvedField == null ? null : getField(resolvedField, columnHandle.path().getLast()),
+                                columnBuilders[i]);
             }
 
             if (hit.getSourceRef() != null) {
@@ -178,6 +187,23 @@ public class ScanQueryPageSource
         }
 
         return new Page(blocks);
+    }
+
+    private static Map<String, Object> resolveField(Map<String, Object> document, OpenSearchColumnHandle columnHandle)
+    {
+        if (document == null) {
+            return null;
+        }
+        Map<String, Object> value = (Map<String, Object>) getField(document, columnHandle.path().getFirst());
+        if (value != null) {
+            for (int i = 1; i < columnHandle.path().size() - 1; i++) {
+                value = (Map<String, Object>) getField(value, columnHandle.path().get(i));
+                if (value == null) {
+                    break;
+                }
+            }
+        }
+        return value;
     }
 
     public static Object getField(Map<String, Object> document, String field)

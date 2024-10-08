@@ -79,7 +79,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             }
             else {
                 showCreateTable = format(
-                        "CREATE TABLE `default`.`%s` (\n  `integer` INT,\n  `string` STRING,\n  `timetz` TIMESTAMP)\nUSING DELTA\nLOCATION 's3://%s/%s'\n",
+                        "CREATE TABLE `default`.`%s` (\n  `integer` INT,\n  `string` STRING,\n  `timetz` TIMESTAMP)\nUSING DELTA\nLOCATION 's3://%s/%s'\n" +
+                                "TBLPROPERTIES (\n  'delta.enableDeletionVectors' = 'false')\n",
                         tableName,
                         bucketName,
                         tableDirectory);
@@ -123,7 +124,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             else {
                 showCreateTable = format(
                         "CREATE TABLE `default`.`%s` (\n  `integer` INT,\n  `string` STRING,\n  `timetz` TIMESTAMP)\nUSING DELTA\n" +
-                                "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n",
+                                "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n" +
+                                "TBLPROPERTIES (\n  'delta.enableDeletionVectors' = 'false')\n",
                         tableName,
                         bucketName,
                         tableDirectory);
@@ -163,7 +165,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             }
             else {
                 showCreateTable = format(
-                        "CREATE TABLE `default`.`%s` (\n  `integer` INT,\n  `string` STRING,\n  `timetz` TIMESTAMP)\nUSING DELTA\nLOCATION 's3://%s/%s'\n",
+                        "CREATE TABLE `default`.`%s` (\n  `integer` INT,\n  `string` STRING,\n  `timetz` TIMESTAMP)\nUSING DELTA\nLOCATION 's3://%s/%s'\n" +
+                                "TBLPROPERTIES (\n  'delta.enableDeletionVectors' = 'false')\n",
                         tableName,
                         bucketName,
                         tableDirectory);
@@ -210,7 +213,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             else {
                 showCreateTable = format(
                         "CREATE TABLE `default`.`%s` (\n  `integer` INT,\n  `string` STRING,\n  `timetz` TIMESTAMP)\nUSING DELTA\n" +
-                                "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n",
+                                "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n" +
+                                "TBLPROPERTIES (\n  'delta.enableDeletionVectors' = 'false')\n",
                         tableName,
                         bucketName,
                         tableDirectory);
@@ -399,6 +403,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     {
         if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
             return "TBLPROPERTIES (\n" +
+                    "  'delta.enableDeletionVectors' = 'false',\n" +
                     "  'delta.minReaderVersion' = '1',\n" +
                     "  'delta.minWriterVersion' = '2')\n";
         }

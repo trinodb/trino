@@ -33,6 +33,7 @@ import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.plugin.prometheus.MetadataUtil.varcharMapType;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.plugin.prometheus.PrometheusRecordCursor.getMapFromSqlMap;
+import static io.trino.plugin.prometheus.TestPrometheusTableHandle.newTableHandle;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.Instant.ofEpochMilli;
@@ -57,7 +58,7 @@ public class TestPrometheusRecordSetProvider
     @Test
     public void testGetRecordSet()
     {
-        ConnectorTableHandle tableHandle = new PrometheusTableHandle("schema", "table");
+        ConnectorTableHandle tableHandle = newTableHandle("schema", "table");
         PrometheusRecordSetProvider recordSetProvider = new PrometheusRecordSetProvider(client);
         RecordSet recordSet = recordSetProvider.getRecordSet(PrometheusTransactionHandle.INSTANCE, SESSION,
                 new PrometheusSplit(dataUri), tableHandle, ImmutableList.of(

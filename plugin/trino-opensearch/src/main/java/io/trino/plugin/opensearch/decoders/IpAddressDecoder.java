@@ -24,6 +24,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import org.opensearch.search.SearchHit;
 
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -119,6 +120,26 @@ public class IpAddressDecoder
         public Decoder createDecoder()
         {
             return new IpAddressDecoder(path, ipAddressType);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Descriptor that = (Descriptor) o;
+            return Objects.equals(this.path, that.path)
+                    && Objects.equals(this.ipAddressType, that.ipAddressType);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(path, ipAddressType);
         }
     }
 }

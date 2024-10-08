@@ -19,11 +19,10 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.openlineage.client.OpenLineageClient;
-import io.trino.plugin.openlineage.config.OpenLineageListenerConfig;
-import io.trino.plugin.openlineage.config.http.OpenLineageClientHttpTransportConfig;
-import io.trino.plugin.openlineage.transport.OpenLineageConsoleTransport;
 import io.trino.plugin.openlineage.transport.OpenLineageTransport;
+import io.trino.plugin.openlineage.transport.console.OpenLineageConsoleTransport;
 import io.trino.plugin.openlineage.transport.http.OpenLineageHttpTransport;
+import io.trino.plugin.openlineage.transport.http.OpenLineageHttpTransportConfig;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -49,7 +48,7 @@ public class OpenLineageListenerModule
                 OpenLineageListenerConfig.class,
                 config -> config.getTransport().equals(HTTP),
                 internalBinder -> {
-                    configBinder(internalBinder).bindConfig(OpenLineageClientHttpTransportConfig.class);
+                    configBinder(internalBinder).bindConfig(OpenLineageHttpTransportConfig.class);
                     internalBinder.bind(OpenLineageTransport.class).to(OpenLineageHttpTransport.class);
                 }));
     }

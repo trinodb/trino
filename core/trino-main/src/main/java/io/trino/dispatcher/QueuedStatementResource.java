@@ -27,12 +27,14 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
+import io.trino.client.RawQueryData;
 import io.trino.client.StatementStats;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
 import io.trino.server.DisconnectionAwareAsyncResponse;
 import io.trino.server.ExternalUriInfo;
+import io.trino.server.GoneException;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionContext;
@@ -48,21 +50,22 @@ import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.Response.Status;
 
 import java.net.URI;
 import java.util.Optional;
@@ -93,10 +96,6 @@ import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
-import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
-import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
-import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
-import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -164,7 +163,7 @@ public class QueuedStatementResource
             @BeanParam ExternalUriInfo externalUriInfo)
     {
         if (isNullOrEmpty(statement)) {
-            throw badRequest(BAD_REQUEST, "SQL statement is empty");
+            throw new BadRequestException("SQL statement is empty");
         }
 
         Query query = registerQuery(statement, servletRequest, httpHeaders);
@@ -177,7 +176,7 @@ public class QueuedStatementResource
         Optional<String> remoteAddress = Optional.ofNullable(servletRequest.getRemoteAddr());
         Optional<Identity> identity = authenticatedIdentity(servletRequest);
         if (identity.flatMap(Identity::getPrincipal).map(InternalPrincipal.class::isInstance).orElse(false)) {
-            throw badRequest(FORBIDDEN, "Internal communication can not be used to start a query");
+            throw new ForbiddenException("Internal communication can not be used to start a query");
         }
 
         MultivaluedMap<String, String> headers = httpHeaders.getRequestHeaders();
@@ -241,7 +240,7 @@ public class QueuedStatementResource
     {
         Query query = queryManager.getQuery(queryId);
         if (query == null || !query.getSlug().isValid(QUEUED_QUERY, slug, token)) {
-            throw badRequest(NOT_FOUND, "Query not found");
+            throw new NotFoundException("Query not found");
         }
         return query;
     }
@@ -281,7 +280,7 @@ public class QueuedStatementResource
                 null,
                 nextUri,
                 null,
-                null,
+                RawQueryData.of(null),
                 StatementStats.builder()
                         .setState(state.toString())
                         .setQueued(state == QUEUED)
@@ -294,15 +293,6 @@ public class QueuedStatementResource
                 ImmutableList.of(),
                 null,
                 null);
-    }
-
-    private static WebApplicationException badRequest(Status status, String message)
-    {
-        throw new WebApplicationException(
-                Response.status(status)
-                        .type(TEXT_PLAIN_TYPE)
-                        .entity(message)
-                        .build());
     }
 
     private static final class Query
@@ -387,7 +377,7 @@ public class QueuedStatementResource
             long lastToken = this.lastToken.get();
             // token should be the last token or the next token
             if (token != lastToken && token != lastToken + 1) {
-                throw new WebApplicationException(Response.Status.GONE);
+                throw new GoneException("Invalid token");
             }
             // advance (or stay at) the token
             this.lastToken.compareAndSet(lastToken, token);
@@ -402,9 +392,7 @@ public class QueuedStatementResource
 
             DispatchInfo dispatchInfo = dispatchManager.getDispatchInfo(queryId)
                     // query should always be found, but it may have just been determined to be abandoned
-                    .orElseThrow(() -> new WebApplicationException(Response
-                            .status(NOT_FOUND)
-                            .build()));
+                    .orElseThrow(NotFoundException::new);
 
             return createQueryResults(token + 1, externalUriInfo, dispatchInfo);
         }

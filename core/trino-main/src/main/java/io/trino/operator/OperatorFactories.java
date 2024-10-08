@@ -30,6 +30,7 @@ import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 
 public class OperatorFactories
 {
@@ -52,7 +53,7 @@ public class OperatorFactories
                 .map(probeTypes::get)
                 .collect(toImmutableList());
 
-        return new io.trino.operator.join.unspilled.LookupJoinOperatorFactory(
+        return createAdapterOperatorFactory(new io.trino.operator.join.unspilled.LookupJoinOperatorFactory(
                 operatorId,
                 planNodeId,
                 lookupSourceFactory,
@@ -63,7 +64,7 @@ public class OperatorFactories
                 new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, probeHashChannel, hasFilter),
                 typeOperators,
                 probeJoinChannel,
-                probeHashChannel);
+                probeHashChannel));
     }
 
     public static OperatorFactory spillingJoin(
@@ -71,7 +72,6 @@ public class OperatorFactories
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
-            boolean hasFilter,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
@@ -85,7 +85,7 @@ public class OperatorFactories
                 .map(probeTypes::get)
                 .collect(toImmutableList());
 
-        return new LookupJoinOperatorFactory(
+        return createAdapterOperatorFactory(new LookupJoinOperatorFactory(
                 operatorId,
                 planNodeId,
                 lookupSourceFactory,
@@ -98,7 +98,7 @@ public class OperatorFactories
                 totalOperatorsCount,
                 probeJoinChannel,
                 probeHashChannel,
-                partitioningSpillerFactory);
+                partitioningSpillerFactory));
     }
 
     private static List<Integer> rangeList(int endExclusive)

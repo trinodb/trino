@@ -53,7 +53,6 @@ public final class DynamicPageFilter
     private final Session session;
     private final IrExpressionOptimizer irExpressionOptimizer;
     private final DomainTranslator domainTranslator;
-    private final DynamicFilter dynamicFilter;
     private final Map<ColumnHandle, Symbol> columnHandles;
     private final Map<Symbol, Integer> sourceLayout;
     private final double selectivityThreshold;
@@ -64,11 +63,13 @@ public final class DynamicPageFilter
     @Nullable
     @GuardedBy("this")
     private CompletableFuture<?> isBlocked;
+    @Nullable
+    @GuardedBy("this")
+    private DynamicFilter currentDynamicFilter;
 
     public DynamicPageFilter(
             PlannerContext plannerContext,
             Session session,
-            DynamicFilter dynamicFilter,
             Map<Symbol, ColumnHandle> columnHandles,
             Map<Symbol, Integer> sourceLayout,
             double selectivityThreshold)
@@ -78,20 +79,25 @@ public final class DynamicPageFilter
         this.session = requireNonNull(session, "session is null");
         this.irExpressionOptimizer = newOptimizer(plannerContext);
         this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
-        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.columnHandles = columnHandles.entrySet()
                 .stream()
                 .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey));
         this.sourceLayout = ImmutableMap.copyOf(sourceLayout);
         this.selectivityThreshold = selectivityThreshold;
-        this.isBlocked = dynamicFilter.isBlocked();
     }
 
     // Compiled dynamic filter is fixed per-split and generated duration page source creation.
     // Page source implementations may subsequently implement blocking on completion of dynamic filters, but since
     // that occurs after page source creation, we cannot be guaranteed a completed dynamic filter here for initial splits
-    public synchronized Supplier<FilterEvaluator> createDynamicPageFilterEvaluator(ColumnarFilterCompiler compiler)
+    public synchronized Supplier<FilterEvaluator> createDynamicPageFilterEvaluator(ColumnarFilterCompiler compiler, DynamicFilter dynamicFilter)
     {
+        requireNonNull(dynamicFilter, "dynamicFilter is null");
+        // Sub-query cache may provide different instance of DynamicFilter per-split.
+        if (!dynamicFilter.equals(currentDynamicFilter)) {
+            compiledDynamicFilter = null;
+            currentDynamicFilter = dynamicFilter;
+            isBlocked = dynamicFilter.isBlocked();
+        }
         if (isBlocked == null) {
             return compiledDynamicFilter;
         }

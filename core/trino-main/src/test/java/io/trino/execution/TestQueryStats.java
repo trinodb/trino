@@ -69,6 +69,7 @@ public class TestQueryStats
                     1833,
                     Metrics.EMPTY,
                     Metrics.EMPTY,
+                    Metrics.EMPTY,
                     succinctBytes(118L),
                     new Duration(119, NANOSECONDS),
                     120L,
@@ -107,6 +108,7 @@ public class TestQueryStats
                     succinctBytes(216L),
                     217L,
                     2833,
+                    Metrics.EMPTY,
                     Metrics.EMPTY,
                     Metrics.EMPTY,
                     succinctBytes(218L),
@@ -149,6 +151,7 @@ public class TestQueryStats
                     3833,
                     Metrics.EMPTY,
                     Metrics.EMPTY,
+                    Metrics.EMPTY,
                     succinctBytes(318L),
                     new Duration(319, NANOSECONDS),
                     320L,
@@ -189,6 +192,7 @@ public class TestQueryStats
 
             new Duration(100, NANOSECONDS),
             new Duration(150, NANOSECONDS),
+            new Duration(160, NANOSECONDS),
             new Duration(200, NANOSECONDS),
 
             9,
@@ -302,6 +306,7 @@ public class TestQueryStats
 
         assertThat(actual.getPlanningTime()).isEqualTo(new Duration(100, NANOSECONDS));
         assertThat(actual.getPlanningCpuTime()).isEqualTo(new Duration(150, NANOSECONDS));
+        assertThat(actual.getStartingTime()).isEqualTo(new Duration(160, NANOSECONDS));
         assertThat(actual.getFinishingTime()).isEqualTo(new Duration(200, NANOSECONDS));
 
         assertThat(actual.getTotalTasks()).isEqualTo(9);

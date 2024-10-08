@@ -192,16 +192,17 @@ public class SpoolingExchangeOutputBuffer
         ExchangeSink sink = exchangeSink;
         checkState(sink != null, "exchangeSink is null");
         long dataSizeInBytes = 0;
+        long addedPositions = 0;
         for (Slice page : pages) {
             dataSizeInBytes += getSerializedPageUncompressedSizeInBytes(page);
+            addedPositions += getSerializedPagePositionCount(page);
             sink.add(partition, page);
-            int serializedPagePositionCount = getSerializedPagePositionCount(page);
-            totalRowsAdded.addAndGet(serializedPagePositionCount);
-            outputStats.updateRowCount(serializedPagePositionCount);
         }
-        updateMemoryUsage(sink.getMemoryUsage());
         totalPagesAdded.addAndGet(pages.size());
+        totalRowsAdded.addAndGet(addedPositions);
+        outputStats.updateRowCount(addedPositions);
         outputStats.updatePartitionDataSize(partition, dataSizeInBytes);
+        updateMemoryUsage(sink.getMemoryUsage());
     }
 
     @Override

@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
@@ -34,6 +35,7 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Call;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
@@ -116,7 +118,7 @@ public class TestCallTask
     @Test
     public void testExecuteNoPermissionOnInsert()
     {
-        TestingAccessControlManager accessControl = new TestingAccessControlManager(queryRunner.getTransactionManager(), emptyEventListenerManager());
+        TestingAccessControlManager accessControl = new TestingAccessControlManager(queryRunner.getTransactionManager(), emptyEventListenerManager(), new SecretsResolver(ImmutableMap.of()));
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControl.deny(privilege("testing_table", INSERT_TABLE));
 
@@ -142,7 +144,7 @@ public class TestCallTask
                     .build();
             new CallTask(transactionManager, plannerContext, accessControl, procedureRegistry)
                     .execute(
-                            new Call(QualifiedName.of("testing_procedure"), ImmutableList.of()),
+                            new Call(new NodeLocation(1, 1), QualifiedName.of("testing_procedure"), ImmutableList.of()),
                             stateMachine(transactionManager, plannerContext.getMetadata(), accessControl),
                             ImmutableList.of(),
                             WarningCollector.NOOP);

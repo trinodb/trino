@@ -32,10 +32,12 @@ class TestAzureFileSystemConfig
     {
         assertRecordedDefaults(recordDefaults(AzureFileSystemConfig.class)
                 .setAuthType(AuthType.DEFAULT)
+                .setEndpoint("core.windows.net")
                 .setReadBlockSize(DataSize.of(4, Unit.MEGABYTE))
                 .setWriteBlockSize(DataSize.of(4, Unit.MEGABYTE))
                 .setMaxWriteConcurrency(8)
-                .setMaxSingleUploadSize(DataSize.of(4, Unit.MEGABYTE)));
+                .setMaxSingleUploadSize(DataSize.of(4, Unit.MEGABYTE))
+                .setMaxHttpRequests(2 * Runtime.getRuntime().availableProcessors()));
     }
 
     @Test
@@ -43,18 +45,22 @@ class TestAzureFileSystemConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("azure.auth-type", "oauth")
+                .put("azure.endpoint", "core.usgovcloudapi.net")
                 .put("azure.read-block-size", "3MB")
                 .put("azure.write-block-size", "5MB")
                 .put("azure.max-write-concurrency", "7")
                 .put("azure.max-single-upload-size", "7MB")
+                .put("azure.max-http-requests", "128")
                 .buildOrThrow();
 
         AzureFileSystemConfig expected = new AzureFileSystemConfig()
                 .setAuthType(AuthType.OAUTH)
+                .setEndpoint("core.usgovcloudapi.net")
                 .setReadBlockSize(DataSize.of(3, Unit.MEGABYTE))
                 .setWriteBlockSize(DataSize.of(5, Unit.MEGABYTE))
                 .setMaxWriteConcurrency(7)
-                .setMaxSingleUploadSize(DataSize.of(7, Unit.MEGABYTE));
+                .setMaxSingleUploadSize(DataSize.of(7, Unit.MEGABYTE))
+                .setMaxHttpRequests(128);
 
         assertFullMapping(properties, expected);
     }

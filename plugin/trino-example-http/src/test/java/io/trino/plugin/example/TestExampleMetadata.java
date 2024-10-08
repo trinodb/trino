@@ -20,6 +20,7 @@ import com.google.common.io.Resources;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -143,7 +144,7 @@ public class TestExampleMetadata
                 new ConnectorTableMetadata(
                         new SchemaTableName("example", "foo"),
                         ImmutableList.of(new ColumnMetadata("text", createUnboundedVarcharType()))),
-                false))
+                SaveMode.FAIL))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("This connector does not support creating tables");
     }

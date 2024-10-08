@@ -29,20 +29,25 @@ import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.spi.NodeManager;
+import io.trino.spi.catalog.CatalogName;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
+import software.amazon.awssdk.retries.api.BackoffStrategy;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.GlueClientBuilder;
+import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.services.sts.auth.StsWebIdentityTokenFileCredentialsProvider;
 
 import java.net.URI;
 import java.util.EnumSet;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -86,7 +91,7 @@ public class GlueMetastoreModule
 
     @Provides
     @Singleton
-    public static GlueCache createGlueCache(CachingHiveMetastoreConfig config, NodeManager nodeManager)
+    public static GlueCache createGlueCache(CachingHiveMetastoreConfig config, CatalogName catalogName, NodeManager nodeManager)
     {
         Duration metadataCacheTtl = config.getMetastoreCacheTtl();
         Duration statsCacheTtl = config.getStatsCacheTtl();
@@ -95,16 +100,21 @@ public class GlueMetastoreModule
         // Note: while we could skip CachingHiveMetastoreModule altogether on workers, we retain it so that catalog
         // configuration can remain identical for all nodes, making cluster configuration easier.
         boolean enabled = nodeManager.getCurrentNode().isCoordinator() &&
-                (metadataCacheTtl.toMillis() > 0 || statsCacheTtl.toMillis() > 0);
+                          (metadataCacheTtl.toMillis() > 0 || statsCacheTtl.toMillis() > 0);
 
-        checkState(config.getMetastoreRefreshInterval().isEmpty(), "Metastore refresh interval is not supported with Glue v2");
         checkState(config.isPartitionCacheEnabled(), "Disabling partitions cache is not supported with Glue v2");
         checkState(config.isCacheMissing(), "Disabling cache missing is not supported with Glue v2");
         checkState(config.isCacheMissingPartitions(), "Disabling cache missing partitions is not supported with Glue v2");
         checkState(config.isCacheMissingStats(), "Disabling cache missing stats is not supported with Glue v2");
 
         if (enabled) {
-            return new InMemoryGlueCache(metadataCacheTtl, statsCacheTtl, config.getMetastoreCacheMaximumSize());
+            return new InMemoryGlueCache(
+                    catalogName,
+                    metadataCacheTtl,
+                    statsCacheTtl,
+                    config.getMetastoreRefreshInterval(),
+                    config.getMaxMetastoreRefreshThreads(),
+                    config.getMetastoreCacheMaximumSize());
         }
         return GlueCache.NOOP;
     }
@@ -120,38 +130,33 @@ public class GlueMetastoreModule
                         .setCaptureExperimentalSpanAttributes(true)
                         .setRecordIndividualHttpError(true)
                         .build().newExecutionInterceptor())
-                .retryPolicy(retry -> retry
-                        .numRetries(config.getMaxGlueErrorRetries())));
+                .retryStrategy(retryBuilder -> retryBuilder
+                        .retryOnException(throwable -> throwable instanceof ConcurrentModificationException)
+                        .backoffStrategy(BackoffStrategy.exponentialDelay(
+                                java.time.Duration.ofMillis(20),
+                                java.time.Duration.ofMillis(1500)))
+                        .maxAttempts(config.getMaxGlueErrorRetries())));
 
-        if (config.getIamRole().isPresent()) {
-            StsClientBuilder sts = StsClient.builder();
+        Optional<StaticCredentialsProvider> staticCredentialsProvider = getStaticCredentialsProvider(config);
 
-            if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
-                sts.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(config.getAwsAccessKey().get(), config.getAwsSecretKey().get())));
-            }
-
-            if (config.getGlueStsEndpointUrl().isPresent() && config.getGlueStsRegion().isPresent()) {
-                sts.endpointOverride(URI.create(config.getGlueStsEndpointUrl().get()))
-                        .region(Region.of(config.getGlueStsRegion().get()));
-            }
-            else if (config.getGlueStsRegion().isPresent()) {
-                sts.region(Region.of(config.getGlueStsRegion().get()));
-            }
-            else if (config.getPinGlueClientToCurrentRegion()) {
-                sts.region(DefaultAwsRegionProviderChain.builder().build().getRegion());
-            }
-
+        if (config.isUseWebIdentityTokenCredentialsProvider()) {
+            glue.credentialsProvider(StsWebIdentityTokenFileCredentialsProvider.builder()
+                    .stsClient(getStsClient(config, staticCredentialsProvider))
+                    .asyncCredentialUpdateEnabled(true)
+                    .build());
+        }
+        else if (config.getIamRole().isPresent()) {
             glue.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
                     .refreshRequest(request -> request
                             .roleArn(config.getIamRole().get())
                             .roleSessionName("trino-session")
                             .externalId(config.getExternalId().orElse(null)))
-                    .stsClient(sts.build())
+                    .stsClient(getStsClient(config, staticCredentialsProvider))
                     .asyncCredentialUpdateEnabled(true)
                     .build());
         }
-        else if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
-            glue.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(config.getAwsAccessKey().get(), config.getAwsSecretKey().get())));
+        else {
+            staticCredentialsProvider.ifPresent(glue::credentialsProvider);
         }
 
         ApacheHttpClient.Builder httpClient = ApacheHttpClient.builder()
@@ -174,5 +179,33 @@ public class GlueMetastoreModule
         glue.httpClientBuilder(httpClient);
 
         return glue.build();
+    }
+
+    private static Optional<StaticCredentialsProvider> getStaticCredentialsProvider(GlueHiveMetastoreConfig config)
+    {
+        if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
+            return Optional.of(StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(config.getAwsAccessKey().get(), config.getAwsSecretKey().get())));
+        }
+        return Optional.empty();
+    }
+
+    private static StsClient getStsClient(GlueHiveMetastoreConfig config, Optional<StaticCredentialsProvider> staticCredentialsProvider)
+    {
+        StsClientBuilder sts = StsClient.builder();
+        staticCredentialsProvider.ifPresent(sts::credentialsProvider);
+
+        if (config.getGlueStsEndpointUrl().isPresent() && config.getGlueStsRegion().isPresent()) {
+            sts.endpointOverride(URI.create(config.getGlueStsEndpointUrl().get()))
+                    .region(Region.of(config.getGlueStsRegion().get()));
+        }
+        else if (config.getGlueStsRegion().isPresent()) {
+            sts.region(Region.of(config.getGlueStsRegion().get()));
+        }
+        else if (config.getPinGlueClientToCurrentRegion()) {
+            sts.region(DefaultAwsRegionProviderChain.builder().build().getRegion());
+        }
+
+        return sts.build();
     }
 }

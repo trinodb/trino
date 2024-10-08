@@ -14,6 +14,8 @@
 package io.trino.server.security;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.log.Logger;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.CertificateAuthenticator;
@@ -42,6 +44,13 @@ public class CertificateAuthenticatorManager
     private final AtomicBoolean required = new AtomicBoolean();
     private final Map<String, CertificateAuthenticatorFactory> factories = new ConcurrentHashMap<>();
     private final AtomicReference<CertificateAuthenticator> authenticator = new AtomicReference<>();
+    private final SecretsResolver secretsResolver;
+
+    @Inject
+    public CertificateAuthenticatorManager(SecretsResolver secretsResolver)
+    {
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
+    }
 
     public void setRequired()
     {
@@ -79,7 +88,7 @@ public class CertificateAuthenticatorManager
 
         CertificateAuthenticator authenticator;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            authenticator = factory.create(ImmutableMap.copyOf(properties));
+            authenticator = factory.create(ImmutableMap.copyOf(secretsResolver.getResolvedConfiguration(properties)));
         }
 
         this.authenticator.set(requireNonNull(authenticator, "authenticator is null"));

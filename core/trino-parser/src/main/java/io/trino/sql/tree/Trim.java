@@ -28,19 +28,9 @@ public class Trim
     private final Expression trimSource;
     private final Optional<Expression> trimCharacter;
 
-    public Trim(Specification specification, Expression trimSource, Optional<Expression> trimCharacter)
-    {
-        this(Optional.empty(), specification, trimSource, trimCharacter);
-    }
-
     public Trim(NodeLocation location, Specification specification, Expression trimSource, Optional<Expression> trimCharacter)
     {
-        this(Optional.of(location), specification, trimSource, trimCharacter);
-    }
-
-    private Trim(Optional<NodeLocation> location, Specification specification, Expression trimSource, Optional<Expression> trimCharacter)
-    {
-        super(location);
+        super(Optional.of(location));
         this.specification = requireNonNull(specification, "specification is null");
         this.trimSource = requireNonNull(trimSource, "trimSource is null");
         this.trimCharacter = requireNonNull(trimCharacter, "trimCharacter is null");

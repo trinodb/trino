@@ -21,9 +21,11 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
 import io.trino.cache.EvictableCacheBuilder.DisabledCacheImplementation;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +36,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Exchanger;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -584,5 +587,28 @@ public class TestEvictableCache
         assertThatThrownBy(() -> cacheMap.putIfAbsent(key, value))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessage("The operation is not supported, as in inherently races with cache invalidation");
+    }
+
+    @RepeatedTest(1_000)
+    public void testParallelLoadingCacheEntries()
+    {
+        Cache<String, String> cache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(Duration.ofSeconds(60))
+                .maximumSize(10)
+                .build();
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Runnable cacheLoader = () -> {
+                try {
+                    String value = cache.get("key", () -> "value");
+                    assertThat(value).isEqualTo("value");
+                }
+                catch (ExecutionException e) {
+                    throw new RuntimeException(e);
+                }
+            };
+            executor.submit(cacheLoader);
+            executor.submit(cacheLoader);
+        }
+        assertThat(cache.getIfPresent("key")).isNotNull();
     }
 }

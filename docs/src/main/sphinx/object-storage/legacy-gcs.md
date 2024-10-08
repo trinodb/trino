@@ -4,6 +4,10 @@ Object storage connectors can access
 [Google Cloud Storage](https://cloud.google.com/storage/) data using the
 `gs://` URI prefix.
 
+:::{warning}
+Legacy support is not recommended and will be removed. Use [](file-system-gcs).
+:::
+
 ## Requirements
 
 To use Google Cloud Storage with non-anonymous access objects, you need:
@@ -13,6 +17,9 @@ To use Google Cloud Storage with non-anonymous access objects, you need:
 
 (hive-google-cloud-storage-configuration)=
 ## Configuration
+
+To use legacy support, the `fs.hadoop.enabled` property must be set to `true` in
+your catalog configuration file.
 
 The use of Google Cloud Storage as a storage location for an object storage
 catalog requires setting a configuration property that defines the
@@ -77,3 +84,37 @@ folder defined in the JSON key file.
 Your table is now ready to populate with data using `INSERT` statements.
 Alternatively, you can use `CREATE TABLE AS` statements to create and
 populate the table in a single statement.
+
+(fs-legacy-gcs-migration)=
+## Migration to Google Cloud Storage file system
+
+Trino includes a [native implementation to access Google Cloud
+Storage](/object-storage/file-system-gcs) with a catalog using the Delta Lake,
+Hive, Hudi, or Iceberg connectors. Upgrading existing deployments to the new
+native implementation is recommended. Legacy support will be deprecated and
+removed.
+
+To migrate a catalog to use the native file system implementation for Google
+Cloud Storage, make the following edits to your catalog configuration:
+
+1. Add the `fs.native-gcs.enabled=true` catalog configuration property.
+2. Refer to the following table to rename your existing legacy catalog
+   configuration properties to the corresponding native configuration
+   properties. Supported configuration values are identical unless otherwise
+   noted.
+
+  :::{list-table}
+  :widths: 35, 35, 65
+  :header-rows: 1
+   * - Legacy property
+     - Native property
+     - Notes
+   * - `hive.gcs.use-access-token`
+     - `gcs.use-access-token`
+     -
+   * - `hive.gcs.json-key-file-path`
+     - `gcs.json-key-file-path`
+     - Also see `gcs.json-key` in [](/object-storage/file-system-gcs)
+  :::
+
+For more information, see the [](/object-storage/file-system-gcs).

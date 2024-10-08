@@ -30,34 +30,40 @@ documentation](/connector).
 ## Built-in table functions
 
 (exclude-columns-table-function)=
-:::{function} exclude_columns(input => table, columns => descriptor) -> table
-Excludes from `table` all columns listed in `descriptor`:
+### `exclude_columns` table function
 
-```sql
-SELECT *
-FROM TABLE(exclude_columns(
-                        input => TABLE(orders),
-                        columns => DESCRIPTOR(clerk, comment)))
-```
+Use the `exclude_columns` table function to return a new table based on an input
+table `table`, with the exclusion of all columns specified in `descriptor`:
+
+:::{function} exclude_columns(input => table, columns => descriptor) -> table
+:noindex: true
 
 The argument `input` is a table or a query.
 The argument `columns` is a descriptor without types.
 :::
 
-(sequence-table-function)=
-:::{function} sequence(start => bigint, stop => bigint, step => bigint) -> table(sequential_number bigint)
-:noindex: true
-
-Returns a single column `sequential_number` containing a sequence of
-bigint:
+Example query using the orders table from the TPC-H dataset, provided by the
+[](/connector/tpch):
 
 ```sql
 SELECT *
-FROM TABLE(sequence(
-                start => 1000000,
-                stop => -2000000,
-                step => -3))
+FROM TABLE(exclude_columns(
+                        input => TABLE(orders),
+                        columns => DESCRIPTOR(clerk, comment)));
 ```
+
+The table function is useful for queries where you want to return nearly all
+columns from tables with many columns. You can avoid enumerating all columns,
+and only need to specify the columns to exclude.
+
+(sequence-table-function)=
+### `sequence` table function
+
+Use the `sequence` table function to return a table with a single column
+`sequential_number` containing a sequence of bigint:
+
+:::{function} sequence(start => bigint, stop => bigint, step => bigint) -> table(sequential_number bigint)
+:noindex: true
 
 `start` is the first element in the sequence. The default value is `0`.
 
@@ -69,9 +75,27 @@ reachable by steps.
 `1`.
 :::
 
-:::{note}
-The result of the `sequence` table function might not be ordered.
-:::
+Example query:
+
+```sql
+SELECT *
+FROM TABLE(sequence(
+                start => 1000000,
+                stop => -2000000,
+                step => -3));
+```
+
+The result of the `sequence` table function might not be ordered. If required,
+enforce ordering in the enclosing query:
+
+```sql
+SELECT *
+FROM TABLE(sequence(
+                start => 0,
+                stop => 100,
+                step => 5))
+ORDER BY sequential_number;
+```
 
 ## Table function invocation
 

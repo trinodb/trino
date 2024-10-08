@@ -38,7 +38,11 @@ public final class PrunedBlockMetadata
     {
         Set<List<String>> requiredPaths = descriptorsByPath.keySet();
         Map<List<String>, ColumnChunkMetadata> columnMetadataByPath = blockMetadata.columns().stream()
-                .collect(toImmutableMap(column -> asList(column.getPath().toArray()), identity()));
+                .collect(toImmutableMap(
+                        column -> asList(column.getPath().toArray()),
+                        identity(),
+                        // Same column name may occur more than once when the file is written by case-sensitive tools
+                        (oldValue, _) -> oldValue));
         ImmutableMap.Builder<List<String>, ColumnChunkMetadata> columnMetadataByPathBuilder = ImmutableMap.builderWithExpectedSize(requiredPaths.size());
         for (Map.Entry<List<String>, ColumnDescriptor> entry : descriptorsByPath.entrySet()) {
             List<String> requiredPath = entry.getKey();

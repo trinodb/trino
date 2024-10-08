@@ -14,10 +14,10 @@
 package io.trino.plugin.hive.security;
 
 import com.google.inject.Inject;
+import io.trino.metastore.Database;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.HiveTransactionManager;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.security.RoleGrant;

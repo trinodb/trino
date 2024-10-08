@@ -42,6 +42,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.CombinedScanTask;
+import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpecParser;
@@ -81,9 +82,9 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.iceberg.ExpressionConverter.isConvertableToIcebergExpression;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergExceptions.translateMetadataException;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getSplitSize;
-import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimePathDomain;
@@ -99,7 +100,10 @@ import static java.lang.Math.clamp;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
+import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.types.Conversions.fromByteBuffer;
 
 public class IcebergSplitSource
@@ -194,6 +198,16 @@ public class IcebergSplitSource
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
+        try {
+            return getNextBatchInternal(maxSize);
+        }
+        catch (Throwable e) {
+            return failedFuture(translateMetadataException(e, tableHandle.getSchemaTableName().toString()));
+        }
+    }
+
+    private CompletableFuture<ConnectorSplitBatch> getNextBatchInternal(int maxSize)
+    {
         long timeLeft = dynamicFilteringWaitTimeoutMillis - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
         if (dynamicFilter.isAwaitable() && timeLeft > 0) {
             return dynamicFilter.isBlocked()
@@ -205,17 +219,9 @@ public class IcebergSplitSource
             this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
                     .transformKeys(IcebergColumnHandle.class::cast)
                     .filter((columnHandle, domain) -> isConvertableToIcebergExpression(domain));
-            TupleDomain<IcebergColumnHandle> fullPredicate = tableHandle.getUnenforcedPredicate()
-                    .intersect(pushedDownDynamicFilterPredicate);
-            // TODO: (https://github.com/trinodb/trino/issues/9743): Consider removing TupleDomain#simplify
-            TupleDomain<IcebergColumnHandle> simplifiedPredicate = fullPredicate.simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
-            if (!simplifiedPredicate.equals(fullPredicate)) {
-                // Pushed down predicate was simplified, always evaluate it against individual splits
-                this.pushedDownDynamicFilterPredicate = TupleDomain.all();
-            }
 
-            TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate
-                    .intersect(simplifiedPredicate);
+            TupleDomain<IcebergColumnHandle> effectivePredicate = TupleDomain.intersect(
+                    ImmutableList.of(dataColumnPredicate, tableHandle.getUnenforcedPredicate(), pushedDownDynamicFilterPredicate));
 
             if (effectivePredicate.isNone()) {
                 finish();
@@ -521,10 +527,28 @@ public class IcebergSplitSource
                 task.deletes().stream()
                         .map(DeleteFile::fromIceberg)
                         .collect(toImmutableList()),
-                SplitWeight.fromProportion(clamp((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight, 1.0)),
+                SplitWeight.fromProportion(clamp(getSplitWeight(task), minimumAssignedSplitWeight, 1.0)),
                 fileStatisticsDomain,
                 fileIoProperties,
                 cachingHostAddressProvider.getHosts(task.file().path().toString(), ImmutableList.of()),
                 task.file().dataSequenceNumber());
+    }
+
+    private double getSplitWeight(FileScanTask task)
+    {
+        double dataWeight = (double) task.length() / tableScan.targetSplitSize();
+        double weight = dataWeight;
+        if (task.deletes().stream().anyMatch(deleteFile -> deleteFile.content() == POSITION_DELETES)) {
+            // Presence of each data position is looked up in a combined bitmap of deleted positions
+            weight += dataWeight;
+        }
+
+        long equalityDeletes = task.deletes().stream()
+                .filter(deleteFile -> deleteFile.content() == EQUALITY_DELETES)
+                .mapToLong(ContentFile::recordCount)
+                .sum();
+        // Every row is a separate equality predicate that must be applied to all data rows
+        weight += equalityDeletes * dataWeight;
+        return weight;
     }
 }

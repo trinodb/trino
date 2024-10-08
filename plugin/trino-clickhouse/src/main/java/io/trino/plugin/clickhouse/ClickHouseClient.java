@@ -28,7 +28,11 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
+import io.trino.plugin.base.expression.ConnectorExpressionRule.RewriteContext;
 import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.clickhouse.expression.RewriteLike;
+import io.trino.plugin.clickhouse.expression.RewriteStringComparison;
+import io.trino.plugin.clickhouse.expression.RewriteStringIn;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -41,7 +45,6 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
-import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
@@ -64,7 +67,8 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.predicate.Domain;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -128,7 +132,6 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDef
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
@@ -157,7 +160,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
@@ -207,20 +209,6 @@ public class ClickHouseClient
 
     public static final int DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 1_000;
 
-    private static final PredicatePushdownController CLICKHOUSE_PUSHDOWN_CONTROLLER = (session, domain) -> {
-        if (domain.isOnlyNull()) {
-            return FULL_PUSHDOWN.apply(session, domain);
-        }
-
-        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
-        if (!simplifiedDomain.getValues().isDiscreteSet()) {
-            // Domain#simplify can turn a discrete set into a range predicate
-            return DISABLE_PUSHDOWN.apply(session, domain);
-        }
-
-        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
-    };
-
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
     private final Type uuidType;
@@ -242,14 +230,18 @@ public class ClickHouseClient
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
+                .add(new RewriteStringComparison())
+                .add(new RewriteStringIn())
+                .add(new RewriteLike())
+                .map("$not(value: boolean)").to("NOT value")
                 .build();
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this.connectorExpressionRewriter,
                 ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementCountDistinct(bigintTypeHandle, false))
-                        .add(new ImplementMinMax(false)) // TODO: Revisit once https://github.com/trinodb/trino/issues/7100 is resolved
+                        .add(new ImplementCountDistinct(bigintTypeHandle, true))
+                        .add(new ImplementMinMax(true))
                         .add(new ImplementSum(ClickHouseClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgBigint())
@@ -267,22 +259,14 @@ public class ClickHouseClient
     }
 
     @Override
-    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
-        // TODO: Remove override once https://github.com/trinodb/trino/issues/7100 is resolved. Currently pushdown for textual types is not tested and may lead to incorrect results.
-        return preventTextualTypeAggregationPushdown(groupingSets);
+        return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
     @Override
     public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
-        for (JdbcSortItem sortItem : sortOrder) {
-            Type sortItemType = sortItem.column().getColumnType();
-            checkArgument(!(sortItemType instanceof CharType), "Unexpected char type: %s", sortItem.column().getColumnName());
-            if (sortItemType instanceof VarcharType) {
-                return false;
-            }
-        }
         return true;
     }
 
@@ -401,9 +385,8 @@ public class ClickHouseClient
         ClickHouseEngineType engine = ClickHouseTableProperties.getEngine(tableProperties);
         tableOptions.add("ENGINE = " + engine.getEngineType());
         if (engine == ClickHouseEngineType.MERGETREE && formatProperty(ClickHouseTableProperties.getOrderBy(tableProperties)).isEmpty()) {
-            // order_by property is required
-            throw new TrinoException(INVALID_TABLE_PROPERTY,
-                    format("The property of %s is required for table engine %s", ClickHouseTableProperties.ORDER_BY_PROPERTY, engine.getEngineType()));
+            // https://clickhouse.com/docs/en/engines/table-engines/mergetree-family/mergetree#order_by
+            tableOptions.add("ORDER BY tuple()");
         }
         formatProperty(ClickHouseTableProperties.getOrderBy(tableProperties)).ifPresent(value -> tableOptions.add("ORDER BY " + value));
         formatProperty(ClickHouseTableProperties.getPrimaryKey(tableProperties)).ifPresent(value -> tableOptions.add("PRIMARY KEY " + value));
@@ -674,7 +657,7 @@ public class ClickHouseClient
                             createUnboundedVarcharType(),
                             varcharReadFunction(createUnboundedVarcharType()),
                             varcharWriteFunction(),
-                            CLICKHOUSE_PUSHDOWN_CONTROLLER));
+                            FULL_PUSHDOWN));
                 }
                 return Optional.of(varbinaryColumnMapping());
             case UUID:
@@ -1001,5 +984,19 @@ public class ClickHouseClient
     private static SliceWriteFunction uuidWriteFunction()
     {
         return (statement, index, value) -> statement.setObject(index, trinoUuidToJavaUuid(value), Types.OTHER);
+    }
+
+    public static boolean supportsPushdown(Variable variable, RewriteContext<ParameterizedExpression> context)
+    {
+        JdbcTypeHandle typeHandle = ((JdbcColumnHandle) context.getAssignment(variable.getName()))
+                .getJdbcTypeHandle();
+        String jdbcTypeName = typeHandle.jdbcTypeName()
+                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+        ClickHouseColumn column = ClickHouseColumn.of("", jdbcTypeName);
+        ClickHouseDataType columnDataType = column.getDataType();
+        return switch (columnDataType) {
+            case FixedString, String -> true;
+            default -> false;
+        };
     }
 }

@@ -29,7 +29,7 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
-import io.airlift.jmx.CacheStatsMBean;
+import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.metadata.FunctionManager;
 import io.trino.operator.join.InternalJoinFilterFunction;
