@@ -28,9 +28,9 @@ TRINO_VERSION=
 JDK_RELEASE=$(cat "${SOURCE_DIR}/core/jdk/current")
 JDKS_PATH="${SOURCE_DIR}/core/jdk"
 
-SKIP_TESTS=true
+SKIP_TESTS=false
 
-while getopts ":a:h:r:j:x:t" o; do
+while getopts ":a:h:r:j:t:x" o; do
     case "${o}" in
         a)
             IFS=, read -ra ARCH_ARG <<< "$OPTARG"
