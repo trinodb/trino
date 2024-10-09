@@ -33,7 +33,7 @@ jobs:
             cd $(Build.SourcesDirectory)/core/docker
             chmod g+w ${HOME}
             chmod ug+x ./build.sh
-            ./build.sh -a amd64 -b $(Build.BuildId)
+            ./build.sh -a amd64 -b $(Build.BuildId) -x
             if [ $? -ne 0 ]; then
             echo "Docker build failed"
             exit 1

@@ -30,7 +30,7 @@ JDKS_PATH="${SOURCE_DIR}/core/jdk"
 
 SKIP_TESTS=false
 
-while getopts ":a:h:r:j:t:x" o; do
+while getopts ":a:b:h:r:j:x" o; do
     case "${o}" in
         a)
             IFS=, read -ra ARCH_ARG <<< "$OPTARG"
@@ -42,6 +42,9 @@ while getopts ":a:h:r:j:t:x" o; do
             done
             ARCHITECTURES=("${ARCH_ARG[@]}")
             ;;
+        b)
+            BASE_IMAGE_TAG="${OPTARG}"
+            ;;
         r)
             TRINO_VERSION=${OPTARG}
             ;;
@@ -51,9 +54,6 @@ while getopts ":a:h:r:j:t:x" o; do
             ;;
         j)
             JDK_RELEASE="${OPTARG}"
-            ;;
-        t)
-            BASE_IMAGE_TAG="${OPTARG}"
             ;;
         x)
            SKIP_TESTS=true
