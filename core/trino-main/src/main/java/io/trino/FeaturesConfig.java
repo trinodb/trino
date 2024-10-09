@@ -122,6 +122,8 @@ public class FeaturesConfig
 
     private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
 
+    private boolean runViewsAsInvokerEnabled;
+
     public enum DataIntegrityVerification
     {
         NONE,
@@ -517,5 +519,17 @@ public class FeaturesConfig
     public void applyFaultTolerantExecutionDefaults()
     {
         exchangeCompressionCodec = LZ4;
+    }
+
+    public boolean isRunViewsAsInvokerEnabled()
+    {
+        return runViewsAsInvokerEnabled;
+    }
+
+    @Config("run-views-as-invoker")
+    public FeaturesConfig setRunViewsAsInvokerEnabled(boolean runViewsAsInvokerEnabled)
+    {
+        this.runViewsAsInvokerEnabled = runViewsAsInvokerEnabled;
+        return this;
     }
 }

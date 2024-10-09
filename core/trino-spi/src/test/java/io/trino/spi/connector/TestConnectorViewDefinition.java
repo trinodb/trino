@@ -68,6 +68,23 @@ public class TestConnectorViewDefinition
     }
 
     @Test
+    public void testViewWithRunAsInvoker()
+    {
+        ConnectorViewDefinition viewWithRunAsInvoker;
+        ConnectorViewDefinition definerView = CODEC.fromJson("{" + BASE_JSON + ", \"owner\": \"abc\", \"runAsInvoker\": false}");
+        viewWithRunAsInvoker = definerView.withRunAsInvoker();
+        assertBaseView(viewWithRunAsInvoker);
+        assertThat(viewWithRunAsInvoker.getOwner().isPresent()).isFalse();
+        assertThat(viewWithRunAsInvoker.isRunAsInvoker()).isTrue();
+
+        ConnectorViewDefinition invokerView = CODEC.fromJson("{" + BASE_JSON + ", \"runAsInvoker\": true}");
+        viewWithRunAsInvoker = invokerView.withRunAsInvoker();
+        assertBaseView(viewWithRunAsInvoker);
+        assertThat(viewWithRunAsInvoker.getOwner().isPresent()).isFalse();
+        assertThat(viewWithRunAsInvoker.isRunAsInvoker()).isTrue();
+    }
+
+    @Test
     public void testViewComment()
     {
         ConnectorViewDefinition view = CODEC.fromJson("{" + BASE_JSON + ", \"comment\": \"hello\"}");
