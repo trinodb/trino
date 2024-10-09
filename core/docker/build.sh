@@ -22,7 +22,6 @@ cd "${SCRIPT_DIR}" || exit 2
 SOURCE_DIR="${SCRIPT_DIR}/../.."
 
 ARCHITECTURES=(amd64 arm64 ppc64le)
-BASE_IMAGE_TAG=
 TRINO_VERSION=
 
 JDK_RELEASE=$(cat "${SOURCE_DIR}/core/jdk/current")
@@ -30,7 +29,7 @@ JDKS_PATH="${SOURCE_DIR}/core/jdk"
 
 SKIP_TESTS=false
 
-while getopts ":a:b:h:r:j:x" o; do
+while getopts ":a:h:r:j:x" o; do
     case "${o}" in
         a)
             IFS=, read -ra ARCH_ARG <<< "$OPTARG"
@@ -41,9 +40,6 @@ while getopts ":a:b:h:r:j:x" o; do
                 fi
             done
             ARCHITECTURES=("${ARCH_ARG[@]}")
-            ;;
-        b)
-            BASE_IMAGE_TAG="${OPTARG}"
             ;;
         r)
             TRINO_VERSION=${OPTARG}
@@ -109,12 +105,12 @@ fi
 
 echo "🧱 Preparing the image build context directory"
 WORK_DIR="$(mktemp -d)"
-# cp "$trino_server" "${WORK_DIR}/"
-# cp "$trino_client" "${WORK_DIR}/"
-# tar -C "${WORK_DIR}" -xzf "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
-# rm "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
-# cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
-# cp -R default "${WORK_DIR}/"
+cp "$trino_server" "${WORK_DIR}/"
+cp "$trino_client" "${WORK_DIR}/"
+tar -C "${WORK_DIR}" -xzf "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
+rm "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
+cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
+cp -R default "${WORK_DIR}/"
 
 TAG_PREFIX="trino:${TRINO_VERSION}"
 
@@ -124,9 +120,8 @@ for arch in "${ARCHITECTURES[@]}"; do
         "${WORK_DIR}" \
         --progress=plain \
         --pull \
-        --build-arg "BASE_IMAGE_TAG=${BASE_IMAGE_TAG}" \
-        # --build-arg JDK_VERSION="${JDK_RELEASE}" \
-        # --build-arg JDK_DOWNLOAD_LINK="$(jdk_download_link "${JDKS_PATH}/${JDK_RELEASE}" "${arch}")" \
+        --build-arg JDK_VERSION="${JDK_RELEASE}" \
+        --build-arg JDK_DOWNLOAD_LINK="$(jdk_download_link "${JDKS_PATH}/${JDK_RELEASE}" "${arch}")" \
         --platform "linux/$arch" \
         -f Dockerfile \
         -t "${TAG_PREFIX}-$arch" \
