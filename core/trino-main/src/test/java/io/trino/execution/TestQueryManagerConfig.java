@@ -79,7 +79,7 @@ public class TestQueryManagerConfig
                 .setRetryMaxDelay(new Duration(1, MINUTES))
                 .setRetryDelayScaleFactor(2.0)
                 .setMaxTasksWaitingForExecutionPerQuery(10)
-                .setMaxTasksWaitingForNodePerQuery(5)
+                .setMaxTasksWaitingForNodePerQuery(50)
                 .setEnabledAdaptiveTaskRequestSize(true)
                 .setMaxRemoteTaskRequestSize(DataSize.of(8, DataSize.Unit.MEGABYTE))
                 .setRemoteTaskRequestSizeHeadroom(DataSize.of(2, DataSize.Unit.MEGABYTE))

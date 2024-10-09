@@ -84,6 +84,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.server.DisconnectionAwareAsyncResponse.bindDisconnectionAwareAsyncResponse;
@@ -167,8 +168,7 @@ public class QueuedStatementResource
         }
 
         Query query = registerQuery(statement, servletRequest, httpHeaders);
-
-        return createQueryResultsResponse(query.getQueryResults(query.getLastToken(), externalUriInfo));
+        return createQueryResultsResponse(query.getQueryResults(query.getLastToken(), externalUriInfo), query.sessionContext.getQueryDataEncoding());
     }
 
     private Query registerQuery(String statement, HttpServletRequest servletRequest, HttpHeaders httpHeaders)
@@ -219,7 +219,7 @@ public class QueuedStatementResource
                 .catching(TimeoutException.class, _ -> null, directExecutor())
                 // when state changes, fetch the next result
                 .transform(_ -> query.getQueryResults(token, externalUriInfo), responseExecutor)
-                .transform(this::createQueryResultsResponse, directExecutor());
+                .transform(results -> createQueryResultsResponse(results, query.sessionContext.getQueryDataEncoding()), directExecutor());
     }
 
     @ResourceSecurity(PUBLIC)
@@ -245,12 +245,13 @@ public class QueuedStatementResource
         return query;
     }
 
-    private Response createQueryResultsResponse(QueryResults results)
+    private Response createQueryResultsResponse(QueryResults results, Optional<String> queryDataEncoding)
     {
         Response.ResponseBuilder builder = Response.ok(results);
         if (!compressionEnabled) {
             builder.encoding("identity");
         }
+        queryDataEncoding.ifPresent(encoding -> builder.header(TRINO_HEADERS.responseQueryDataEncoding(), encoding));
         return builder.build();
     }
 

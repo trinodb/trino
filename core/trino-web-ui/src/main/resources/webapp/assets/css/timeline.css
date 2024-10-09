@@ -12,30 +12,30 @@
  * limitations under the License.
  */
 
-.vis.timeline .item {
+.vis-timeline .vis-item {
     padding: 0px;
 }
-.vis.timeline .labelset .vlabel .inner {
+.vis-timeline .vis-labelset .vis-label .vis-inner {
     padding: 0px;
 }
-.vis.timeline .item.range {
-    height: 3px;
+.vis-timeline .vis-item.vis-range {
+    height: 0.8em;
 }
-.vis.timeline .red {
-    background-color: #F2DEDE;
-    border-color: #F2AEAE;
+.vis-timeline .red {
+    background-color: #DD00A1;
+    border-color: #252830;
 }
-.vis.timeline .green {
-    background-color: #DFF0DB;
-    border-color: #B8F0AA;
+.vis-timeline .gray {
+    background-color: #9E9E9E;
+    border-color: #252830;
 }
-.vis.timeline .blue {
-    background-color: #E3E9FC;
-    border-color: #B0C3FC;
+.vis-timeline .blue {
+    background-color: #001C93;
+    border-color: #252830;
 }
-.vis.timeline .orange {
-    background-color: #FFA500;
-    border-color: #B0C3FC;
+.vis-timeline .orange {
+    background-color: #F88600;
+    border-color: #252830;
 }
 #legend {
     padding: 10px 40px
@@ -50,24 +50,28 @@
     margin-left: -20px;
 }
 #legend .red {
-    background-color: #F2DEDE;
-    border-color: #F2AEAE;
+    background-color: #DD00A1;
+    border-color: #252830;
 }
-#legend .green {
-    background-color: #DFF0DB;
-    border-color: #B8F0AA;
+#legend .gray {
+    background-color: #9E9E9E;
+    border-color: #252830;
 }
 #legend .blue {
-    background-color: #E3E9FC;
-    border-color: #B0C3FC;
+    background-color: #001C93;
+    border-color: #252830;
 }
 #legend .orange {
-    background-color: #FFA500;
-    border-color: #B0C3FC;
+    background-color: #F88600;
+    border-color: #252830;
 }
 #legend .empty {
     border-style: none;
 }
 #legend>div {
     display: inline-block;
+}
+
+.vis-text {
+    color: white !important;
 }

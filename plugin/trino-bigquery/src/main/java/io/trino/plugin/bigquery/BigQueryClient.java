@@ -51,6 +51,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -171,12 +172,15 @@ public class BigQueryClient
         }
 
         // Get all information from BigQuery and update cache from all fetched information
+        Map<DatasetId, RemoteDatabaseObject> mapping = new HashMap<>(remoteDatasetCaseInsensitiveCache.getAllPresent(remoteDatasetCaseInsensitiveCache.asMap().keySet()));
         for (DatasetId datasetId : datasetIds.get()) {
             DatasetId newCacheKey = datasetIdToLowerCase(datasetId);
             RemoteDatabaseObject newValue = RemoteDatabaseObject.of(datasetId.getDataset());
+            mapping.merge(newCacheKey, newValue, (currentValue, collision) -> currentValue.registerCollision(collision.getOnlyRemoteName()));
             updateCache(remoteDatasetCaseInsensitiveCache, newCacheKey, newValue);
         }
-        return Optional.ofNullable(remoteDatasetCaseInsensitiveCache.getIfPresent(cacheKey));
+
+        return Optional.ofNullable(mapping.get(cacheKey));
     }
 
     public Optional<RemoteDatabaseObject> toRemoteTable(ConnectorSession session, String projectId, String remoteDatasetName, String tableName)
@@ -207,13 +211,15 @@ public class BigQueryClient
         }
 
         // Get all information from BigQuery and update cache from all fetched information
+        Map<TableId, RemoteDatabaseObject> mapping = new HashMap<>(remoteTableCaseInsensitiveCache.getAllPresent(remoteTableCaseInsensitiveCache.asMap().keySet()));
         for (TableId table : tableIds.get()) {
             TableId newCacheKey = tableIdToLowerCase(table);
             RemoteDatabaseObject newValue = RemoteDatabaseObject.of(table.getTable());
+            mapping.merge(newCacheKey, newValue, (currentValue, collision) -> currentValue.registerCollision(collision.getOnlyRemoteName()));
             updateCache(remoteTableCaseInsensitiveCache, newCacheKey, newValue);
         }
 
-        return Optional.ofNullable(remoteTableCaseInsensitiveCache.getIfPresent(cacheKey));
+        return Optional.ofNullable(mapping.get(cacheKey));
     }
 
     private static <T> void updateCache(Cache<T, RemoteDatabaseObject> caseInsensitiveCache, T newCacheKey, RemoteDatabaseObject newValue)

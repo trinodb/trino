@@ -24,8 +24,6 @@ import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.Column;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
-import io.trino.client.QueryError;
-import io.trino.client.QueryStatusInfo;
 import io.trino.jdbc.ColumnInfo.Nullable;
 import io.trino.jdbc.TypeConversions.NoConversionRegisteredException;
 import org.joda.time.DateTimeZone;
@@ -62,7 +60,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -184,7 +181,7 @@ abstract class AbstractTrinoResultSet
                         return result;
                     })
                     .build();
-    protected final Iterator<List<Object>> results;
+    protected final CancellableIterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
     private final List<ColumnInfo> columnInfoList;
     private final ResultSetMetaData resultSetMetaData;
@@ -193,7 +190,9 @@ abstract class AbstractTrinoResultSet
     private final AtomicBoolean wasNull = new AtomicBoolean();
     private final Optional<Statement> statement;
 
-    AbstractTrinoResultSet(Optional<Statement> statement, List<Column> columns, Iterator<List<Object>> results)
+    private final AtomicBoolean closed = new AtomicBoolean();
+
+    AbstractTrinoResultSet(Optional<Statement> statement, List<Column> columns, CancellableIterator<List<Object>> results)
     {
         this.statement = requireNonNull(statement, "statement is null");
         requireNonNull(columns, "columns is null");
@@ -1827,6 +1826,15 @@ abstract class AbstractTrinoResultSet
         return getObject(columnIndex(columnLabel), type);
     }
 
+    @Override
+    public void close()
+            throws SQLException
+    {
+        if (closed.compareAndSet(false, true)) {
+            results.cancel();
+        }
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public <T> T unwrap(Class<T> iface)
@@ -1927,14 +1935,6 @@ abstract class AbstractTrinoResultSet
         catch (NumberFormatException ne) {
             return Optional.empty();
         }
-    }
-
-    static SQLException resultsException(QueryStatusInfo results)
-    {
-        QueryError error = requireNonNull(results.getError());
-        String message = format("Query failed (#%s): %s", results.getId(), error.getMessage());
-        Throwable cause = (error.getFailureInfo() == null) ? null : error.getFailureInfo().toException();
-        return new SQLException(message, error.getSqlState(), error.getErrorCode(), cause);
     }
 
     private static Map<String, Integer> getFieldMap(List<Column> columns)

@@ -76,7 +76,7 @@ execution on a Trino cluster:
     the failure recovery capabilities to be fully functional" error message unless an 
     [exchange manager](fte-exchange-manager) is configured.
   - `32MB`
-* - `fault-tolerant-execution.exchange-encryption-enabled`
+* - `fault-tolerant-execution-exchange-encryption-enabled`
   - Enable encryption of spooling data, see [Encryption](fte-encryption) for details. 
     Setting this property to false is not recommended if Trino processes sensitive data.
   - ``true``
@@ -296,7 +296,7 @@ available memory on a node, the task is restarted with a request to allocate the
 full node for its execution.
 
 The initial task memory-requirements estimation is static and configured with
-the `fault-tolerant-task-memory` configuration property. This property only
+the `fault-tolerant-execution-task-memory` configuration property. This property only
 applies to a `TASK` retry policy.
 
 :::{list-table} Node allocation configuration properties
@@ -366,7 +366,7 @@ fault-tolerant execution:
 * - `max-tasks-waiting-for-node-per-query`
   - Allow for up to configured number of tasks to wait for node allocation
     per query, before pausing scheduling for other tasks from this query.
-  - 5
+  - `50`
   - Only `TASK`
 :::
 

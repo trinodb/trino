@@ -19,9 +19,15 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent.Status;
 import io.trino.plugin.jdbc.RemoteLogTracingEvent;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
@@ -30,7 +36,9 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Types;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -51,6 +59,8 @@ import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_DATABASE;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
 import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
 import static io.trino.plugin.redshift.TestingRedshiftServer.executeWithRedshift;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Math.round;
 import static java.lang.String.format;
@@ -265,6 +275,38 @@ public class TestRedshiftConnectorTest
             assertThatThrownBy(() -> onRemoteDatabase().execute("ALTER TABLE " + table.getName() + " ADD COLUMN new_col int NOT NULL"))
                     .hasMessageContaining("ERROR: ALTER TABLE ADD COLUMN defined as NOT NULL must have a non-null default expression");
         }
+    }
+
+    @Test
+    public void testRangeQueryConvertedToInClauseQuery()
+    {
+        assertThat(query("SELECT regionkey FROM region WHERE regionkey >= 1 AND regionkey <= 4"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT regionkey FROM region WHERE regionkey >= 1 AND regionkey <= 4"))
+                .isNotFullyPushedDown(node(TableScanNode.class)
+                        .with(TableScanNode.class, tableScanNode -> {
+                            TupleDomain<?> effectivePredicate = ((JdbcTableHandle) tableScanNode.getTable().connectorHandle()).getConstraint();
+                            TupleDomain<?> expectedPredicate =
+                                    TupleDomain.withColumnDomains(
+                                            Map.of(
+                                                    new JdbcColumnHandle.Builder()
+                                                            .setColumnName("regionkey")
+                                                            .setJdbcTypeHandle(
+                                                                    new JdbcTypeHandle(
+                                                                            Types.BIGINT,
+                                                                            Optional.of("int8"),
+                                                                            Optional.of(19),
+                                                                            Optional.of(0),
+                                                                            Optional.empty(),
+                                                                            Optional.empty()))
+                                                            .setComment(Optional.of("Dynamic Column."))
+                                                            .setColumnType(BIGINT)
+                                                            .setNullable(true)
+                                                            .build(),
+                                                    Domain.multipleValues(BIGINT, List.of(1L, 2L, 3L, 4L), false)));
+                            assertThat(effectivePredicate).isEqualTo(expectedPredicate);
+                            return true;
+                        }));
     }
 
     @Test

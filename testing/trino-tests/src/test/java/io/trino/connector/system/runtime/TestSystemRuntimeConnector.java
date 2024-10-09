@@ -115,6 +115,13 @@ public class TestSystemRuntimeConnector
     }
 
     @Test
+    void testOptimizerRuleStats()
+    {
+        assertThat(query("SELECT rule_name, invocations, matches, failures FROM system.runtime.optimizer_rule_stats"))
+                .result().hasTypes(ImmutableList.of(VARCHAR, BIGINT, BIGINT, BIGINT));
+    }
+
+    @Test
     public void testRuntimeQueriesTimestamps()
     {
         // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/trinodb/trino/issues/5608

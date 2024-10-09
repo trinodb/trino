@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>184</version>
+        <version>185</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -186,13 +186,13 @@
         <!-- keep dependency properties sorted -->
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.accumulo.version>3.0.0</dep.accumulo.version>
-        <dep.airlift.version>272</dep.airlift.version>
+        <dep.airlift.version>273</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
         <dep.aws-sdk.version>1.12.773</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
-        <dep.confluent.version>7.5.1</dep.confluent.version>
+        <dep.confluent.version>7.7.1</dep.confluent.version>
         <dep.docker.images.version>100</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
         <!-- temporary downgrade due to https://github.com/google/error-prone/issues/4598 -->
@@ -210,10 +210,10 @@
         <dep.kafka-clients.version>3.8.0</dep.kafka-clients.version>
         <dep.okio.version>3.9.1</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.parquet.version>1.14.2</dep.parquet.version>
+        <dep.parquet.version>1.14.3</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>        
         <dep.pulsar.version>4.0.0-preview.1</dep.pulsar.version>
-        <dep.protobuf.version>3.25.4</dep.protobuf.version>
+        <dep.protobuf.version>3.25.5</dep.protobuf.version>
         <dep.snowflake.version>3.19.0</dep.snowflake.version>
         <dep.swagger.version>2.2.25</dep.swagger.version>
         <dep.takari.version>2.2.0</dep.takari.version>
@@ -330,7 +330,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.28.15</version>
+                <version>2.28.16</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

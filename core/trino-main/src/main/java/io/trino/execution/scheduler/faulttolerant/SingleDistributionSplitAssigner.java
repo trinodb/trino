@@ -31,15 +31,16 @@ import static java.util.Objects.requireNonNull;
 class SingleDistributionSplitAssigner
         implements SplitAssigner
 {
-    private final Set<HostAddress> hostRequirement;
+    private final Optional<HostAddress> hostRequirement;
     private final Set<PlanNodeId> allSources;
 
     private boolean partitionAdded;
     private final Set<PlanNodeId> completedSources = new HashSet<>();
 
-    SingleDistributionSplitAssigner(Set<HostAddress> hostRequirement, Set<PlanNodeId> allSources)
+    SingleDistributionSplitAssigner(Optional<HostAddress> hostRequirement, Set<PlanNodeId> allSources)
     {
-        this.hostRequirement = ImmutableSet.copyOf(requireNonNull(hostRequirement, "hostRequirement is null"));
+        requireNonNull(hostRequirement, "hostRequirement is null");
+        this.hostRequirement = hostRequirement;
         this.allSources = ImmutableSet.copyOf(requireNonNull(allSources, "allSources is null"));
     }
 

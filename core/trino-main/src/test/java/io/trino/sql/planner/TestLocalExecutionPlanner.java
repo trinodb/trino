@@ -26,8 +26,8 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Collections.nCopies;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -61,7 +61,7 @@ public class TestLocalExecutionPlanner
         String outer = "x + x + " + Joiner.on(" + ").join(nCopies(100, inner));
 
         assertTrinoExceptionThrownBy(() -> runner.execute("SELECT " + outer + " FROM (VALUES rand()) t(x)"))
-                .hasErrorCode(COMPILER_ERROR)
+                .hasErrorCode(QUERY_EXCEEDED_COMPILER_LIMIT)
                 .hasMessage("Query exceeded maximum columns. Please reduce the number of columns referenced and re-run the query.");
     }
 
@@ -75,7 +75,7 @@ public class TestLocalExecutionPlanner
                 + " OR " + Joiner.on(" AND ").join(nCopies(1000, " c3 = rand()"));
 
         assertTrinoExceptionThrownBy(() -> runner.execute("SELECT * " + filterQueryInner + filterQueryWhere))
-                .hasErrorCode(COMPILER_ERROR)
+                .hasErrorCode(QUERY_EXCEEDED_COMPILER_LIMIT)
                 .hasMessage("Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.");
     }
 

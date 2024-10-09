@@ -157,14 +157,14 @@ public final class TypeConverter
         if (type.equals(UUID)) {
             return Types.UUIDType.get();
         }
-        if (type instanceof RowType) {
-            return fromRow((RowType) type, columnIdentity, nextFieldId);
+        if (type instanceof RowType rowType) {
+            return fromRow(rowType, columnIdentity, nextFieldId);
         }
-        if (type instanceof ArrayType) {
-            return fromArray((ArrayType) type, columnIdentity, nextFieldId);
+        if (type instanceof ArrayType arrayType) {
+            return fromArray(arrayType, columnIdentity, nextFieldId);
         }
-        if (type instanceof MapType) {
-            return fromMap((MapType) type, columnIdentity, nextFieldId);
+        if (type instanceof MapType mapType) {
+            return fromMap(mapType, columnIdentity, nextFieldId);
         }
         if (type instanceof TimeType) {
             throw new TrinoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", ((TimeType) type).getPrecision()));

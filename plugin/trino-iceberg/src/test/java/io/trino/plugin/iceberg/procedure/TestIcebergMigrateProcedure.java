@@ -168,6 +168,38 @@ public class TestIcebergMigrateProcedure
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testMigrateTimestampHiveTableInComplexType()
+    {
+        String inputValue = "2021-01-01 10:11:12.123"; // Tests are run with America/Bahia_Banderas timezone
+        String expectedValue = "2021-01-01 16:11:12.123000 UTC";
+
+        String tableName = "test_migrate_timestamp_complex_type_" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+        String icebergTableName = "iceberg.tpch." + tableName;
+
+        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (format='PARQUET') AS " +
+                     "SELECT CAST(row(timestamp '" + inputValue + "') AS row(t timestamp(3))) r," +
+                     "array[timestamp '" + inputValue + "'] a, " +
+                     "CAST(map(array[1], array[timestamp '" + inputValue + "']) AS map(int, timestamp(3))) m", 1);
+
+        assertThat(query("SELECT a, m, r.t FROM " + hiveTableName))
+                .matches("VALUES (" +
+                         " ARRAY[timestamp '" + inputValue + "'], " +
+                         " CAST(map(ARRAY[1], ARRAY[timestamp '" + inputValue + "']) AS map(int, timestamp(3)))," +
+                         " timestamp '" + inputValue + "')");
+
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+
+        assertThat(query("SELECT a, m, r.t FROM " + icebergTableName))
+                .matches("VALUES (" +
+                         " ARRAY[timestamp '" + expectedValue + "'], " +
+                         " CAST(map(ARRAY[1], ARRAY[timestamp '" + expectedValue + "']) AS map(int, timestamp(6) with time zone))," +
+                         " timestamp '" + expectedValue + "')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @ParameterizedTest
     @MethodSource("fileFormats")
     public void testMigrateTableSchemaEvolution(IcebergFileFormat fileFormat)
@@ -410,20 +442,15 @@ public class TestIcebergMigrateProcedure
     }
 
     @Test
-    public void testMigrateUnsupportedColumnType()
+    public void testMigrateTimestampMillisTypeWithAvro()
     {
-        String tableName = "test_migrate_unsupported_column_type_" + randomNameSuffix();
+        String tableName = "test_migrate_timestamp_millis_avro" + randomNameSuffix();
         String hiveTableName = "hive.tpch." + tableName;
-        String icebergTableName = "iceberg.tpch." + tableName;
 
-        assertUpdate("CREATE TABLE " + hiveTableName + " AS SELECT timestamp '2021-01-01 00:00:00.000' x", 1);
-
-        assertQueryFails(
-                "CALL iceberg.system.migrate('tpch', '" + tableName + "')",
-                "\\QTimestamp precision (3) not supported for Iceberg. Use \"timestamp(6)\" instead.");
-
+        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (format='AVRO') AS SELECT timestamp '2021-01-01 00:00:00.000' x", 1);
         assertQuery("SELECT * FROM " + hiveTableName, "VALUES timestamp '2021-01-01 00:00:00.000'");
-        assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
+
+        assertQueryFails("CALL iceberg.system.migrate('tpch', '" + tableName + "')", "Migrating timestamp type with Avro format is not supported.");
 
         assertUpdate("DROP TABLE " + hiveTableName);
     }

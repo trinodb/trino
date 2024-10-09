@@ -108,7 +108,7 @@ public class QueryManagerConfig
     private double retryDelayScaleFactor = 2.0;
 
     private int maxTasksWaitingForExecutionPerQuery = 10;
-    private int maxTasksWaitingForNodePerQuery = 5;
+    private int maxTasksWaitingForNodePerQuery = 50;
 
     private boolean enabledAdaptiveTaskRequestSize = true;
     private DataSize maxRemoteTaskRequestSize = DataSize.of(8, MEGABYTE);

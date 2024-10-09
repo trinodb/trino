@@ -42,6 +42,12 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.AppendFiles;
@@ -60,9 +66,11 @@ import org.apache.iceberg.types.Types;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -71,6 +79,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.HiveMetadata.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveMetadata.extractHiveStorageFormat;
+import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
@@ -81,10 +90,9 @@ import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYST
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.procedure.MigrationUtils.buildDataFiles;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -191,9 +199,9 @@ public class MigrateProcedure
             throw new TrinoException(NOT_SUPPORTED, "The table is already an Iceberg table");
         }
 
-        Schema schema = toIcebergSchema(concat(hiveTable.getDataColumns().stream(), hiveTable.getPartitionColumns().stream()).toList());
-        NameMapping nameMapping = MappingUtil.create(schema);
         HiveStorageFormat storageFormat = extractHiveStorageFormat(hiveTable.getStorage().getStorageFormat());
+        Schema schema = toIcebergSchema(concat(hiveTable.getDataColumns().stream(), hiveTable.getPartitionColumns().stream()).toList(), toIcebergFileFormat(storageFormat));
+        NameMapping nameMapping = MappingUtil.create(schema);
         String location = hiveTable.getStorage().getLocation();
 
         Map<String, String> properties = icebergTableProperties(location, hiveTable.getParameters(), nameMapping, toIcebergFileFormat(storageFormat));
@@ -271,13 +279,13 @@ public class MigrateProcedure
         return ImmutableMap.copyOf(icebergTableProperties);
     }
 
-    private Schema toIcebergSchema(List<Column> columns)
+    private Schema toIcebergSchema(List<Column> columns, IcebergFileFormat storageFormat)
     {
         AtomicInteger nextFieldId = new AtomicInteger(1);
         List<Types.NestedField> icebergColumns = new ArrayList<>();
         for (Column column : columns) {
             int index = icebergColumns.size();
-            org.apache.iceberg.types.Type type = toIcebergType(typeManager.getType(getTypeSignature(column.getType())), nextFieldId);
+            org.apache.iceberg.types.Type type = toIcebergType(typeManager.getType(getTypeSignature(column.getType(), MILLISECONDS)), nextFieldId, storageFormat);
             Types.NestedField field = Types.NestedField.of(index, false, column.getName(), type, column.getComment().orElse(null));
             icebergColumns.add(field);
         }
@@ -288,12 +296,55 @@ public class MigrateProcedure
         return new Schema(icebergSchema.asStructType().fields());
     }
 
-    private static org.apache.iceberg.types.Type toIcebergType(Type type, AtomicInteger nextFieldId)
+    private static org.apache.iceberg.types.Type toIcebergType(Type type, AtomicInteger nextFieldId, IcebergFileFormat storageFormat)
     {
-        if (type.equals(TINYINT) || type.equals(SMALLINT)) {
-            return Types.IntegerType.get();
+        return switch (type) {
+            case TinyintType _, SmallintType _ -> Types.IntegerType.get();
+            case TimestampType _ -> switch (storageFormat) {
+                case ORC -> Types.TimestampType.withoutZone();
+                case PARQUET -> Types.TimestampType.withZone();
+                case AVRO ->  // TODO https://github.com/trinodb/trino/issues/20481
+                        throw new TrinoException(NOT_SUPPORTED, "Migrating timestamp type with Avro format is not supported.");
+            };
+            case RowType rowType -> fromRow(rowType, nextFieldId, storageFormat);
+            case ArrayType arrayType -> fromArray(arrayType, nextFieldId, storageFormat);
+            case MapType mapType -> fromMap(mapType, nextFieldId, storageFormat);
+            default -> toIcebergTypeForNewColumn(type, nextFieldId);
+        };
+    }
+
+    private static org.apache.iceberg.types.Type fromRow(RowType type, AtomicInteger nextFieldId, IcebergFileFormat storageFormat)
+    {
+        Set<String> fieldNames = new HashSet<>();
+        List<Types.NestedField> fields = new ArrayList<>();
+        for (int i = 0; i < type.getFields().size(); i++) {
+            int id = nextFieldId.getAndIncrement();
+            RowType.Field field = type.getFields().get(i);
+            String name = field.getName().orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Row type field does not have a name: " + type.getDisplayName()));
+            if (!fieldNames.add(name.toLowerCase(ENGLISH))) {
+                throw new TrinoException(DUPLICATE_COLUMN_NAME, "Field name '%s' specified more than once".formatted(name.toLowerCase(ENGLISH)));
+            }
+            org.apache.iceberg.types.Type icebergTypeInternal = toIcebergType(field.getType(), nextFieldId, storageFormat);
+            fields.add(Types.NestedField.optional(id, name, icebergTypeInternal));
         }
-        return toIcebergTypeForNewColumn(type, nextFieldId);
+        return Types.StructType.of(fields);
+    }
+
+    private static org.apache.iceberg.types.Type fromArray(ArrayType type, AtomicInteger nextFieldId, IcebergFileFormat storageFormat)
+    {
+        int id = nextFieldId.getAndIncrement();
+        return Types.ListType.ofOptional(id, toIcebergType(type.getElementType(), nextFieldId, storageFormat));
+    }
+
+    private static org.apache.iceberg.types.Type fromMap(MapType type, AtomicInteger nextFieldId, IcebergFileFormat storageFormat)
+    {
+        int keyId = nextFieldId.getAndIncrement();
+        int valueId = nextFieldId.getAndIncrement();
+        return Types.MapType.ofOptional(
+                keyId,
+                valueId,
+                toIcebergType(type.getKeyType(), nextFieldId, storageFormat),
+                toIcebergType(type.getValueType(), nextFieldId, storageFormat));
     }
 
     public Map<String, Optional<Partition>> listAllPartitions(HiveMetastore metastore, io.trino.metastore.Table table)

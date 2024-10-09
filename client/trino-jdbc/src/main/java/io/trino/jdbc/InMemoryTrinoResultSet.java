@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static io.trino.jdbc.CancellableIterator.wrap;
+
 public class InMemoryTrinoResultSet
         extends AbstractTrinoResultSet
 {
@@ -27,7 +29,7 @@ public class InMemoryTrinoResultSet
 
     public InMemoryTrinoResultSet(List<Column> columns, List<List<Object>> results)
     {
-        super(Optional.empty(), columns, results.iterator());
+        super(Optional.empty(), columns, wrap(results.iterator()));
     }
 
     @Override

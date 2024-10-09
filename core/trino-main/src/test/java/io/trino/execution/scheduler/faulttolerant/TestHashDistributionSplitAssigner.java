@@ -756,7 +756,7 @@ public class TestHashDistributionSplitAssigner
                 partitionToNodeMap.ifPresent(partitionToNode -> {
                     if (!taskDescriptor.getSplits().getSplitsFlat().isEmpty()) {
                         InternalNode node = partitionToNode.get(partitionId);
-                        assertThat(nodeRequirements.getAddresses()).containsExactly(node.getHostAndPort());
+                        assertThat(nodeRequirements.getAddress()).hasValue(node.getHostAndPort());
                     }
                 });
                 Set<Integer> taskDescriptorSplitIds = new HashSet<>();
