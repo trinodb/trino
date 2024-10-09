@@ -44,6 +44,7 @@ public final class ProtocolHeaders
     private final String requestResourceEstimate;
     private final String requestExtraCredential;
     private final String requestQueryDataEncoding;
+    private final String requestRenderTimestampInLocalZone;
     private final String responseSetCatalog;
     private final String responseSetSchema;
     private final String responseSetPath;
@@ -91,6 +92,7 @@ public final class ProtocolHeaders
         requestResourceEstimate = prefix + "Resource-Estimate";
         requestExtraCredential = prefix + "Extra-Credential";
         requestQueryDataEncoding = prefix + "Query-Data-Encoding";
+        requestRenderTimestampInLocalZone = prefix + "Timestamp-In-Local-Zone";
         responseSetCatalog = prefix + "Set-Catalog";
         responseSetSchema = prefix + "Set-Schema";
         responseSetPath = prefix + "Set-Path";
@@ -203,6 +205,11 @@ public final class ProtocolHeaders
     public String requestQueryDataEncoding()
     {
         return requestQueryDataEncoding;
+    }
+
+    public String getRequestRenderTimestampInLocalZone()
+    {
+        return requestRenderTimestampInLocalZone;
     }
 
     public String responseSetCatalog()

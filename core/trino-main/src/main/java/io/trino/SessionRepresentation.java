@@ -72,6 +72,7 @@ public final class SessionRepresentation
     private final Map<String, String> preparedStatements;
     private final String protocolName;
     private final Optional<String> queryDataEncoding;
+    private final boolean renderTimestampInLocalTimeZone;
 
     @JsonCreator
     public SessionRepresentation(
@@ -104,7 +105,8 @@ public final class SessionRepresentation
             @JsonProperty("catalogRoles") Map<String, SelectedRole> catalogRoles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
             @JsonProperty("protocolName") String protocolName,
-            @JsonProperty("queryDataEncoding") Optional<String> queryDataEncoding)
+            @JsonProperty("queryDataEncoding") Optional<String> queryDataEncoding,
+            @JsonProperty("renderTimestampInLocalTimeZone") boolean renderTimestampInLocalTimeZone)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.querySpan = requireNonNull(querySpan, "querySpan is null");
@@ -141,6 +143,7 @@ public final class SessionRepresentation
             catalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
         }
         this.catalogProperties = catalogPropertiesBuilder.buildOrThrow();
+        this.renderTimestampInLocalTimeZone = renderTimestampInLocalTimeZone;
     }
 
     @JsonProperty
@@ -388,6 +391,7 @@ public final class SessionRepresentation
                 preparedStatements,
                 createProtocolHeaders(protocolName),
                 exchangeEncryptionKey,
-                queryDataEncoding);
+                queryDataEncoding,
+                renderTimestampInLocalTimeZone);
     }
 }

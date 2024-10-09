@@ -30,6 +30,7 @@ import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -59,7 +60,9 @@ public class JsonArrayResultsIterator
     private final ImmutableList<Page> pages;
     private final List<OutputColumn> columns;
     private final boolean supportsParametricDateTime;
+    private final boolean supportsUseSessionTimeZone;
     private final Consumer<TrinoException> exceptionConsumer;
+    private final TimeZoneKey sessionTimeZoneKey;
 
     private Page currentPage;
     private int rowPosition = -1;
@@ -72,7 +75,9 @@ public class JsonArrayResultsIterator
         this.session = requireNonNull(session, "session is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        this.supportsUseSessionTimeZone = session.isRenderTimestampInLocalTimeZone();
         this.exceptionConsumer = requireNonNull(exceptionConsumer, "exceptionConsumer is null");
+        this.sessionTimeZoneKey = session.getTimeZoneKey();
         this.currentPage = queue.pollFirst();
     }
 
@@ -120,6 +125,9 @@ public class JsonArrayResultsIterator
                 if (!supportsParametricDateTime) {
                     value = getLegacyValue(value, type);
                 }
+                if (supportsUseSessionTimeZone) {
+                    value = useSessionTimeZone(value, type);
+                }
                 row.add(value);
             }
             catch (Throwable throwable) {
@@ -129,6 +137,56 @@ public class JsonArrayResultsIterator
             }
         }
         return unmodifiableList(row);
+    }
+
+    private Object useSessionTimeZone(Object value, Type type)
+    {
+        if (value == null) {
+            return null;
+        }
+
+        if (type instanceof TimestampWithTimeZoneType) {
+            SqlTimestampWithTimeZone originalValue = ((SqlTimestampWithTimeZone) value);
+            return SqlTimestampWithTimeZone.newInstance(originalValue.getPrecision(), originalValue.getEpochMillis(), originalValue.getPicosOfMilli(), sessionTimeZoneKey);
+        }
+
+        if (type instanceof ArrayType) {
+            Type elementType = ((ArrayType) type).getElementType();
+
+            if (!(elementType instanceof TimestampWithTimeZoneType)) {
+                return value;
+            }
+
+            List<Object> listValue = (List<Object>) value;
+            List<Object> updateValues = new ArrayList<>(listValue.size());
+            for (Object element : listValue) {
+                updateValues.add(useSessionTimeZone(element, elementType));
+            }
+
+            return unmodifiableList(updateValues);
+        }
+
+        if (type instanceof MapType) {
+            Type keyType = ((MapType) type).getKeyType();
+            Type valueType = ((MapType) type).getValueType();
+
+            Map<Object, Object> mapValue = (Map<Object, Object>) value;
+            Map<Object, Object> result = Maps.newHashMapWithExpectedSize(mapValue.size());
+            mapValue.forEach((key, val) -> result.put(useSessionTimeZone(key, keyType), useSessionTimeZone(val, valueType)));
+            return unmodifiableMap(result);
+        }
+
+        if (type instanceof RowType) {
+            List<RowType.Field> fields = ((RowType) type).getFields();
+            List<Object> values = (List<Object>) value;
+
+            List<Object> result = new ArrayList<>(values.size());
+            for (int i = 0; i < values.size(); i++) {
+                result.add(useSessionTimeZone(values.get(i), fields.get(i).getType()));
+            }
+            return unmodifiableList(result);
+        }
+        return value;
     }
 
     private Object getLegacyValue(Object value, Type type)

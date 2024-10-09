@@ -92,6 +92,7 @@ public final class Session
     private final ProtocolHeaders protocolHeaders;
     private final Optional<Slice> exchangeEncryptionKey;
     private final Optional<String> queryDataEncoding;
+    private final boolean renderTimestampInLocalTimeZone;
 
     public Session(
             QueryId queryId,
@@ -120,7 +121,8 @@ public final class Session
             Map<String, String> preparedStatements,
             ProtocolHeaders protocolHeaders,
             Optional<Slice> exchangeEncryptionKey,
-            Optional<String> queryDataEncoding)
+            Optional<String> queryDataEncoding,
+            boolean renderTimestampInLocalTimeZone)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.querySpan = requireNonNull(querySpan, "querySpan is null");
@@ -157,6 +159,7 @@ public final class Session
         this.catalogProperties = catalogPropertiesBuilder.buildOrThrow();
 
         checkArgument(catalog.isPresent() || schema.isEmpty(), "schema is set but catalog is not");
+        this.renderTimestampInLocalTimeZone = renderTimestampInLocalTimeZone;
     }
 
     public QueryId getQueryId()
@@ -263,6 +266,11 @@ public final class Session
             throws NotInTransactionException
     {
         return transactionId.orElseThrow(NotInTransactionException::new);
+    }
+
+    public boolean isRenderTimestampInLocalTimeZone()
+    {
+        return renderTimestampInLocalTimeZone;
     }
 
     public boolean isClientTransactionSupport()
@@ -393,7 +401,8 @@ public final class Session
                 preparedStatements,
                 protocolHeaders,
                 exchangeEncryptionKey,
-                queryDataEncoding);
+                queryDataEncoding,
+                renderTimestampInLocalTimeZone);
     }
 
     public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
@@ -443,7 +452,8 @@ public final class Session
                 preparedStatements,
                 protocolHeaders,
                 exchangeEncryptionKey,
-                queryDataEncoding);
+                queryDataEncoding,
+                renderTimestampInLocalTimeZone);
     }
 
     public Session withExchangeEncryption(Slice encryptionKey)
@@ -476,7 +486,8 @@ public final class Session
                 preparedStatements,
                 protocolHeaders,
                 Optional.of(encryptionKey),
-                queryDataEncoding);
+                queryDataEncoding,
+                renderTimestampInLocalTimeZone);
     }
 
     public ConnectorSession toConnectorSession()
@@ -530,7 +541,8 @@ public final class Session
                 identity.getCatalogRoles(),
                 preparedStatements,
                 protocolHeaders.getProtocolName(),
-                queryDataEncoding);
+                queryDataEncoding,
+                renderTimestampInLocalTimeZone);
     }
 
     @Override
@@ -556,6 +568,7 @@ public final class Session
                 .add("clientCapabilities", clientCapabilities)
                 .add("resourceEstimates", resourceEstimates)
                 .add("start", start)
+                .add("renderTimestampInLocalTimeZone", renderTimestampInLocalTimeZone)
                 .omitNullValues()
                 .toString();
     }
@@ -663,6 +676,7 @@ public final class Session
         private Optional<String> queryDataEncoding = Optional.empty();
         private ResourceEstimates resourceEstimates;
         private Instant start = Instant.now();
+        private boolean renderTimestampInLocalTimeZone;
         private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
@@ -950,6 +964,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setRenderTimestampInLocalTimeZone(boolean renderTimestampInLocalTimeZone)
+        {
+            this.renderTimestampInLocalTimeZone = renderTimestampInLocalTimeZone;
+            return this;
+        }
+
         public Session build()
         {
             return new Session(
@@ -979,7 +999,8 @@ public final class Session
                     preparedStatements,
                     protocolHeaders,
                     Optional.empty(),
-                    queryDataEncoding);
+                    queryDataEncoding,
+                    renderTimestampInLocalTimeZone);
         }
     }
 
