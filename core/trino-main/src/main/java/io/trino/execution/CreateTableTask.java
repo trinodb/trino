@@ -133,9 +133,9 @@ public class CreateTableTask
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
-        Optional<TableHandle> tableHandle;
+        RedirectionAwareTableHandle tableHandle;
         try {
-            tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
+            tableHandle = plannerContext.getMetadata().getRedirectionAwareTableHandle(session, tableName);
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(UNSUPPORTED_TABLE_TYPE.toErrorCode())) {
@@ -143,7 +143,7 @@ public class CreateTableTask
             }
             throw e;
         }
-        if (tableHandle.isPresent() && statement.getSaveMode() != REPLACE) {
+        if (tableHandle.tableHandle().isPresent() && statement.getSaveMode() != REPLACE) {
             if (statement.getSaveMode() == FAIL) {
                 throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
             }

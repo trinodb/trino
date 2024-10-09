@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import org.junit.jupiter.api.Test;
 
@@ -21,6 +22,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -250,6 +252,37 @@ public abstract class BaseSharedMetastoreTest
         assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'test')");
 
         assertUpdate("DROP TABLE " + icebergTableName);
+    }
+
+    @Test
+    public void testCreateTableAsSelect()
+    {
+        Session session = testSessionBuilder(getSession())
+                .setCatalog("hive_with_redirections")
+                .build();
+
+        assertUpdate(format("CREATE TABLE IF NOT EXISTS iceberg.%s.test_table AS SELECT * FROM tpch.tiny.nation",
+                testSchema), 25);
+        assertUpdate(format("CREATE TABLE IF NOT EXISTS iceberg.%s.test_table AS SELECT * FROM tpch.tiny.nation",
+                testSchema), 0);
+        assertUpdate(session, format("CREATE TABLE IF NOT EXISTS %s.test_table AS SELECT * FROM tpch.tiny.nation",
+                testSchema), 0);
+
+        assertQuerySucceeds("DROP TABLE IF EXISTS iceberg." + testSchema + ".test_table");
+    }
+
+    @Test
+    public void testCreateTable()
+    {
+        Session session = testSessionBuilder(getSession())
+                .setCatalog("hive_with_redirections")
+                .build();
+
+        assertQuerySucceeds(format("CREATE TABLE IF NOT EXISTS iceberg.%s.test_table (v bigint)", testSchema));
+        assertQuerySucceeds(format("CREATE TABLE IF NOT EXISTS iceberg.%s.test_table (v bigint)", testSchema));
+        assertQuerySucceeds(session, format("CREATE TABLE IF NOT EXISTS %s.test_table (v bigint)", testSchema));
+
+        assertQuerySucceeds("DROP TABLE IF EXISTS iceberg." + testSchema + ".test_table");
     }
 
     private long getLatestSnapshotId(String schema)
