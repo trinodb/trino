@@ -109,12 +109,12 @@ fi
 
 echo "🧱 Preparing the image build context directory"
 WORK_DIR="$(mktemp -d)"
-cp "$trino_server" "${WORK_DIR}/"
-cp "$trino_client" "${WORK_DIR}/"
-tar -C "${WORK_DIR}" -xzf "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
-rm "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
-cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
-cp -R default "${WORK_DIR}/"
+# cp "$trino_server" "${WORK_DIR}/"
+# cp "$trino_client" "${WORK_DIR}/"
+# tar -C "${WORK_DIR}" -xzf "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
+# rm "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
+# cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
+# cp -R default "${WORK_DIR}/"
 
 TAG_PREFIX="trino:${TRINO_VERSION}"
 
