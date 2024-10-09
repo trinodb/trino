@@ -176,7 +176,12 @@ final class GlueConverter
         }
         else {
             boolean isCsv = sd.serdeInfo() != null && HiveStorageFormat.CSV.getSerde().equals(sd.serdeInfo().serializationLibrary());
-            dataColumns = fromGlueColumns(sd.columns(), ColumnType.DATA, isCsv);
+            if (isDeltaLakeTable(tableParameters)) {
+                dataColumns = ImmutableList.of(FAKE_COLUMN);
+            }
+            else {
+                dataColumns = fromGlueColumns(sd.columns(), ColumnType.DATA, isCsv);
+            }
             if (glueTable.partitionKeys() != null) {
                 partitionColumns = fromGlueColumns(glueTable.partitionKeys(), ColumnType.PARTITION, isCsv);
             }
