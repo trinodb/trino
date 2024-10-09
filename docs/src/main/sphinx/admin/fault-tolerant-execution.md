@@ -296,7 +296,7 @@ available memory on a node, the task is restarted with a request to allocate the
 full node for its execution.
 
 The initial task memory-requirements estimation is static and configured with
-the `fault-tolerant-task-memory` configuration property. This property only
+the `fault-tolerant-execution-task-memory` configuration property. This property only
 applies to a `TASK` retry policy.
 
 :::{list-table} Node allocation configuration properties
