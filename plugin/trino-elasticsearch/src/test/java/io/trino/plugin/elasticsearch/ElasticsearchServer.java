@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.common.net.HostAndPort;
-import io.trino.testing.ResourcePresence;
 import org.apache.http.HttpHost;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.message.BasicHeader;
@@ -101,12 +100,6 @@ public class ElasticsearchServer
     {
         container.close();
         deleteRecursively(configurationPath, ALLOW_INSECURE);
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return container.getContainerId() != null;
     }
 
     public HostAndPort getAddress()

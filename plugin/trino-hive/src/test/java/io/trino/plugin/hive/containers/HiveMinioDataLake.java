@@ -15,7 +15,6 @@ package io.trino.plugin.hive.containers;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.base.util.AutoCloseableCloser;
-import io.trino.testing.ResourcePresence;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
 import org.testcontainers.containers.Network;
@@ -97,12 +96,6 @@ public class HiveMinioDataLake
     {
         closer.close();
         state = State.STOPPED;
-    }
-
-    @ResourcePresence
-    public boolean isNotStopped()
-    {
-        return state != State.STOPPED;
     }
 
     public Network getNetwork()
