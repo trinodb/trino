@@ -17,8 +17,7 @@ import {
     Button,
     Container,
     CssBaseline,
-    // TODO: update when MUI is updated to version 6
-    Unstable_Grid2 as Grid,
+    Grid2 as Grid,
     Link,
     ThemeProvider,
     Typography,
@@ -77,10 +76,10 @@ const NotFound = () => {
     return (
         <Container maxWidth="md">
             <Grid container spacing={2}>
-                <Grid xs={12} md={2}>
+                <Grid size={12} spacing={{ md: 2 }}>
                     <Box component="img" sx={{ height: 140 }} alt="logo" src={trinoLogo} />
                 </Grid>
-                <Grid xs={12} md={10}>
+                <Grid size={12} spacing={{ md: 10 }}>
                     <Typography variant="h3">404</Typography>
                     <Typography paragraph>The page you’re looking for doesn’t exist.</Typography>
                     <Button variant="contained" component={Link} href="/">
