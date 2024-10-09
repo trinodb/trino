@@ -20,13 +20,25 @@ import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.Column;
+import software.amazon.awssdk.services.glue.model.CreateTableRequest;
+import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
+import software.amazon.awssdk.services.glue.model.GetTableRequest;
+import software.amazon.awssdk.services.glue.model.GetTableResponse;
+import software.amazon.awssdk.services.glue.model.SerDeInfo;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
+import software.amazon.awssdk.services.glue.model.TableInput;
 
 import java.nio.file.Path;
+import java.util.Map;
 
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 /**
@@ -107,5 +119,69 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 "   location = '%s'\n" +
                 ")";
         return format(expectedDeltaLakeCreateSchema, catalogName, schema, dataDirectory.toUri());
+    }
+
+    @Test
+    public void testUnsupportedHiveTypeRedirect()
+    {
+        String tableName = "unsupported_types";
+        // Use another complete table location so `SHOW CREATE TABLE` doesn't fail on reading metadata
+        String location;
+        try (GlueClient glueClient = GlueClient.create()) {
+            GetTableResponse existingTable = glueClient.getTable(GetTableRequest.builder()
+                    .databaseName(schema)
+                    .name("delta_table")
+                    .build());
+            location = existingTable.table().storageDescriptor().location();
+        }
+        // Create a table directly in Glue, simulating an external table being created in Spark,
+        // with a custom AWS data type not mapped to HiveType when
+        Column timestampColumn = Column.builder()
+                .name("last_hour_load")
+                .type("timestamp_ntz")
+                .build();
+        StorageDescriptor sd = StorageDescriptor.builder()
+                .columns(timestampColumn)
+                .location(location)
+                .inputFormat("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
+                .outputFormat("org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat")
+                .serdeInfo(SerDeInfo.builder()
+                        .serializationLibrary("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
+                        .parameters(Map.of(
+                                "serialization.format", "1",
+                                "path", location))
+                        .build())
+                .build();
+        TableInput tableInput = TableInput.builder()
+                .name(tableName)
+                .storageDescriptor(sd)
+                .parameters(Map.of(
+                        "spark.sql.sources.provider", "delta"))
+                .tableType("EXTERNAL_TABLE")
+                .partitionKeys(timestampColumn)
+                .build();
+
+        CreateTableRequest createTableRequest = CreateTableRequest.builder()
+                .databaseName(schema)
+                .tableInput(tableInput)
+                .build();
+        try (GlueClient glueClient = GlueClient.create()) {
+            glueClient.createTable(createTableRequest);
+
+            String tableDefinition = (String) computeScalar("SHOW CREATE TABLE hive_with_redirections." + schema + "." + tableName);
+            String expected = """
+                    CREATE TABLE delta_with_redirections.%s.%s (
+                       a_varchar varchar
+                    )
+                    WITH (
+                       location = '%s'
+                    )""";
+            assertThat(tableDefinition).isEqualTo(expected.formatted(schema, tableName, location));
+
+            glueClient.deleteTable(DeleteTableRequest.builder()
+                    .databaseName(schema)
+                    .name(tableInput.name())
+                    .build());
+        }
     }
 }
