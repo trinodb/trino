@@ -21,8 +21,6 @@ import org.testcontainers.containers.ToxiproxyContainer;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 
 import static java.lang.String.format;
 
@@ -106,16 +104,6 @@ public class TestingKuduServer
             closer.register(network::close);
         }
         catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static String getHostIPAddress()
-    {
-        try {
-            return InetAddress.getLocalHost().getHostAddress();
-        }
-        catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
     }
