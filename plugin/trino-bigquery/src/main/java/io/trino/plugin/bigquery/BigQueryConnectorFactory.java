@@ -19,6 +19,7 @@ import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.NodeManager;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -53,6 +54,7 @@ public class BigQueryConnectorFactory
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                     binder.bind(Tracer.class).toInstance(context.getTracer());
+                    binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                 });
 
         Injector injector = app
