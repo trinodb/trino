@@ -128,7 +128,7 @@ for arch in "${ARCHITECTURES[@]}"; do
         # --build-arg JDK_VERSION="${JDK_RELEASE}" \
         # --build-arg JDK_DOWNLOAD_LINK="$(jdk_download_link "${JDKS_PATH}/${JDK_RELEASE}" "${arch}")" \
         --platform "linux/$arch" \
-        -f trino-base.Dockerfile \
+        -f Dockerfile \
         -t "${TAG_PREFIX}-$arch" \
         --build-arg "TRINO_VERSION=${TRINO_VERSION}"
 done
