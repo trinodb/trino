@@ -280,7 +280,6 @@ export const RootLayout = (props: {
             {routers.map((routerItem: RouterItem) => (
               <ListItem
                 key={routerItem.text}
-                selected={routerItem.itemKey === selectedDrawerItemKey}
                 disablePadding
               >
                 {/*@ts-expect-error TS2769*/}
@@ -288,6 +287,7 @@ export const RootLayout = (props: {
                   key={routerItem.itemKey}
                   component={Link}
                   to={routerItem.routeProps.path}
+                  selected={routerItem.itemKey === selectedDrawerItemKey}
                 >
                   <ListItemIcon>
                     {routerItem.icon}
