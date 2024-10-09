@@ -76,7 +76,6 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    @SuppressWarnings("PMD")
     public void testCanSetUserOperations()
     {
         accessControlManager.checkCanSetUser(ADMIN.getPrincipal(), BOB.getUser());
@@ -139,7 +138,6 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    @SuppressWarnings("PMD")
     public void testSchemaOperations()
     {
         accessControlManager.checkCanCreateSchema(context(ALICE), SCHEMA_ALICE_SCH1, null);
@@ -168,7 +166,6 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    @SuppressWarnings("PMD")
     public void testTableOperations()
     {
         CatalogSchemaTableName newTableName = new CatalogSchemaTableName("alice-catalog", "sch1", "new-table");
@@ -244,7 +241,6 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    @SuppressWarnings("PMD")
     public void testViewOperations()
     {
         CatalogSchemaTableName newViewName = new CatalogSchemaTableName(VIEW_ALICE_SCH1_VW1.getCatalogName(), VIEW_ALICE_SCH1_VW1.getSchemaTableName().getSchemaName(), "new-view");
@@ -267,7 +263,6 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    @SuppressWarnings("PMD")
     public void testMaterializedViewOperations()
     {
         CatalogSchemaTableName newViewName = new CatalogSchemaTableName(VIEW_ALICE_SCH1_VW1.getCatalogName(), VIEW_ALICE_SCH1_VW1.getSchemaTableName().getSchemaName(), "new-view");
@@ -353,7 +348,6 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    @SuppressWarnings("PMD")
     public void testColumnMask()
     {
         final VarcharType varcharType = VarcharType.createVarcharType(20);

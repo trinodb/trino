@@ -75,7 +75,7 @@
       "policyPriority": 0,
       "resources": {
         "catalog": { "values": [ "alice-catalog" ] },
-        "schema":  { "values": [ "sch1" ] }
+        "schema":  { "values": [ "sch1", "new-schema" ] }
       },
       "policyItems": [
         { "accesses": [ { "type": "select" }, { "type": "insert" }, { "type": "create" }, { "type": "drop" }, { "type": "alter" }, { "type": "show" }, { "type": "grant" }, { "type": "revoke" } ], "users": [ "alice" ] }
@@ -105,7 +105,7 @@
       "resources": {
         "catalog": { "values": [ "alice-catalog" ] },
         "schema":  { "values": [ "sch1" ] },
-        "table":   { "values": [ "tbl1" ]
+        "table":   { "values": [ "tbl1", "new-table" ]
         }
       },
       "policyItems": [
@@ -155,7 +155,7 @@
       "resources": {
         "catalog": { "values": [ "alice-catalog" ] },
         "schema":  { "values": [ "sch1" ] },
-        "table":   { "values": [ "vw1" ] }
+        "table":   { "values": [ "vw1", "new-view" ] }
       },
       "policyItems": [
         { "accesses": [ { "type": "select" }, { "type": "create" }, { "type": "drop" }, { "type": "alter" } ], "users": [ "alice" ] }

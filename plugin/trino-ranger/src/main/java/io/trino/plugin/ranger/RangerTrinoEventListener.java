@@ -20,13 +20,13 @@ import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.QueryMetadata;
 
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 class RangerTrinoEventListener
         implements EventListener
 {
-    private final Map<String, QueryCreatedEvent> activeQueries = new HashMap<>();
+    private final Map<String, QueryCreatedEvent> activeQueries = new ConcurrentHashMap<>();
 
     public String getClientAddress(String queryId)
     {
