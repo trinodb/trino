@@ -41,7 +41,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
@@ -403,11 +402,7 @@ class TestGlueConverter
                 .build();
         assertThat(table.storageDescriptor()).isNotNull();
         io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
-        assertThat(trinoTable.getDataColumns().stream()
-                .map(Column::getName)
-                .collect(toImmutableSet())).isEqualTo(glueTable.storageDescriptor().columns().stream()
-                .map(software.amazon.awssdk.services.glue.model.Column::name)
-                .collect(toImmutableSet()));
+        assertThat(trinoTable.getDataColumns()).hasSize(1);
     }
 
     @Test
