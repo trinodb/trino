@@ -40,7 +40,9 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
@@ -129,7 +131,8 @@ public final class Environment
                 .onSuccess(event -> log.info("Environment '%s' started in %s, %d attempt(s)", this, event.getElapsedTime(), event.getAttemptCount()))
                 .onFailure(event -> {
                     if (getenv("GITHUB_RUN_ID") != null) {
-                        System.out.printf("::error title=Failed to start environment '%s'::%s%n", this, event.getException());
+                        PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out));
+                        out.printf("::error title=Failed to start environment '%s'::%s%n", this, event.getException());
                     }
                     log.info("Environment '%s' failed to start in attempt(s): %d: %s", this, event.getAttemptCount(), event.getException());
                 })
