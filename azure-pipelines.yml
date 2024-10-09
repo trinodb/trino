@@ -19,44 +19,6 @@ jobs:
           mkdir -p ${{ variables.m2RepoNodePath }}
         displayName: Create required directories
 
-  # - job: BuildAndPushRedHatImage
-  #   displayName: Pull RedHat image and push it to UChimera
-  #   pool:
-  #     vmImage: ubuntu-latest
-  #   steps:
-  #     - task: Bash@3
-  #       name: CreateRedHatJDKImage
-  #       displayName: Docker build - Red Hat and JDK image
-  #       inputs:
-  #         targetType: 'inline'
-  #         script: |
-  #           cd $(Build.SourcesDirectory)/core/docker
-  #           chmod g+w ${HOME}
-  #           chmod ug+x ./build.sh
-  #           ./build.sh -a amd64 -b $(Build.BuildId) -x
-  #           if [ $? -ne 0 ]; then
-  #           echo "Docker build failed"
-  #           exit 1
-  #           fi
-  #     - task: Docker@2
-  #       displayName: Login to ${{ variables.containerRegistry }}
-  #       inputs:
-  #         command: login
-  #         containerRegistry: ${{ variables.containerRegistry }}
-  #     - task: Docker@2
-  #       displayName: Push RedHat image to ${{ variables.containerRegistry }}
-  #       inputs:
-  #         command: push
-  #         containerRegistry: ${{ variables.containerRegistry }}
-  #         repository: cccs/ubi-minimal-jdk
-  #         tags: $(Build.BuildId)-amd64
-  #     - task: Docker@2
-  #       displayName: Logout of ${{ variables.containerRegistry }}
-  #       inputs:
-  #         command: logout
-  #         containerRegistry: ${{ variables.containerRegistry }}
-  #       condition: always()
-
   - job: ContainerBuild
     dependsOn:
       - PrepareNode
