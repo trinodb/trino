@@ -59,7 +59,7 @@ $(document).ready(function () {
                 group: stageId,
                 start: task.time.create,
                 end: task.time.firstStart,
-                className: 'red',
+                className: 'gray',
                 subgroup: taskNumber,
                 sort: -taskNumber,
             });
@@ -67,7 +67,7 @@ $(document).ready(function () {
                 group: stageId,
                 start: task.time.firstStart,
                 end: task.time.lastStart,
-                className: 'green',
+                className: 'red',
                 subgroup: taskNumber,
                 sort: -taskNumber,
             });

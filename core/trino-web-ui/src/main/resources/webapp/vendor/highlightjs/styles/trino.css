@@ -1,20 +1,6 @@
-/*!
-  Theme: StackOverflow Dark
-  Description: Dark theme as used on stackoverflow.com
-  Author: stackoverflow.com
-  Maintainer: @Hirse
-  Website: https://github.com/StackExchange/Stacks
-  License: MIT
-  Updated: 2021-05-15
-
-  Updated for @stackoverflow/stacks v0.64.0
-  Code Blocks: /blob/v0.64.0/lib/css/components/_stacks-code-blocks.less
-  Colors: /blob/v0.64.0/lib/css/exports/_stacks-constants-colors.less
-*/
-
-.hljs {
+hljs {
     /* var(--highlight-color) */
-    color: #ffffff;
+    color: #9e9e9e;
     /* var(--highlight-bg) */
 }
 
@@ -25,7 +11,7 @@
 
 .hljs-comment {
     /* var(--highlight-comment) */
-    color: #999999;
+    color: #DD00A1;
 }
 
 .hljs-keyword,
@@ -34,17 +20,17 @@
 .hljs-doctag,
 .hljs-section {
     /* var(--highlight-keyword) */
-    color: #88aece;
+    color: #F8B600;
 }
 
 .hljs-attr {
     /* var(--highlight-attribute); */
-    color: #88aece;
+    color: #F88600;
 }
 
 .hljs-attribute {
     /* var(--highlight-symbol) */
-    color: #c59bc1;
+    color: #DD00A1;
 }
 
 .hljs-name,
