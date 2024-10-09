@@ -3,7 +3,7 @@
     {
       "role": "admin",
       "catalog": ".*",
-      "allow": true
+      "allow": "owner"
     },
     {
       "catalog": "secret",
@@ -21,7 +21,7 @@
     {
       "user": "alice",
       "catalog": "alice-catalog",
-      "allow": true
+      "allow": "owner"
     },
     {
       "user": "bob",

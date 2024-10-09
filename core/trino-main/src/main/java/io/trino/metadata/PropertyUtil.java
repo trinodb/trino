@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
@@ -203,6 +204,34 @@ public final class PropertyUtil
 
             sqlProperties.put(name, toExpression(errorCode, property, value));
         });
+
+        return sqlProperties.build().entrySet().stream()
+                .map(entry -> new Property(new Identifier(entry.getKey()), entry.getValue()))
+                .collect(toImmutableList());
+    }
+
+    // catalog properties are known to be Strings only
+    public static List<Property> toSqlCatalogProperties(
+            String propertiesObject,
+            ErrorCodeSupplier errorCode,
+            Map<String, String> properties)
+    {
+        if (properties.isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        ImmutableSortedMap.Builder<String, Expression> sqlProperties = ImmutableSortedMap.naturalOrder();
+
+        for (Map.Entry<String, String> propertyEntry : properties.entrySet()) {
+            String propertyName = propertyEntry.getKey();
+            String value = propertyEntry.getValue();
+            if (value == null) {
+                throw new TrinoException(errorCode, "Property %s for %s cannot have a null value".formatted(propertyName, propertiesObject));
+            }
+
+            Expression sqlExpression = new StringLiteral(value);
+            sqlProperties.put(propertyName, sqlExpression);
+        }
 
         return sqlProperties.build().entrySet().stream()
                 .map(entry -> new Property(new Identifier(entry.getKey()), entry.getValue()))
