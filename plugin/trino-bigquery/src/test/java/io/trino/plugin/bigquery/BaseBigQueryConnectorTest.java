@@ -751,6 +751,14 @@ public abstract class BaseBigQueryConnectorTest
 
             assertUpdate("DROP TABLE test." + externalTable);
             assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + externalTable + "'");
+
+            assertThat(bigQuerySqlExecutor.executeQuery("""
+                         SELECT count(*) FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
+                             SELECT * FROM UNNEST(referenced_tables) AS referenced_table
+                                 WHERE referenced_table.table_id = '%s')
+                        """.formatted(externalTable)).getValues())
+                    .extracting(fieldValues -> fieldValues.getFirst().getLongValue())
+                    .containsExactly(1L);
         }
         finally {
             onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + externalTable);
