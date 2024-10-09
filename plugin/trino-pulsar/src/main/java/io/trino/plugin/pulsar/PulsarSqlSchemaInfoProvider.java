@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.pulsar;
 
-import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import io.trino.cache.EvictableCacheBuilder;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.schema.SchemaInfoProvider;
@@ -49,17 +49,18 @@ public class PulsarSqlSchemaInfoProvider
 
     private final PulsarAdmin pulsarAdmin;
 
-    private final LoadingCache<BytesSchemaVersion, CompletableFuture<SchemaInfo>> cache = CacheBuilder.newBuilder()
-            .maximumSize(100000)
-            .expireAfterAccess(30, TimeUnit.MINUTES)
-            .build(new CacheLoader<>() {
-                @Nonnull
-                @Override
-                public CompletableFuture<SchemaInfo> load(@Nonnull BytesSchemaVersion schemaVersion)
-                {
-                    return loadSchema(schemaVersion);
-                }
-            });
+    private final LoadingCache<BytesSchemaVersion, CompletableFuture<SchemaInfo>> cache =
+                EvictableCacheBuilder.newBuilder()
+                    .maximumSize(100000)
+                    .expireAfterWrite(30, TimeUnit.MINUTES)
+                    .build(new CacheLoader<>() {
+                        @Nonnull
+                        @Override
+                        public CompletableFuture<SchemaInfo> load(@Nonnull BytesSchemaVersion schemaVersion)
+                        {
+                            return loadSchema(schemaVersion);
+                        }
+                    });
 
     public PulsarSqlSchemaInfoProvider(TopicName topicName, PulsarAdmin pulsarAdmin)
     {

@@ -14,12 +14,12 @@
 package io.trino.plugin.pulsar;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -74,7 +74,7 @@ public class PulsarMetadata
     private final PulsarDispatchingRowDecoderFactory decoderFactory;
     private final PulsarAuth pulsarAuth;
     private final LoadingCache<SchemaTableName, TopicName> tableNameTopicNameCache =
-            CacheBuilder.newBuilder()
+                EvictableCacheBuilder.newBuilder()
                     // use a short live cache to make sure one query not get matched the topic many times and
                     // prevent get the wrong cache due to the topic changes in the Pulsar.
                     .expireAfterWrite(30, TimeUnit.SECONDS)
@@ -271,7 +271,7 @@ public class PulsarMetadata
             columnHandles.put(pulsarColumnHandle.getName(), pulsarColumnHandle);
         });
 
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override

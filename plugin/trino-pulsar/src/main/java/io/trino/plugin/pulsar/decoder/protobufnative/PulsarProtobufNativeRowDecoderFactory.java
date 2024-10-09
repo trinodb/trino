@@ -50,6 +50,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -79,7 +80,7 @@ public class PulsarProtobufNativeRowDecoderFactory
                                                       PulsarColumnHandle.HandleKeyValueType handleKeyValueType)
     {
         List<ColumnMetadata> columnMetadata;
-        String schemaJson = new String(schemaInfo.getSchema());
+        String schemaJson = new String(schemaInfo.getSchema(), ISO_8859_1);
         if (StringUtils.isBlank(schemaJson)) {
             throw new TrinoException(NOT_SUPPORTED, "Topic "
                     + topicName.toString() + " does not have a valid schema");

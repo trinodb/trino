@@ -76,6 +76,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
 import static io.trino.decoder.FieldValueProviders.longValueProvider;
 import static java.lang.Math.toIntExact;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 /**
  * Implementation of a cursor to read records.
@@ -393,18 +394,18 @@ public class PulsarRecordCursor
                         break;
                     case "__message_id__":
                         currentRowValuesMap.put(columnHandle, bytesValueProvider(
-                                this.currentMessage.getMessageId().toString().getBytes()));
+                                this.currentMessage.getMessageId().toString().getBytes(ISO_8859_1)));
                         break;
                     case "__sequence_id__":
                         currentRowValuesMap.put(columnHandle, longValueProvider(this.currentMessage.getSequenceId()));
                         break;
                     case "__producer_name__":
                         currentRowValuesMap.put(columnHandle,
-                                bytesValueProvider(this.currentMessage.getProducerName().getBytes()));
+                                bytesValueProvider(this.currentMessage.getProducerName().getBytes(ISO_8859_1)));
                         break;
                     case "__key__":
                         String key = this.currentMessage.getKey().orElse(null);
-                        currentRowValuesMap.put(columnHandle, bytesValueProvider(key == null ? null : key.getBytes()));
+                        currentRowValuesMap.put(columnHandle, bytesValueProvider(key == null ? null : key.getBytes(ISO_8859_1)));
                         break;
                     case "__properties__":
                         try {

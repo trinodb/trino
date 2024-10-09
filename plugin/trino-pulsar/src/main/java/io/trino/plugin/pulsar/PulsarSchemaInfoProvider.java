@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.pulsar;
 
-import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import io.airlift.log.Logger;
+import io.trino.cache.EvictableCacheBuilder;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -48,8 +48,8 @@ public class PulsarSchemaInfoProvider
 
     private final PulsarConnectorConfig pulsarConnectorConfig;
 
-    private final LoadingCache<BytesSchemaVersion, SchemaInfo> cache = CacheBuilder.newBuilder().maximumSize(100000)
-            .expireAfterAccess(30, TimeUnit.MINUTES).build(new CacheLoader<BytesSchemaVersion, SchemaInfo>() {
+    private final LoadingCache<BytesSchemaVersion, SchemaInfo> cache = EvictableCacheBuilder.newBuilder().maximumSize(100000)
+            .expireAfterWrite(30, TimeUnit.MINUTES).build(new CacheLoader<BytesSchemaVersion, SchemaInfo>() {
                 @SuppressWarnings("null")
                 @Override
                 public SchemaInfo load(BytesSchemaVersion schemaVersion)

@@ -93,7 +93,7 @@ public class PulsarInternalColumn
                 builder.put(pulsarInternalColumn.getName(), pulsarInternalColumn);
             }
         });
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     public String getName()

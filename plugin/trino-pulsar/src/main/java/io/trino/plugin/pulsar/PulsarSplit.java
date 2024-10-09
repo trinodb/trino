@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -105,7 +106,7 @@ public class PulsarSplit
         this.schemaInfo = SchemaInfo.builder()
                 .name(originSchemaName)
                 .type(schemaType)
-                .schema(schema.getBytes("ISO8859-1"))
+                .schema(schema.getBytes(ISO_8859_1))
                 .properties(objectMapper.readValue(schemaInfoProperties, Map.class))
                 .build();
     }

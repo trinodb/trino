@@ -63,6 +63,7 @@ import static io.trino.plugin.pulsar.PulsarErrorCode.PULSAR_SPLIT_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Objects.requireNonNull;
 import static org.apache.bookkeeper.mledger.ManagedCursor.FindPositionConstraint.SearchAllAvailableEntries;
 
@@ -360,7 +361,7 @@ public class PulsarSplitManager
                         schemaInfo.getName(),
                         tableName,
                         entriesForSplit,
-                        new String(schemaInfo.getSchema(), "ISO8859-1"),
+                        new String(schemaInfo.getSchema(), ISO_8859_1),
                         schemaInfo.getType(),
                         startPosition.getEntryId(),
                         endPosition.getEntryId(),
