@@ -244,7 +244,7 @@ class TestGlueConverter
     @Test
     void testConvertTable()
     {
-        io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(glueTable, glueDatabase.name());
+        io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(glueTable, glueDatabase.name(), false);
         assertThat(trinoTable.getTableName()).isEqualTo(glueTable.name());
         assertThat(trinoTable.getDatabaseName()).isEqualTo(glueDatabase.name());
         assertThat(trinoTable.getTableType()).isEqualTo(glueTable.tableType());
