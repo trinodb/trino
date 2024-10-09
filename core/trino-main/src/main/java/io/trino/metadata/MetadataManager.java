@@ -152,6 +152,7 @@ import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.isRunViewsAsInvokerEnabled;
 import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
@@ -1566,7 +1567,12 @@ public final class MetadataManager
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-            return metadata.getView(connectorSession, viewName.asSchemaTableName());
+            if (isRunViewsAsInvokerEnabled(session)) {
+                return metadata.getView(connectorSession, viewName.asSchemaTableName()).map(view -> view.withRunAsInvoker());
+            }
+            else {
+                return metadata.getView(connectorSession, viewName.asSchemaTableName());
+            }
         }
         return Optional.empty();
     }
