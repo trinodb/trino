@@ -14,7 +14,6 @@
 package io.trino.plugin.phoenix5;
 
 import io.airlift.log.Logger;
-import io.trino.testing.ResourcePresence;
 import io.trino.testing.SharedResource;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -110,11 +109,5 @@ public final class TestingPhoenixServer
     public String getJdbcUrl()
     {
         return format("jdbc:phoenix:localhost:%d:/hbase;phoenix.schema.isNamespaceMappingEnabled=true", port);
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return hbaseTestingUtility != null;
     }
 }

@@ -33,7 +33,6 @@ import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiModule;
-import io.trino.testing.ResourcePresence;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -376,12 +375,6 @@ public class TestingHydraIdentityProvider
                 Thread.sleep(Long.MAX_VALUE);
             }
         }
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return hydraContainer.getContainerId() != null || databaseContainer.getContainerId() != null || migrationContainer.getContainerId() != null;
     }
 
     public static void main(String[] args)

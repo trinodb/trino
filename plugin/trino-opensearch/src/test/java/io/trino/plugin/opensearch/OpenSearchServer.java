@@ -14,7 +14,6 @@
 package io.trino.plugin.opensearch;
 
 import com.google.common.net.HostAndPort;
-import io.trino.testing.ResourcePresence;
 import org.opensearch.testcontainers.OpensearchContainer;
 import org.testcontainers.containers.Network;
 
@@ -64,12 +63,6 @@ public class OpenSearchServer
         }
 
         container.start();
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return container.isRunning();
     }
 
     public HostAndPort getAddress()

@@ -14,7 +14,6 @@
 package io.trino.plugin.openlineage;
 
 import com.google.common.io.Closer;
-import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -141,11 +140,5 @@ public class MarquezServer
             throws IOException
     {
         closer.close();
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return dockerContainerAPI.getContainerId() != null;
     }
 }

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
 import io.trino.plugin.jdbc.RemoteLogTracingEvent;
-import io.trino.testing.ResourcePresence;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.OutputFrame;
@@ -241,12 +240,6 @@ public class TestingPostgreSqlServer
         catch (IOException ioe) {
             throw new UncheckedIOException(ioe);
         }
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return dockerContainer.getContainerId() != null;
     }
 
     public static class DatabaseEventsRecorder

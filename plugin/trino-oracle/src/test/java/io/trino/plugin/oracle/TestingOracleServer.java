@@ -25,7 +25,6 @@ import io.trino.plugin.jdbc.RetryingConnectionFactory;
 import io.trino.plugin.jdbc.RetryingConnectionFactory.DefaultRetryStrategy;
 import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
-import io.trino.testing.ResourcePresence;
 import oracle.jdbc.OracleDriver;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.utility.MountableFile;
@@ -148,11 +147,5 @@ public class TestingOracleServer
         catch (IOException ioe) {
             throw new UncheckedIOException(ioe);
         }
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return container.getContainerId() != null;
     }
 }
