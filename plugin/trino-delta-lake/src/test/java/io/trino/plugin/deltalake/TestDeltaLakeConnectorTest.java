@@ -81,6 +81,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_FUNCTION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -4818,6 +4819,20 @@ public class TestDeltaLakeConnectorTest
 
             assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE row(x int, \"X\" int)", "This connector does not support setting column types");
         }
+    }
+
+    @Test
+    void testRegisterTableAccessControl()
+    {
+        String tableName = "test_register_table_access_control_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 a", 1);
+        String tableLocation = metastore.getTable(SCHEMA, tableName).orElseThrow().getStorage().getLocation();
+        metastore.dropTable(SCHEMA, tableName, false);
+
+        assertAccessDenied(
+                "CALL system.register_table(CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')",
+                "Cannot create table .*",
+                privilege(tableName, CREATE_TABLE));
     }
 
     @Test

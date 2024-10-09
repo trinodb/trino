@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.procedure;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.filesystem.Location;
@@ -32,6 +33,7 @@ import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -68,7 +70,7 @@ public class RegisterTableProcedure
 
     static {
         try {
-            REGISTER_TABLE = lookup().unreflect(RegisterTableProcedure.class.getMethod("registerTable", ConnectorSession.class, String.class, String.class, String.class));
+            REGISTER_TABLE = lookup().unreflect(RegisterTableProcedure.class.getMethod("registerTable", ConnectorAccessControl.class, ConnectorSession.class, String.class, String.class, String.class));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
@@ -110,6 +112,7 @@ public class RegisterTableProcedure
     }
 
     public void registerTable(
+            ConnectorAccessControl accessControl,
             ConnectorSession clientSession,
             String schemaName,
             String tableName,
@@ -117,6 +120,7 @@ public class RegisterTableProcedure
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doRegisterTable(
+                    accessControl,
                     clientSession,
                     schemaName,
                     tableName,
@@ -125,6 +129,7 @@ public class RegisterTableProcedure
     }
 
     private void doRegisterTable(
+            ConnectorAccessControl accessControl,
             ConnectorSession session,
             String schemaName,
             String tableName,
@@ -138,6 +143,7 @@ public class RegisterTableProcedure
         checkProcedureArgument(!isNullOrEmpty(tableLocation), "table_location cannot be null or empty");
 
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
+        accessControl.checkCanCreateTable(null, schemaTableName, ImmutableMap.of());
         DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
         metadata.beginQuery(session);
         try (UncheckedCloseable ignore = () -> metadata.cleanupQuery(session)) {
