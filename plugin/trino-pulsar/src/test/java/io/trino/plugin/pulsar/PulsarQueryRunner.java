@@ -51,7 +51,7 @@ public class PulsarQueryRunner
 
             Map<String, String> connectorProperties = new HashMap<>();
             connectorProperties.put("pulsar.web-service-url", testServer.getPulsarAdminUrl());
-            connectorProperties.put("pulsar.zookeeper-uri", testServer.getZKUrl());
+            connectorProperties.put("pulsar.metadata-uri", testServer.getZKUrl());
             connectorProperties.put("pulsar.hide-internal-columns", "true");
             queryRunner.installPlugin(new PulsarPlugin());
             queryRunner.createCatalog("pulsar", "pulsar", connectorProperties);

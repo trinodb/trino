@@ -56,6 +56,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.pulsar.PulsarErrorCode.PULSAR_ADMIN_ERROR;
@@ -90,29 +91,28 @@ public class PulsarSplitManager
     private static ImmutablePositionImpl findPosition(ReadOnlyCursor readOnlyCursor, long timestamp)
             throws ManagedLedgerException, InterruptedException
     {
-        return (ImmutablePositionImpl) readOnlyCursor.findNewestMatching(SearchAllAvailableEntries, new com.google.common.base.Predicate<Entry>() {
-            @Override
-            public boolean apply(Entry entry)
-            {
-                MessageImpl<byte[]> msg = null;
-                try {
-                    msg = MessageImpl.deserialize(entry.getDataBuffer());
-                    return msg.getBrokerEntryMetadata() != null
+        //https://docs.openrewrite.org/recipes/java/migrate/guava/preferjavautilpredicate
+        Predicate<Entry> predicate = (entry) ->
+        {
+            MessageImpl<byte[]> msg = null;
+            try {
+                msg = MessageImpl.deserialize(entry.getDataBuffer());
+                return msg.getBrokerEntryMetadata() != null
                             ? msg.getBrokerEntryMetadata().getBrokerTimestamp() <= timestamp
                             : msg.getPublishTime() <= timestamp;
-                }
-                catch (Exception e) {
-                    log.error(e, "Failed To deserialize message when finding position with error: %s", e);
-                }
-                finally {
-                    entry.release();
-                    if (msg != null) {
-                        msg.recycle();
-                    }
-                }
-                return false;
             }
-        });
+            catch (Exception e) {
+                log.error(e, "Failed To deserialize message when finding position with error: %s", e);
+            }
+            finally {
+                entry.release();
+                if (msg != null) {
+                    msg.recycle();
+                }
+            }
+            return false;
+        };
+        return (ImmutablePositionImpl) readOnlyCursor.findNewestMatching(SearchAllAvailableEntries, predicate);
     }
 
     @Override
