@@ -1,0 +1,649 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.redshift;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
+import io.trino.plugin.jdbc.BaseJdbcCastPushdownTest;
+import io.trino.plugin.jdbc.CastDataTypeTestTable;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Optional;
+
+import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
+import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThat;
+
+public class TestRedshiftCastPushdown
+        extends BaseJdbcCastPushdownTest
+{
+    private CastDataTypeTestTable left;
+    private CastDataTypeTestTable right;
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return RedshiftQueryRunner.builder()
+                .setConnectorProperties(ImmutableMap.<String, String>builder()
+                        .put("unsupported-type-handling", "CONVERT_TO_VARCHAR")
+                        .put("join-pushdown.enabled", "true")
+                        .put("join-pushdown.strategy", "EAGER")
+                        .buildOrThrow())
+                .build();
+    }
+
+    @Override
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return TestingRedshiftServer::executeInRedshift;
+    }
+
+    @BeforeAll
+    public void setupTable()
+    {
+        left = closeAfterClass(CastDataTypeTestTable.create(3)
+                .addColumn("id", "int", asList(11, 12, 13))
+                .addColumn("c_boolean", "boolean", asList(true, false, null))
+                .addColumn("c_smallint", "smallint", asList(1, 2, null))
+                .addColumn("c_int2", "int2", asList(1, 2, null))
+                .addColumn("c_integer", "integer", asList(1, 2, null))
+                .addColumn("c_int", "int", asList(1, 2, null))
+                .addColumn("c_int4", "int4", asList(1, 2, null))
+                .addColumn("c_bigint", "bigint", asList(1, 2, null))
+                .addColumn("c_int8", "int8", asList(1, 2, null))
+                .addColumn("c_real", "real", asList(1.23, 2.67, null))
+                .addColumn("c_float4", "float4", asList(1.23, 2.67, null))
+                .addColumn("c_double_precision", "double precision", asList(1.23, 2.67, null))
+                .addColumn("c_float", "float", asList(1.23, 2.67, null))
+                .addColumn("c_float8", "float8", asList(1.23, 2.67, null))
+                .addColumn("c_decimal_10_2", "decimal(10, 2)", asList(1.23, 2.67, null))
+                .addColumn("c_decimal_19_2", "decimal(19, 2)", asList(1.23, 2.67, null)) // Equal to REDSHIFT_DECIMAL_CUTOFF_PRECISION
+                .addColumn("c_decimal_30_2", "decimal(30, 2)", asList(1.23, 2.67, null))
+                .addColumn("c_numeric_10_2", "numeric(10, 2)", asList(1.23, 2.67, null))
+                .addColumn("c_numeric_19_2", "numeric(19, 2)", asList(1.23, 2.67, null)) // Equal to REDSHIFT_DECIMAL_CUTOFF_PRECISION
+                .addColumn("c_numeric_30_2", "numeric(30, 2)", asList(1.23, 2.67, null))
+                .addColumn("c_char", "char", asList("'A'", "'B'", null))
+                .addColumn("c_character", "character", asList("'A'", "'B'", null))
+                .addColumn("c_char_10", "char(10)", asList("'India'", "'Poland'", null))
+                .addColumn("c_char_50", "char(50)", asList("'India'", "'Poland'", null))
+                .addColumn("c_char_4096", "char(4096)", asList("'India'", "'Poland'", null)) // Equal to REDSHIFT_MAX_CHAR
+
+                // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
+                .addColumn("c_varchar_unicode", "varchar(15)", asList("'攻殻機動隊'", "'😂'", null))
+                .addColumn("c_nvarchar_unicode", "nvarchar(15)", asList("'攻殻機動隊'", "'😂'", null))
+
+                .addColumn("c_nchar", "nchar", asList("'Y'", "'Z'", null))
+                .addColumn("c_nchar_10", "nchar(10)", asList("'India'", "'Poland'", null))
+                .addColumn("c_nchar_50", "nchar(50)", asList("'India'", "'Poland'", null))
+                .addColumn("c_nchar_4096", "nchar(4096)", asList("'India'", "'Poland'", null)) // Equal to REDSHIFT_MAX_CHAR
+                .addColumn("c_bpchar", "bpchar", asList("'India'", "'Poland'", null))
+                .addColumn("c_varchar_10", "varchar(10)", asList("'India'", "'Poland'", null))
+                .addColumn("c_varchar_50", "varchar(50)", asList("'India'", "'Poland'", null))
+                .addColumn("c_varchar_65535", "varchar(65535)", asList("'India'", "'Poland'", null)) // Equal to REDSHIFT_MAX_VARCHAR
+                .addColumn("c_nvarchar", "nvarchar", asList("'India'", "'France'", null))
+                .addColumn("c_nvarchar_10", "nvarchar(10)", asList("'India'", "'Poland'", null))
+                .addColumn("c_nvarchar_50", "nvarchar(50)", asList("'India'", "'Poland'", null))
+                .addColumn("c_nvarchar_65535", "nvarchar(65535)", asList("'India'", "'Poland'", null)) // Greater than REDSHIFT_MAX_VARCHAR
+                .addColumn("c_text", "text", asList("'India'", "'Poland'", null))
+                .addColumn("c_varbinary", "varbinary", asList("'\\x66696E6465706920726F636B7321'", "'\\x000102f0feee'", null))
+                .addColumn("c_date", "date", asList("DATE '2024-09-08'", "DATE '2019-08-15'", null))
+                .addColumn("c_time", "time", asList("TIME '00:13:42.000000'", "TIME '10:01:17.100000'", null))
+                .addColumn("c_timestamp", "timestamp", asList("TIMESTAMP '2024-09-08 01:02:03.666'", "TIMESTAMP '2019-08-15 09:08:07.333'", null))
+                .addColumn("c_timestamptz", "timestamptz", asList("TIMESTAMP '2024-09-08 01:02:03.666+05:30'", "TIMESTAMP '2019-08-15 09:08:07.333+05:30'", null))
+
+                .addColumn("c_nan", "double precision", asList("'Nan'", "'-Nan'", null))
+                .addColumn("c_infinity", "double precision", asList("'Infinity'", "'-Infinity'", null))
+                .addColumn("c_big_number", "bigint", asList("-9223372036854775808", "9223372036854775807", null))
+                .addColumn("c_decimal_negative", "decimal(19, 2)", asList(-1.23, -2.67, null))
+                .addColumn("c_varchar_numeric", "varchar(50)", asList("'127'", "'128'", null))
+                .addColumn("c_char_numeric", "char(50)", asList("'127'", "'128'", null))
+                .addColumn("c_bpchar_numeric", "bpchar", asList("'127'", "'128'", null))
+                .addColumn("c_text_numeric", "text", asList("'127'", "'128'", null))
+                .addColumn("c_nvarchar_numeric", "nvarchar(50)", asList("'127'", "'128'", null))
+                .addColumn("c_varchar_numeric_sign", "varchar(50)", asList("'+127'", "'-127'", null))
+                .addColumn("c_varchar_big_numeric", "varchar(50)", asList("'2147483647'", "'2147483644'", null))
+                .addColumn("c_varchar_decimal", "varchar(50)", asList("'1.23'", "'2.34'", null))
+                .addColumn("c_varchar_decimal_sign", "varchar(50)", asList("'+1.23'", "'-2.34'", null))
+                .addColumn("c_varchar_alpha_numeric", "varchar(50)", asList("'H311o'", "'123Hey'", null))
+                .addColumn("c_varchar_date", "varchar(50)", asList("'2024-09-08'", "'2019-08-15'", null))
+                .addColumn("c_varchar_timestamp", "varchar(50)", asList("'2024-09-08 01:02:03.666'", "'2019-08-15 09:08:07.333'", null))
+                .addColumn("c_varchar_timestamptz", "varchar(50)", asList("'2024-09-08 01:02:03.666+05:30'", "'2019-08-15 09:08:07.333+05:30'", null))
+
+                // unsupported in trino
+                .addColumn("c_timetz", "timetz", asList("TIME '00:13:42.000000+05:30'", "TIME '10:01:17.100000+05:30'", null))
+                .addColumn("c_super", "super", asList(1, 2, null))
+                .execute(onRemoteDatabase(), TEST_SCHEMA + "." + "left_table_"));
+
+        // 2nd row value is different in right than left
+        right = closeAfterClass(CastDataTypeTestTable.create(3)
+                .addColumn("id", "int", asList(21, 22, 23))
+                .addColumn("c_boolean", "boolean", asList(true, true, null))
+                .addColumn("c_smallint", "smallint", asList(1, 22, null))
+                .addColumn("c_int2", "int2", asList(1, 22, null))
+                .addColumn("c_integer", "integer", asList(1, 22, null))
+                .addColumn("c_int", "int", asList(1, 22, null))
+                .addColumn("c_int4", "int4", asList(1, 22, null))
+                .addColumn("c_bigint", "bigint", asList(1, 22, null))
+                .addColumn("c_int8", "int8", asList(1, 22, null))
+                .addColumn("c_real", "real", asList(1.23, 22.67, null))
+                .addColumn("c_float4", "float4", asList(1.23, 22.67, null))
+                .addColumn("c_double_precision", "double precision", asList(1.23, 22.67, null))
+                .addColumn("c_float", "float", asList(1.23, 22.67, null))
+                .addColumn("c_float8", "float8", asList(1.23, 22.67, null))
+                .addColumn("c_decimal_10_2", "decimal(10, 2)", asList(1.23, 22.67, null))
+                .addColumn("c_decimal_19_2", "decimal(19, 2)", asList(1.23, 22.67, null)) // Equal to REDSHIFT_DECIMAL_CUTOFF_PRECISION
+                .addColumn("c_decimal_30_2", "decimal(30, 2)", asList(1.23, 22.67, null))
+                .addColumn("c_numeric_10_2", "numeric(10, 2)", asList(1.23, 22.67, null))
+                .addColumn("c_numeric_19_2", "numeric(19, 2)", asList(1.23, 22.67, null)) // Equal to REDSHIFT_DECIMAL_CUTOFF_PRECISION
+                .addColumn("c_numeric_30_2", "numeric(30, 2)", asList(1.23, 22.67, null))
+                .addColumn("c_char", "char", asList("'A'", "'B'", null))
+                .addColumn("c_character", "character", asList("'A'", "'B'", null))
+                .addColumn("c_char_10", "char(10)", asList("'India'", "'France'", null))
+                .addColumn("c_char_50", "char(50)", asList("'India'", "'France'", null))
+                .addColumn("c_char_4096", "char(4096)", asList("'India'", "'France'", null)) // Equal to REDSHIFT_MAX_CHAR
+
+                // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
+                .addColumn("c_varchar_unicode", "varchar(15)", asList("'攻殻機動隊'", "'😂'", null))
+                .addColumn("c_nvarchar_unicode", "nvarchar(15)", asList("'攻殻機動隊'", "'😂'", null))
+
+                .addColumn("c_nchar", "nchar", asList("'Y'", "'Z'", null))
+                .addColumn("c_nchar_10", "nchar(10)", asList("'India'", "'France'", null))
+                .addColumn("c_nchar_50", "nchar(50)", asList("'India'", "'France'", null))
+                .addColumn("c_nchar_4096", "nchar(4096)", asList("'India'", "'France'", null)) // Equal to REDSHIFT_MAX_CHAR
+                .addColumn("c_bpchar", "bpchar", asList("'India'", "'France'", null))
+                .addColumn("c_varchar_10", "varchar(10)", asList("'India'", "'France'", null))
+                .addColumn("c_varchar_50", "varchar(50)", asList("'India'", "'France'", null))
+                .addColumn("c_varchar_65535", "varchar(65535)", asList("'India'", "'France'", null)) // Equal to REDSHIFT_MAX_VARCHAR
+                .addColumn("c_nvarchar", "nvarchar", asList("'India'", "'France'", null))
+                .addColumn("c_nvarchar_10", "nvarchar(10)", asList("'India'", "'France'", null))
+                .addColumn("c_nvarchar_50", "nvarchar(50)", asList("'India'", "'France'", null))
+                .addColumn("c_nvarchar_65535", "nvarchar(65535)", asList("'India'", "'France'", null)) // Equal to REDSHIFT_MAX_VARCHAR
+                .addColumn("c_text", "text", asList("'India'", "'France'", null))
+                .addColumn("c_varbinary", "varbinary", asList("'\\x66696E6465706920726F636B7321'", "'\\x4672616E6365'", null))
+                .addColumn("c_date", "date", asList("DATE '2024-09-08'", "DATE '2020-08-15'", null))
+                .addColumn("c_time", "time", asList("TIME '00:13:42.000000'", "TIME '11:01:17.100000'", null))
+                .addColumn("c_timestamp", "timestamp", asList("TIMESTAMP '2024-09-08 01:02:03.666'", "TIMESTAMP '2020-08-15 09:08:07.333'", null))
+                .addColumn("c_timestamptz", "timestamptz", asList("TIMESTAMP '2024-09-08 01:02:03.666+05:30'", "TIMESTAMP '2020-08-15 09:08:07.333+05:30'", null))
+
+                .addColumn("c_nan", "double precision", asList("'Nan'", "'Nan'", null))
+                .addColumn("c_infinity", "double precision", asList("'Infinity'", "'Infinity'", null))
+                .addColumn("c_big_number", "bigint", asList("-9223372036854775808", "9223372036854775806", null))
+                .addColumn("c_decimal_negative", "decimal(19, 2)", asList(-1.23, -22.67, null))
+                .addColumn("c_varchar_numeric", "varchar(50)", asList("'127'", "'228'", null))
+                .addColumn("c_char_numeric", "char(50)", asList("'127'", "'228'", null))
+                .addColumn("c_bpchar_numeric", "bpchar", asList("'127'", "'228'", null))
+                .addColumn("c_text_numeric", "text", asList("'127'", "'228'", null))
+                .addColumn("c_nvarchar_numeric", "nvarchar(50)", asList("'127'", "'128'", null))
+                .addColumn("c_varchar_numeric_sign", "varchar(50)", asList("'+127'", "'-227'", null))
+                .addColumn("c_varchar_big_numeric", "varchar(50)", asList("'2147483647'", "'2147483645'", null))
+                .addColumn("c_varchar_decimal", "varchar(50)", asList("'1.23'", "'22.34'", null))
+                .addColumn("c_varchar_decimal_sign", "varchar(50)", asList("'+1.23'", "'-22.34'", null))
+                .addColumn("c_varchar_alpha_numeric", "varchar(50)", asList("'H311o'", "'123Bye'", null))
+                .addColumn("c_varchar_date", "varchar(50)", asList("'2024-09-08'", "'2020-08-15'", null))
+                .addColumn("c_varchar_timestamp", "varchar(50)", asList("'2024-09-08 01:02:03.666'", "'2020-08-15 09:08:07.333'", null))
+                .addColumn("c_varchar_timestamptz", "varchar(50)", asList("'2024-09-08 01:02:03.666+05:30'", "'2020-08-15 09:08:07.333+05:30'", null))
+
+                // unsupported in trino
+                .addColumn("c_timetz", "timetz", asList("TIME '00:13:42.000000+05:30'", "TIME '11:01:17.100000+05:30'", null))
+                .addColumn("c_super", "super", asList(1, 22, null))
+                .execute(onRemoteDatabase(), TEST_SCHEMA + "." + "right_table_"));
+    }
+
+    @Override
+    protected String leftTable()
+    {
+        return left.getName();
+    }
+
+    @Override
+    protected String rightTable()
+    {
+        return right.getName();
+    }
+
+    @Test
+    public void testJoinPushdownWithNestedCast()
+    {
+        CastTestCase testCase = new CastTestCase("c_decimal_10_2", "bigint", Optional.of("c_bigint"));
+        assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON CAST(CAST(l.%s AS %s) AS integer) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testCaseSensitiveComparison()
+    {
+        String schemaAndTable1 = TEST_SCHEMA + "." + "case_sensitive_1_" + randomNameSuffix();
+        String schemaAndTable2 = TEST_SCHEMA + "." + "case_sensitive_2_" + randomNameSuffix();
+
+        executeInRedshift("CREATE TABLE " + schemaAndTable1 + "(c_casesensitive VARCHAR(10) COLLATE CASE_SENSITIVE, c_caseinsensitive VARCHAR(10) COLLATE CASE_INSENSITIVE)");
+        executeInRedshift("CREATE TABLE " + schemaAndTable2 + "(c_casesensitive VARCHAR(20) COLLATE CASE_SENSITIVE, c_caseinsensitive VARCHAR(20) COLLATE CASE_INSENSITIVE)");
+
+        executeInRedshift("INSERT INTO " + schemaAndTable1 + " VALUES ('MiXeD1', 'MiXeD2')");
+        executeInRedshift("INSERT INTO " + schemaAndTable2 + " VALUES ('mIxEd1', 'mIxEd2')");
+
+        assertThat(query("SELECT t1.c_caseinsensitive, t2.c_caseinsensitive FROM " + schemaAndTable1 + " t1 JOIN " + schemaAndTable2 + " t2 ON t1.c_caseinsensitive = t2.c_caseinsensitive"))
+                .isFullyPushedDown();
+
+        executeInRedshift("DROP TABLE IF EXISTS " + schemaAndTable1);
+        executeInRedshift("DROP TABLE IF EXISTS " + schemaAndTable2);
+    }
+
+    @Test
+    public void testAllJoinPushdownWithCast()
+    {
+        CastTestCase testCase = new CastTestCase("c_int", "bigint", Optional.of("c_bigint"));
+        assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l RIGHT JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l INNER JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .isFullyPushedDown();
+        // Full Join pushdown is not supported
+        assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .joinIsNotFullyPushedDown();
+
+        testCase = new CastTestCase("c_bigint", "integer", Optional.of("c_int"));
+        assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON l.%s = CAST(r.%s AS %s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.targetColumn().orElseThrow(), testCase.castType())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l RIGHT JOIN %s r ON l.%s = CAST(r.%s AS %s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.targetColumn().orElseThrow(), testCase.castType())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l INNER JOIN %s r ON l.%s = CAST(r.%s AS %s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.targetColumn().orElseThrow(), testCase.castType())))
+                .isFullyPushedDown();
+        // Full Join pushdown is not supported
+        assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .joinIsNotFullyPushedDown();
+
+        testCase = new CastTestCase("c_bigint", "smallint", Optional.of("c_int"));
+        assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l RIGHT JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l INNER JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .isFullyPushedDown();
+        // Full Join pushdown is not supported
+        assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .joinIsNotFullyPushedDown();
+
+        testCase = new CastTestCase("c_varchar_10", "varchar(200)", Optional.of("c_varchar_50"));
+        assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l RIGHT JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l INNER JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .isFullyPushedDown();
+        // Full Join pushdown is not supported
+        assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .joinIsNotFullyPushedDown();
+    }
+
+    @Test
+    public void testCastPushdownDisabled()
+    {
+        Session sessionWithoutPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "complex_expression_pushdown", "false")
+                .build();
+        assertThat(query(sessionWithoutPushdown, "SELECT CAST (c_int AS bigint) FROM %s".formatted(leftTable())))
+                .isNotFullyPushedDown(ProjectNode.class);
+    }
+
+    @Test
+    public void testCastPushdownOverflow()
+    {
+        Session sessionWithoutPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "complex_expression_pushdown", "false")
+                .build();
+        assertThat(query(sessionWithoutPushdown, "SELECT CAST(c_big_number AS TINYINT) FROM %s".formatted(leftTable())))
+                .failure()
+                .hasMessageContaining("Out of range for tinyint: -9223372036854775808");
+        assertThat(query("SELECT CAST(c_big_number AS TINYINT) FROM %s".formatted(leftTable())))
+                .failure()
+                .hasMessageContaining("Value out of range for 2 bytes");
+
+        assertThat(query(sessionWithoutPushdown, "SELECT CAST(c_big_number AS SMALLINT) FROM %s".formatted(leftTable())))
+                .failure()
+                .hasMessageContaining("Out of range for smallint: -9223372036854775808");
+        assertThat(query("SELECT CAST(c_big_number AS SMALLINT) FROM %s".formatted(leftTable())))
+                .failure()
+                .hasMessageContaining("Value out of range for 2 bytes");
+
+        assertThat(query(sessionWithoutPushdown, "SELECT CAST(c_big_number AS INTEGER) FROM %s".formatted(leftTable())))
+                .failure()
+                .hasMessageContaining("Out of range for integer: -9223372036854775808");
+        assertThat(query("SELECT CAST(c_big_number AS INTEGER) FROM %s".formatted(leftTable())))
+                .failure()
+                .hasMessageContaining("Value out of range for 4 bytes");
+
+        assertThat(query(sessionWithoutPushdown, "SELECT CAST(c_big_number AS BIGINT) FROM %s".formatted(leftTable())))
+                .matches("VALUES (-9223372036854775808), (9223372036854775807), (null)")
+                .isFullyPushedDown(); // Cast is not applied here because source and cast type are same
+        assertThat(query("SELECT CAST(c_big_number AS BIGINT) FROM %s".formatted(leftTable())))
+                .matches("VALUES (-9223372036854775808), (9223372036854775807), (null)")
+                .isFullyPushedDown(); // Cast is not applied here because source and cast type are same
+    }
+
+    @Test
+    public void testCastPushdownDecimalsOverflow()
+    {
+        Session sessionWithoutPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "complex_expression_pushdown", "false")
+                .build();
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_decimals_overflow",
+                "(id INT, c_decimal_25_2 decimal(25, 2))",
+                List.of(
+                        "1, -129.49",
+                        "2, -128.94",
+                        "3, 127.94",
+                        "4, 128.49",
+                        "5, -65537.49",
+                        "6, -65536.94",
+                        "7, 65535.94",
+                        "8, 65536.49",
+                        "9, -2147483649.49",
+                        "10, -2147483648.94",
+                        "11, 2147483647.94",
+                        "12, 2147483648.49",
+                        "13, -9223372036854775809.49",
+                        "14, -9223372036854775808.94",
+                        "15, 9223372036854775807.94",
+                        "16, 9223372036854775808.49"))) {
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS TINYINT) from %s WHERE id = 1".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '-129.49' to TINYINT");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS TINYINT) from %s WHERE id = 1".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Bad value for type byte : -129");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS TINYINT) from %s WHERE id = 2".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '-128.94' to TINYINT");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS TINYINT) from %s WHERE id = 2".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Bad value for type byte : -129");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS TINYINT) from %s WHERE id = 3".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '127.94' to TINYINT");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS TINYINT) from %s WHERE id = 3".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Bad value for type byte : 128");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS TINYINT) from %s WHERE id = 4".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '128.49' to TINYINT");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS TINYINT) from %s WHERE id = 4".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Bad value for type byte : 128");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS SMALLINT) from %s WHERE id = 5".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '-65537.49' to SMALLINT");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS SMALLINT) from %s WHERE id = 5".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Value out of range for 2 bytes");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS SMALLINT) from %s WHERE id = 6".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '-65536.94' to SMALLINT");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS SMALLINT) from %s WHERE id = 6".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Value out of range for 2 bytes");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS SMALLINT) from %s WHERE id = 7".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '65535.94' to SMALLINT");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS SMALLINT) from %s WHERE id = 7".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Value out of range for 2 bytes");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS SMALLINT) from %s WHERE id = 8".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '65536.49' to SMALLINT");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS SMALLINT) from %s WHERE id = 8".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Value out of range for 2 bytes");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS INTEGER) from %s WHERE id = 9".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '-2147483649.49' to INTEGER");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS INTEGER) from %s WHERE id = 9".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Value out of range for 4 bytes");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS INTEGER) from %s WHERE id = 10".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '-2147483648.94' to INTEGER");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS INTEGER) from %s WHERE id = 10".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Value out of range for 4 bytes");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS INTEGER) from %s WHERE id = 11".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '2147483647.94' to INTEGER");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS INTEGER) from %s WHERE id = 11".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Value out of range for 4 bytes");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS INTEGER) from %s WHERE id = 12".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '2147483648.49' to INTEGER");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS INTEGER) from %s WHERE id = 12".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Value out of range for 4 bytes");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS BIGINT) from %s WHERE id = 13".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '-9223372036854775809.49' to BIGINT");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS BIGINT) from %s WHERE id = 13".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Value out of range for 8 bytes");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS BIGINT) from %s WHERE id = 14".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '-9223372036854775808.94' to BIGINT");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS BIGINT) from %s WHERE id = 14".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Value out of range for 8 bytes");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS BIGINT) from %s WHERE id = 15".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '9223372036854775807.94' to BIGINT");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS BIGINT) from %s WHERE id = 15".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Value out of range for 8 bytes");
+
+            assertThat(query(sessionWithoutPushdown, "SELECT id, CAST(c_decimal_25_2 AS BIGINT) from %s WHERE id = 16".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Cannot cast '9223372036854775808.49' to BIGINT");
+            assertThat(query("SELECT id, CAST(c_decimal_25_2 AS BIGINT) from %s WHERE id = 16".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Value out of range for 8 bytes");
+        }
+    }
+
+    @Test
+    public void testCastWithForcedMappedUnsupportedType()
+    {
+        // c_timetz is not supported by default by trino. This is forced mapped to varchar.
+        assertThat(query("SELECT CAST(c_timetz AS smallint) FROM %s".formatted(leftTable())))
+                .failure()
+                .hasMessageMatching("(.*)Cannot cast (.*) to (.*)");
+    }
+
+    @Test
+    public void testCastPushdownWithForcedTypedToVarchar()
+    {
+        // These column types are not supported by default by trino. These types are forced mapped to varchar.
+        assertThat(query("SELECT CAST(c_super AS INTEGER) FROM %s".formatted(leftTable())))
+                .isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT CAST(c_super AS BIGINT) FROM %s".formatted(leftTable())))
+                .isNotFullyPushedDown(ProjectNode.class);
+    }
+
+    @Override
+    protected List<CastTestCase> supportedCastTypePushdown()
+    {
+        return ImmutableList.of(
+                new CastTestCase("c_boolean", "tinyint", Optional.of("c_smallint")),
+                new CastTestCase("c_smallint", "tinyint", Optional.of("c_smallint")),
+                new CastTestCase("c_integer", "tinyint", Optional.of("c_smallint")),
+                new CastTestCase("c_bigint", "tinyint", Optional.of("c_smallint")),
+                new CastTestCase("c_decimal_10_2", "tinyint", Optional.of("c_smallint")),
+                new CastTestCase("c_decimal_19_2", "tinyint", Optional.of("c_smallint")),
+                new CastTestCase("c_decimal_30_2", "tinyint", Optional.of("c_smallint")),
+                new CastTestCase("c_decimal_negative", "tinyint", Optional.of("c_smallint")),
+
+                new CastTestCase("c_boolean", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_smallint", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_integer", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_bigint", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_decimal_10_2", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_decimal_19_2", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_decimal_30_2", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_decimal_negative", "smallint", Optional.of("c_smallint")),
+
+                // To reduce the test run time, verifying alias data types column with only integer cast type
+                new CastTestCase("c_boolean", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_smallint", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_int2", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_integer", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_int", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_int4", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_bigint", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_int8", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_decimal_10_2", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_decimal_19_2", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_decimal_30_2", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_numeric_10_2", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_numeric_19_2", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_numeric_30_2", "integer", Optional.of("c_integer")),
+                new CastTestCase("c_decimal_negative", "integer", Optional.of("c_integer")),
+
+                new CastTestCase("c_char_10", "char(50)", Optional.of("c_char_50")),
+                new CastTestCase("c_char_10", "char(256)", Optional.of("c_bpchar")),
+                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_nvarchar_10", "varchar(50)", Optional.of("c_nvarchar_50")),
+                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_text")),
+
+                new CastTestCase("c_char_50", "char(10)", Optional.of("c_char_10")),
+                new CastTestCase("c_bpchar", "char(10)", Optional.of("c_char_10")),
+                new CastTestCase("c_varchar_50", "varchar(10)", Optional.of("c_varchar_10")),
+                new CastTestCase("c_nvarchar_50", "varchar(10)", Optional.of("c_nvarchar_10")),
+                new CastTestCase("c_text", "varchar(10)", Optional.of("c_varchar_10")),
+
+                new CastTestCase("c_char", "varchar(10)", Optional.of("c_varchar_10")),
+                new CastTestCase("c_char", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_char", "varchar(65535)", Optional.of("c_varchar_65535")),
+                new CastTestCase("c_char", "varchar(65535)", Optional.of("c_varchar_65535")),
+
+                new CastTestCase("c_char_10", "char(50)", Optional.of("c_char_50")),
+                new CastTestCase("c_char_10", "char(256)", Optional.of("c_bpchar")),
+                new CastTestCase("c_char", "char(4096)", Optional.of("c_char_4096")),
+                new CastTestCase("c_char", "char(1)", Optional.of("c_nchar")),
+                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_nvarchar_10", "varchar(50)", Optional.of("c_nvarchar_50")),
+                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_text")),
+
+                new CastTestCase("c_varchar_50", "varchar(10)", Optional.of("c_varchar_10")),
+
+                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_varchar_10", "varchar(65535)", Optional.of("c_varchar_65535")),
+                new CastTestCase("c_varchar_10", "varchar(256)", Optional.of("c_nvarchar")),
+                new CastTestCase("c_varchar_10", "varchar(10)", Optional.of("c_nvarchar_10")),
+                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_nvarchar_50")),
+                new CastTestCase("c_varchar_10", "varchar(65535)", Optional.of("c_nvarchar_65535")),
+                new CastTestCase("c_varchar_10", "varchar(256)", Optional.of("c_text")),
+
+                new CastTestCase("c_varchar_unicode", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_nvarchar_unicode", "varchar(50)", Optional.of("c_varchar_50")),
+
+                new CastTestCase("c_boolean", "bigint", Optional.of("c_bigint")),
+                new CastTestCase("c_smallint", "bigint", Optional.of("c_bigint")),
+                new CastTestCase("c_integer", "bigint", Optional.of("c_bigint")),
+                new CastTestCase("c_bigint", "bigint", Optional.of("c_bigint")),
+                new CastTestCase("c_decimal_10_2", "bigint", Optional.of("c_bigint")),
+                new CastTestCase("c_decimal_19_2", "bigint", Optional.of("c_bigint")),
+                new CastTestCase("c_decimal_30_2", "bigint", Optional.of("c_bigint")),
+                new CastTestCase("c_decimal_negative", "bigint", Optional.of("c_bigint")));
+    }
+
+    @Override
+    protected List<CastTestCase> unsupportedCastTypePushdown()
+    {
+        return ImmutableList.of(
+                new CastTestCase("c_real", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_float4", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_double_precision", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_float", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_float8", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_varchar_numeric", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_text_numeric", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_nvarchar_numeric", "smallint", Optional.of("c_smallint")),
+                new CastTestCase("c_varchar_numeric_sign", "smallint", Optional.of("c_smallint")),
+
+                new CastTestCase("c_smallint", "boolean", Optional.of("c_boolean")),
+                new CastTestCase("c_real", "double", Optional.of("c_double_precision")),
+                new CastTestCase("c_double_precision", "real", Optional.of("c_real")),
+                new CastTestCase("c_double_precision", "decimal(10,2)", Optional.of("c_decimal_10_2")),
+
+                new CastTestCase("c_boolean", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_smallint", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_int2", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_integer", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_int", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_int4", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_bigint", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_int8", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_real", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_float4", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_double_precision", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_float", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_float8", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_double_precision", "varchar(50)", Optional.of("c_varchar_50")),
+
+                new CastTestCase("c_timestamp", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_date", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_date", "varchar(50)", Optional.of("c_varchar_50")),
+
+                new CastTestCase("c_varchar_unicode", "char(50)", Optional.of("c_char_50")),
+                new CastTestCase("c_nvarchar_unicode", "char(50)", Optional.of("c_char_50")),
+
+                new CastTestCase("c_timestamp", "date", Optional.of("c_date")),
+                new CastTestCase("c_timestamp", "time", Optional.of("c_time")),
+                new CastTestCase("c_date", "timestamp", Optional.of("c_timestamp")));
+    }
+
+    @Override
+    protected List<CastTestCase> failCast()
+    {
+        return ImmutableList.of(
+                new CastTestCase("c_varchar_decimal", "smallint"),
+                new CastTestCase("c_varchar_decimal_sign", "smallint"),
+                new CastTestCase("c_varchar_alpha_numeric", "smallint"),
+                new CastTestCase("c_char_50", "smallint"),
+                new CastTestCase("c_char_numeric", "smallint"),
+                new CastTestCase("c_bpchar_numeric", "smallint"));
+    }
+}
