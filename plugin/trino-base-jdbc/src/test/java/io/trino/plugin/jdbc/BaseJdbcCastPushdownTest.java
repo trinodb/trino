@@ -23,7 +23,6 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseJdbcCastPushdownTest
         extends AbstractTestQueryFramework
@@ -38,7 +37,7 @@ public abstract class BaseJdbcCastPushdownTest
 
     protected abstract List<CastTestCase> unsupportedCastTypePushdown();
 
-    protected abstract List<CastTestCase> failCast();
+    protected abstract List<InvalidCastTestCase> invalidCast();
 
     @Test
     public void testProjectionPushdownWithCast()
@@ -69,26 +68,37 @@ public abstract class BaseJdbcCastPushdownTest
     }
 
     @Test
-    public void testCastFails()
+    public void testInvalidCast()
     {
-        for (CastTestCase testCase : failCast()) {
-            assertThatThrownBy(() -> getQueryRunner().execute("SELECT CAST(%s AS %s) FROM %s".formatted(testCase.sourceColumn(), testCase.castType(), leftTable())))
-                    .hasMessageMatching("(.*)Cannot cast (.*) to (.*)");
+        for (InvalidCastTestCase testCase : invalidCast()) {
+            assertThat(query("SELECT CAST(%s AS %s) FROM %s".formatted(testCase.sourceColumn(), testCase.castType(), leftTable())))
+                    .failure()
+                    .hasMessageMatching(testCase.errorMessage());
         }
     }
 
     public record CastTestCase(String sourceColumn, String castType, Optional<String> targetColumn)
     {
-        public CastTestCase(String sourceColumn, String castType)
-        {
-            this(sourceColumn, castType, Optional.empty());
-        }
-
         public CastTestCase
         {
             requireNonNull(sourceColumn, "sourceColumn is null");
             requireNonNull(castType, "castType is null");
             requireNonNull(targetColumn, "targetColumn is null");
+        }
+    }
+
+    public record InvalidCastTestCase(String sourceColumn, String castType, String errorMessage)
+    {
+        public InvalidCastTestCase(String sourceColumn, String castType)
+        {
+            this(sourceColumn, castType, "(.*)Cannot cast (.*) to (.*)");
+        }
+
+        public InvalidCastTestCase
+        {
+            requireNonNull(sourceColumn, "sourceColumn is null");
+            requireNonNull(castType, "castType is null");
+            requireNonNull(errorMessage, "errorMessage is null");
         }
     }
 }
