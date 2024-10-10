@@ -19,7 +19,6 @@ import io.trino.testing.sql.SqlExecutor;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,12 +56,12 @@ public abstract class BaseJdbcCastPushdownTest
     public void testJoinPushdownWithCast()
     {
         for (CastTestCase testCase : supportedCastTypePushdown()) {
-            assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+            assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                     .isFullyPushedDown();
         }
 
         for (CastTestCase testCase : unsupportedCastTypePushdown()) {
-            assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+            assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                     .joinIsNotFullyPushedDown();
         }
     }
@@ -77,7 +76,7 @@ public abstract class BaseJdbcCastPushdownTest
         }
     }
 
-    public record CastTestCase(String sourceColumn, String castType, Optional<String> targetColumn)
+    public record CastTestCase(String sourceColumn, String castType, String targetColumn)
     {
         public CastTestCase
         {
