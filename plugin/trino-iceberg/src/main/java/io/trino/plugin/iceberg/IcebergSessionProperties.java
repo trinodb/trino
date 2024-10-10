@@ -108,6 +108,8 @@ public final class IcebergSessionProperties
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS = "query_partition_filter_required_schemas";
     private static final String INCREMENTAL_REFRESH_ENABLED = "incremental_refresh_enabled";
+    private static final String OBJECT_STORE_ENABLED = "object_store_enabled";
+    private static final String DATA_LOCATION = "data_location";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -386,6 +388,16 @@ public final class IcebergSessionProperties
                         "Enable Incremental refresh for MVs backed by Iceberg tables, when possible.",
                         icebergConfig.isIncrementalRefreshEnabled(),
                         false))
+                .add(booleanProperty(
+                        OBJECT_STORE_ENABLED,
+                        "Enable Iceberg object store file layout",
+                        icebergConfig.isObjectStoreEnabled(),
+                        false))
+                .add(stringProperty(
+                        DATA_LOCATION,
+                        "Location for data files",
+                        icebergConfig.getDataLocation().orElse(null),
+                        false))
                 .build();
     }
 
@@ -623,5 +635,15 @@ public final class IcebergSessionProperties
     public static boolean isIncrementalRefreshEnabled(ConnectorSession session)
     {
         return session.getProperty(INCREMENTAL_REFRESH_ENABLED, Boolean.class);
+    }
+
+    public static boolean isObjectStoreEnabled(ConnectorSession session)
+    {
+        return session.getProperty(OBJECT_STORE_ENABLED, Boolean.class);
+    }
+
+    public static Optional<String> getDataLocation(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(DATA_LOCATION, String.class));
     }
 }
