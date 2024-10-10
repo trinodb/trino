@@ -50,12 +50,15 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.bigquery.BigQueryTypeManager.toTrinoTimestamp;
 import static io.trino.plugin.bigquery.BigQueryUtil.toBigQueryColumnName;
@@ -90,10 +93,13 @@ public class BigQueryStorageAvroPageSource
     private final List<BigQueryColumnHandle> columns;
     private final AtomicLong readBytes;
     private final PageBuilder pageBuilder;
-    private final Iterator<ReadRowsResponse> responses;
+    private final CompletableFuture<Iterator<ReadRowsResponse>> responsesFuture;
+
+    private Iterator<ReadRowsResponse> responses;
 
     public BigQueryStorageAvroPageSource(
             BigQueryReadClient bigQueryReadClient,
+            ExecutorService executor,
             BigQueryTypeManager typeManager,
             int maxReadRowsRetries,
             BigQuerySplit split,
@@ -109,7 +115,9 @@ public class BigQueryStorageAvroPageSource
                 .collect(toImmutableList()));
 
         log.debug("Starting to read from %s", split.getStreamName());
-        responses = new ReadRowsHelper(bigQueryReadClient, split.getStreamName(), maxReadRowsRetries).readRows();
+        responsesFuture = CompletableFuture.supplyAsync(
+                () -> new ReadRowsHelper(bigQueryReadClient, split.getStreamName(), maxReadRowsRetries).readRows(),
+                requireNonNull(executor, "executor is null"));
     }
 
     @Override
@@ -127,13 +135,16 @@ public class BigQueryStorageAvroPageSource
     @Override
     public boolean isFinished()
     {
-        return !responses.hasNext();
+        return responses != null && !responses.hasNext();
     }
 
     @Override
     public Page getNextPage()
     {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
+        if (responses == null) {
+            responses = getFutureValue(responsesFuture);
+        }
         if (!responses.hasNext()) {
             return null;
         }
@@ -305,7 +316,14 @@ public class BigQueryStorageAvroPageSource
     @Override
     public void close()
     {
+        responsesFuture.cancel(true);
         bigQueryReadClient.close();
+    }
+
+    @Override
+    public CompletableFuture<?> isBlocked()
+    {
+        return responsesFuture;
     }
 
     Iterable<GenericRecord> parse(ReadRowsResponse response)
