@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcMergeTableHandle;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -28,6 +29,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -99,6 +101,9 @@ public class IgniteMetadata
         ImmutableList.Builder<JdbcTypeHandle> columnJdbcTypeHandles = ImmutableList.builder();
         for (ColumnHandle column : columns) {
             JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+            if (columnHandle.getColumnName().equalsIgnoreCase(IGNITE_DUMMY_ID)) {
+                continue;
+            }
             columnNames.add(columnHandle.getColumnName());
             columnTypes.add(columnHandle.getColumnType());
             columnJdbcTypeHandles.add(columnHandle.getJdbcTypeHandle());
@@ -141,6 +146,23 @@ public class IgniteMetadata
                 .filter(column -> !IGNITE_DUMMY_ID.equalsIgnoreCase(column.getColumnName()))
                 .map(JdbcColumnHandle::getColumnMetadata)
                 .collect(toImmutableList());
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    {
+        JdbcMergeTableHandle handle = (JdbcMergeTableHandle) super.beginMerge(session, tableHandle, retryMode);
+        return new IgniteMergeTableHandle(handle.getTableHandle(), (IgniteOutputTableHandle) handle.getOutputTableHandle(), handle.getPrimaryKeys());
+    }
+
+    @Override
+    public void finishMerge(
+            ConnectorSession session,
+            ConnectorMergeTableHandle mergeTableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
     }
 
     @Override

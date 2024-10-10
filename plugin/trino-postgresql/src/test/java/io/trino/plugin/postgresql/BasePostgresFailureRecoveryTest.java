@@ -81,4 +81,20 @@ public abstract class BasePostgresFailureRecoveryTest
                 .withCleanupQuery(cleanupQuery)
                 .isCoordinatorOnly();
     }
+
+    @Test
+    @Override
+    protected void testDeleteWithSubquery()
+    {
+        // TODO: support merge with fte
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    protected void testMerge()
+    {
+        // TODO: support merge with fte
+        abort("skipped");
+    }
 }

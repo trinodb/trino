@@ -262,4 +262,17 @@ public interface JdbcClient
     {
         return OptionalInt.empty();
     }
+
+    /**
+     * Retrieves primary keys for remote table used in the merge process.
+     * These primary keys are unique identifiers of each row in table, commonly mapping to primary or unique keys in the database.
+     *
+     * @param session the connector session
+     * @param remoteTableName the remote table
+     * @return a list of primary key column handles for merging process
+     */
+    default List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        return List.of();
+    }
 }

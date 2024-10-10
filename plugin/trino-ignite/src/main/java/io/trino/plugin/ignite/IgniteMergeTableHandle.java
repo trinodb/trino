@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.phoenix5;
+package io.trino.plugin.ignite;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -21,13 +21,13 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 
 import java.util.List;
 
-public class PhoenixMergeTableHandle
+public class IgniteMergeTableHandle
         extends JdbcMergeTableHandle
 {
     @JsonCreator
-    public PhoenixMergeTableHandle(
+    public IgniteMergeTableHandle(
             @JsonProperty("tableHandle") JdbcTableHandle tableHandle,
-            @JsonProperty("outputTableHandle") PhoenixOutputTableHandle outputTableHandle,
+            @JsonProperty("outputTableHandle") IgniteOutputTableHandle outputTableHandle,
             @JsonProperty("primaryKeys") List<JdbcColumnHandle> primaryKeys)
     {
         super(tableHandle, outputTableHandle, primaryKeys);
