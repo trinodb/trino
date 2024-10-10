@@ -103,7 +103,7 @@ class StatementClientV1
     private final String clientCapabilities;
     private final boolean compressionDisabled;
 
-    private final AtomicReference<State> decoderState = new AtomicReference<>(State.RUNNING);
+    private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
     // Data accessor for raw and encoded data
     private final ResultRowsDecoder resultRowsDecoder;
@@ -221,25 +221,25 @@ class StatementClientV1
     @Override
     public boolean isRunning()
     {
-        return decoderState.get() == State.RUNNING;
+        return state.get() == State.RUNNING;
     }
 
     @Override
     public boolean isClientAborted()
     {
-        return decoderState.get() == State.CLIENT_ABORTED;
+        return state.get() == State.CLIENT_ABORTED;
     }
 
     @Override
     public boolean isClientError()
     {
-        return decoderState.get() == State.CLIENT_ERROR;
+        return state.get() == State.CLIENT_ERROR;
     }
 
     @Override
     public boolean isFinished()
     {
-        return decoderState.get() == State.FINISHED;
+        return state.get() == State.FINISHED;
     }
 
     @Override
@@ -382,7 +382,7 @@ class StatementClientV1
 
         URI nextUri = currentStatusInfo().getNextUri();
         if (nextUri == null) {
-            decoderState.compareAndSet(State.RUNNING, State.FINISHED);
+            state.compareAndSet(State.RUNNING, State.FINISHED);
             return false;
         }
 
@@ -404,7 +404,7 @@ class StatementClientV1
             if (attempts > 0) {
                 Duration sinceStart = Duration.nanosSince(start);
                 if (sinceStart.compareTo(requestTimeoutNanos) > 0) {
-                    decoderState.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+                    state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                     throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart), cause);
                 }
                 // back-off on retry
@@ -418,7 +418,7 @@ class StatementClientV1
                     finally {
                         Thread.currentThread().interrupt();
                     }
-                    decoderState.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+                    state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                     throw new RuntimeException("StatementClient thread was interrupted");
                 }
             }
@@ -441,7 +441,7 @@ class StatementClientV1
             }
             if (response.getStatusCode() != HTTP_OK || !response.hasValue()) {
                 if (!shouldRetry(response.getStatusCode())) {
-                    decoderState.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+                    state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                     throw requestFailedException(taskName, request, response);
                 }
                 continue;
@@ -563,7 +563,7 @@ class StatementClientV1
     public void close()
     {
         // If the query is not done, abort the query.
-        if (decoderState.compareAndSet(State.RUNNING, State.CLIENT_ABORTED)) {
+        if (state.compareAndSet(State.RUNNING, State.CLIENT_ABORTED)) {
             URI uri = currentResults.get().getNextUri();
             if (uri != null) {
                 httpDelete(uri);
