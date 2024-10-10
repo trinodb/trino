@@ -35,7 +35,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
@@ -45,6 +44,7 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
 import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
@@ -73,13 +73,15 @@ public class BigQuerySplitManager
     private final Duration viewExpiration;
     private final NodeManager nodeManager;
     private final int maxReadRowsRetries;
+    private final ExecutorService executor;
 
     @Inject
     public BigQuerySplitManager(
             BigQueryConfig config,
             BigQueryClientFactory bigQueryClientFactory,
             BigQueryReadClientFactory bigQueryReadClientFactory,
-            NodeManager nodeManager)
+            NodeManager nodeManager,
+            @ForBigQuery ExecutorService executor)
     {
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory cannot be null");
         this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory cannot be null");
@@ -88,6 +90,7 @@ public class BigQuerySplitManager
         this.viewExpiration = config.getViewExpireDuration();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager cannot be null");
         this.maxReadRowsRetries = config.getMaxReadRowsRetries();
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
@@ -101,6 +104,14 @@ public class BigQuerySplitManager
         log.debug("getSplits(transaction=%s, session=%s, table=%s)", transaction, session, table);
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) table;
 
+        // use a lazy split source, that creates splits when the first batch is requested, because it may query in the data source
+        return new LazySplitSource(executor, () -> getSplits(session, bigQueryTableHandle));
+    }
+
+    private List<BigQuerySplit> getSplits(
+            ConnectorSession session,
+            BigQueryTableHandle bigQueryTableHandle)
+    {
         TupleDomain<ColumnHandle> tableConstraint = bigQueryTableHandle.constraint();
         Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
 
@@ -117,12 +128,12 @@ public class BigQuerySplitManager
 
             if (emptyProjectionIsRequired(bigQueryTableHandle.projectedColumns())) {
                 String sql = "SELECT COUNT(*) FROM (" + query + ")";
-                return new FixedSplitSource(createEmptyProjection(session, sql));
+                return createEmptyProjection(session, sql);
             }
 
             if (!useStorageApi) {
                 log.debug("Using Rest API for running query: %s", query);
-                return new FixedSplitSource(BigQuerySplit.forViewStream(columns, filter));
+                return List.of(BigQuerySplit.forViewStream(columns, filter));
             }
 
             TableId destinationTable = bigQueryQueryRelationHandle.getDestinationTableName().toTableId();
@@ -131,17 +142,16 @@ public class BigQuerySplitManager
             log.debug("Using Storage API for running query: %s", query);
             // filter is already used while constructing the select query
             ReadSession readSession = createReadSession(session, tableInfo.getTableId(), ImmutableList.copyOf(columns), Optional.empty());
-            return new FixedSplitSource(readSession.getStreamsList().stream()
+            return readSession.getStreamsList().stream()
                     .map(stream -> BigQuerySplit.forStream(stream.getName(), getSchemaAsString(readSession), columns, OptionalInt.of(stream.getSerializedSize())))
-                    .collect(toImmutableList()));
+                    .collect(toImmutableList());
         }
 
         TableId remoteTableId = bigQueryTableHandle.asPlainTable().getRemoteTableName().toTableId();
         TableDefinition.Type tableType = TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType());
-        List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.projectedColumns())
+        return emptyProjectionIsRequired(bigQueryTableHandle.projectedColumns())
                 ? createEmptyProjection(session, tableType, remoteTableId, filter)
                 : readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), tableConstraint);
-        return new FixedSplitSource(splits);
     }
 
     private static boolean emptyProjectionIsRequired(Optional<List<BigQueryColumnHandle>> projectedColumns)
