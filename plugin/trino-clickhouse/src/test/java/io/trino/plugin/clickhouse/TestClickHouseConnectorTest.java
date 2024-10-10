@@ -17,11 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.spi.type.UuidType;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.datatype.CreateAndInsertDataSetup;
+import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Disabled;
@@ -37,18 +40,33 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.MAP_STRING_AS_VARCHAR;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
+import static io.trino.plugin.clickhouse.IsNullPushdownDataTypeTest.PushdownImplementation.ALWAYS;
+import static io.trino.plugin.clickhouse.IsNullPushdownDataTypeTest.PushdownImplementation.CONNECTOR_EXPRESSION_ONLY;
 import static io.trino.plugin.clickhouse.TestingClickHouseServer.CLICKHOUSE_LATEST_IMAGE;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_SECONDS;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1087,6 +1105,61 @@ public class TestClickHouseConnectorTest
     }
 
     @Test
+    public void testIsNull()
+    {
+        Session mapStringAsVarbinary = Session.builder(getSession())
+                .setCatalogSessionProperty("clickhouse", MAP_STRING_AS_VARCHAR, Boolean.toString(false))
+                .build();
+
+        IsNullPushdownDataTypeTest.create(CONNECTOR_EXPRESSION_ONLY)
+                .addRoundTrip("String", "'z'", VARCHAR, "CAST('z' AS varchar)") // special, non null column
+                .addRoundTrip("Nullable(real)", "NULL", REAL, "CAST(NULL AS REAL)")
+                .addRoundTrip("Nullable(decimal(3, 1))", "NULL", createDecimalType(3, 1), "CAST(NULL AS decimal(3,1))")
+                .addRoundTrip("Nullable(decimal(30, 5))", "NULL", createDecimalType(30, 5), "CAST(NULL AS decimal(30,5))")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_is_null"));
+
+        IsNullPushdownDataTypeTest.create(CONNECTOR_EXPRESSION_ONLY)
+                .addRoundTrip("String", "'z'", VARBINARY, "CAST('z' AS varbinary)") // special, non null column
+                .addRoundTrip("Nullable(char(10))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("LowCardinality(Nullable(char(10)))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("Nullable(FixedString(10))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("LowCardinality(Nullable(FixedString(10)))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("Nullable(varchar(30))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("LowCardinality(Nullable(varchar(30)))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("Nullable(String)", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("LowCardinality(Nullable(String))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .execute(getQueryRunner(), mapStringAsVarbinary, clickhouseCreateAndInsert("tpch.test_is_null"));
+
+        IsNullPushdownDataTypeTest.create(ALWAYS)
+                .addRoundTrip("String", "'z'", VARCHAR, "CAST('z' AS varchar)") // special, non null column
+                .addRoundTrip("Nullable(tinyint)", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .addRoundTrip("Nullable(smallint)", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("Nullable(integer)", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("Nullable(bigint)", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("Nullable(UInt8)", "NULL", SMALLINT, "CAST(null AS SMALLINT)")
+                .addRoundTrip("Nullable(UInt16)", "NULL", INTEGER, "CAST(null AS INTEGER)")
+                .addRoundTrip("Nullable(UInt32)", "NULL", BIGINT, "CAST(null AS BIGINT)")
+                .addRoundTrip("Nullable(UInt64)", "NULL", createDecimalType(20), "CAST(null AS decimal(20, 0))")
+                .addRoundTrip("Nullable(double)", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .addRoundTrip("Nullable(char(10))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(char(10)))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Nullable(FixedString(10))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(FixedString(10)))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Nullable(varchar(30))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(varchar(30)))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Nullable(String)", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(String))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Nullable(date)", "NULL", DATE, "CAST(NULL AS DATE)")
+                .addRoundTrip("Nullable(timestamp)", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
+                .addRoundTrip("Nullable(datetime)", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
+                .addRoundTrip("Nullable(datetime('UTC'))", "NULL", TIMESTAMP_TZ_SECONDS, "CAST(NULL AS TIMESTAMP(0) WITH TIME ZONE)")
+                .addRoundTrip("Nullable(UUID)", "NULL", UuidType.UUID, "CAST(NULL AS UUID)")
+                .addRoundTrip("Nullable(IPv4)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
+                .addRoundTrip("Nullable(IPv6)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_is_null"));
+    }
+
+    @Test
     @Override // Override because ClickHouse doesn't follow SQL standard syntax
     public void testExecuteProcedure()
     {
@@ -1153,5 +1226,10 @@ public class TestClickHouseConnectorTest
             }
             return properties.buildOrThrow();
         }
+    }
+
+    private DataSetup clickhouseCreateAndInsert(String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(onRemoteDatabase()), tableNamePrefix);
     }
 }
