@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
@@ -40,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class PulsarSplit
             implements ConnectorSplit
 {
-    private static final Logger log = Logger.get(PulsarSplit.class);
+    //private static final Logger log = Logger.get(PulsarSplit.class);
 
     private final long splitId;
     private final String connectorId;

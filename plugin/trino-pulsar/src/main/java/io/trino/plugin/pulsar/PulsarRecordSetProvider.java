@@ -34,7 +34,7 @@ public class PulsarRecordSetProvider
 
     private final PulsarDispatchingRowDecoderFactory decoderFactory;
 
-    private final PulsarConnectorCache pulsarConnectorManagedLedgerFactory;
+    //private final PulsarConnectorCache pulsarConnectorManagedLedgerFactory;
 
     @Inject
     public PulsarRecordSetProvider(
@@ -44,7 +44,7 @@ public class PulsarRecordSetProvider
     {
         this.decoderFactory = requireNonNull(decoderFactory, "decoderFactory is null");
         this.pulsarConnectorConfig = requireNonNull(pulsarConnectorConfig, "pulsarConnectorConfig is null");
-        this.pulsarConnectorManagedLedgerFactory = requireNonNull(pulsarConnectorManagedLedgerFactory, "pulsarConnectorManagedLedgerFactory is null");
+        //this.pulsarConnectorManagedLedgerFactory = requireNonNull(pulsarConnectorManagedLedgerFactory, "pulsarConnectorManagedLedgerFactory is null");
         requireNonNull(this.pulsarConnectorConfig.getWebServiceUrl(), "web-service-url is null");
         requireNonNull(this.pulsarConnectorConfig.getMetadataUrl(), "metadata-uri is null");
     }

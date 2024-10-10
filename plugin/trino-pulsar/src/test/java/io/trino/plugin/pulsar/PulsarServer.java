@@ -35,6 +35,7 @@ import org.apache.pulsar.client.impl.schema.AvroSchema;
 import org.apache.pulsar.client.impl.schema.JSONSchema;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -43,8 +44,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.text.ParseException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -56,7 +55,7 @@ import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.SECONDS;
-import static java.util.UUID.randomUUID;
+//import static java.util.UUID.randomUUID;
 
 public class PulsarServer
             implements Closeable
@@ -71,7 +70,7 @@ public class PulsarServer
     public static final int PULSAR_PORT = 6650;
     public static final int ZK_PORT = 2181;
     public static final int BK_PORT = 3181;
-    public static final String DEFAULT_IMAGE_NAME = "apachepulsar/pulsar:4.0.0-preview.1";
+    public static final String DEFAULT_IMAGE_NAME = "apachepulsar/pulsar-all:4.0.0-preview.1";
     protected static final String SELECT_FROM_ORDERS = "SELECT " +
             "orderkey, " +
             "custkey, " +
@@ -127,12 +126,11 @@ public class PulsarServer
     private final GenericContainer<?> pulsar;
     private final List<Consumer> consumers = new ArrayList<>();
 
+    @SuppressWarnings("resource")
     public PulsarServer(String pulsarImage)
             throws IOException
     {
-        hostWorkingDirectory = Files.createDirectory(
-                        Paths.get("/tmp/docker-tests-files-" + randomUUID()))
-                .toAbsolutePath().toString();
+        hostWorkingDirectory = "/tpch"; //Files.createDirectory(Paths.get("/tpch")).toAbsolutePath().toString();
         File f = new File(hostWorkingDirectory);
         // Enable read/write/exec access for the services running in containers
         f.setWritable(true, false);
@@ -141,12 +139,22 @@ public class PulsarServer
         pulsar = new GenericContainer<>(pulsarImage)
                 .withExposedPorts(BROKER_HTTP_PORT, ZK_PORT, PULSAR_PORT, BK_PORT)
                 .withCommand("/pulsar/bin/pulsar standalone")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/tpch/customer.json"), "/container-entrypoint-initdb.d/customer.json")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/tpch/lineitem.json"), "/container-entrypoint-initdb.d/lineitem.json")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/tpch/nation.json"), "/container-entrypoint-initdb.d/nation.json")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/tpch/orders.json"), "/container-entrypoint-initdb.d/orders.json")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/tpch/part.json"), "/container-entrypoint-initdb.d/part.json")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/tpch/partsupp.json"), "/container-entrypoint-initdb.d/partsupp.json")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/tpch/region.json"), "/container-entrypoint-initdb.d/region.json")
+                .withCopyFileToContainer(MountableFile.forClasspathResource("/tpch/supplier.json"), "/container-entrypoint-initdb.d/supplier.json")
+                //.withFileSystemBind(hostWorkingDirectory, "/opt/pulsar/var", BindMode.READ_WRITE)
                 .waitingFor(new HttpWaitStrategy()
                         .forPort(BROKER_HTTP_PORT)
                         .forStatusCode(200)
                         .forPath("/admin/v2/namespaces/public/default")
                         .withStartupTimeout(java.time.Duration.of(600, SECONDS)));
         pulsar.setPortBindings(ImmutableList.of(String.format("%d:%d", BK_PORT, BK_PORT)));
+        //Failsafe.with(CONTAINER_RETRY_POLICY).run(this::createContainer);
         pulsar.start();
     }
 

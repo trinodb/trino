@@ -39,6 +39,7 @@ import org.apache.pulsar.metadata.api.extended.MetadataStoreExtended;
 import org.apache.pulsar.metadata.bookkeeper.PulsarMetadataClientDriver;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,9 +52,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class PulsarConnectorCache
 {
     private static final Logger log = Logger.get(PulsarConnectorCache.class);
-    private static final String OFFLOADERS_DIRECTOR = "offloadersDirectory";
-    private static final String MANAGED_LEDGER_OFFLOAD_DRIVER = "managedLedgerOffloadDriver";
-    private static final String MANAGED_LEDGER_OFFLOAD_MAX_THREADS = "managedLedgerOffloadMaxThreads";
+    // static final String OFFLOADERS_DIRECTOR = "offloadersDirectory";
+    ///private static final String MANAGED_LEDGER_OFFLOAD_DRIVER = "managedLedgerOffloadDriver";
+    //private static final String MANAGED_LEDGER_OFFLOAD_MAX_THREADS = "managedLedgerOffloadMaxThreads";
     @VisibleForTesting
     static PulsarConnectorCache instance;
     private final MetadataStoreExtended metadataStore;
@@ -188,10 +189,10 @@ public class PulsarConnectorCache
                         offloadPolicies.getManagedLedgerOffloadDriver());
 
                 try {
-                    return offloaderFactory.create(offloadPolicies, ImmutableMap.of(LedgerOffloader.METADATA_SOFTWARE_VERSION_KEY.toLowerCase(), PulsarVersion.getVersion(), LedgerOffloader.METADATA_SOFTWARE_GITSHA_KEY.toLowerCase(), PulsarVersion.getGitSha()), this.offloaderScheduler, this.offloaderStats);
+                    return offloaderFactory.create(offloadPolicies, ImmutableMap.of(LedgerOffloader.METADATA_SOFTWARE_VERSION_KEY.toLowerCase(Locale.getDefault()), PulsarVersion.getVersion(), LedgerOffloader.METADATA_SOFTWARE_GITSHA_KEY.toLowerCase(Locale.getDefault()), PulsarVersion.getGitSha()), this.offloaderScheduler, this.offloaderStats);
                 }
                 catch (IOException ioe) {
-                    log.error("Failed to create offloader: ", ioe);
+                    log.error("Failed to create offloader: %s", ioe);
                     throw new RuntimeException(ioe.getMessage(), ioe.getCause());
                 }
             }

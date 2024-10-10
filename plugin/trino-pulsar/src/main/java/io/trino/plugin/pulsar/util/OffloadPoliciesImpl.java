@@ -339,7 +339,7 @@ public class OffloadPoliciesImpl
             }
         }
         catch (Exception e) {
-            log.error("fail to merge configuration.", e);
+            log.error("fail to merge configuration. %s", e);
             return null;
         }
     }

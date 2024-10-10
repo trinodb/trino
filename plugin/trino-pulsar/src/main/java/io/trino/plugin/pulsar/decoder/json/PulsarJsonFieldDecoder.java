@@ -255,7 +255,7 @@ public class PulsarJsonFieldDecoder
                     format("could not parse value '%s' as '%s' for column '%s'", value.asText(), type, columnName));
         }
 
-        private static Slice getSlice(JsonNode value, Type type, String columnName)
+        private static Slice getSlice(JsonNode value, Type type)
         {
             String textValue = value.isValueNode() ? value.asText() : value.toString();
 
@@ -267,7 +267,7 @@ public class PulsarJsonFieldDecoder
         }
 
         private static Block serializeLongDecimal(
-                BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
+                BlockBuilder parentBlockBuilder, Object value, Type type)
         {
             final BlockBuilder blockBuilder;
             if (parentBlockBuilder != null) {
@@ -317,7 +317,7 @@ public class PulsarJsonFieldDecoder
         @Override
         public Slice getSlice()
         {
-            return getSlice(value, columnHandle.getType(), columnHandle.getName());
+            return getSlice(value, columnHandle.getType());
         }
 
         @Override
@@ -338,7 +338,7 @@ public class PulsarJsonFieldDecoder
                 return serializeRow(builder, value, type, columnName);
             }
             if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
-                return serializeLongDecimal(builder, value, type, columnName);
+                return serializeLongDecimal(builder, value, type);
             }
             serializePrimitive(builder, value, type, columnName);
             return null;
@@ -412,7 +412,7 @@ public class PulsarJsonFieldDecoder
             }
 
             if (type instanceof VarcharType || type instanceof VarbinaryType) {
-                type.writeSlice(blockBuilder, getSlice(value, type, columnName));
+                type.writeSlice(blockBuilder, getSlice(value, type));
                 return;
             }
 

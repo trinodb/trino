@@ -85,7 +85,7 @@ public class PulsarPrimitiveRowDecoder
             }
             else if (type instanceof RealType) {
                 primitiveColumn.put(columnHandle, longValueProvider(
-                        Float.floatToIntBits((Float.valueOf(value.toString())))));
+                        Float.floatToIntBits(Float.valueOf(value.toString()))));
             }
             else if (type instanceof VarbinaryType) {
                 primitiveColumn.put(columnHandle, bytesValueProvider((byte[]) value));

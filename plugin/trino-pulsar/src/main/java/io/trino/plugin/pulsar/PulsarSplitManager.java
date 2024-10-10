@@ -77,14 +77,14 @@ public class PulsarSplitManager
     private static final Logger log = Logger.get(PulsarSplitManager.class);
     private final String connectorId;
     private final PulsarConnectorConfig pulsarConnectorConfig;
-    private final PulsarConnectorCache pulsarConnectorManagedLedgerFactory;
+    //private final PulsarConnectorCache pulsarConnectorManagedLedgerFactory;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Inject
     public PulsarSplitManager(PulsarConnectorId connectorId, PulsarConnectorConfig pulsarConnectorConfig, PulsarConnectorCache pulsarConnectorManagedLedgerFactory)
     {
         this.pulsarConnectorConfig = requireNonNull(pulsarConnectorConfig, "pulsarConnectorConfig is null");
-        this.pulsarConnectorManagedLedgerFactory = requireNonNull(pulsarConnectorManagedLedgerFactory, "pulsarConnectorManagedLedgerFactory is null");
+        //this.pulsarConnectorManagedLedgerFactory = requireNonNull(pulsarConnectorManagedLedgerFactory, "pulsarConnectorManagedLedgerFactory is null");
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
     }
 
@@ -180,7 +180,7 @@ public class PulsarSplitManager
         }
         catch (Exception e) {
             // TODO Auto-generated catch block
-            e.printStackTrace();
+            log.error(e); //e.printStackTrace();
         }
         return new FixedSplitSource(splits);
     }
@@ -229,7 +229,7 @@ public class PulsarSplitManager
     {
         int numPartitions;
         try (PulsarAdmin pulsarAdmin = PulsarAdminClientProvider.getPulsarAdmin(pulsarConnectorConfig)) {
-            numPartitions = (pulsarAdmin.topics().getPartitionedTopicMetadata(topicName.toString())).partitions;
+            numPartitions = pulsarAdmin.topics().getPartitionedTopicMetadata(topicName.toString()).partitions;
         }
         catch (PulsarAdminException e) {
             if (e.getStatusCode() == 401) {
@@ -389,13 +389,13 @@ public class PulsarSplitManager
     private static class PredicatePushdownInfo
     {
         private final ImmutablePositionImpl startPosition;
-        private final ImmutablePositionImpl endPosition;
+        //private final ImmutablePositionImpl endPosition;
         private final long numOfEntries;
 
-        private PredicatePushdownInfo(ImmutablePositionImpl startPosition, ImmutablePositionImpl endPosition, long numOfEntries)
+        private PredicatePushdownInfo(ImmutablePositionImpl startPosition, long numOfEntries)
         {
             this.startPosition = startPosition;
-            this.endPosition = endPosition;
+            //var _endPosition = endPosition;
             this.numOfEntries = numOfEntries;
         }
 
@@ -472,7 +472,7 @@ public class PulsarSplitManager
                             long numOfEntries = readOnlyCursor.getNumberOfEntries(posRange) - 1;
 
                             PredicatePushdownInfo predicatePushdownInfo =
-                                    new PredicatePushdownInfo(overallStartPos, overallEndPos, numOfEntries);
+                                    new PredicatePushdownInfo(overallStartPos, numOfEntries);
                             log.debug("Predicate pushdown optimization calculated: %s", predicatePushdownInfo);
                             return predicatePushdownInfo;
                         }

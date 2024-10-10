@@ -85,7 +85,7 @@ public class PulsarSchemaInfoProvider
             return completedFuture(cache.get(BytesSchemaVersion.of(schemaVersion)));
         }
         catch (ExecutionException e) {
-            LOG.error("Can't get generic schema for topic {} schema version {}",
+            LOG.error("Can't get generic schema for topic %s schema version %s: %s",
                     topicName.toString(), new String(schemaVersion, StandardCharsets.UTF_8), e);
             return FutureUtil.failedFuture(e.getCause());
         }

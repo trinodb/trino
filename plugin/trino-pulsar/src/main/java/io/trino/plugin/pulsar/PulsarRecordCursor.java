@@ -650,6 +650,7 @@ public class PulsarRecordCursor
     {
         private static final Recycler<ChunkedMessageCtx> RECYCLER = new Recycler<ChunkedMessageCtx>()
         {
+            @Override
             protected ChunkedMessageCtx newObject(Recycler.Handle<ChunkedMessageCtx> handle)
             {
                 return new ChunkedMessageCtx(handle);
@@ -846,9 +847,9 @@ public class PulsarRecordCursor
                                     readOnlyCursorImpl.getCurrentLedgerInfo().getLedgerId(), pulsarSplit.getTableName());
 
                             long numEntries = readOnlyCursorImpl.getCurrentLedgerInfo().getEntries();
-                            long entriesToSkip =
-                                    (numEntries - cursor.getReadPosition().getEntryId()) + 1;
-                            cursor.skipEntries(toIntExact((entriesToSkip)));
+                            long entriesToSkip = (numEntries - cursor.getReadPosition().getEntryId()) + 1;
+
+                            cursor.skipEntries(toIntExact(entriesToSkip));
 
                             entriesProcessed += entriesToSkip;
                         }

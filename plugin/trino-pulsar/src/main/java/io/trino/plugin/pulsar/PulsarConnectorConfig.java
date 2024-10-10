@@ -170,7 +170,6 @@ public class PulsarConnectorConfig
         return this;
     }
 
-    @NotNull
     public String getMetadataUrl()
     {
         return this.metadataUrl;
@@ -184,7 +183,6 @@ public class PulsarConnectorConfig
         return this;
     }
 
-    @NotNull
     public int getMaxEntryReadBatchSize()
     {
         return this.entryReadBatchSize;
@@ -197,7 +195,6 @@ public class PulsarConnectorConfig
         return this;
     }
 
-    @NotNull
     public int getTargetNumSplits()
     {
         return this.targetNumSplits;
@@ -210,7 +207,6 @@ public class PulsarConnectorConfig
         return this;
     }
 
-    @NotNull
     public int getMaxSplitMessageQueueSize()
     {
         return this.maxSplitMessageQueueSize;
@@ -223,7 +219,6 @@ public class PulsarConnectorConfig
         return this;
     }
 
-    @NotNull
     public int getMaxSplitEntryQueueSize()
     {
         return this.maxSplitEntryQueueSize;
@@ -236,7 +231,6 @@ public class PulsarConnectorConfig
         return this;
     }
 
-    @NotNull
     public long getMaxSplitQueueSizeBytes()
     {
         return this.maxSplitQueueSizeBytes;
@@ -249,7 +243,6 @@ public class PulsarConnectorConfig
         return this;
     }
 
-    @NotNull
     public String getStatsProvider()
     {
         return statsProvider;
@@ -262,7 +255,6 @@ public class PulsarConnectorConfig
         return this;
     }
 
-    @NotNull
     public Map<String, String> getStatsProviderConfigs()
     {
         return statsProviderConfigs;
@@ -573,7 +565,6 @@ public class PulsarConnectorConfig
         return this;
     }
 
-    @NotNull
     public PulsarAdmin getPulsarAdmin()
             throws PulsarClientException
     {

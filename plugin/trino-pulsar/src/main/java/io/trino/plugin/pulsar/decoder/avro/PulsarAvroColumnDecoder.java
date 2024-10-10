@@ -165,7 +165,7 @@ public class PulsarAvroColumnDecoder
             return serializeRow(builder, value, type, columnName);
         }
         if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
-            return serializeLongDecimal(builder, value, type, columnName);
+            return serializeLongDecimal(builder, value, type);
         }
         serializePrimitive(builder, value, type, columnName);
         return null;
@@ -194,8 +194,9 @@ public class PulsarAvroColumnDecoder
     }
 
     private static Block serializeLongDecimal(
-            BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
+            BlockBuilder parentBlockBuilder, Object value, Type type)
     {
+        //var neme = columnName;
         final BlockBuilder blockBuilder;
         if (parentBlockBuilder != null) {
             blockBuilder = parentBlockBuilder;
@@ -204,6 +205,7 @@ public class PulsarAvroColumnDecoder
             blockBuilder = type.createBlockBuilder(null, 1);
         }
         final ByteBuffer buffer = (ByteBuffer) value;
+        buffer.arrayOffset();
         type.writeObject(blockBuilder, Int128.fromBigEndian(buffer.array()));
         if (parentBlockBuilder == null) {
             return ((Block) blockBuilder).getSingleValueBlock(0);

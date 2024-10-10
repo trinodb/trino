@@ -103,17 +103,20 @@ public class PulsarColumnHandle
     }
 
     @JsonProperty
+    @Override
     public String getName()
     {
         return name;
     }
 
     @JsonProperty
+    @Override
     public String getMapping()
     {
         return mapping;
     }
 
+    @Override
     @JsonProperty
     public String getDataFormat()
     {
@@ -121,6 +124,7 @@ public class PulsarColumnHandle
     }
 
     @JsonProperty
+    @Override
     public Type getType()
     {
         return type;
@@ -133,12 +137,14 @@ public class PulsarColumnHandle
     }
 
     @JsonProperty
+    @Override
     public boolean isInternal()
     {
         return internal;
     }
 
     @JsonProperty
+    @Override
     public String getFormatHint()
     {
         return formatHint;

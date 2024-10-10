@@ -124,7 +124,7 @@ public class PulsarConnectorUtils
 
     public static long roundToTrinoTime(long timestamp)
     {
-        Instant.ofEpochMilli(timestamp);
+        var unused = Instant.ofEpochMilli(timestamp);
         LocalDateTime date = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
         int roundedNanos = toIntExact(round(date.getNano(), 6));
         LocalDateTime rounded = date
