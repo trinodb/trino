@@ -61,7 +61,7 @@ public final class RemoteTableName
 
     public SchemaTableName getSchemaTableName()
     {
-        return new SchemaTableName(schemaName.orElseThrow(), tableName);
+        return new SchemaTableName(schemaName.orElse(null), tableName);
     }
 
     @Override

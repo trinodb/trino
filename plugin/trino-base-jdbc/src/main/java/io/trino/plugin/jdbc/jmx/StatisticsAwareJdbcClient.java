@@ -124,9 +124,16 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    @Deprecated
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return stats.getGetColumns().wrap(() -> delegate().getColumns(session, tableHandle));
+        return getColumns(session, tableHandle.getRequiredNamedRelation().getRemoteTableName());
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        return stats.getGetColumns().wrap(() -> delegate().getColumns(session, remoteTableName));
     }
 
     @Override

@@ -65,7 +65,10 @@ public interface JdbcClient
 
     JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureQuery procedureQuery);
 
+    @Deprecated
     List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
+
+    List<JdbcColumnHandle> getColumns(ConnectorSession session, RemoteTableName remoteTableName);
 
     Iterator<RelationColumnsMetadata> getAllTableColumns(ConnectorSession session, Optional<String> schema);
 
