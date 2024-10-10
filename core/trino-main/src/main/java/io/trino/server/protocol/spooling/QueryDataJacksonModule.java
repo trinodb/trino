@@ -65,7 +65,7 @@ public class QueryDataJacksonModule
         {
             switch (value) {
                 case null -> provider.defaultSerializeNull(generator);
-                case RawQueryData ignored -> provider.defaultSerializeValue(value.getData(), generator);
+                case RawQueryData rawQueryData -> provider.defaultSerializeValue(rawQueryData.getIterable(), generator); // serialize as list of lists of objects
                 case EncodedQueryData encoded -> createSerializer(provider, provider.constructType(EncodedQueryData.class)).serialize(encoded, generator, provider);
                 default -> throw new IllegalArgumentException("Unsupported QueryData implementation: " + value.getClass().getSimpleName());
             }
@@ -75,7 +75,7 @@ public class QueryDataJacksonModule
         public boolean isEmpty(SerializerProvider provider, QueryData value)
         {
             // Important for compatibility with some clients that assume absent data field if data is null
-            return value == null || (value instanceof RawQueryData && value.getData() == null);
+            return value == null || value.isNull();
         }
     }
 

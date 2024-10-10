@@ -65,7 +65,7 @@ public class QueryResults
         this.nextUri = nextUri;
         this.columns = (columns != null) ? ImmutableList.copyOf(columns) : null;
         this.data = data;
-        checkArgument(!hasData(data) || columns != null, "data present without columns");
+        checkArgument(isNotNull(data) || columns != null, "data present without columns");
         this.stats = requireNonNull(stats, "stats is null");
         this.error = error;
         this.warnings = ImmutableList.copyOf(firstNonNull(warnings, ImmutableList.of()));
@@ -173,7 +173,7 @@ public class QueryResults
                 .add("partialCancelUri", partialCancelUri)
                 .add("nextUri", nextUri)
                 .add("columns", columns)
-                .add("hasData", hasData(data))
+                .add("hasData", !data.isNull())
                 .add("stats", stats)
                 .add("error", error)
                 .add("updateType", updateType)
@@ -181,14 +181,8 @@ public class QueryResults
                 .toString();
     }
 
-    private static boolean hasData(QueryData data)
+    private static boolean isNotNull(QueryData data)
     {
-        if (data == null) {
-            return false;
-        }
-        if (data instanceof RawQueryData) {
-            return data.getData() != null;
-        }
-        return true;
+        return data != null && !data.isNull();
     }
 }

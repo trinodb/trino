@@ -70,12 +70,9 @@ public class AsyncResultIterator
                     QueryStatusInfo results = client.currentStatusInfo();
                     progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
                     warningsManager.addWarnings(results.getWarnings());
-                    Iterable<List<Object>> data = client.currentData().getData();
-                    if (data != null) {
-                        for (List<Object> row : data) {
-                            rowQueue.put(row);
-                            semaphore.release();
-                        }
+                    for (List<Object> row : client.currentRows()) {
+                        rowQueue.put(row);
+                        semaphore.release();
                     }
                 }
                 while (!cancelled && client.advance());

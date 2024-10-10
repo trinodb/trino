@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Key;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
@@ -25,9 +24,11 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.trino.client.Column;
 import io.trino.client.QueryData;
 import io.trino.client.QueryDataClientJacksonModule;
 import io.trino.client.QueryResults;
+import io.trino.client.ResultRowsDecoder;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
@@ -134,7 +135,7 @@ public class TestQueryResource
                             .build(),
                     createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
 
-            assertDataEquals(attempt2.getData(), attempt1.getData());
+            assertDataEquals(attempt1.getColumns(), attempt2.getData(), attempt1.getData());
             uri = attempt1.getNextUri();
         }
     }
@@ -257,23 +258,20 @@ public class TestQueryResource
         testKilled("preempted");
     }
 
-    private void assertDataEquals(QueryData left, QueryData right)
+    private void assertDataEquals(List<Column> columns, QueryData left, QueryData right)
     {
         if (left == null) {
             assertThat(right).isNull();
             return;
         }
 
-        if (left.getData() == null) {
-            assertThat(right.getData()).isNull();
-            return;
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder().withColumns(columns)) {
+            assertThat(decoder.toRows(left))
+                    .containsAll(decoder.toRows(right));
         }
-
-        if (right.getData() == null) {
-            throw new AssertionError("Expected right data to be non-null");
+        catch (Exception e) {
+            fail(e);
         }
-
-        assertThat(ImmutableList.copyOf(left.getData())).isEqualTo(ImmutableList.copyOf(right.getData()));
     }
 
     private void testKilled(String killType)

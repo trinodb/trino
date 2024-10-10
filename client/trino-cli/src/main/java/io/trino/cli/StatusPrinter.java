@@ -105,7 +105,7 @@ Spilled: 20GB
             while (client.isRunning()) {
                 try {
                     // exit status loop if there is pending output
-                    if (client.currentData().getData() != null) {
+                    if (!client.currentRows().isNull()) {
                         return;
                     }
 
