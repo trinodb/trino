@@ -190,6 +190,7 @@ public class LogicalPlanner
     private final WarningCollector warningCollector;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
     private final CachingTableStatsProvider tableStatsProvider;
+    private int count;
 
     public LogicalPlanner(
             Session session,
@@ -232,6 +233,7 @@ public class LogicalPlanner
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         this.tableStatsProvider = requireNonNull(tableStatsProvider, "tableStatsProvider is null");
+        this.count = 0;
     }
 
     public Plan plan(Analysis analysis)
@@ -305,6 +307,9 @@ public class LogicalPlanner
     private PlanNode runOptimizer(PlanNode root, TableStatsProvider tableStatsProvider, PlanOptimizer optimizer)
     {
         PlanNode result;
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("%s %s", ++count + ": " + optimizer.getClass().getName(), "BEGIN");
+        }
         try (var _ = optimizerSpan(optimizer)) {
             result = optimizer.optimize(root, new PlanOptimizer.Context(session, symbolAllocator, idAllocator, warningCollector, planOptimizersStatsCollector, tableStatsProvider, RuntimeInfoProvider.noImplementation()));
         }
@@ -313,14 +318,24 @@ public class LogicalPlanner
         }
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("%s:\n%s", optimizer.getClass().getName(), PlanPrinter.textLogicalPlan(
-                    result,
-                    metadata,
-                    plannerContext.getFunctionManager(),
-                    StatsAndCosts.empty(),
-                    session,
-                    0,
-                    false));
+            LOG.debug("%s\n\nBefore:\n%s\nAfter:\n%s",
+                    count + ": " + optimizer.getClass().getName() + " END. Summary: \n All Rules List: \n\t" + PlanPrinter.printIterativeOptimizerRule(optimizer) + "\n",
+                    PlanPrinter.textLogicalPlan(
+                            root,
+                            metadata,
+                            plannerContext.getFunctionManager(),
+                            StatsAndCosts.empty(),
+                            session,
+                            0,
+                            false),
+                    PlanPrinter.textLogicalPlan(
+                            result,
+                            metadata,
+                            plannerContext.getFunctionManager(),
+                            StatsAndCosts.empty(),
+                            session,
+                            0,
+                            false));
         }
 
         return result;
