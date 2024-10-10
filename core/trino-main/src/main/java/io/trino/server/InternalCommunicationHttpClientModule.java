@@ -19,6 +19,8 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.client.HttpClientBinder.HttpClientBindingBuilder;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.HttpRequestFilter;
+import io.airlift.http.client.HttpVersion;
+import io.airlift.http.client.Request;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
@@ -26,6 +28,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.airlift.http.client.Request.Builder.fromRequest;
 import static java.util.Objects.requireNonNull;
 
 public class InternalCommunicationHttpClientModule
@@ -60,11 +63,16 @@ public class InternalCommunicationHttpClientModule
 
         httpClientBindingBuilder.addFilterBinding().to(InternalAuthenticationManager.class);
         filters.forEach(httpClientBindingBuilder::withFilter);
+
+        if (internalCommunicationConfig.isHttp2Enabled()) {
+            httpClientBindingBuilder.withFilter(EnforceHttp2RequestFilter.class);
+        }
     }
 
     static void configureClient(HttpClientConfig httpConfig, InternalCommunicationConfig internalCommunicationConfig)
     {
         httpConfig.setHttp2Enabled(internalCommunicationConfig.isHttp2Enabled());
+
         if (internalCommunicationConfig.isHttpsRequired() && internalCommunicationConfig.getKeyStorePath() == null && internalCommunicationConfig.getTrustStorePath() == null) {
             configureClientForAutomaticHttps(httpConfig, internalCommunicationConfig);
         }
@@ -123,5 +131,17 @@ public class InternalCommunicationHttpClientModule
     public static InternalCommunicationHttpClientModule.Builder internalHttpClientModule(String clientName, Class<? extends Annotation> annotation)
     {
         return new Builder(clientName, annotation);
+    }
+
+    private static class EnforceHttp2RequestFilter
+            implements HttpRequestFilter
+    {
+        @Override
+        public Request filterRequest(Request request)
+        {
+            return fromRequest(request)
+                    .setVersion(HttpVersion.HTTP_2)
+                    .build();
+        }
     }
 }
