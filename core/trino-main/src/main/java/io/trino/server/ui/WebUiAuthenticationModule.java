@@ -45,19 +45,21 @@ public class WebUiAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
+        final boolean isPreviewEnabled = buildConfigObject(WebUiConfig.class).isPreviewEnabled();
+
         configBinder(binder).bindConfig(WebUiAuthenticationConfig.class);
 
-        installWebUiAuthenticator("insecure", new FormUiAuthenticatorModule(false));
-        installWebUiAuthenticator("form", new FormUiAuthenticatorModule(true));
-        installWebUiAuthenticator("fixed", new FixedUiAuthenticatorModule());
-        installWebUiAuthenticator("oauth2", new OAuth2WebUiModule());
+        installWebUiAuthenticator("insecure", new FormUiAuthenticatorModule(false, isPreviewEnabled));
+        installWebUiAuthenticator("form", new FormUiAuthenticatorModule(true, isPreviewEnabled));
+        installWebUiAuthenticator("fixed", new FixedUiAuthenticatorModule(isPreviewEnabled));
+        installWebUiAuthenticator("oauth2", new OAuth2WebUiModule(isPreviewEnabled));
 
         install(webUiAuthenticator("certificate", CertificateAuthenticator.class, certificateBinder -> {
             newOptionalBinder(certificateBinder, ClientCertificate.class).setBinding().toInstance(REQUESTED);
             configBinder(certificateBinder).bindConfig(CertificateConfig.class);
-        }));
-        installWebUiAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
-        install(webUiAuthenticator("jwt", JwtAuthenticator.class, new JwtAuthenticatorSupportModule()));
+        }, isPreviewEnabled));
+        installWebUiAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class, isPreviewEnabled);
+        install(webUiAuthenticator("jwt", JwtAuthenticator.class, new JwtAuthenticatorSupportModule(), isPreviewEnabled));
     }
 
     private void installWebUiAuthenticator(String type, Module module)
@@ -65,9 +67,9 @@ public class WebUiAuthenticationModule
         install(webUiAuthenticator(type, module));
     }
 
-    private void installWebUiAuthenticator(String name, Class<? extends Authenticator> authenticator, Class<?> config)
+    private void installWebUiAuthenticator(String name, Class<? extends Authenticator> authenticator, Class<?> config, boolean isPreviewEnabled)
     {
-        install(webUiAuthenticator(name, authenticator, binder -> configBinder(binder).bindConfig(config)));
+        install(webUiAuthenticator(name, authenticator, binder -> configBinder(binder).bindConfig(config), isPreviewEnabled));
     }
 
     public static Module webUiAuthenticator(String type, Module module)
@@ -75,11 +77,11 @@ public class WebUiAuthenticationModule
         return new ConditionalWebUiAuthenticationModule(type, module);
     }
 
-    public static Module webUiAuthenticator(String name, Class<? extends Authenticator> clazz, Module module)
+    public static Module webUiAuthenticator(String name, Class<? extends Authenticator> clazz, Module module, boolean isPreviewEnabled)
     {
         checkArgument(name.toLowerCase(ENGLISH).equals(name), "name is not lower case: %s", name);
         Module authModule = binder -> {
-            binder.install(new FormUiAuthenticatorModule(false));
+            binder.install(new FormUiAuthenticatorModule(false, isPreviewEnabled));
             newOptionalBinder(binder, Key.get(Authenticator.class, ForWebUi.class)).setBinding().to(clazz).in(SINGLETON);
         };
         return webUiAuthenticator(name, combine(module, authModule));
