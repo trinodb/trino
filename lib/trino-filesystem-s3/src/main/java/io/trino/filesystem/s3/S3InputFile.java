@@ -34,6 +34,7 @@ import java.util.Optional;
 
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
+import static io.trino.filesystem.s3.S3SseRequestConfigurator.addEncryptionSettings;
 import static java.util.Objects.requireNonNull;
 
 final class S3InputFile
@@ -111,11 +112,14 @@ final class S3InputFile
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
-                .applyMutation(builder -> key.ifPresent(encryption -> {
-                    builder.sseCustomerKey(encoded(encryption));
-                    builder.sseCustomerAlgorithm(encryption.algorithm());
-                    builder.sseCustomerKeyMD5(md5Checksum(encryption));
-                }))
+                .applyMutation(builder -> {
+                    key.ifPresent(encryption -> {
+                        builder.sseCustomerKey(encoded(encryption));
+                        builder.sseCustomerAlgorithm(encryption.algorithm());
+                        builder.sseCustomerKeyMD5(md5Checksum(encryption));
+                    });
+                    addEncryptionSettings(builder, context.s3SseContext());
+                })
                 .build();
     }
 
@@ -127,11 +131,14 @@ final class S3InputFile
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
-                .applyMutation(builder -> key.ifPresent(encryption -> {
-                    builder.sseCustomerKey(encoded(encryption));
-                    builder.sseCustomerAlgorithm(encryption.algorithm());
-                    builder.sseCustomerKeyMD5(md5Checksum(encryption));
-                }))
+                .applyMutation(builder -> {
+                    key.ifPresent(encryption -> {
+                        builder.sseCustomerKey(encoded(encryption));
+                        builder.sseCustomerAlgorithm(encryption.algorithm());
+                        builder.sseCustomerKeyMD5(md5Checksum(encryption));
+                    });
+                    addEncryptionSettings(builder, context.s3SseContext());
+                })
                 .build();
 
         try {

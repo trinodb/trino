@@ -59,6 +59,7 @@ import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
+import static io.trino.filesystem.s3.S3SseRequestConfigurator.addEncryptionSettings;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -344,11 +345,14 @@ final class S3FileSystem
                 .requestPayer(requestPayer)
                 .key(s3Location.key())
                 .bucket(s3Location.bucket())
-                .applyMutation(builder -> key.ifPresent(encryption -> {
-                    builder.sseCustomerKeyMD5(md5Checksum(encryption));
-                    builder.sseCustomerAlgorithm(encryption.algorithm());
-                    builder.sseCustomerKey(encoded(encryption));
-                }))
+                .applyMutation(builder -> {
+                    key.ifPresent(encryption -> {
+                        builder.sseCustomerKeyMD5(md5Checksum(encryption));
+                        builder.sseCustomerAlgorithm(encryption.algorithm());
+                        builder.sseCustomerKey(encoded(encryption));
+                    });
+                    addEncryptionSettings(builder, context.s3SseContext());
+                })
                 .build();
 
         GetObjectPresignRequest preSignRequest = GetObjectPresignRequest.builder()
