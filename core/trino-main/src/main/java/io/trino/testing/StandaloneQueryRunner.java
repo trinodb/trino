@@ -63,7 +63,7 @@ public final class StandaloneQueryRunner
 {
     private final Session defaultSession;
     private final TestingTrinoServer server;
-    private final DirectTrinoClient trinoClient;
+    private final TestingDirectTrinoClient trinoClient;
     private final InMemorySpanExporter spanExporter = InMemorySpanExporter.create();
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -88,7 +88,7 @@ public final class StandaloneQueryRunner
         serverProcessor.accept(builder);
         this.server = builder.build();
 
-        this.trinoClient = new DirectTrinoClient(
+        this.trinoClient = new TestingDirectTrinoClient(
                 server.getDispatchManager(),
                 server.getQueryManager(),
                 server.getInstance(Key.get(DirectExchangeClientSupplier.class)),
@@ -111,11 +111,11 @@ public final class StandaloneQueryRunner
     @Override
     public MaterializedResultWithPlan executeWithPlan(Session session, String sql)
     {
-        DirectTrinoClient.Result result = executeInternal(session, sql);
+        TestingDirectTrinoClient.Result result = executeInternal(session, sql);
         return new MaterializedResultWithPlan(result.queryId(), server.getQueryPlan(result.queryId()), result.result());
     }
 
-    private DirectTrinoClient.Result executeInternal(Session session, @Language("SQL") String sql)
+    private TestingDirectTrinoClient.Result executeInternal(Session session, @Language("SQL") String sql)
     {
         lock.readLock().lock();
         try {
