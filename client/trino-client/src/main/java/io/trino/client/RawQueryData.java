@@ -13,12 +13,13 @@
  */
 package io.trino.client;
 
+import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
-import static io.trino.client.FixJsonDataUtils.fixData;
 
 /**
  * Class represents QueryData serialized to JSON array of arrays of objects.
@@ -34,9 +35,9 @@ public class RawQueryData
         this.iterable = values == null ? null : unmodifiableIterable(values);
     }
 
-    @Override
-    public Iterable<List<Object>> getData()
+    public @Nonnull Iterable<List<Object>> getIterable()
     {
+        checkState(iterable != null, "cannot return a null iterable");
         return iterable;
     }
 
@@ -45,9 +46,9 @@ public class RawQueryData
         return new RawQueryData(values);
     }
 
-    // JSON encoding loses type information. In order for it to be usable, we need to fix types.
-    public QueryData fixTypes(List<Column> columns)
+    @Override
+    public boolean isNull()
     {
-        return RawQueryData.of(fixData(columns, iterable));
+        return iterable == null;
     }
 }

@@ -492,8 +492,7 @@ public class TestJsonQueryDataEncoding
             throws IOException
     {
         QueryDataDecoder decoder = newDecoder(columns);
-        return ImmutableList.copyOf(decoder.decode(new ByteArrayInputStream(json), null)
-                .toIterable());
+        return ImmutableList.copyOf(decoder.decode(new ByteArrayInputStream(json), null));
     }
 
     record TypedColumn(String name, Type type)

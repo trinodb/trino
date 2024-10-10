@@ -16,6 +16,7 @@ package io.trino.client.spooling.encoding;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import io.trino.client.QueryDataDecoder;
+import io.trino.client.ResultRows;
 import io.trino.client.spooling.DataAttributes;
 import org.junit.jupiter.api.Test;
 
@@ -23,6 +24,7 @@ import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -52,12 +54,12 @@ class TestCompressedQueryDataDecoder
 
         QueryDataDecoder decoder = new TestQueryDataDecoder(new QueryDataDecoder() {
             @Override
-            public QueryDataAccess decode(InputStream input, DataAttributes segmentAttributes)
+            public ResultRows decode(InputStream input, DataAttributes segmentAttributes)
                     throws IOException
             {
                 assertThat(new String(ByteStreams.toByteArray(input), UTF_8))
                         .isEqualTo("decompressed");
-                return () -> SAMPLE_VALUES;
+                return SAMPLE_VALUES::iterator;
             }
 
             @Override
@@ -72,8 +74,8 @@ class TestCompressedQueryDataDecoder
                 .builder()
                 .set(UNCOMPRESSED_SIZE, "decompressed".length())
                 .set(SEGMENT_SIZE, "compressed".length())
-                .build()).toIterable())
-                .isEqualTo(SAMPLE_VALUES);
+                .build()))
+                .containsAll(SAMPLE_VALUES);
         assertThat(closed.get()).isTrue();
     }
 
@@ -94,13 +96,19 @@ class TestCompressedQueryDataDecoder
 
         QueryDataDecoder decoder = new TestQueryDataDecoder(new QueryDataDecoder() {
             @Override
-            public QueryDataAccess decode(InputStream input, DataAttributes segmentAttributes)
+            public ResultRows decode(InputStream input, DataAttributes segmentAttributes)
                     throws IOException
             {
                 assertThat(new String(ByteStreams.toByteArray(input), UTF_8))
                         .isEqualTo("not compressed");
                 input.close(); // Closes input stream according to the contract
-                return () -> SAMPLE_VALUES;
+                return new ResultRows() {
+                    @Override
+                    public Iterator<List<Object>> iterator()
+                    {
+                        return SAMPLE_VALUES.iterator();
+                    }
+                };
             }
 
             @Override
@@ -113,8 +121,8 @@ class TestCompressedQueryDataDecoder
         assertThat(closed.get()).isFalse();
         assertThat(decoder.decode(stream, DataAttributes.builder()
                 .set(SEGMENT_SIZE, "not compressed".length())
-                .build()).toIterable())
-                .isEqualTo(SAMPLE_VALUES);
+                .build()))
+                .containsAll(SAMPLE_VALUES);
         assertThat(closed.get()).isTrue();
     }
 

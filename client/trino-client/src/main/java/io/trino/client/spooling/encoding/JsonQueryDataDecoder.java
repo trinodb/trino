@@ -15,6 +15,7 @@ package io.trino.client.spooling.encoding;
 
 import io.trino.client.Column;
 import io.trino.client.QueryDataDecoder;
+import io.trino.client.ResultRows;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.encoding.JsonDecodingUtils.TypeDecoder;
 
@@ -35,9 +36,9 @@ public class JsonQueryDataDecoder
     }
 
     @Override
-    public QueryDataAccess decode(InputStream stream, DataAttributes attributes)
+    public ResultRows decode(InputStream stream, DataAttributes queryAttributes)
     {
-        return new JsonQueryDataAccess(decoders, stream);
+        return new JsonResultRows(decoders, stream);
     }
 
     @Override

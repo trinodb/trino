@@ -106,7 +106,7 @@ public abstract class AbstractTestingTrinoClient<T>
         ClientSession clientSession = toClientSession(session, trinoServer.getBaseUrl(), new Duration(2, TimeUnit.MINUTES));
         try (StatementClient client = statementClientFactory.create(httpClient, session, clientSession, sql)) {
             while (client.isRunning()) {
-                resultsSession.addResults(client.currentStatusInfo(), client.currentData());
+                resultsSession.addResults(client.currentStatusInfo(), client.currentRows());
                 client.advance();
             }
 

@@ -24,18 +24,14 @@ import io.trino.client.JsonCodec;
 import io.trino.client.QueryData;
 import io.trino.client.QueryResults;
 import io.trino.client.RawQueryData;
+import io.trino.client.ResultRowsDecoder;
 import io.trino.client.StatementStats;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
-import io.trino.client.spooling.InlineSegment;
 import io.trino.client.spooling.Segment;
-import io.trino.client.spooling.encoding.JsonQueryDataDecoder;
 import io.trino.server.protocol.spooling.QueryDataJacksonModule;
 import org.junit.jupiter.api.Test;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -43,17 +39,16 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static io.trino.client.ClientStandardTypes.BIGINT;
-import static io.trino.client.FixJsonDataUtils.fixData;
 import static io.trino.client.JsonCodec.jsonCodec;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.ROW_OFFSET;
 import static io.trino.client.spooling.DataAttribute.SCHEMA;
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
-import static io.trino.client.spooling.DataAttributes.empty;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Fail.fail;
 
 public class TestQueryDataSerialization
 {
@@ -73,9 +68,9 @@ public class TestQueryDataSerialization
     @Test
     public void testEmptyArraySerialization()
     {
-        testRoundTrip(COLUMNS_LIST, RawQueryData.of(ImmutableList.of()), "[]");
+        testRoundTrip(RawQueryData.of(ImmutableList.of()), "[]");
 
-        assertThatThrownBy(() -> testRoundTrip(COLUMNS_LIST, RawQueryData.of(ImmutableList.of(ImmutableList.of())), "[[]]"))
+        assertThatThrownBy(() -> testRoundTrip(RawQueryData.of(ImmutableList.of(ImmutableList.of())), "[[]]"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("row/column size mismatch");
     }
@@ -84,14 +79,14 @@ public class TestQueryDataSerialization
     public void testQueryDataSerialization()
     {
         Iterable<List<Object>> values = ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L));
-        testRoundTrip(COLUMNS_LIST, RawQueryData.of(values), "[[1],[5]]");
+        testRoundTrip(RawQueryData.of(values), "[[1],[5]]");
     }
 
     @Test
     public void testEncodedQueryDataSerialization()
     {
         EncodedQueryData queryData = new EncodedQueryData("json", ImmutableMap.of(), ImmutableList.of(Segment.inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
-        testRoundTrip(COLUMNS_LIST, queryData, """
+        testRoundTrip(queryData, """
                 {
                   "encoding": "json",
                   "segments": [
@@ -112,7 +107,7 @@ public class TestQueryDataSerialization
     public void testEncodedQueryDataSerializationWithExtraMetadata()
     {
         EncodedQueryData queryData = new EncodedQueryData("json", ImmutableMap.of("decryptionKey", "secret"), ImmutableList.of(Segment.inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
-        testRoundTrip(COLUMNS_LIST, queryData, """
+        testRoundTrip(queryData, """
                 {
                   "encoding": "json",
                   "metadata": {
@@ -193,10 +188,10 @@ public class TestQueryDataSerialization
         assertThat(spooledQueryData.toString()).isEqualTo("EncodedQueryData{encoding=json+zstd, segments=[SpooledSegment{offset=10, rows=2, size=1256, headers=[x-amz-server-side-encryption]}], metadata=[decryption_key]}");
     }
 
-    private void testRoundTrip(List<Column> columns, QueryData queryData, String expectedDataRepresentation)
+    private void testRoundTrip(QueryData queryData, String expectedDataRepresentation)
     {
         testSerializationRoundTrip(queryData, expectedDataRepresentation);
-        assertEquals(columns, deserialize(serialize(queryData)), queryData);
+        assertEquals(deserialize(serialize(queryData)), queryData);
     }
 
     private void testSerializationRoundTrip(QueryData queryData, String expectedDataRepresentation)
@@ -246,10 +241,10 @@ public class TestQueryDataSerialization
                 }""", expectedDataField);
     }
 
-    private static void assertEquals(List<Column> columns, QueryData left, QueryData right)
+    private static void assertEquals(QueryData left, QueryData right)
     {
-        Iterable<List<Object>> leftValues = decodeData(left, columns);
-        Iterable<List<Object>> rightValues = decodeData(right, columns);
+        Iterable<List<Object>> leftValues = decodeData(left);
+        Iterable<List<Object>> rightValues = decodeData(right);
 
         if (leftValues == null) {
             assertThat(rightValues).isNull();
@@ -259,24 +254,17 @@ public class TestQueryDataSerialization
         assertThat(leftValues).hasSameElementsAs(rightValues);
     }
 
-    private static Iterable<List<Object>> decodeData(QueryData data, List<Column> columns)
+    private static Iterable<List<Object>> decodeData(QueryData data)
     {
-        if (data instanceof RawQueryData) {
-            return fixData(columns, data.getData());
-        }
-
-        if (data instanceof EncodedQueryData queryDataV2 && queryDataV2.getSegments().getFirst() instanceof InlineSegment inlineSegment) {
-            try {
-                return new JsonQueryDataDecoder.Factory().create(columns, empty())
-                        .decode(new ByteArrayInputStream(inlineSegment.getData()), inlineSegment.getMetadata())
-                        .toIterable();
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder().withColumns(COLUMNS_LIST)) {
+            if (data instanceof EncodedQueryData encodedQueryData) {
+                return decoder.withEncoding(encodedQueryData.getEncoding()).toRows(data);
             }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+            return decoder.toRows(data);
         }
-
-        throw new AssertionError("Unexpected data type: " + data.getClass().getSimpleName());
+        catch (Exception e) {
+            return fail(e);
+        }
     }
 
     private static QueryData deserialize(String serialized)

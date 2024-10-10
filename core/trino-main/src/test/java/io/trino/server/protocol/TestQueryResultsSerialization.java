@@ -23,6 +23,7 @@ import io.trino.client.JsonCodec;
 import io.trino.client.QueryData;
 import io.trino.client.QueryResults;
 import io.trino.client.RawQueryData;
+import io.trino.client.ResultRowsDecoder;
 import io.trino.client.StatementStats;
 import io.trino.server.protocol.spooling.QueryDataJacksonModule;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,6 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static io.trino.client.ClientStandardTypes.BIGINT;
-import static io.trino.client.FixJsonDataUtils.fixData;
 import static io.trino.client.JsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,6 +43,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestQueryResultsSerialization
 {
     private static final List<Column> COLUMNS = ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature("bigint")));
+
+    private static final ResultRowsDecoder DATA_DECODER = new ResultRowsDecoder()
+            .withColumns(COLUMNS);
 
     // As close as possible to the server mapper (client mapper differs)
     private static final io.airlift.json.JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
@@ -116,7 +119,8 @@ public class TestQueryResultsSerialization
 
         String serialized = serialize(results);
         try {
-            assertThat(fixData(COLUMNS, CLIENT_CODEC.fromJson(serialized).getData().getData())).hasSameElementsAs(results.getData());
+            assertThat(DATA_DECODER.toRows(CLIENT_CODEC.fromJson(serialized).getData()))
+                    .containsAll(DATA_DECODER.toRows(results));
         }
         catch (JsonProcessingException e) {
             throw new UncheckedIOException(e);

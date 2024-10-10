@@ -30,6 +30,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.trino.client.QueryDataClientJacksonModule;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
+import io.trino.client.ResultRowsDecoder;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.testing.TestingTrinoServer;
@@ -148,6 +149,7 @@ public class TestServer
 
     @Test
     public void testFirstResponseColumns()
+            throws Exception
     {
         List<QueryResults> queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
@@ -174,7 +176,10 @@ public class TestServer
         assertThat(data).isPresent();
 
         QueryResults results = data.orElseThrow();
-        assertThat(results.getData().getData()).containsOnly(ImmutableList.of("memory"), ImmutableList.of("system"));
+
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder().withColumns(results.getColumns())) {
+            assertThat(decoder.toRows(results.getData())).containsOnly(ImmutableList.of("memory"), ImmutableList.of("system"));
+        }
     }
 
     @Test
@@ -204,7 +209,12 @@ public class TestServer
                 .peek(result -> assertThat(result.getError()).isNull())
                 .peek(results -> {
                     if (results.getData() != null) {
-                        data.addAll(results.getData().getData());
+                        try (ResultRowsDecoder decoder = new ResultRowsDecoder().withColumns(results.getColumns())) {
+                            data.addAll(decoder.toRows(results.getData()));
+                        }
+                        catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
                     }
                 })
                 .collect(last());
