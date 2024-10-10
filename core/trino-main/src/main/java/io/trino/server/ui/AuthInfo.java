@@ -11,22 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import {
-  Box,
-  Typography
-} from "@mui/material";
+package io.trino.server.ui;
 
-export const Workers = () => {
-  return (
-    <>
-      <Box sx={{ pb: 2 }}>
-        <Typography variant="h4">
-          Workers
-        </Typography>
-      </Box>
-      <Typography paragraph>
-        Placeholder for Workers
-      </Typography>
-    </>
-  );
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
+
+public record AuthInfo(String authType, boolean passwordAllowed, boolean authenticated, Optional<String> username)
+{
+    public AuthInfo {
+        requireNonNull(authType, "authType is null");
+        requireNonNull(username, "username is null");
+    }
 }

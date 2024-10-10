@@ -16,9 +16,32 @@ export enum StoreKey {
 }
 
 export const Texts = {
+    Auth: {
+        Authenticating: 'Authenticating to Trino...',
+        LoginForm: {
+            PasswordNotAllowed: 'Password not allowed',
+            Username: 'Username',
+            Password: 'Password',
+            UsernameMustBeDefined: 'Username must be defined',
+            LogIn: 'Log in',
+            LoggingIn: 'Logging in...',
+        },
+        Logout: 'Log Out',
+        InvalidUsernameOrPassword: 'Invalid username or password',
+        NotAvailableAuthInfo: 'Authentication information not available',
+        NotImplementedAuthType: 'The configured authentication type is not implemented for the frontend',
+    },
+    Api: {
+        FetchingData: 'Fetching data...',
+        Stats: {
+            Name: 'Cluster Statistics',
+        },
+    },
     Error: {
         NotImplemented: 'This feature is not implemented',
         Communication: 'Communication error to Trino.',
+        Forbidden: 'Forbidden',
+        Network: 'The network has wandered off, please try again later!',
     },
     Menu: {
         Header: {
