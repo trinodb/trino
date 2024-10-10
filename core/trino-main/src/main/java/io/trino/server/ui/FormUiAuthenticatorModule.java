@@ -29,10 +29,12 @@ public class FormUiAuthenticatorModule
         implements Module
 {
     private final boolean usePasswordManager;
+    private final boolean isPreviewEnabled;
 
-    public FormUiAuthenticatorModule(boolean usePasswordManager)
+    public FormUiAuthenticatorModule(boolean usePasswordManager, boolean isPreviewEnabled)
     {
         this.usePasswordManager = usePasswordManager;
+        this.isPreviewEnabled = isPreviewEnabled;
     }
 
     @Override
@@ -50,6 +52,9 @@ public class FormUiAuthenticatorModule
         }
         configBinder(binder).bindConfig(FormWebUiConfig.class);
         jaxrsBinder(binder).bind(LoginResource.class);
+        if (isPreviewEnabled) {
+            jaxrsBinder(binder).bind(LoginPreviewResource.class);
+        }
         newOptionalBinder(binder, Key.get(Authenticator.class, ForWebUi.class));
     }
 }
