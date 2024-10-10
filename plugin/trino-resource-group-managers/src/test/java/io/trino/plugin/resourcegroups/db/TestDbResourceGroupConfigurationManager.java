@@ -28,6 +28,7 @@ import io.trino.spi.resourcegroups.SelectionCriteria;
 import io.trino.spi.session.ResourceEstimates;
 import org.h2.jdbc.JdbcException;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -36,6 +37,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
@@ -43,6 +46,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.resourcegroups.InternalResourceGroup.DEFAULT_WEIGHT;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.FAIR;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -211,7 +215,7 @@ public class TestDbResourceGroupConfigurationManager
         do {
             MILLISECONDS.sleep(500);
         }
-        while (globalSub.getMaxQueuedQueries() != 0 || globalSub.getHardConcurrencyLimit() != 0);
+        while (!globalSub.isDisabled());
     }
 
     @Test
@@ -377,6 +381,61 @@ public class TestDbResourceGroupConfigurationManager
         assertThat(manager.match(userAndUserGroupsSelectionCriteria("Matching user", "Matching group")))
                 .map(SelectionContext::getContext)
                 .isEqualTo(Optional.of(new ResourceGroupIdTemplate("group")));
+    }
+
+    @RepeatedTest(10)
+    public void testConfigurationUpdateIsNotLost()
+    {
+        // This test attempts to reproduce the following sequence:
+        // 1. Load resource group configuration C1, which includes template T1.
+        // 2. For query Q1, select template T1 and expand it into resource group R1.
+        // 3. For query Q1, obtain C1 in DbResourceGroupConfigurationManager#configure.
+        // 4. Load resource group configuration C2 with modified parameters for T1.
+        //
+        // If everything works correctly, C2 should eventually be applied to R1.
+        // We want to avoid the following scenarios:
+        // - C1, obtained in step 3, overwrites C2 applied to R1 in step 4, and no subsequent
+        //   'load' applies C2 again.
+        // - The 'load' in step 4 doesn't apply C2 to R1 because 'configure' hasn't created a
+        //   mapping between T1 and R1 yet, and no subsequent 'load' detects the configuration change for T1.
+
+        H2DaoProvider daoProvider = setup("test_lost_update");
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsGlobalPropertiesTable();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.insertResourceGroup(1, "global", "80%", 10, null, 1, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertSelector(1, 1, null, "userGroup", null, null, null, null);
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
+
+        Optional<SelectionContext<ResourceGroupIdTemplate>> userGroup = manager.match(userGroupsSelectionCriteria("userGroup"));
+        assertThat(userGroup.isPresent()).isTrue();
+        SelectionContext<ResourceGroupIdTemplate> selectionContext = userGroup.get();
+
+        InternalResourceGroup resourceGroup = new InternalResourceGroup("global", (_, _) -> {}, directExecutor());
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            dao.updateResourceGroup(1, "global", "80%", 10, null, 10, null, null, null, null, null, null, ENVIRONMENT);
+
+            executor.submit(() -> {
+                synchronized (resourceGroup) {
+                    // Wait while holding the lock to increase the likelihood that 'load' and 'configure'
+                    // will attempt to update the configuration simultaneously. Both need to acquire this
+                    // lock to update the resource group.
+                    Thread.sleep(10);
+                }
+                return null;
+            });
+
+            executor.submit(manager::load);
+
+            manager.configure(resourceGroup, selectionContext);
+
+            assertEventually(() -> {
+                manager.load();
+                assertThat(resourceGroup.getHardConcurrencyLimit()).isEqualTo(10);
+            });
+        }
     }
 
     private static void assertEqualsResourceGroup(

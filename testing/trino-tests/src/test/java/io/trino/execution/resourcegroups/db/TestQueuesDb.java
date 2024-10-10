@@ -29,6 +29,7 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.server.ResourceGroupInfo;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.security.Identity;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterEach;
@@ -407,6 +408,169 @@ public class TestQueuesDb
                 () -> assertThat(manager.tryGetResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"))
                         .orElseThrow(() -> new IllegalStateException("Resource group not found"))
                         .softMemoryLimit()).isEqualTo(DataSize.of(123, MEGABYTE)));
+    }
+
+    @Test
+    @Timeout(60)
+    public void testAddSubGroup()
+            throws InterruptedException
+    {
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
+        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+
+        dao.insertResourceGroup(10, "queued", "80%", 10, null, 1, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertSelector(10, 1, null, null, null, null, "[\"queued\"]", null);
+        dao.insertResourceGroup(11, "running", "80%", 10, null, 2, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertSelector(11, 1, null, null, null, null, "[\"running\"]", null);
+        dbConfigurationManager.load();
+
+        QueryId firstQueryFromQueuedGroup = createQuery(queryRunner, session("alice", "queued"), LONG_LASTING_QUERY);
+        QueryId secondQueryFromQueuedGroup = createQuery(queryRunner, session("alice", "queued"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQueryFromQueuedGroup, RUNNING);
+        waitForQueryState(queryRunner, secondQueryFromQueuedGroup, QUEUED);
+
+        QueryId firstQueryFromRunningGroup = createQuery(queryRunner, session("alice", "running"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQueryFromRunningGroup, RUNNING);
+
+        dao.deleteSelectors(10);
+        dao.insertResourceGroup(12, "subgroup", "80%", 10, null, 1, null, null, null, null, null, 10L, TEST_ENVIRONMENT);
+        dao.insertSelector(12, 1, null, null, null, null, "[\"queued\"]", null);
+        dao.deleteSelectors(11);
+        dao.insertResourceGroup(13, "subgroup", "80%", 10, null, 1, null, null, null, null, null, 11L, TEST_ENVIRONMENT);
+        dao.insertSelector(13, 1, null, null, null, null, "[\"running\"]", null);
+        dbConfigurationManager.load();
+
+        QueryId thirdQueryFromQueuedGroup = createQuery(queryRunner, session("alice", "queued"), LONG_LASTING_QUERY);
+        QueryId secondQueryFromRunningGroup = createQuery(queryRunner, session("alice", "running"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQueryFromQueuedGroup, RUNNING);
+        waitForQueryState(queryRunner, secondQueryFromQueuedGroup, QUEUED);
+        waitForQueryState(queryRunner, thirdQueryFromQueuedGroup, FAILED);
+        assertFailureMessage(thirdQueryFromQueuedGroup, "Cannot add sub group to 'queued' while queries are queued");
+        waitForQueryState(queryRunner, firstQueryFromRunningGroup, RUNNING);
+        waitForQueryState(queryRunner, secondQueryFromRunningGroup, RUNNING);
+    }
+
+    @Test
+    @Timeout(60)
+    public void testDisableSubGroup()
+            throws InterruptedException
+    {
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
+        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+
+        dao.insertResourceGroup(10, "queued", "80%", 10, null, 3, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(11, "subgroup", "80%", 10, null, 1, null, null, null, null, null, 10L, TEST_ENVIRONMENT);
+        dao.insertSelector(11, 1, null, null, null, null, "[\"queued\"]", null);
+        dao.insertResourceGroup(12, "running", "80%", 10, null, 3, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(13, "subgroup", "80%", 10, null, 1, null, null, null, null, null, 12L, TEST_ENVIRONMENT);
+        dao.insertSelector(13, 1, null, null, null, null, "[\"running\"]", null);
+        dbConfigurationManager.load();
+
+        QueryId firstQueryFromQueuedGroup = createQuery(queryRunner, session("alice", "queued"), LONG_LASTING_QUERY);
+        QueryId secondQueryFromQueuedGroup = createQuery(queryRunner, session("alice", "queued"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQueryFromQueuedGroup, RUNNING);
+        waitForQueryState(queryRunner, secondQueryFromQueuedGroup, QUEUED);
+
+        QueryId firstQueryFromRunningGroup = createQuery(queryRunner, session("alice", "running"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQueryFromRunningGroup, RUNNING);
+
+        dao.deleteSelectors(11);
+        dao.deleteResourceGroup(11);
+        dao.insertSelector(10, 1, null, null, null, null, "[\"queued\"]", null);
+        dao.deleteSelectors(13);
+        dao.deleteResourceGroup(13);
+        dao.insertSelector(12, 1, null, null, null, null, "[\"running\"]", null);
+        dbConfigurationManager.load();
+
+        QueryId thirdQueryFromQueuedGroup = createQuery(queryRunner, session("alice", "queued"), LONG_LASTING_QUERY);
+        QueryId secondQueryFromRunningGroup = createQuery(queryRunner, session("alice", "running"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQueryFromQueuedGroup, RUNNING);
+        waitForQueryState(queryRunner, secondQueryFromQueuedGroup, QUEUED);
+        waitForQueryState(queryRunner, thirdQueryFromQueuedGroup, FAILED);
+        assertFailureMessage(thirdQueryFromQueuedGroup, "Cannot add queries to 'queued'. It is not a leaf group.");
+        waitForQueryState(queryRunner, firstQueryFromRunningGroup, RUNNING);
+        waitForQueryState(queryRunner, secondQueryFromRunningGroup, RUNNING);
+    }
+
+    @Test
+    @Timeout(60)
+    public void testSwitchGroupNameBetweenTemplateAndFixedValue()
+            throws InterruptedException
+    {
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
+        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+
+        dao.insertResourceGroup(10, "${USER}", "80%", 0, null, 0, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertSelector(10, 1, null, null, null, null, "[\"tag\"]", null);
+        dbConfigurationManager.load();
+
+        QueryId firstQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQuery, FAILED);
+        assertFailureMessage(firstQuery, "Too many queued queries for \"admin\"");
+
+        dao.updateResourceGroup(10, "admin", "80%", 1, null, 0, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dbConfigurationManager.load();
+
+        QueryId secondQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, secondQuery, QUEUED);
+
+        dao.updateResourceGroup(10, "${USER}", "80%", 1, null, 2, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dbConfigurationManager.load();
+
+        QueryId thirdQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, secondQuery, RUNNING);
+        waitForQueryState(queryRunner, thirdQuery, RUNNING);
+    }
+
+    @Test
+    @Timeout(60)
+    public void testGroupHasSingleConfig()
+            throws InterruptedException
+    {
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
+        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+
+        dao.insertResourceGroup(10, "${USER}", "80%", 100, null, 100, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertSelector(10, 100, null, null, null, null, "[\"tag\"]", null);
+        dbConfigurationManager.load();
+
+        // create a resource group using config '${USER}'
+        QueryId firstQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQuery, RUNNING);
+
+        dao.updateResourceGroup(10, "admin", "80%", 100, null, 100, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dbConfigurationManager.load();
+
+        // associate the resource group with config 'admin'
+        QueryId secondQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, secondQuery, RUNNING);
+
+        dao.insertResourceGroup(11, "${USER}", "80%", 0, null, 0, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertSelector(11, 101, null, null, null, null, "[\"tag\"]", null);
+        dbConfigurationManager.load();
+
+        // since the config 'admin' exists the group should not be configured using '${USER}'
+        QueryId thirdQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, thirdQuery, RUNNING);
+    }
+
+    private static Session session(String user, String clientTag)
+    {
+        return testSessionBuilder()
+                .setIdentity(Identity.ofUser(user))
+                .setCatalog("tpch")
+                .setSchema("sf100000")
+                .setClientTags(ImmutableSet.of(clientTag))
+                .build();
+    }
+
+    private void assertFailureMessage(QueryId queryId, String message)
+    {
+        Optional<QueryInfo> fullQueryInfo = queryRunner.getCoordinator().getDispatchManager().getFullQueryInfo(queryId);
+        assertThat(fullQueryInfo.isPresent()).isTrue();
+        ExecutionFailureInfo failureInfo = fullQueryInfo.get().getFailureInfo();
+        assertThat(failureInfo).isNotNull();
+        assertThat(failureInfo.getMessage()).isEqualTo(message);
     }
 
     private void assertResourceGroupWithClientTags(Set<String> clientTags, ResourceGroupId expectedResourceGroup)
