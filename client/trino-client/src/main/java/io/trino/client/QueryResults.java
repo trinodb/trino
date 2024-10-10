@@ -183,12 +183,6 @@ public class QueryResults
 
     private static boolean hasData(QueryData data)
     {
-        if (data == null) {
-            return false;
-        }
-        if (data instanceof RawQueryData) {
-            return data.getData() != null;
-        }
-        return true;
+        return data != null && !data.isNull();
     }
 }

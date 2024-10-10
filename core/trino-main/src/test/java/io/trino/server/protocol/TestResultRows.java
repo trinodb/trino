@@ -59,7 +59,7 @@ import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestQueryResultRows
+public class TestResultRows
 {
     private static final Function<String, Column> BOOLEAN_COLUMN = name -> new Column(name, BOOLEAN, new ClientTypeSignature(BOOLEAN));
     private static final Function<String, Column> BIGINT_COLUMN = name -> new Column(name, BIGINT, new ClientTypeSignature(BIGINT));

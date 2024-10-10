@@ -18,7 +18,9 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.base.VerifyException;
 import com.google.common.io.Closer;
+import io.trino.client.ResultRows;
 import io.trino.client.spooling.encoding.JsonDecodingUtils.TypeDecoder;
+import jakarta.annotation.Nonnull;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.IOException;
@@ -38,25 +40,29 @@ import static com.google.common.collect.Iterators.unmodifiableIterator;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
-class JsonQueryDataAccess
-        implements QueryDataAccess
+class JsonResultRows
+        implements ResultRows
 {
     private static final JsonFactory JSON_FACTORY = createJsonFactory();
 
     private final InputStream stream;
     private final TypeDecoder[] decoders;
 
-    JsonQueryDataAccess(TypeDecoder[] decoders, InputStream stream)
+    JsonResultRows(TypeDecoder[] decoders, InputStream stream)
     {
         this.decoders = requireNonNull(decoders, "decoders is null");
         this.stream = requireNonNull(stream, "stream is null");
     }
 
     @Override
-    public Iterable<List<Object>> toIterable()
-            throws IOException
+    public @Nonnull Iterator<List<Object>> iterator()
     {
-        return new RowWiseIterator(stream, decoders);
+        try {
+            return new RowWiseIterator(stream, decoders);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static class RowWiseIterator
