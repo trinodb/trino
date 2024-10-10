@@ -31,7 +31,7 @@ public abstract sealed class TimestampWithTimeZoneType
     public static final int MAX_PRECISION = 12;
 
     public static final int MAX_SHORT_PRECISION = 3;
-    public static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
+    public static final int DEFAULT_PRECISION = 6;
 
     private static final TimestampWithTimeZoneType[] TYPES = new TimestampWithTimeZoneType[MAX_PRECISION + 1];
 
