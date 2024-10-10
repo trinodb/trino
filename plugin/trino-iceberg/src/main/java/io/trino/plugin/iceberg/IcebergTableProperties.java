@@ -46,6 +46,7 @@ public class IcebergTableProperties
     public static final String ORC_BLOOM_FILTER_COLUMNS_PROPERTY = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP_PROPERTY = "orc_bloom_filter_fpp";
     public static final String PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY = "parquet_bloom_filter_columns";
+    public static final String TARGET_BRANCH_PROPERTY = "target_branch";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -120,6 +121,11 @@ public class IcebergTableProperties
                                 .map(name -> name.toLowerCase(ENGLISH))
                                 .collect(toImmutableList()),
                         value -> value))
+                .add(stringProperty(
+                        TARGET_BRANCH_PROPERTY,
+                        "Target branch name",
+                        null,
+                        true))
                 .build();
     }
 
@@ -187,5 +193,10 @@ public class IcebergTableProperties
     {
         List<String> parquetBloomFilterColumns = (List<String>) tableProperties.get(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
         return parquetBloomFilterColumns == null ? ImmutableList.of() : ImmutableList.copyOf(parquetBloomFilterColumns);
+    }
+
+    public static Optional<String> getTargetBranch(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((String) tableProperties.get(TARGET_BRANCH_PROPERTY));
     }
 }
