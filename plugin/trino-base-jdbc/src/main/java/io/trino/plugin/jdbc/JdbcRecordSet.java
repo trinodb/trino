@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import dev.failsafe.RetryPolicy;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
@@ -22,6 +23,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static io.trino.plugin.jdbc.RetryingModule.retry;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordSet
@@ -34,8 +36,16 @@ public class JdbcRecordSet
     private final List<Type> columnTypes;
     private final JdbcSplit split;
     private final ConnectorSession session;
+    private final RetryPolicy<Object> policy;
 
-    public JdbcRecordSet(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, BaseJdbcConnectorTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordSet(
+            JdbcClient jdbcClient,
+            ExecutorService executor,
+            ConnectorSession session,
+            RetryPolicy<Object> policy,
+            JdbcSplit split,
+            BaseJdbcConnectorTableHandle table,
+            List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.executor = requireNonNull(executor, "executor is null");
@@ -49,6 +59,7 @@ public class JdbcRecordSet
         }
         this.columnTypes = types.build();
         this.session = requireNonNull(session, "session is null");
+        this.policy = requireNonNull(policy, "policy is null");
     }
 
     @Override
@@ -60,6 +71,6 @@ public class JdbcRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new JdbcRecordCursor(jdbcClient, executor, session, split, table, columnHandles);
+        return retry(policy, () -> new JdbcRecordCursor(jdbcClient, executor, session, split, table, columnHandles));
     }
 }
