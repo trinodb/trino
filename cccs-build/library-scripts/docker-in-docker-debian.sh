@@ -16,8 +16,8 @@ DOCKER_VERSION=${4:-"latest"} # The Docker/Moby Engine + CLI should match in ver
 DOCKER_DASH_COMPOSE_VERSION=${5:-"v1"} # v1 or v2
 AZURE_DNS_AUTO_DETECTION=${6:-"true"}
 MICROSOFT_GPG_KEYS_URI="https://packages.microsoft.com/keys/microsoft.asc"
-DOCKER_MOBY_ARCHIVE_VERSION_CODENAMES="buster bullseye bionic focal jammy"
-DOCKER_LICENSED_ARCHIVE_VERSION_CODENAMES="buster bullseye bionic focal hirsute impish jammy"
+DOCKER_MOBY_ARCHIVE_VERSION_CODENAMES="buster bullseye bionic focal jammy noble"
+DOCKER_LICENSED_ARCHIVE_VERSION_CODENAMES="buster bullseye bionic focal hirsute impish jammy noble"
 
 # Default: Exit on any failure.
 set -e
