@@ -17,6 +17,7 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
+import com.google.cloud.bigquery.ExternalTableDefinition;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.QueryParameterValue;
@@ -115,6 +116,7 @@ import static com.google.cloud.bigquery.StandardSQLTypeName.INT64;
 import static com.google.cloud.bigquery.storage.v1.WriteStream.Type.COMMITTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -347,12 +349,17 @@ public class BigQueryMetadata
             columns.add(PARTITION_DATE.getColumnHandle());
             columns.add(PARTITION_TIME.getColumnHandle());
         }
+        boolean connectionIdExists = false;
+        if (tableInfo.get().getDefinition() instanceof ExternalTableDefinition externalTableDefinition) {
+            connectionIdExists = !isNullOrEmpty(externalTableDefinition.getConnectionId());
+        }
         return new BigQueryTableHandle(new BigQueryNamedRelationHandle(
                 schemaTableName,
                 new RemoteTableName(tableInfo.get().getTableId()),
                 tableInfo.get().getDefinition().getType().toString(),
                 partitionType,
-                Optional.ofNullable(tableInfo.get().getDescription())),
+                Optional.ofNullable(tableInfo.get().getDescription()),
+                connectionIdExists),
                 TupleDomain.all(),
                 Optional.empty())
                 .withProjectedColumns(columns.build());
