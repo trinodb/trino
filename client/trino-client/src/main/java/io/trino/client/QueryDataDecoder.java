@@ -14,7 +14,6 @@
 package io.trino.client;
 
 import io.trino.client.spooling.DataAttributes;
-import io.trino.client.spooling.encoding.QueryDataAccess;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,13 +23,13 @@ public interface QueryDataDecoder
 {
     interface Factory
     {
-        QueryDataDecoder create(List<Column> columns, DataAttributes queryAttributes);
+        QueryDataDecoder create(List<Column> columns, DataAttributes attributes);
 
         String encoding();
     }
 
     /**
-     * Decodes the input stream into a QueryDataAccess object.
+     * Decodes the input stream into a lazy ResultRows.
      * <p>
      * Decoder is responsible for closing input stream when
      * all values are decoded or exception was thrown.
@@ -40,7 +39,7 @@ public interface QueryDataDecoder
      *
      * @throws IOException if an I/O error occurs
      */
-    QueryDataAccess decode(InputStream input, DataAttributes segmentAttributes)
+    ResultRows decode(InputStream input, DataAttributes segmentAttributes)
             throws IOException;
 
     String encoding();

@@ -15,8 +15,8 @@ package io.trino.plugin.opensearch;
 
 import io.trino.Session;
 import io.trino.client.Column;
-import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
+import io.trino.client.ResultRows;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -78,20 +78,20 @@ public class OpenSearchLoader
         private OpenSearchLoadingSession() {}
 
         @Override
-        public void addResults(QueryStatusInfo statusInfo, QueryData data)
+        public void addResults(QueryStatusInfo statusInfo, ResultRows data)
         {
             if (types.get() == null && statusInfo.getColumns() != null) {
                 types.set(getTypes(statusInfo.getColumns()));
             }
 
-            if (data.getData() == null) {
+            if (data.isNull()) {
                 return;
             }
             checkState(types.get() != null, "Type information is missing");
             List<Column> columns = statusInfo.getColumns();
 
             BulkRequest request = new BulkRequest();
-            for (List<Object> fields : data.getData()) {
+            for (List<Object> fields : data) {
                 try {
                     XContentBuilder dataBuilder = jsonBuilder().startObject();
                     for (int i = 0; i < fields.size(); i++) {

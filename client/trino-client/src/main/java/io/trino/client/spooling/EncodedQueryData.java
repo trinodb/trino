@@ -19,20 +19,11 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.client.QueryData;
-import io.trino.client.QueryDataDecoder;
-import io.trino.client.RawQueryData;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.Iterables.concat;
-import static com.google.common.collect.Iterables.transform;
-import static com.google.common.collect.Iterables.unmodifiableIterable;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class EncodedQueryData
@@ -84,45 +75,6 @@ public class EncodedQueryData
     }
 
     @Override
-    public Iterable<List<Object>> getData()
-    {
-        throw new UnsupportedOperationException("EncodedQueryData required decoding via matching QueryDataDecoder");
-    }
-
-    public QueryData toRawData(QueryDataDecoder decoder, SegmentLoader segmentLoader)
-    {
-        if (!decoder.encoding().equals(encoding)) {
-            throw new IllegalArgumentException(format("Invalid decoder supplied, expected %s, got %s", encoding, decoder.encoding()));
-        }
-
-        return RawQueryData.of(unmodifiableIterable(concat(transform(segments, segment -> {
-            if (segment instanceof InlineSegment) {
-                InlineSegment inline = (InlineSegment) segment;
-                try {
-                    return decoder.decode(new ByteArrayInputStream(inline.getData()), inline.getMetadata()).toIterable();
-                }
-                catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            }
-
-            if (segment instanceof SpooledSegment) {
-                SpooledSegment spooled = (SpooledSegment) segment;
-                try {
-                    // Since we are returning lazy iterable, decoder is responsible for closing the stream
-                    return decoder.decode(segmentLoader.load(spooled), segment.getMetadata())
-                            .toIterable();
-                }
-                catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            }
-
-            throw new IllegalArgumentException("Unexpected segment type: " + segment.getClass().getSimpleName());
-        }))));
-    }
-
-    @Override
     public String toString()
     {
         return toStringHelper(this)
@@ -135,6 +87,12 @@ public class EncodedQueryData
     public static Builder builder(String format)
     {
         return new Builder(format);
+    }
+
+    @Override
+    public boolean isNull()
+    {
+        return segments.isEmpty();
     }
 
     public static class Builder

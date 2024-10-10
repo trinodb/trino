@@ -15,17 +15,14 @@ package io.trino.client;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
-import io.trino.client.spooling.DataAttributes;
-import io.trino.client.spooling.EncodedQueryData;
 import io.trino.client.spooling.SegmentLoader;
-import io.trino.client.spooling.encoding.QueryDataDecoders;
+import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
 import okhttp3.Headers;
@@ -53,13 +50,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getCausalChain;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -108,11 +103,10 @@ class StatementClientV1
     private final String clientCapabilities;
     private final boolean compressionDisabled;
 
-    private final AtomicReference<State> decoderState = new AtomicReference<>(State.RUNNING);
+    private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
-    // Encoded data
-    private final SegmentLoader segmentLoader;
-    private final AtomicReference<DecoderState> decoder = new AtomicReference<>();
+    // Data accessor for raw and encoded data
+    private final ResultRowsDecoder resultRowsDecoder;
 
     public StatementClientV1(Call.Factory httpCallFactory, Call.Factory segmentHttpCallFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
     {
@@ -136,7 +130,8 @@ class StatementClientV1
                 .map(Enum::name)
                 .collect(toImmutableSet())));
         this.compressionDisabled = session.isCompressionDisabled();
-        this.segmentLoader = new SegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null"));
+
+        this.resultRowsDecoder = new ResultRowsDecoder(new SegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null")));
 
         Request request = buildQueryRequest(session, query, session.getEncoding());
         // Pass empty as materializedJsonSizeLimit to always materialize the first response
@@ -226,25 +221,25 @@ class StatementClientV1
     @Override
     public boolean isRunning()
     {
-        return decoderState.get() == State.RUNNING;
+        return state.get() == State.RUNNING;
     }
 
     @Override
     public boolean isClientAborted()
     {
-        return decoderState.get() == State.CLIENT_ABORTED;
+        return state.get() == State.CLIENT_ABORTED;
     }
 
     @Override
     public boolean isClientError()
     {
-        return decoderState.get() == State.CLIENT_ERROR;
+        return state.get() == State.CLIENT_ERROR;
     }
 
     @Override
     public boolean isFinished()
     {
-        return decoderState.get() == State.FINISHED;
+        return state.get() == State.FINISHED;
     }
 
     @Override
@@ -260,23 +255,23 @@ class StatementClientV1
     }
 
     @Override
-    public QueryData currentData()
+    @Nonnull
+    public ResultRows currentRows()
+    {
+        return resultRowsDecoder.toRows(currentData());
+    }
+
+    @Override
+    public QueryData currentData() // Raw over the wire representation
     {
         checkState(isRunning(), "current position is not valid (cursor past end)");
         QueryResults queryResults = currentResults.get();
 
         if (queryResults == null || queryResults.getData() == null) {
-            return RawQueryData.of(null);
+            return null;
         }
 
-        if (decoder.get() == null) {
-            // We need to reinterpret JSON values to have correct types
-            return ((RawQueryData) queryResults.getData())
-                    .fixTypes(queryResults.getColumns());
-        }
-
-        EncodedQueryData queryData = (EncodedQueryData) queryResults.getData();
-        return queryData.toRawData(decoder.get().getDecoder(), segmentLoader);
+        return queryResults.getData();
     }
 
     @Override
@@ -289,8 +284,7 @@ class StatementClientV1
     @Override
     public Optional<String> getEncoding()
     {
-        return Optional.ofNullable(decoder.get())
-                .map(DecoderState::getEncoding);
+        return resultRowsDecoder.getEncoding();
     }
 
     @Override
@@ -388,7 +382,7 @@ class StatementClientV1
 
         URI nextUri = currentStatusInfo().getNextUri();
         if (nextUri == null) {
-            decoderState.compareAndSet(State.RUNNING, State.FINISHED);
+            state.compareAndSet(State.RUNNING, State.FINISHED);
             return false;
         }
 
@@ -410,7 +404,7 @@ class StatementClientV1
             if (attempts > 0) {
                 Duration sinceStart = Duration.nanosSince(start);
                 if (sinceStart.compareTo(requestTimeoutNanos) > 0) {
-                    decoderState.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+                    state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                     throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart), cause);
                 }
                 // back-off on retry
@@ -424,7 +418,7 @@ class StatementClientV1
                     finally {
                         Thread.currentThread().interrupt();
                     }
-                    decoderState.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+                    state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                     throw new RuntimeException("StatementClient thread was interrupted");
                 }
             }
@@ -447,7 +441,7 @@ class StatementClientV1
             }
             if (response.getStatusCode() != HTTP_OK || !response.hasValue()) {
                 if (!shouldRetry(response.getStatusCode())) {
-                    decoderState.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+                    state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                     throw requestFailedException(taskName, request, response);
                 }
                 continue;
@@ -473,24 +467,12 @@ class StatementClientV1
         setPath.set(safeSplitToList(headers.get(TRINO_HEADERS.responseSetPath())));
 
         String responseEncoding = headers.get(TRINO_HEADERS.responseQueryDataEncoding());
-        if (responseEncoding != null && decoder.get() == null) {
-            verify(decoder.compareAndSet(null, new DecoderState(QueryDataDecoders.get(responseEncoding))), "decoder state is already set");
+        if (responseEncoding != null) {
+            resultRowsDecoder.withEncoding(responseEncoding);
         }
 
-        if (responseEncoding != null && results.getData() != null) {
-            DecoderState state = decoder.get();
-            verify(state != null, "expected decoder state to be set");
-
-            if (!state.initialized()) {
-                // Make sure that decoder and dataAttributes are set before currentResults
-                verify(results.getData() instanceof EncodedQueryData, "expected encoded query data but got %s", results.getData().getClass().getSimpleName());
-                EncodedQueryData encodedData = (EncodedQueryData) results.getData();
-                state.setQueryAttributes(encodedData.getMetadata());
-                verify(encodedData.getEncoding().equals(decoder.get().getEncoding()), "expected encoding %s but got %s", decoder.get().getEncoding(), encodedData.getEncoding());
-
-                verify(results.getColumns() != null, "expected non empty columns but got %s", results.getColumns());
-                state.setDataColumns(results.getColumns());
-            }
+        if (results.getColumns() != null) {
+            resultRowsDecoder.withColumns(results.getColumns());
         }
 
         String setAuthorizationUser = headers.get(TRINO_HEADERS.responseSetAuthorizationUser());
@@ -581,7 +563,7 @@ class StatementClientV1
     public void close()
     {
         // If the query is not done, abort the query.
-        if (decoderState.compareAndSet(State.RUNNING, State.CLIENT_ABORTED)) {
+        if (state.compareAndSet(State.RUNNING, State.CLIENT_ABORTED)) {
             URI uri = currentResults.get().getNextUri();
             if (uri != null) {
                 httpDelete(uri);
@@ -636,50 +618,5 @@ class StatementClientV1
          * finished on remote Trino server (including failed and successfully completed)
          */
         FINISHED,
-    }
-
-    private static class DecoderState
-    {
-        private final QueryDataDecoder.Factory factory;
-        private List<Column> columns;
-        private DataAttributes attributes;
-
-        private Supplier<QueryDataDecoder> decoder = Suppliers.memoize(this::createDecoder);
-
-        DecoderState(QueryDataDecoder.Factory factory)
-        {
-            this.factory = requireNonNull(factory, "factory is null");
-        }
-
-        public String getEncoding()
-        {
-            return factory.encoding();
-        }
-
-        public boolean initialized()
-        {
-            return columns != null && !columns.isEmpty() && attributes != null;
-        }
-
-        public void setDataColumns(List<Column> columns)
-        {
-            this.columns = requireNonNull(columns, "columns is null");
-        }
-
-        public void setQueryAttributes(DataAttributes attributes)
-        {
-            this.attributes = requireNonNull(attributes, "attributes is null");
-        }
-
-        private QueryDataDecoder createDecoder()
-        {
-            verify(columns != null && attributes != null, "columns or attributes are not set");
-            return factory.create(columns, attributes);
-        }
-
-        public QueryDataDecoder getDecoder()
-        {
-            return decoder.get();
-        }
     }
 }
