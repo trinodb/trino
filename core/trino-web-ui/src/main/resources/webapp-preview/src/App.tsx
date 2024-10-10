@@ -23,6 +23,9 @@ import {
     Typography,
     useMediaQuery,
 } from '@mui/material'
+import { Auth } from './components/Auth'
+import { useAuth } from './components/AuthContext'
+import { AuthProvider } from './components/AuthProvider'
 import { RootLayout as Layout } from './components/Layout'
 import { SnackbarProvider } from './components/SnackbarProvider'
 import { routers } from './router.tsx'
@@ -46,12 +49,14 @@ const App = () => {
 
     return (
         <>
-            <CssBaseline />
             <ThemeProvider theme={themeToUse()}>
+                <CssBaseline />
                 <SnackbarProvider>
-                    <Router>
-                        <Screen />
-                    </Router>
+                    <AuthProvider>
+                        <Router>
+                            <Screen />
+                        </Router>
+                    </AuthProvider>
                 </SnackbarProvider>
             </ThemeProvider>
         </>
@@ -59,6 +64,10 @@ const App = () => {
 }
 
 const Screen = () => {
+    const { authInfo } = useAuth()
+
+    if (!authInfo?.authenticated) return <Auth />
+
     return (
         <Layout>
             <Routes>

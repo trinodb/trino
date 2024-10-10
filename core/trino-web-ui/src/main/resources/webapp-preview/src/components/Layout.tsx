@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React, { useEffect, useState } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import { useLocation, Link } from "react-router-dom";
 import {
   Avatar,
@@ -41,10 +41,9 @@ import {
   LightModeOutlined,
   SettingsBrightnessOutlined
 } from "@mui/icons-material";
-import CssBaseline from '@mui/material/CssBaseline';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { useSnackbar } from '../components/SnackbarContext';
+import LogoutIcon from '@mui/icons-material/Logout';
 import { Texts } from "../constant";
 import trinoLogo from '../assets/trino.svg'
 import {
@@ -53,11 +52,16 @@ import {
   routersMapper
 } from "../router.tsx";
 import { Theme as ThemeStore, useConfigStore } from "../store";
+import { useAuth } from "./AuthContext";
+import { useSnackbar } from "./SnackbarContext";
 
 interface settingsMenuItem {
   key: string;
   caption: string;
-  onClick: () => void;
+  icon?: ReactNode
+  divider?: boolean;
+  onClick?: () => void;
+  disabled?: boolean;
 }
 
 const openedDrawer = (theme: Theme, width: number): CSSObject => ({
@@ -110,12 +114,15 @@ export const RootLayout = (props: {
   children: React.ReactNode
 }) => {
   const config = useConfigStore();
-  const location = useLocation();
+  const { authInfo, logout, error } = useAuth();
   const { showSnackbar } = useSnackbar();
+  const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState<boolean>(true);
   const [selectedDrawerItemKey, setSelectedDrawerItemKey] = useState(location.pathname.substring(location.pathname.lastIndexOf('/') + 1));
   const [anchorElTheme, setAnchorElTheme] = useState<Element | null>(null);
   const [anchorElUser, setAnchorElUser] = useState<Element | null>(null);
+  const username = authInfo?.username || '';
+  const userInitials = username?.charAt(0).toUpperCase();
 
   useEffect(() => {
     const router = routersMapper[location.pathname];
@@ -124,8 +131,14 @@ export const RootLayout = (props: {
     }
   }, [location, selectedDrawerItemKey]);
 
-  const logout = () => {
-    showSnackbar(Texts.Error.NotImplemented, 'error');
+  useEffect(() => {
+    if (error) {
+      showSnackbar(error, 'error');
+    }
+  }, [error, showSnackbar])
+
+  const onLogout = () => {
+    logout({ redirect: authInfo?.authType != 'form', });
   }
 
   const openUserMenu = (event: React.MouseEvent) => {
@@ -154,20 +167,21 @@ export const RootLayout = (props: {
 
   const settingsMenuItems: settingsMenuItem[] = [
     {
-      key: "profile",
-      caption: Texts.Menu.Header.Profile,
-      onClick: () => { closeUserMenu(); },
+      key: 'username',
+      caption: username,
+      divider: true,
     },
     {
       key: "logout",
       caption: Texts.Menu.Header.Logout,
-      onClick: () => { closeUserMenu(); logout() },
+      onClick: () => { closeUserMenu(); onLogout() },
+      icon: <LogoutIcon />,
+      disabled: authInfo?.authType === 'fixed',
     },
   ];
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <CssBaseline />
       <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
           <Box
@@ -244,7 +258,7 @@ export const RootLayout = (props: {
           <Box sx={{ flexGrow: 0 }}>
             <Tooltip title={Texts.Menu.Header.Settings}>
               <IconButton onClick={openUserMenu} sx={{ p: 0 }}>
-                <Avatar src={config.avatar} />
+                <Avatar src={config.avatar}>{userInitials}</Avatar>
               </IconButton>
             </Tooltip>
             <Menu
@@ -264,8 +278,19 @@ export const RootLayout = (props: {
               onClose={closeUserMenu}
             >
               {settingsMenuItems.map((settingsMenuItem) => (
-                <MenuItem key={settingsMenuItem.key} onClick={settingsMenuItem.onClick}>
-                  <Typography textAlign="center">{settingsMenuItem.caption}</Typography>
+                <MenuItem
+                    sx={{ justifyContent: 'flex-start' }}
+                    key={settingsMenuItem.key}
+                    divider={settingsMenuItem.divider}
+                    onClick={settingsMenuItem.onClick}
+                    disabled={settingsMenuItem.disabled}
+                >
+                  {settingsMenuItem.icon ?
+                    <ListItemIcon>
+                      {settingsMenuItem.icon}
+                    </ListItemIcon> : <div />}
+                  <Typography>{settingsMenuItem.caption}</Typography>
+
                 </MenuItem>
               ))}
             </Menu>
