@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+message schema {
+  google.protobuf.Timestamp precision_0 = 1;
+  google.protobuf.Timestamp precision_1 = 2;
+  google.protobuf.Timestamp precision_2 = 3;
+  google.protobuf.Timestamp precision_3 = 4;
+  google.protobuf.Timestamp precision_4 = 5;
+  google.protobuf.Timestamp precision_5 = 6;
+  google.protobuf.Timestamp precision_6 = 7;
+}

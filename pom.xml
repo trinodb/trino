@@ -101,7 +101,8 @@
         <module>plugin/trino-phoenix5</module>
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
-        <module>plugin/trino-prometheus</module>
+        <module>plugin/trino-prometheus</module>       
+        <module>plugin/trino-pulsar</module>
         <module>plugin/trino-redis</module>
         <module>plugin/trino-redshift</module>
         <module>plugin/trino-resource-group-managers</module>
@@ -115,7 +116,7 @@
         <module>plugin/trino-thrift-api</module>
         <module>plugin/trino-thrift-testing-server</module>
         <module>plugin/trino-tpcds</module>
-        <module>plugin/trino-tpch</module>
+        <module>plugin/trino-tpch</module> 
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark-queries</module>
@@ -131,6 +132,7 @@
         <module>testing/trino-testing</module>
         <module>testing/trino-testing-containers</module>
         <module>testing/trino-testing-kafka</module>
+        <!--<module>testing/trino-testing-pulsar</module>-->
         <module>testing/trino-testing-resources</module>
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
@@ -209,7 +211,8 @@
         <dep.okio.version>3.9.1</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.14.3</dep.parquet.version>
-        <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
+        <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>        
+        <dep.pulsar.version>4.0.0-preview.1</dep.pulsar.version>
         <dep.protobuf.version>3.25.5</dep.protobuf.version>
         <dep.snowflake.version>3.19.0</dep.snowflake.version>
         <dep.swagger.version>2.2.25</dep.swagger.version>
@@ -301,7 +304,13 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-
+            <dependency>
+                <groupId>org.apache.pulsar</groupId>
+                <artifactId>pulsar-bom</artifactId>
+                <version>${dep.pulsar.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-bom</artifactId>
@@ -843,7 +852,7 @@
                 <artifactId>kafka-schema-serializer</artifactId>
                 <version>${dep.confluent.version}</version>
             </dependency>
-
+        
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>
@@ -2386,7 +2395,8 @@
                 <!-- This is under Confluent Community License and it should not be used with compile scope -->
                 <scope>test</scope>
             </dependency>
-        </dependencies>
+            
+      </dependencies>
     </dependencyManagement>
 
     <build>
