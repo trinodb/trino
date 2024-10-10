@@ -54,6 +54,7 @@ public final class EnvMultinodeAllConnectors
                         "druid",
                         "delta_lake",
                         "elasticsearch",
+                        "faker",
                         "gsheets",
                         "hive",
                         "hudi",
