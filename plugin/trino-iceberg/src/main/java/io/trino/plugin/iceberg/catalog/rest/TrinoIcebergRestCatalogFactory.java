@@ -54,6 +54,7 @@ public class TrinoIcebergRestCatalogFactory
     private final SecurityProperties securityProperties;
     private final boolean uniqueTableLocation;
     private final TypeManager typeManager;
+    private final Optional<String> namespaceSeparator;
 
     @GuardedBy("this")
     private RESTSessionCatalog icebergCatalog;
@@ -81,6 +82,7 @@ public class TrinoIcebergRestCatalogFactory
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.uniqueTableLocation = icebergConfig.isUniqueTableLocation();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.namespaceSeparator = restConfig.getNamespaceSeparator();
     }
 
     @Override
@@ -124,6 +126,7 @@ public class TrinoIcebergRestCatalogFactory
                 credentials,
                 trinoVersion,
                 typeManager,
-                uniqueTableLocation);
+                uniqueTableLocation,
+                namespaceSeparator);
     }
 }

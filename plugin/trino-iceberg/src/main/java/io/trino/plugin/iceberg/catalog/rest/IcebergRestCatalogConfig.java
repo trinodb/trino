@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 import java.net.URI;
 import java.util.Optional;
@@ -40,6 +41,7 @@ public class IcebergRestCatalogConfig
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
     private boolean vendedCredentialsEnabled;
+    private Optional<String> namespaceSeparator = Optional.empty();
 
     @NotNull
     public URI getBaseUri()
@@ -121,6 +123,19 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setVendedCredentialsEnabled(boolean vendedCredentialsEnabled)
     {
         this.vendedCredentialsEnabled = vendedCredentialsEnabled;
+        return this;
+    }
+
+    public Optional<@Pattern(regexp = "^\\.$", message = "The value must be a single period '.'") String> getNamespaceSeparator()
+    {
+        return this.namespaceSeparator;
+    }
+
+    @Config("iceberg.rest-catalog.namespace-separator")
+    @ConfigDescription("Namespace separator character")
+    public IcebergRestCatalogConfig setNamespaceSeparator(String separator)
+    {
+        this.namespaceSeparator = Optional.ofNullable(separator);
         return this;
     }
 }

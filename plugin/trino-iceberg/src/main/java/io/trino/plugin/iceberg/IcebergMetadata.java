@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Splitter.MapSplitter;
 import com.google.common.base.Suppliers;
@@ -240,6 +241,7 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_ROW_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_ROW_ID_NAME;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -914,6 +916,14 @@ public class IcebergMetadata
     public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
         if (cascade) {
+            List<String> nestedNamespaces = getNestedNamespaces(session, schemaName);
+
+            if (!nestedNamespaces.isEmpty()) {
+                throw new TrinoException(
+                        ICEBERG_CATALOG_ERROR,
+                        format("Cannot drop non-empty schema: %s, contains %s nested schema(s)", schemaName, Joiner.on(", ").join(nestedNamespaces)));
+            }
+
             for (SchemaTableName materializedView : listMaterializedViews(session, Optional.of(schemaName))) {
                 dropMaterializedView(session, materializedView);
             }
@@ -1165,6 +1175,21 @@ public class IcebergMetadata
         beginTransaction(icebergTable);
 
         return newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
+    }
+
+    private List<String> getNestedNamespaces(ConnectorSession session, String parentNamespace)
+    {
+        Optional<String> namespaceSeparator = catalog.getNamespaceSeparator();
+
+        if (namespaceSeparator.isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        return catalog.listNamespaces(session)
+                .stream()
+                .filter(namespace -> !namespace.equals(parentNamespace))
+                .filter(namespace -> namespace.startsWith(parentNamespace + namespaceSeparator.get()))
+                .collect(toImmutableList());
     }
 
     private IcebergWritableTableHandle newWritableTableHandle(SchemaTableName name, Table table, RetryMode retryMode)

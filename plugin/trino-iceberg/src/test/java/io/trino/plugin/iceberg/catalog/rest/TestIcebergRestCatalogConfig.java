@@ -33,7 +33,8 @@ public class TestIcebergRestCatalogConfig
                 .setWarehouse(null)
                 .setSessionType(IcebergRestCatalogConfig.SessionType.NONE)
                 .setSecurity(IcebergRestCatalogConfig.Security.NONE)
-                .setVendedCredentialsEnabled(false));
+                .setVendedCredentialsEnabled(false)
+                .setNamespaceSeparator(null));
     }
 
     @Test
@@ -46,6 +47,7 @@ public class TestIcebergRestCatalogConfig
                 .put("iceberg.rest-catalog.security", "OAUTH2")
                 .put("iceberg.rest-catalog.session", "USER")
                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
+                .put("iceberg.rest-catalog.namespace-separator", ".")
                 .buildOrThrow();
 
         IcebergRestCatalogConfig expected = new IcebergRestCatalogConfig()
@@ -54,7 +56,8 @@ public class TestIcebergRestCatalogConfig
                 .setWarehouse("test_warehouse_identifier")
                 .setSessionType(IcebergRestCatalogConfig.SessionType.USER)
                 .setSecurity(IcebergRestCatalogConfig.Security.OAUTH2)
-                .setVendedCredentialsEnabled(true);
+                .setVendedCredentialsEnabled(true)
+                .setNamespaceSeparator(".");
 
         assertFullMapping(properties, expected);
     }

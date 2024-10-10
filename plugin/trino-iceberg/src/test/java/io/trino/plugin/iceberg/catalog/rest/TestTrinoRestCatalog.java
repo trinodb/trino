@@ -79,7 +79,15 @@ public class TestTrinoRestCatalog
 
         restSessionCatalog.initialize(catalogName, properties);
 
-        return new TrinoRestCatalog(restSessionCatalog, new CatalogName(catalogName), NONE, ImmutableMap.of(), "test", new TestingTypeManager(), useUniqueTableLocations);
+        return new TrinoRestCatalog(
+                restSessionCatalog,
+                new CatalogName(catalogName),
+                NONE,
+                ImmutableMap.of(),
+                "test",
+                new TestingTypeManager(),
+                useUniqueTableLocations,
+                Optional.empty());
     }
 
     @Test
@@ -201,5 +209,32 @@ public class TestTrinoRestCatalog
                 .isInstanceOf(BadRequestException.class)
                 .as("should fail as the prefix dev is not implemented for the current endpoint")
                 .hasMessageContaining("Malformed request: No route for request: POST v1/dev/namespaces");
+    }
+
+    @Test
+    public void testMultipartNamespace()
+    {
+        String dotSeparator = ".";
+        TrinoCatalog catalog = createTrinoCatalog(false);
+
+        String firstLevel = "level-1" + randomNameSuffix();
+        String secondLevel = "level-2" + randomNameSuffix();
+        String thirdLevel = "level-3" + randomNameSuffix();
+
+        ImmutableList<String> namespacesList = ImmutableList.of(
+                firstLevel,
+                firstLevel + dotSeparator + secondLevel,
+                firstLevel + dotSeparator + secondLevel + dotSeparator + thirdLevel);
+
+        namespacesList.forEach(namespace -> catalog.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser())));
+
+        try {
+            assertThat(catalog.listNamespaces(SESSION)).as("catalog.listNamespaces")
+                    .hasSize(namespacesList.size())
+                    .containsAll(namespacesList);
+        }
+        finally {
+            namespacesList.reverse().forEach(namespace -> catalog.dropNamespace(SESSION, namespace));
+        }
     }
 }
