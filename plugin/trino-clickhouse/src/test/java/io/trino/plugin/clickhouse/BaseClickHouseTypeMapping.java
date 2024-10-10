@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.UuidType;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -40,6 +41,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.TPCH_SCHEMA;
+import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.MAP_STRING_AS_VARCHAR;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -59,6 +61,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -1174,5 +1177,145 @@ public abstract class BaseClickHouseTypeMapping
     private static Function<ZoneId, String> clickhouseDateTimeInputTypeFactory(String inputTypePrefix)
     {
         return zone -> format("%s('%s')", inputTypePrefix, zone);
+    }
+
+    // @RepeatedTest(1000)
+    // @Execution(SAME_THREAD)
+    @Test
+    public void testRepeated()
+    {
+        Session mapStringAsVarchar = Session.builder(getSession())
+                .setCatalogSessionProperty("clickhouse", MAP_STRING_AS_VARCHAR, Boolean.toString(true))
+                .build();
+        Session smallDomainCompactionThreshold = Session.builder(getSession())
+                .setCatalogSessionProperty("clickhouse", "domain_compaction_threshold", "1")
+                .build();
+
+        Session convertToVarchar = Session.builder(getSession())
+                .setCatalogSessionProperty("clickhouse", UNSUPPORTED_TYPE_HANDLING, CONVERT_TO_VARCHAR.name())
+                .build();
+        String withConnectorExpression = " OR some_column = 'x'";
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_datetime_predicate_pushdown",
+                """
+                        (
+                        some_column String,
+                        c_datetime_1 DateTime,
+                        c_datetime_2 DateTime,
+                        c_datetime64_1 DateTime64,
+                        c_datetime64_2 DateTime64
+                        )
+                        ENGINE=Log""",
+                List.of(
+                        "'1', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.000', '2024-01-01 00:00:00.000'",
+                        "'2', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.123'",
+                        "'3', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.1234', '2024-01-01 00:00:00.1234'",
+                        "'4', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.1234'",
+                        "'5', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.1239'",
+                        "'6', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.1238', '2024-01-01 00:00:00.1239'",
+                        "'7', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456787'",
+                        "'8', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456789'",
+                        "'9', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789'"
+                ))) {
+//            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE some_column = 'b'")).isFullyPushedDown();
+//            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE some_column = 'b'" + withConnectorExpression)).isFullyPushedDown();
+//
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime_1 = TIMESTAMP '2024-01-01 00:00:00'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime_1 = TIMESTAMP '2024-01-01 00:00:00'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 00:00:00.0'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 00:00:00.0'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 00:00:00.00'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 00:00:00.00'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 00:00:00.000'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 00:00:00.000'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 00:00:00.0000'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 00:00:00.0000'" + withConnectorExpression)).isFullyPushedDown();
+
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime_1 =   TIMESTAMP '2024-01-01 12:34:56'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime_1 =   TIMESTAMP '2024-01-01 12:34:56'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.1'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.1'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.12'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.12'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.123'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.123'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.1234'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.1234'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.12345'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.12345'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.123456'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.123456'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.1234567'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.1234567'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.12345678'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.12345678'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.123456789'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = TIMESTAMP '2024-01-01 12:34:56.123456789'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = c_datetime64_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 = c_datetime64_2" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 < c_datetime64_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 < c_datetime64_2" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 > c_datetime64_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_1 > c_datetime64_2" + withConnectorExpression)).isFullyPushedDown();
+
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string_alias = 'b'")).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string_alias = 'b'" + withConnectorExpression)).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_fixed_string = 'b'")).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_fixed_string = 'b'" + withConnectorExpression)).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_nullable_string = 'b'")).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_nullable_string = 'b'" + withConnectorExpression)).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_nullable_string_alias = 'b'")).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_nullable_string_alias = 'b'" + withConnectorExpression)).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_nullable_fixed_string = 'b'")).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_nullable_fixed_string = 'b'" + withConnectorExpression)).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_lowcardinality_nullable_string = 'b'")).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_lowcardinality_nullable_string = 'b'" + withConnectorExpression)).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_lowcardinality_nullable_fixed_string = 'b'")).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_lowcardinality_nullable_fixed_string = 'b'" + withConnectorExpression)).isFullyPushedDown();
+//
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string = a_string_alias")).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string = a_string_alias" + withConnectorExpression)).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string = a_enum_1")).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string = a_enum_1" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query(convertToVarchar, "SELECT some_column FROM " + table.getName() + " WHERE a_string = unsupported_1")).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query(convertToVarchar, "SELECT some_column FROM " + table.getName() + " WHERE a_string = unsupported_1" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+//
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = 'hello'")).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = 'hello'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = 'not_a_value'")).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = 'not_a_value'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+//            // pushdown of a condition, both sides of the same native type, which is mapped to varchar,
+//            // not allowed because some operations (e.g. inequalities) may not be allowed in the native system on an unknown native types
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = a_enum_2")).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = a_enum_2" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+//
+//            // pushdown of a condition, both sides of the same native type, which is mapped to varchar,
+//            // not allowed because some operations (e.g. inequalities) may not be allowed in the native system on an unknown native types
+//            assertThat(query(convertToVarchar, "SELECT some_column FROM " + table.getName() + " WHERE unsupported_1 = unsupported_2")).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query(convertToVarchar, "SELECT some_column FROM " + table.getName() + " WHERE unsupported_1 = unsupported_2" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+//
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string IN ('a', 'b')")).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string IN ('a', 'b')" + withConnectorExpression)).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 IN ('a', 'b')")).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 IN ('a', 'b')" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query(convertToVarchar, "SELECT some_column FROM " + table.getName() + " WHERE unsupported_1 IN ('a', 'b')")).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query(convertToVarchar, "SELECT some_column FROM " + table.getName() + " WHERE unsupported_1 IN ('a', 'b')" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string IN (a_string_alias, 'b')")).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string IN (a_string_alias, 'b')" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query(smallDomainCompactionThreshold, "SELECT some_column FROM " + table.getName() + " WHERE a_string IN ('a', 'b')")).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query(smallDomainCompactionThreshold, "SELECT some_column FROM " + table.getName() + " WHERE a_string IN ('a', 'b')" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string NOT IN ('a', 'b')")).isFullyPushedDown();
+//            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string NOT IN ('a', 'b')" + withConnectorExpression)).isFullyPushedDown();
+//            assertThat(query(smallDomainCompactionThreshold, "SELECT some_column FROM " + table.getName() + " WHERE a_string NOT IN ('a', 'b')")).isNotFullyPushedDown(FilterNode.class);
+//            assertThat(query(smallDomainCompactionThreshold, "SELECT some_column FROM " + table.getName() + " WHERE a_string NOT IN ('a', 'b')" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+
+        }
+
+//        testTimestamp();
+//        testClickHouseDateTimeMinMaxValues();
+//        testUnsupportedTimestamp();
+//        testClickHouseDateTimeWithTimeZone();
     }
 }
