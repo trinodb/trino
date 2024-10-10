@@ -19,11 +19,9 @@ import io.trino.testing.sql.SqlExecutor;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseJdbcCastPushdownTest
         extends AbstractTestQueryFramework
@@ -38,7 +36,7 @@ public abstract class BaseJdbcCastPushdownTest
 
     protected abstract List<CastTestCase> unsupportedCastTypePushdown();
 
-    protected abstract List<CastTestCase> failCast();
+    protected abstract List<InvalidCastTestCase> invalidCast();
 
     @Test
     public void testProjectionPushdownWithCast()
@@ -58,37 +56,48 @@ public abstract class BaseJdbcCastPushdownTest
     public void testJoinPushdownWithCast()
     {
         for (CastTestCase testCase : supportedCastTypePushdown()) {
-            assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+            assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                     .isFullyPushedDown();
         }
 
         for (CastTestCase testCase : unsupportedCastTypePushdown()) {
-            assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+            assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                     .joinIsNotFullyPushedDown();
         }
     }
 
     @Test
-    public void testCastFails()
+    public void testInvalidCast()
     {
-        for (CastTestCase testCase : failCast()) {
-            assertThatThrownBy(() -> getQueryRunner().execute("SELECT CAST(%s AS %s) FROM %s".formatted(testCase.sourceColumn(), testCase.castType(), leftTable())))
-                    .hasMessageMatching("(.*)Cannot cast (.*) to (.*)");
+        for (InvalidCastTestCase testCase : invalidCast()) {
+            assertThat(query("SELECT CAST(%s AS %s) FROM %s".formatted(testCase.sourceColumn(), testCase.castType(), leftTable())))
+                    .failure()
+                    .hasMessageMatching(testCase.errorMessage());
         }
     }
 
-    public record CastTestCase(String sourceColumn, String castType, Optional<String> targetColumn)
+    public record CastTestCase(String sourceColumn, String castType, String targetColumn)
     {
-        public CastTestCase(String sourceColumn, String castType)
-        {
-            this(sourceColumn, castType, Optional.empty());
-        }
-
         public CastTestCase
         {
             requireNonNull(sourceColumn, "sourceColumn is null");
             requireNonNull(castType, "castType is null");
             requireNonNull(targetColumn, "targetColumn is null");
+        }
+    }
+
+    public record InvalidCastTestCase(String sourceColumn, String castType, String errorMessage)
+    {
+        public InvalidCastTestCase(String sourceColumn, String castType)
+        {
+            this(sourceColumn, castType, "(.*)Cannot cast (.*) to (.*)");
+        }
+
+        public InvalidCastTestCase
+        {
+            requireNonNull(sourceColumn, "sourceColumn is null");
+            requireNonNull(castType, "castType is null");
+            requireNonNull(errorMessage, "errorMessage is null");
         }
     }
 }
