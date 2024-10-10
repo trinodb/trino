@@ -24,7 +24,6 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.hive.formats.avro.AvroTypeUtils.lowerCaseAllFieldsForWriter;
 
@@ -47,7 +46,6 @@ public class AvroFileWriter
             boolean resolveUsingLowerCaseFieldsInSchema)
             throws IOException, AvroTypeException
     {
-        verify(compressionKind.isSupportedLocally(), "compression kind must be supported locally: %s", compressionKind);
         if (resolveUsingLowerCaseFieldsInSchema) {
             pagePositionDataWriter = new AvroPagePositionDataWriter(lowerCaseAllFieldsForWriter(schema), avroTypeManager, names, types);
         }
@@ -56,7 +54,7 @@ public class AvroFileWriter
         }
         try {
             DataFileWriter<Integer> fileWriter = new DataFileWriter<>(pagePositionDataWriter)
-                    .setCodec(compressionKind.getCodecFactory());
+                    .setCodec(compressionKind.getTrinoCodecFactory());
             fileMetadata.forEach(fileWriter::setMeta);
             pagePositionFileWriter = fileWriter.create(schema, rawOutput);
         }
