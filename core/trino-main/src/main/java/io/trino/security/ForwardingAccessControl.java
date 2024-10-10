@@ -535,4 +535,10 @@ public abstract class ForwardingAccessControl
     {
         return delegate().getColumnMasks(context, tableName, columns);
     }
+
+    @Override
+    public void checkCanSetEntityAuthorization(SecurityContext context, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        delegate().checkCanSetEntityAuthorization(context, ownedKind, name, principal);
+    }
 }
