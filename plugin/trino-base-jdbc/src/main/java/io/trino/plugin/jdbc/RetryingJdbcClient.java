@@ -127,15 +127,13 @@ public class RetryingJdbcClient
     @Override
     public List<ColumnMapping> toColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles)
     {
-        // there should be no remote database interaction
-        return delegate.toColumnMappings(session, typeHandles);
+        return retry(policy, () -> delegate.toColumnMappings(session, typeHandles));
     }
 
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        // there should be no remote database interaction
-        return delegate.toWriteMapping(session, type);
+        return retry(policy, () -> delegate.toWriteMapping(session, type));
     }
 
     @Override
@@ -285,15 +283,14 @@ public class RetryingJdbcClient
     @Override
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
-        // no retrying as it could be not idempotent operation
-        delegate.setTableComment(session, handle, comment);
+        retry(policy, () -> delegate.setTableComment(session, handle, comment));
     }
 
     @Override
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         // no retrying as it could be not idempotent operation
-        delegate.setColumnComment(session, handle, column, comment);
+        retry(policy, () -> delegate.setColumnComment(session, handle, column, comment));
     }
 
     @Override
@@ -327,7 +324,7 @@ public class RetryingJdbcClient
     @Override
     public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
-        // no retrying as it could be not idempotent operation
+        // safe to retry, but retry needs to handle exceptions in case the constraint is already dropped
         delegate.dropNotNullConstraint(session, handle, column);
     }
 

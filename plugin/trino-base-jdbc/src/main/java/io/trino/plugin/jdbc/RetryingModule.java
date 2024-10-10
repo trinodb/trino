@@ -21,6 +21,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
+import dev.failsafe.function.CheckedRunnable;
 import dev.failsafe.function.CheckedSupplier;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
@@ -64,6 +65,12 @@ public class RetryingModule
     {
         return Failsafe.with(policy)
                 .get(supplier);
+    }
+
+    public static void retry(RetryPolicy<Object> policy, CheckedRunnable<T> runnable)
+    {
+        Failsafe.with(policy)
+                .run(runnable);
     }
 
     private static boolean isExceptionRecoverable(Set<RetryStrategy> retryStrategies, Throwable throwable)
