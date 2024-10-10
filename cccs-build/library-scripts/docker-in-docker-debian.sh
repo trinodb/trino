@@ -137,8 +137,6 @@ architecture="$(dpkg --print-architecture)"
 
 # Check if distro is suppported
 if [ "${USE_MOBY}" = "true" ]; then
-    # 'get_common_setting' allows attribute to be updated remotely
-    get_common_setting DOCKER_MOBY_ARCHIVE_VERSION_CODENAMES
     if [[ "${DOCKER_MOBY_ARCHIVE_VERSION_CODENAMES}" != *"${VERSION_CODENAME}"* ]]; then
         err "Unsupported  distribution version '${VERSION_CODENAME}'. To resolve, either: (1) set feature option '\"moby\": false' , or (2) choose a compatible OS distribution"
         err "Support distributions include:  ${DOCKER_MOBY_ARCHIVE_VERSION_CODENAMES}"
@@ -146,7 +144,6 @@ if [ "${USE_MOBY}" = "true" ]; then
     fi
     echo "Distro codename  '${VERSION_CODENAME}'  matched filter  '${DOCKER_MOBY_ARCHIVE_VERSION_CODENAMES}'"
 else
-    get_common_setting DOCKER_LICENSED_ARCHIVE_VERSION_CODENAMES
     if [[ "${DOCKER_LICENSED_ARCHIVE_VERSION_CODENAMES}" != *"${VERSION_CODENAME}"* ]]; then
         err "Unsupported distribution version '${VERSION_CODENAME}'. To resolve, please choose a compatible OS distribution"
         err "Support distributions include:  ${DOCKER_LICENSED_ARCHIVE_VERSION_CODENAMES}"
