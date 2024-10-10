@@ -61,6 +61,7 @@ import static io.trino.plugin.opa.TestConstants.OPA_SERVER_URI;
 import static io.trino.plugin.opa.TestConstants.SERVER_ERROR_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.TEST_COLUMN_MASKING_TABLE_NAME;
 import static io.trino.plugin.opa.TestConstants.TEST_IDENTITY;
+import static io.trino.plugin.opa.TestConstants.TEST_QUERY_ID;
 import static io.trino.plugin.opa.TestConstants.TEST_SECURITY_CONTEXT;
 import static io.trino.plugin.opa.TestConstants.UNDEFINED_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.columnMaskingOpaConfig;
@@ -87,13 +88,13 @@ public class TestOpaAccessControl
                     "some_debug_info": {"test": ""}
                 }"""));
         OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
-        authorizer.checkCanExecuteQuery(TEST_IDENTITY);
+        authorizer.checkCanExecuteQuery(TEST_IDENTITY, TEST_QUERY_ID);
     }
 
     @Test
     public void testNoResourceAction()
     {
-        testNoResourceAction("ExecuteQuery", OpaAccessControl::checkCanExecuteQuery);
+        testNoResourceAction("ExecuteQuery", (opaAccessControl, identity) -> opaAccessControl.checkCanExecuteQuery(identity, TEST_QUERY_ID));
         testNoResourceAction("ReadSystemInformation", OpaAccessControl::checkCanReadSystemInformation);
         testNoResourceAction("WriteSystemInformation", OpaAccessControl::checkCanWriteSystemInformation);
     }
@@ -230,7 +231,7 @@ public class TestOpaAccessControl
     @Test
     public void testStringResourceAction()
     {
-        testStringResourceAction("SetSystemSessionProperty", "systemSessionProperty", (accessControl, systemSecurityContext, argument) -> accessControl.checkCanSetSystemSessionProperty(systemSecurityContext.getIdentity(), argument));
+        testStringResourceAction("SetSystemSessionProperty", "systemSessionProperty", (accessControl, systemSecurityContext, argument) -> accessControl.checkCanSetSystemSessionProperty(systemSecurityContext.getIdentity(), TEST_QUERY_ID, argument));
         testStringResourceAction("CreateCatalog", "catalog", OpaAccessControl::checkCanCreateCatalog);
         testStringResourceAction("DropCatalog", "catalog", OpaAccessControl::checkCanDropCatalog);
         testStringResourceAction("ShowSchemas", "catalog", OpaAccessControl::checkCanShowSchemas);
@@ -634,7 +635,7 @@ public class TestOpaAccessControl
                 accessControlContext);
         Identity sampleIdentityWithGroups = Identity.forUser("test_user").withGroups(ImmutableSet.of("some_group")).build();
 
-        authorizer.checkCanExecuteQuery(sampleIdentityWithGroups);
+        authorizer.checkCanExecuteQuery(sampleIdentityWithGroups, TEST_QUERY_ID);
 
         String expectedRequest = """
                 {
