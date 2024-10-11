@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import jakarta.validation.constraints.NotNull;
+import org.apache.iceberg.catalog.Namespace;
 
 import java.net.URI;
 import java.util.Optional;
@@ -37,6 +38,7 @@ public class IcebergRestCatalogConfig
     private URI restUri;
     private Optional<String> prefix = Optional.empty();
     private Optional<String> warehouse = Optional.empty();
+    private Namespace parentNamespace = Namespace.of();
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
     private boolean vendedCredentialsEnabled;
@@ -80,6 +82,19 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setWarehouse(String warehouse)
     {
         this.warehouse = Optional.ofNullable(warehouse);
+        return this;
+    }
+
+    public Namespace getParentNamespace()
+    {
+        return parentNamespace;
+    }
+
+    @Config("iceberg.rest-catalog.parent-namespace")
+    @ConfigDescription("The parent namespace to use with the REST catalog server")
+    public IcebergRestCatalogConfig setParentNamespace(String parentNamespace)
+    {
+        this.parentNamespace = parentNamespace == null ? Namespace.empty() : Namespace.of(parentNamespace);
         return this;
     }
 

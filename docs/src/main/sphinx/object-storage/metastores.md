@@ -470,6 +470,9 @@ following properties:
 * - `iceberg.rest-catalog.warehouse`
   - Warehouse identifier/location for the catalog (optional). Example:
     `s3://my_bucket/warehouse_location`
+* - `iceberg.rest-catalog.parent-namespace`
+  - The namespace to use with the REST catalog server. Example:
+    `main`
 * - `iceberg.rest-catalog.security`
   - The type of security to use (default: `NONE`).  `OAUTH2` requires either a
     `token` or `credential`. Example: `OAUTH2`
@@ -495,6 +498,19 @@ REST metadata catalog:
 connector.name=iceberg
 iceberg.catalog.type=rest
 iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
+```
+
+`iceberg.security` must be `read_only` when connecting to Databricks Unity catalog
+using an Iceberg REST catalog:
+
+```properties
+connector.name=iceberg
+iceberg.catalog.type=rest
+iceberg.rest-catalog.uri=https://dbc-12345678-9999.cloud.databricks.com/api/2.1/unity-catalog/iceberg
+iceberg.security=read_only
+iceberg.rest-catalog.security=OAUTH2
+iceberg.rest-catalog.oauth2.token=***
+iceberg.rest-catalog.parent-namespace=test_namespace
 ```
 
 The REST catalog supports [view management](sql-view-management) 
