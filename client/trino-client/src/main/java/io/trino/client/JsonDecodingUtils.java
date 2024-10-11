@@ -11,16 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.client.spooling.encoding;
+package io.trino.client;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.collect.ImmutableList;
-import io.trino.client.ClientTypeSignature;
-import io.trino.client.ClientTypeSignatureParameter;
-import io.trino.client.Column;
-import io.trino.client.NamedClientTypeSignature;
-import io.trino.client.Row;
 
 import java.io.IOException;
 import java.util.Base64;
@@ -68,7 +63,7 @@ public final class JsonDecodingUtils
 {
     private JsonDecodingUtils() {}
 
-    static TypeDecoder[] createTypeDecoders(List<Column> columns)
+    public static TypeDecoder[] createTypeDecoders(List<Column> columns)
     {
         verify(!columns.isEmpty(), "Columns must not be empty");
         return columns.stream()
@@ -76,7 +71,7 @@ public final class JsonDecodingUtils
                 .toArray(TypeDecoder[]::new);
     }
 
-    interface TypeDecoder
+    public interface TypeDecoder
     {
         Object decode(JsonParser parser)
                 throws IOException;

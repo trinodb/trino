@@ -32,7 +32,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.client.FixJsonDataUtils.fixData;
 import static io.trino.client.ResultRows.NULL_ROWS;
 import static java.util.Objects.requireNonNull;
 
@@ -89,7 +88,16 @@ public class ResultRowsDecoder
             if (rawData.isNull()) {
                 return NULL_ROWS; // for backward compatibility instead of null
             }
-            return () -> fixData(columns, rawData.getIterable()).iterator();
+            // RawQueryData is always typed
+            return () -> rawData.getIterable().iterator();
+        }
+
+        if (data instanceof JsonQueryData) {
+            JsonQueryData jsonData = (JsonQueryData) data;
+            if (jsonData.isNull()) {
+                return NULL_ROWS;
+            }
+            return () -> JsonResultRows.forJsonParser(jsonData.getJsonParser(), columns).iterator();
         }
 
         if (data instanceof EncodedQueryData) {

@@ -23,19 +23,18 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.trino.client.spooling.EncodedQueryData;
 
 import java.io.IOException;
-import java.util.List;
 
 /**
- * Decodes the direct and encoded protocols.
+ * Decodes the direct and spooled protocols.
  *
- * If the "data" fields starts with an array - this is the direct protocol which requires reading values and wrapping them with a class.
+ * If the "data" fields starts with an array - this is the direct protocol which requires obtaining JsonParser
+ * and then parsing rows lazily.
  *
- * Otherwise, this is an encoded protocol.
+ * Otherwise, this is an spooled protocol.
  */
 public class QueryDataClientJacksonModule
         extends SimpleModule
 {
-    private static final TypeReference<Iterable<List<Object>>> DIRECT_FORMAT = new TypeReference<Iterable<List<Object>>>(){};
     private static final TypeReference<EncodedQueryData> ENCODED_FORMAT = new TypeReference<EncodedQueryData>(){};
 
     public QueryDataClientJacksonModule()
@@ -58,7 +57,7 @@ public class QueryDataClientJacksonModule
         {
             // If this is not JSON_ARRAY we are dealing with direct data encoding
             if (jsonParser.currentToken().equals(JsonToken.START_ARRAY)) {
-                return RawQueryData.of(jsonParser.readValueAs(DIRECT_FORMAT));
+                return new JsonQueryData(jsonParser.readValueAsTree());
             }
             return jsonParser.readValueAs(ENCODED_FORMAT);
         }

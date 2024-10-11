@@ -100,7 +100,7 @@ public class TestQueryResultsSerialization
 
         assertThatThrownBy(() -> testRoundTrip(RawQueryData.of(ImmutableList.of(ImmutableList.of())), "[[]]"))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage("row/column size mismatch");
+                .hasMessageContaining("Unexpected token END_ARRAY");
     }
 
     @Test
