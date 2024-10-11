@@ -291,6 +291,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
+import static io.trino.plugin.iceberg.TableStatisticsReader.readNdvs;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.INCREMENTAL_UPDATE;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.REPLACE;
 import static io.trino.plugin.iceberg.TableType.DATA;
@@ -346,6 +347,7 @@ import static org.apache.iceberg.ReachableFileUtil.statisticsFilesLocations;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
+import static org.apache.iceberg.SnapshotSummary.TOTAL_RECORDS_PROP;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
@@ -2461,21 +2463,34 @@ public class IcebergMetadata
 
         ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty());
         if (tableHandle == null) {
-            // Assume new table (CTAS), collect all stats possible
+            // Assume new table (CTAS), collect NDV stats on all columns
             return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
         }
         IcebergTableHandle table = checkValidTableHandle(tableHandle);
-        Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
-        TableStatistics tableStatistics = getTableStatistics(
-                session,
-                table.withProjectedColumns(ImmutableSet.copyOf(getTopLevelColumns(schema, typeManager))));
-        if (tableStatistics.getRowCount().getValue() == 0.0) {
-            // Table has no data (empty, or wiped out). Collect all stats possible
+        if (table.getSnapshotId().isEmpty()) {
+            // Table has no data (empty, or wiped out). Collect NDV stats on all columns
             return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
         }
-        Set<String> columnsWithExtendedStatistics = tableStatistics.getColumnStatistics().entrySet().stream()
-                .filter(entry -> !entry.getValue().getDistinctValuesCount().isUnknown())
-                .map(entry -> ((IcebergColumnHandle) entry.getKey()).getName())
+
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        long snapshotId = table.getSnapshotId().orElseThrow();
+        Snapshot snapshot = icebergTable.snapshot(snapshotId);
+        String totalRecords = snapshot.summary().get(TOTAL_RECORDS_PROP);
+        if (totalRecords != null && Long.parseLong(totalRecords) == 0) {
+            // Table has no data (empty, or wiped out). Collect NDV stats on all columns
+            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
+        }
+
+        Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+        List<IcebergColumnHandle> columns = getTopLevelColumns(schema, typeManager);
+        Set<Integer> columnIds = columns.stream()
+                .map(IcebergColumnHandle::getId)
+                .collect(toImmutableSet());
+        Map<Integer, Long> ndvs = readNdvs(icebergTable, snapshotId, columnIds, true);
+        // Avoid collecting NDV stats on columns where we don't know the existing NDV count
+        Set<String> columnsWithExtendedStatistics = columns.stream()
+                .filter(column -> ndvs.containsKey(column.getId()))
+                .map(IcebergColumnHandle::getName)
                 .collect(toImmutableSet());
         return getStatisticsCollectionMetadata(tableMetadata, Optional.of(columnsWithExtendedStatistics), availableColumnNames -> {});
     }

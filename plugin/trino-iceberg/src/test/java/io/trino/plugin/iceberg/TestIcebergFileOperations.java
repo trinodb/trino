@@ -198,11 +198,10 @@ public class TestIcebergFileOperations
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(METADATA_JSON, "OutputFile.create"), 2)
                         .addCopies(new FileOperation(METADATA_JSON, "InputFile.newStream"), 2)
-                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
-                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
                         .add(new FileOperation(MANIFEST, "OutputFile.create"))
-                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
                         .add(new FileOperation(STATS, "OutputFile.create"))
                         .build());
     }
@@ -234,7 +233,6 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(STATS, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
                         .add(new FileOperation(MANIFEST, "OutputFile.create"))
-                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
                         .add(new FileOperation(STATS, "OutputFile.create"))
                         .build());
     }

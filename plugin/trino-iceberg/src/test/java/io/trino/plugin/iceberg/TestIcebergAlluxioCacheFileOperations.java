@@ -97,9 +97,9 @@ public class TestIcebergAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.writeCache", METADATA_JSON))
                         .addCopies(new CacheOperation("Alluxio.readCached", SNAPSHOT), 2)
                         .add(new CacheOperation("InputFile.length", SNAPSHOT))
-                        .add(new CacheOperation("Alluxio.readExternalStream", MANIFEST))
+                        .addCopies(new CacheOperation("Alluxio.readExternalStream", MANIFEST), 2)
                         .addCopies(new CacheOperation("Alluxio.readCached", MANIFEST), 4)
-                        .add(new CacheOperation("Alluxio.writeCache", MANIFEST))
+                        .addCopies(new CacheOperation("Alluxio.writeCache", MANIFEST), 2)
                         .build());
 
         assertFileSystemAccesses(
@@ -129,9 +129,9 @@ public class TestIcebergAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.writeCache", METADATA_JSON))
                         .addCopies(new CacheOperation("Alluxio.readCached", SNAPSHOT), 2)
                         .add(new CacheOperation("InputFile.length", SNAPSHOT))
-                        .add(new CacheOperation("Alluxio.readExternalStream", MANIFEST))
+                        .addCopies(new CacheOperation("Alluxio.readExternalStream", MANIFEST), 3)
                         .addCopies(new CacheOperation("Alluxio.readCached", MANIFEST), 10)
-                        .add(new CacheOperation("Alluxio.writeCache", MANIFEST))
+                        .addCopies(new CacheOperation("Alluxio.writeCache", MANIFEST), 3)
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
