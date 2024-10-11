@@ -8,6 +8,7 @@
     "@babel/preset-env": "^7.24.8",
     "@babel/preset-flow": "^7.24.7",
     "@babel/preset-react": "^7.12.10",
+    "auditjs": "4.0.45",
     "babel-loader": "^9.1.3",
     "flow-bin": "^0.241.0",
     "prettier": "3.3.3",
@@ -38,6 +39,8 @@
     "check": "npm install && flow && prettier --check **/*.js **/*.jsx *.js *.jsx",
     "check:clean": "npm clean-install && flow && prettier --check **/*.js **/*.jsx *.js *.jsx",
     "format": "prettier --write **/*.js **/*.jsx *.js *.jsx",
-    "lint": "prettier --check **/*.js **/*.jsx"
+    "lint": "prettier --check **/*.js **/*.jsx",
+    "secure": "auditjs ossi -q",
+    "secure:report": "auditjs ossi --xml > frontend-dependencies-audit.xml"
   }
 }
