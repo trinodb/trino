@@ -13,7 +13,6 @@
  */
 package io.trino.client;
 
-import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
@@ -45,7 +44,7 @@ public interface StatementClient
     // For backward compatibility and migration path
     QueryData currentData();
 
-    @Nonnull ResultRows currentRows();
+    ResultRows currentRows();
 
     QueryStatusInfo finalStatusInfo();
 

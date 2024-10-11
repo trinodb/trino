@@ -22,7 +22,6 @@ import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
 import io.trino.client.spooling.SegmentLoader;
-import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
 import okhttp3.Headers;
@@ -255,7 +254,6 @@ class StatementClientV1
     }
 
     @Override
-    @Nonnull
     public ResultRows currentRows()
     {
         checkState(isRunning(), "current position is not valid (cursor past end)");

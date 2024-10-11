@@ -20,7 +20,6 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.io.Closer;
 import io.trino.client.JsonDecodingUtils.TypeDecoder;
-import jakarta.annotation.Nonnull;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.IOException;
@@ -141,7 +140,7 @@ public final class JsonResultRows
     {
         return new ResultRows() {
             @Override
-            public @Nonnull Iterator<List<Object>> iterator()
+            public Iterator<List<Object>> iterator()
             {
                 try {
                     return new RowWiseIterator(parser, createTypeDecoders(columns));
@@ -157,7 +156,7 @@ public final class JsonResultRows
     {
         return new ResultRows() {
             @Override
-            public @Nonnull Iterator<List<Object>> iterator()
+            public Iterator<List<Object>> iterator()
             {
                 try {
                     return new RowWiseIterator(stream, decoders);

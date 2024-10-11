@@ -13,7 +13,6 @@
  */
 package io.trino.client;
 
-import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
@@ -35,7 +34,7 @@ public class RawQueryData
         this.iterable = values == null ? null : unmodifiableIterable(values);
     }
 
-    public @Nonnull Iterable<List<Object>> getIterable()
+    public Iterable<List<Object>> getIterable()
     {
         checkState(iterable != null, "cannot return a null iterable");
         return iterable;
