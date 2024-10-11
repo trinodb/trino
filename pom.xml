@@ -2535,6 +2535,20 @@
                                 </bannedImports>
                             </RestrictImports>
                             <RestrictImports>
+                                <reason>Trino assumes non-nullness by default, otherwise it's marked as @Nullable</reason>
+                                <bannedImports>
+                                    <bannedImport>jakarta.annotation.Nonnull</bannedImport>
+                                    <bannedImport>org.jetbrains.annotations.NotNull</bannedImport>
+                                </bannedImports>
+                                <notFixable>
+                                    <in>io.trino.cache.ElementTypesAreNonnullByDefault</in>
+                                    <allowedImports>
+                                        <allowedImport>jakarta.annotation.Nonnull</allowedImport>
+                                    </allowedImports>
+                                    <because>Extending Guava's API</because>
+                                </notFixable>
+                            </RestrictImports>
+                            <RestrictImports>
                                 <bannedImports>
                                     <bannedImport>com.google.api.client.util.Preconditions</bannedImport>
                                     <bannedImport>com.google.api.client.util.Preconditions.*</bannedImport>
