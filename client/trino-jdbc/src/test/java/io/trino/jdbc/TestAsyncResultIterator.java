@@ -24,7 +24,6 @@ import io.trino.client.StageStats;
 import io.trino.client.StatementClient;
 import io.trino.client.StatementStats;
 import io.trino.client.Warning;
-import jakarta.annotation.Nonnull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -174,7 +173,6 @@ class TestAsyncResultIterator
         }
 
         @Override
-        @Nonnull
         public ResultRows currentRows()
         {
             return queryData.get();

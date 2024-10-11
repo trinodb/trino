@@ -13,8 +13,6 @@
  */
 package io.trino.client;
 
-import jakarta.annotation.Nonnull;
-
 import java.util.Iterator;
 import java.util.List;
 
@@ -36,7 +34,7 @@ public interface ResultRows
         }
 
         @Override
-        public @Nonnull Iterator<List<Object>> iterator()
+        public Iterator<List<Object>> iterator()
         {
             return emptyIterator();
         }

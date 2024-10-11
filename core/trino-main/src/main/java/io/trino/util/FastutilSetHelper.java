@@ -37,7 +37,6 @@ import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenCustomHashSet;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet;
-import jakarta.annotation.Nonnull;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigInteger;
@@ -159,7 +158,6 @@ public final class FastutilSetHelper
         }
 
         @Override
-        @Nonnull
         public LongIterator iterator()
         {
             PrimitiveIterator.OfInt iterator = bitmask.stream().iterator();
