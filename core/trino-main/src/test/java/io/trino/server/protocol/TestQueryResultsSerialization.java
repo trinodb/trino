@@ -44,9 +44,6 @@ public class TestQueryResultsSerialization
 {
     private static final List<Column> COLUMNS = ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature("bigint")));
 
-    private static final ResultRowsDecoder DATA_DECODER = new ResultRowsDecoder()
-            .withColumns(COLUMNS);
-
     // As close as possible to the server mapper (client mapper differs)
     private static final io.airlift.json.JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
             .withModules(Set.of(new QueryDataJacksonModule())))
@@ -97,6 +94,7 @@ public class TestQueryResultsSerialization
 
     @Test
     public void testEmptyArraySerialization()
+            throws Exception
     {
         testRoundTrip(RawQueryData.of(ImmutableList.of()), "[]");
 
@@ -107,20 +105,22 @@ public class TestQueryResultsSerialization
 
     @Test
     public void testSerialization()
+            throws Exception
     {
         QueryData values = RawQueryData.of(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L)));
         testRoundTrip(values, "[[1],[5]]");
     }
 
     private void testRoundTrip(QueryData results, String expectedDataRepresentation)
+            throws Exception
     {
         assertThat(serialize(results))
                 .isEqualToIgnoringWhitespace(queryResultsJson(expectedDataRepresentation));
 
         String serialized = serialize(results);
-        try {
-            assertThat(DATA_DECODER.toRows(CLIENT_CODEC.fromJson(serialized).getData()))
-                    .containsAll(DATA_DECODER.toRows(results));
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder()) {
+            assertThat(decoder.toRows(COLUMNS, CLIENT_CODEC.fromJson(serialized).getData()))
+                    .containsAll(decoder.toRows(COLUMNS, results));
         }
         catch (JsonProcessingException e) {
             throw new UncheckedIOException(e);

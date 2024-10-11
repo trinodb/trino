@@ -256,11 +256,8 @@ public class TestQueryDataSerialization
 
     private static Iterable<List<Object>> decodeData(QueryData data)
     {
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder().withColumns(COLUMNS_LIST)) {
-            if (data instanceof EncodedQueryData encodedQueryData) {
-                return decoder.withEncoding(encodedQueryData.getEncoding()).toRows(data);
-            }
-            return decoder.toRows(data);
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder()) {
+            return decoder.toRows(COLUMNS_LIST, data);
         }
         catch (Exception e) {
             return fail(e);
