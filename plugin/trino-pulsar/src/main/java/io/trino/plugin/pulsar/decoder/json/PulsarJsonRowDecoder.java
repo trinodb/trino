@@ -15,6 +15,7 @@ package io.trino.plugin.pulsar.decoder.json;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.MissingNode;
 import com.google.common.base.Splitter;
 import io.netty.buffer.ByteBuf;
@@ -22,7 +23,6 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.json.JsonFieldDecoder;
 import io.trino.plugin.pulsar.PulsarRowDecoder;
-import io.trino.plugin.pulsar.util.ObjectMapperFactory;
 import io.trino.spi.TrinoException;
 import org.apache.pulsar.client.impl.schema.generic.GenericJsonRecord;
 import org.apache.pulsar.client.impl.schema.generic.GenericJsonSchema;
@@ -45,6 +45,7 @@ public class PulsarJsonRowDecoder
         implements PulsarRowDecoder
 {
     private final Map<DecoderColumnHandle, JsonFieldDecoder> fieldDecoders;
+    private final ObjectMapper mapper = new ObjectMapper();
 
     private final GenericJsonSchema genericJsonSchema;
 
@@ -83,7 +84,7 @@ public class PulsarJsonRowDecoder
             JsonFieldDecoder decoder = entry.getValue();
             com.fasterxml.jackson.databind.JsonNode node = null;
             try {
-                node = ObjectMapperFactory.toOriginalJsonNode(locateNode(record.getJsonNode(), columnHandle));
+                node = mapper.readTree(record.getJsonNode().toString()); //ObjectMapperFactory.toOriginalJsonNode(locateNode(record.getJsonNode(), columnHandle));
             }
             catch (JsonProcessingException e) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Decoding json record failed.", e);

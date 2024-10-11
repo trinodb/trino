@@ -37,6 +37,17 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.ben-manes.caffeine</groupId>
+                    <artifactId>caffeine</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
@@ -84,6 +95,10 @@
                     <groupId>io.airlift</groupId>
                     <artifactId>log-manager</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>units</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -100,6 +115,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+            <version>1.10</version>
         </dependency>
 
         <dependency>
@@ -391,6 +412,7 @@
             <artifactId>jol-core</artifactId>
             <scope>provided</scope>
         </dependency>
+
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
@@ -505,6 +527,7 @@
             <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
+
     </dependencies>
     <build>
         <plugins>
@@ -537,16 +560,21 @@
                             <ignoredUsedUndeclaredDependencies>
                                 <ignoredUsedUndeclaredDependency>io.airlift:log-manager</ignoredUsedUndeclaredDependency>
                                 <ignoredUsedUndeclaredDependency>io.trino:trino-cache</ignoredUsedUndeclaredDependency>
+                                <ignoredUsedUndeclaredDependency>io.airlift:units</ignoredUsedUndeclaredDependency>
                             </ignoredUsedUndeclaredDependencies>
 
                             <!-- ignore annotations for "unused but declared" warnings -->
                             <ignoredUnusedDeclaredDependencies>
                                 <ignoredUnusedDeclaredDependency>io.airlift:log-manager</ignoredUnusedDeclaredDependency>
+                                <ignoredUnusedDeclaredDependency>io.airlift:units</ignoredUnusedDeclaredDependency>
+                                <ignoredUnusedDeclaredDependency>com.google.errorprone:error_prone_annotations</ignoredUnusedDeclaredDependency>
                             </ignoredUnusedDeclaredDependencies>
 
                             <ignoredNonTestScopedDependencies>
                                 <!-- optional but enabled-by-default dependency, used via reflection if present -->
                                 <ignoredNonTestScopedDependency>io.airlift:log-manager</ignoredNonTestScopedDependency>
+                                <ignoredNonTestScopedDependency>io.airlift:units</ignoredNonTestScopedDependency>
+                                <ignoredNonTestScopedDependency>com.google.errorprone:error_prone_annotations</ignoredNonTestScopedDependency>
                             </ignoredNonTestScopedDependencies>
                         </configuration>
                     </execution>

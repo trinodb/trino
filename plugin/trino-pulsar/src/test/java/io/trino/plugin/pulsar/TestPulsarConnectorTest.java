@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.pulsar;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -40,7 +39,9 @@ public class TestPulsarConnectorTest
             throws Exception
     {
         pulsarServer = closeAfterClass(new PulsarServer(PulsarServer.DEFAULT_IMAGE_NAME));
-        QueryRunner runner = PulsarQueryRunner.createPulsarQueryRunner(pulsarServer, ImmutableMap.of("http-server.http.port", "8080"));
+        QueryRunner runner = PulsarQueryRunner.builder(pulsarServer)
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
         pulsarServer.copyAndIngestTpchData(runner.execute(SELECT_FROM_CUSTOMER), PulsarServer.CUSTOMER, PulsarServer.Customer.class, 2);
         pulsarServer.copyAndIngestTpchData(runner.execute(SELECT_FROM_ORDERS), PulsarServer.ORDERS, PulsarServer.Orders.class, 3);
         pulsarServer.copyAndIngestTpchData(runner.execute(SELECT_FROM_LINEITEM), PulsarServer.LINEITEM, PulsarServer.LineItem.class, 4);

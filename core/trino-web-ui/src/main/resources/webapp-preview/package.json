@@ -25,6 +25,7 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.25.1",
     "sass": "^1.77.8",
+    "webapp-preview": "file:",
     "zustand": "^4.5.4"
   },
   "devDependencies": {
