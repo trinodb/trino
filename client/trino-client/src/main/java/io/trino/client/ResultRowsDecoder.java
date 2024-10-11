@@ -13,7 +13,6 @@
  */
 package io.trino.client;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
@@ -30,11 +29,11 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.client.FixJsonDataUtils.fixData;
 import static io.trino.client.ResultRows.NULL_ROWS;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -44,8 +43,7 @@ public class ResultRowsDecoder
         implements AutoCloseable
 {
     private final SegmentLoader loader;
-    private QueryDataDecoder.Factory decoderFactory;
-    private List<Column> columns = emptyList();
+    private QueryDataDecoder decoder;
 
     public ResultRowsDecoder()
     {
@@ -57,38 +55,35 @@ public class ResultRowsDecoder
         this.loader = requireNonNull(loader, "loader is null");
     }
 
-    public ResultRowsDecoder withEncoding(String encoding)
+    private void setEncoding(List<Column> columns, String encoding)
     {
-        if (decoderFactory != null) {
-            if (!encoding.equals(decoderFactory.encoding())) {
-                throw new IllegalStateException("Already set encoding " + encoding + " is not equal to " + decoderFactory.encoding());
-            }
+        if (decoder != null) {
+            checkState(decoder.encoding().equals(encoding), "Decoder is configured for encoding %s but got %s", decoder.encoding(), encoding);
         }
         else {
-            this.decoderFactory = QueryDataDecoders.get(encoding);
+            checkState(!columns.isEmpty(), "Columns must be set when decoding data");
+            this.decoder = QueryDataDecoders.get(encoding)
+                    // we don't use query-level attributes for now
+                    .create(columns, DataAttributes.empty());
         }
-        return this;
     }
 
-    public ResultRowsDecoder withColumns(List<Column> columns)
+    public ResultRows toRows(QueryResults results)
     {
-        if (this.columns.isEmpty()) {
-            this.columns = ImmutableList.copyOf(columns);
-        }
-        else if (!columns.equals(this.columns)) {
-            throw new IllegalStateException("Already set columns " + columns + " are not equal to " + this.columns);
+        if (results == null || results.getData() == null) {
+            return NULL_ROWS;
         }
 
-        return this;
+        return toRows(results.getColumns(), results.getData());
     }
 
-    public ResultRows toRows(QueryData data)
+    public ResultRows toRows(List<Column> columns, QueryData data)
     {
-        if (data == null) {
+        if (data == null || data.isNull()) {
             return NULL_ROWS; // for backward compatibility instead of null
         }
 
-        verify(!columns.isEmpty(), "columns must be set");
+        verify(columns != null && !columns.isEmpty(), "Columns must be set when decoding data");
         if (data instanceof RawQueryData) {
             RawQueryData rawData = (RawQueryData) data;
             if (rawData.isNull()) {
@@ -98,15 +93,12 @@ public class ResultRowsDecoder
         }
 
         if (data instanceof EncodedQueryData) {
-            verify(decoderFactory != null, "decoderFactory must be set");
-            // we don't need query-level attributes for now
-            QueryDataDecoder decoder = decoderFactory.create(columns, DataAttributes.empty());
             EncodedQueryData encodedData = (EncodedQueryData) data;
-            verify(decoder.encoding().equals(encodedData.getEncoding()), "encoding %s is not equal to %s", encodedData.getEncoding(), decoder.encoding());
+            setEncoding(columns, encodedData.getEncoding());
 
             List<ResultRows> resultRows = encodedData.getSegments()
                     .stream()
-                    .map(segment -> segmentToRows(decoder, segment))
+                    .map(this::segmentToRows)
                     .collect(toImmutableList());
 
             return concat(resultRows);
@@ -115,7 +107,7 @@ public class ResultRowsDecoder
         throw new UnsupportedOperationException("Unsupported data type: " + data.getClass().getName());
     }
 
-    private ResultRows segmentToRows(QueryDataDecoder decoder, Segment segment)
+    private ResultRows segmentToRows(Segment segment)
     {
         if (segment instanceof InlineSegment) {
             InlineSegment inlineSegment = (InlineSegment) segment;
@@ -131,6 +123,7 @@ public class ResultRowsDecoder
             SpooledSegment spooledSegment = (SpooledSegment) segment;
 
             try {
+                // The returned rows are lazy which means that decoder is responsible for closing input stream
                 InputStream stream = loader.load(spooledSegment);
                 return decoder.decode(stream, spooledSegment.getMetadata());
             }
@@ -144,8 +137,8 @@ public class ResultRowsDecoder
 
     public Optional<String> getEncoding()
     {
-        return Optional.ofNullable(decoderFactory)
-                .map(QueryDataDecoder.Factory::encoding);
+        return Optional.ofNullable(decoder)
+                .map(QueryDataDecoder::encoding);
     }
 
     @Override

@@ -258,7 +258,8 @@ class StatementClientV1
     @Nonnull
     public ResultRows currentRows()
     {
-        return resultRowsDecoder.toRows(currentData());
+        checkState(isRunning(), "current position is not valid (cursor past end)");
+        return resultRowsDecoder.toRows(currentResults.get());
     }
 
     @Override
@@ -465,16 +466,6 @@ class StatementClientV1
         setCatalog.set(headers.get(TRINO_HEADERS.responseSetCatalog()));
         setSchema.set(headers.get(TRINO_HEADERS.responseSetSchema()));
         setPath.set(safeSplitToList(headers.get(TRINO_HEADERS.responseSetPath())));
-
-        String responseEncoding = headers.get(TRINO_HEADERS.responseQueryDataEncoding());
-        if (responseEncoding != null) {
-            resultRowsDecoder.withEncoding(responseEncoding);
-        }
-
-        if (results.getColumns() != null) {
-            resultRowsDecoder.withColumns(results.getColumns());
-        }
-
         String setAuthorizationUser = headers.get(TRINO_HEADERS.responseSetAuthorizationUser());
         if (setAuthorizationUser != null) {
             this.setAuthorizationUser.set(setAuthorizationUser);

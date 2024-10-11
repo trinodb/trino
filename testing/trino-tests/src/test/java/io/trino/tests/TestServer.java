@@ -177,8 +177,8 @@ public class TestServer
 
         QueryResults results = data.orElseThrow();
 
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder().withColumns(results.getColumns())) {
-            assertThat(decoder.toRows(results.getData())).containsOnly(ImmutableList.of("memory"), ImmutableList.of("system"));
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder()) {
+            assertThat(decoder.toRows(results)).containsOnly(ImmutableList.of("memory"), ImmutableList.of("system"));
         }
     }
 
@@ -209,8 +209,8 @@ public class TestServer
                 .peek(result -> assertThat(result.getError()).isNull())
                 .peek(results -> {
                     if (results.getData() != null) {
-                        try (ResultRowsDecoder decoder = new ResultRowsDecoder().withColumns(results.getColumns())) {
-                            data.addAll(decoder.toRows(results.getData()));
+                        try (ResultRowsDecoder decoder = new ResultRowsDecoder()) {
+                            data.addAll(decoder.toRows(results));
                         }
                         catch (Exception e) {
                             throw new RuntimeException(e);

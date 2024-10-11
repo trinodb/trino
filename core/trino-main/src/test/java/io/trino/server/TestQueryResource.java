@@ -265,9 +265,9 @@ public class TestQueryResource
             return;
         }
 
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder().withColumns(columns)) {
-            assertThat(decoder.toRows(left))
-                    .containsAll(decoder.toRows(right));
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder()) {
+            assertThat(decoder.toRows(columns, left))
+                    .containsAll(decoder.toRows(columns, right));
         }
         catch (Exception e) {
             fail(e);
