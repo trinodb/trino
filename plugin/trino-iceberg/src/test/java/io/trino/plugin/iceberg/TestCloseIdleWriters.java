@@ -18,7 +18,7 @@ import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 
 import static io.trino.SystemSessionProperties.IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
@@ -40,12 +40,18 @@ public class TestCloseIdleWriters
                 // Set the target max file size to 100GB so that we don't close writers due to file size in append
                 // page.
                 .setIcebergProperties(ImmutableMap.of(
+                        // The physical written data size decreases after flushing because we maintain the last
+                        // buffered page in un-compressed/un-encoded form. This can cause close idle-writers to not
+                        // trigger since we are writing quite small amount of data in this test. To avoid this, we
+                        // need to set the page size to a low value and disable compression.
+                        "parquet.writer.page-size", "8kB",
+                        "iceberg.compression-codec", "NONE",
                         "iceberg.target-max-file-size", "100GB",
                         "iceberg.idle-writer-min-file-size", "0.1MB"))
                 .build();
     }
 
-    @Test
+    @RepeatedTest(1000)
     public void testCloseIdleWriters()
     {
         String tableName = "task_close_idle_writers_" + randomNameSuffix();
@@ -55,8 +61,19 @@ public class TestCloseIdleWriters
             // be an idle writer for partition 0. Additionally, during second partition 0 write, there will be an idle
             // writer for partition 1.
             @Language("SQL") String createTableSql = """
-                    CREATE TABLE %s WITH (format = 'ORC', partitioning = ARRAY['shipmodeVal'])
-                    AS SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice,
+                    CREATE TABLE %s WITH (format = 'PARQUET', partitioning = ARRAY['shipmodeVal'])
+                    AS WITH t AS (
+                        (SELECT *
+                        FROM tpch.sf1.lineitem
+                        WHERE shipmode IN ('AIR', 'FOB', 'SHIP', 'TRUCK')
+                        LIMIT 200000)
+                        UNION ALL
+                        (SELECT *
+                        FROM tpch.sf1.lineitem
+                        WHERE shipmode IN ('MAIL', 'RAIL', 'REG AIR')
+                        LIMIT 200000)
+                    )
+                    SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice,
                     discount, tax, returnflag, linestatus, commitdate, receiptdate, shipinstruct,
                     comment, shipdate,
                     CASE
@@ -64,9 +81,8 @@ public class TestCloseIdleWriters
                         WHEN shipmode IN ('MAIL', 'RAIL', 'REG AIR') THEN 1
                         ELSE 2
                     END AS shipmodeVal
-                    FROM tpch.tiny.lineitem
+                    FROM t
                     ORDER BY shipmode
-                    LIMIT 60174
                     """.formatted(tableName);
 
             // Disable all kind of scaling and set idle writer threshold to 5MB
@@ -76,10 +92,11 @@ public class TestCloseIdleWriters
                             .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
                             .setSystemProperty(TASK_MAX_WRITER_COUNT, "1")
                             .setSystemProperty(TASK_MIN_WRITER_COUNT, "1")
-                            .setSystemProperty(IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD, "0.1MB")
+                            // Set this to a very low value so that we can trigger close idle writers.
+                            .setSystemProperty(IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD, "0.01MB")
                             .build(),
                     createTableSql,
-                    60174);
+                    400000);
             long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName);
             // There should more than 2 files since we triggered close idle writers.
             assertThat(files).isGreaterThan(2);
