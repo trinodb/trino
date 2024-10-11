@@ -208,6 +208,10 @@ public class DeterminePreferredDynamicFilterTimeout
 
         private DynamicFilterTimeout getBuildSideState(PlanNode planNode, Symbol dynamicFilterSymbol)
         {
+            if (isAtMostScalar(planNode)) {
+                return DynamicFilterTimeout.USE_PREFERRED_TIMEOUT;
+            }
+
             // Skip for expanding plan nodes like CROSS JOIN or UNNEST which can substantially increase the amount of data.
             if (isInputMultiplyingPlanNodePresent(planNode)) {
                 return DynamicFilterTimeout.NO_WAIT;

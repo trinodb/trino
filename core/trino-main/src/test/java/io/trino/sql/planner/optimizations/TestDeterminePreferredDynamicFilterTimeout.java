@@ -59,10 +59,13 @@ import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -71,6 +74,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -427,5 +432,35 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                         filter(
                                                 new Comparison(EQUAL, new Reference(INTEGER, "B_1"), new Call(RANDOM, ImmutableList.of(new Constant(INTEGER, 5L)))),
                                                 tableScan("table_small_b", ImmutableMap.of("B_1", "b_1")))))));
+    }
+
+    @Test
+    public void testWithScalar()
+    {
+        assertPlan(
+                """
+                        SELECT a.a_1 FROM table_undefined_a a
+                        INNER JOIN (SELECT max(b_1) AS max_b FROM table_undefined_b) AS b
+                        ON a.a_1 > b.max_b
+                        """,
+                anyTree(
+                        anyTree(
+                                filter(
+                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "A_1"), new Reference(BIGINT, "MAX_1")),
+                                        join(INNER, builder -> builder
+                                                .dynamicFilter(
+                                                        ImmutableList.of(
+                                                                new DynamicFilterPattern(new Reference(BIGINT, "A_1"), GREATER_THAN, "MAX_1", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
+                                                .left(
+                                                        filter(TRUE,
+                                                                tableScan("table_undefined_a", ImmutableMap.of("A_1", "a_1")))
+                                                                .with(FilterNode.class, filterNode -> extractDynamicFilters(filterNode.getPredicate())
+                                                                        .getDynamicConjuncts().get(0).getPreferredTimeout()
+                                                                        .equals(OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
+                                                .right(
+                                                        aggregation(ImmutableMap.of("MAX_1", aggregationFunction("max", ImmutableList.of("MAX_2"))), FINAL,
+                                                                anyTree(
+                                                                        aggregation(ImmutableMap.of("MAX_2", aggregationFunction("max", ImmutableList.of("B_1"))), PARTIAL,
+                                                                                tableScan("table_undefined_b", ImmutableMap.of("B_1", "b_1")))))))))));
     }
 }
