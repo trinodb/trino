@@ -22,8 +22,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
 
 /**
- * Class represents QueryData serialized to JSON array of arrays of objects.
- * It has custom handling and representation in the {@link QueryDataClientJacksonModule}
+ * Class represents QueryData of already typed values
+ *
  */
 public class RawQueryData
         implements QueryData
