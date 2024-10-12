@@ -88,6 +88,7 @@ public class TestRemoveEmptyUnionBranches
                             Optional.empty(),
                             Optional.empty(),
                             true,
+                            false,
                             ImmutableList.of()));
 
     @Override

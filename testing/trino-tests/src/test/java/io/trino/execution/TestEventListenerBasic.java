@@ -56,6 +56,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolKeyDeserializer;
+import io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -92,7 +93,6 @@ import static io.trino.spi.metrics.Metrics.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
 import static java.lang.String.format;
@@ -180,6 +180,7 @@ public class TestEventListenerBasic
                                             Optional.empty(),
                                             Optional.empty(),
                                             true,
+                                            false,
                                             ImmutableList.of()),
                                     new SchemaTableName("default", "test_view_nesting"), new ConnectorViewDefinition(
                                             "SELECT test_column FROM mock.default.test_view",
@@ -189,6 +190,7 @@ public class TestEventListenerBasic
                                             Optional.empty(),
                                             Optional.empty(),
                                             true,
+                                            false,
                                             ImmutableList.of()),
                                     new SchemaTableName("default", "test_view_with_row_filter"), new ConnectorViewDefinition(
                                             "SELECT test_varchar AS test_column FROM mock.default.test_table_with_row_filter",
@@ -198,6 +200,7 @@ public class TestEventListenerBasic
                                             Optional.empty(),
                                             Optional.empty(),
                                             true,
+                                            false,
                                             ImmutableList.of()),
                                     new SchemaTableName("default", "test_view_with_redirect"), new ConnectorViewDefinition(
                                             "SELECT nationkey AS test_column FROM mock.default.nation_redirect",
@@ -207,6 +210,7 @@ public class TestEventListenerBasic
                                             Optional.empty(),
                                             Optional.empty(),
                                             true,
+                                            false,
                                             ImmutableList.of())))
                         .withGetMaterializedViews((connectorSession, prefix) -> {
                             ConnectorMaterializedViewDefinition definitionStale = new ConnectorMaterializedViewDefinition(

@@ -25,7 +25,7 @@ public final class SecurityCharacteristic
 {
     public enum Security
     {
-        INVOKER, DEFINER
+        INVOKER, DEFINER, HYBRID
     }
 
     private final Security security;

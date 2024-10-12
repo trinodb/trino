@@ -87,6 +87,7 @@ public class TestInformationSchemaMetadata
                             Optional.of("comment"),
                             Optional.empty(),
                             true,
+                            false,
                             ImmutableList.of());
                     SchemaTableName viewName = new SchemaTableName("test_schema", "test_view");
                     return ImmutableMap.of(viewName, definition);
