@@ -344,9 +344,8 @@ public abstract class AbstractIcebergTableOperations
                         .noRetry()
                         .suppressFailureWhenFinished()
                         .onFailure(
-                                (previousMetadataFile, exc) ->
-                                        log.warn(
-                                                "Delete failed for previous metadata file: {}", previousMetadataFile, exc))
+                                (file, e) ->
+                                        log.warn(e, "Delete failed for previous metadata file: %s", file))
                         .run(previousMetadataFile -> io().deleteFile(previousMetadataFile.file()));
             }
         }
