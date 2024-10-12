@@ -16,22 +16,22 @@ package io.trino.spi;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
+import io.trino.spi.block.RowBlock;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class Page
+        extends RowBlock
 {
     public static final int INSTANCE_SIZE = instanceSize(Page.class);
-    private static final Block[] EMPTY_BLOCKS = new Block[0];
 
     public static long getInstanceSizeInBytes(int blockCount)
     {
@@ -42,131 +42,67 @@ public final class Page
      * Visible to give trusted classes like {@link PageBuilder} access to a constructor that doesn't
      * defensively copy the blocks
      */
-    static Page wrapBlocksWithoutCopy(int positionCount, Block[] blocks)
+    static Page createPageInternal(int positionCount, Block[] blocks)
     {
-        return new Page(false, positionCount, blocks);
+        return new Page(false, positionCount, blocks, computeFixedSizePerRow(blocks));
     }
-
-    private final Block[] blocks;
-    private final int positionCount;
-    private volatile long sizeInBytes = -1;
-    private volatile long retainedSizeInBytes = -1;
 
     public Page(Block... blocks)
     {
-        this(true, determinePositionCount(blocks), blocks);
+        this(true, determinePositionCount(blocks), blocks, computeFixedSizePerRow(blocks));
     }
 
     public Page(int positionCount)
     {
-        this(false, positionCount, EMPTY_BLOCKS);
+        this(false, positionCount, EMPTY_BLOCKS, 0);
     }
 
     public Page(int positionCount, Block... blocks)
     {
-        this(true, positionCount, blocks);
+        this(true, positionCount, blocks, computeFixedSizePerRow(blocks));
     }
 
-    private Page(boolean blocksCopyRequired, int positionCount, Block[] blocks)
+    private Page(boolean blocksCopyRequired, int positionCount, Block[] blocks, int fixedSizePerRow)
     {
-        if (positionCount < 0) {
-            throw new IllegalArgumentException(format("positionCount (%s) is negative", positionCount));
+        super(positionCount, null, blocks.length > 0 && blocksCopyRequired ? blocks.clone() : blocks, fixedSizePerRow);
+    }
+
+    @Override
+    protected Page createDerrivedRowBlock(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks)
+    {
+        if (rowIsNull != null) {
+            throw new IllegalArgumentException("rowIsNull is not supported");
         }
-        requireNonNull(blocks, "blocks is null");
-        this.positionCount = positionCount;
-        if (blocks.length == 0) {
-            this.blocks = EMPTY_BLOCKS;
-            this.sizeInBytes = 0;
-            // Empty blocks are not considered "retained" by any particular page
-            this.retainedSizeInBytes = INSTANCE_SIZE;
-        }
-        else {
-            this.blocks = blocksCopyRequired ? blocks.clone() : blocks;
-        }
+        return new Page(false, positionCount, fieldBlocks, fixedSizePerRow);
     }
 
     public int getChannelCount()
     {
-        return blocks.length;
-    }
-
-    public int getPositionCount()
-    {
-        return positionCount;
-    }
-
-    public long getSizeInBytes()
-    {
-        long sizeInBytes = this.sizeInBytes;
-        if (sizeInBytes < 0) {
-            sizeInBytes = 0;
-            for (Block block : blocks) {
-                long blockSizeInBytes = block.getLoadedBlock().getSizeInBytes();
-                if (blockSizeInBytes < 0) {
-                    throw new IllegalStateException(format("Block sizeInBytes is negative (%s)", blockSizeInBytes));
-                }
-                sizeInBytes += blockSizeInBytes;
-            }
-            this.sizeInBytes = sizeInBytes;
-        }
-        return sizeInBytes;
-    }
-
-    public long getRetainedSizeInBytes()
-    {
-        long retainedSizeInBytes = this.retainedSizeInBytes;
-        if (retainedSizeInBytes < 0) {
-            return updateRetainedSize();
-        }
-        return retainedSizeInBytes;
-    }
-
-    public Block getBlock(int channel)
-    {
-        return blocks[channel];
+        return fieldBlocks.length;
     }
 
     /**
-     * Gets the values at the specified position as a single element page.  The method creates independent
-     * copy of the data.
+     * @Deprecated Use {@link #getFieldBlock(int)} instead
      */
-    public Page getSingleValuePage(int position)
+    @Deprecated
+    public Block getBlock(int channel)
     {
-        Block[] singleValueBlocks = new Block[this.blocks.length];
-        for (int i = 0; i < this.blocks.length; i++) {
-            singleValueBlocks[i] = this.blocks[i].getSingleValueBlock(position);
-        }
-        return wrapBlocksWithoutCopy(1, singleValueBlocks);
+        return getFieldBlock(channel);
     }
 
-    public Page getRegion(int positionOffset, int length)
-    {
-        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
-            throw new IndexOutOfBoundsException(format("Invalid position %s and length %s in page with %s positions", positionOffset, length, positionCount));
-        }
-
-        if (positionOffset == 0 && length == positionCount) {
-            return this;
-        }
-
-        int channelCount = getChannelCount();
-        Block[] slicedBlocks = new Block[channelCount];
-        for (int i = 0; i < channelCount; i++) {
-            slicedBlocks[i] = blocks[i].getRegion(positionOffset, length);
-        }
-        return wrapBlocksWithoutCopy(length, slicedBlocks);
-    }
-
+    /**
+     * @Deprecated Use {@link #appendField(Block)} instead
+     */
+    @Deprecated
     public Page appendColumn(Block block)
     {
-        requireNonNull(block, "block is null");
-        if (positionCount != block.getPositionCount()) {
-            throw new IllegalArgumentException("Block does not have same position count");
-        }
+        return appendField(block);
+    }
 
-        Block[] newBlocks = Arrays.copyOf(blocks, blocks.length + 1);
-        newBlocks[blocks.length] = block;
-        return wrapBlocksWithoutCopy(positionCount, newBlocks);
+    @Override
+    public Page appendField(Block block)
+    {
+        return (Page) super.appendField(block);
     }
 
     public void compact()
@@ -175,13 +111,13 @@ public final class Page
             return;
         }
 
-        for (int i = 0; i < blocks.length; i++) {
-            Block block = blocks[i];
+        for (int i = 0; i < fieldBlocks.length; i++) {
+            Block block = fieldBlocks[i];
             if (block instanceof DictionaryBlock) {
                 continue;
             }
             // Compact the block
-            blocks[i] = block.copyRegion(0, block.getPositionCount());
+            fieldBlocks[i] = block.copyRegion(0, block.getPositionCount());
         }
 
         Map<DictionaryId, DictionaryBlockIndexes> dictionaryBlocks = getRelatedDictionaryBlocks();
@@ -189,7 +125,7 @@ public final class Page
             List<DictionaryBlock> compactBlocks = DictionaryBlock.compactRelatedBlocks(blockIndexes.getBlocks());
             List<Integer> indexes = blockIndexes.getIndexes();
             for (int i = 0; i < compactBlocks.size(); i++) {
-                blocks[indexes.get(i)] = compactBlocks.get(i);
+                fieldBlocks[indexes.get(i)] = compactBlocks.get(i);
             }
         }
 
@@ -200,10 +136,10 @@ public final class Page
     {
         Map<DictionaryId, DictionaryBlockIndexes> relatedDictionaryBlocks = new HashMap<>();
 
-        for (int i = 0; i < blocks.length; i++) {
-            Block block = blocks[i];
+        for (int i = 0; i < fieldBlocks.length; i++) {
+            Block block = fieldBlocks[i];
             if (block instanceof DictionaryBlock dictionaryBlock) {
-                relatedDictionaryBlocks.computeIfAbsent(dictionaryBlock.getDictionarySourceId(), id -> new DictionaryBlockIndexes())
+                relatedDictionaryBlocks.computeIfAbsent(dictionaryBlock.getDictionarySourceId(), _ -> new DictionaryBlockIndexes())
                         .addBlock(dictionaryBlock, i);
             }
         }
@@ -211,62 +147,24 @@ public final class Page
     }
 
     /**
-     * Returns a page that assures all data is in memory.
-     * May return the same page if all page data is already in memory.
-     * <p>
-     * This allows streaming data sources to skip sections that are not
-     * accessed in a query.
+     * @Deprecated Use {@link #getLoadedBlock()} instead
      */
+    @Deprecated
     public Page getLoadedPage()
     {
-        for (int i = 0; i < blocks.length; i++) {
-            Block loaded = blocks[i].getLoadedBlock();
-            if (loaded != blocks[i]) {
-                // Transition to new block creation mode after the first newly loaded block is encountered
-                Block[] loadedBlocks = blocks.clone();
-                loadedBlocks[i++] = loaded;
-                for (; i < blocks.length; i++) {
-                    loadedBlocks[i] = blocks[i].getLoadedBlock();
-                }
-                return wrapBlocksWithoutCopy(positionCount, loadedBlocks);
-            }
-        }
-        // No newly loaded blocks
-        return this;
-    }
-
-    public Page getLoadedPage(int column)
-    {
-        return wrapBlocksWithoutCopy(positionCount, new Block[] {this.blocks[column].getLoadedBlock()});
+        return (Page) getLoadedBlock();
     }
 
     public Page getLoadedPage(int... columns)
     {
-        requireNonNull(columns, "columns is null");
-
-        Block[] blocks = new Block[columns.length];
-        for (int i = 0; i < columns.length; i++) {
-            blocks[i] = this.blocks[columns[i]].getLoadedBlock();
-        }
-        return wrapBlocksWithoutCopy(positionCount, blocks);
+        loadFields(columns);
+        return (Page) getFields(columns);
     }
 
     public Page getLoadedPage(int[] columns, int[] eagerlyLoadedColumns)
     {
-        requireNonNull(columns, "columns is null");
-
-        for (int column : eagerlyLoadedColumns) {
-            this.blocks[column] = this.blocks[column].getLoadedBlock();
-        }
-        if (retainedSizeInBytes != -1 && eagerlyLoadedColumns.length > 0) {
-            updateRetainedSize();
-        }
-        Block[] blocks = new Block[columns.length];
-        for (int i = 0; i < columns.length; i++) {
-            blocks[i] = this.blocks[columns[i]];
-        }
-
-        return wrapBlocksWithoutCopy(positionCount, blocks);
+        loadFields(eagerlyLoadedColumns);
+        return (Page) getFields(columns);
     }
 
     @Override
@@ -290,65 +188,68 @@ public final class Page
         return blocks[0].getPositionCount();
     }
 
+    /**
+     * @Deprecated Use {@link #getSingleValueBlock(int)} instead
+     */
+    @Deprecated
+    public Page getSingleValuePage(int position)
+    {
+        return (Page) super.getSingleValueBlock(position);
+    }
+
+    @Override
+    public Page getSingleValueBlock(int position)
+    {
+        return (Page) super.getSingleValueBlock(position);
+    }
+
+    @Override
     public Page getPositions(int[] retainedPositions, int offset, int length)
     {
         requireNonNull(retainedPositions, "retainedPositions is null");
 
-        Block[] blocks = new Block[this.blocks.length];
+        // this is different from row block which simply wrappers the entire row block with a dictionary block
+        Block[] blocks = new Block[this.fieldBlocks.length];
         for (int i = 0; i < blocks.length; i++) {
-            blocks[i] = this.blocks[i].getPositions(retainedPositions, offset, length);
+            blocks[i] = this.fieldBlocks[i].getPositions(retainedPositions, offset, length);
         }
-        return wrapBlocksWithoutCopy(length, blocks);
+        return createDerrivedRowBlock(length, null, blocks);
     }
 
-    public Page copyPositions(int[] retainedPositions, int offset, int length)
+    @Override
+    public Page copyPositions(int[] positions, int offset, int length)
     {
-        requireNonNull(retainedPositions, "retainedPositions is null");
-
-        Block[] blocks = new Block[this.blocks.length];
-        for (int i = 0; i < blocks.length; i++) {
-            blocks[i] = this.blocks[i].copyPositions(retainedPositions, offset, length);
-        }
-        return wrapBlocksWithoutCopy(length, blocks);
+        return (Page) super.copyPositions(positions, offset, length);
     }
 
-    public Page getColumns(int column)
+    @Override
+    public Page getRegion(int positionOffset, int length)
     {
-        return wrapBlocksWithoutCopy(positionCount, new Block[] {this.blocks[column]});
+        return (Page) super.getRegion(positionOffset, length);
     }
 
+    /**
+     * @Deprecated Use {@link #getFields(int...)} instead
+     */
+    @Deprecated
     public Page getColumns(int... columns)
     {
-        requireNonNull(columns, "columns is null");
-
-        Block[] blocks = new Block[columns.length];
-        for (int i = 0; i < columns.length; i++) {
-            blocks[i] = this.blocks[columns[i]];
-        }
-        return wrapBlocksWithoutCopy(positionCount, blocks);
+        return (Page) getFields(columns);
     }
 
+    /**
+     * @Deprecated Use {@link #prependField(Block)} instead
+     */
+    @Deprecated
     public Page prependColumn(Block column)
     {
-        if (column.getPositionCount() != positionCount) {
-            throw new IllegalArgumentException(format("Column does not have same position count (%s) as page (%s)", column.getPositionCount(), positionCount));
-        }
-
-        Block[] result = new Block[blocks.length + 1];
-        result[0] = column;
-        System.arraycopy(blocks, 0, result, 1, blocks.length);
-
-        return wrapBlocksWithoutCopy(positionCount, result);
+        return prependField(column);
     }
 
-    private long updateRetainedSize()
+    @Override
+    public Page prependField(Block column)
     {
-        long retainedSizeInBytes = getInstanceSizeInBytes(blocks.length);
-        for (Block block : blocks) {
-            retainedSizeInBytes += block.getRetainedSizeInBytes();
-        }
-        this.retainedSizeInBytes = retainedSizeInBytes;
-        return retainedSizeInBytes;
+        return (Page) super.prependField(column);
     }
 
     private static class DictionaryBlockIndexes

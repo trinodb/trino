@@ -149,8 +149,8 @@ public class TestRowNumberOperator
             OperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                     0,
                     new PlanNodeId("test"),
-                    ImmutableList.of(type),
-                    ImmutableList.of(0),
+                    ImmutableList.of(type, BIGINT),
+                    ImmutableList.of(0, 1),
                     ImmutableList.of(0),
                     ImmutableList.of(type),
                     Optional.empty(),

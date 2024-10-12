@@ -181,7 +181,7 @@ public class PageBuilder
             }
         }
 
-        return Page.wrapBlocksWithoutCopy(declaredPositions, blocks);
+        return Page.createPageInternal(declaredPositions, blocks);
     }
 
     private static void checkArgument(boolean expression, String errorMessage)

@@ -484,7 +484,7 @@ public class TestDynamicFilterSourceOperator
         int maxDistinctValues = 100;
         Page largePage = new Page(
                 createLongsBlock(Collections.nCopies(100, null)),
-                createLongSequenceBlock(200, 301));
+                createLongSequenceBlock(200, 300));
 
         assertDynamicFilters(
                 maxDistinctValues,
@@ -618,7 +618,7 @@ public class TestDynamicFilterSourceOperator
                 .isGreaterThan(initialMemoryUsage);
 
         inputPages = ImmutableList.of(new Page(
-                createLongSequenceBlock(0, 51),
+                createLongSequenceBlock(0, 50),
                 createLongSequenceBlock(51, 101)));
         toPagesPartial(operator, inputPages.iterator());
         long firstChannelStoppedMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();

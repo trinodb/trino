@@ -104,7 +104,7 @@ public class TestLazyBlock
             return;
         }
         if (loadedBlock instanceof RowBlock rowBlock) {
-            long expectedSizeInBytes = loadedBlock.getPositionCount();
+            long expectedSizeInBytes = rowBlock.mayHaveNull() ? loadedBlock.getPositionCount() : 0;
             assertThat(loadedBlock.getSizeInBytes()).isEqualTo(expectedSizeInBytes);
 
             for (Block fieldBlock : rowBlock.getFieldBlocks()) {

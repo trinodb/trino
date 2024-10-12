@@ -13,9 +13,11 @@
  */
 package io.trino.spi.block;
 
+import io.trino.spi.Page;
 import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -29,26 +31,28 @@ import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.BlockUtil.ensureBlocksAreLoaded;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public final class RowBlock
+public sealed class RowBlock
         implements ValueBlock
+        permits Page
 {
     private static final int INSTANCE_SIZE = instanceSize(RowBlock.class);
+    protected static final Block[] EMPTY_BLOCKS = new Block[0];
 
-    private final int positionCount;
+    protected final int positionCount;
     @Nullable
     private final boolean[] rowIsNull;
     /**
      * Field blocks have the same position count as this row block. The field value of a null row must be null.
      */
-    private final Block[] fieldBlocks;
+    protected final Block[] fieldBlocks;
     private final List<Block> fieldBlocksList;
-    private final int fixedSizePerRow;
+    protected final int fixedSizePerRow;
 
     private volatile long sizeInBytes = -1;
+    private volatile long retainedSizeInBytes = -1;
 
     /**
      * Create a row block directly from field blocks. The returned RowBlock will not contain any null rows, although the fields may contain null values.
@@ -85,7 +89,15 @@ public final class RowBlock
 
     static RowBlock createRowBlockInternal(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks)
     {
-        int fixedSize = Byte.BYTES;
+        if (fieldBlocks.length == 0) {
+            throw new IllegalArgumentException("Row block must contain at least one field");
+        }
+        return new RowBlock(positionCount, rowIsNull, fieldBlocks, computeFixedSizePerRow(fieldBlocks));
+    }
+
+    protected static int computeFixedSizePerRow(Block[] fieldBlocks)
+    {
+        int fixedSize = fieldBlocks.length > 0 ? Byte.BYTES : 0;
         for (Block fieldBlock : fieldBlocks) {
             OptionalInt fieldFixedSize = fieldBlock.fixedSizeInBytesPerPosition();
             if (fieldFixedSize.isEmpty()) {
@@ -95,15 +107,14 @@ public final class RowBlock
             }
             fixedSize += fieldFixedSize.getAsInt();
         }
-
-        return new RowBlock(positionCount, rowIsNull, fieldBlocks, fixedSize);
+        return fixedSize;
     }
 
     /**
      * Use createRowBlockInternal or fromFieldBlocks instead of this method. The caller of this method is assumed to have
      * validated the arguments with validateConstructorArguments.
      */
-    private RowBlock(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks, int fixedSizePerRow)
+    protected RowBlock(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks, int fixedSizePerRow)
     {
         if (positionCount < 0) {
             throw new IllegalArgumentException("positionCount is negative");
@@ -115,7 +126,10 @@ public final class RowBlock
 
         requireNonNull(fieldBlocks, "fieldBlocks is null");
         if (fieldBlocks.length == 0) {
-            throw new IllegalArgumentException("Row block must contain at least one field");
+            fieldBlocks = EMPTY_BLOCKS;
+            this.sizeInBytes = 0;
+            // Empty blocks are not considered "retained" by any particular row block
+            this.retainedSizeInBytes = INSTANCE_SIZE;
         }
 
         for (int i = 0; i < fieldBlocks.length; i++) {
@@ -127,8 +141,21 @@ public final class RowBlock
         this.positionCount = positionCount;
         this.rowIsNull = positionCount == 0 ? null : rowIsNull;
         this.fieldBlocks = fieldBlocks;
-        this.fieldBlocksList = List.of(fieldBlocks);
+        // this is not a copy with List.of(...), because the array is updated in loadFields
+        //noinspection Java9CollectionFactory
+        this.fieldBlocksList = Collections.unmodifiableList(Arrays.asList(fieldBlocks));
         this.fixedSizePerRow = fixedSizePerRow;
+    }
+
+    /**
+     * Used by subclasses to create a new instance of the subclass.
+     */
+    protected RowBlock createDerrivedRowBlock(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks)
+    {
+        if (fieldBlocks.length == 0) {
+            throw new IllegalArgumentException("Row block must contain at least one field");
+        }
+        return new RowBlock(positionCount, rowIsNull, fieldBlocks, fixedSizePerRow);
     }
 
     Block[] getRawFieldBlocks()
@@ -166,15 +193,23 @@ public final class RowBlock
     @Override
     public long getSizeInBytes()
     {
+        long sizeInBytes = this.sizeInBytes;
         if (sizeInBytes >= 0) {
             return sizeInBytes;
         }
 
-        long sizeInBytes = Byte.BYTES * (long) positionCount;
-        boolean hasUnloadedBlocks = false;
+        sizeInBytes = 0;
+        if (rowIsNull != null) {
+            sizeInBytes += Byte.BYTES * (long) positionCount;
+        }
 
+        boolean hasUnloadedBlocks = false;
         for (Block fieldBlock : fieldBlocks) {
-            sizeInBytes += fieldBlock.getSizeInBytes();
+            long blockSizeInBytes = fieldBlock.getSizeInBytes();
+            if (blockSizeInBytes < 0) {
+                throw new IllegalStateException(format("Block sizeInBytes is negative (%s)", blockSizeInBytes));
+            }
+            sizeInBytes += blockSizeInBytes;
             hasUnloadedBlocks = hasUnloadedBlocks || !fieldBlock.isLoaded();
         }
 
@@ -187,7 +222,18 @@ public final class RowBlock
     @Override
     public long getRetainedSizeInBytes()
     {
-        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(rowIsNull);
+        long retainedSizeInBytes = this.retainedSizeInBytes;
+        if (retainedSizeInBytes >= 0) {
+            return retainedSizeInBytes;
+        }
+
+        return updateRetainedSize();
+    }
+
+    protected long updateRetainedSize()
+    {
+        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(fieldBlocks) + sizeOf(rowIsNull);
+
         for (Block fieldBlock : fieldBlocks) {
             retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
         }
@@ -212,6 +258,17 @@ public final class RowBlock
         return format("RowBlock{fieldCount=%d, positionCount=%d}", fieldBlocks.length, positionCount);
     }
 
+    public RowBlock getFields(int... fieldIndexes)
+    {
+        requireNonNull(fieldIndexes, "fieldIndexes is null");
+
+        Block[] newFieldBlocks = new Block[fieldIndexes.length];
+        for (int i = 0; i < fieldIndexes.length; i++) {
+            newFieldBlocks[i] = fieldBlocks[fieldIndexes[i]];
+        }
+        return createDerrivedRowBlock(positionCount, rowIsNull, newFieldBlocks);
+    }
+
     @Override
     public boolean isLoaded()
     {
@@ -224,14 +281,37 @@ public final class RowBlock
     }
 
     @Override
-    public Block getLoadedBlock()
+    public RowBlock getLoadedBlock()
     {
-        Block[] loadedFieldBlocks = ensureBlocksAreLoaded(fieldBlocks);
-        if (loadedFieldBlocks == fieldBlocks) {
-            // All blocks are already loaded
-            return this;
+        boolean blockLoaded = false;
+        for (int fieldIndex = 0; fieldIndex < fieldBlocks.length; fieldIndex++) {
+            Block loadedBlock = fieldBlocks[fieldIndex].getLoadedBlock();
+            if (loadedBlock != fieldBlocks[fieldIndex]) {
+                fieldBlocks[fieldIndex] = loadedBlock;
+                blockLoaded = true;
+            }
         }
-        return new RowBlock(positionCount, rowIsNull, loadedFieldBlocks, fixedSizePerRow);
+        if (blockLoaded && retainedSizeInBytes != -1) {
+            updateRetainedSize();
+        }
+        return this;
+    }
+
+    protected void loadFields(int... fieldIndexes)
+    {
+        requireNonNull(fieldIndexes, "fieldIndexes is null");
+
+        boolean blockLoaded = false;
+        for (int fieldIndex : fieldIndexes) {
+            Block loadedBlock = fieldBlocks[fieldIndex].getLoadedBlock();
+            if (loadedBlock != fieldBlocks[fieldIndex]) {
+                fieldBlocks[fieldIndex] = loadedBlock;
+                blockLoaded = true;
+            }
+        }
+        if (blockLoaded && retainedSizeInBytes != -1) {
+            updateRetainedSize();
+        }
     }
 
     @Override
@@ -251,7 +331,7 @@ public final class RowBlock
         for (int i = 0; i < fieldBlocks.length; i++) {
             newBlocks[i] = fieldBlocks[i].copyWithAppendedNull();
         }
-        return new RowBlock(positionCount + 1, newRowIsNull, newBlocks, fixedSizePerRow);
+        return createDerrivedRowBlock(positionCount + 1, newRowIsNull, newBlocks);
     }
 
     @Override
@@ -278,13 +358,17 @@ public final class RowBlock
             }
         }
 
-        return new RowBlock(length, newRowIsNull, newBlocks, fixedSizePerRow);
+        return createDerrivedRowBlock(length, newRowIsNull, newBlocks);
     }
 
     @Override
     public RowBlock getRegion(int positionOffset, int length)
     {
         checkValidRegion(positionCount, positionOffset, length);
+
+        if (positionOffset == 0 && length == positionCount) {
+            return this;
+        }
 
         // This copies the null array, but this dramatically simplifies this class.
         // Without a copy here, we would need a null array offset, and that would mean that the
@@ -294,7 +378,7 @@ public final class RowBlock
         for (int i = 0; i < newBlocks.length; i++) {
             newBlocks[i] = fieldBlocks[i].getRegion(positionOffset, length);
         }
-        return new RowBlock(length, newRowIsNull, newBlocks, fixedSizePerRow);
+        return createDerrivedRowBlock(length, newRowIsNull, newBlocks);
     }
 
     @Override
@@ -351,7 +435,7 @@ public final class RowBlock
         if (newRowIsNull == rowIsNull && arraySame(newBlocks, fieldBlocks)) {
             return this;
         }
-        return new RowBlock(length, newRowIsNull, newBlocks, fixedSizePerRow);
+        return createDerrivedRowBlock(length, newRowIsNull, newBlocks);
     }
 
     public SqlRow getRow(int position)
@@ -373,7 +457,7 @@ public final class RowBlock
             newBlocks[i] = fieldBlocks[i].getSingleValueBlock(position);
         }
         boolean[] newRowIsNull = isNull(position) ? new boolean[] {true} : null;
-        return new RowBlock(1, newRowIsNull, newBlocks, fixedSizePerRow);
+        return createDerrivedRowBlock(1, newRowIsNull, newBlocks);
     }
 
     @Override
@@ -497,5 +581,29 @@ public final class RowBlock
     public Optional<ByteArrayBlock> getNulls()
     {
         return BlockUtil.getNulls(rowIsNull, 0, positionCount);
+    }
+
+    public RowBlock appendField(Block block)
+    {
+        requireNonNull(block, "block is null");
+        if (positionCount != block.getPositionCount()) {
+            throw new IllegalArgumentException("Block does not have same position count");
+        }
+
+        Block[] newFields = Arrays.copyOf(fieldBlocks, fieldBlocks.length + 1);
+        newFields[fieldBlocks.length] = block;
+        return createDerrivedRowBlock(positionCount, null, newFields);
+    }
+
+    public RowBlock prependField(Block column)
+    {
+        if (column.getPositionCount() != positionCount) {
+            throw new IllegalArgumentException(format("Column does not have same position count (%s) as page (%s)", column.getPositionCount(), positionCount));
+        }
+
+        Block[] newFields = new Block[fieldBlocks.length + 1];
+        newFields[0] = column;
+        System.arraycopy(fieldBlocks, 0, newFields, 1, fieldBlocks.length);
+        return createDerrivedRowBlock(positionCount, null, newFields);
     }
 }

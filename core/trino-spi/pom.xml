@@ -285,6 +285,33 @@
                                     <code>java.method.removed</code>
                                     <old>method long io.trino.spi.block.RunLengthEncodedBlock::getLogicalSizeInBytes()</old>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.Page io.trino.spi.Page::getColumns(int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.Page io.trino.spi.Page::getLoadedPage(int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method long io.trino.spi.Page::updateRetainedSize()</old>
+                                    <new>method long io.trino.spi.block.RowBlock::updateRetainedSize() @ io.trino.spi.Page</new>
+                                    <oldVisibility>private</oldVisibility>
+                                    <newVisibility>protected</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method void io.trino.spi.block.RowBlock::&lt;init&gt;(int, boolean[], io.trino.spi.block.Block[], int)</old>
+                                    <new>method void io.trino.spi.block.RowBlock::&lt;init&gt;(int, boolean[], io.trino.spi.block.Block[], int)</new>
+                                    <oldVisibility>private</oldVisibility>
+                                    <newVisibility>protected</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RowBlock::getLoadedBlock()</old>
+                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::getLoadedBlock()</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

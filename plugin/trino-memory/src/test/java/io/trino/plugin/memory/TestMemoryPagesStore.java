@@ -173,15 +173,17 @@ public class TestMemoryPagesStore
     {
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(POSITIONS_PER_PAGE);
         BIGINT.writeLong(blockBuilder, 42L);
-        return new Page(0, blockBuilder.build());
+        return new Page(1, blockBuilder.build());
     }
 
     private static Page createOneMegaBytePage()
     {
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(POSITIONS_PER_PAGE);
+        int actualPositions = 0;
         while (blockBuilder.getRetainedSizeInBytes() < 1024 * 1024) {
             BIGINT.writeLong(blockBuilder, 42L);
+            actualPositions++;
         }
-        return new Page(0, blockBuilder.build());
+        return new Page(actualPositions, blockBuilder.build());
     }
 }

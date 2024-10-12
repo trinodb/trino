@@ -54,7 +54,7 @@ public class TestPage
     {
         assertThatThrownBy(() -> new Page(0).getRegion(1, 1))
                 .isInstanceOf(IndexOutOfBoundsException.class)
-                .hasMessage("Invalid position 1 and length 1 in page with 0 positions");
+                .hasMessage("Invalid position 1 and length 1 in block with 0 positions");
     }
 
     @Test
@@ -154,10 +154,9 @@ public class TestPage
         long lazyPageRetainedSize = Page.INSTANCE_SIZE + sizeOf(new Block[] {block}) + lazyBlock.getRetainedSizeInBytes();
         assertThat(page.getRetainedSizeInBytes()).isEqualTo(lazyPageRetainedSize);
         Page loadedPage = page.getLoadedPage();
-        // Retained size of page remains the same
-        assertThat(page.getRetainedSizeInBytes()).isEqualTo(lazyPageRetainedSize);
+        // Retained size of original page and loaded page both change to the fully loaded size
         long loadedPageRetainedSize = Page.INSTANCE_SIZE + sizeOf(new Block[] {block}) + block.getRetainedSizeInBytes();
-        // Retained size of loaded page depends on the loaded block
+        assertThat(page.getRetainedSizeInBytes()).isEqualTo(loadedPageRetainedSize);
         assertThat(loadedPage.getRetainedSizeInBytes()).isEqualTo(loadedPageRetainedSize);
 
         lazyBlock = lazyWrapper(block);
