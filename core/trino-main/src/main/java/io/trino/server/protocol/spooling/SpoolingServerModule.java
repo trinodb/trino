@@ -23,11 +23,15 @@ import com.google.inject.multibindings.OptionalBinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.server.ServerConfig;
+import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
 import io.trino.spi.protocol.SpoolingManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.trino.server.protocol.spooling.QueryDataEncoder.EncoderSelector.noEncoder;
+import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.COORDINATOR_PROXY;
+import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.COORDINATOR_STORAGE_REDIRECT;
+import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.WORKER_PROXY;
 import static java.util.Objects.requireNonNull;
 
 public class SpoolingServerModule
@@ -49,7 +53,9 @@ public class SpoolingServerModule
         boolean isCoordinator = buildConfigObject(ServerConfig.class).isCoordinator();
         SpoolingConfig spoolingConfig = buildConfigObject(SpoolingConfig.class);
         binder.bind(QueryDataEncoder.EncoderSelector.class).to(PreferredQueryDataEncoderSelector.class).in(Scopes.SINGLETON);
-        if (spoolingConfig.isUseWorkers() || isCoordinator) {
+
+        SegmentRetrievalMode mode = spoolingConfig.getRetrievalMode();
+        if ((mode == COORDINATOR_STORAGE_REDIRECT && isCoordinator) || (mode == COORDINATOR_PROXY && isCoordinator) || mode == WORKER_PROXY) {
             jaxrsBinder(binder).bind(SegmentResource.class);
         }
 

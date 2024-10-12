@@ -23,8 +23,6 @@ import io.trino.server.protocol.OutputColumn;
 import io.trino.server.protocol.QueryResultRows;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
-import io.trino.spi.protocol.SpooledLocation.CoordinatorLocation;
-import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 import jakarta.ws.rs.core.UriBuilder;
 
 import java.io.ByteArrayOutputStream;
@@ -80,12 +78,12 @@ public class SpooledQueryDataProducer
                             .set(ROW_OFFSET, currentOffset)
                             .build();
 
-                    builder.withSegment(switch (metadata.location()) {
-                        case CoordinatorLocation coordinatorLocation ->
-                                spooled(buildSegmentURI(uriBuilder, coordinatorLocation.identifier()), attributes, coordinatorLocation.headers());
-                        case DirectLocation directLocation ->
-                                spooled(directLocation.uri(), attributes, directLocation.headers());
-                    });
+                    URI segmentUri = buildSegmentURI(uriBuilder, metadata.identifier());
+                    builder.withSegment(spooled(
+                            metadata.directUri().orElse(segmentUri),
+                            segmentUri,
+                            attributes,
+                            metadata.headers()));
                     currentOffset += attributes.get(ROWS_COUNT, Long.class);
                 }
                 else {

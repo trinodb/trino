@@ -13,6 +13,7 @@
  */
 package io.trino.spooling.filesystem;
 
+import io.airlift.slice.Slice;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
@@ -28,6 +29,8 @@ import io.trino.spi.protocol.SpoolingManager;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.opentelemetry.api.common.AttributeKey.longKey;
@@ -93,17 +96,17 @@ public class TracingSpoolingManager
         return withTracing(span(tracer, handle, "directLocation"), () -> delegate.directLocation(handle));
     }
 
-    // Methods below do not need to be traced as they are not doing any I/O
     @Override
     public SpooledLocation location(SpooledSegmentHandle handle)
+            throws IOException
     {
-        return delegate.location(handle);
+        return withTracing(span(tracer, handle, "location"), () -> delegate.location(handle));
     }
 
     @Override
-    public SpooledSegmentHandle handle(SpooledLocation location)
+    public SpooledSegmentHandle handle(Slice identifier, Map<String, List<String>> headers)
     {
-        return delegate.handle(location);
+        return delegate.handle(identifier, headers);
     }
 
     public static <E extends Exception> void withTracing(Span span, CheckedRunnable<E> runnable)

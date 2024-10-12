@@ -30,57 +30,13 @@ import static java.util.Base64.getDecoder;
 
 public class SpoolingConfig
 {
-    private boolean useWorkers;
-
-    // This is implemented by the S3 and GCS which is the most common use case
-    private boolean directStorageAccess = true;
-    private boolean directStorageFallback;
-
     private boolean inlineSegments = true;
-
     private DataSize initialSegmentSize = DataSize.of(8, MEGABYTE);
     private DataSize maximumSegmentSize = DataSize.of(16, MEGABYTE);
 
     private Optional<SecretKey> sharedEncryptionKey = Optional.empty();
 
-    public boolean isUseWorkers()
-    {
-        return useWorkers;
-    }
-
-    @Config("protocol.spooling.worker-access")
-    @ConfigDescription("Use worker nodes to retrieve data from spooling location")
-    public SpoolingConfig setUseWorkers(boolean useWorkers)
-    {
-        this.useWorkers = useWorkers;
-        return this;
-    }
-
-    public boolean isDirectStorageAccess()
-    {
-        return directStorageAccess;
-    }
-
-    @Config("protocol.spooling.direct-storage-access")
-    @ConfigDescription("Retrieve segments directly from the spooling location")
-    public SpoolingConfig setDirectStorageAccess(boolean directStorageAccess)
-    {
-        this.directStorageAccess = directStorageAccess;
-        return this;
-    }
-
-    public boolean isDirectStorageFallback()
-    {
-        return directStorageFallback;
-    }
-
-    @Config("protocol.spooling.direct-storage-fallback")
-    @ConfigDescription("Fallback segment retrieval through the coordinator when direct storage access is not possible")
-    public SpoolingConfig setDirectStorageFallback(boolean directStorageFallback)
-    {
-        this.directStorageFallback = directStorageFallback;
-        return this;
-    }
+    private SegmentRetrievalMode retrievalMode = SegmentRetrievalMode.STORAGE;
 
     public DataSize getInitialSegmentSize()
     {
@@ -136,6 +92,19 @@ public class SpoolingConfig
         return this;
     }
 
+    public SegmentRetrievalMode getRetrievalMode()
+    {
+        return retrievalMode;
+    }
+
+    @Config("protocol.spooling.retrieval-mode")
+    @ConfigDescription("Determines how the client will retrieve the segment")
+    public SpoolingConfig setRetrievalMode(SegmentRetrievalMode retrievalMode)
+    {
+        this.retrievalMode = retrievalMode;
+        return this;
+    }
+
     @AssertTrue(message = "protocol.spooling.shared-secret-key must be 256 bits long")
     public boolean isSharedEncryptionKeyAes256()
     {
@@ -148,5 +117,14 @@ public class SpoolingConfig
     public boolean isSharedEncryptionKeySet()
     {
         return sharedEncryptionKey.isPresent();
+    }
+
+    public enum SegmentRetrievalMode
+    {
+        // Client goes for the data to:
+        STORAGE, // directly to the storage with the pre-signed URI (1 round trip)
+        COORDINATOR_STORAGE_REDIRECT, // coordinator and gets redirected to the storage with the pre-signed URI (2 round trips)
+        COORDINATOR_PROXY, // coordinator and gets segment data through it (1 round trip)
+        WORKER_PROXY, // coordinator and gets redirected to one of the available workers and gets data through it (2 round trips)
     }
 }
