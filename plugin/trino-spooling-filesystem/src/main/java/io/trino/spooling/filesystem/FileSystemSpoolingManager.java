@@ -42,9 +42,11 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
 import static io.trino.spi.protocol.SpooledLocation.coordinatorLocation;
 import static io.trino.spooling.filesystem.encryption.EncryptionHeadersTranslator.encryptionHeadersTranslator;
@@ -52,6 +54,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Duration.between;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class FileSystemSpoolingManager
         implements SpoolingManager
@@ -137,12 +140,12 @@ public class FileSystemSpoolingManager
     }
 
     @Override
-    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
+    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle, OptionalInt ttlSeconds)
             throws IOException
     {
         FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
         Location storageLocation = fileSystemLayout.location(location, fileHandle);
-        Duration ttl = remainingTtl(fileHandle.expirationTime());
+        Duration ttl = remainingTtl(fileHandle.expirationTime(), ttlSeconds);
         Optional<EncryptionKey> key = fileHandle.encryptionKey();
 
         Optional<DirectLocation> directLocation;
@@ -212,10 +215,17 @@ public class FileSystemSpoolingManager
         return new FileSystemSpooledSegmentHandle(encoding, queryId, uuid, Optional.of(encryptionHeadersTranslator.extractKey(headers)));
     }
 
-    private Duration remainingTtl(Instant expiresAt)
-
+    private Duration remainingTtl(Instant expiresAt, OptionalInt ttlSeconds)
     {
-        return new Duration(between(Instant.now(), expiresAt).toMillis(), MILLISECONDS);
+        Duration maxTtl = new Duration(between(Instant.now(), expiresAt).toMillis(), MILLISECONDS);
+        if (ttlSeconds.isPresent()) {
+            Duration ttl = succinctDuration(ttlSeconds.getAsInt(), SECONDS);
+            if (ttl.compareTo(maxTtl) > 0) {
+                return maxTtl;
+            }
+            return ttl;
+        }
+        return maxTtl;
     }
 
     private void checkExpiration(FileSystemSpooledSegmentHandle handle)

@@ -16,6 +16,7 @@ package io.trino.server.protocol.spooling;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.protocol.SpooledLocation;
@@ -33,7 +34,9 @@ import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
@@ -43,6 +46,7 @@ import static io.trino.spi.protocol.SpooledLocation.coordinatorLocation;
 import static java.util.Base64.getUrlDecoder;
 import static java.util.Base64.getUrlEncoder;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.crypto.Cipher.DECRYPT_MODE;
 import static javax.crypto.Cipher.ENCRYPT_MODE;
 
@@ -55,6 +59,7 @@ public class SpoolingManagerBridge
     private final boolean inlineSegments;
     private final SecretKey secretKey;
     private final SegmentRetrievalMode retrievalMode;
+    private final OptionalInt maxDirectPassThroughTtl;
 
     @Inject
     public SpoolingManagerBridge(SpoolingConfig spoolingConfig, SpoolingManagerRegistry registry)
@@ -67,6 +72,7 @@ public class SpoolingManagerBridge
         this.retrievalMode = spoolingConfig.getRetrievalMode();
         this.secretKey = spoolingConfig.getSharedEncryptionKey()
                 .orElseThrow(() -> new IllegalArgumentException("protocol.spooling.shared-secret-key is not set"));
+        this.maxDirectPassThroughTtl = fromDuration(spoolingConfig.getStorageRedirectTtl());
     }
 
     @Override
@@ -119,7 +125,7 @@ public class SpoolingManagerBridge
             throws IOException
     {
         return switch (retrievalMode) {
-            case STORAGE -> toUri(secretKey, directLocation(handle)
+            case STORAGE -> toUri(secretKey, directLocation(handle, OptionalInt.empty())
                     .orElseThrow(() -> new IllegalStateException("Retrieval mode is DIRECT but cannot generate pre-signed URI")));
             case COORDINATOR_STORAGE_REDIRECT, WORKER_PROXY, COORDINATOR_PROXY -> switch (delegate().location(handle)) {
                 case DirectLocation _ -> throw new IllegalStateException("Expected coordinator location but got direct one");
@@ -130,11 +136,13 @@ public class SpoolingManagerBridge
     }
 
     @Override
-    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
+    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle, OptionalInt ttlSeconds)
             throws IOException
     {
+        verify(ttlSeconds.isEmpty(), "Method is expected to be called with empty TTL");
         return switch (retrievalMode) {
-            case STORAGE, COORDINATOR_STORAGE_REDIRECT -> delegate().directLocation(handle);
+            case STORAGE -> delegate().directLocation(handle, ttlSeconds);
+            case COORDINATOR_STORAGE_REDIRECT -> delegate().directLocation(handle, maxDirectPassThroughTtl);
             case COORDINATOR_PROXY, WORKER_PROXY -> throw new TrinoException(CONFIGURATION_INVALID, "Retrieval mode doesn't allow for direct storage access");
         };
     }
@@ -179,5 +187,12 @@ public class SpoolingManagerBridge
         catch (GeneralSecurityException e) {
             throw new RuntimeException("Could not decode segment identifier from URI", e);
         }
+    }
+
+    private static OptionalInt fromDuration(Optional<Duration> duration)
+    {
+        return duration
+                .map(value -> OptionalInt.of((int) value.getValue(SECONDS)))
+                .orElseGet(OptionalInt::empty);
     }
 }
