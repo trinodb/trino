@@ -27,7 +27,9 @@ public sealed interface SpooledLocation
 {
     Map<String, List<String>> headers();
 
-    record CoordinatorLocation(Slice identifier, Map<String, List<String>> headers)
+    Slice identifier();
+
+    record CoordinatorLocation(@Override Slice identifier, Map<String, List<String>> headers)
             implements SpooledLocation
     {
         public CoordinatorLocation {
@@ -35,17 +37,12 @@ public sealed interface SpooledLocation
         }
     }
 
-    record DirectLocation(URI uri, Map<String, List<String>> headers)
+    record DirectLocation(@Override Slice identifier, URI directUri, Map<String, List<String>> headers)
             implements SpooledLocation
     {
         public DirectLocation {
             headers = Map.copyOf(requireNonNull(headers, "headers is null"));
         }
-    }
-
-    static DirectLocation directLocation(URI uri, Map<String, List<String>> headers)
-    {
-        return new DirectLocation(uri, headers);
     }
 
     static CoordinatorLocation coordinatorLocation(Slice identifier, Map<String, List<String>> headers)

@@ -15,22 +15,23 @@ package io.trino.server.protocol.spooling;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.protocol.SpooledLocation;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
 import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_TYPE;
-import static io.trino.spi.protocol.SpooledLocation.coordinatorLocation;
-import static io.trino.spi.protocol.SpooledLocation.directLocation;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
@@ -40,45 +41,45 @@ class TestSpooledBlock
     @Test
     public void testSerializationRoundTrip()
     {
-        verifySerialization(directLocation(URI.create("https://example.com/presigned"), ImmutableMap.of("X-Header", ImmutableList.of("value1", "value2"))));
-        verifySerialization(coordinatorLocation(utf8Slice("identifier"), ImmutableMap.of("X-Header", ImmutableList.of("value1", "value2"))));
+        verifySerialization(utf8Slice("identifier"), Optional.of(URI.create("https://example.com/presigned")), ImmutableMap.of("X-Header", ImmutableList.of("value1", "value2")));
+        verifySerialization(utf8Slice("identifier"), Optional.empty(), ImmutableMap.of("X-Header", ImmutableList.of("value1", "value2")));
     }
 
-    public void verifySerialization(SpooledLocation location)
+    public void verifySerialization(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
     {
-        verifySerializationRoundTrip(location);
-        verifySerializationRoundTripWithNonEmptyPage(location);
-        verifyThrowsErrorOnNonNullPositions(location);
-        verifyThrowsErrorOnMultiplePositions(location);
+        verifySerializationRoundTrip(identifier, directUri, headers);
+        verifySerializationRoundTripWithNonEmptyPage(identifier, directUri, headers);
+        verifyThrowsErrorOnNonNullPositions(identifier, directUri, headers);
+        verifyThrowsErrorOnMultiplePositions(identifier, directUri, headers);
     }
 
-    public void verifySerializationRoundTrip(SpooledLocation location)
+    public void verifySerializationRoundTrip(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
     {
-        SpooledBlock metadata = new SpooledBlock(location, createDataAttributes(10, 1200));
+        SpooledBlock metadata = new SpooledBlock(identifier, directUri, headers, createDataAttributes(10, 1200));
         Page page = new Page(metadata.serialize());
         SpooledBlock retrieved = SpooledBlock.deserialize(page);
         assertThat(metadata).isEqualTo(retrieved);
     }
 
-    private void verifySerializationRoundTripWithNonEmptyPage(SpooledLocation location)
+    private void verifySerializationRoundTripWithNonEmptyPage(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
     {
-        SpooledBlock metadata = new SpooledBlock(location, createDataAttributes(10, 1100));
+        SpooledBlock metadata = new SpooledBlock(identifier, directUri, headers, createDataAttributes(10, 1100));
         Page page = new Page(blockWithPositions(1, true), metadata.serialize());
         SpooledBlock retrieved = SpooledBlock.deserialize(page);
         assertThat(metadata).isEqualTo(retrieved);
     }
 
-    private void verifyThrowsErrorOnNonNullPositions(SpooledLocation location)
+    private void verifyThrowsErrorOnNonNullPositions(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
     {
-        SpooledBlock metadata = new SpooledBlock(location, createDataAttributes(20, 1200));
+        SpooledBlock metadata = new SpooledBlock(identifier, directUri, headers, createDataAttributes(20, 1200));
 
         assertThatThrownBy(() -> SpooledBlock.deserialize(new Page(blockWithPositions(1, false), metadata.serialize())))
                 .hasMessage("Spooling metadata block must have all but last channels null");
     }
 
-    private void verifyThrowsErrorOnMultiplePositions(SpooledLocation location)
+    private void verifyThrowsErrorOnMultiplePositions(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
     {
-        SpooledBlock metadata = new SpooledBlock(location, createDataAttributes(30, 1300));
+        SpooledBlock metadata = new SpooledBlock(identifier, directUri, headers, createDataAttributes(30, 1300));
         RowBlockBuilder rowBlockBuilder = SPOOLING_METADATA_TYPE.createBlockBuilder(null, 2);
         metadata.serialize(rowBlockBuilder);
         metadata.serialize(rowBlockBuilder);

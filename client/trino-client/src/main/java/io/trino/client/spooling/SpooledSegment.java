@@ -31,20 +31,23 @@ public final class SpooledSegment
 {
     private final URI dataUri;
     private final Map<String, List<String>> headers;
+    private final URI ackUri;
 
     @JsonCreator
     public SpooledSegment(
             @JsonProperty("uri") URI dataUri,
+            @JsonProperty("ackUri") URI ackUri,
             @JsonProperty("metadata") Map<String, Object> metadata,
             @JsonProperty("headers") Map<String, List<String>> headers)
     {
-        this(dataUri, new DataAttributes(metadata), headers);
+        this(dataUri, ackUri, new DataAttributes(metadata), headers);
     }
 
-    SpooledSegment(URI dataUri, DataAttributes metadata, Map<String, List<String>> headers)
+    SpooledSegment(URI dataUri, URI ackUri, DataAttributes metadata, Map<String, List<String>> headers)
     {
         super(metadata);
         this.dataUri = requireNonNull(dataUri, "dataUri is null");
+        this.ackUri = requireNonNull(ackUri, "ackUri is null");
         this.headers = firstNonNull(headers, ImmutableMap.of());
     }
 
@@ -52,6 +55,12 @@ public final class SpooledSegment
     public URI getDataUri()
     {
         return dataUri;
+    }
+
+    @JsonProperty("ackUri")
+    public URI getAckUri()
+    {
+        return ackUri;
     }
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)

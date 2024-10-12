@@ -18,11 +18,11 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.errorprone.annotations.DoNotCall;
+import io.airlift.slice.Slice;
 import io.trino.client.JsonCodec;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledLocation;
-import io.trino.spi.protocol.SpooledLocation.CoordinatorLocation;
 import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
 import io.trino.spi.protocol.SpoolingContext;
@@ -98,13 +98,10 @@ public class LocalSpoolingManager
     }
 
     @Override
-    public SpooledSegmentHandle handle(SpooledLocation location)
+    public SpooledSegmentHandle handle(Slice identifier, Map<String, List<String>> headers)
     {
-        if (!(location instanceof CoordinatorLocation coordinatorLocation)) {
-            throw new IllegalArgumentException("Cannot convert direct location to handle");
-        }
         try {
-            return HANDLE_CODEC.fromJson(coordinatorLocation.identifier().toStringUtf8());
+            return HANDLE_CODEC.fromJson(identifier.toStringUtf8());
         }
         catch (JsonProcessingException e) {
             throw new UncheckedIOException(e);

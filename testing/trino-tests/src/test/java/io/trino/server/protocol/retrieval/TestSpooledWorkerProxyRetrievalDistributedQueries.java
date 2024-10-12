@@ -11,22 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.protocol;
+package io.trino.server.protocol.retrieval;
 
-import java.util.Map;
+import io.trino.server.protocol.spooling.SpoolingConfig;
 
-public class TestJsonSpooledUnencryptedDistributedQueries
-        extends AbstractSpooledQueryDataDistributedQueries
+public class TestSpooledWorkerProxyRetrievalDistributedQueries
+        extends AbstractSpooledQueryDataRetrievalDistributedQueries
 {
     @Override
-    protected String encoding()
+    SpoolingConfig.SegmentRetrievalMode getSegmentRetrievalMode()
     {
-        return "json+zstd";
-    }
-
-    @Override
-    protected Map<String, String> spoolingFileSystemConfig()
-    {
-        return Map.of("fs.segment.encryption", "false");
+        return SpoolingConfig.SegmentRetrievalMode.WORKER_PROXY;
     }
 }

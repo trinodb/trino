@@ -275,7 +275,7 @@ public class OutputSpoolingOperatorFactory
                 controller.recordEncoded(attributes.get(SEGMENT_SIZE, Integer.class));
 
                 // This page is small (hundreds of bytes) so there is no point in tracking its memory usage
-                return emptySingleRowPage(layout, new SpooledBlock(spoolingManager.location(segmentHandle), finalAttributes).serialize());
+                return emptySingleRowPage(layout, SpooledBlock.forLocation(spoolingManager.location(segmentHandle), finalAttributes).serialize());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
