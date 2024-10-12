@@ -143,6 +143,7 @@ public class TestIcebergHiveMetastoreAutoCleanMetadataFile
 
     @Test
     public void testInsertWithAutoCleanMetadataFile()
+            throws IOException
     {
         assertUpdate("CREATE TABLE table_to_metadata_count (_bigint BIGINT, _varchar VARCHAR)");
 
@@ -155,20 +156,15 @@ public class TestIcebergHiveMetastoreAutoCleanMetadataFile
         for (int i = 0; i < 10; i++) {
             assertUpdate("INSERT INTO table_to_metadata_count VALUES (1, 'a')", 1);
         }
-        try {
-            int count = 0;
-            fileSystem = fileSystemFactory.create(SESSION);
-            FileIterator fileIterator = fileSystem.listFiles(Location.of(table.location()));
-            while (fileIterator.hasNext()) {
-                FileEntry next = fileIterator.next();
-                if (next.location().path().endsWith("metadata.json")) {
-                    count++;
-                }
+        int count = 0;
+        fileSystem = fileSystemFactory.create(SESSION);
+        FileIterator fileIterator = fileSystem.listFiles(Location.of(table.location()));
+        while (fileIterator.hasNext()) {
+            FileEntry next = fileIterator.next();
+            if (next.location().path().endsWith("metadata.json")) {
+                count++;
             }
-            assertThat(count).isEqualTo(1 + METADATA_PREVIOUS_VERSIONS_MAX);
         }
-        catch (IOException e) {
-            e.printStackTrace();
-        }
+        assertThat(count).isEqualTo(1 + METADATA_PREVIOUS_VERSIONS_MAX);
     }
 }
