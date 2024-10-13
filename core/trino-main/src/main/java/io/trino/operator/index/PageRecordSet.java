@@ -96,7 +96,7 @@ public class PageRecordSet
             checkState(position >= 0, "Not yet advanced");
             checkState(position < page.getPositionCount(), "Already finished");
             Type type = types.get(field);
-            return type.getBoolean(page.getBlock(field), position);
+            return type.getBoolean(page.getFieldBlock(field), position);
         }
 
         @Override
@@ -105,7 +105,7 @@ public class PageRecordSet
             checkState(position >= 0, "Not yet advanced");
             checkState(position < page.getPositionCount(), "Already finished");
             Type type = types.get(field);
-            return type.getLong(page.getBlock(field), position);
+            return type.getLong(page.getFieldBlock(field), position);
         }
 
         @Override
@@ -114,7 +114,7 @@ public class PageRecordSet
             checkState(position >= 0, "Not yet advanced");
             checkState(position < page.getPositionCount(), "Already finished");
             Type type = types.get(field);
-            return type.getDouble(page.getBlock(field), position);
+            return type.getDouble(page.getFieldBlock(field), position);
         }
 
         @Override
@@ -123,7 +123,7 @@ public class PageRecordSet
             checkState(position >= 0, "Not yet advanced");
             checkState(position < page.getPositionCount(), "Already finished");
             Type type = types.get(field);
-            return type.getSlice(page.getBlock(field), position);
+            return type.getSlice(page.getFieldBlock(field), position);
         }
 
         @Override
@@ -132,7 +132,7 @@ public class PageRecordSet
             checkState(position >= 0, "Not yet advanced");
             checkState(position < page.getPositionCount(), "Already finished");
             Type type = types.get(field);
-            return type.getObject(page.getBlock(field), position);
+            return type.getObject(page.getFieldBlock(field), position);
         }
 
         @Override
@@ -140,7 +140,7 @@ public class PageRecordSet
         {
             checkState(position >= 0, "Not yet advanced");
             checkState(position < page.getPositionCount(), "Already finished");
-            return page.getBlock(field).isNull(position);
+            return page.getFieldBlock(field).isNull(position);
         }
 
         @Override

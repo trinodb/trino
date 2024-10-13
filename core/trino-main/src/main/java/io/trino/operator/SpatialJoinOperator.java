@@ -303,7 +303,7 @@ public class SpatialJoinOperator
         int outputChannelOffset = 0;
         for (int outputIndex : probeOutputChannels) {
             Type type = probeTypes.get(outputIndex);
-            Block block = probe.getBlock(outputIndex);
+            Block block = probe.getFieldBlock(outputIndex);
             type.appendTo(block, probePosition, pageBuilder.getBlockBuilder(outputChannelOffset));
             outputChannelOffset++;
         }

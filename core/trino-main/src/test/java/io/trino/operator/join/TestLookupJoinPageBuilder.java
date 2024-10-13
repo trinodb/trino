@@ -57,22 +57,22 @@ public class TestLookupJoinPageBuilder
 
         Page output = lookupJoinPageBuilder.build(probe);
         assertThat(output.getChannelCount()).isEqualTo(4);
-        assertThat(output.getBlock(0) instanceof DictionaryBlock).isTrue();
-        assertThat(output.getBlock(1) instanceof DictionaryBlock).isTrue();
+        assertThat(output.getFieldBlock(0) instanceof DictionaryBlock).isTrue();
+        assertThat(output.getFieldBlock(1) instanceof DictionaryBlock).isTrue();
         for (int i = 0; i < output.getPositionCount(); i++) {
-            assertThat(output.getBlock(0).isNull(i)).isFalse();
-            assertThat(output.getBlock(1).isNull(i)).isFalse();
-            assertThat(BIGINT.getLong(output.getBlock(0), i)).isEqualTo(i / 2);
-            assertThat(BIGINT.getLong(output.getBlock(1), i)).isEqualTo(i / 2);
+            assertThat(output.getFieldBlock(0).isNull(i)).isFalse();
+            assertThat(output.getFieldBlock(1).isNull(i)).isFalse();
+            assertThat(BIGINT.getLong(output.getFieldBlock(0), i)).isEqualTo(i / 2);
+            assertThat(BIGINT.getLong(output.getFieldBlock(1), i)).isEqualTo(i / 2);
             if (i % 2 == 0) {
-                assertThat(output.getBlock(2).isNull(i)).isFalse();
-                assertThat(output.getBlock(3).isNull(i)).isFalse();
-                assertThat(BIGINT.getLong(output.getBlock(2), i)).isEqualTo(i / 2);
-                assertThat(BIGINT.getLong(output.getBlock(3), i)).isEqualTo(i / 2);
+                assertThat(output.getFieldBlock(2).isNull(i)).isFalse();
+                assertThat(output.getFieldBlock(3).isNull(i)).isFalse();
+                assertThat(BIGINT.getLong(output.getFieldBlock(2), i)).isEqualTo(i / 2);
+                assertThat(BIGINT.getLong(output.getFieldBlock(3), i)).isEqualTo(i / 2);
             }
             else {
-                assertThat(output.getBlock(2).isNull(i)).isTrue();
-                assertThat(output.getBlock(3).isNull(i)).isTrue();
+                assertThat(output.getFieldBlock(2).isNull(i)).isTrue();
+                assertThat(output.getFieldBlock(3).isNull(i)).isTrue();
             }
         }
         assertThat(lookupJoinPageBuilder.toString().contains("positionCount=" + output.getPositionCount())).isTrue();
@@ -99,7 +99,7 @@ public class TestLookupJoinPageBuilder
         JoinProbe probe = joinProbeFactory.createJoinProbe(page);
         Page output = lookupJoinPageBuilder.build(probe);
         assertThat(output.getChannelCount()).isEqualTo(2);
-        assertThat(output.getBlock(0)).isInstanceOf(LongArrayBlock.class);
+        assertThat(output.getFieldBlock(0)).isInstanceOf(LongArrayBlock.class);
         assertThat(output.getPositionCount()).isEqualTo(0);
         lookupJoinPageBuilder.reset();
 
@@ -113,11 +113,11 @@ public class TestLookupJoinPageBuilder
         }
         output = lookupJoinPageBuilder.build(probe);
         assertThat(output.getChannelCount()).isEqualTo(2);
-        assertThat(output.getBlock(0)).isInstanceOf(DictionaryBlock.class);
+        assertThat(output.getFieldBlock(0)).isInstanceOf(DictionaryBlock.class);
         assertThat(output.getPositionCount()).isEqualTo(entries / 2);
         for (int i = 0; i < entries / 2; i++) {
-            assertThat(BIGINT.getLong(output.getBlock(0), i)).isEqualTo(i * 2L);
-            assertThat(BIGINT.getLong(output.getBlock(1), i)).isEqualTo(i * 2L);
+            assertThat(BIGINT.getLong(output.getFieldBlock(0), i)).isEqualTo(i * 2L);
+            assertThat(BIGINT.getLong(output.getFieldBlock(1), i)).isEqualTo(i * 2L);
         }
         lookupJoinPageBuilder.reset();
 
@@ -128,11 +128,11 @@ public class TestLookupJoinPageBuilder
         }
         output = lookupJoinPageBuilder.build(probe);
         assertThat(output.getChannelCount()).isEqualTo(2);
-        assertThat(output.getBlock(0)).isNotInstanceOf(DictionaryBlock.class);
+        assertThat(output.getFieldBlock(0)).isNotInstanceOf(DictionaryBlock.class);
         assertThat(output.getPositionCount()).isEqualTo(entries);
         for (int i = 0; i < entries; i++) {
-            assertThat(BIGINT.getLong(output.getBlock(0), i)).isEqualTo(i);
-            assertThat(BIGINT.getLong(output.getBlock(1), i)).isEqualTo(i);
+            assertThat(BIGINT.getLong(output.getFieldBlock(0), i)).isEqualTo(i);
+            assertThat(BIGINT.getLong(output.getFieldBlock(1), i)).isEqualTo(i);
         }
         lookupJoinPageBuilder.reset();
 
@@ -146,11 +146,11 @@ public class TestLookupJoinPageBuilder
         }
         output = lookupJoinPageBuilder.build(probe);
         assertThat(output.getChannelCount()).isEqualTo(2);
-        assertThat(output.getBlock(0)).isNotInstanceOf(DictionaryBlock.class);
+        assertThat(output.getFieldBlock(0)).isNotInstanceOf(DictionaryBlock.class);
         assertThat(output.getPositionCount()).isEqualTo(40);
         for (int i = 10; i < 50; i++) {
-            assertThat(BIGINT.getLong(output.getBlock(0), i - 10)).isEqualTo(i);
-            assertThat(BIGINT.getLong(output.getBlock(1), i - 10)).isEqualTo(i);
+            assertThat(BIGINT.getLong(output.getFieldBlock(0), i - 10)).isEqualTo(i);
+            assertThat(BIGINT.getLong(output.getFieldBlock(1), i - 10)).isEqualTo(i);
         }
     }
 
@@ -238,7 +238,7 @@ public class TestLookupJoinPageBuilder
         public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
         {
             for (int i = 0; i < types.size(); i++) {
-                types.get(i).appendTo(page.getBlock(i), (int) position, pageBuilder.getBlockBuilder(i));
+                types.get(i).appendTo(page.getFieldBlock(i), (int) position, pageBuilder.getBlockBuilder(i));
             }
         }
 

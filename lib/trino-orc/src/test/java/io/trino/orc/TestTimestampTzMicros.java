@@ -53,7 +53,7 @@ public class TestTimestampTzMicros
                 newSimpleAggregatedMemoryContext(),
                 INITIAL_BATCH_SIZE,
                 RuntimeException::new)) {
-            assertThat(timestampTzType.getObject(reader.nextPage().getBlock(0), 0))
+            assertThat(timestampTzType.getObject(reader.nextPage().getFieldBlock(0), 0))
                     .isEqualTo(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1654809982754L, 0, (short) 0));
         }
     }

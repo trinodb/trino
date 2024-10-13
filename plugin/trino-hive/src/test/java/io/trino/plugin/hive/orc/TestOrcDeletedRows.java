@@ -69,7 +69,7 @@ public class TestOrcDeletedRows
 
         // page with deleted rows
         Page testPage = createTestPage(0, 10);
-        Block block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(0));
+        Block block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getFieldBlock(0));
         Set<Object> validRows = resultBuilder(SESSION, BIGINT)
                 .page(new Page(block))
                 .build()
@@ -80,7 +80,7 @@ public class TestOrcDeletedRows
 
         // page with no deleted rows
         testPage = createTestPage(10, 20);
-        block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(1));
+        block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getFieldBlock(1));
         assertThat(block.getPositionCount()).isEqualTo(10);
     }
 
@@ -98,7 +98,7 @@ public class TestOrcDeletedRows
 
         // page with deleted rows
         Page testPage = createTestPage(0, 8);
-        Block block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.of(0L)).apply(testPage.getBlock(0));
+        Block block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.of(0L)).apply(testPage.getFieldBlock(0));
         Set<Object> validRows = resultBuilder(SESSION, BIGINT)
                 .page(new Page(block))
                 .build()
@@ -109,7 +109,7 @@ public class TestOrcDeletedRows
 
         // page with no deleted rows
         testPage = createTestPage(5, 9);
-        block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(1));
+        block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getFieldBlock(1));
         assertThat(block.getPositionCount()).isEqualTo(4);
     }
 
@@ -123,7 +123,7 @@ public class TestOrcDeletedRows
 
         // page with deleted rows
         Page testPage = createTestPage(0, 10);
-        Block block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(0));
+        Block block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getFieldBlock(0));
         Set<Object> validRows = resultBuilder(SESSION, BIGINT)
                 .page(new Page(block))
                 .build()
@@ -134,7 +134,7 @@ public class TestOrcDeletedRows
 
         // page with no deleted rows
         testPage = createTestPage(10, 20);
-        block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(1));
+        block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getFieldBlock(1));
         assertThat(block.getPositionCount()).isEqualTo(10);
     }
 

@@ -39,7 +39,7 @@ public final class PositionDeleteFilter
             int positionCount = page.getPositionCount();
             int[] retained = new int[positionCount];
             int retainedCount = 0;
-            Block block = page.getBlock(filePositionChannel);
+            Block block = page.getFieldBlock(filePositionChannel);
             for (int position = 0; position < positionCount; position++) {
                 long filePosition = BIGINT.getLong(block, position);
                 if (!deletedRows.contains(filePosition)) {

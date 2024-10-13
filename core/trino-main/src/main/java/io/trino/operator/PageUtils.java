@@ -30,7 +30,7 @@ public final class PageUtils
         long loadedBlocksSizeInBytes = 0;
 
         for (int i = 0; i < page.getChannelCount(); ++i) {
-            Block block = page.getBlock(i);
+            Block block = page.getFieldBlock(i);
             long initialSize = block.getSizeInBytes();
             loadedBlocksSizeInBytes += initialSize;
             listenForLoads(block, loadedBlock -> sizeInBytesConsumer.accept(loadedBlock.getSizeInBytes()));

@@ -159,10 +159,10 @@ public class PhoenixMergeSink
     {
         checkArgument(page.getChannelCount() == 2 + columnCount, "The page size should be 2 + columnCount (%s), but is %s", columnCount, page.getChannelCount());
         int positionCount = page.getPositionCount();
-        Block operationBlock = page.getBlock(columnCount);
+        Block operationBlock = page.getFieldBlock(columnCount);
 
         int[] dataChannel = IntStream.range(0, columnCount).toArray();
-        Page dataPage = page.getColumns(dataChannel);
+        Page dataPage = page.getFields(dataChannel);
 
         int[] insertPositions = new int[positionCount];
         int insertPositionCount = 0;
@@ -194,7 +194,7 @@ public class PhoenixMergeSink
             insertSink.appendPage(dataPage.getPositions(insertPositions, 0, insertPositionCount));
         }
 
-        List<Block> rowIdFields = RowBlock.getRowFieldsFromBlock(page.getBlock(columnCount + 1));
+        List<Block> rowIdFields = RowBlock.getRowFieldsFromBlock(page.getFieldBlock(columnCount + 1));
         if (deletePositionCount > 0) {
             Block[] deleteBlocks = new Block[rowIdFields.size()];
             for (int field = 0; field < rowIdFields.size(); field++) {
@@ -206,7 +206,7 @@ public class PhoenixMergeSink
         if (updatePositionCount > 0) {
             Page updatePage = dataPage.getPositions(updatePositions, 0, updatePositionCount);
             if (hasRowKey) {
-                updatePage = updatePage.appendColumn(rowIdFields.get(0).getPositions(updatePositions, 0, updatePositionCount));
+                updatePage = updatePage.appendField(rowIdFields.get(0).getPositions(updatePositions, 0, updatePositionCount));
             }
 
             updateSink.appendPage(updatePage);

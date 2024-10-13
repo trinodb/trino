@@ -78,7 +78,7 @@ public class GroupedTopNRowNumberBuilder
     public Work<?> processPage(Page page)
     {
         return new TransformWork<>(
-                groupByHash.getGroupIds(page.getColumns(groupByChannels)),
+                groupByHash.getGroupIds(page.getFields(groupByChannels)),
                 groupIds -> {
                     processPage(page, groupByHash.getGroupCount(), groupIds);
                     return null;
@@ -165,7 +165,7 @@ public class GroupedTopNRowNumberBuilder
                 Page page = pageManager.getPage(rowId);
                 int position = pageManager.getPosition(rowId);
                 for (int i = 0; i < sourceTypes.size(); i++) {
-                    sourceTypes.get(i).appendTo(page.getBlock(i), position, pageBuilder.getBlockBuilder(i));
+                    sourceTypes.get(i).appendTo(page.getFieldBlock(i), position, pageBuilder.getBlockBuilder(i));
                 }
                 if (produceRowNumber) {
                     BIGINT.writeLong(pageBuilder.getBlockBuilder(sourceTypes.size()), currentIndexInGroup + 1);

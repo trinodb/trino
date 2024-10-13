@@ -73,7 +73,7 @@ public class TempFileReader
             }
 
             // eagerly load the page
-            return page.getLoadedPage();
+            return page.getLoadedBlock();
         }
         catch (IOException e) {
             throw handleException(e);

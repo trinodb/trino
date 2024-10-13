@@ -31,7 +31,7 @@ public final class PageAssertions
         assertThat(actualPage.getChannelCount()).isEqualTo(expectedPage.getChannelCount());
         assertThat(actualPage.getPositionCount()).isEqualTo(expectedPage.getPositionCount());
         for (int i = 0; i < actualPage.getChannelCount(); i++) {
-            assertBlockEquals(types.get(i), actualPage.getBlock(i), expectedPage.getBlock(i));
+            assertBlockEquals(types.get(i), actualPage.getFieldBlock(i), expectedPage.getFieldBlock(i));
         }
     }
 }

@@ -66,7 +66,7 @@ public class TestOrcReaderMemoryUsage
                 if (page == null) {
                     break;
                 }
-                page = page.getLoadedPage();
+                page = page.getLoadedBlock();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.
@@ -111,7 +111,7 @@ public class TestOrcReaderMemoryUsage
                 if (page == null) {
                     break;
                 }
-                page = page.getLoadedPage();
+                page = page.getLoadedBlock();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.
@@ -158,7 +158,7 @@ public class TestOrcReaderMemoryUsage
                 if (page == null) {
                     break;
                 }
-                page = page.getLoadedPage();
+                page = page.getLoadedBlock();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.

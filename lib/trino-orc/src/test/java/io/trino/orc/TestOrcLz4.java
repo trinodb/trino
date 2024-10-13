@@ -71,12 +71,12 @@ public class TestOrcLz4
                 if (page == null) {
                     break;
                 }
-                page = page.getLoadedPage();
+                page = page.getLoadedBlock();
                 rows += page.getPositionCount();
 
-                Block xBlock = page.getBlock(0);
-                Block yBlock = page.getBlock(1);
-                Block zBlock = page.getBlock(2);
+                Block xBlock = page.getFieldBlock(0);
+                Block yBlock = page.getFieldBlock(1);
+                Block zBlock = page.getFieldBlock(2);
 
                 for (int position = 0; position < page.getPositionCount(); position++) {
                     BIGINT.getLong(xBlock, position);

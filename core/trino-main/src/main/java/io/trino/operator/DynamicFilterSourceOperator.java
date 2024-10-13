@@ -226,7 +226,7 @@ public class DynamicFilterSourceOperator
         // Collect only the columns which are relevant for the JOIN.
         long retainedSize = 0;
         for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
-            Block block = page.getBlock(channels.get(channelIndex).index());
+            Block block = page.getFieldBlock(channels.get(channelIndex).index());
             joinDomainBuilders[channelIndex].add(block);
             if (isDomainCollectionComplete) {
                 return;

@@ -263,7 +263,7 @@ public class PageProcessor
             retainedSizeInBytes = Page.getInstanceSizeInBytes(page.getChannelCount());
             ReferenceCountMap referenceCountMap = new ReferenceCountMap();
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                Block block = page.getBlock(channel);
+                Block block = page.getFieldBlock(channel);
                 // TODO: block might be partially loaded
                 if (block.isLoaded()) {
                     block.retainedBytesForEachPart((object, size) -> {

@@ -70,7 +70,7 @@ public class HivePartitionedBucketFunction
         long partitionHash = 0;
         for (int i = 0; i < hashCodeInvokers.size(); i++) {
             try {
-                Block partitionColumn = page.getBlock(i + firstPartitionColumnIndex);
+                Block partitionColumn = page.getFieldBlock(i + firstPartitionColumnIndex);
                 partitionHash = (31 * partitionHash) + hashCodeNullSafe(hashCodeInvokers.get(i), partitionColumn, position);
             }
             catch (Throwable throwable) {

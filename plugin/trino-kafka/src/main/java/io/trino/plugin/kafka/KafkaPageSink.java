@@ -116,10 +116,10 @@ public class KafkaPageSink
         for (int position = 0; position < page.getPositionCount(); position++) {
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 if (columns.get(channel).isKeyCodec()) {
-                    keyEncoder.appendColumnValue(page.getBlock(channel), position);
+                    keyEncoder.appendColumnValue(page.getFieldBlock(channel), position);
                 }
                 else {
-                    messageEncoder.appendColumnValue(page.getBlock(channel), position);
+                    messageEncoder.appendColumnValue(page.getFieldBlock(channel), position);
                 }
             }
 

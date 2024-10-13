@@ -104,7 +104,7 @@ public class PageSourceOperator
         readTimeNanos = endReadTimeNanos;
 
         // assure the page is in memory before handing to another operator
-        page = page.getLoadedPage();
+        page = page.getLoadedBlock();
 
         return page;
     }

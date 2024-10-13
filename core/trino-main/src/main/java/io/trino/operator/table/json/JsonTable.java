@@ -152,9 +152,9 @@ public class JsonTable
                         currentPosition = 0;
                         currentPositionAlreadyProduced = false;
                         totalPositionsProcessed++;
-                        SqlRow parametersRow = (SqlRow) readNativeValue(parametersType, inputPage.getBlock(1), currentPosition);
+                        SqlRow parametersRow = (SqlRow) readNativeValue(parametersType, inputPage.getFieldBlock(1), currentPosition);
                         executionPlan.resetRoot(
-                                (JsonNode) readNativeValue(JSON_2016, inputPage.getBlock(0), currentPosition),
+                                (JsonNode) readNativeValue(JSON_2016, inputPage.getFieldBlock(0), currentPosition),
                                 inputPage,
                                 currentPosition,
                                 getParametersArray(parametersType, parametersRow));
@@ -176,9 +176,9 @@ public class JsonTable
                     if (currentPosition < inputPage.getPositionCount()) {
                         currentPositionAlreadyProduced = false;
                         totalPositionsProcessed++;
-                        SqlRow parametersRow = (SqlRow) readNativeValue(parametersType, inputPage.getBlock(1), currentPosition);
+                        SqlRow parametersRow = (SqlRow) readNativeValue(parametersType, inputPage.getFieldBlock(1), currentPosition);
                         executionPlan.resetRoot(
-                                (JsonNode) readNativeValue(JSON_2016, inputPage.getBlock(0), currentPosition),
+                                (JsonNode) readNativeValue(JSON_2016, inputPage.getFieldBlock(0), currentPosition),
                                 inputPage,
                                 currentPosition,
                                 getParametersArray(parametersType, parametersRow));

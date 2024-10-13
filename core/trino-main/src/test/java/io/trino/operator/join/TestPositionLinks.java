@@ -67,7 +67,7 @@ public class TestPositionLinks
     public void testSortedPositionLinks()
     {
         JoinFilterFunction filterFunction = (leftAddress, rightPosition, rightPage) ->
-                BIGINT.getLong(TEST_PAGE.getBlock(0), leftAddress) > 4;
+                BIGINT.getLong(TEST_PAGE.getFieldBlock(0), leftAddress) > 4;
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
         PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunction));
@@ -98,7 +98,7 @@ public class TestPositionLinks
     public void testSortedPositionLinksAllMatch()
     {
         JoinFilterFunction filterFunction = (leftAddress, rightPosition, rightPage) ->
-                BIGINT.getLong(rightPage.getBlock(0), leftAddress) >= 0;
+                BIGINT.getLong(rightPage.getFieldBlock(0), leftAddress) >= 0;
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
         PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunction));
@@ -133,9 +133,9 @@ public class TestPositionLinks
     @Test
     public void testSortedPositionLinksForRangePredicates()
     {
-        JoinFilterFunction filterFunctionOne = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(TEST_PAGE.getBlock(0), leftAddress) > 4;
+        JoinFilterFunction filterFunctionOne = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(TEST_PAGE.getFieldBlock(0), leftAddress) > 4;
 
-        JoinFilterFunction filterFunctionTwo = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(TEST_PAGE.getBlock(0), leftAddress) <= 11;
+        JoinFilterFunction filterFunctionTwo = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(TEST_PAGE.getFieldBlock(0), leftAddress) <= 11;
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
         PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunctionOne, filterFunctionTwo));
@@ -164,9 +164,9 @@ public class TestPositionLinks
     @Test
     public void testSortedPositionLinksForRangePredicatesPrefixMatch()
     {
-        JoinFilterFunction filterFunctionOne = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(0), leftAddress) >= 0;
+        JoinFilterFunction filterFunctionOne = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getFieldBlock(0), leftAddress) >= 0;
 
-        JoinFilterFunction filterFunctionTwo = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(0), leftAddress) <= 11;
+        JoinFilterFunction filterFunctionTwo = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getFieldBlock(0), leftAddress) <= 11;
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
         PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunctionOne, filterFunctionTwo));
@@ -199,9 +199,9 @@ public class TestPositionLinks
     @Test
     public void testSortedPositionLinksForRangePredicatesSuffixMatch()
     {
-        JoinFilterFunction filterFunctionOne = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(0), leftAddress) > 4;
+        JoinFilterFunction filterFunctionOne = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getFieldBlock(0), leftAddress) > 4;
 
-        JoinFilterFunction filterFunctionTwo = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(0), leftAddress) < 100;
+        JoinFilterFunction filterFunctionTwo = (leftAddress, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getFieldBlock(0), leftAddress) < 100;
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
         PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunctionOne, filterFunctionTwo));
@@ -233,7 +233,7 @@ public class TestPositionLinks
     public void testReverseSortedPositionLinks()
     {
         JoinFilterFunction filterFunction = (leftAddress, rightPosition, rightPage) ->
-                BIGINT.getLong(TEST_PAGE.getBlock(0), leftAddress) < 4;
+                BIGINT.getLong(TEST_PAGE.getFieldBlock(0), leftAddress) < 4;
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
         PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunction));
@@ -251,7 +251,7 @@ public class TestPositionLinks
     public void testReverseSortedPositionLinksAllMatch()
     {
         JoinFilterFunction filterFunction = (leftAddress, rightPosition, rightPage) ->
-                BIGINT.getLong(rightPage.getBlock(0), leftAddress) < 13;
+                BIGINT.getLong(rightPage.getFieldBlock(0), leftAddress) < 13;
 
         PositionLinks.FactoryBuilder factoryBuilder = buildSortedPositionLinks();
         PositionLinks positionLinks = factoryBuilder.build().create(ImmutableList.of(filterFunction));
@@ -314,7 +314,7 @@ public class TestPositionLinks
         return new SimplePagesHashStrategy(
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(),
-                ImmutableList.of(new ObjectArrayList<>(ImmutableList.of(TEST_PAGE.getBlock(0)))),
+                ImmutableList.of(new ObjectArrayList<>(ImmutableList.of(TEST_PAGE.getFieldBlock(0)))),
                 ImmutableList.of(),
                 OptionalInt.empty(),
                 Optional.of(0),

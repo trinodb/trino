@@ -234,7 +234,7 @@ public class RowNumberOperator
         checkState(!hasUnfinishedInput());
         inputPage = page;
         if (groupByHash.isPresent()) {
-            unfinishedWork = groupByHash.get().getGroupIds(inputPage.getColumns(groupByChannels));
+            unfinishedWork = groupByHash.get().getGroupIds(inputPage.getFields(groupByChannels));
             processUnfinishedWork();
         }
         updateMemoryReservation();
@@ -308,7 +308,7 @@ public class RowNumberOperator
     {
         Block[] outputBlocks = new Block[inputPage.getChannelCount() + 1]; // +1 for the row number column
         for (int i = 0; i < outputChannels.length; i++) {
-            outputBlocks[i] = inputPage.getBlock(outputChannels[i]);
+            outputBlocks[i] = inputPage.getFieldBlock(outputChannels[i]);
         }
 
         outputBlocks[outputBlocks.length - 1] = createRowNumberBlock();
@@ -345,7 +345,7 @@ public class RowNumberOperator
             for (int i = 0; i < outputChannels.length; i++) {
                 int channel = outputChannels[i];
                 Type type = types.get(i);
-                type.appendTo(inputPage.getBlock(channel), currentPosition, pageBuilder.getBlockBuilder(i));
+                type.appendTo(inputPage.getFieldBlock(channel), currentPosition, pageBuilder.getBlockBuilder(i));
             }
             BIGINT.writeLong(pageBuilder.getBlockBuilder(rowNumberChannel), rowCount + 1);
             partitionRowCount.set(partitionId, rowCount + 1);

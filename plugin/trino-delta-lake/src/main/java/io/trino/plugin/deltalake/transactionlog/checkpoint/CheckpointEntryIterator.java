@@ -836,12 +836,12 @@ public class CheckpointEntryIterator
                 DeltaLakeTransactionLogEntry entry;
                 if (extractor instanceof AddFileEntryExtractor) {
                     // Avoid unnecessary loading of the block in case there is a partition predicate mismatch for this add entry
-                    Block addBlock = page.getBlock(blockIndex);
-                    Block addPartitionValuesBlock = page.getBlock(blockIndex + 1);
+                    Block addBlock = page.getFieldBlock(blockIndex);
+                    Block addPartitionValuesBlock = page.getFieldBlock(blockIndex + 1);
                     entry = extractor.getEntry(session, pagePosition, addBlock, addPartitionValuesBlock.getLoadedBlock());
                 }
                 else {
-                    entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex).getLoadedBlock());
+                    entry = extractor.getEntry(session, pagePosition, page.getFieldBlock(blockIndex).getLoadedBlock());
                 }
                 if (entry != null) {
                     nextEntries.add(entry);

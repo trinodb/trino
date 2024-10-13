@@ -139,7 +139,7 @@ public class BenchmarkGroupByHash
                         // rle page
                         Block[] blocks = new Block[page.getChannelCount()];
                         for (int channel = 0; channel < blocks.length; ++channel) {
-                            blocks[channel] = RunLengthEncodedBlock.create(page.getBlock(channel).getSingleValueBlock(0), page.getPositionCount());
+                            blocks[channel] = RunLengthEncodedBlock.create(page.getFieldBlock(channel).getSingleValueBlock(0), page.getPositionCount());
                         }
                         pages.add(new Page(blocks));
                     }
@@ -148,7 +148,7 @@ public class BenchmarkGroupByHash
                         int[] positions = IntStream.range(0, page.getPositionCount()).toArray();
                         Block[] blocks = new Block[page.getChannelCount()];
                         for (int channel = 0; channel < page.getChannelCount(); ++channel) {
-                            blocks[channel] = DictionaryBlock.create(positions.length, page.getBlock(channel), positions);
+                            blocks[channel] = DictionaryBlock.create(positions.length, page.getFieldBlock(channel), positions);
                         }
                         pages.add(new Page(blocks));
                     }

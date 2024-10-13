@@ -148,7 +148,7 @@ public class KuduPageSink
 
     private void appendColumn(PartialRow row, Page page, int position, int channel, int destChannel)
     {
-        Block block = page.getBlock(channel);
+        Block block = page.getFieldBlock(channel);
         Type type = columnTypes.get(destChannel);
         if (block.isNull(position)) {
             row.setNull(destChannel);
@@ -210,8 +210,8 @@ public class KuduPageSink
         // The last channel in the page is the rowId block, the next-to-last is the operation block
         int columnCount = originalColumnTypes.size();
         checkArgument(page.getChannelCount() == 2 + columnCount, "The page size should be 2 + columnCount (%s), but is %s", columnCount, page.getChannelCount());
-        Block operationBlock = page.getBlock(columnCount);
-        Block rowIds = page.getBlock(columnCount + 1);
+        Block operationBlock = page.getFieldBlock(columnCount);
+        Block rowIds = page.getFieldBlock(columnCount + 1);
 
         Schema schema = table.getSchema();
         try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientSession(session)) {

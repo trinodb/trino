@@ -432,7 +432,7 @@ public class HivePageSink
         Block[] blocks = new Block[dataColumnInputIndex.length];
         for (int i = 0; i < dataColumnInputIndex.length; i++) {
             int dataColumn = dataColumnInputIndex[i];
-            blocks[i] = page.getBlock(dataColumn);
+            blocks[i] = page.getFieldBlock(dataColumn);
         }
         return new Page(page.getPositionCount(), blocks);
     }
@@ -457,7 +457,7 @@ public class HivePageSink
         Block[] blocks = new Block[columns.length];
         for (int i = 0; i < columns.length; i++) {
             int dataColumn = columns[i];
-            blocks[i] = page.getBlock(dataColumn);
+            blocks[i] = page.getFieldBlock(dataColumn);
         }
         return new Page(page.getPositionCount(), blocks);
     }
@@ -498,7 +498,7 @@ public class HivePageSink
             if (bucketBlock != null) {
                 Block[] blocks = new Block[partitionColumns.getChannelCount() + 1];
                 for (int i = 0; i < partitionColumns.getChannelCount(); i++) {
-                    blocks[i] = partitionColumns.getBlock(i);
+                    blocks[i] = partitionColumns.getFieldBlock(i);
                 }
                 blocks[blocks.length - 1] = bucketBlock;
                 partitionColumns = new Page(partitionColumns.getPositionCount(), blocks);

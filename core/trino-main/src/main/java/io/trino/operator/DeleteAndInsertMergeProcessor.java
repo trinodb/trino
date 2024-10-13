@@ -99,7 +99,7 @@ public class DeleteAndInsertMergeProcessor
         int originalPositionCount = inputPage.getPositionCount();
         checkArgument(originalPositionCount > 0, "originalPositionCount should be > 0, but is %s", originalPositionCount);
 
-        List<Block> fields = getRowFieldsFromBlock(inputPage.getBlock(mergeRowChannel));
+        List<Block> fields = getRowFieldsFromBlock(inputPage.getFieldBlock(mergeRowChannel));
         Block operationChannelBlock = fields.get(fields.size() - 2);
 
         int updatePositions = 0;
@@ -158,7 +158,7 @@ public class DeleteAndInsertMergeProcessor
             int redistributionChannelNumber = redistributionChannelNumbers.get(targetChannel);
             if (redistributionChannelNumbers.get(targetChannel) >= 0) {
                 // The value comes from that column of the page
-                columnType.appendTo(originalPage.getBlock(redistributionChannelNumber), position, targetBlock);
+                columnType.appendTo(originalPage.getFieldBlock(redistributionChannelNumber), position, targetBlock);
             }
             else {
                 // We don't care about the other data columns
@@ -170,7 +170,7 @@ public class DeleteAndInsertMergeProcessor
         TINYINT.writeLong(pageBuilder.getBlockBuilder(dataColumnChannels.size()), causedByUpdate ? UPDATE_DELETE_OPERATION_NUMBER : DELETE_OPERATION_NUMBER);
 
         // Copy row ID column
-        rowIdType.appendTo(originalPage.getBlock(rowIdChannel), position, pageBuilder.getBlockBuilder(dataColumnChannels.size() + 1));
+        rowIdType.appendTo(originalPage.getFieldBlock(rowIdChannel), position, pageBuilder.getBlockBuilder(dataColumnChannels.size() + 1));
 
         // Write 0, meaning this row is not an insert derived from an update
         TINYINT.writeLong(pageBuilder.getBlockBuilder(dataColumnChannels.size() + 2), 0);

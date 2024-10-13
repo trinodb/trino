@@ -64,14 +64,14 @@ public class TestTimeMillis
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames);
 
         Page page = reader.nextPage();
-        Block block = page.getBlock(0).getLoadedBlock();
+        Block block = page.getFieldBlock(0).getLoadedBlock();
         assertThat(block.getPositionCount()).isEqualTo(1);
         // TIME '15:03:00'
         assertThat(timeType.getObjectValue(SESSION, block, 0))
                 .isEqualTo(SqlTime.newInstance(precision, 54180000000000000L));
 
         // TIME '23:59:59.999'
-        block = page.getBlock(1).getLoadedBlock();
+        block = page.getFieldBlock(1).getLoadedBlock();
         assertThat(block.getPositionCount()).isEqualTo(1);
         // Rounded up to 0 if precision < 3
         assertThat(timeType.getObjectValue(SESSION, block, 0))

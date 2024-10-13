@@ -181,7 +181,7 @@ public class GroupIdOperator
                 outputBlocks[i] = RunLengthEncodedBlock.create(nullBlocks[i], currentPage.getPositionCount());
             }
             else {
-                outputBlocks[i] = currentPage.getBlock(groupingSetInputs[currentGroupingSet][i]);
+                outputBlocks[i] = currentPage.getFieldBlock(groupingSetInputs[currentGroupingSet][i]);
             }
         }
 

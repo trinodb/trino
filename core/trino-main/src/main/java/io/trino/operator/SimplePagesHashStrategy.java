@@ -139,7 +139,7 @@ public class SimplePagesHashStrategy
     {
         long result = 0;
         for (int i = 0; i < hashChannels.size(); i++) {
-            Block block = page.getBlock(i);
+            Block block = page.getFieldBlock(i);
             result = result * 31 + hashCodeOperators.get(i).hashCodeNullSafe(block, position);
         }
         return result;
@@ -149,8 +149,8 @@ public class SimplePagesHashStrategy
     public boolean rowEqualsRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
-            Block leftBlock = leftPage.getBlock(i);
-            Block rightBlock = rightPage.getBlock(i);
+            Block leftBlock = leftPage.getFieldBlock(i);
+            Block rightBlock = rightPage.getFieldBlock(i);
             if (!equalOperators.get(i).equalNullSafe(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
@@ -162,8 +162,8 @@ public class SimplePagesHashStrategy
     public boolean rowIdenticalToRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
-            Block leftBlock = leftPage.getBlock(i);
-            Block rightBlock = rightPage.getBlock(i);
+            Block leftBlock = leftPage.getFieldBlock(i);
+            Block rightBlock = rightPage.getFieldBlock(i);
             if (!identicalOperators.get(i).isIdentical(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
@@ -176,7 +176,7 @@ public class SimplePagesHashStrategy
     {
         for (int i = 0; i < hashChannels.size(); i++) {
             Block leftBlock = channels.get(hashChannels.get(i)).get(leftBlockIndex);
-            Block rightBlock = rightPage.getBlock(i);
+            Block rightBlock = rightPage.getFieldBlock(i);
             if (!equalOperators.get(i).equalNullSafe(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
@@ -189,7 +189,7 @@ public class SimplePagesHashStrategy
     {
         for (int i = 0; i < hashChannels.size(); i++) {
             Block leftBlock = channels.get(hashChannels.get(i)).get(leftBlockIndex);
-            Block rightBlock = rightPage.getBlock(i);
+            Block rightBlock = rightPage.getFieldBlock(i);
             if (!identicalOperators.get(i).isIdentical(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
@@ -203,7 +203,7 @@ public class SimplePagesHashStrategy
         for (int i = 0; i < hashChannels.size(); i++) {
             BlockPositionEqual equalOperator = equalOperators.get(i);
             Block leftBlock = channels.get(hashChannels.get(i)).get(leftBlockIndex);
-            Block rightBlock = rightPage.getBlock(i);
+            Block rightBlock = rightPage.getFieldBlock(i);
             if (!equalOperator.equal(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
@@ -217,7 +217,7 @@ public class SimplePagesHashStrategy
         for (int i = 0; i < hashChannels.size(); i++) {
             int hashChannel = hashChannels.get(i);
             Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);
-            Block rightBlock = page.getBlock(rightChannels[i]);
+            Block rightBlock = page.getFieldBlock(rightChannels[i]);
             BlockPositionIsIdentical identical = identicalOperators.get(i);
             if (!identical.isIdentical(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;

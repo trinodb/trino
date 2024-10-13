@@ -57,8 +57,8 @@ public class SimplePageWithPositionComparator
         try {
             for (int i = 0; i < sortChannels.size(); i++) {
                 int sortChannel = sortChannels.get(i);
-                Block leftBlock = left.getBlock(sortChannel);
-                Block rightBlock = right.getBlock(sortChannel);
+                Block leftBlock = left.getFieldBlock(sortChannel);
+                Block rightBlock = right.getFieldBlock(sortChannel);
 
                 MethodHandle orderingOperator = orderingOperators.get(i);
                 int compare = (int) orderingOperator.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition);

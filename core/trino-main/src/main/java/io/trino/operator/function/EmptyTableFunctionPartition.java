@@ -92,7 +92,7 @@ public class EmptyTableFunctionPartition
 
         // proper outputs first
         for (int channel = 0; channel < properChannelsCount; channel++) {
-            resultBlocks[channel] = page.getBlock(channel);
+            resultBlocks[channel] = page.getFieldBlock(channel);
         }
 
         // pass-through columns next

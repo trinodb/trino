@@ -142,13 +142,13 @@ public class MergeWriterOperator
         // The last block exists only to get the rowCount right.
         int outputChannelCount = page.getChannelCount() - 1;
         int[] columns = IntStream.range(0, outputChannelCount).toArray();
-        Page newPage = page.getColumns(columns);
+        Page newPage = page.getFields(columns);
 
         // Store the page
         mergeSink.storeMergedRows(newPage);
 
         // Calculate the amount to increment the rowCount
-        Block insertFromUpdateColumn = page.getBlock(page.getChannelCount() - 1);
+        Block insertFromUpdateColumn = page.getFieldBlock(page.getChannelCount() - 1);
         long insertsFromUpdates = 0;
         int positionCount = page.getPositionCount();
         for (int position = 0; position < positionCount; position++) {

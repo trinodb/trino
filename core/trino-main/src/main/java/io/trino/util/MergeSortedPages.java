@@ -191,7 +191,7 @@ public final class MergeSortedPages
             pageBuilder.declarePosition();
             for (int i = 0; i < outputChannels.size(); i++) {
                 Type type = outputTypes.get(i);
-                Block block = page.getBlock(outputChannels.get(i));
+                Block block = page.getFieldBlock(outputChannels.get(i));
                 type.appendTo(block, position, pageBuilder.getBlockBuilder(i));
             }
         }

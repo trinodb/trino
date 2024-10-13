@@ -214,8 +214,8 @@ public class TestCachingOrcDataSource
             if (page == null) {
                 break;
             }
-            page = page.getLoadedPage();
-            Block block = page.getBlock(0);
+            page = page.getLoadedBlock();
+            Block block = page.getFieldBlock(0);
             positionCount += block.getPositionCount();
         }
         assertThat(positionCount).isEqualTo(POSITION_COUNT);

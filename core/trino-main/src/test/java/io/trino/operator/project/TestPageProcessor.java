@@ -316,7 +316,7 @@ public class TestPageProcessor
 
         // batch size will be reduced before the first page is produced until the first block is within the page size bounds
         int batchSize = MAX_BATCH_SIZE;
-        while (inputPage.getBlock(0).getRegionSizeInBytes(0, batchSize) > MAX_PAGE_SIZE_IN_BYTES) {
+        while (inputPage.getFieldBlock(0).getRegionSizeInBytes(0, batchSize) > MAX_PAGE_SIZE_IN_BYTES) {
             batchSize /= 2;
         }
 
@@ -655,7 +655,7 @@ public class TestPageProcessor
         @Override
         public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
-            return new CompletedWork<>(page.getBlock(0).getLoadedBlock());
+            return new CompletedWork<>(page.getFieldBlock(0).getLoadedBlock());
         }
     }
 

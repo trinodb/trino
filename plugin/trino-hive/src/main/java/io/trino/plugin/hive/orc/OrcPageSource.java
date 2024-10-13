@@ -335,7 +335,7 @@ public class OrcPageSource
         @Override
         public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
-            return new LazyBlock(maskDeletedRowsFunction.getPositionCount(), new MaskingBlockLoader(maskDeletedRowsFunction, sourcePage.getBlock(index)));
+            return new LazyBlock(maskDeletedRowsFunction.getPositionCount(), new MaskingBlockLoader(maskDeletedRowsFunction, sourcePage.getFieldBlock(index)));
         }
 
         @Override
@@ -416,9 +416,9 @@ public class OrcPageSource
             return maskDeletedRowsFunction.apply(fromFieldBlocks(
                     page.getPositionCount(),
                     new Block[] {
-                            page.getBlock(ORIGINAL_TRANSACTION_CHANNEL),
-                            page.getBlock(BUCKET_CHANNEL),
-                            page.getBlock(ROW_ID_CHANNEL)
+                            page.getFieldBlock(ORIGINAL_TRANSACTION_CHANNEL),
+                            page.getFieldBlock(BUCKET_CHANNEL),
+                            page.getFieldBlock(ROW_ID_CHANNEL)
                     }));
         }
     }

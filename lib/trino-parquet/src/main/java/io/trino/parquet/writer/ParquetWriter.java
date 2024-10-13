@@ -175,7 +175,7 @@ public class ParquetWriter
         checkArgument(page.getChannelCount() == columnWriters.size());
 
         // page should already be loaded, but double check
-        page = page.getLoadedPage();
+        page = page.getLoadedBlock();
 
         Page validationPage = page;
         recordValidation(validation -> validation.addPage(validationPage));
@@ -200,7 +200,7 @@ public class ParquetWriter
         bufferedBytes = 0;
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
             ColumnWriter writer = columnWriters.get(channel);
-            writer.writeBlock(new ColumnChunk(page.getBlock(channel)));
+            writer.writeBlock(new ColumnChunk(page.getFieldBlock(channel)));
             bufferedBytes += writer.getBufferedBytes();
         }
         rows += page.getPositionCount();
@@ -244,7 +244,7 @@ public class ParquetWriter
             try (ParquetReader parquetReader = createParquetReader(input, parquetMetadata, writeValidation)) {
                 for (Page page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
                     // fully load the page
-                    page.getLoadedPage();
+                    page.getLoadedBlock();
                 }
             }
         }

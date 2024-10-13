@@ -40,7 +40,7 @@ public final class DictionaryAwareColumnarFilter
     @Override
     public int filterPositionsRange(ConnectorSession session, int[] outputPositions, int offset, int size, Page loadedPage)
     {
-        Block block = loadedPage.getBlock(0);
+        Block block = loadedPage.getFieldBlock(0);
         if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
             return processRle(session, outputPositions, offset, size, runLengthEncodedBlock);
         }
@@ -62,7 +62,7 @@ public final class DictionaryAwareColumnarFilter
     @Override
     public int filterPositionsList(ConnectorSession session, int[] outputPositions, int[] activePositions, int offset, int size, Page loadedPage)
     {
-        Block block = loadedPage.getBlock(0);
+        Block block = loadedPage.getFieldBlock(0);
         if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
             return processRle(session, outputPositions, activePositions, offset, size, runLengthEncodedBlock);
         }

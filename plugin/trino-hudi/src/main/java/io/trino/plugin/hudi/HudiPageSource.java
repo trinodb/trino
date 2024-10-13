@@ -149,7 +149,7 @@ public class HudiPageSource
                     blocks[i] = RunLengthEncodedBlock.create(prefilledBlocks[i], positionCount);
                 }
                 else {
-                    blocks[i] = page.getBlock(delegateIndexes[i]);
+                    blocks[i] = page.getFieldBlock(delegateIndexes[i]);
                 }
             }
             return new Page(positionCount, blocks);

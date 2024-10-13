@@ -32,7 +32,7 @@ public class PrecomputedHashGenerator
     @Override
     public long hashPosition(int position, Page page)
     {
-        Block hashBlock = page.getBlock(hashChannel);
+        Block hashBlock = page.getFieldBlock(hashChannel);
         return BIGINT.getLong(hashBlock, position);
     }
 

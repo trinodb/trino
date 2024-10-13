@@ -589,7 +589,7 @@ public class OrcRecordReader
     private void validateWritePageChecksum(Page page)
     {
         if (writeChecksumBuilder.isPresent()) {
-            page = page.getLoadedPage();
+            page = page.getLoadedBlock();
             writeChecksumBuilder.get().addPage(page);
             rowGroupStatisticsValidation.get().addPage(page);
             stripeStatisticsValidation.get().addPage(page);

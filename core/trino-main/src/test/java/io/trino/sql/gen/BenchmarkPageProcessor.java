@@ -138,7 +138,7 @@ public class BenchmarkPageProcessor
     {
         public static int process(Page page, int start, int end, PageBuilder pageBuilder)
         {
-            Block discountBlock = page.getBlock(DISCOUNT);
+            Block discountBlock = page.getFieldBlock(DISCOUNT);
             int position = start;
             for (; position < end; position++) {
                 // where shipdate >= '1994-01-01'
@@ -146,8 +146,8 @@ public class BenchmarkPageProcessor
                 //    and discount >= 0.05
                 //    and discount <= 0.07
                 //    and quantity < 24;
-                if (filter(position, discountBlock, page.getBlock(SHIP_DATE), page.getBlock(QUANTITY))) {
-                    project(position, pageBuilder, page.getBlock(EXTENDED_PRICE), discountBlock);
+                if (filter(position, discountBlock, page.getFieldBlock(SHIP_DATE), page.getFieldBlock(QUANTITY))) {
+                    project(position, pageBuilder, page.getFieldBlock(EXTENDED_PRICE), discountBlock);
                 }
             }
 

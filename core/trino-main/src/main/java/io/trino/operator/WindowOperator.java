@@ -797,7 +797,7 @@ public class WindowOperator
             PeekingIterator<Page> sortedPages = peekingIterator(inMemoryPagesIndexWithHashStrategies.pagesIndex.getSortedPages());
             Page anyPage = sortedPages.peek();
             verify(anyPage.getPositionCount() != 0, "PagesIndex.getSortedPages returned an empty page");
-            currentSpillGroupRowPage = Optional.of(anyPage.getSingleValuePage(/* any */0));
+            currentSpillGroupRowPage = Optional.of(anyPage.getSingleValueBlock(/* any */0));
             spillInProgress = Optional.of(spiller.get().spill(sortedPages));
 
             return spillInProgress.get();
@@ -865,12 +865,12 @@ public class WindowOperator
         checkArgument(page.getPositionCount() > startPosition);
 
         // TODO: Fix pagesHashStrategy to allow specifying channels for comparison, it currently requires us to rearrange the right side blocks in consecutive channel order
-        Page preGroupedPage = page.getColumns(pagesIndexWithHashStrategies.preGroupedPartitionChannels);
+        Page preGroupedPage = page.getFields(pagesIndexWithHashStrategies.preGroupedPartitionChannels);
 
         PagesIndex pagesIndex = pagesIndexWithHashStrategies.pagesIndex;
         PagesHashStrategy preGroupedPartitionHashStrategy = pagesIndexWithHashStrategies.preGroupedPartitionHashStrategy;
         if (currentSpillGroupRowPage.isPresent()) {
-            if (!preGroupedPartitionHashStrategy.rowIdenticalToRow(0, currentSpillGroupRowPage.get().getColumns(pagesIndexWithHashStrategies.preGroupedPartitionChannels), startPosition, preGroupedPage)) {
+            if (!preGroupedPartitionHashStrategy.rowIdenticalToRow(0, currentSpillGroupRowPage.get().getFields(pagesIndexWithHashStrategies.preGroupedPartitionChannels), startPosition, preGroupedPage)) {
                 return startPosition;
             }
         }

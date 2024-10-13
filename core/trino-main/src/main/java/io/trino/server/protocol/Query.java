@@ -570,7 +570,7 @@ class Query
 
                 Page page = deserializer.deserialize(serializedPage);
                 // page should already be loaded since it was just deserialized
-                page = page.getLoadedPage();
+                page = page.getLoadedBlock();
                 bytes += estimateJsonSize(page);
                 resultBuilder.addPage(page);
             }
@@ -590,7 +590,7 @@ class Query
     {
         long estimatedSize = 0;
         for (int i = 0; i < page.getChannelCount(); i++) {
-            estimatedSize += estimateJsonSize(page.getBlock(i));
+            estimatedSize += estimateJsonSize(page.getFieldBlock(i));
         }
         return estimatedSize;
     }

@@ -106,7 +106,7 @@ public class QueryResultRows
         }
 
         checkState(!pages.isEmpty(), "no data pages available");
-        Number value = (Number) columns.get(0).type().getObjectValue(session.toConnectorSession(), pages.getFirst().getBlock(0), 0);
+        Number value = (Number) columns.get(0).type().getObjectValue(session.toConnectorSession(), pages.getFirst().getFieldBlock(0), 0);
 
         return Optional.ofNullable(value).map(Number::longValue);
     }

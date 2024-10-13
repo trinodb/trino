@@ -1170,7 +1170,7 @@ public class TestLocalExchange
             public BucketFunction getBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int bucketCount)
             {
                 return (page, position) -> {
-                    long rowValue = BIGINT.getLong(page.getBlock(0), position);
+                    long rowValue = BIGINT.getLong(page.getFieldBlock(0), position);
                     if (rowValue == 42) {
                         return 0;
                     }
@@ -1372,7 +1372,7 @@ public class TestLocalExchange
             public BucketFunction getBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int bucketCount)
             {
                 return (page, position) -> {
-                    long rowValue = BIGINT.getLong(page.getBlock(0), position);
+                    long rowValue = BIGINT.getLong(page.getFieldBlock(0), position);
                     if (rowValue == 0) {
                         return 2;
                     }

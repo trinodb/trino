@@ -142,7 +142,7 @@ public class TestJoinCompiler
                 }
 
                 // verify output block matches
-                assertBlockEquals(VARCHAR, pageBuilder.build().getBlock(0), leftBlock);
+                assertBlockEquals(VARCHAR, pageBuilder.build().getFieldBlock(0), leftBlock);
             }
         }
     }

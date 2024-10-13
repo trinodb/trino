@@ -308,7 +308,7 @@ public class TestRowReferencePageManager
     {
         Page page = pageManager.getPage(rowId);
         int position = pageManager.getPosition(rowId);
-        return BIGINT.getLong(page.getBlock(0), position);
+        return BIGINT.getLong(page.getFieldBlock(0), position);
     }
 
     private static Page createBigIntSingleBlockPage(long startInclusive, long endExclusive)

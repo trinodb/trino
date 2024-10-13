@@ -472,7 +472,7 @@ public class ExtractSpatialJoins
                             if (page != null && page.getPositionCount() > 0) {
                                 checkSpatialPartitioningTable(kdbTree.isEmpty(), "Expected exactly one row for table %s, but found more", name);
                                 checkSpatialPartitioningTable(page.getPositionCount() == 1, "Expected exactly one row for table %s, but found %s rows", name, page.getPositionCount());
-                                String kdbTreeJson = VARCHAR.getSlice(page.getBlock(0), 0).toStringUtf8();
+                                String kdbTreeJson = VARCHAR.getSlice(page.getFieldBlock(0), 0).toStringUtf8();
                                 try {
                                     kdbTree = Optional.of(KdbTreeUtils.fromJson(kdbTreeJson));
                                 }

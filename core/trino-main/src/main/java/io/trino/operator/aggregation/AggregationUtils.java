@@ -32,7 +32,7 @@ public final class AggregationUtils
         if (maskChannel < 0) {
             return null;
         }
-        Block maskBlock = page.getBlock(maskChannel);
+        Block maskBlock = page.getFieldBlock(maskChannel);
         if (page.getPositionCount() > 0 && maskBlock instanceof RunLengthEncodedBlock && CompilerOperations.testMask(maskBlock, 0)) {
             return null; // filter out RLE true blocks to bypass unnecessary mask checks
         }

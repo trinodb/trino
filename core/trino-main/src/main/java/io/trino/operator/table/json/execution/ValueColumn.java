@@ -64,7 +64,7 @@ public class ValueColumn
             emptyDefault = null;
         }
         else {
-            emptyDefault = readNativeValue(resultType, input.getBlock(emptyDefaultInput), position);
+            emptyDefault = readNativeValue(resultType, input.getFieldBlock(emptyDefaultInput), position);
         }
 
         Object errorDefault;
@@ -72,7 +72,7 @@ public class ValueColumn
             errorDefault = null;
         }
         else {
-            errorDefault = readNativeValue(resultType, input.getBlock(errorDefaultInput), position);
+            errorDefault = readNativeValue(resultType, input.getFieldBlock(errorDefaultInput), position);
         }
 
         try {

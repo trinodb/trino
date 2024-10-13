@@ -150,16 +150,16 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 new BaseAvroTypeBlockHandler())) {
             assertThat(avroFileReader.hasNext()).isTrue();
             Page readPage = avroFileReader.next();
-            assertThat(INTEGER.getInt(readPage.getBlock(0), 0)).isEqualTo(2);
-            assertThat(INTEGER.getInt(readPage.getBlock(0), 1)).isEqualTo(2);
-            assertThat(VarcharType.VARCHAR.getSlice(readPage.getBlock(1), 0)).isEqualTo(Slices.utf8Slice("rleString"));
-            assertThat(VarcharType.VARCHAR.getSlice(readPage.getBlock(1), 1)).isEqualTo(Slices.utf8Slice("rleString"));
-            assertThat(VarcharType.VARCHAR.getSlice(readPage.getBlock(2), 0)).isEqualTo(Slices.utf8Slice("B"));
-            assertThat(VarcharType.VARCHAR.getSlice(readPage.getBlock(2), 1)).isEqualTo(Slices.utf8Slice("C"));
-            assertBlockEquals(simepleRecordType, readPage.getBlock(3).getSingleValueBlock(0), expectedRLERow);
-            assertBlockEquals(simepleRecordType, readPage.getBlock(3).getSingleValueBlock(1), expectedRLERow);
-            assertBlockEquals(simepleRecordType, readPage.getBlock(4).getSingleValueBlock(0), expectedDictionaryRow);
-            assertBlockEquals(simepleRecordType, readPage.getBlock(4).getSingleValueBlock(1), expectedDictionaryRow);
+            assertThat(INTEGER.getInt(readPage.getFieldBlock(0), 0)).isEqualTo(2);
+            assertThat(INTEGER.getInt(readPage.getFieldBlock(0), 1)).isEqualTo(2);
+            assertThat(VarcharType.VARCHAR.getSlice(readPage.getFieldBlock(1), 0)).isEqualTo(Slices.utf8Slice("rleString"));
+            assertThat(VarcharType.VARCHAR.getSlice(readPage.getFieldBlock(1), 1)).isEqualTo(Slices.utf8Slice("rleString"));
+            assertThat(VarcharType.VARCHAR.getSlice(readPage.getFieldBlock(2), 0)).isEqualTo(Slices.utf8Slice("B"));
+            assertThat(VarcharType.VARCHAR.getSlice(readPage.getFieldBlock(2), 1)).isEqualTo(Slices.utf8Slice("C"));
+            assertBlockEquals(simepleRecordType, readPage.getFieldBlock(3).getSingleValueBlock(0), expectedRLERow);
+            assertBlockEquals(simepleRecordType, readPage.getFieldBlock(3).getSingleValueBlock(1), expectedRLERow);
+            assertBlockEquals(simepleRecordType, readPage.getFieldBlock(4).getSingleValueBlock(0), expectedDictionaryRow);
+            assertBlockEquals(simepleRecordType, readPage.getFieldBlock(4).getSingleValueBlock(1), expectedDictionaryRow);
             assertThat(avroFileReader.hasNext()).isFalse();
         }
     }
@@ -214,11 +214,11 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 new BaseAvroTypeBlockHandler())) {
             assertThat(avroFileReader.hasNext()).isTrue();
             Page readPage = avroFileReader.next();
-            assertThat(INTEGER.getInt(readPage.getBlock(0), 0)).isEqualTo(1);
-            assertThat(INTEGER.getInt(readPage.getBlock(1), 0)).isEqualTo(2);
-            assertThat(BIGINT.getLong(readPage.getBlock(2), 0)).isEqualTo(1);
-            assertThat(BIGINT.getLong(readPage.getBlock(3), 0)).isEqualTo(2);
-            assertThat(BIGINT.getLong(readPage.getBlock(4), 0)).isEqualTo(4);
+            assertThat(INTEGER.getInt(readPage.getFieldBlock(0), 0)).isEqualTo(1);
+            assertThat(INTEGER.getInt(readPage.getFieldBlock(1), 0)).isEqualTo(2);
+            assertThat(BIGINT.getLong(readPage.getFieldBlock(2), 0)).isEqualTo(1);
+            assertThat(BIGINT.getLong(readPage.getFieldBlock(3), 0)).isEqualTo(2);
+            assertThat(BIGINT.getLong(readPage.getFieldBlock(4), 0)).isEqualTo(4);
             assertThat(avroFileReader.hasNext()).isFalse();
         }
     }

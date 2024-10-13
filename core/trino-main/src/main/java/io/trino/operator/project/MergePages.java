@@ -207,7 +207,7 @@ public final class MergePages
             for (int channel = 0; channel < types.size(); channel++) {
                 appendBlock(
                         types.get(channel),
-                        page.getBlock(channel).getLoadedBlock(),
+                        page.getFieldBlock(channel).getLoadedBlock(),
                         pageBuilder.getBlockBuilder(channel));
             }
         }
@@ -231,7 +231,7 @@ public final class MergePages
         {
             // TODO: provide better heuristics there, e.g. check if last produced page was materialized
             for (int channel = 0; channel < page.getChannelCount(); ++channel) {
-                Block block = page.getBlock(channel);
+                Block block = page.getFieldBlock(channel);
                 if (!block.isLoaded()) {
                     return false;
                 }

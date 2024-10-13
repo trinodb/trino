@@ -137,7 +137,7 @@ public class IcebergPageSource
             }
 
             dataPage = withRowIdBlock(dataPage);
-            dataPage = dataPage.getColumns(expectedColumnIndexes);
+            dataPage = dataPage.getFields(expectedColumnIndexes);
 
             return dataPage;
         }
@@ -163,7 +163,7 @@ public class IcebergPageSource
 
         Block[] rowIdFields = new Block[rowIdChildColumnIndexes.length];
         for (int childIndex = 0; childIndex < rowIdChildColumnIndexes.length; childIndex++) {
-            rowIdFields[childIndex] = page.getBlock(rowIdChildColumnIndexes[childIndex]);
+            rowIdFields[childIndex] = page.getFieldBlock(rowIdChildColumnIndexes[childIndex]);
         }
 
         Block[] fullPage = new Block[page.getChannelCount()];
@@ -173,7 +173,7 @@ public class IcebergPageSource
                 continue;
             }
 
-            fullPage[channel] = page.getBlock(channel);
+            fullPage[channel] = page.getFieldBlock(channel);
         }
 
         return new Page(page.getPositionCount(), fullPage);

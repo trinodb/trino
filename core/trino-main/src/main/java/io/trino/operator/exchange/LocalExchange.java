@@ -230,7 +230,7 @@ public class LocalExchange
         }
         else {
             int[] partitionChannelsArray = Ints.toArray(partitionChannels);
-            partitionPagePreparer = page -> page.getColumns(partitionChannelsArray);
+            partitionPagePreparer = page -> page.getFields(partitionChannelsArray);
         }
         return partitionPagePreparer;
     }

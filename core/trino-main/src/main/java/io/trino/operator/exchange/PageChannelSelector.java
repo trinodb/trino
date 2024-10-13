@@ -24,7 +24,7 @@ public class PageChannelSelector
         implements Function<Page, Page>
 {
     // No channels need to be remapped, only ensure that all page blocks are loaded
-    private static final Function<Page, Page> GET_LOADED_PAGE = Page::getLoadedPage;
+    private static final Function<Page, Page> GET_LOADED_PAGE = Page::getLoadedBlock;
 
     private final int[] channels;
 

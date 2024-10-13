@@ -211,11 +211,11 @@ public final class MergePartitioningHandle
         @Override
         public int getPartition(Page page, int position)
         {
-            Block operationBlock = page.getBlock(0);
+            Block operationBlock = page.getFieldBlock(0);
             byte operation = TINYINT.getByte(operationBlock, position);
             return switch (operation) {
-                case INSERT_OPERATION_NUMBER, UPDATE_INSERT_OPERATION_NUMBER -> insertFunction.getPartition(page.getColumns(insertColumns), position);
-                case UPDATE_OPERATION_NUMBER, DELETE_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER -> updateFunction.getPartition(page.getColumns(updateColumns), position);
+                case INSERT_OPERATION_NUMBER, UPDATE_INSERT_OPERATION_NUMBER -> insertFunction.getPartition(page.getFields(insertColumns), position);
+                case UPDATE_OPERATION_NUMBER, DELETE_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER -> updateFunction.getPartition(page.getFields(updateColumns), position);
                 default -> throw new VerifyException("Invalid merge operation number: " + operation);
             };
         }

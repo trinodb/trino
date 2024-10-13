@@ -165,7 +165,7 @@ public class RcFileWriteValidation
             totalRowCount += page.getPositionCount();
             for (int channel = 0; channel < columnHashes.size(); channel++) {
                 ValidationHash validationHash = validationHashes.get(channel);
-                Block block = page.getBlock(channel);
+                Block block = page.getFieldBlock(channel);
                 XxHash64 xxHash64 = columnHashes.get(channel);
                 for (int position = 0; position < block.getPositionCount(); position++) {
                     long hash = validationHash.hash(block, position);

@@ -92,15 +92,15 @@ public class TestParquetReader
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, memoryContext, types, columnNames);
 
         Page page = reader.nextPage();
-        assertThat(page.getBlock(0)).isInstanceOf(LazyBlock.class);
+        assertThat(page.getFieldBlock(0)).isInstanceOf(LazyBlock.class);
         assertThat(memoryContext.getBytes()).isEqualTo(0);
-        page.getBlock(0).getLoadedBlock();
+        page.getFieldBlock(0).getLoadedBlock();
         // Memory usage due to reading data and decoding parquet page of 1st block
         long initialMemoryUsage = memoryContext.getBytes();
         assertThat(initialMemoryUsage).isGreaterThan(0);
 
         // Memory usage due to decoding parquet page of 2nd block
-        page.getBlock(1).getLoadedBlock();
+        page.getFieldBlock(1).getLoadedBlock();
         long currentMemoryUsage = memoryContext.getBytes();
         assertThat(currentMemoryUsage).isGreaterThan(initialMemoryUsage);
 
@@ -198,7 +198,7 @@ public class TestParquetReader
             Page page = reader.nextPage();
             Iterator<?> expected = expectedValues.iterator();
             while (page != null) {
-                Block block = page.getBlock(0);
+                Block block = page.getFieldBlock(0);
                 for (int i = 0; i < block.getPositionCount(); i++) {
                     assertThat(columnType.getObjectValue(session, block, i)).isEqualTo(expected.next());
                 }

@@ -78,7 +78,7 @@ public class PositionsAppenderPageBuilder
         declarePositions(positions.size());
 
         for (int channel = 0; channel < channelAppenders.length; channel++) {
-            Block block = page.getBlock(channel);
+            Block block = page.getFieldBlock(channel);
             channelAppenders[channel].append(positions, block);
         }
     }
@@ -88,7 +88,7 @@ public class PositionsAppenderPageBuilder
         declarePositions(1);
 
         for (int channel = 0; channel < channelAppenders.length; channel++) {
-            Block block = page.getBlock(channel);
+            Block block = page.getFieldBlock(channel);
             channelAppenders[channel].append(position, block);
         }
     }

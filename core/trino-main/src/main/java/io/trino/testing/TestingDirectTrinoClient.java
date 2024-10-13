@@ -123,7 +123,7 @@ public class TestingDirectTrinoClient
                 List<Object> values = new ArrayList<>(page.getChannelCount());
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
                     Type type = types.get(channel);
-                    Block block = page.getBlock(channel);
+                    Block block = page.getFieldBlock(channel);
                     values.add(type.getObjectValue(session, block, position));
                 }
                 values = Collections.unmodifiableList(values);

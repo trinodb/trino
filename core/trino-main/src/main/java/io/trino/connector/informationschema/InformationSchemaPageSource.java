@@ -149,7 +149,7 @@ public class InformationSchemaPageSource
         projection = page -> {
             Block[] blocks = new Block[channels.size()];
             for (int i = 0; i < blocks.length; i++) {
-                blocks[i] = page.getBlock(channels.get(i));
+                blocks[i] = page.getFieldBlock(channels.get(i));
             }
             return new Page(page.getPositionCount(), blocks);
         };

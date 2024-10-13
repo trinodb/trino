@@ -63,7 +63,7 @@ public final class TpchTables
                     return computeNext();
                 }
 
-                return page.getLoadedPage();
+                return page.getLoadedBlock();
             }
         };
     }

@@ -297,7 +297,7 @@ public class TestTopNRankingOperator
         for (Page page : result.getOutput()) {
             assertThat(page.getChannelCount()).isEqualTo(2);
             for (int i = 0; i < page.getPositionCount(); i++) {
-                assertThat(BIGINT.getLong(page.getBlock(1), i)).isEqualTo((byte) 1);
+                assertThat(BIGINT.getLong(page.getFieldBlock(1), i)).isEqualTo((byte) 1);
                 count++;
             }
         }

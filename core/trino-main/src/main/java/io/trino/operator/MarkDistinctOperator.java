@@ -155,7 +155,7 @@ public class MarkDistinctOperator
 
         inputPage = page;
 
-        unfinishedWork = markDistinctHash.markDistinctRows(page.getColumns(markDistinctChannels));
+        unfinishedWork = markDistinctHash.markDistinctRows(page.getFields(markDistinctChannels));
         updateMemoryReservation();
     }
 
@@ -171,7 +171,7 @@ public class MarkDistinctOperator
         }
 
         // add the new boolean column to the page
-        Page outputPage = inputPage.appendColumn(unfinishedWork.getResult());
+        Page outputPage = inputPage.appendField(unfinishedWork.getResult());
 
         unfinishedWork = null;
         inputPage = null;

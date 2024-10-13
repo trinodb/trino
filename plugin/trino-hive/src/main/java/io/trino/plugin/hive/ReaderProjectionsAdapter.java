@@ -80,7 +80,7 @@ public class ReaderProjectionsAdapter
         for (int i = 0; i < outputToInputMapping.size(); i++) {
             ChannelMapping mapping = outputToInputMapping.get(i);
 
-            Block inputBlock = input.getBlock(mapping.getInputChannelIndex());
+            Block inputBlock = input.getFieldBlock(mapping.getInputChannelIndex());
             blocks[i] = createAdaptedLazyBlock(inputBlock, mapping.getDereferenceSequence());
         }
 

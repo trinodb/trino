@@ -215,7 +215,7 @@ public class DistinctAccumulatorFactory
             page = mask.filterPage(page);
 
             // 2. compute a mask for the distinct rows (including the group id)
-            Work<Block> work = hash.markDistinctRows(page.prependColumn(new IntArrayBlock(page.getPositionCount(), Optional.empty(), groupIds)));
+            Work<Block> work = hash.markDistinctRows(page.prependField(new IntArrayBlock(page.getPositionCount(), Optional.empty(), groupIds)));
             checkState(work.process());
             Block distinctMask = work.getResult();
 

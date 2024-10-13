@@ -258,7 +258,7 @@ public class ThriftTpchService
         int numberOfColumns = columnTypes.size();
         List<TrinoThriftBlock> columnBlocks = new ArrayList<>(numberOfColumns);
         for (int i = 0; i < numberOfColumns; i++) {
-            columnBlocks.add(fromBlock(page.getBlock(i), columnTypes.get(i)));
+            columnBlocks.add(fromBlock(page.getFieldBlock(i), columnTypes.get(i)));
         }
         return new TrinoThriftPageResult(columnBlocks, page.getPositionCount(), nextToken);
     }

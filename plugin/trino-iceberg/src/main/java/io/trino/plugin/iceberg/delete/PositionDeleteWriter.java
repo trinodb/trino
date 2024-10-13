@@ -132,6 +132,6 @@ public class PositionDeleteWriter
     {
         writer.appendRows(new Page(
                 RunLengthEncodedBlock.create(dataFilePathBlock, page.getPositionCount()),
-                page.getBlock(0)));
+                page.getFieldBlock(0)));
     }
 }

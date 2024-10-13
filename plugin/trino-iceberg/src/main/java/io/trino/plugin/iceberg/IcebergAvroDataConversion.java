@@ -116,7 +116,7 @@ public final class IcebergAvroDataConversion
                     .map(Types.NestedField::type)
                     .collect(toImmutableList());
             columnBlocks = IntStream.range(0, types.size())
-                    .mapToObj(page::getBlock)
+                    .mapToObj(page::getFieldBlock)
                     .collect(toImmutableList());
             positionCount = page.getPositionCount();
         }

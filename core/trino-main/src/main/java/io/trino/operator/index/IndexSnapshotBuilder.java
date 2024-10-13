@@ -142,7 +142,7 @@ public class IndexSnapshotBuilder
             if (lookupSource.getJoinPosition(position, page, page) < 0) {
                 missingKeysPageBuilder.declarePosition();
                 for (int i = 0; i < page.getChannelCount(); i++) {
-                    Block block = page.getBlock(i);
+                    Block block = page.getFieldBlock(i);
                     Type type = indexKeysRecordCursor.getType(i);
                     type.appendTo(block, position, missingKeysPageBuilder.getBlockBuilder(i));
                 }

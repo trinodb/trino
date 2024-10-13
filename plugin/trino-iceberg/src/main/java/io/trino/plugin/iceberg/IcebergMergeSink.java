@@ -99,7 +99,7 @@ public class IcebergMergeSink
         mergePage.getInsertionsPage().ifPresent(insertPageSink::appendPage);
 
         mergePage.getDeletionsPage().ifPresent(deletions -> {
-            List<Block> fields = RowBlock.getRowFieldsFromBlock(deletions.getBlock(deletions.getChannelCount() - 1));
+            List<Block> fields = RowBlock.getRowFieldsFromBlock(deletions.getFieldBlock(deletions.getChannelCount() - 1));
             Block fieldPathBlock = fields.get(0);
             Block rowPositionBlock = fields.get(1);
             Block partitionSpecIdBlock = fields.get(2);

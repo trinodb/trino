@@ -115,7 +115,7 @@ public class BenchmarkDynamicPageFilter
             List<Page> filterValues = createSingleColumnData(valueWriter, type, 0, filterSize);
             ImmutableList.Builder<Object> valuesBuilder = ImmutableList.builder();
             for (Page page : filterValues) {
-                Block block = page.getBlock(0).getLoadedBlock();
+                Block block = page.getFieldBlock(0).getLoadedBlock();
                 for (int position = 0; position < block.getPositionCount(); position++) {
                     valuesBuilder.add(readNativeValue(type, block, position));
                 }

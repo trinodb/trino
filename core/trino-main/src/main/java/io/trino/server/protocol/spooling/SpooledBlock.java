@@ -59,7 +59,7 @@ public record SpooledBlock(SpooledLocation location, DataAttributes attributes)
     {
         verify(page.getPositionCount() == 1, "Spooling metadata block must have a single position");
         verify(hasMetadataBlock(page), "Spooling metadata block must have all but last channels null");
-        SqlRow row = SPOOLING_METADATA_TYPE.getObject(page.getBlock(page.getChannelCount() - 1), 0);
+        SqlRow row = SPOOLING_METADATA_TYPE.getObject(page.getFieldBlock(page.getChannelCount() - 1), 0);
 
         boolean isDirect = BOOLEAN.getBoolean(row.getRawFieldBlock(0), 0);
 
@@ -109,13 +109,13 @@ public record SpooledBlock(SpooledLocation location, DataAttributes attributes)
         for (int i = 0; i < page.getPositionCount(); i++) {
             rowBlockBuilder.appendNull();
         }
-        return page.appendColumn(rowBlockBuilder.build());
+        return page.appendField(rowBlockBuilder.build());
     }
 
     private static boolean hasMetadataBlock(Page page)
     {
         for (int channel = 0; channel < page.getChannelCount() - 1; channel++) {
-            if (!page.getBlock(channel).isNull(0)) {
+            if (!page.getFieldBlock(channel).isNull(0)) {
                 return false;
             }
         }

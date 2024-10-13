@@ -85,13 +85,13 @@ public class TestPageProcessorCompiler
                 .orElseThrow(() -> new AssertionError("page is not present"));
 
         assertThat(outputPage.getPositionCount()).isEqualTo(100);
-        assertThat(outputPage.getBlock(0) instanceof RunLengthEncodedBlock).isTrue();
-        assertThat(outputPage.getBlock(1) instanceof RunLengthEncodedBlock).isTrue();
+        assertThat(outputPage.getFieldBlock(0) instanceof RunLengthEncodedBlock).isTrue();
+        assertThat(outputPage.getFieldBlock(1) instanceof RunLengthEncodedBlock).isTrue();
 
-        RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) outputPage.getBlock(0);
+        RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) outputPage.getFieldBlock(0);
         assertThat(BIGINT.getLong(rleBlock.getValue(), 0)).isEqualTo(123L);
 
-        RunLengthEncodedBlock rleBlock1 = (RunLengthEncodedBlock) outputPage.getBlock(1);
+        RunLengthEncodedBlock rleBlock1 = (RunLengthEncodedBlock) outputPage.getFieldBlock(1);
         assertThat(VARCHAR.getSlice(rleBlock1.getValue(), 0)).isEqualTo(varcharValue);
     }
 
@@ -116,9 +116,9 @@ public class TestPageProcessorCompiler
                 .orElseThrow(() -> new AssertionError("page is not present"));
 
         assertThat(outputPage.getPositionCount()).isEqualTo(100);
-        assertThat(outputPage.getBlock(0) instanceof DictionaryBlock).isTrue();
+        assertThat(outputPage.getFieldBlock(0) instanceof DictionaryBlock).isTrue();
 
-        DictionaryBlock dictionaryBlock = (DictionaryBlock) outputPage.getBlock(0);
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) outputPage.getFieldBlock(0);
         assertThat(dictionaryBlock.getDictionary().getPositionCount()).isEqualTo(10);
 
         // test filter caching
@@ -129,9 +129,9 @@ public class TestPageProcessorCompiler
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         page)).orElseThrow(() -> new AssertionError("page is not present"));
         assertThat(outputPage2.getPositionCount()).isEqualTo(100);
-        assertThat(outputPage2.getBlock(0) instanceof DictionaryBlock).isTrue();
+        assertThat(outputPage2.getFieldBlock(0) instanceof DictionaryBlock).isTrue();
 
-        DictionaryBlock dictionaryBlock2 = (DictionaryBlock) outputPage2.getBlock(0);
+        DictionaryBlock dictionaryBlock2 = (DictionaryBlock) outputPage2.getFieldBlock(0);
         // both output pages must have the same dictionary
         assertThat(dictionaryBlock2.getDictionary()).isEqualTo(dictionaryBlock.getDictionary());
     }
@@ -154,9 +154,9 @@ public class TestPageProcessorCompiler
                 .orElseThrow(() -> new AssertionError("page is not present"));
 
         assertThat(outputPage.getPositionCount()).isEqualTo(100);
-        assertThat(outputPage.getBlock(0) instanceof RunLengthEncodedBlock).isTrue();
+        assertThat(outputPage.getFieldBlock(0) instanceof RunLengthEncodedBlock).isTrue();
 
-        RunLengthEncodedBlock rle = (RunLengthEncodedBlock) outputPage.getBlock(0);
+        RunLengthEncodedBlock rle = (RunLengthEncodedBlock) outputPage.getFieldBlock(0);
         assertThat(BIGINT.getLong(rle.getValue(), 0)).isEqualTo(5L);
     }
 
@@ -175,9 +175,9 @@ public class TestPageProcessorCompiler
                 .orElseThrow(() -> new AssertionError("page is not present"));
 
         assertThat(outputPage.getPositionCount()).isEqualTo(100);
-        assertThat(outputPage.getBlock(0) instanceof DictionaryBlock).isTrue();
+        assertThat(outputPage.getFieldBlock(0) instanceof DictionaryBlock).isTrue();
 
-        DictionaryBlock dictionaryBlock = (DictionaryBlock) outputPage.getBlock(0);
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) outputPage.getFieldBlock(0);
         assertThat(dictionaryBlock.getDictionary().getPositionCount()).isEqualTo(10);
     }
 
@@ -203,7 +203,7 @@ public class TestPageProcessorCompiler
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         page))
                 .orElseThrow(() -> new AssertionError("page is not present"));
-        assertThat(outputPage.getBlock(0) instanceof DictionaryBlock).isFalse();
+        assertThat(outputPage.getFieldBlock(0) instanceof DictionaryBlock).isFalse();
     }
 
     private static Block createDictionaryBlock(Slice[] expectedValues, int positionCount)

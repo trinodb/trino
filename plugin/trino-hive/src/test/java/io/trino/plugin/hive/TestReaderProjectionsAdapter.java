@@ -95,12 +95,12 @@ public class TestReaderProjectionsAdapter
                 column -> ((HiveColumnHandle) column).getType(),
                 HivePageSourceProvider::getProjection);
         Page inputPage = createPage(ImmutableList.of(inputBlockData), adapter.getInputTypes());
-        adapter.adaptPage(inputPage).getLoadedPage();
+        adapter.adaptPage(inputPage).getLoadedBlock();
 
         // Verify that only the block corresponding to subfield "col.f_row_0.f_bigint_0" should be completely loaded, others are not.
 
         // Assertion for "col"
-        Block lazyBlockLevel1 = inputPage.getBlock(0);
+        Block lazyBlockLevel1 = inputPage.getFieldBlock(0);
         assertThat(lazyBlockLevel1 instanceof LazyBlock).isTrue();
         assertThat(lazyBlockLevel1.isLoaded()).isFalse();
         RowBlock rowBlockLevel1 = (RowBlock) ((LazyBlock) lazyBlockLevel1).getBlock();
@@ -126,16 +126,16 @@ public class TestReaderProjectionsAdapter
         List<Type> inputTypes = adapter.getInputTypes();
 
         Page inputPage = createPage(inputPageData, inputTypes);
-        Page outputPage = adapter.adaptPage(inputPage).getLoadedPage();
+        Page outputPage = adapter.adaptPage(inputPage).getLoadedBlock();
 
         // Verify output block values
         for (int i = 0; i < columnMapping.size(); i++) {
             ReaderProjectionsAdapter.ChannelMapping mapping = columnMapping.get(i);
             int inputBlockIndex = mapping.getInputChannelIndex();
             verifyBlock(
-                    outputPage.getBlock(i),
+                    outputPage.getFieldBlock(i),
                     outputTypes.get(i),
-                    inputPage.getBlock(inputBlockIndex),
+                    inputPage.getFieldBlock(inputBlockIndex),
                     inputTypes.get(inputBlockIndex),
                     mapping.getDereferenceSequence());
         }

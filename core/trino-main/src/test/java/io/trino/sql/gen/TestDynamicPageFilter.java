@@ -360,7 +360,7 @@ public class TestDynamicPageFilter
 
         // EffectiveFilterProfiler should turn off row filtering
         assertThat(filterPage(inputPages.get(2), filterEvaluator).size()).isEqualTo(1024);
-        assertThat(inputPages.get(2).getBlock(0)).isInstanceOf(LazyBlock.class);
+        assertThat(inputPages.get(2).getFieldBlock(0)).isInstanceOf(LazyBlock.class);
     }
 
     @Test
@@ -395,7 +395,7 @@ public class TestDynamicPageFilter
 
         // EffectiveFilterProfiler should turn off row filtering only for the first column filter
         assertThat(filterPage(inputPages.get(2), filterEvaluator).size()).isEqualTo(1);
-        assertThat(inputPages.get(2).getBlock(0)).isInstanceOf(LazyBlock.class);
+        assertThat(inputPages.get(2).getFieldBlock(0)).isInstanceOf(LazyBlock.class);
     }
 
     @Test
@@ -416,7 +416,7 @@ public class TestDynamicPageFilter
 
         // EffectiveFilterProfiler should turn off row filtering only for the last column filter
         assertThat(filterPage(inputPages.get(3), filterEvaluator).size()).isEqualTo(900);
-        assertThat(inputPages.get(3).getBlock(1)).isInstanceOf(LazyBlock.class);
+        assertThat(inputPages.get(3).getFieldBlock(1)).isInstanceOf(LazyBlock.class);
     }
 
     @Test
@@ -434,9 +434,9 @@ public class TestDynamicPageFilter
                 ImmutableMap.of(columnA, 0, columnB, 1, columnC, 2));
         for (Page inputPage : inputPages) {
             assertThat(filterPage(inputPage, filterEvaluator).size()).isEqualTo(0);
-            assertThat(inputPage.getBlock(0)).isNotInstanceOf(LazyBlock.class);
-            assertThat(inputPage.getBlock(1)).isNotInstanceOf(LazyBlock.class);
-            assertThat(inputPage.getBlock(2)).isInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getFieldBlock(0)).isNotInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getFieldBlock(1)).isNotInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getFieldBlock(2)).isInstanceOf(LazyBlock.class);
         }
     }
 
@@ -453,11 +453,11 @@ public class TestDynamicPageFilter
                 ImmutableMap.of(columnB, 1, columnD, 3));
         for (Page inputPage : inputPages) {
             assertThat(filterPage(inputPage, filterEvaluator).size()).isEqualTo(5);
-            assertThat(inputPage.getBlock(0)).isInstanceOf(LazyBlock.class);
-            assertThat(inputPage.getBlock(1)).isNotInstanceOf(LazyBlock.class);
-            assertThat(inputPage.getBlock(2)).isInstanceOf(LazyBlock.class);
-            assertThat(inputPage.getBlock(3)).isNotInstanceOf(LazyBlock.class);
-            assertThat(inputPage.getBlock(4)).isInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getFieldBlock(0)).isInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getFieldBlock(1)).isNotInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getFieldBlock(2)).isInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getFieldBlock(3)).isNotInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getFieldBlock(4)).isInstanceOf(LazyBlock.class);
         }
     }
 

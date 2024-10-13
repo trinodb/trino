@@ -95,7 +95,7 @@ class TestFlatHashStrategy
                 flatHashStrategy.readFlat(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blockBuilders);
                 List<Block> output = Arrays.stream(blockBuilders).map(BlockBuilder::build).toList();
                 Page actualPage = new Page(output.toArray(Block[]::new));
-                Page expectedPage = new Page(blocks).getSingleValuePage(position);
+                Page expectedPage = new Page(blocks).getSingleValueBlock(position);
                 assertPageEquals(types, actualPage, expectedPage);
             }
         }

@@ -190,7 +190,7 @@ public class FlatGroupByHash
         Block[] blocks = currentBlocks;
         checkArgument(page.getChannelCount() == blocks.length);
         for (int i = 0; i < blocks.length; i++) {
-            blocks[i] = page.getBlock(i);
+            blocks[i] = page.getFieldBlock(i);
         }
         return blocks;
     }

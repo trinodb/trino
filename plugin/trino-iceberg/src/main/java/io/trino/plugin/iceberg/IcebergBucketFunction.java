@@ -115,7 +115,7 @@ public class IcebergBucketFunction
 
         for (int i = 0; i < partitionColumns.size(); i++) {
             PartitionColumn partitionColumn = partitionColumns.get(i);
-            Block block = page.getBlock(partitionColumn.sourceChannel());
+            Block block = page.getFieldBlock(partitionColumn.sourceChannel());
             for (int index : partitionColumn.path()) {
                 block = getRowFieldsFromBlock(block).get(index);
             }

@@ -67,10 +67,10 @@ public class Aggregator
     public void processPage(Page page)
     {
         if (step.isInputRaw()) {
-            Page arguments = page.getColumns(inputChannels);
+            Page arguments = page.getFields(inputChannels);
             Optional<Block> maskBlock = Optional.empty();
             if (maskChannel.isPresent()) {
-                maskBlock = Optional.of(page.getBlock(maskChannel.getAsInt()));
+                maskBlock = Optional.of(page.getFieldBlock(maskChannel.getAsInt()));
             }
             AggregationMask mask = maskBuilder.buildAggregationMask(arguments, maskBlock);
 
@@ -80,7 +80,7 @@ public class Aggregator
             accumulator.addInput(arguments, mask);
         }
         else {
-            accumulator.addIntermediate(page.getBlock(inputChannels[0]));
+            accumulator.addIntermediate(page.getFieldBlock(inputChannels[0]));
         }
     }
 

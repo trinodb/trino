@@ -507,7 +507,7 @@ public class OrcTester
                     isFirst = false;
                 }
                 else {
-                    Block block = page.getBlock(0);
+                    Block block = page.getFieldBlock(0);
 
                     List<Object> data = new ArrayList<>(block.getPositionCount());
                     for (int position = 0; position < block.getPositionCount(); position++) {

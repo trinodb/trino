@@ -65,7 +65,7 @@ public final class PagesSerdeUtil
     {
         output.writeInt(page.getChannelCount());
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
-            writeBlock(serde, output, page.getBlock(channel));
+            writeBlock(serde, output, page.getFieldBlock(channel));
         }
     }
 

@@ -65,7 +65,7 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
         int positionCount = inputPage.getPositionCount();
         checkArgument(positionCount > 0, "positionCount should be > 0, but is %s", positionCount);
 
-        Block mergeRow = inputPage.getBlock(mergeRowChannel).getLoadedBlock();
+        Block mergeRow = inputPage.getFieldBlock(mergeRowChannel).getLoadedBlock();
         if (mergeRow.mayHaveNull()) {
             for (int position = 0; position < positionCount; position++) {
                 checkArgument(!mergeRow.isNull(position), "The mergeRow may not have null rows");
@@ -79,7 +79,7 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
         }
         Block operationChannelBlock = fields.get(fields.size() - 2);
         builder.add(operationChannelBlock);
-        builder.add(inputPage.getBlock(rowIdChannel));
+        builder.add(inputPage.getFieldBlock(rowIdChannel));
         builder.add(RunLengthEncodedBlock.create(INSERT_FROM_UPDATE_BLOCK, positionCount));
 
         Page result = new Page(builder.toArray(Block[]::new));

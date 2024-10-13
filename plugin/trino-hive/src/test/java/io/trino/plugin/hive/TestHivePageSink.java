@@ -254,7 +254,7 @@ public class TestHivePageSink
             while (!pageSource.isFinished()) {
                 Page nextPage = pageSource.getNextPage();
                 if (nextPage != null) {
-                    pages.add(nextPage.getLoadedPage());
+                    pages.add(nextPage.getLoadedBlock());
                 }
             }
         }

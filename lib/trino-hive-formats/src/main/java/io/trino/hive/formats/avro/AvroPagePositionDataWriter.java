@@ -565,7 +565,7 @@ public class AvroPagePositionDataWriter
         {
             verify(page.getChannelCount() == channelEncoders.length, "Page must have channels equal to provided type list");
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                channelEncoders[channel].setBlock(page.getBlock(channel));
+                channelEncoders[channel].setBlock(page.getFieldBlock(channel));
             }
         }
 

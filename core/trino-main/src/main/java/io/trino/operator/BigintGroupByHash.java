@@ -136,7 +136,7 @@ public class BigintGroupByHash
     public Work<?> addPage(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        Block block = page.getBlock(0);
+        Block block = page.getFieldBlock(0);
         if (block instanceof RunLengthEncodedBlock rleBlock) {
             return new AddRunLengthEncodedPageWork(rleBlock);
         }
@@ -151,7 +151,7 @@ public class BigintGroupByHash
     public Work<int[]> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        Block block = page.getBlock(0);
+        Block block = page.getFieldBlock(0);
         if (block instanceof RunLengthEncodedBlock rleBlock) {
             return new GetRunLengthEncodedGroupIdsWork(rleBlock);
         }

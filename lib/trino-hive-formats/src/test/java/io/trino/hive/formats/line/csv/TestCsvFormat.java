@@ -210,7 +210,7 @@ public class TestCsvFormat
         deserializer.deserialize(createLineBuffer(csvLine), pageBuilder);
         Page page = pageBuilder.build();
         return IntStream.range(0, deserializer.getTypes().size())
-                .mapToObj(page::getBlock)
+                .mapToObj(page::getFieldBlock)
                 .map(block -> block.isNull(0) ? null : VARCHAR.getSlice(block, 0).toStringUtf8())
                 .collect(Collectors.toCollection(ArrayList::new));
     }

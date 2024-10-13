@@ -32,7 +32,7 @@ final class TrinoRow
         checkArgument(types.length == page.getChannelCount(), "mismatched types for page");
         values = new Object[types.length];
         for (int i = 0; i < values.length; i++) {
-            values[i] = getIcebergValue(page.getBlock(i), position, types[i]);
+            values[i] = getIcebergValue(page.getFieldBlock(i), position, types[i]);
         }
     }
 

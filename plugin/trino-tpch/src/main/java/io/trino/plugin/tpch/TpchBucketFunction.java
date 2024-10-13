@@ -36,7 +36,7 @@ public class TpchBucketFunction
     @Override
     public int getBucket(Page page, int position)
     {
-        Block block = page.getBlock(0);
+        Block block = page.getFieldBlock(0);
         if (block.isNull(position)) {
             return 0;
         }

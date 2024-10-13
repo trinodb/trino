@@ -333,7 +333,7 @@ public class TestScanFilterAndProjectOperator
                 assertThat(page.getPositionCount()).isEqualTo(totalRows);
                 assertThat(page.getChannelCount()).isEqualTo(totalColumns);
                 for (int j = 0; j < totalColumns; j++) {
-                    assertThat(toValues(BIGINT, page.getBlock(j))).isEqualTo(toValues(BIGINT, input.getBlock(0)));
+                    assertThat(toValues(BIGINT, page.getFieldBlock(j))).isEqualTo(toValues(BIGINT, input.getFieldBlock(0)));
                 }
             }
             else {
@@ -401,7 +401,7 @@ public class TestScanFilterAndProjectOperator
         Page output = operator.getOutput();
         driverContext.getYieldSignal().reset();
         assertThat(output).isNotNull();
-        assertThat(toValues(BIGINT, output.getBlock(0))).isEqualTo(toValues(BIGINT, input.getBlock(0)));
+        assertThat(toValues(BIGINT, output.getFieldBlock(0))).isEqualTo(toValues(BIGINT, input.getFieldBlock(0)));
     }
 
     private static List<Page> toPages(Operator operator)

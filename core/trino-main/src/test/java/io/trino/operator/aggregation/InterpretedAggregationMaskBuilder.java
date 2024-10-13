@@ -115,7 +115,7 @@ public class InterpretedAggregationMaskBuilder
 
         public void reset(Page arguments)
         {
-            block = arguments.getBlock(channel);
+            block = arguments.getFieldBlock(channel);
             mayHaveNull = block.mayHaveNull();
         }
 

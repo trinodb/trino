@@ -268,10 +268,10 @@ public class NestedLoopJoinOperator
             return new PageRepeatingIterator(outputPage, min(probePositions, buildPositions));
         }
         if (probeChannels.length == 0 && probePage.getPositionCount() <= buildPage.getPositionCount()) {
-            return new PageRepeatingIterator(buildPage.getColumns(buildChannels), probePage.getPositionCount());
+            return new PageRepeatingIterator(buildPage.getFields(buildChannels), probePage.getPositionCount());
         }
         if (buildChannels.length == 0 && buildPage.getPositionCount() <= probePage.getPositionCount()) {
-            return new PageRepeatingIterator(probePage.getColumns(probeChannels), buildPage.getPositionCount());
+            return new PageRepeatingIterator(probePage.getFields(probeChannels), buildPage.getPositionCount());
         }
         return new NestedLoopPageBuilder(probePage, buildPage, probeChannels, buildChannels);
     }
@@ -366,12 +366,12 @@ public class NestedLoopJoinOperator
             this.resultBlockBuffer = new Block[channelsForLargePage.length + channelsForSmallPage.length];
             // Put the blocks from the page with more rows in the output buffer in order
             for (int i = 0; i < channelsForLargePage.length; i++) {
-                resultBlockBuffer[indexForPageBlocks + i] = largePage.getBlock(channelsForLargePage[i]);
+                resultBlockBuffer[indexForPageBlocks + i] = largePage.getFieldBlock(channelsForLargePage[i]);
             }
             // Extract the small page output blocks in order
             this.smallPageOutputBlocks = new Block[channelsForSmallPage.length];
             for (int i = 0; i < channelsForSmallPage.length; i++) {
-                this.smallPageOutputBlocks[i] = smallPage.getBlock(channelsForSmallPage[i]);
+                this.smallPageOutputBlocks[i] = smallPage.getFieldBlock(channelsForSmallPage[i]);
             }
         }
 

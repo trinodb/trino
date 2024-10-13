@@ -426,7 +426,7 @@ public class OrcReader
                     })) {
                 for (Page page = orcRecordReader.nextPage(); page != null; page = orcRecordReader.nextPage()) {
                     // fully load the page
-                    page.getLoadedPage();
+                    page.getLoadedBlock();
                 }
             }
         }

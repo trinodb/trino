@@ -72,7 +72,7 @@ public class JsonQueryDataEncoder
                     for (OutputColumn column : columns) {
                         Object value = column
                                 .type()
-                                .getObjectValue(session.toConnectorSession(), page.getBlock(column.sourcePageChannel()), position);
+                                .getObjectValue(session.toConnectorSession(), page.getFieldBlock(column.sourcePageChannel()), position);
                         writeValue(mapper, generator, value);
                     }
                     generator.writeEndArray();

@@ -239,8 +239,8 @@ public class PagePartitioner
 
         Page partitionFunctionArgs = getPartitionFunctionArguments(page);
         // Skip null block checks if mayHaveNull reports that no positions will be null
-        if (nullChannel >= 0 && page.getBlock(nullChannel).mayHaveNull()) {
-            Block nullsBlock = page.getBlock(nullChannel);
+        if (nullChannel >= 0 && page.getFieldBlock(nullChannel).mayHaveNull()) {
+            Block nullsBlock = page.getFieldBlock(nullChannel);
             for (; position < page.getPositionCount(); position++) {
                 if (nullsBlock.isNull(position)) {
                     for (PositionsAppenderPageBuilder pageBuilder : positionsAppenders) {
@@ -298,7 +298,7 @@ public class PagePartitioner
             // can return a different value per invocation (e.g. RoundRobinBucketFunction)
             partitionBySingleRleValue(page, position, partitionFunctionArgs, partitionPositions);
         }
-        else if (partitionProcessRleAndDictionaryBlocks && partitionFunctionArgs.getChannelCount() == 1 && isDictionaryProcessingFaster(partitionFunctionArgs.getBlock(0))) {
+        else if (partitionProcessRleAndDictionaryBlocks && partitionFunctionArgs.getChannelCount() == 1 && isDictionaryProcessingFaster(partitionFunctionArgs.getFieldBlock(0))) {
             partitionBySingleDictionary(page, position, partitionFunctionArgs, partitionPositions);
         }
         else {
@@ -332,7 +332,7 @@ public class PagePartitioner
     private static boolean onlyRleBlocks(Page page)
     {
         for (int i = 0; i < page.getChannelCount(); i++) {
-            if (!(page.getBlock(i) instanceof RunLengthEncodedBlock)) {
+            if (!(page.getFieldBlock(i) instanceof RunLengthEncodedBlock)) {
                 return false;
             }
         }
@@ -342,8 +342,8 @@ public class PagePartitioner
     private void partitionBySingleRleValue(Page page, int position, Page partitionFunctionArgs, IntArrayList[] partitionPositions)
     {
         // copy all positions because all hash function args are the same for every position
-        if (nullChannel != -1 && page.getBlock(nullChannel).isNull(0)) {
-            verify(page.getBlock(nullChannel) instanceof RunLengthEncodedBlock, "null channel is not RunLengthEncodedBlock, found instead: %s", page.getBlock(nullChannel));
+        if (nullChannel != -1 && page.getFieldBlock(nullChannel).isNull(0)) {
+            verify(page.getFieldBlock(nullChannel) instanceof RunLengthEncodedBlock, "null channel is not RunLengthEncodedBlock, found instead: %s", page.getFieldBlock(nullChannel));
             // all positions are null
             int[] allPositions = integersInRange(position, page.getPositionCount());
             for (IntList partitionPosition : partitionPositions) {
@@ -366,7 +366,7 @@ public class PagePartitioner
     {
         Block[] valueBlocks = new Block[page.getChannelCount()];
         for (int channel = 0; channel < valueBlocks.length; ++channel) {
-            valueBlocks[channel] = ((RunLengthEncodedBlock) page.getBlock(channel)).getValue();
+            valueBlocks[channel] = ((RunLengthEncodedBlock) page.getFieldBlock(channel)).getValue();
         }
         return new Page(valueBlocks);
     }
@@ -394,7 +394,7 @@ public class PagePartitioner
 
     private void partitionBySingleDictionary(Page page, int position, Page partitionFunctionArgs, IntArrayList[] partitionPositions)
     {
-        DictionaryBlock dictionaryBlock = (DictionaryBlock) partitionFunctionArgs.getBlock(0);
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) partitionFunctionArgs.getFieldBlock(0);
         Block dictionary = dictionaryBlock.getDictionary();
         int[] dictionaryPartitions = new int[dictionary.getPositionCount()];
         Page dictionaryPage = new Page(dictionary);
@@ -408,7 +408,7 @@ public class PagePartitioner
     private void partitionGeneric(Page page, int position, IntUnaryOperator partitionFunction, IntArrayList[] partitionPositions)
     {
         // Skip null block checks if mayHaveNull reports that no positions will be null
-        if (nullChannel != -1 && page.getBlock(nullChannel).mayHaveNull()) {
+        if (nullChannel != -1 && page.getFieldBlock(nullChannel).mayHaveNull()) {
             partitionNullablePositions(page, position, partitionPositions, partitionFunction);
         }
         else {
@@ -418,7 +418,7 @@ public class PagePartitioner
 
     private void partitionNullablePositions(Page page, int position, IntArrayList[] partitionPositions, IntUnaryOperator partitionFunction)
     {
-        Block nullsBlock = page.getBlock(nullChannel);
+        Block nullsBlock = page.getFieldBlock(nullChannel);
         int[] nullPositions = new int[page.getPositionCount()];
         int[] nonNullPositions = new int[page.getPositionCount()];
         int nullCount = 0;
@@ -458,7 +458,7 @@ public class PagePartitioner
     {
         // Fast path for no constants
         if (partitionConstantBlocks == null) {
-            return page.getColumns(partitionChannels);
+            return page.getFields(partitionChannels);
         }
 
         Block[] blocks = new Block[partitionChannels.length];
@@ -468,7 +468,7 @@ public class PagePartitioner
                 blocks[i] = RunLengthEncodedBlock.create(partitionConstantBlocks[i], page.getPositionCount());
             }
             else {
-                blocks[i] = page.getBlock(channel);
+                blocks[i] = page.getFieldBlock(channel);
             }
         }
         return new Page(page.getPositionCount(), blocks);

@@ -74,7 +74,7 @@ public class SimpleSerializer
             if (channel > 0) {
                 sliceOutput.appendByte(separator);
             }
-            Block block = page.getBlock(channel);
+            Block block = page.getFieldBlock(channel);
             if (block.isNull(position)) {
                 sliceOutput.appendBytes(nullSequence);
             }

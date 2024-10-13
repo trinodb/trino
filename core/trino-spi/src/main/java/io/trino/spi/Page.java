@@ -82,7 +82,7 @@ public final class Page
     }
 
     /**
-     * @Deprecated Use {@link #getFieldBlock(int)} instead
+     * @deprecated Use {@link #getFieldBlock(int)} instead
      */
     @Deprecated
     public Block getBlock(int channel)
@@ -91,7 +91,7 @@ public final class Page
     }
 
     /**
-     * @Deprecated Use {@link #appendField(Block)} instead
+     * @deprecated Use {@link #appendField(Block)} instead
      */
     @Deprecated
     public Page appendColumn(Block block)
@@ -147,24 +147,30 @@ public final class Page
     }
 
     /**
-     * @Deprecated Use {@link #getLoadedBlock()} instead
+     * @deprecated Use {@link #getLoadedBlock()} instead
      */
     @Deprecated
     public Page getLoadedPage()
     {
-        return (Page) getLoadedBlock();
+        return getLoadedBlock();
+    }
+
+    @Override
+    public Page getLoadedBlock()
+    {
+        return (Page) super.getLoadedBlock();
     }
 
     public Page getLoadedPage(int... columns)
     {
         loadFields(columns);
-        return (Page) getFields(columns);
+        return getFields(columns);
     }
 
     public Page getLoadedPage(int[] columns, int[] eagerlyLoadedColumns)
     {
         loadFields(eagerlyLoadedColumns);
-        return (Page) getFields(columns);
+        return getFields(columns);
     }
 
     @Override
@@ -189,12 +195,12 @@ public final class Page
     }
 
     /**
-     * @Deprecated Use {@link #getSingleValueBlock(int)} instead
+     * @deprecated Use {@link #getSingleValueBlock(int)} instead
      */
     @Deprecated
     public Page getSingleValuePage(int position)
     {
-        return (Page) super.getSingleValueBlock(position);
+        return getSingleValueBlock(position);
     }
 
     @Override
@@ -229,16 +235,22 @@ public final class Page
     }
 
     /**
-     * @Deprecated Use {@link #getFields(int...)} instead
+     * @deprecated Use {@link #getFields(int...)} instead
      */
     @Deprecated
     public Page getColumns(int... columns)
     {
-        return (Page) getFields(columns);
+        return getFields(columns);
+    }
+
+    @Override
+    public Page getFields(int... columns)
+    {
+        return (Page) super.getFields(columns);
     }
 
     /**
-     * @Deprecated Use {@link #prependField(Block)} instead
+     * @deprecated Use {@link #prependField(Block)} instead
      */
     @Deprecated
     public Page prependColumn(Block column)

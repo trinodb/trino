@@ -81,13 +81,13 @@ public class TestMergingPageIterator
         while (iterator.hasNext()) {
             Page page = iterator.next();
             for (int i = 0; i < page.getPositionCount(); i++) {
-                if (page.getBlock(0).isNull(i)) {
-                    assertThat(page.getBlock(1).isNull(i)).isTrue();
+                if (page.getFieldBlock(0).isNull(i)) {
+                    assertThat(page.getFieldBlock(1).isNull(i)).isTrue();
                     values.add(null);
                 }
                 else {
-                    int x = INTEGER.getInt(page.getBlock(0), i);
-                    int y = INTEGER.getInt(page.getBlock(1), i);
+                    int x = INTEGER.getInt(page.getFieldBlock(0), i);
+                    int y = INTEGER.getInt(page.getFieldBlock(1), i);
                     assertThat(y).isEqualTo(x * 22);
                     values.add(x);
                 }

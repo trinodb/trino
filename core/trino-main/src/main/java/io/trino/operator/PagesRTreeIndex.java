@@ -145,7 +145,7 @@ public class PagesRTreeIndex
     @Override
     public int[] findJoinPositions(int position, Page probe, int probeGeometryChannel, Optional<Integer> probePartitionChannel)
     {
-        Block probeBlock = probe.getBlock(probeGeometryChannel);
+        Block probeBlock = probe.getFieldBlock(probeGeometryChannel);
         VariableWidthBlock probeGeometryBlock = (VariableWidthBlock) probeBlock.getUnderlyingValueBlock();
         int probePosition = probeBlock.getUnderlyingValuePosition(position);
 
@@ -153,7 +153,7 @@ public class PagesRTreeIndex
             return EMPTY_ADDRESSES;
         }
 
-        int probePartition = probePartitionChannel.map(channel -> INTEGER.getInt(probe.getBlock(channel), probePosition)).orElse(-1);
+        int probePartition = probePartitionChannel.map(channel -> INTEGER.getInt(probe.getFieldBlock(channel), probePosition)).orElse(-1);
 
         Slice slice = probeGeometryBlock.getSlice(probePosition);
         OGCGeometry probeGeometry = deserialize(slice);

@@ -89,7 +89,7 @@ public class KuduBucketFunction
     private int calculateSchemaLevelBucketId(Page page, PartialRow partialRow, HashBucketSchema hashBucketSchema, int position)
     {
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
-            Block block = page.getBlock(channel);
+            Block block = page.getFieldBlock(channel);
             Type type = this.bucketChannelTypes.get(channel);
             Integer bucketChannel = this.bucketChannels.get(channel);
             if (BOOLEAN.equals(type)) {

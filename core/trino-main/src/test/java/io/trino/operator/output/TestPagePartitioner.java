@@ -637,7 +637,7 @@ public class TestPagePartitioner
         List<Object> result = new ArrayList<>();
 
         pages.forEach(page -> {
-            Block block = page.getBlock(channel);
+            Block block = page.getFieldBlock(channel);
             for (int i = 0; i < block.getPositionCount(); i++) {
                 if (block.isNull(i)) {
                     result.add(null);
@@ -984,7 +984,7 @@ public class TestPagePartitioner
         {
             long value = 0;
             for (int hashChannel : hashChannels) {
-                value += BIGINT.getLong(page.getBlock(hashChannel), position);
+                value += BIGINT.getLong(page.getFieldBlock(hashChannel), position);
             }
 
             return toIntExact(Math.abs(value) % partitionCount);

@@ -131,7 +131,7 @@ public final class ParquetFileWriter
                 blocks[i] = RunLengthEncodedBlock.create(nullBlocks.get(i), dataPage.getPositionCount());
             }
             else {
-                blocks[i] = dataPage.getBlock(inputColumnIndex);
+                blocks[i] = dataPage.getFieldBlock(inputColumnIndex);
             }
         }
         Page page = new Page(dataPage.getPositionCount(), blocks);

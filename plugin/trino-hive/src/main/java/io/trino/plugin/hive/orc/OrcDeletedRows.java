@@ -219,12 +219,12 @@ public class OrcDeletedRows
                 row = startRowId.getAsLong() + position;
             }
             else {
-                originalTransaction = BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
-                int encodedBucketValue = INTEGER.getInt(sourcePage.getBlock(BUCKET_ID_INDEX), position);
+                originalTransaction = BIGINT.getLong(sourcePage.getFieldBlock(ORIGINAL_TRANSACTION_INDEX), position);
+                int encodedBucketValue = INTEGER.getInt(sourcePage.getFieldBlock(BUCKET_ID_INDEX), position);
                 AcidBucketCodec bucketCodec = AcidBucketCodec.forBucket(encodedBucketValue);
                 bucket = bucketCodec.decodeWriterId(encodedBucketValue);
                 statementId = bucketCodec.decodeStatementId(encodedBucketValue);
-                row = BIGINT.getLong(sourcePage.getBlock(ROW_ID_INDEX), position);
+                row = BIGINT.getLong(sourcePage.getFieldBlock(ROW_ID_INDEX), position);
             }
             return new RowId(originalTransaction, bucket, statementId, row);
         }
@@ -330,12 +330,12 @@ public class OrcDeletedRows
                             }
 
                             while (currentPagePosition < currentPage.getPositionCount()) {
-                                long originalTransaction = BIGINT.getLong(currentPage.getBlock(ORIGINAL_TRANSACTION_INDEX), currentPagePosition);
-                                int encodedBucketValue = INTEGER.getInt(currentPage.getBlock(BUCKET_ID_INDEX), currentPagePosition);
+                                long originalTransaction = BIGINT.getLong(currentPage.getFieldBlock(ORIGINAL_TRANSACTION_INDEX), currentPagePosition);
+                                int encodedBucketValue = INTEGER.getInt(currentPage.getFieldBlock(BUCKET_ID_INDEX), currentPagePosition);
                                 AcidBucketCodec bucketCodec = AcidBucketCodec.forBucket(encodedBucketValue);
                                 int bucket = bucketCodec.decodeWriterId(encodedBucketValue);
                                 int statement = bucketCodec.decodeStatementId(encodedBucketValue);
-                                long row = BIGINT.getLong(currentPage.getBlock(ROW_ID_INDEX), currentPagePosition);
+                                long row = BIGINT.getLong(currentPage.getFieldBlock(ROW_ID_INDEX), currentPagePosition);
                                 RowId rowId = new RowId(originalTransaction, bucket, statement, row);
                                 deletedRowsBuilder.add(rowId);
                                 deletedRowsBuilderSize++;

@@ -204,8 +204,8 @@ public class TableFinishOperator
         requireNonNull(page, "page is null");
         checkState(state == State.RUNNING, "Operator is %s", state);
 
-        Block rowCountBlock = page.getBlock(ROW_COUNT_CHANNEL);
-        Block fragmentBlock = page.getBlock(FRAGMENT_CHANNEL);
+        Block rowCountBlock = page.getFieldBlock(ROW_COUNT_CHANNEL);
+        Block fragmentBlock = page.getFieldBlock(FRAGMENT_CHANNEL);
         for (int position = 0; position < page.getPositionCount(); position++) {
             if (!rowCountBlock.isNull(position)) {
                 rowCount += BIGINT.getLong(rowCountBlock, position);
@@ -250,7 +250,7 @@ public class TableFinishOperator
 
         Block[] blocks = new Block[page.getChannelCount()];
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
-            blocks[channel] = page.getBlock(channel).getPositions(selectedPositions, 0, statisticsPositionCount);
+            blocks[channel] = page.getFieldBlock(channel).getPositions(selectedPositions, 0, statisticsPositionCount);
         }
         return Optional.of(new Page(statisticsPositionCount, blocks));
     }
@@ -285,7 +285,7 @@ public class TableFinishOperator
      */
     private static boolean isStatisticsPosition(Page page, int position)
     {
-        return page.getBlock(ROW_COUNT_CHANNEL).isNull(position) && page.getBlock(FRAGMENT_CHANNEL).isNull(position);
+        return page.getFieldBlock(ROW_COUNT_CHANNEL).isNull(position) && page.getFieldBlock(FRAGMENT_CHANNEL).isNull(position);
     }
 
     @Override
@@ -334,15 +334,15 @@ public class TableFinishOperator
         ImmutableList.Builder<Block> groupingValues = ImmutableList.builder();
         descriptor.getGrouping().forEach((column, channel) -> {
             groupingColumns.add(column);
-            groupingValues.add(page.getBlock(channel).getSingleValueBlock(position));
+            groupingValues.add(page.getFieldBlock(channel).getSingleValueBlock(position));
         });
 
         ComputedStatistics.Builder statistics = ComputedStatistics.builder(groupingColumns.build(), groupingValues.build());
 
         descriptor.getTableStatistics().forEach((type, channel) ->
-                statistics.addTableStatistic(type, page.getBlock(channel).getSingleValueBlock(position)));
+                statistics.addTableStatistic(type, page.getFieldBlock(channel).getSingleValueBlock(position)));
 
-        descriptor.getColumnStatistics().forEach((metadata, channel) -> statistics.addColumnStatistic(metadata, page.getBlock(channel).getSingleValueBlock(position)));
+        descriptor.getColumnStatistics().forEach((metadata, channel) -> statistics.addColumnStatistic(metadata, page.getFieldBlock(channel).getSingleValueBlock(position)));
 
         return statistics.build();
     }

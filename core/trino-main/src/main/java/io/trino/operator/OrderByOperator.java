@@ -285,7 +285,7 @@ public class OrderByOperator
             return null;
         }
         Page nextPage = next.get();
-        return nextPage.getColumns(outputChannels);
+        return nextPage.getFields(outputChannels);
     }
 
     @Override

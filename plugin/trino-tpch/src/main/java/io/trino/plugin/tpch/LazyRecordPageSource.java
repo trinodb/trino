@@ -137,7 +137,7 @@ class LazyRecordPageSource
     {
         Block[] lazyBlocks = new Block[page.getChannelCount()];
         for (int i = 0; i < page.getChannelCount(); ++i) {
-            Block block = page.getBlock(i);
+            Block block = page.getFieldBlock(i);
             lazyBlocks[i] = new LazyBlock(page.getPositionCount(), () -> block);
         }
 

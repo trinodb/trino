@@ -119,7 +119,7 @@ public class PhoenixPageSource
             requireNonNull(page, "page is null");
             Block[] mergeRowIdBlocks = new Block[mergeRowIdSourceChannels.size()];
             for (int i = 0; i < mergeRowIdBlocks.length; i++) {
-                mergeRowIdBlocks[i] = page.getBlock(mergeRowIdSourceChannels.get(i));
+                mergeRowIdBlocks[i] = page.getFieldBlock(mergeRowIdSourceChannels.get(i));
             }
             return fromFieldBlocks(page.getPositionCount(), mergeRowIdBlocks);
         }
@@ -136,7 +136,7 @@ public class PhoenixPageSource
         @Override
         public Block getBlock(Page sourcePage)
         {
-            return sourcePage.getBlock(sourceChannel);
+            return sourcePage.getFieldBlock(sourceChannel);
         }
     }
 }

@@ -213,7 +213,7 @@ public class DeltaLakeMergeSink
             Page updateInsertionsPage = optionalInsertionPage.get();
             Block[] cdfPostUpdateBlocks = new Block[nonSynthesizedColumns.size() + 1];
             for (int i = 0; i < nonSynthesizedColumns.size(); i++) {
-                cdfPostUpdateBlocks[i] = updateInsertionsPage.getBlock(i);
+                cdfPostUpdateBlocks[i] = updateInsertionsPage.getFieldBlock(i);
             }
             cdfPostUpdateBlocks[nonSynthesizedColumns.size()] = RunLengthEncodedBlock.create(
                     nativeValueToBlock(VARCHAR, utf8Slice(cdfOperation)), updateInsertionsPage.getPositionCount());
@@ -223,7 +223,7 @@ public class DeltaLakeMergeSink
 
     private void processDeletion(Page deletions, String cdfOperation)
     {
-        List<Block> fields = getRowFieldsFromBlock(deletions.getBlock(deletions.getChannelCount() - 1));
+        List<Block> fields = getRowFieldsFromBlock(deletions.getFieldBlock(deletions.getChannelCount() - 1));
         Block filePathBlock = fields.get(0);
         Block rowPositionBlock = fields.get(1);
         Block partitionsBlock = fields.get(2);
@@ -256,7 +256,7 @@ public class DeltaLakeMergeSink
         if (positionCount <= 0) {
             throw new IllegalArgumentException("positionCount should be > 0, but is " + positionCount);
         }
-        Block operationBlock = inputPage.getBlock(inputChannelCount - 2);
+        Block operationBlock = inputPage.getFieldBlock(inputChannelCount - 2);
         int[] deletePositions = new int[positionCount];
         int[] insertPositions = new int[positionCount];
         int[] updateInsertPositions = new int[positionCount];
@@ -292,28 +292,28 @@ public class DeltaLakeMergeSink
         Optional<Page> deletePage = Optional.empty();
         if (deletePositionCount > 0) {
             deletePage = Optional.of(inputPage
-                    .getColumns(dataAndRowIdColumnsIndices)
+                    .getFields(dataAndRowIdColumnsIndices)
                     .getPositions(deletePositions, 0, deletePositionCount));
         }
 
         Optional<Page> insertPage = Optional.empty();
         if (insertPositionCount > 0) {
             insertPage = Optional.of(inputPage
-                    .getColumns(dataColumnsIndices)
+                    .getFields(dataColumnsIndices)
                     .getPositions(insertPositions, 0, insertPositionCount));
         }
 
         Optional<Page> updateInsertPage = Optional.empty();
         if (updateInsertPositionCount > 0) {
             updateInsertPage = Optional.of(inputPage
-                    .getColumns(dataColumnsIndices)
+                    .getFields(dataColumnsIndices)
                     .getPositions(updateInsertPositions, 0, updateInsertPositionCount));
         }
 
         Optional<Page> updateDeletePage = Optional.empty();
         if (updateDeletePositionCount > 0) {
             updateDeletePage = Optional.of(inputPage
-                    .getColumns(dataAndRowIdColumnsIndices)
+                    .getFields(dataAndRowIdColumnsIndices)
                     .getPositions(updateDeletePositions, 0, updateDeletePositionCount));
         }
         return new DeltaLakeMergePage(deletePage, insertPage, updateInsertPage, updateDeletePage);
@@ -598,7 +598,7 @@ public class DeltaLakeMergeSink
             List<String> partitionValues = deletion.partitionValues;
             for (int i = 0; i < nonSynthesizedColumns.size(); i++) {
                 if (nonSynthesizedColumns.get(i).columnType() == REGULAR) {
-                    outputBlocks[i] = cdfPage.getBlock(cdfPageIndex);
+                    outputBlocks[i] = cdfPage.getFieldBlock(cdfPageIndex);
                     cdfPageIndex++;
                 }
                 else {

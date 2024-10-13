@@ -659,7 +659,8 @@ public class IcebergPageSink
         private static Block getPartitionBlock(PartitionColumn column, Page page)
         {
             List<Integer> sourceChannels = column.sourceChannels();
-            Block block = page.getBlock(sourceChannels.getFirst());
+            int channel = sourceChannels.getFirst();
+            Block block = page.getFieldBlock(channel);
             for (int i = 1; i < sourceChannels.size(); i++) {
                 block = getRowFieldsFromBlock(block).get(sourceChannels.get(i));
             }

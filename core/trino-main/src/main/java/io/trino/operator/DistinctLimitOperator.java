@@ -172,7 +172,7 @@ public class DistinctLimitOperator
     {
         checkState(needsInput());
 
-        inputPage = page.getColumns(inputChannels);
+        inputPage = page.getFields(inputChannels);
         unfinishedWork = groupByHash.getGroupIds(inputPage);
         processUnfinishedWork();
         updateMemoryReservation();

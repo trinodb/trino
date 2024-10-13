@@ -73,7 +73,7 @@ public class CsvSerializer
             if (channel != 0) {
                 sliceOutput.write(separatorChar);
             }
-            Block block = page.getBlock(channel);
+            Block block = page.getFieldBlock(channel);
             if (!block.isNull(position)) {
                 // if quote is zero, quoting is disabled
                 if (quoteChar != '\0') {

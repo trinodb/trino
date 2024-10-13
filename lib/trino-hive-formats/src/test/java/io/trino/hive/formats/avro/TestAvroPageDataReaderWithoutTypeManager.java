@@ -82,7 +82,7 @@ public class TestAvroPageDataReaderWithoutTypeManager
             while (avroFileReader.hasNext()) {
                 Page p = avroFileReader.next();
                 for (int pos = 0; pos < p.getPositionCount(); pos++) {
-                    assertThat(p.getBlock(0).isNull(pos)).isTrue();
+                    assertThat(p.getFieldBlock(0).isNull(pos)).isTrue();
                 }
                 totalRecords += p.getPositionCount();
             }
@@ -108,7 +108,7 @@ public class TestAvroPageDataReaderWithoutTypeManager
             int totalRecords = 0;
             while (avroFileReader.hasNext()) {
                 Page p = avroFileReader.next();
-                MapBlock mb = (MapBlock) p.getBlock(0);
+                MapBlock mb = (MapBlock) p.getFieldBlock(0);
                 MapBlock expected = (MapBlock) MAP_VARCHAR_VARCHAR.createBlockFromKeyValue(Optional.empty(),
                         new int[] {0, 1},
                         createStringsBlock("key1"),
@@ -116,7 +116,7 @@ public class TestAvroPageDataReaderWithoutTypeManager
                 mb = (MapBlock) mb.getRegion(0, 1);
                 assertBlockEquals(MAP_VARCHAR_VARCHAR, mb, expected);
 
-                ByteArrayBlock block = (ByteArrayBlock) p.getBlock(readerSchema.getFields().size() - 1);
+                ByteArrayBlock block = (ByteArrayBlock) p.getFieldBlock(readerSchema.getFields().size() - 1);
                 assertThat(block.getByte(0)).isGreaterThan((byte) 0);
                 totalRecords += p.getPositionCount();
             }
@@ -179,7 +179,7 @@ public class TestAvroPageDataReaderWithoutTypeManager
             while (avroFileReader.hasNext()) {
                 Page p = avroFileReader.next();
                 for (Map.Entry<Integer, Class<?>> channelClass : expectedBlockPerChannel.entrySet()) {
-                    assertThat(p.getBlock(channelClass.getKey())).isInstanceOf(channelClass.getValue());
+                    assertThat(p.getFieldBlock(channelClass.getKey())).isInstanceOf(channelClass.getValue());
                 }
                 totalRecords += p.getPositionCount();
             }
@@ -212,7 +212,7 @@ public class TestAvroPageDataReaderWithoutTypeManager
             int totalRecords = 0;
             while (avroFileReader.hasNext()) {
                 Page p = avroFileReader.next();
-                String actualSymbol = new String(((Slice) VARCHAR.getObject(p.getBlock(0), 0)).getBytes(), StandardCharsets.UTF_8);
+                String actualSymbol = new String(((Slice) VARCHAR.getObject(p.getFieldBlock(0), 0)).getBytes(), StandardCharsets.UTF_8);
                 assertThat(actualSymbol).isEqualTo(expected.get("myEnum").toString());
                 totalRecords += p.getPositionCount();
             }
@@ -225,7 +225,7 @@ public class TestAvroPageDataReaderWithoutTypeManager
             int totalRecords = 0;
             while (avroFileReader.hasNext()) {
                 Page p = avroFileReader.next();
-                String actualSymbol = new String(((Slice) VarcharType.VARCHAR.getObject(p.getBlock(0), 0)).getBytes(), StandardCharsets.UTF_8);
+                String actualSymbol = new String(((Slice) VarcharType.VARCHAR.getObject(p.getFieldBlock(0), 0)).getBytes(), StandardCharsets.UTF_8);
                 assertThat(actualSymbol).isEqualTo(expected.get("myEnum").toString());
                 totalRecords += p.getPositionCount();
             }

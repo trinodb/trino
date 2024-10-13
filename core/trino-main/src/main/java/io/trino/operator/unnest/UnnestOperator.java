@@ -187,7 +187,7 @@ public class UnnestOperator
     private void resetBlockBuilders()
     {
         for (int i = 0; i < replicateTypes.size(); i++) {
-            Block newInputBlock = currentPage.getBlock(replicateChannels.get(i));
+            Block newInputBlock = currentPage.getFieldBlock(replicateChannels.get(i));
             replicatedBlockBuilders.get(i).resetInputBlock(newInputBlock);
         }
 
@@ -196,7 +196,7 @@ public class UnnestOperator
 
         for (int i = 0; i < unnestTypes.size(); i++) {
             int inputChannel = unnestChannels.get(i);
-            Block unnestChannelInputBlock = currentPage.getBlock(inputChannel);
+            Block unnestChannelInputBlock = currentPage.getFieldBlock(inputChannel);
             Unnester unnester = unnesters.get(i);
             unnester.resetInput(unnestChannelInputBlock);
 

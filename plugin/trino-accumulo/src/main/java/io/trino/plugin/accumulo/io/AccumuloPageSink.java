@@ -233,7 +233,7 @@ public class AccumuloPageSink
                 Type type = columns.get(channel).type();
 
                 // Read the value from the page and append the field to the row
-                row.addField(TypeUtils.readNativeValue(type, page.getBlock(channel), position), type);
+                row.addField(TypeUtils.readNativeValue(type, page.getFieldBlock(channel), position), type);
             }
 
             try {

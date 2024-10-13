@@ -271,7 +271,7 @@ public class ParquetPageSource
         @Override
         public Block getBlock(Page sourcePage, long startRowId)
         {
-            return sourcePage.getBlock(sourceChannel);
+            return sourcePage.getFieldBlock(sourceChannel);
         }
 
         public int getSourceChannel()

@@ -223,14 +223,14 @@ public class TestHashJoinOperator
 
         assertThat(pages.size()).isEqualTo(2);
         if (withFilter) {
-            assertThat(pages.get(0).getBlock(2)).isInstanceOf(VariableWidthBlock.class);
-            assertThat(pages.get(0).getBlock(3)).isInstanceOf(LongArrayBlock.class);
+            assertThat(pages.get(0).getFieldBlock(2)).isInstanceOf(VariableWidthBlock.class);
+            assertThat(pages.get(0).getFieldBlock(3)).isInstanceOf(LongArrayBlock.class);
         }
         else {
-            assertThat(pages.get(0).getBlock(2)).isInstanceOf(RunLengthEncodedBlock.class);
-            assertThat(pages.get(0).getBlock(3)).isInstanceOf(RunLengthEncodedBlock.class);
+            assertThat(pages.get(0).getFieldBlock(2)).isInstanceOf(RunLengthEncodedBlock.class);
+            assertThat(pages.get(0).getFieldBlock(3)).isInstanceOf(RunLengthEncodedBlock.class);
         }
-        assertThat(pages.get(1).getBlock(2)).isInstanceOf(VariableWidthBlock.class);
+        assertThat(pages.get(1).getFieldBlock(2)).isInstanceOf(VariableWidthBlock.class);
 
         assertThat(getJoinOperatorInfo(driverContext).getRleProbes()).isEqualTo(withFilter ? 0 : 2);
         assertThat(getJoinOperatorInfo(driverContext).getTotalProbes()).isEqualTo(3);
@@ -268,7 +268,7 @@ public class TestHashJoinOperator
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
                 (leftPosition, leftPage, rightPosition, rightPage) -> {
                     // force loading of probe block
-                    rightPage.getBlock(1).getLoadedBlock();
+                    rightPage.getFieldBlock(1).getLoadedBlock();
                     return true;
                 });
 
@@ -279,7 +279,7 @@ public class TestHashJoinOperator
         RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT, BIGINT));
         List<Page> probeInput = probePages.addSequencePage(1, 0, 0).build();
         probeInput = probeInput.stream()
-                .map(page -> new Page(page.getBlock(0), new LazyBlock(1, () -> page.getBlock(1))))
+                .map(page -> new Page(page.getFieldBlock(0), new LazyBlock(1, () -> page.getFieldBlock(1))))
                 .collect(toImmutableList());
 
         OperatorFactory joinOperatorFactory = join(
@@ -302,7 +302,7 @@ public class TestHashJoinOperator
         operator.finish();
 
         Page output = operator.getOutput();
-        assertThat(output.getBlock(1)).isNotInstanceOf(LazyBlock.class);
+        assertThat(output.getFieldBlock(1)).isNotInstanceOf(LazyBlock.class);
     }
 
     @Test
@@ -679,7 +679,7 @@ public class TestHashJoinOperator
         TaskContext taskContext = createTaskContext();
 
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
-                (leftPosition, leftPage, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(1), rightPosition) >= 1025);
+                (leftPosition, leftPage, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getFieldBlock(1), rightPosition) >= 1025);
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
@@ -810,7 +810,7 @@ public class TestHashJoinOperator
         TaskContext taskContext = createTaskContext();
 
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
-                (leftPosition, leftPage, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(0), rightPosition) == 1L);
+                (leftPosition, leftPage, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getFieldBlock(0), rightPosition) == 1L);
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(BIGINT);
@@ -937,7 +937,7 @@ public class TestHashJoinOperator
 
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
                 (leftPosition, leftPage, rightPosition, rightPage) ->
-                        ImmutableSet.of(1L, 3L).contains(BIGINT.getLong(rightPage.getBlock(0), rightPosition)));
+                        ImmutableSet.of(1L, 3L).contains(BIGINT.getLong(rightPage.getFieldBlock(0), rightPosition)));
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(BIGINT);
@@ -1064,7 +1064,7 @@ public class TestHashJoinOperator
 
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
                 (leftPosition, leftPage, rightPosition, rightPage) ->
-                        ImmutableSet.of(1L, 3L).contains(BIGINT.getLong(rightPage.getBlock(0), rightPosition)));
+                        ImmutableSet.of(1L, 3L).contains(BIGINT.getLong(rightPage.getFieldBlock(0), rightPosition)));
 
         // build factory
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(BIGINT))
@@ -1571,9 +1571,9 @@ public class TestHashJoinOperator
 
             return ofResult(new Page(
                     1,
-                    probePage.getBlock(0),
+                    probePage.getFieldBlock(0),
                     // this block should not be loaded by join operator as it's not being used by join
-                    new LazyBlock(1, () -> probePage.getBlock(1)),
+                    new LazyBlock(1, () -> probePage.getFieldBlock(1)),
                     // this block is force loaded in test to ensure join doesn't fetch next probe page before joining
                     // and outputting current probe page
                     new LazyBlock(
@@ -1581,7 +1581,7 @@ public class TestHashJoinOperator
                             () -> {
                                 // when loaded this block should be the latest one
                                 assertThat(probePageNumber).isEqualTo(totalProbePages.get());
-                                return probePage.getBlock(2);
+                                return probePage.getFieldBlock(2);
                             })));
         });
 
@@ -1605,8 +1605,8 @@ public class TestHashJoinOperator
 
             Page page = outputPages.getResult();
             totalOutputPages++;
-            assertThat(page.getBlock(1).isLoaded()).isFalse();
-            page.getBlock(2).getLoadedBlock();
+            assertThat(page.getFieldBlock(1).isLoaded()).isFalse();
+            page.getFieldBlock(2).getLoadedBlock();
 
             // yield to enforce more complex execution
             driverContext.getYieldSignal().forceYieldForTesting();

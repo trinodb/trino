@@ -207,7 +207,7 @@ public class TestOrcPageSourceMemoryTracking
             assertThat(pageSource.isFinished()).isFalse();
             Page page = pageSource.getNextPage();
             assertThat(page).isNotNull();
-            Block block = page.getBlock(1);
+            Block block = page.getFieldBlock(1);
 
             if (memoryUsage == -1) {
                 // Memory usage before lazy-loading the block
@@ -240,7 +240,7 @@ public class TestOrcPageSourceMemoryTracking
             assertThat(pageSource.isFinished()).isFalse();
             Page page = pageSource.getNextPage();
             assertThat(page).isNotNull();
-            Block block = page.getBlock(1);
+            Block block = page.getFieldBlock(1);
 
             if (memoryUsage == -1) {
                 // Memory usage before lazy-loading the block
@@ -273,7 +273,7 @@ public class TestOrcPageSourceMemoryTracking
             assertThat(pageSource.isFinished()).isFalse();
             Page page = pageSource.getNextPage();
             assertThat(page).isNotNull();
-            Block block = page.getBlock(1);
+            Block block = page.getFieldBlock(1);
 
             if (memoryUsage == -1) {
                 // Memory usage before lazy-loading the block
@@ -364,7 +364,7 @@ public class TestOrcPageSourceMemoryTracking
                     break;
                 }
                 assertThat(page).isNotNull();
-                page = page.getLoadedPage();
+                page = page.getLoadedBlock();
                 positionCount += page.getPositionCount();
                 // assert upper bound is tight
                 // ignore the first MAX_BATCH_SIZE rows given the sizes are set when loading the blocks

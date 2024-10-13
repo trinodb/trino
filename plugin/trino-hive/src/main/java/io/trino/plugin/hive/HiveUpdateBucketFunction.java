@@ -35,7 +35,7 @@ public class HiveUpdateBucketFunction
     @Override
     public int getBucket(Page page, int position)
     {
-        Block block = page.getBlock(0);
+        Block block = page.getFieldBlock(0);
         SqlRow bucketRow = ((RowBlock) block.getUnderlyingValueBlock()).getRow(block.getUnderlyingValuePosition(position));
         long value = INTEGER.getInt(bucketRow.getRawFieldBlock(BUCKET_CHANNEL), bucketRow.getRawIndex());
         return (int) (value & Integer.MAX_VALUE) % bucketCount;

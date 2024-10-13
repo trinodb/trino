@@ -208,7 +208,7 @@ public final class MemoryPageSourceProvider
         for (Map.Entry<Integer, Domain> entry : domains.entrySet()) {
             int channel = entry.getKey();
             Domain domain = entry.getValue();
-            Object value = TypeUtils.readNativeValue(domain.getType(), page.getBlock(channel), position);
+            Object value = TypeUtils.readNativeValue(domain.getType(), page.getFieldBlock(channel), position);
             if (!domain.includesNullableValue(value)) {
                 return false;
             }

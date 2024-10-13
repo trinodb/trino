@@ -43,7 +43,7 @@ public final class PositionDeleteFilter
     {
         int filePosChannel = rowPositionChannel(columns);
         return (page, position) -> {
-            long filePos = BIGINT.getLong(page.getBlock(filePosChannel), position);
+            long filePos = BIGINT.getLong(page.getFieldBlock(filePosChannel), position);
             return !deletedRows.contains(filePos);
         };
     }
@@ -71,8 +71,8 @@ public final class PositionDeleteFilter
                 continue;
             }
 
-            Block pathBlock = page.getBlock(0);
-            Block posBlock = page.getBlock(1);
+            Block pathBlock = page.getFieldBlock(0);
+            Block posBlock = page.getFieldBlock(1);
 
             for (int position = 0; position < page.getPositionCount(); position++) {
                 int result = comparator.compare(pathBlock, position);

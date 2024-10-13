@@ -113,7 +113,7 @@ public class JsonArrayResultsIterator
         List<Object> row = new ArrayList<>(columns.size());
         for (OutputColumn outputColumn : columns) {
             Type type = outputColumn.type();
-            Block block = currentPage.getBlock(outputColumn.sourcePageChannel());
+            Block block = currentPage.getFieldBlock(outputColumn.sourcePageChannel());
 
             try {
                 Object value = type.getObjectValue(session.toConnectorSession(), block, inPageIndex);

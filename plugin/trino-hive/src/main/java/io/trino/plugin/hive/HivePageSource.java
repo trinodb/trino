@@ -197,7 +197,7 @@ public class HivePageSource
                         break;
                     case REGULAR:
                     case SYNTHESIZED:
-                        Block block = dataPage.getBlock(columnMapping.getIndex());
+                        Block block = dataPage.getFieldBlock(columnMapping.getIndex());
                         Optional<TypeCoercer<? extends Type, ? extends Type>> coercer = coercers.get(fieldId);
                         if (coercer.isPresent()) {
                             block = new LazyBlock(batchSize, new CoercionLazyBlockLoader(block, coercer.get()));
@@ -308,7 +308,7 @@ public class HivePageSource
         public Page filterPageToEligibleRowsOrDiscard(Page page)
         {
             IntArrayList ids = new IntArrayList(page.getPositionCount());
-            Page bucketColumnsPage = page.getColumns(bucketColumns);
+            Page bucketColumnsPage = page.getFields(bucketColumns);
             for (int position = 0; position < page.getPositionCount(); position++) {
                 int bucket = getHiveBucket(bucketingVersion, tableBucketCount, typeInfoList, bucketColumnsPage, position);
                 if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
@@ -362,7 +362,7 @@ public class HivePageSource
 
         public void validate(Page page)
         {
-            Page bucketColumnsPage = page.getColumns(bucketColumnIndices);
+            Page bucketColumnsPage = page.getFields(bucketColumnIndices);
             for (int position = 0; position < page.getPositionCount(); position += VALIDATION_STRIDE) {
                 int bucket = getHiveBucket(bucketingVersion, bucketCount, bucketColumnTypes, bucketColumnsPage, position);
                 if (bucket != expectedBucket) {

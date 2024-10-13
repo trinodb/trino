@@ -59,7 +59,7 @@ public class MappedPageSource
         if (nextPage == null) {
             return null;
         }
-        return nextPage.getColumns(delegateFieldIndex);
+        return nextPage.getFields(delegateFieldIndex);
     }
 
     @Override

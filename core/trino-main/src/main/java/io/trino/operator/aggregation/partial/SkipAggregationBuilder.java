@@ -118,7 +118,7 @@ public class SkipAggregationBuilder
         // Prefix the output with the hash channels
         Block[] outputBlocks = new Block[hashChannels.length + aggregatorFactories.size()];
         for (int i = 0; i < hashChannels.length; i++) {
-            outputBlocks[i] = page.getBlock(hashChannels[i]);
+            outputBlocks[i] = page.getFieldBlock(hashChannels[i]);
         }
 
         // Create a unique groupId mapping per row

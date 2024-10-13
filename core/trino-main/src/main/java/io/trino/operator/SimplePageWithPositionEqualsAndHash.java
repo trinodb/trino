@@ -58,8 +58,8 @@ public class SimplePageWithPositionEqualsAndHash
     {
         for (int i = 0; i < equalityChannels.size(); i++) {
             int equalityChannel = equalityChannels.getInt(i);
-            Block leftBlock = left.getBlock(equalityChannel);
-            Block rightBlock = right.getBlock(equalityChannel);
+            Block leftBlock = left.getFieldBlock(equalityChannel);
+            Block rightBlock = right.getFieldBlock(equalityChannel);
             if (!identicalOperators.get(i).isIdentical(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
@@ -73,7 +73,7 @@ public class SimplePageWithPositionEqualsAndHash
         long hashCode = 0;
         for (int i = 0; i < equalityChannels.size(); i++) {
             int equalityChannel = equalityChannels.getInt(i);
-            Block block = page.getBlock(equalityChannel);
+            Block block = page.getFieldBlock(equalityChannel);
             hashCode = 31 * hashCode + hashOperators.get(i).hashCodeNullSafe(block, position);
         }
         return hashCode;

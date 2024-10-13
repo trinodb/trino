@@ -98,7 +98,7 @@ public class DictionaryAwarePageProjection
         public DictionaryAwarePageProjectionWork(@Nullable ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             this.session = session;
-            this.block = page.getBlock(0);
+            this.block = page.getFieldBlock(0);
             this.selectedPositions = requireNonNull(selectedPositions, "selectedPositions is null");
             this.produceLazyBlock = DictionaryAwarePageProjection.this.produceLazyBlock && !block.isLoaded();
 

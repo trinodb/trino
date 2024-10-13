@@ -120,45 +120,45 @@ public class TestHiveAvroTypeBlockHandler
                 assertThat(p.getPositionCount()).withFailMessage("Page Batch should be at least 3").isEqualTo(3);
                 //check first column
                 //check first column first row coerced struct
-                RowBlock readStraightUpStringsOnly = (RowBlock) p.getBlock(0).getSingleValueBlock(0);
+                RowBlock readStraightUpStringsOnly = (RowBlock) p.getFieldBlock(0).getSingleValueBlock(0);
                 assertThat(readStraightUpStringsOnly.getFieldBlocks().size()).isEqualTo(3); // tag, int and string block fields
                 assertThat(readStraightUpStringsOnly.getFieldBlocks().get(1).isNull(0)).isTrue(); // int field null
                 assertThat(VARCHAR.getObjectValue(null, readStraightUpStringsOnly.getFieldBlocks().get(2), 0)).isEqualTo("I am in column 0 field 1"); //string field expected value
                 // check first column second row coerced struct
-                RowBlock readStraightUpInts = (RowBlock) p.getBlock(0).getSingleValueBlock(1);
+                RowBlock readStraightUpInts = (RowBlock) p.getFieldBlock(0).getSingleValueBlock(1);
                 assertThat(readStraightUpInts.getFieldBlocks().size()).isEqualTo(3); // tag, int and string block fields
                 assertThat(readStraightUpInts.getFieldBlocks().get(2).isNull(0)).isTrue(); // string field null
                 assertThat(INTEGER.getObjectValue(null, readStraightUpInts.getFieldBlocks().get(1), 0)).isEqualTo(5);
 
                 //check first column third row is null
-                assertThat(p.getBlock(0).isNull(2)).isTrue();
+                assertThat(p.getFieldBlock(0).isNull(2)).isTrue();
                 //check second column
                 //check second column first row coerced struct
-                RowBlock readFromReverseStringsOnly = (RowBlock) p.getBlock(1).getSingleValueBlock(0);
+                RowBlock readFromReverseStringsOnly = (RowBlock) p.getFieldBlock(1).getSingleValueBlock(0);
                 assertThat(readFromReverseStringsOnly.getFieldBlocks().size()).isEqualTo(3); // tag, int and string block fields
                 assertThat(readFromReverseStringsOnly.getFieldBlocks().get(1).isNull(0)).isTrue(); // int field null
                 assertThat(VARCHAR.getObjectValue(null, readFromReverseStringsOnly.getFieldBlocks().get(2), 0)).isEqualTo("I am in column 1 field 1");
                 //check second column second row coerced struct
-                RowBlock readFromReverseUpInts = (RowBlock) p.getBlock(1).getSingleValueBlock(1);
+                RowBlock readFromReverseUpInts = (RowBlock) p.getFieldBlock(1).getSingleValueBlock(1);
                 assertThat(readFromReverseUpInts.getFieldBlocks().size()).isEqualTo(3); // tag, int and string block fields
                 assertThat(readFromReverseUpInts.getFieldBlocks().get(2).isNull(0)).isTrue(); // string field null
                 assertThat(INTEGER.getObjectValue(null, readFromReverseUpInts.getFieldBlocks().get(1), 0)).isEqualTo(21);
                 //check second column third row is null
-                assertThat(p.getBlock(1).isNull(2)).isTrue();
+                assertThat(p.getFieldBlock(1).isNull(2)).isTrue();
 
                 //check third column (default of 42 always)
                 //check third column first row coerced struct
-                RowBlock readFromDefaultStringsOnly = (RowBlock) p.getBlock(2).getSingleValueBlock(0);
+                RowBlock readFromDefaultStringsOnly = (RowBlock) p.getFieldBlock(2).getSingleValueBlock(0);
                 assertThat(readFromDefaultStringsOnly.getFieldBlocks().size()).isEqualTo(3); // tag, int and string block fields
                 assertThat(readFromDefaultStringsOnly.getFieldBlocks().get(2).isNull(0)).isTrue(); // string field null
                 assertThat(INTEGER.getObjectValue(null, readFromDefaultStringsOnly.getFieldBlocks().get(1), 0)).isEqualTo(42);
                 //check third column second row coerced struct
-                RowBlock readFromDefaultInts = (RowBlock) p.getBlock(2).getSingleValueBlock(1);
+                RowBlock readFromDefaultInts = (RowBlock) p.getFieldBlock(2).getSingleValueBlock(1);
                 assertThat(readFromDefaultInts.getFieldBlocks().size()).isEqualTo(3); // tag, int and string block fields
                 assertThat(readFromDefaultInts.getFieldBlocks().get(2).isNull(0)).isTrue(); // string field null
                 assertThat(INTEGER.getObjectValue(null, readFromDefaultInts.getFieldBlocks().get(1), 0)).isEqualTo(42);
                 //check third column third row coerced struct
-                RowBlock readFromDefaultNulls = (RowBlock) p.getBlock(2).getSingleValueBlock(2);
+                RowBlock readFromDefaultNulls = (RowBlock) p.getFieldBlock(2).getSingleValueBlock(2);
                 assertThat(readFromDefaultNulls.getFieldBlocks().size()).isEqualTo(3); // int and string block fields
                 assertThat(readFromDefaultNulls.getFieldBlocks().get(2).isNull(0)).isTrue(); // string field null
                 assertThat(INTEGER.getObjectValue(null, readFromDefaultNulls.getFieldBlocks().get(1), 0)).isEqualTo(42);

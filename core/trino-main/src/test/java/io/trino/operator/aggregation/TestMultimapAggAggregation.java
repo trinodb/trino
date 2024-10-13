@@ -229,7 +229,7 @@ public class TestMultimapAggAggregation
         Page page = pageBuilder.build();
 
         AggregationTestInput input = new AggregationTestInputBuilder(
-                new Block[] {page.getBlock(0), page.getBlock(1)},
+                new Block[] {page.getFieldBlock(0), page.getFieldBlock(1)},
                 aggregationFunction).build();
 
         AggregationTestOutput testOutput = new AggregationTestOutput(outputBuilder.build().asMap());

@@ -261,7 +261,7 @@ public class TestDictionaryAwareColumnarFilter
         public int filterPositionsRange(ConnectorSession session, int[] outputPositions, int offset, int size, Page loadedPage)
         {
             assertThat(loadedPage.getChannelCount()).isEqualTo(1);
-            Block block = loadedPage.getBlock(0);
+            Block block = loadedPage.getFieldBlock(0);
 
             int outputPositionsCount = 0;
             for (int position = offset; position < offset + size; position++) {
@@ -287,7 +287,7 @@ public class TestDictionaryAwareColumnarFilter
         public int filterPositionsList(ConnectorSession session, int[] outputPositions, int[] activePositions, int offset, int size, Page loadedPage)
         {
             assertThat(loadedPage.getChannelCount()).isEqualTo(1);
-            Block block = loadedPage.getBlock(0);
+            Block block = loadedPage.getFieldBlock(0);
 
             int outputPositionsCount = 0;
             for (int index = offset; index < offset + size; index++) {

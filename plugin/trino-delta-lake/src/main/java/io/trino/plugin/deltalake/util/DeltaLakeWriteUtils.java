@@ -69,7 +69,7 @@ public final class DeltaLakeWriteUtils
     {
         ImmutableList.Builder<String> partitionValues = ImmutableList.builder();
         for (int field = 0; field < partitionColumns.getChannelCount(); field++) {
-            String value = toPartitionValue(partitionColumnTypes.get(field), partitionColumns.getBlock(field), position);
+            String value = toPartitionValue(partitionColumnTypes.get(field), partitionColumns.getFieldBlock(field), position);
             // TODO https://github.com/trinodb/trino/issues/18950 Remove or fix the following condition
             if (!CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(value)) {
                 String encoded = base16().withSeparator(" ", 2).encode(value.getBytes(UTF_8));

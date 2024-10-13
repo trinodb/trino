@@ -122,7 +122,7 @@ public class TestPositionsAppenderPageBuilder
         assertThat(result.getPositionCount())
                 .as("result positions should be below the 8192 maximum")
                 .isEqualTo(120);
-        assertThat(result.getBlock(0) instanceof RunLengthEncodedBlock)
+        assertThat(result.getFieldBlock(0) instanceof RunLengthEncodedBlock)
                 .as("result block is RLE encoded")
                 .isTrue();
     }
@@ -152,7 +152,7 @@ public class TestPositionsAppenderPageBuilder
         assertThat(flushedPage.isPresent())
                 .as("pageBuilder should force flush the dictionary")
                 .isTrue();
-        assertThat(flushedPage.get().getBlock(0) instanceof DictionaryBlock)
+        assertThat(flushedPage.get().getFieldBlock(0) instanceof DictionaryBlock)
                 .as("result should be dictionary encoded")
                 .isTrue();
     }
@@ -186,7 +186,7 @@ public class TestPositionsAppenderPageBuilder
                 .as("pageBuilder should have transitioned to direct mode").isEqualTo(valueBlock.getSizeInBytes());
 
         Page result = pageBuilder.build();
-        assertThat(result.getBlock(0) instanceof ValueBlock)
+        assertThat(result.getFieldBlock(0) instanceof ValueBlock)
                 .as("result should not be a dictionary block")
                 .isTrue();
     }

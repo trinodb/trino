@@ -79,9 +79,9 @@ public class TestMergePages
     {
         Page page = createSequencePage(TYPES, 10);
 
-        LazyBlock channel1 = lazyWrapper(page.getBlock(0));
-        LazyBlock channel2 = lazyWrapper(page.getBlock(1));
-        LazyBlock channel3 = lazyWrapper(page.getBlock(2));
+        LazyBlock channel1 = lazyWrapper(page.getFieldBlock(0));
+        LazyBlock channel2 = lazyWrapper(page.getFieldBlock(1));
+        LazyBlock channel3 = lazyWrapper(page.getFieldBlock(2));
         page = new Page(channel1, channel2, channel3);
 
         WorkProcessor<Page> mergePages = mergePages(

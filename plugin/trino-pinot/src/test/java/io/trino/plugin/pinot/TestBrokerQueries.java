@@ -118,12 +118,12 @@ public class TestBrokerQueries
         Page page = pageSource.getNextPage();
         assertThat(page.getChannelCount()).isEqualTo(columnHandles.size());
         assertThat(page.getPositionCount()).isEqualTo(RESPONSE.getResultTable().getRows().size());
-        Block block = page.getBlock(0);
+        Block block = page.getFieldBlock(0);
         String value = VARCHAR.getSlice(block, 0).toStringUtf8();
         assertThat(value).isEqualTo(getOnlyElement(RESPONSE.getResultTable().getRows())[0]);
-        block = page.getBlock(1);
+        block = page.getFieldBlock(1);
         assertThat(BIGINT.getLong(block, 0)).isEqualTo((long) getOnlyElement(RESPONSE.getResultTable().getRows())[1]);
-        block = page.getBlock(2);
+        block = page.getFieldBlock(2);
         value = VARCHAR.getSlice(block, 0).toStringUtf8();
         assertThat(value).isEqualTo(getOnlyElement(RESPONSE.getResultTable().getRows())[2]);
     }

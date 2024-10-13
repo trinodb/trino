@@ -90,7 +90,7 @@ public class JsonSerializer
         try (JsonGenerator generator = jsonFactory.createGenerator((OutputStream) sliceOutput)) {
             generator.writeStartObject();
             for (int field = 0; field < fieldWriters.length; field++) {
-                fieldWriters[field].writeField(generator, page.getBlock(field), position);
+                fieldWriters[field].writeField(generator, page.getFieldBlock(field), position);
             }
             generator.writeEndObject();
         }

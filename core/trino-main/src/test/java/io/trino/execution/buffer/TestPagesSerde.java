@@ -278,8 +278,8 @@ public class TestPagesSerde
             Page deserialized = deserializer.deserialize(serialized);
             assertThat(deserialized.getChannelCount()).isEqualTo(1);
 
-            VariableWidthBlock expected = (VariableWidthBlock) page.getBlock(0);
-            VariableWidthBlock actual = (VariableWidthBlock) deserialized.getBlock(0);
+            VariableWidthBlock expected = (VariableWidthBlock) page.getFieldBlock(0);
+            VariableWidthBlock actual = (VariableWidthBlock) deserialized.getFieldBlock(0);
 
             assertThat(actual.getRawSlice().getBytes()).isEqualTo(expected.getRawSlice().getBytes());
         }

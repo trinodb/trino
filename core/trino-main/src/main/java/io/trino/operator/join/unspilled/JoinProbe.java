@@ -52,7 +52,7 @@ public class JoinProbe
         public JoinProbe createJoinProbe(Page page, LookupSource lookupSource)
         {
             Page probePage = page.getLoadedPage(probeJoinChannels);
-            return new JoinProbe(probeOutputChannels, page, probePage, lookupSource, probeHashChannel >= 0 ? page.getBlock(probeHashChannel).getLoadedBlock() : null, hasFilter);
+            return new JoinProbe(probeOutputChannels, page, probePage, lookupSource, probeHashChannel >= 0 ? page.getFieldBlock(probeHashChannel).getLoadedBlock() : null, hasFilter);
         }
     }
 
@@ -126,7 +126,7 @@ public class JoinProbe
         Block[] nullableBlocks = new Block[probePage.getChannelCount()];
         int nullableBlocksCount = 0;
         for (int channel = 0; channel < probePage.getChannelCount(); channel++) {
-            Block probeBlock = probePage.getBlock(channel);
+            Block probeBlock = probePage.getFieldBlock(channel);
             if (probeBlock.mayHaveNull()) {
                 nullableBlocks[nullableBlocksCount++] = probeBlock;
             }
@@ -229,7 +229,7 @@ public class JoinProbe
         }
 
         for (int i = 0; i < probePage.getChannelCount(); i++) {
-            if (!(probePage.getBlock(i) instanceof RunLengthEncodedBlock)) {
+            if (!(probePage.getFieldBlock(i) instanceof RunLengthEncodedBlock)) {
                 return false;
             }
         }

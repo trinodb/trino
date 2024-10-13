@@ -168,7 +168,7 @@ public class TestPagesIndexPageSorter
             Page page = inputPages.get(index);
             for (int i = 0; i < types.size(); i++) {
                 Type type = types.get(i);
-                type.appendTo(page.getBlock(i), position, pageBuilder.getBlockBuilder(i));
+                type.appendTo(page.getFieldBlock(i), position, pageBuilder.getBlockBuilder(i));
             }
             pageBuilder.declarePosition();
         }

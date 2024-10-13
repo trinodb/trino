@@ -84,7 +84,7 @@ public final class AggregationTestUtils
         for (int i = 1; i < page.getChannelCount(); i++) {
             assertThat(positions)
                     .describedAs("input blocks provided are not equal in position count")
-                    .isEqualTo(page.getBlock(i).getPositionCount());
+                    .isEqualTo(page.getFieldBlock(i).getPositionCount());
         }
         if (positions == 0) {
             assertAggregationInternal(function, equalAssertion, testDescription, expectedValue);
@@ -186,7 +186,7 @@ public final class AggregationTestUtils
         Page[] maskedPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {
             Page page = pages[i];
-            maskedPages[i] = page.appendColumn(RunLengthEncodedBlock.create(BooleanType.createBlockForSingleNonNullValue(maskValue), page.getPositionCount()));
+            maskedPages[i] = page.appendField(RunLengthEncodedBlock.create(BooleanType.createBlockForSingleNonNullValue(maskValue), page.getPositionCount()));
         }
         return maskedPages;
     }
@@ -201,7 +201,7 @@ public final class AggregationTestUtils
             for (int j = 0; j < page.getPositionCount(); j++) {
                 BOOLEAN.writeBoolean(blockBuilder, maskValue);
             }
-            maskedPages[i] = page.appendColumn(blockBuilder.build());
+            maskedPages[i] = page.appendField(blockBuilder.build());
         }
 
         return maskedPages;
@@ -420,7 +420,7 @@ public final class AggregationTestUtils
             else {
                 Block[] newBlocks = new Block[page.getChannelCount()];
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                    newBlocks[channel] = page.getBlock(page.getChannelCount() - channel - 1);
+                    newBlocks[channel] = page.getFieldBlock(page.getChannelCount() - channel - 1);
                 }
                 newPages[i] = new Page(page.getPositionCount(), newBlocks);
             }
@@ -438,7 +438,7 @@ public final class AggregationTestUtils
                 newBlocks[channel] = createAllNullBlock(page.getPositionCount());
             }
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                newBlocks[channel + offset] = page.getBlock(channel);
+                newBlocks[channel + offset] = page.getFieldBlock(channel);
             }
             newPages[i] = new Page(page.getPositionCount(), newBlocks);
         }

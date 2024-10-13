@@ -192,14 +192,14 @@ public class RegularTableFunctionPartition
                         // data for this source ends within the current page
                         for (int i = 0; i < channelsForSource.length; i++) {
                             int inputChannel = channelsForSource[i];
-                            sourceBlocks[i] = inputPage.getBlock(inputChannel).getRegion(0, endOfDataForSource - processedPositions);
+                            sourceBlocks[i] = inputPage.getFieldBlock(inputChannel).getRegion(0, endOfDataForSource - processedPositions);
                         }
                     }
                     else {
                         // data for this source does not end within the current page
                         for (int i = 0; i < channelsForSource.length; i++) {
                             int inputChannel = channelsForSource[i];
-                            sourceBlocks[i] = inputPage.getBlock(inputChannel);
+                            sourceBlocks[i] = inputPage.getFieldBlock(inputChannel);
                         }
                     }
                     sourcePages.add(Optional.of(new Page(sourceBlocks)));
@@ -247,7 +247,7 @@ public class RegularTableFunctionPartition
 
         // proper outputs first
         for (int channel = 0; channel < properChannelsCount; channel++) {
-            resultBlocks[channel] = page.getBlock(channel);
+            resultBlocks[channel] = page.getFieldBlock(channel);
         }
 
         // pass-through columns next
@@ -379,7 +379,7 @@ public class RegularTableFunctionPartition
         @Override
         public Block getPassThroughColumn(Page page)
         {
-            Block indexes = page.getBlock(indexChannel);
+            Block indexes = page.getFieldBlock(indexChannel);
             BlockBuilder builder = type.createBlockBuilder(null, page.getPositionCount());
             for (int position = 0; position < page.getPositionCount(); position++) {
                 if (indexes.isNull(position)) {

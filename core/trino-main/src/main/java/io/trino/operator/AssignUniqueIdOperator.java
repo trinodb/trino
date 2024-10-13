@@ -134,7 +134,7 @@ public class AssignUniqueIdOperator
                 return finished();
             }
 
-            return ofResult(inputPage.appendColumn(generateIdColumn(inputPage.getPositionCount())));
+            return ofResult(inputPage.appendField(generateIdColumn(inputPage.getPositionCount())));
         }
 
         private Block generateIdColumn(int positionCount)

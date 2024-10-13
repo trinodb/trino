@@ -162,7 +162,7 @@ public class TableChangesFunctionProcessor
         for (int targetChannel = 0; targetChannel < delegateColumnMap.length; targetChannel++) {
             int delegateIndex = delegateColumnMap[targetChannel];
             if (delegateIndex != -1) {
-                blocks[targetChannel] = dataPage.getBlock(delegateIndex);
+                blocks[targetChannel] = dataPage.getFieldBlock(delegateIndex);
             }
         }
 

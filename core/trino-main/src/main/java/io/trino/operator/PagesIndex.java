@@ -235,7 +235,7 @@ public class PagesIndex
 
         int pageIndex = (channels.length > 0) ? channels[0].size() : 0;
         for (int i = 0; i < channels.length; i++) {
-            Block block = page.getBlock(i);
+            Block block = page.getFieldBlock(i);
             if (eagerCompact) {
                 block = block.copyRegion(0, block.getPositionCount());
             }

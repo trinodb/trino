@@ -79,10 +79,10 @@ public class TestOrcWithoutRowGroupInfo
             if (page == null) {
                 break;
             }
-            page = page.getLoadedPage();
+            page = page.getLoadedBlock();
             rows += page.getPositionCount();
 
-            Block rowBlock = page.getBlock(5);
+            Block rowBlock = page.getFieldBlock(5);
 
             for (int position = 0; position < page.getPositionCount(); position++) {
                 SqlRow sqlRow = rowType.getObject(rowBlock, 0);

@@ -373,7 +373,7 @@ public class TopNRankingOperator
         Page output;
         if (outputIterator != null && outputIterator.hasNext()) {
             // rewrite to expected column ordering
-            output = outputIterator.next().getColumns(outputChannels);
+            output = outputIterator.next().getFields(outputChannels);
         }
         else {
             closeGroupedTopNBuilder();

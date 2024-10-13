@@ -318,7 +318,7 @@ public final class RowReferencePageManager
         public void loadPageLoadIfNeeded()
         {
             if (!isPageLoaded && activePositions > 0) {
-                page = page.getLoadedPage();
+                page = page.getLoadedBlock();
                 isPageLoaded = true;
             }
         }

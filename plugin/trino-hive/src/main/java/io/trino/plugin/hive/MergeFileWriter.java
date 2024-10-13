@@ -134,7 +134,7 @@ public final class MergeFileWriter
 
         MergePage mergePage = createDeleteAndInsertPages(page, inputColumns.size());
         mergePage.getDeletionsPage().ifPresent(deletePage -> {
-            Block acidBlock = deletePage.getBlock(deletePage.getChannelCount() - 1);
+            Block acidBlock = deletePage.getFieldBlock(deletePage.getChannelCount() - 1);
             Page orcDeletePage = buildDeletePage(acidBlock, transaction.getWriteId());
             getOrCreateDeleteFileWriter().appendRows(orcDeletePage);
             deleteRowCount += deletePage.getPositionCount();
@@ -152,7 +152,7 @@ public final class MergeFileWriter
         int positionCount = insertPage.getPositionCount();
         List<Block> dataColumns = columns.stream()
                 .filter(column -> !column.isPartitionKey() && !column.isHidden())
-                .map(column -> insertPage.getBlock(column.getBaseHiveColumnIndex()))
+                .map(column -> insertPage.getFieldBlock(column.getBaseHiveColumnIndex()))
                 .collect(toImmutableList());
         Block mergedColumnsBlock = RowBlock.fromFieldBlocks(positionCount, dataColumns.toArray(new Block[] {}));
         Block currentTransactionBlock = RunLengthEncodedBlock.create(BIGINT, writeId, positionCount);

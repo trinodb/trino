@@ -167,15 +167,15 @@ public class StatisticsWriterOperator
         ImmutableList.Builder<Block> groupingValues = ImmutableList.builder();
         descriptor.getGrouping().forEach((column, channel) -> {
             groupingColumns.add(column);
-            groupingValues.add(page.getBlock(channel).getSingleValueBlock(position));
+            groupingValues.add(page.getFieldBlock(channel).getSingleValueBlock(position));
         });
 
         ComputedStatistics.Builder statistics = ComputedStatistics.builder(groupingColumns.build(), groupingValues.build());
 
         descriptor.getTableStatistics().forEach((type, channel) ->
-                statistics.addTableStatistic(type, page.getBlock(channel).getSingleValueBlock(position)));
+                statistics.addTableStatistic(type, page.getFieldBlock(channel).getSingleValueBlock(position)));
 
-        descriptor.getColumnStatistics().forEach((metadata, channel) -> statistics.addColumnStatistic(metadata, page.getBlock(channel).getSingleValueBlock(position)));
+        descriptor.getColumnStatistics().forEach((metadata, channel) -> statistics.addColumnStatistic(metadata, page.getFieldBlock(channel).getSingleValueBlock(position)));
 
         return statistics.build();
     }

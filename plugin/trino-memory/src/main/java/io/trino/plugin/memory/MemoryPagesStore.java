@@ -121,9 +121,9 @@ public class MemoryPagesStore
                 Type type = columnTypes.get(j);
                 BlockBuilder builder = type.createBlockBuilder(null, page.getPositionCount());
                 IntStream.range(0, page.getPositionCount()).forEach(_ -> builder.appendNull());
-                page = page.appendColumn(builder.build());
+                page = page.appendField(builder.build());
             }
-            partitionedPages.add(page.getColumns(columnIndexes));
+            partitionedPages.add(page.getFields(columnIndexes));
         }
 
         return partitionedPages.build();

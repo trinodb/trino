@@ -59,7 +59,7 @@ final class HiveBucketingV2
 
         int result = 0;
         for (int i = 0; i < types.size(); i++) {
-            int fieldHash = hash(types.get(i), page.getBlock(i), position);
+            int fieldHash = hash(types.get(i), page.getFieldBlock(i), position);
             result = result * 31 + fieldHash;
         }
         return result;

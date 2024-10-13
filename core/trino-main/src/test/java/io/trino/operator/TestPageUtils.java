@@ -43,7 +43,7 @@ public class TestPageUtils
 
         assertThat(sizeInBytes.get()).isEqualTo(first.getSizeInBytes() * 2);
 
-        page.getBlock(2).getLoadedBlock();
+        page.getFieldBlock(2).getLoadedBlock();
         assertThat(sizeInBytes.get()).isEqualTo(first.getSizeInBytes() * 3);
     }
 

@@ -346,46 +346,46 @@ public abstract class TestAvroBase
     protected static void assertIsAllTypesPage(Page p)
     {
         // test boolean
-        assertThat(p.getBlock(0)).isInstanceOf(ByteArrayBlock.class);
-        assertThat(BooleanType.BOOLEAN.getBoolean(p.getBlock(0), 0)).isTrue();
+        assertThat(p.getFieldBlock(0)).isInstanceOf(ByteArrayBlock.class);
+        assertThat(BooleanType.BOOLEAN.getBoolean(p.getFieldBlock(0), 0)).isTrue();
         // test int
-        assertThat(p.getBlock(1)).isInstanceOf(IntArrayBlock.class);
-        assertThat(INTEGER.getInt(p.getBlock(1), 0)).isEqualTo(42);
+        assertThat(p.getFieldBlock(1)).isInstanceOf(IntArrayBlock.class);
+        assertThat(INTEGER.getInt(p.getFieldBlock(1), 0)).isEqualTo(42);
         // test long
-        assertThat(p.getBlock(2)).isInstanceOf(LongArrayBlock.class);
-        assertThat(BigintType.BIGINT.getLong(p.getBlock(2), 0)).isEqualTo(3400L);
+        assertThat(p.getFieldBlock(2)).isInstanceOf(LongArrayBlock.class);
+        assertThat(BigintType.BIGINT.getLong(p.getFieldBlock(2), 0)).isEqualTo(3400L);
         // test float
-        assertThat(p.getBlock(3)).isInstanceOf(IntArrayBlock.class);
-        assertThat(RealType.REAL.getFloat(p.getBlock(3), 0)).isCloseTo(3.14f, within(0.001f));
+        assertThat(p.getFieldBlock(3)).isInstanceOf(IntArrayBlock.class);
+        assertThat(RealType.REAL.getFloat(p.getFieldBlock(3), 0)).isCloseTo(3.14f, within(0.001f));
         // test double
-        assertThat(p.getBlock(4)).isInstanceOf(LongArrayBlock.class);
-        assertThat(DoubleType.DOUBLE.getDouble(p.getBlock(4), 0)).isCloseTo(9.81, within(0.001));
+        assertThat(p.getFieldBlock(4)).isInstanceOf(LongArrayBlock.class);
+        assertThat(DoubleType.DOUBLE.getDouble(p.getFieldBlock(4), 0)).isCloseTo(9.81, within(0.001));
         // test string
-        assertThat(p.getBlock(5)).isInstanceOf(VariableWidthBlock.class);
-        assertThat(VARCHAR.getObject(p.getBlock(5), 0)).isEqualTo(Slices.utf8Slice(A_STRING_VALUE));
+        assertThat(p.getFieldBlock(5)).isInstanceOf(VariableWidthBlock.class);
+        assertThat(VARCHAR.getObject(p.getFieldBlock(5), 0)).isEqualTo(Slices.utf8Slice(A_STRING_VALUE));
         // test bytes
-        assertThat(p.getBlock(6)).isInstanceOf(VariableWidthBlock.class);
-        assertThat(VarbinaryType.VARBINARY.getObject(p.getBlock(6), 0)).isEqualTo(Slices.wrappedHeapBuffer(A_BYTES_VALUE));
+        assertThat(p.getFieldBlock(6)).isInstanceOf(VariableWidthBlock.class);
+        assertThat(VarbinaryType.VARBINARY.getObject(p.getFieldBlock(6), 0)).isEqualTo(Slices.wrappedHeapBuffer(A_BYTES_VALUE));
         // test fixed
-        assertThat(p.getBlock(7)).isInstanceOf(VariableWidthBlock.class);
-        assertThat(VarbinaryType.VARBINARY.getObject(p.getBlock(7), 0)).isEqualTo(Slices.wrappedBuffer(A_FIXED_VALUE.bytes()));
+        assertThat(p.getFieldBlock(7)).isInstanceOf(VariableWidthBlock.class);
+        assertThat(VarbinaryType.VARBINARY.getObject(p.getFieldBlock(7), 0)).isEqualTo(Slices.wrappedBuffer(A_FIXED_VALUE.bytes()));
         //test array
-        assertThat(p.getBlock(8)).isInstanceOf(ArrayBlock.class);
-        assertThat(ARRAY_INTEGER.getObject(p.getBlock(8), 0)).isInstanceOf(IntArrayBlock.class);
-        assertBlockEquals(INTEGER, ARRAY_INTEGER.getObject(p.getBlock(8), 0), createIntsBlock(1, 2, 3, 4));
+        assertThat(p.getFieldBlock(8)).isInstanceOf(ArrayBlock.class);
+        assertThat(ARRAY_INTEGER.getObject(p.getFieldBlock(8), 0)).isInstanceOf(IntArrayBlock.class);
+        assertBlockEquals(INTEGER, ARRAY_INTEGER.getObject(p.getFieldBlock(8), 0), createIntsBlock(1, 2, 3, 4));
         // test map
-        assertThat(p.getBlock(9)).isInstanceOf(MapBlock.class);
-        assertThat(MAP_VARCHAR_INTEGER.getObjectValue(null, p.getBlock(9), 0)).isEqualTo(ImmutableMap.of("key1", 1, "key2", 2));
+        assertThat(p.getFieldBlock(9)).isInstanceOf(MapBlock.class);
+        assertThat(MAP_VARCHAR_INTEGER.getObjectValue(null, p.getFieldBlock(9), 0)).isEqualTo(ImmutableMap.of("key1", 1, "key2", 2));
         // test enum
-        assertThat(p.getBlock(10)).isInstanceOf(VariableWidthBlock.class);
-        assertThat(VARCHAR.getObject(p.getBlock(10), 0)).isEqualTo(Slices.utf8Slice("A"));
+        assertThat(p.getFieldBlock(10)).isInstanceOf(VariableWidthBlock.class);
+        assertThat(VARCHAR.getObject(p.getFieldBlock(10), 0)).isEqualTo(Slices.utf8Slice("A"));
         // test record
-        assertThat(p.getBlock(11)).isInstanceOf(RowBlock.class);
+        assertThat(p.getFieldBlock(11)).isInstanceOf(RowBlock.class);
         Block expected = createRowBlock(ImmutableList.of(INTEGER, DoubleType.DOUBLE, VARCHAR), new Object[] {5, 3.14159265358979, "Simple Record String Field"});
-        assertBlockEquals(RowType.anonymousRow(INTEGER, DoubleType.DOUBLE, VARCHAR), p.getBlock(11), expected);
+        assertBlockEquals(RowType.anonymousRow(INTEGER, DoubleType.DOUBLE, VARCHAR), p.getFieldBlock(11), expected);
         // test nullable union
-        assertThat(p.getBlock(12)).isInstanceOf(VariableWidthBlock.class);
-        assertThat(p.getBlock(12).isNull(0)).isTrue();
+        assertThat(p.getFieldBlock(12)).isInstanceOf(VariableWidthBlock.class);
+        assertThat(p.getFieldBlock(12).isNull(0)).isTrue();
     }
 
     protected TrinoInputFile createWrittenFileWithData(Schema schema, List<GenericRecord> records)

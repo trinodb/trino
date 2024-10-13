@@ -442,7 +442,7 @@ public class DefaultPageJoiner
 
         public SavedRow(Page page, int position, long joinPositionWithinPartition, boolean currentProbePositionProducedRow, int joinSourcePositions)
         {
-            this.row = page.getSingleValuePage(position);
+            this.row = page.getSingleValueBlock(position);
 
             this.joinPositionWithinPartition = joinPositionWithinPartition;
             this.currentProbePositionProducedRow = currentProbePositionProducedRow;

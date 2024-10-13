@@ -117,7 +117,7 @@ public class SpooledQueryDataProducer
 
     private boolean hasSpoolingMetadata(Page page, List<OutputColumn> outputColumns)
     {
-        return page.getChannelCount() == outputColumns.size() + 1 && page.getPositionCount() == 1 && !page.getBlock(outputColumns.size()).isNull(0);
+        return page.getChannelCount() == outputColumns.size() + 1 && page.getPositionCount() == 1 && !page.getFieldBlock(outputColumns.size()).isNull(0);
     }
 
     public static QueryDataProducer createSpooledQueryDataProducer(QueryDataEncoder.Factory encoder)

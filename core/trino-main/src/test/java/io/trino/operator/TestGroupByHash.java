@@ -236,11 +236,11 @@ public class TestGroupByHash
             Page page = pageBuilder.build();
             // Ensure that all blocks have the same positionCount
             for (int i = 0; i < page.getChannelCount(); i++) {
-                assertThat(page.getBlock(i).getPositionCount()).isEqualTo(100);
+                assertThat(page.getFieldBlock(i).getPositionCount()).isEqualTo(100);
             }
             assertThat(page.getPositionCount()).isEqualTo(100);
-            BlockAssertions.assertBlockEquals(BIGINT, page.getBlock(0), valuesBlock);
-            BlockAssertions.assertBlockEquals(BIGINT, page.getBlock(1), hashBlock);
+            BlockAssertions.assertBlockEquals(BIGINT, page.getFieldBlock(0), valuesBlock);
+            BlockAssertions.assertBlockEquals(BIGINT, page.getFieldBlock(1), hashBlock);
         }
     }
 
@@ -266,7 +266,7 @@ public class TestGroupByHash
             }
             Page outputPage = pageBuilder.build();
             assertThat(outputPage.getPositionCount()).isEqualTo(50);
-            BlockAssertions.assertBlockEquals(BIGINT, outputPage.getBlock(0), createLongSequenceBlock(0, 50));
+            BlockAssertions.assertBlockEquals(BIGINT, outputPage.getFieldBlock(0), createLongSequenceBlock(0, 50));
         }
     }
 

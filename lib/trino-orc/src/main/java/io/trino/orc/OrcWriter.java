@@ -255,7 +255,7 @@ public final class OrcWriter
 
         checkArgument(page.getChannelCount() == columnWriters.size());
         // page should already be loaded, but double check
-        page = page.getLoadedPage();
+        page = page.getLoadedBlock();
 
         if (validationBuilder != null) {
             validationBuilder.addPage(page);
@@ -292,7 +292,7 @@ public final class OrcWriter
         bufferedBytes = 0;
         for (int channel = 0; channel < chunk.getChannelCount(); channel++) {
             ColumnWriter writer = columnWriters.get(channel);
-            writer.writeBlock(chunk.getBlock(channel));
+            writer.writeBlock(chunk.getFieldBlock(channel));
             bufferedBytes += writer.getBufferedBytes();
         }
 

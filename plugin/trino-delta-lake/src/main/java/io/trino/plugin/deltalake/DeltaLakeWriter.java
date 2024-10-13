@@ -136,7 +136,7 @@ public final class DeltaLakeWriter
         if (!coercers.isEmpty()) {
             Block[] translatedBlocks = new Block[originalPage.getChannelCount()];
             for (int index = 0; index < translatedBlocks.length; index++) {
-                Block originalBlock = originalPage.getBlock(index);
+                Block originalBlock = originalPage.getFieldBlock(index);
                 Function<Block, Block> coercer = coercers.get(index);
                 if (coercer != null) {
                     translatedBlocks[index] = new LazyBlock(

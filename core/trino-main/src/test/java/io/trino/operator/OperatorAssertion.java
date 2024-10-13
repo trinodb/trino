@@ -414,7 +414,7 @@ public final class OperatorAssertion
                 if (channels.contains(i)) {
                     continue;
                 }
-                blocks[channel++] = page.getBlock(i);
+                blocks[channel++] = page.getFieldBlock(i);
             }
             actualPages.add(new Page(blocks));
         }

@@ -132,9 +132,9 @@ public class TestMarkDistinctOperator
         int maskChannel = firstInput.getChannelCount(); // mask channel is appended to the input
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
             operator.addInput(firstInput);
-            Block allDistinctOutput = operator.getOutput().getBlock(maskChannel);
+            Block allDistinctOutput = operator.getOutput().getFieldBlock(maskChannel);
             operator.addInput(firstInput);
-            Block noDistinctOutput = operator.getOutput().getBlock(maskChannel);
+            Block noDistinctOutput = operator.getOutput().getFieldBlock(maskChannel);
             // all distinct and no distinct conditions produce RLE blocks
             assertInstanceOf(allDistinctOutput, RunLengthEncodedBlock.class);
             assertThat(BOOLEAN.getBoolean(allDistinctOutput, 0)).isTrue();
@@ -142,7 +142,7 @@ public class TestMarkDistinctOperator
             assertThat(BOOLEAN.getBoolean(noDistinctOutput, 0)).isFalse();
 
             operator.addInput(secondInput);
-            Block halfDistinctOutput = operator.getOutput().getBlock(maskChannel);
+            Block halfDistinctOutput = operator.getOutput().getFieldBlock(maskChannel);
             // [0,50) is not distinct
             for (int position = 0; position < 50; position++) {
                 assertThat(BOOLEAN.getBoolean(halfDistinctOutput, position)).isFalse();
@@ -152,14 +152,14 @@ public class TestMarkDistinctOperator
             }
 
             operator.addInput(singleDistinctPage);
-            Block singleDistinctBlock = operator.getOutput().getBlock(maskChannel);
+            Block singleDistinctBlock = operator.getOutput().getFieldBlock(maskChannel);
             assertThat(singleDistinctBlock instanceof RunLengthEncodedBlock)
                     .describedAs("single position inputs should not be RLE")
                     .isFalse();
             assertThat(BOOLEAN.getBoolean(singleDistinctBlock, 0)).isTrue();
 
             operator.addInput(singleNotDistinctPage);
-            Block singleNotDistinctBlock = operator.getOutput().getBlock(maskChannel);
+            Block singleNotDistinctBlock = operator.getOutput().getFieldBlock(maskChannel);
             assertThat(singleNotDistinctBlock instanceof RunLengthEncodedBlock)
                     .describedAs("single position inputs should not be RLE")
                     .isFalse();
@@ -193,7 +193,7 @@ public class TestMarkDistinctOperator
         for (Page page : result.getOutput()) {
             assertThat(page.getChannelCount()).isEqualTo(3);
             for (int i = 0; i < page.getPositionCount(); i++) {
-                assertThat(BOOLEAN.getBoolean(page.getBlock(2), i)).isTrue();
+                assertThat(BOOLEAN.getBoolean(page.getFieldBlock(2), i)).isTrue();
                 count++;
             }
         }

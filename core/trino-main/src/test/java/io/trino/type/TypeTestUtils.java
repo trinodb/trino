@@ -54,8 +54,8 @@ public final class TypeTestUtils
 
         for (int channel : hashChannels) {
             hashTypes.add(types.get(channel));
-            hashBlocks[hashBlockIndex++] = page.getBlock(channel);
+            hashBlocks[hashBlockIndex++] = page.getFieldBlock(channel);
         }
-        return page.appendColumn(getHashBlock(hashTypes.build(), hashBlocks));
+        return page.appendField(getHashBlock(hashTypes.build(), hashBlocks));
     }
 }

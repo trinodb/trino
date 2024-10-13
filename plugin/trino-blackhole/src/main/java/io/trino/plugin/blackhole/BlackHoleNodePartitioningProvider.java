@@ -57,7 +57,7 @@ public class BlackHoleNodePartitioningProvider
         return (page, position) -> {
             long hash = 13;
             for (int i = 0; i < partitionChannelTypes.size(); i++) {
-                Block block = page.getBlock(i);
+                Block block = page.getFieldBlock(i);
                 try {
                     long valueHash;
                     if (block.isNull(position)) {

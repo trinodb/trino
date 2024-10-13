@@ -262,9 +262,9 @@ public class StreamingAggregationOperator
         {
             requireNonNull(page, "page is null");
 
-            Page groupByPage = page.getColumns(groupByChannels);
+            Page groupByPage = page.getFields(groupByChannels);
             if (currentGroup != null) {
-                if (!pagesHashStrategy.rowIdenticalToRow(0, currentGroup.getColumns(groupByChannels), 0, groupByPage)) {
+                if (!pagesHashStrategy.rowIdenticalToRow(0, currentGroup.getFields(groupByChannels), 0, groupByPage)) {
                     // page starts with new group, so flush it
                     evaluateAndFlushGroup(currentGroup, 0);
                 }
@@ -284,7 +284,7 @@ public class StreamingAggregationOperator
                 }
                 else {
                     // late materialization requires that page being locally stored is materialized before the next one is fetched
-                    currentGroup = page.getRegion(page.getPositionCount() - 1, 1).getLoadedPage();
+                    currentGroup = page.getRegion(page.getPositionCount() - 1, 1).getLoadedBlock();
                     return;
                 }
             }
@@ -302,7 +302,7 @@ public class StreamingAggregationOperator
         {
             pageBuilder.declarePosition();
             for (int i = 0; i < groupByTypes.size(); i++) {
-                Block block = page.getBlock(groupByChannels[i]);
+                Block block = page.getFieldBlock(groupByChannels[i]);
                 Type type = groupByTypes.get(i);
                 type.appendTo(block, position, pageBuilder.getBlockBuilder(i));
             }

@@ -50,7 +50,7 @@ public class DeltaLakeBucketFunction
     {
         long hash = 0;
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
-            Block block = page.getBlock(channel);
+            Block block = page.getFieldBlock(channel);
             long valueHash = hashValue(hashCodeInvokers.get(channel), block, position);
             hash = (31 * hash) + valueHash;
         }

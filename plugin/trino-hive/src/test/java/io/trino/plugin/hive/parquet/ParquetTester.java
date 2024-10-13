@@ -509,7 +509,7 @@ class ParquetTester
                     assertThat(page.getPositionCount() == 1 || page.getSizeInBytes() <= max).isTrue());
 
             for (int field = 0; field < page.getChannelCount(); field++) {
-                Block block = page.getBlock(field);
+                Block block = page.getFieldBlock(field);
                 for (int i = 0; i < block.getPositionCount(); i++) {
                     assertThat(valuesByField[field].hasNext()).isTrue();
                     Object expected = valuesByField[field].next();

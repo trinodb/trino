@@ -98,7 +98,7 @@ public final class HiveWriteUtils
     {
         ImmutableList.Builder<String> partitionValues = ImmutableList.builder();
         for (int field = 0; field < partitionColumns.getChannelCount(); field++) {
-            String value = toPartitionValue(partitionColumnTypes.get(field), partitionColumns.getBlock(field), position);
+            String value = toPartitionValue(partitionColumnTypes.get(field), partitionColumns.getFieldBlock(field), position);
             if (!CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(value)) {
                 String encoded = base16().withSeparator(" ", 2).encode(value.getBytes(UTF_8));
                 throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Hive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: " + encoded);

@@ -72,7 +72,7 @@ public class BenchmarkOrcDecimalReader
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-            blocks.add(page.getBlock(0).getLoadedBlock());
+            blocks.add(page.getFieldBlock(0).getLoadedBlock());
         }
         return blocks;
     }

@@ -119,7 +119,7 @@ public class OpenXJsonSerializer
             Column column = columns.get(columnIndex);
             String fieldName = column.name();
 
-            Block block = page.getBlock(columnIndex);
+            Block block = page.getFieldBlock(columnIndex);
             Object fieldValue = writeValue(column.type(), block, position);
             if (options.isExplicitNull() || fieldValue != null) {
                 jsonObject.put(fieldName, fieldValue);

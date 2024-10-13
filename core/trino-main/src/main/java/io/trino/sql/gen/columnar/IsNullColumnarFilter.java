@@ -59,7 +59,7 @@ public final class IsNullColumnarFilter
     @Override
     public int filterPositionsRange(ConnectorSession session, int[] outputPositions, int offset, int size, Page page)
     {
-        ValueBlock block = (ValueBlock) page.getBlock(0);
+        ValueBlock block = (ValueBlock) page.getFieldBlock(0);
         if (!block.mayHaveNull()) {
             return 0;
         }
@@ -82,7 +82,7 @@ public final class IsNullColumnarFilter
     @Override
     public int filterPositionsList(ConnectorSession session, int[] outputPositions, int[] activePositions, int offset, int size, Page page)
     {
-        ValueBlock block = (ValueBlock) page.getBlock(0);
+        ValueBlock block = (ValueBlock) page.getFieldBlock(0);
         if (!block.mayHaveNull()) {
             return 0;
         }

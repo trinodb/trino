@@ -120,7 +120,7 @@ public class TestThriftIndexPageSource
         assertThat((long) stats.getIndexPageSize().getAllTime().getTotal()).isEqualTo(pageSizeReceived);
         assertThat(page).isNotNull();
         assertThat(page.getPositionCount()).isEqualTo(1);
-        assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(20);
+        assertThat(INTEGER.getInt(page.getFieldBlock(0), 0)).isEqualTo(20);
         // not complete yet
         assertThat(pageSource.isFinished()).isFalse();
 
@@ -137,7 +137,7 @@ public class TestThriftIndexPageSource
         pageSizeReceived += page.getSizeInBytes();
         assertThat((long) stats.getIndexPageSize().getAllTime().getTotal()).isEqualTo(pageSizeReceived);
         assertThat(page.getPositionCount()).isEqualTo(1);
-        assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(10);
+        assertThat(INTEGER.getInt(page.getFieldBlock(0), 0)).isEqualTo(10);
         // still not complete
         assertThat(pageSource.isFinished()).isFalse();
 
@@ -148,7 +148,7 @@ public class TestThriftIndexPageSource
         pageSizeReceived += page.getSizeInBytes();
         assertThat((long) stats.getIndexPageSize().getAllTime().getTotal()).isEqualTo(pageSizeReceived);
         assertThat(page.getPositionCount()).isEqualTo(1);
-        assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(30);
+        assertThat(INTEGER.getInt(page.getFieldBlock(0), 0)).isEqualTo(30);
         // finished now
         assertThat(pageSource.isFinished()).isTrue();
 
@@ -206,7 +206,7 @@ public class TestThriftIndexPageSource
             blocked.get(1, SECONDS);
             Page page = pageSource.getNextPage();
             if (page != null) {
-                Block block = page.getBlock(0);
+                Block block = page.getFieldBlock(0);
                 for (int position = 0; position < block.getPositionCount(); position++) {
                     actual.add(INTEGER.getInt(block, position));
                 }

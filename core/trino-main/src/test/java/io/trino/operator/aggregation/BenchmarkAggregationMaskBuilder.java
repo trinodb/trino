@@ -258,13 +258,13 @@ public class BenchmarkAggregationMaskBuilder
             mask.reset(positionCount);
             mask.applyMaskBlock(optionalMaskBlock.orElse(null));
             if (first >= 0) {
-                mask.unselectNullPositions(arguments.getBlock(first));
+                mask.unselectNullPositions(arguments.getFieldBlock(first));
             }
             if (second >= 0) {
-                mask.unselectNullPositions(arguments.getBlock(second));
+                mask.unselectNullPositions(arguments.getFieldBlock(second));
             }
             if (third >= 0) {
-                mask.unselectNullPositions(arguments.getBlock(third));
+                mask.unselectNullPositions(arguments.getFieldBlock(third));
             }
             return mask;
         }
@@ -311,19 +311,37 @@ public class BenchmarkAggregationMaskBuilder
                 maskBlockMayHaveNull = false;
             }
 
-            Block nonNullArg0 = first < 0 ? null : arguments.getBlock(first);
+            Block nonNullArg0;
+            if (first < 0) {
+                nonNullArg0 = null;
+            }
+            else {
+                nonNullArg0 = arguments.getFieldBlock(first);
+            }
             if (isAlwaysNull(nonNullArg0)) {
                 return AggregationMask.createSelectNone(positionCount);
             }
             boolean nonNullArg0MayHaveNull = nonNullArg0 != null && nonNullArg0.mayHaveNull();
 
-            Block nonNullArg1 = third < 0 ? null : arguments.getBlock(second);
+            Block nonNullArg1;
+            if (third < 0) {
+                nonNullArg1 = null;
+            }
+            else {
+                nonNullArg1 = arguments.getFieldBlock(second);
+            }
             if (isAlwaysNull(nonNullArg1)) {
                 return AggregationMask.createSelectNone(positionCount);
             }
             boolean nonNullArg1MayHaveNull = nonNullArg1 != null && nonNullArg1.mayHaveNull();
 
-            Block nonNullArgN = third < 0 ? null : arguments.getBlock(third);
+            Block nonNullArgN;
+            if (third < 0) {
+                nonNullArgN = null;
+            }
+            else {
+                nonNullArgN = arguments.getFieldBlock(third);
+            }
             if (isAlwaysNull(nonNullArgN)) {
                 return AggregationMask.createSelectNone(positionCount);
             }

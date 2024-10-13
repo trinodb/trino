@@ -83,7 +83,7 @@ public class ConstantPopulatingPageSource
                 blocks[targetChannel] = RunLengthEncodedBlock.create(constantValue, delegatePage.getPositionCount());
             }
             else {
-                blocks[targetChannel] = delegatePage.getBlock(targetChannelToSourceChannel[targetChannel]);
+                blocks[targetChannel] = delegatePage.getFieldBlock(targetChannelToSourceChannel[targetChannel]);
             }
         }
 

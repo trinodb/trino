@@ -81,7 +81,7 @@ public class InterpretedHashGenerator
         // Note: this code is duplicated for performance but must logically match hashPosition(position, IntFunction<Block> blockProvider)
         long result = HashGenerationOptimizer.INITIAL_HASH_VALUE;
         for (int i = 0; i < hashCodeOperators.length; i++) {
-            Block block = page.getBlock(hashChannels == null ? i : hashChannels[i]);
+            Block block = page.getFieldBlock(hashChannels == null ? i : hashChannels[i]);
             result = CombineHashFunction.getHash(result, nullSafeHash(i, block, position));
         }
         return result;

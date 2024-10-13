@@ -281,26 +281,26 @@ public class TestOrcPageSourceFactory
                 continue;
             }
 
-            page = page.getLoadedPage();
+            page = page.getLoadedBlock();
             for (int position = 0; position < page.getPositionCount(); position++) {
                 long nationKey = -42;
                 if (nationKeyColumn >= 0) {
-                    nationKey = BIGINT.getLong(page.getBlock(nationKeyColumn), position);
+                    nationKey = BIGINT.getLong(page.getFieldBlock(nationKeyColumn), position);
                 }
 
                 String name = "<not read>";
                 if (nameColumn >= 0) {
-                    name = VARCHAR.getSlice(page.getBlock(nameColumn), position).toStringUtf8();
+                    name = VARCHAR.getSlice(page.getFieldBlock(nameColumn), position).toStringUtf8();
                 }
 
                 long regionKey = -42;
                 if (regionKeyColumn >= 0) {
-                    regionKey = BIGINT.getLong(page.getBlock(regionKeyColumn), position);
+                    regionKey = BIGINT.getLong(page.getFieldBlock(regionKeyColumn), position);
                 }
 
                 String comment = "<not read>";
                 if (commentColumn >= 0) {
-                    comment = VARCHAR.getSlice(page.getBlock(commentColumn), position).toStringUtf8();
+                    comment = VARCHAR.getSlice(page.getFieldBlock(commentColumn), position).toStringUtf8();
                 }
 
                 rows.add(new Nation(position, nationKey, name, regionKey, comment));

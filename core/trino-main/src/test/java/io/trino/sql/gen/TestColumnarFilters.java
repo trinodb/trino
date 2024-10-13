@@ -933,7 +933,7 @@ public class TestColumnarFilters
         assertThat(types.size()).isEqualTo(actual.getChannelCount());
 
         for (int channel = 0; channel < types.size(); channel++) {
-            assertBlockEquals(types.get(channel), actual.getBlock(channel), expected.getBlock(channel));
+            assertBlockEquals(types.get(channel), actual.getFieldBlock(channel), expected.getFieldBlock(channel));
         }
     }
 

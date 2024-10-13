@@ -189,7 +189,7 @@ public class SetBuilderOperator
         requireNonNull(page, "page is null");
         checkState(!isFinished(), "Operator is already finished");
 
-        channelSetBuilder.addAll(page.getBlock(setChannel), hashChannel == -1 ? null : page.getBlock(hashChannel));
+        channelSetBuilder.addAll(page.getFieldBlock(setChannel), hashChannel == -1 ? null : page.getFieldBlock(hashChannel));
     }
 
     @Override

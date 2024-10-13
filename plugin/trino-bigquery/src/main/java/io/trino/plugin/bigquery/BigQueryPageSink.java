@@ -94,7 +94,7 @@ public class BigQueryPageSink
             JSONObject row = new JSONObject();
             pageSinkIdColumnName.ifPresent(column -> row.put(column, pageSinkId.getId()));
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                row.put(columnNames.get(channel), readNativeValue(columnTypes.get(channel), page.getBlock(channel), position));
+                row.put(columnNames.get(channel), readNativeValue(columnTypes.get(channel), page.getFieldBlock(channel), position));
             }
             batch.put(row);
         }

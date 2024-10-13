@@ -167,7 +167,7 @@ public class TestRowNumberOperator
             for (Page page : result.getOutput()) {
                 assertThat(page.getChannelCount()).isEqualTo(3);
                 for (int i = 0; i < page.getPositionCount(); i++) {
-                    assertThat(BIGINT.getLong(page.getBlock(2), i)).isEqualTo(1);
+                    assertThat(BIGINT.getLong(page.getFieldBlock(2), i)).isEqualTo(1);
                     count++;
                 }
             }
@@ -377,7 +377,7 @@ public class TestRowNumberOperator
         for (Page page : pages) {
             int rowNumberChannel = page.getChannelCount() - 1;
             for (int i = 0; i < page.getPositionCount(); i++) {
-                BIGINT.writeLong(builder, BIGINT.getLong(page.getBlock(rowNumberChannel), i));
+                BIGINT.writeLong(builder, BIGINT.getLong(page.getFieldBlock(rowNumberChannel), i));
             }
         }
         return builder.build();
@@ -389,7 +389,7 @@ public class TestRowNumberOperator
                 .map(page -> {
                     Block[] blocks = new Block[page.getChannelCount() - 1];
                     for (int i = 0; i < page.getChannelCount() - 1; i++) {
-                        blocks[i] = page.getBlock(i);
+                        blocks[i] = page.getFieldBlock(i);
                     }
                     return new Page(page.getPositionCount(), blocks);
                 })

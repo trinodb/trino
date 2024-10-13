@@ -136,7 +136,7 @@ public class TestPageFieldsToInputParametersRewriter
         }
         Page page = result.getInputChannels().getInputChannels(new Page(blocks));
         for (int channel = 0; channel < columnCount; channel++) {
-            assertThat(page.getBlock(channel).isLoaded()).isEqualTo(eagerlyLoadedChannels.contains(channel));
+            assertThat(page.getFieldBlock(channel).isLoaded()).isEqualTo(eagerlyLoadedChannels.contains(channel));
         }
     }
 

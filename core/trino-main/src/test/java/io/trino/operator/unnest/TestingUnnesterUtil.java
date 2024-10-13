@@ -270,7 +270,7 @@ public final class TestingUnnesterUtil
 
         for (int i = 0; i < unnestChannelCount; i++) {
             Type type = unnestTypes.get(i);
-            Block block = page.getBlock(replicatedChannelCount + i);
+            Block block = page.getFieldBlock(replicatedChannelCount + i);
             assertThat(type instanceof ArrayType || type instanceof MapType).isTrue();
 
             if (type instanceof ArrayType) {
@@ -324,12 +324,12 @@ public final class TestingUnnesterUtil
         int outputChannel = 0;
 
         for (int i = 0; i < replicatedTypes.size(); i++) {
-            outputBlocks[outputChannel++] = buildExpectedReplicatedBlock(page.getBlock(i), replicatedTypes.get(i), maxCardinalities, totalEntries);
+            outputBlocks[outputChannel++] = buildExpectedReplicatedBlock(page.getFieldBlock(i), replicatedTypes.get(i), maxCardinalities, totalEntries);
         }
 
         for (int i = 0; i < unnestTypes.size(); i++) {
             Type type = unnestTypes.get(i);
-            Block inputBlock = page.getBlock(replicatedTypes.size() + i);
+            Block inputBlock = page.getFieldBlock(replicatedTypes.size() + i);
 
             if (type instanceof ArrayType) {
                 Type elementType = ((ArrayType) type).getElementType();
@@ -406,7 +406,7 @@ public final class TestingUnnesterUtil
 
             for (int i = 0; i < types.size(); i++) {
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-                Block block = page.getBlock(i);
+                Block block = page.getFieldBlock(i);
                 for (int position = 0; position < page.getPositionCount(); position++) {
                     if (block.isNull(position)) {
                         blockBuilder.appendNull();

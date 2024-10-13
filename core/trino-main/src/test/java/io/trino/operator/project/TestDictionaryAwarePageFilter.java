@@ -276,7 +276,7 @@ public class TestDictionaryAwarePageFilter
         public SelectedPositions filter(ConnectorSession session, Page page)
         {
             assertThat(page.getChannelCount()).isEqualTo(1);
-            Block block = page.getBlock(0);
+            Block block = page.getFieldBlock(0);
 
             boolean sequential = true;
             IntArrayList selectedPositions = new IntArrayList();

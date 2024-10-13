@@ -77,10 +77,10 @@ public class TestDeleteAndInsertMergeProcessor
         assertThat(outputPage.getPositionCount()).isEqualTo(1);
 
         // The single operation is a delete
-        assertThat((int) TINYINT.getByte(outputPage.getBlock(3), 0)).isEqualTo(DELETE_OPERATION_NUMBER);
+        assertThat((int) TINYINT.getByte(outputPage.getFieldBlock(3), 0)).isEqualTo(DELETE_OPERATION_NUMBER);
 
         // Show that the row to be deleted is rowId 0, e.g. ('Dave', 11, 'Devon')
-        SqlRow rowIdRow = ((RowBlock) outputPage.getBlock(4)).getRow(0);
+        SqlRow rowIdRow = ((RowBlock) outputPage.getFieldBlock(4)).getRow(0);
         assertThat(BIGINT.getLong(rowIdRow.getRawFieldBlock(1), rowIdRow.getRawIndex())).isEqualTo(0);
     }
 
@@ -123,10 +123,10 @@ public class TestDeleteAndInsertMergeProcessor
 
         Page outputPage = processor.transformPage(inputPage);
         assertThat(outputPage.getPositionCount()).isEqualTo(8);
-        RowBlock rowIdBlock = (RowBlock) outputPage.getBlock(4);
+        RowBlock rowIdBlock = (RowBlock) outputPage.getFieldBlock(4);
         assertThat(rowIdBlock.getPositionCount()).isEqualTo(8);
         // Show that the first row has address "Arches"
-        assertThat(getString(outputPage.getBlock(2), 1)).isEqualTo("Arches/Arches");
+        assertThat(getString(outputPage.getFieldBlock(2), 1)).isEqualTo("Arches/Arches");
     }
 
     @Test
@@ -163,10 +163,10 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
 
         Page outputPage = processor.transformPage(inputPage);
         assertThat(outputPage.getPositionCount()).isEqualTo(8);
-        RowBlock rowIdBlock = (RowBlock) outputPage.getBlock(4);
+        RowBlock rowIdBlock = (RowBlock) outputPage.getFieldBlock(4);
         assertThat(rowIdBlock.getPositionCount()).isEqualTo(8);
         // Show that the first row has address "Arches/Arches"
-        assertThat(getString(outputPage.getBlock(2), 1)).isEqualTo("Arches/Arches");
+        assertThat(getString(outputPage.getFieldBlock(2), 1)).isEqualTo("Arches/Arches");
     }
 
     private static Page makePageFromBlocks(int positionCount, Optional<boolean[]> rowIdNulls, Block[] rowIdBlocks, Block[] mergeCaseBlocks)

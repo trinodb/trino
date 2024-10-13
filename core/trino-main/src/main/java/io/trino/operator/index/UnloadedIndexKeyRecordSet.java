@@ -71,12 +71,12 @@ public class UnloadedIndexKeyRecordSet
             Page page = request.getPage();
 
             // Move through the positions while advancing the cursors in lockstep
-            Work<int[]> work = groupByHash.getGroupIds(page.getColumns(distinctChannels));
+            Work<int[]> work = groupByHash.getGroupIds(page.getFields(distinctChannels));
             boolean done = work.process();
             // TODO: this class does not yield wrt memory limit; enable it
             verify(done);
             int[] groupIds = work.getResult();
-            int positionCount = page.getBlock(0).getPositionCount();
+            int positionCount = page.getFieldBlock(0).getPositionCount();
             int nextDistinctId = -1;
             int groupCount = groupByHash.getGroupCount();
             IntList positions = new IntArrayList(groupCount);
@@ -118,7 +118,7 @@ public class UnloadedIndexKeyRecordSet
     private static boolean containsNullValue(int position, Page page)
     {
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
-            Block block = page.getBlock(channel);
+            Block block = page.getFieldBlock(channel);
             if (block.isNull(position)) {
                 return true;
             }
@@ -190,37 +190,37 @@ public class UnloadedIndexKeyRecordSet
         @Override
         public boolean getBoolean(int field)
         {
-            return types.get(field).getBoolean(page.getBlock(field), position);
+            return types.get(field).getBoolean(page.getFieldBlock(field), position);
         }
 
         @Override
         public long getLong(int field)
         {
-            return types.get(field).getLong(page.getBlock(field), position);
+            return types.get(field).getLong(page.getFieldBlock(field), position);
         }
 
         @Override
         public double getDouble(int field)
         {
-            return types.get(field).getDouble(page.getBlock(field), position);
+            return types.get(field).getDouble(page.getFieldBlock(field), position);
         }
 
         @Override
         public Slice getSlice(int field)
         {
-            return types.get(field).getSlice(page.getBlock(field), position);
+            return types.get(field).getSlice(page.getFieldBlock(field), position);
         }
 
         @Override
         public Object getObject(int field)
         {
-            return types.get(field).getObject(page.getBlock(field), position);
+            return types.get(field).getObject(page.getFieldBlock(field), position);
         }
 
         @Override
         public boolean isNull(int field)
         {
-            return page.getBlock(field).isNull(position);
+            return page.getFieldBlock(field).isNull(position);
         }
 
         @Override

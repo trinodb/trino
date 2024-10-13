@@ -268,6 +268,6 @@ public class TestGroupedTopNRankBuilder
     private static Page dropLastColumn(Page page)
     {
         checkArgument(page.getChannelCount() > 0);
-        return page.getColumns(IntStream.range(0, page.getChannelCount() - 1).toArray());
+        return page.getFields(IntStream.range(0, page.getChannelCount() - 1).toArray());
     }
 }

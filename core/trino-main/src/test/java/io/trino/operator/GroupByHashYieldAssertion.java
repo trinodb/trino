@@ -110,7 +110,7 @@ public final class GroupByHashYieldAssertion
             if (hashKeyType == VARCHAR) {
                 long oldVariableWidthSize = variableWidthData.getRetainedSizeBytes();
                 for (int position = 0; position < page.getPositionCount(); position++) {
-                    Block block = page.getBlock(0);
+                    Block block = page.getFieldBlock(0);
                     variableWidthData.allocate(pointer, 0, ((VariableWidthBlock) block.getUnderlyingValueBlock()).getSliceLength(block.getUnderlyingValuePosition(position)));
                 }
                 pageVariableWidthSize = variableWidthData.getRetainedSizeBytes() - oldVariableWidthSize;

@@ -188,9 +188,9 @@ public class HashSemiJoinOperator
             // we know the exact size required for the block
             BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(inputPage.getPositionCount());
 
-            Block probeBlock = inputPage.getBlock(probeJoinChannel).copyRegion(0, inputPage.getPositionCount());
+            Block probeBlock = inputPage.getFieldBlock(probeJoinChannel).copyRegion(0, inputPage.getPositionCount());
             boolean probeMayHaveNull = probeBlock.mayHaveNull();
-            Block hashBlock = probeHashChannel >= 0 ? inputPage.getBlock(probeHashChannel).copyRegion(0, inputPage.getPositionCount()) : null;
+            Block hashBlock = probeHashChannel >= 0 ? inputPage.getFieldBlock(probeHashChannel).copyRegion(0, inputPage.getPositionCount()) : null;
 
             // update hashing strategy to use probe cursor
             for (int position = 0; position < inputPage.getPositionCount(); position++) {
@@ -220,7 +220,7 @@ public class HashSemiJoinOperator
                 }
             }
             // add the new boolean column to the page
-            return ofResult(inputPage.appendColumn(blockBuilder.build()));
+            return ofResult(inputPage.appendField(blockBuilder.build()));
         }
     }
 

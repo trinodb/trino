@@ -122,7 +122,7 @@ public class TableChangesFunctionProcessor
             int filePageColumns = page.getChannelCount();
             Block[] resultBlock = new Block[filePageColumns + NUMBER_OF_ADDITIONAL_COLUMNS_FOR_CDF_FILE];
             for (int i = 0; i < filePageColumns; i++) {
-                resultBlock[i] = page.getBlock(i);
+                resultBlock[i] = page.getFieldBlock(i);
             }
             resultBlock[filePageColumns] = RunLengthEncodedBlock.create(
                     currentVersionAsBlock, page.getPositionCount());
@@ -143,7 +143,7 @@ public class TableChangesFunctionProcessor
             int filePageColumns = page.getChannelCount();
             Block[] blocks = new Block[filePageColumns + NUMBER_OF_ADDITIONAL_COLUMNS_FOR_DATA_FILE];
             for (int i = 0; i < filePageColumns; i++) {
-                blocks[i] = page.getBlock(i);
+                blocks[i] = page.getFieldBlock(i);
             }
             blocks[filePageColumns] = RunLengthEncodedBlock.create(
                     nativeValueToBlock(VARCHAR, utf8Slice("insert")), page.getPositionCount());

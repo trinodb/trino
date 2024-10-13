@@ -149,7 +149,7 @@ public class CassandraPageSink
 
     private void appendColumn(List<Object> values, Page page, int position, int channel)
     {
-        Block block = page.getBlock(channel);
+        Block block = page.getFieldBlock(channel);
         Type type = columnTypes.get(channel);
         if (block.isNull(position)) {
             values.add(null);

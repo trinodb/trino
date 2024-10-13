@@ -192,10 +192,10 @@ public class DeltaLakePageSource
                     blocks[i] = RunLengthEncodedBlock.create(prefilledBlocks[i], batchSize);
                 }
                 else if (i == rowIdIndex) {
-                    blocks[i] = createRowIdBlock(dataPage.getBlock(delegateIndexes[i]));
+                    blocks[i] = createRowIdBlock(dataPage.getFieldBlock(delegateIndexes[i]));
                 }
                 else {
-                    blocks[i] = dataPage.getBlock(delegateIndexes[i]);
+                    blocks[i] = dataPage.getFieldBlock(delegateIndexes[i]);
                 }
             }
             return new Page(batchSize, blocks);

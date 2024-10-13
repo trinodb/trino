@@ -70,7 +70,7 @@ public final class MergePage
         if (positionCount <= 0) {
             throw new IllegalArgumentException("positionCount should be > 0, but is " + positionCount);
         }
-        Block operationBlock = inputPage.getBlock(inputChannelCount - 2);
+        Block operationBlock = inputPage.getFieldBlock(inputChannelCount - 2);
 
         int[] deletePositions = new int[positionCount];
         int[] insertPositions = new int[positionCount];
@@ -101,14 +101,14 @@ public final class MergePage
             }
             columns[dataColumnCount] = dataColumnCount + 1; // row ID channel
             deletePage = Optional.of(inputPage
-                    .getColumns(columns)
+                    .getFields(columns)
                     .getPositions(deletePositions, 0, deletePositionCount));
         }
 
         Optional<Page> insertPage = Optional.empty();
         if (insertPositionCount > 0) {
             insertPage = Optional.of(inputPage
-                    .getColumns(IntStream.range(0, dataColumnCount).toArray())
+                    .getFields(IntStream.range(0, dataColumnCount).toArray())
                     .getPositions(insertPositions, 0, insertPositionCount));
         }
 

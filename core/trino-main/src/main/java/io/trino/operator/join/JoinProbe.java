@@ -42,7 +42,7 @@ public class JoinProbe
         public JoinProbe createJoinProbe(Page page)
         {
             Page probePage = page.getLoadedPage(probeJoinChannels);
-            return new JoinProbe(probeOutputChannels, page, probePage, probeHashChannel >= 0 ? page.getBlock(probeHashChannel).getLoadedBlock() : null);
+            return new JoinProbe(probeOutputChannels, page, probePage, probeHashChannel >= 0 ? page.getFieldBlock(probeHashChannel).getLoadedBlock() : null);
         }
     }
 
@@ -106,7 +106,7 @@ public class JoinProbe
     private boolean currentRowContainsNull()
     {
         for (int i = 0; i < probePage.getChannelCount(); i++) {
-            if (probePage.getBlock(i).isNull(position)) {
+            if (probePage.getFieldBlock(i).isNull(position)) {
                 return true;
             }
         }
@@ -116,7 +116,7 @@ public class JoinProbe
     private static boolean probeMayHaveNull(Page probePage)
     {
         for (int i = 0; i < probePage.getChannelCount(); i++) {
-            if (probePage.getBlock(i).mayHaveNull()) {
+            if (probePage.getFieldBlock(i).mayHaveNull()) {
                 return true;
             }
         }

@@ -415,7 +415,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
         for (int channel = 0; channel < types.size(); channel++) {
             Type type = types.get(channel);
-            type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+            type.appendTo(page.getFieldBlock(channel), position, pageBuilder.getBlockBuilder(channel));
         }
     }
 

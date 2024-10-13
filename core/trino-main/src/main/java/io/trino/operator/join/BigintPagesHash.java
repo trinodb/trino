@@ -72,7 +72,7 @@ public final class BigintPagesHash
         requireNonNull(pages, "pages is null");
         ImmutableList.Builder<Block> joinChannelBlocksBuilder = ImmutableList.builder();
         for (Page page : pages) {
-            joinChannelBlocksBuilder.add(page.getBlock(joinChannel));
+            joinChannelBlocksBuilder.add(page.getFieldBlock(joinChannel));
         }
         joinChannelBlocks = joinChannelBlocksBuilder.build();
 
@@ -161,7 +161,7 @@ public final class BigintPagesHash
     @Override
     public int getAddressIndex(int position, Page hashChannelsPage)
     {
-        long value = BIGINT.getLong(hashChannelsPage.getBlock(0), position);
+        long value = BIGINT.getLong(hashChannelsPage.getFieldBlock(0), position);
         int pos = getHashPosition(value, mask);
 
         while (keys[pos] != -1) {
@@ -262,7 +262,7 @@ public final class BigintPagesHash
     private void extractAndHashValues(int[] positions, Page hashChannelsPage, int positionCount, long[] incomingValues, int[] hashPositions)
     {
         for (int i = 0; i < positionCount; i++) {
-            incomingValues[i] = BIGINT.getLong(hashChannelsPage.getBlock(0), positions[i]);
+            incomingValues[i] = BIGINT.getLong(hashChannelsPage.getFieldBlock(0), positions[i]);
             hashPositions[i] = getHashPosition(incomingValues[i], mask);
         }
     }

@@ -68,7 +68,7 @@ final class LazyTrinoRow
             return value;
         }
 
-        value = getIcebergValue(page.getBlock(i), position, types[i]);
+        value = getIcebergValue(page.getFieldBlock(i), position, types[i]);
         values[i] = value;
         return value;
     }

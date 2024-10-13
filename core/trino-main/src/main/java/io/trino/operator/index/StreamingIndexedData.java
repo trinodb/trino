@@ -72,7 +72,7 @@ public class StreamingIndexedData
     private boolean matchesExpectedKey(int position, Page page)
     {
         for (int i = 0; i < indexKeyEqualOperators.size(); i++) {
-            if (!indexKeyEqualOperators.get(i).equal(page.getBlock(i), position, indexKeyTuple.getBlock(i), 0)) {
+            if (!indexKeyEqualOperators.get(i).equal(page.getFieldBlock(i), position, indexKeyTuple.getFieldBlock(i), 0)) {
                 return false;
             }
         }
@@ -127,7 +127,7 @@ public class StreamingIndexedData
         int intPosition = toIntExact(position);
         for (int i = 0; i < outputTypes.size(); i++) {
             Type type = outputTypes.get(i);
-            Block block = currentPage.getBlock(i);
+            Block block = currentPage.getFieldBlock(i);
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i + outputChannelOffset);
             type.appendTo(block, intPosition, blockBuilder);
         }

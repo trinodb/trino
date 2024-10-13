@@ -117,7 +117,7 @@ public final class AvroHiveFileWriter
         try {
             Block[] blocks = new Block[dataPage.getChannelCount() + typeCorrectNullBlocks.size()];
             for (int i = 0; i < dataPage.getChannelCount(); i++) {
-                blocks[i] = dataPage.getBlock(i);
+                blocks[i] = dataPage.getFieldBlock(i);
             }
             for (int i = 0; i < typeCorrectNullBlocks.size(); i++) {
                 blocks[i + dataPage.getChannelCount()] = RunLengthEncodedBlock.create(typeCorrectNullBlocks.get(i), dataPage.getPositionCount());

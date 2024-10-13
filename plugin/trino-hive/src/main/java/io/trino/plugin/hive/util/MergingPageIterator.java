@@ -154,8 +154,8 @@ public class MergingPageIterator
                     int channel = sortFields.get(i);
                     MethodHandle orderingOperator = orderingOperators.get(i);
 
-                    Block block = page.getBlock(channel);
-                    Block otherBlock = other.page.getBlock(channel);
+                    Block block = page.getFieldBlock(channel);
+                    Block otherBlock = other.page.getFieldBlock(channel);
 
                     int result = (int) orderingOperator.invokeExact(block, position, otherBlock, other.position);
                     if (result != 0) {

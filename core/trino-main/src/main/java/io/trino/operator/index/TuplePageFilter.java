@@ -83,8 +83,8 @@ public class TuplePageFilter
     {
         for (int channel = 0; channel < inputChannels.size(); channel++) {
             BlockPositionEqual equalOperator = equalOperators.get(channel);
-            Block outputBlock = page.getBlock(channel);
-            Block singleTupleBlock = tuplePage.getBlock(channel);
+            Block outputBlock = page.getFieldBlock(channel);
+            Block singleTupleBlock = tuplePage.getFieldBlock(channel);
             if (!equalOperator.equal(singleTupleBlock, 0, outputBlock, position)) {
                 return false;
             }

@@ -160,7 +160,7 @@ public final class OrcFileWriter
                 hasUnwrittenColumn = true;
             }
             else {
-                blocks[i] = dataPage.getBlock(inputColumnIndex);
+                blocks[i] = dataPage.getFieldBlock(inputColumnIndex);
             }
         }
         if (transaction.isInsert() && useAcidSchema) {

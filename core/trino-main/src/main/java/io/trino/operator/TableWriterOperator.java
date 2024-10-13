@@ -270,7 +270,7 @@ public class TableWriterOperator
         statisticAggregationOperator.addInput(page);
         timer.end(statisticsTiming);
 
-        page = page.getColumns(columnChannels);
+        page = page.getFields(columnChannels);
 
         ListenableFuture<Void> blockedOnAggregation = statisticAggregationOperator.isBlocked();
         CompletableFuture<?> future = pageSink.appendPage(page);
@@ -315,7 +315,7 @@ public class TableWriterOperator
         Block[] outputBlocks = new Block[types.size()];
         for (int channel = 0; channel < types.size(); channel++) {
             if (channel < STATS_START_CHANNEL) {
-                outputBlocks[channel] = fragmentsPage.getBlock(channel);
+                outputBlocks[channel] = fragmentsPage.getFieldBlock(channel);
             }
             else {
                 outputBlocks[channel] = RunLengthEncodedBlock.create(types.get(channel), null, positionCount);
@@ -335,7 +335,7 @@ public class TableWriterOperator
                 outputBlocks[channel] = RunLengthEncodedBlock.create(types.get(channel), null, positionCount);
             }
             else {
-                outputBlocks[channel] = aggregationOutput.getBlock(channel - 2);
+                outputBlocks[channel] = aggregationOutput.getFieldBlock(channel - 2);
             }
         }
         return new Page(positionCount, outputBlocks);

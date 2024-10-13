@@ -172,7 +172,7 @@ public class TestReadWrite
         assertThat(page).isNotNull();
         assertThat(page.getChannelCount()).isEqualTo(columns.size());
         for (int i = 0; i < columns.size(); i++) {
-            Block actual = page.getBlock(i);
+            Block actual = page.getFieldBlock(i);
             Block expected = inputBlocks.get(i);
             assertBlock(actual, expected, columns.get(i));
         }

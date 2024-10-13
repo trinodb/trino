@@ -118,7 +118,7 @@ public class MongoPageSink
 
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 MongoColumnHandle column = columns.get(channel);
-                doc.append(column.baseName(), getObjectValue(columns.get(channel).type(), page.getBlock(channel), position));
+                doc.append(column.baseName(), getObjectValue(columns.get(channel).type(), page.getFieldBlock(channel), position));
             }
             batch.add(doc);
         }

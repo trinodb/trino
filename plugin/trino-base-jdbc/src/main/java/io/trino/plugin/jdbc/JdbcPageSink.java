@@ -167,7 +167,7 @@ public class JdbcPageSink
     private void appendColumn(Page page, int position, int channel)
             throws SQLException
     {
-        Block block = page.getBlock(channel);
+        Block block = page.getFieldBlock(channel);
         int parameterIndex = channel + 1;
 
         WriteFunction writeFunction = columnWriters.get(channel);

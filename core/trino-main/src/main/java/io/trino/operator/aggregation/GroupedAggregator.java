@@ -75,10 +75,10 @@ public class GroupedAggregator
         accumulator.setGroupCount(groupCount);
 
         if (step.isInputRaw()) {
-            Page arguments = page.getColumns(inputChannels);
+            Page arguments = page.getFields(inputChannels);
             Optional<Block> maskBlock = Optional.empty();
             if (maskChannel.isPresent()) {
-                maskBlock = Optional.of(page.getBlock(maskChannel.getAsInt()).getLoadedBlock());
+                maskBlock = Optional.of(page.getFieldBlock(maskChannel.getAsInt()).getLoadedBlock());
             }
             AggregationMask mask = maskBuilder.buildAggregationMask(arguments, maskBlock);
 
@@ -86,11 +86,11 @@ public class GroupedAggregator
                 return;
             }
             // Unwrap any LazyBlock values before evaluating the accumulator
-            arguments = arguments.getLoadedPage();
+            arguments = arguments.getLoadedBlock();
             accumulator.addInput(groupIds, arguments, mask);
         }
         else {
-            accumulator.addIntermediate(groupIds, page.getBlock(inputChannels[0]));
+            accumulator.addIntermediate(groupIds, page.getFieldBlock(inputChannels[0]));
         }
     }
 

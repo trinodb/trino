@@ -162,7 +162,7 @@ public class TestTimestamp
                     continue;
                 }
                 pageCount++;
-                Block block = page.getBlock(0);
+                Block block = page.getFieldBlock(0);
 
                 for (int i = 0; i < block.getPositionCount(); i++) {
                     assertThat(type.getObjectValue(session, block, i)).isEqualTo(expected.next());

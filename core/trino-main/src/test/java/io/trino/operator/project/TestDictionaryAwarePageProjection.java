@@ -432,7 +432,7 @@ public class TestDictionaryAwarePageProjection
             public TestPageProjectionWork(DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
             {
                 this.yieldSignal = yieldSignal;
-                this.block = page.getBlock(0);
+                this.block = page.getFieldBlock(0);
                 this.selectedPositions = selectedPositions;
                 this.blockBuilder = BIGINT.createBlockBuilder(null, selectedPositions.size());
             }

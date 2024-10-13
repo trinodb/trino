@@ -118,7 +118,7 @@ public class TestGroupedTopNRowNumberBuilder
             assertPageEquals(ImmutableList.of(BIGINT, DOUBLE, BIGINT), output.get(0), expected);
         }
         else {
-            assertPageEquals(types, output.get(0), new Page(expected.getBlock(0), expected.getBlock(1)));
+            assertPageEquals(types, output.get(0), new Page(expected.getFieldBlock(0), expected.getFieldBlock(1)));
         }
     }
 
@@ -188,7 +188,7 @@ public class TestGroupedTopNRowNumberBuilder
             assertPageEquals(ImmutableList.of(BIGINT, DOUBLE, BIGINT), output.get(0), expected);
         }
         else {
-            assertPageEquals(types, output.get(0), new Page(expected.getBlock(0), expected.getBlock(1)));
+            assertPageEquals(types, output.get(0), new Page(expected.getFieldBlock(0), expected.getFieldBlock(1)));
         }
     }
 
