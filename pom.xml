@@ -949,13 +949,6 @@
                 <version>${dep.tcnative.version}</version>
             </dependency>
 
-            <!-- temporary to settle a version between airbase and google cloud sdk -->
-            <dependency>
-                <groupId>io.opentelemetry</groupId>
-                <artifactId>opentelemetry-api-incubator</artifactId>
-                <version>${dep.opentelemetry.version}-alpha</version>
-            </dependency>
-
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
