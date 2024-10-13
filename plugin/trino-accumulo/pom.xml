@@ -14,7 +14,7 @@
     <description>Trino - Accumulo connector</description>
 
     <properties>
-        <dep.curator.version>5.7.0</dep.curator.version>
+        <dep.curator.version>5.7.1</dep.curator.version>
     </properties>
 
     <dependencies>
