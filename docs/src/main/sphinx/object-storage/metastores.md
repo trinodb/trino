@@ -491,7 +491,10 @@ following properties:
 * - `iceberg.rest-catalog.oauth2.scope`
   - Scope to be used when communicating with the REST Catalog. Applicable only
     when using `credential`.
-:::
+* - `iceberg.rest-catalog.vended-credentials-enabled`
+  - Use credentials provided by the REST backend for file system access.
+    Defaults to `false`.
+  :::
 
 The following example shows a minimal catalog configuration using an Iceberg
 REST metadata catalog:
