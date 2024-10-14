@@ -198,10 +198,7 @@ public sealed class RowBlock
             return sizeInBytes;
         }
 
-        sizeInBytes = 0;
-        if (rowIsNull != null) {
-            sizeInBytes += Byte.BYTES * (long) positionCount;
-        }
+        sizeInBytes = rowIsNull == null ? 0 : Byte.BYTES * (long) positionCount;
 
         boolean hasUnloadedBlocks = false;
         for (Block fieldBlock : fieldBlocks) {
@@ -393,7 +390,7 @@ public sealed class RowBlock
     {
         checkValidRegion(positionCount, position, length);
 
-        long regionSizeInBytes = Byte.BYTES * (long) length;
+        long regionSizeInBytes = rowIsNull == null ? 0 : Byte.BYTES * (long) length;
         for (Block fieldBlock : fieldBlocks) {
             regionSizeInBytes += fieldBlock.getRegionSizeInBytes(position, length);
         }
@@ -415,7 +412,7 @@ public sealed class RowBlock
             return fixedSizePerRow * (long) selectedRowPositions;
         }
 
-        long sizeInBytes = Byte.BYTES * (long) selectedRowPositions;
+        long sizeInBytes = rowIsNull == null ? 0 : Byte.BYTES * (long) selectedRowPositions;
         for (Block fieldBlock : fieldBlocks) {
             sizeInBytes += fieldBlock.getPositionsSizeInBytes(positions, selectedRowPositions);
         }
