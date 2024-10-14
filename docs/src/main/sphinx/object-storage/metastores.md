@@ -517,6 +517,29 @@ The Iceberg JDBC catalog is supported for the Iceberg connector.  At a minimum,
 database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
 directory.
 
+:::{list-table} JDBC catalog configuration properties
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `iceberg.jdbc-catalog.driver-class`
+  - JDBC driver class name.
+* - `iceberg.jdbc-catalog.connection-url`
+  - The URI to connect to the JDBC server.
+* - `iceberg.jdbc-catalog.connection-user`
+  - User name for JDBC client.
+* - `iceberg.jdbc-catalog.connection-password`
+  - Password for JDBC client.
+* - `iceberg.jdbc-catalog.catalog-name`
+  - Iceberg JDBC metastore catalog name.
+* - `iceberg.jdbc-catalog.default-warehouse-dir`
+  - The default warehouse directory to use for JDBC.
+* - `iceberg.jdbc-catalog.schema-version`
+  - JDBC catalog schema version.
+    Valid values are `V0` or `V1`. Defaults to `V1`.
+:::
+
 :::{warning}
 The JDBC catalog may have compatibility issues if Iceberg introduces breaking
 changes in the future. Consider the {ref}`REST catalog
