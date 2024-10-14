@@ -53,6 +53,7 @@ public class MLPlugin
                 .add(LearnLibSvmRegressorAggregation.class)
                 .add(EvaluateClassifierPredictionsAggregation.class)
                 .add(EncryptDecryptFunction.class)
+                .add(PowerOfTwoFunction.class)
                 .add(MLFunctions.class)
                 .addAll(ML_FEATURE_FUNCTIONS)
                 .build();
