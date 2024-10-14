@@ -310,7 +310,11 @@ public class TestIcebergV2
             throws Exception
     {
         String tableName = "test_optimize_table_cleans_equality_delete_file_when_whole_table_is_scanned" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate("CREATE TABLE " + tableName + " (LIKE nation) WITH (partitioning = ARRAY['regionkey'])");
+        // Create multiple files per partition
+        for (int nationKey = 0; nationKey < 25; nationKey++) {
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE nationkey = " + nationKey, 1);
+        }
         Table icebergTable = loadTable(tableName);
         assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
@@ -329,7 +333,11 @@ public class TestIcebergV2
             throws Exception
     {
         String tableName = "test_optimize_table_with_equality_delete_file_for_different_partition_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate("CREATE TABLE " + tableName + " (LIKE nation) WITH (partitioning = ARRAY['regionkey'])");
+        // Create multiple files per partition
+        for (int nationKey = 0; nationKey < 25; nationKey++) {
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE nationkey = " + nationKey, 1);
+        }
         Table icebergTable = loadTable(tableName);
         assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
         List<String> initialActiveFiles = getActiveFiles(tableName);
@@ -593,7 +601,11 @@ public class TestIcebergV2
             throws Exception
     {
         String tableName = "test_optimize_partitioned_table_with_global_equality_delete_file_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate("CREATE TABLE " + tableName + " (LIKE nation) WITH (partitioning = ARRAY['regionkey'])");
+        // Create multiple files per partition
+        for (int nationKey = 0; nationKey < 25; nationKey++) {
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE nationkey = " + nationKey, 1);
+        }
         Table icebergTable = loadTable(tableName);
         assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
