@@ -13,6 +13,7 @@
  */
 package io.trino.server.protocol.spooling;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.client.spooling.DataAttributes;
@@ -80,6 +81,13 @@ public record SpooledBlock(SpooledLocation location, DataAttributes attributes)
     public Block serialize()
     {
         RowBlockBuilder rowBlockBuilder = SPOOLING_METADATA_TYPE.createBlockBuilder(null, 1);
+        serialize(rowBlockBuilder);
+        return rowBlockBuilder.build();
+    }
+
+    @VisibleForTesting
+    void serialize(RowBlockBuilder rowBlockBuilder)
+    {
         boolean isDirectLocation = location instanceof DirectLocation;
 
         Slice value = switch (location) {
@@ -93,7 +101,6 @@ public record SpooledBlock(SpooledLocation location, DataAttributes attributes)
             VARCHAR.writeSlice(rowEntryBuilder.get(2), utf8Slice(HEADERS_CODEC.toJson(location.headers())));
             VARCHAR.writeSlice(rowEntryBuilder.get(3), utf8Slice(ATTRIBUTES_CODEC.toJson(attributes)));
         });
-        return rowBlockBuilder.build();
     }
 
     public static Page createNonSpooledPage(Page page)

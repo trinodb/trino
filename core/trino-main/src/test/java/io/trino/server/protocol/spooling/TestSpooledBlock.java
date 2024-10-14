@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.spooling;
+package io.trino.server.protocol.spooling;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.client.spooling.DataAttributes;
-import io.trino.server.protocol.spooling.SpooledBlock;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.protocol.SpooledLocation;
 import org.junit.jupiter.api.Test;
 
@@ -28,6 +28,7 @@ import java.net.URI;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
+import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_TYPE;
 import static io.trino.spi.protocol.SpooledLocation.coordinatorLocation;
 import static io.trino.spi.protocol.SpooledLocation.directLocation;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -78,8 +79,10 @@ class TestSpooledBlock
     private void verifyThrowsErrorOnMultiplePositions(SpooledLocation location)
     {
         SpooledBlock metadata = new SpooledBlock(location, createDataAttributes(30, 1300));
-
-        assertThatThrownBy(() -> SpooledBlock.deserialize(new Page(blockWithPositions(2, false), metadata.serialize())))
+        RowBlockBuilder rowBlockBuilder = SPOOLING_METADATA_TYPE.createBlockBuilder(null, 2);
+        metadata.serialize(rowBlockBuilder);
+        metadata.serialize(rowBlockBuilder);
+        assertThatThrownBy(() -> SpooledBlock.deserialize(new Page(blockWithPositions(2, false), rowBlockBuilder.build())))
                 .hasMessage("Spooling metadata block must have a single position");
     }
 
