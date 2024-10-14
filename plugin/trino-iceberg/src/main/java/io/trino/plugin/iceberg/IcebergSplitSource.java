@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.cache.NonEvictableCache;
@@ -49,6 +50,7 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
@@ -58,6 +60,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -94,6 +97,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
+import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -110,6 +114,7 @@ import static org.apache.iceberg.types.Conversions.fromByteBuffer;
 public class IcebergSplitSource
         implements ConnectorSplitSource
 {
+    private static final Logger log = Logger.get(IcebergSplitSource.class);
     private static final ConnectorSplitBatch EMPTY_BATCH = new ConnectorSplitBatch(ImmutableList.of(), false);
     private static final ConnectorSplitBatch NO_MORE_SPLITS_BATCH = new ConnectorSplitBatch(ImmutableList.of(), true);
 
@@ -141,7 +146,10 @@ public class IcebergSplitSource
     private Iterator<FileScanTaskWithDomain> fileTasksIterator = emptyIterator();
 
     private final boolean recordScannedFiles;
+    private final int currentSpecId;
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
+    @Nullable
+    private Map<StructLikeWrapperWithFieldIdToIndex, Optional<FileScanTaskWithDomain>> scannedFilesByPartition = new HashMap<>();
     private long outputRowsLowerBound;
     private final CachingHostAddressProvider cachingHostAddressProvider;
 
@@ -149,7 +157,7 @@ public class IcebergSplitSource
             IcebergFileSystemFactory fileSystemFactory,
             ConnectorSession session,
             IcebergTableHandle tableHandle,
-            Map<String, String> fileIoProperties,
+            Table icebergTable,
             Scan<?, FileScanTask, CombinedScanTask> tableScan,
             Optional<DataSize> maxScannedFileSize,
             DynamicFilter dynamicFilter,
@@ -163,7 +171,7 @@ public class IcebergSplitSource
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.session = requireNonNull(session, "session is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
+        this.fileIoProperties = requireNonNull(icebergTable.io().properties(), "fileIoProperties is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.maxScannedFileSizeInBytes = maxScannedFileSize.map(DataSize::toBytes);
         this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
@@ -173,6 +181,7 @@ public class IcebergSplitSource
         this.partitionConstraintMatcher = new PartitionConstraintMatcher(constraint);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.recordScannedFiles = recordScannedFiles;
+        this.currentSpecId = icebergTable.spec().specId();
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
         this.projectedBaseColumns = tableHandle.getProjectedColumns().stream()
                 .map(column -> column.getBaseColumnIdentity().getId())
@@ -322,6 +331,37 @@ public class IcebergSplitSource
             return ImmutableList.of();
         }
 
+        if (!recordScannedFiles || scannedFilesByPartition == null) {
+            return ImmutableList.of(fileScanTaskWithDomain);
+        }
+
+        // Assess if the partition that wholeFileTask belongs to should be included for OPTIMIZE
+        // If file was partitioned under an old spec, OPTIMIZE may be able to merge it with another file under new partitioning spec
+        // We don't know which partition of new spec this file belongs to, so we include all files in OPTIMIZE
+        if (currentSpecId != wholeFileTask.spec().specId()) {
+            Stream<FileScanTaskWithDomain> allQueuedTasks = scannedFilesByPartition.values().stream()
+                    .filter(Optional::isPresent)
+                    .map(Optional::get);
+            scannedFilesByPartition = null;
+            return Stream.concat(allQueuedTasks, Stream.of(fileScanTaskWithDomain)).collect(toImmutableList());
+        }
+        StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(wholeFileTask);
+        Optional<FileScanTaskWithDomain> alreadyQueuedFileTask = scannedFilesByPartition.get(structLikeWrapperWithFieldIdToIndex);
+        if (alreadyQueuedFileTask != null) {
+            // Optional.empty() is a marker for partitions where we've seen enough files to avoid skipping them from OPTIMIZE
+            if (alreadyQueuedFileTask.isEmpty()) {
+                return ImmutableList.of(fileScanTaskWithDomain);
+            }
+            scannedFilesByPartition.put(structLikeWrapperWithFieldIdToIndex, Optional.empty());
+            return ImmutableList.of(alreadyQueuedFileTask.get(), fileScanTaskWithDomain);
+        }
+        // If file has no deletions, and it's the only file seen so far for the partition
+        // then we skip it from splits generation unless we encounter another file in the same partition
+        if (fileHasNoDeletions) {
+            scannedFilesByPartition.put(structLikeWrapperWithFieldIdToIndex, Optional.of(fileScanTaskWithDomain));
+            return ImmutableList.of();
+        }
+        scannedFilesByPartition.put(structLikeWrapperWithFieldIdToIndex, Optional.empty());
         return ImmutableList.of(fileScanTaskWithDomain);
     }
 
@@ -398,7 +438,16 @@ public class IcebergSplitSource
         if (!recordScannedFiles) {
             return Optional.empty();
         }
-        return Optional.of(ImmutableList.copyOf(scannedFiles.build()));
+        long filesSkipped = 0;
+        if (scannedFilesByPartition != null) {
+            filesSkipped = scannedFilesByPartition.values().stream()
+                    .filter(Optional::isPresent)
+                    .count();
+            scannedFilesByPartition = null;
+        }
+        List<Object> splitsInfo = ImmutableList.copyOf(scannedFiles.build());
+        log.info("Generated %d splits, skipped %d files for OPTIMIZE", splitsInfo.size(), filesSkipped);
+        return Optional.of(splitsInfo);
     }
 
     @Override
