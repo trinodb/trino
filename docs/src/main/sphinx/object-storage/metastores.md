@@ -435,7 +435,12 @@ described with the following additional property:
     See [AWS Glue Skip
     Archive](https://iceberg.apache.org/docs/latest/aws/#skip-archive).
   - `true`
-:::
+* - `iceberg.glue.cache-table-metadata`
+  - While updating the table in AWS Glue, store the table metadata with the
+    purpose of accelerating `information_schema.columns` and
+    `system.metadata.table_comments` queries.
+  - `true` 
+  :::
 
 ## Iceberg-specific metastores
 
