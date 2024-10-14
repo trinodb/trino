@@ -23,6 +23,8 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.spooling.filesystem.FileSystemSpoolingConfig.Layout.PARTITIONED;
+import static io.trino.spooling.filesystem.FileSystemSpoolingConfig.Layout.SIMPLE;
 
 class TestFileSystemSpoolingConfig
 {
@@ -34,6 +36,7 @@ class TestFileSystemSpoolingConfig
                 .setGcsEnabled(false)
                 .setS3Enabled(false)
                 .setLocation(null)
+                .setLayout(SIMPLE)
                 .setEncryptionEnabled(true)
                 .setTtl(new Duration(12, TimeUnit.HOURS))
                 .setPruningEnabled(true)
@@ -49,6 +52,7 @@ class TestFileSystemSpoolingConfig
                 .put("fs.gcs.enabled", "true")
                 .put("fs.s3.enabled", "true")
                 .put("fs.location", "test")
+                .put("fs.layout", "PARTITIONED")
                 .put("fs.segment.encryption", "false")
                 .put("fs.segment.ttl", "1h")
                 .put("fs.segment.pruning.enabled", "false")
@@ -61,6 +65,7 @@ class TestFileSystemSpoolingConfig
                 .setGcsEnabled(true)
                 .setS3Enabled(true)
                 .setLocation("test")
+                .setLayout(PARTITIONED)
                 .setEncryptionEnabled(false)
                 .setTtl(new Duration(1, TimeUnit.HOURS))
                 .setPruningEnabled(false)

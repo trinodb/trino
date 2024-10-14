@@ -87,7 +87,7 @@ public abstract class AbstractFileSystemSpoolingManagerTest
         FileSystemSpooledSegmentHandle handle2 = (FileSystemSpooledSegmentHandle) getSpoolingManager().handle(location);
 
         assertThat(handle.queryId()).isEqualTo(handle2.queryId());
-        assertThat(handle.storageObjectName()).isEqualTo(handle2.storageObjectName());
+        assertThat(handle.identifier()).isEqualTo(handle2.identifier());
         assertThat(handle.uuid()).isEqualTo(handle2.uuid());
         assertThat(handle.expirationTime()).isEqualTo(handle2.expirationTime());
         assertThat(handle2.encryptionKey()).isPresent().hasValue(key);

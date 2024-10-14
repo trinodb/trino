@@ -22,13 +22,13 @@ import io.trino.filesystem.memory.MemoryFileSystem;
 import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpoolingContext;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -36,26 +36,26 @@ import java.util.concurrent.ThreadLocalRandom;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(PER_CLASS)
-class TestFileSystemSegmentPruner
+abstract class AbstractFileSystemSegmentPrunerTest
 {
-    private static final String TEST_LOCATION = "memory://";
+    private static final Location TEST_LOCATION = Location.of("memory://");
 
     private static final FileSystemSpoolingConfig SPOOLING_CONFIG = new FileSystemSpoolingConfig()
-            .setLocation(TEST_LOCATION)
+            .setLocation(TEST_LOCATION.toString())
             .setPruningBatchSize(1);
+
+    protected abstract FileSystemLayout layout();
 
     @Test
     public void shouldPruneExpiredSegments()
     {
         MemoryFileSystem fileSystem = new MemoryFileSystem();
         try (ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor()) {
-            FileSystemSegmentPruner pruner = new FileSystemSegmentPruner(SPOOLING_CONFIG, _ -> fileSystem, executorService);
+            FileSystemSegmentPruner pruner = new FileSystemSegmentPruner(SPOOLING_CONFIG, _ -> fileSystem, layout(), executorService);
 
             Instant now = Instant.now();
-            QueryId queryId = QueryId.valueOf("prune_expired");
+            QueryId queryId = randomQueryId("prune_expired");
 
             writeDataSegment(fileSystem, queryId, now.minusSeconds(1));
             Location nonExpiredSegment = writeDataSegment(fileSystem, queryId, now.plusSeconds(1));
@@ -74,10 +74,10 @@ class TestFileSystemSegmentPruner
     {
         MemoryFileSystem fileSystem = new MemoryFileSystem();
         try (ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor()) {
-            FileSystemSegmentPruner pruner = new FileSystemSegmentPruner(SPOOLING_CONFIG, _ -> fileSystem, executorService);
+            FileSystemSegmentPruner pruner = new FileSystemSegmentPruner(SPOOLING_CONFIG, _ -> fileSystem, layout(), executorService);
 
             Instant now = Instant.now();
-            QueryId queryId = QueryId.valueOf("prune_expired");
+            QueryId queryId = randomQueryId("prune_expired");
 
             writeDataSegment(fileSystem, queryId, now.minusSeconds(1));
             writeDataSegment(fileSystem, queryId, now.minusSeconds(1));
@@ -100,11 +100,11 @@ class TestFileSystemSegmentPruner
     {
         MemoryFileSystem fileSystem = new MemoryFileSystem();
         try (ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor()) {
-            FileSystemSegmentPruner pruner = new FileSystemSegmentPruner(SPOOLING_CONFIG, _ -> fileSystem, executorService);
+            FileSystemSegmentPruner pruner = new FileSystemSegmentPruner(SPOOLING_CONFIG, _ -> fileSystem, layout(), executorService);
 
             Instant now = Instant.now();
 
-            QueryId queryId = QueryId.valueOf("prune_live");
+            QueryId queryId = randomQueryId("prune_live");
 
             writeDataSegment(fileSystem, queryId, now.plusSeconds(1));
             writeDataSegment(fileSystem, queryId, now.plusSeconds(2));
@@ -121,12 +121,13 @@ class TestFileSystemSegmentPruner
     public void shouldNotPruneSegmentsIfNotStrictlyBeforeExpiration()
     {
         TrinoFileSystem memoryFileSystem = new MemoryFileSystem();
+
         try (ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor()) {
-            FileSystemSegmentPruner pruner = new FileSystemSegmentPruner(SPOOLING_CONFIG, _ -> memoryFileSystem, executorService);
+            FileSystemSegmentPruner pruner = new FileSystemSegmentPruner(SPOOLING_CONFIG, _ -> memoryFileSystem, layout(), executorService);
 
             Instant now = Instant.now();
 
-            QueryId queryId = QueryId.valueOf("prune_now");
+            QueryId queryId = randomQueryId("prune_now");
 
             Location firstSegment = writeDataSegment(memoryFileSystem, queryId, now);
             Location secondSegment = writeDataSegment(memoryFileSystem, queryId, now);
@@ -144,7 +145,7 @@ class TestFileSystemSegmentPruner
     {
         SpoolingContext context = new SpoolingContext("encoding", queryId, 100, 1000);
         FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(ThreadLocalRandom.current(), context, ttl);
-        Location location = Location.of(TEST_LOCATION).appendPath(handle.storageObjectName());
+        Location location = layout().location(TEST_LOCATION, handle);
         try (OutputStream stream = fileSystem.newOutputFile(location).create()) {
             stream.write("dummy".getBytes(UTF_8));
             return location;
@@ -159,10 +160,10 @@ class TestFileSystemSegmentPruner
         ImmutableList.Builder<Location> files = ImmutableList.builder();
 
         try {
-            FileIterator iterator = fileSystem.listFiles(Location.of(TEST_LOCATION));
+            FileIterator iterator = fileSystem.listFiles(TEST_LOCATION);
             while (iterator.hasNext()) {
                 FileEntry entry = iterator.next();
-                if (entry.location().fileName().endsWith(queryId.toString())) {
+                if (entry.location().fileName().contains(queryId.toString())) {
                     files.add(entry.location());
                 }
             }
@@ -171,5 +172,10 @@ class TestFileSystemSegmentPruner
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private static QueryId randomQueryId(String name)
+    {
+        return QueryId.valueOf(name + "_" + UUID.randomUUID().toString().replace("-", ""));
     }
 }

@@ -18,6 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.AssertTrue;
 
+import static io.trino.spooling.filesystem.FileSystemSpoolingConfig.Layout.SIMPLE;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -27,6 +28,7 @@ public class FileSystemSpoolingConfig
     private boolean s3Enabled;
     private boolean gcsEnabled;
     private String location;
+    private Layout layout = SIMPLE;
     private Duration ttl = new Duration(12, HOURS);
     private boolean encryptionEnabled = true;
     private boolean pruningEnabled = true;
@@ -78,6 +80,19 @@ public class FileSystemSpoolingConfig
     public FileSystemSpoolingConfig setLocation(String location)
     {
         this.location = location;
+        return this;
+    }
+
+    public Layout getLayout()
+    {
+        return layout;
+    }
+
+    @Config("fs.layout")
+    @ConfigDescription("Spooled segments filesystem layout")
+    public FileSystemSpoolingConfig setLayout(Layout layout)
+    {
+        this.layout = layout;
         return this;
     }
 
@@ -156,5 +171,11 @@ public class FileSystemSpoolingConfig
     public boolean locationEndsWithSlash()
     {
         return location.endsWith("/");
+    }
+
+    public enum Layout
+    {
+        SIMPLE,
+        PARTITIONED
     }
 }

@@ -58,17 +58,19 @@ public class FileSystemSpoolingManager
     private final Location location;
     private final EncryptionHeadersTranslator encryptionHeadersTranslator;
     private final TrinoFileSystem fileSystem;
+    private final FileSystemLayout fileSystemLayout;
     private final Duration ttl;
     private final boolean encryptionEnabled;
     private final Random random = ThreadLocalRandom.current();
 
     @Inject
-    public FileSystemSpoolingManager(FileSystemSpoolingConfig config, TrinoFileSystemFactory fileSystemFactory)
+    public FileSystemSpoolingManager(FileSystemSpoolingConfig config, TrinoFileSystemFactory fileSystemFactory, FileSystemLayout fileSystemLayout)
     {
         requireNonNull(config, "config is null");
         this.location = Location.of(config.getLocation());
         this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null")
                 .create(ConnectorIdentity.ofUser("ignored"));
+        this.fileSystemLayout = requireNonNull(fileSystemLayout, "fileSystemLayout is null");
         this.encryptionHeadersTranslator = encryptionHeadersTranslator(location);
         this.ttl = config.getTtl();
         this.encryptionEnabled = config.isEncryptionEnabled();
@@ -79,7 +81,7 @@ public class FileSystemSpoolingManager
             throws IOException
     {
         FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
-        Location storageLocation = location(fileHandle);
+        Location storageLocation = fileSystemLayout.location(location, fileHandle);
         Optional<EncryptionKey> encryption = fileHandle.encryptionKey();
 
         TrinoOutputFile outputFile;
@@ -109,8 +111,9 @@ public class FileSystemSpoolingManager
     {
         FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
         checkExpiration(fileHandle);
+
         Optional<EncryptionKey> encryption = fileHandle.encryptionKey();
-        Location storageLocation = location(fileHandle);
+        Location storageLocation = fileSystemLayout.location(location, fileHandle);
 
         TrinoInputFile inputFile;
 
@@ -129,7 +132,7 @@ public class FileSystemSpoolingManager
     public void acknowledge(SpooledSegmentHandle handle)
             throws IOException
     {
-        fileSystem.deleteFile(location((FileSystemSpooledSegmentHandle) handle));
+        fileSystem.deleteFile(fileSystemLayout.location(location, (FileSystemSpooledSegmentHandle) handle));
     }
 
     @Override
@@ -137,7 +140,7 @@ public class FileSystemSpoolingManager
             throws IOException
     {
         FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
-        Location storageLocation = location(fileHandle);
+        Location storageLocation = fileSystemLayout.location(location, fileHandle);
         Duration ttl = remainingTtl(fileHandle.expirationTime());
         Optional<EncryptionKey> key = fileHandle.encryptionKey();
 
@@ -207,14 +210,8 @@ public class FileSystemSpoolingManager
         return new FileSystemSpooledSegmentHandle(encoding, queryId, uuid, Optional.of(encryptionHeadersTranslator.extractKey(location.headers())));
     }
 
-    private Location location(FileSystemSpooledSegmentHandle handle)
-            throws IOException
-    {
-        checkExpiration(handle);
-        return location.appendPath(handle.storageObjectName());
-    }
-
     private Duration remainingTtl(Instant expiresAt)
+
     {
         return new Duration(between(Instant.now(), expiresAt).toMillis(), MILLISECONDS);
     }
