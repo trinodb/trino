@@ -125,6 +125,7 @@ public abstract class AbstractTestBlock
                 }
                 else if (type == Block[].class) {
                     Block[] blocks = (Block[]) field.get(block);
+                    retainedSize += sizeOf(blocks);
                     for (Block innerBlock : blocks) {
                         assertRetainedSize(innerBlock);
                         retainedSize += innerBlock.getRetainedSizeInBytes();
