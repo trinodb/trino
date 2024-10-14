@@ -237,6 +237,7 @@ public sealed class RowBlock
         for (Block fieldBlock : fieldBlocks) {
             retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
         }
+        this.retainedSizeInBytes = retainedSizeInBytes;
         return retainedSizeInBytes;
     }
 
