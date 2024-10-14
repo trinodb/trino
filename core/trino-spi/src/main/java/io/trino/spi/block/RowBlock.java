@@ -191,7 +191,7 @@ public final class RowBlock
     @Override
     public long getRetainedSizeInBytes()
     {
-        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(rowIsNull);
+        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(fieldBlocks) + sizeOf(rowIsNull);
         for (Block fieldBlock : fieldBlocks) {
             retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
         }
