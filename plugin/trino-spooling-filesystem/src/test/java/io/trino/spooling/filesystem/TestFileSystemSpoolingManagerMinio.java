@@ -63,6 +63,6 @@ public class TestFileSystemSpoolingManagerMinio
                 .setAwsAccessKey(Minio.MINIO_ACCESS_KEY)
                 .setAwsSecretKey(Minio.MINIO_SECRET_KEY)
                 .setStreamingPartSize(DataSize.valueOf("5.5MB"));
-        return new FileSystemSpoolingManager(spoolingConfig, new S3FileSystemFactory(noop(), filesystemConfig, new S3FileSystemStats()));
+        return new FileSystemSpoolingManager(spoolingConfig, new S3FileSystemFactory(noop(), filesystemConfig, new S3FileSystemStats()), new SimpleFileSystemLayout());
     }
 }
