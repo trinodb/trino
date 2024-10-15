@@ -8,7 +8,7 @@ local exchange (GATHER, SINGLE, [])
                             partial aggregation over (groupid, i_brand_gid, i_category_gid, i_class_gid, i_product_name_gid)
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        dynamic filter (inv_date_sk::EQUAL, inv_item_sk::EQUAL)
+                                        dynamic filter ([inv_item_sk::EQUAL], await [inv_date_sk::EQUAL])
                                             scan inventory
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])

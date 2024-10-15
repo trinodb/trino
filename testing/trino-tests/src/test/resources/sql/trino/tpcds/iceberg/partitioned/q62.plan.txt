@@ -10,7 +10,7 @@ local exchange (GATHER, SINGLE, [])
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                dynamic filter (ws_ship_date_sk::EQUAL, ws_ship_mode_sk::EQUAL, ws_warehouse_sk::EQUAL, ws_web_site_sk::EQUAL)
+                                                dynamic filter (await [ws_ship_date_sk::EQUAL, ws_ship_mode_sk::EQUAL, ws_warehouse_sk::EQUAL, ws_web_site_sk::EQUAL])
                                                     scan web_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])

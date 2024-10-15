@@ -15,19 +15,19 @@ local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, [d_day_name, d_week_seq, ss_store_sk])
                                                             partial aggregation over (d_day_name, d_week_seq, ss_store_sk)
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL)
+                                                                    dynamic filter (await [ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL])
                                                                         scan store_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                                            dynamic filter (d_week_seq::EQUAL, d_week_seq::EQUAL)
+                                                                            dynamic filter (unestimatable [d_week_seq::EQUAL], await [d_week_seq::EQUAL])
                                                                                 scan date_dim
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        dynamic filter (s_store_id::EQUAL)
+                                        dynamic filter (unestimatable [s_store_id::EQUAL])
                                             scan store
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    dynamic filter (d_week_seq_20::EQUAL)
+                                    dynamic filter (unestimatable [d_week_seq_20::EQUAL])
                                         scan date_dim
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [operator_subtract, s_store_id_116])
@@ -42,11 +42,11 @@ local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [d_day_name_85, d_week_seq_75, ss_store_sk_52])
                                                                 partial aggregation over (d_day_name_85, d_week_seq_75, ss_store_sk_52)
                                                                     join (INNER, REPLICATED):
-                                                                        dynamic filter (ss_sold_date_sk_68::EQUAL, ss_store_sk_52::EQUAL)
+                                                                        dynamic filter (await [ss_sold_date_sk_68::EQUAL, ss_store_sk_52::EQUAL])
                                                                             scan store_sales
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                                dynamic filter (d_week_seq_75::EQUAL)
+                                                                                dynamic filter (await [d_week_seq_75::EQUAL])
                                                                                     scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])

@@ -68,6 +68,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -333,6 +334,12 @@ public class TestBackgroundHiveSplitLoader
                         public TupleDomain<ColumnHandle> getCurrentPredicate()
                         {
                             return TupleDomain.all();
+                        }
+
+                        @Override
+                        public OptionalLong getPreferredDynamicFilterTimeout()
+                        {
+                            return OptionalLong.of(0L);
                         }
                     },
                     new Duration(1, SECONDS));

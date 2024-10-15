@@ -78,6 +78,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -1228,13 +1229,25 @@ public final class PlanMatchPattern
         private final Comparison.Operator operator;
         private final SymbolAlias build;
         private final boolean nullAllowed;
+        private final OptionalLong preferredTimeout;
 
         public DynamicFilterPattern(Expression probe, Comparison.Operator operator, String buildAlias, boolean nullAllowed)
+        {
+            this(
+                    probe,
+                    operator,
+                    buildAlias,
+                    nullAllowed,
+                    OptionalLong.empty());
+        }
+
+        public DynamicFilterPattern(Expression probe, Comparison.Operator operator, String buildAlias, boolean nullAllowed, OptionalLong preferredTimeout)
         {
             this.probe = requireNonNull(probe, "probe is null");
             this.operator = requireNonNull(operator, "operator is null");
             this.build = new SymbolAlias(requireNonNull(buildAlias, "buildAlias is null"));
             this.nullAllowed = nullAllowed;
+            this.preferredTimeout = requireNonNull(preferredTimeout, "minDynamicFilterTimeout is null");
         }
 
         public DynamicFilterPattern(Expression probe, Comparison.Operator operator, String buildAlias)
@@ -1257,6 +1270,11 @@ public final class PlanMatchPattern
                     build.toSymbol(aliases).toSymbolReference());
         }
 
+        public OptionalLong getPreferredTimeout()
+        {
+            return preferredTimeout;
+        }
+
         private static SymbolMapper symbolMapper(SymbolAliases symbolAliases)
         {
             return new SymbolMapper(symbol -> Symbol.from(symbolAliases.get(symbol.name())));
@@ -1269,6 +1287,7 @@ public final class PlanMatchPattern
                     .add("probe", probe)
                     .add("operator", operator)
                     .add("build", build)
+                    .add("preferredTimeout", preferredTimeout)
                     .toString();
         }
     }

@@ -15,6 +15,7 @@ package io.trino.spi.connector;
 
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -53,6 +54,12 @@ public interface DynamicFilter
         {
             return TupleDomain.all();  // no filtering
         }
+
+        @Override
+        public OptionalLong getPreferredDynamicFilterTimeout()
+        {
+            return OptionalLong.empty();
+        }
     };
 
     /**
@@ -81,4 +88,12 @@ public interface DynamicFilter
     boolean isAwaitable();
 
     TupleDomain<ColumnHandle> getCurrentPredicate();
+
+    /**
+     * Returns preferred timeout in milliseconds if build side can be estimated otherwise empty, that connector should wait
+     * for the dynamic filter to be narrowed down since split enumeration started.
+     * Future from {@link DynamicFilter#isBlocked()} method should be acquired before getting preferred dynamic filter timeout.
+     * This timeout needs to be re-checked whenever connector decides to wait for dynamic filter.
+     */
+    OptionalLong getPreferredDynamicFilterTimeout();
 }

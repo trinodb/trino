@@ -4,7 +4,7 @@ remote exchange (GATHER, SINGLE, [])
             join (INNER, PARTITIONED):
                 remote exchange (REPARTITION, HASH, [suppkey])
                     join (INNER, REPLICATED):
-                        dynamic filter (nationkey::EQUAL, suppkey::EQUAL)
+                        dynamic filter ([suppkey::EQUAL], await [nationkey::EQUAL])
                             scan supplier
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPLICATE, BROADCAST, [])
@@ -17,7 +17,7 @@ remote exchange (GATHER, SINGLE, [])
                                     join (LEFT, PARTITIONED, can skip output duplicates):
                                         join (INNER, PARTITIONED, can skip output duplicates):
                                             remote exchange (REPARTITION, HASH, [partkey])
-                                                dynamic filter (partkey::EQUAL)
+                                                dynamic filter ([partkey::EQUAL])
                                                     scan partsupp
                                             final aggregation over (partkey_11)
                                                 local exchange (GATHER, SINGLE, [])

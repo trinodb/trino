@@ -32,10 +32,12 @@ import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -173,7 +175,9 @@ public final class JoinMatcher
                 .filter(descriptor -> dynamicFilterIds.contains(descriptor.getId()))
                 .collect(toImmutableList());
 
-        Set<Expression> actual = new HashSet<>();
+        Set<Expression> actualExpressions = new HashSet<>();
+        Map<Expression, OptionalLong> actualTimeouts = new HashMap<>();
+
         for (DynamicFilters.Descriptor descriptor : descriptors) {
             Expression probe = descriptor.getInput();
             Symbol build = idToBuildSymbolMap.get(descriptor.getId());
@@ -187,14 +191,27 @@ public final class JoinMatcher
             else {
                 expression = new Comparison(descriptor.getOperator(), probe, build.toSymbolReference());
             }
-            actual.add(expression);
+            actualExpressions.add(expression);
+            if (descriptor.getPreferredTimeout().isPresent()) {
+                actualTimeouts.put(expression, descriptor.getPreferredTimeout());
+            }
         }
 
-        Set<Expression> expected = expectedDynamicFilter.get().stream()
-                .map(pattern -> pattern.getExpression(symbolAliases))
+        Map<Expression, OptionalLong> expectedTimeouts = new HashMap<>();
+        Set<Expression> expectedExpressions = expectedDynamicFilter.get().stream()
+                .map(pattern -> {
+                    Expression expression = pattern.getExpression(symbolAliases);
+                    if (pattern.getPreferredTimeout().isPresent()) {
+                        expectedTimeouts.put(expression, pattern.getPreferredTimeout());
+                    }
+                    return expression;
+                })
                 .collect(toImmutableSet());
 
-        return expected.equals(actual);
+        boolean timeoutsMatch = expectedTimeouts.entrySet().stream()
+                .allMatch(expectedTimeout -> expectedTimeout.getValue().equals(actualTimeouts.get(expectedTimeout.getKey())));
+
+        return expectedExpressions.equals(actualExpressions) && timeoutsMatch;
     }
 
     @Override
@@ -266,6 +283,14 @@ public final class JoinMatcher
         public Builder dynamicFilter(Type type, String key, String value)
         {
             this.dynamicFilter = Optional.of(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern(new Reference(type, key), EQUAL, value)));
+
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder dynamicFilter(Reference symbolKey, String value, long timeout)
+        {
+            this.dynamicFilter = Optional.of(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern(symbolKey, EQUAL, value, false, OptionalLong.of(timeout))));
 
             return this;
         }

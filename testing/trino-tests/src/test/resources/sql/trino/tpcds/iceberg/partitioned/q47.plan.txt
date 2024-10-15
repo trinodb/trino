@@ -13,18 +13,18 @@ local exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (ss_item_sk::EQUAL, ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL)
+                                                            dynamic filter ([ss_item_sk::EQUAL], await [ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL])
                                                                 scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    dynamic filter (i_brand::EQUAL, i_brand::EQUAL, i_category::EQUAL, i_category::EQUAL)
+                                                                    dynamic filter (unestimatable [i_brand::EQUAL, i_brand::EQUAL, i_category::EQUAL, i_category::EQUAL])
                                                                         scan item
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (s_company_name::EQUAL, s_company_name::EQUAL, s_store_name::EQUAL, s_store_name::EQUAL)
+                                                            dynamic filter (unestimatable [s_company_name::EQUAL, s_company_name::EQUAL, s_store_name::EQUAL, s_store_name::EQUAL])
                                                                 scan store
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [i_brand_14, i_category_18, s_company_name_102, s_store_name_90])
@@ -35,18 +35,18 @@ local exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (ss_item_sk_31::EQUAL, ss_sold_date_sk_52::EQUAL, ss_store_sk_36::EQUAL)
+                                                            dynamic filter ([ss_item_sk_31::EQUAL], await [ss_sold_date_sk_52::EQUAL, ss_store_sk_36::EQUAL])
                                                                 scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    dynamic filter (i_brand_14::EQUAL, i_category_18::EQUAL)
+                                                                    dynamic filter (unestimatable [i_brand_14::EQUAL, i_category_18::EQUAL])
                                                                         scan item
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (s_company_name_102::EQUAL, s_store_name_90::EQUAL)
+                                                            dynamic filter (unestimatable [s_company_name_102::EQUAL, s_store_name_90::EQUAL])
                                                                 scan store
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [i_brand_127, i_category_131, s_company_name_215, s_store_name_203])
@@ -57,7 +57,7 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (ss_item_sk_144::EQUAL, ss_sold_date_sk_165::EQUAL, ss_store_sk_149::EQUAL)
+                                                        dynamic filter ([ss_item_sk_144::EQUAL], await [ss_sold_date_sk_165::EQUAL, ss_store_sk_149::EQUAL])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

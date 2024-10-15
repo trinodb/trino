@@ -7,7 +7,7 @@ final aggregation over ()
                         remote exchange (REPARTITION, HASH, [ss_addr_sk])
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    dynamic filter (ss_addr_sk::EQUAL, ss_cdemo_sk::EQUAL, ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL)
+                                    dynamic filter ([ss_addr_sk::EQUAL, ss_cdemo_sk::EQUAL], await [ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL])
                                         scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])

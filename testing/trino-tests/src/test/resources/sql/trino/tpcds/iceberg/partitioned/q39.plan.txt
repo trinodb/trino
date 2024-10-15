@@ -10,15 +10,15 @@ remote exchange (GATHER, SINGLE, [])
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                dynamic filter (inv_date_sk::EQUAL, inv_item_sk::EQUAL, inv_item_sk::EQUAL, inv_warehouse_sk::EQUAL, inv_warehouse_sk::EQUAL)
+                                                dynamic filter ([inv_item_sk::EQUAL], unestimatable [inv_item_sk::EQUAL, inv_warehouse_sk::EQUAL], await [inv_date_sk::EQUAL, inv_warehouse_sk::EQUAL])
                                                     scan inventory
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        dynamic filter (i_item_sk::EQUAL)
+                                                        dynamic filter (unestimatable [i_item_sk::EQUAL])
                                                             scan item
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    dynamic filter (w_warehouse_sk::EQUAL)
+                                                    dynamic filter (unestimatable [w_warehouse_sk::EQUAL])
                                                         scan warehouse
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -32,7 +32,7 @@ remote exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (inv_date_sk_11::EQUAL, inv_item_sk_8::EQUAL, inv_warehouse_sk_9::EQUAL)
+                                                    dynamic filter ([inv_item_sk_8::EQUAL], await [inv_date_sk_11::EQUAL, inv_warehouse_sk_9::EQUAL])
                                                         scan inventory
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])

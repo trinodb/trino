@@ -26,6 +26,7 @@ import io.trino.sql.planner.Symbol;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.CompletableFuture;
@@ -162,6 +163,12 @@ public final class DynamicFiltersTestUtil
         public TupleDomain<ColumnHandle> getCurrentPredicate()
         {
             return currentPredicate;
+        }
+
+        @Override
+        public OptionalLong getPreferredDynamicFilterTimeout()
+        {
+            return OptionalLong.empty();
         }
 
         @Override
