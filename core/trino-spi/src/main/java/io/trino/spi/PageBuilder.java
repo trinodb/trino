@@ -71,17 +71,6 @@ public class PageBuilder
         }
     }
 
-    private PageBuilder(int maxPageBytes, BlockBuilder[] templateBlockBuilders)
-    {
-        pageBuilderStatus = new PageBuilderStatus(maxPageBytes);
-
-        // Stream API should not be used since constructor can be called in performance sensitive sections
-        blockBuilders = new BlockBuilder[templateBlockBuilders.length];
-        for (int i = 0; i < this.blockBuilders.length; i++) {
-            this.blockBuilders[i] = templateBlockBuilders[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
-        }
-    }
-
     public void reset()
     {
         if (isEmpty()) {
@@ -94,11 +83,6 @@ public class PageBuilder
         for (int i = 0; i < blockBuilders.length; i++) {
             blockBuilders[i] = blockBuilders[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
         }
-    }
-
-    public PageBuilder newPageBuilderLike()
-    {
-        return new PageBuilder(pageBuilderStatus.getMaxPageSizeInBytes(), blockBuilders);
     }
 
     public BlockBuilder getBlockBuilder(int channel)
