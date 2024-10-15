@@ -91,7 +91,8 @@ public class BigQueryStorageAvroPageSource
     private final BigQueryReadClient bigQueryReadClient;
     private final ExecutorService executor;
     private final BigQueryTypeManager typeManager;
-    private final BigQuerySplit split;
+    private final String streamName;
+    private final Schema avroSchema;
     private final List<BigQueryColumnHandle> columns;
     private final AtomicLong readBytes = new AtomicLong();
     private final AtomicLong readTimeNanos = new AtomicLong();
@@ -112,15 +113,27 @@ public class BigQueryStorageAvroPageSource
         this.bigQueryReadClient = requireNonNull(bigQueryReadClient, "bigQueryReadClient is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.split = requireNonNull(split, "split is null");
+        requireNonNull(split, "split is null");
+        this.streamName = split.getStreamName();
+        this.avroSchema = parseSchema(split.getSchemaString());
         this.columns = requireNonNull(columns, "columns is null");
         this.pageBuilder = new PageBuilder(columns.stream()
                 .map(BigQueryColumnHandle::trinoType)
                 .collect(toImmutableList()));
 
-        log.debug("Starting to read from %s", split.getStreamName());
-        responses = new ReadRowsHelper(bigQueryReadClient, split.getStreamName(), maxReadRowsRetries).readRows();
+        log.debug("Starting to read from %s", streamName);
+        responses = new ReadRowsHelper(bigQueryReadClient, streamName, maxReadRowsRetries).readRows();
         nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
+    }
+
+    private Schema parseSchema(String schemaString)
+    {
+        try {
+            return new Schema.Parser().parse(schemaString);
+        }
+        catch (SchemaParseException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid Avro schema: " + firstNonNull(e.getMessage(), e), e);
+        }
     }
 
     @Override
@@ -313,11 +326,7 @@ public class BigQueryStorageAvroPageSource
     @Override
     public long getMemoryUsage()
     {
-        if (split.getDataSize().isPresent()) {
-            return split.getDataSize().getAsInt() + pageBuilder.getRetainedSizeInBytes();
-        }
-
-        return 0;
+        return pageBuilder.getRetainedSizeInBytes();
     }
 
     @Override
@@ -345,14 +354,7 @@ public class BigQueryStorageAvroPageSource
     {
         byte[] buffer = response.getAvroRows().getSerializedBinaryRows().toByteArray();
         readBytes.addAndGet(buffer.length);
-        log.debug("Read %d bytes (total %d) from %s", buffer.length, readBytes.get(), split.getStreamName());
-        Schema avroSchema;
-        try {
-            avroSchema = new Schema.Parser().parse(split.getSchemaString());
-        }
-        catch (SchemaParseException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid Avro schema: " + firstNonNull(e.getMessage(), e), e);
-        }
+        log.debug("Read %d bytes (total %d) from %s", buffer.length, readBytes.get(), streamName);
         return () -> new AvroBinaryIterator(avroSchema, buffer);
     }
 
