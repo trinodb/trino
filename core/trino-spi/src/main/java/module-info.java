@@ -16,7 +16,6 @@ module trino.spi {
     requires com.google.errorprone.annotations;
     requires transitive io.opentelemetry.api;
     requires jakarta.annotation;
-    requires java.logging;
     requires transitive slice;
 
     exports io.trino.spi;
