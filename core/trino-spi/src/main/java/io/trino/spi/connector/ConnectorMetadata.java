@@ -14,7 +14,6 @@
 package io.trino.spi.connector;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.ErrorCode;
 import io.trino.spi.Experimental;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
@@ -54,17 +53,11 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.UnaryOperator;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Stream;
 
-import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
-import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.expression.Constant.FALSE;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
@@ -425,23 +418,6 @@ public interface ConnectorMetadata
                         return RelationCommentMetadata.forRelation(tableName, getTableMetadata(session, tableHandle).getComment());
                     }
                     catch (RuntimeException e) {
-                        boolean silent = false;
-                        if (e instanceof TrinoException trinoException) {
-                            ErrorCode errorCode = trinoException.getErrorCode();
-                            silent = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
-                                    // e.g. table deleted concurrently
-                                    errorCode.equals(TABLE_NOT_FOUND.toErrorCode()) ||
-                                    errorCode.equals(NOT_FOUND.toErrorCode()) ||
-                                    // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
-                                    errorCode.getType() == EXTERNAL;
-                        }
-                        if (silent) {
-                            Helper.juliLogger.log(Level.FINE, e, () -> "Failed to get metadata for table: " + tableName);
-                        }
-                        else {
-                            // getTableHandle or getTableMetadata failed call may fail if table disappeared during listing or is unsupported.
-                            Helper.juliLogger.log(Level.WARNING, e, () -> "Failed to get metadata for table: " + tableName);
-                        }
                         // Since the getTableHandle did not return null (i.e. succeeded or failed), we assume the table would be returned by listTables
                         return RelationCommentMetadata.forRelation(tableName, Optional.empty());
                     }
@@ -1783,12 +1759,5 @@ public interface ConnectorMetadata
     default WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return WriterScalingOptions.DISABLED;
-    }
-
-    final class Helper
-    {
-        private Helper() {}
-
-        static final Logger juliLogger = Logger.getLogger(ConnectorMetadata.class.getName());
     }
 }

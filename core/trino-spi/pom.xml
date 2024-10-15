@@ -295,6 +295,10 @@
                                     <code>java.method.addedToInterface</code>
                                     <new>method void io.trino.spi.resourcegroups.ResourceGroup::setDisabled(boolean)</new>
                                 </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.connector.ConnectorMetadata.Helper</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
