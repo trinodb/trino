@@ -307,6 +307,41 @@
                                     <code>java.method.removed</code>
                                     <old>method void io.trino.spi.PageBuilder::reset(int)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.AbstractIntType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</old>
+                                    <new>method io.trino.spi.block.BlockBuilder io.trino.spi.type.Type::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int) @ io.trino.spi.type.AbstractIntType</new>
+                                </item>
+                                <item>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.AbstractLongType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</old>
+                                    <new>method io.trino.spi.block.BlockBuilder io.trino.spi.type.Type::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int) @ io.trino.spi.type.AbstractLongType</new>
+                                </item>
+                                <item>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.BooleanType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</old>
+                                    <new>method io.trino.spi.block.BlockBuilder io.trino.spi.type.Type::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int) @ io.trino.spi.type.BooleanType</new>
+                                </item>
+                                <item>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.DoubleType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</old>
+                                    <new>method io.trino.spi.block.BlockBuilder io.trino.spi.type.Type::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int) @ io.trino.spi.type.DoubleType</new>
+                                </item>
+                                <item>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.SmallintType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</old>
+                                    <new>method io.trino.spi.block.BlockBuilder io.trino.spi.type.Type::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int) @ io.trino.spi.type.SmallintType</new>
+                                </item>
+                                <item>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.TinyintType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</old>
+                                    <new>method io.trino.spi.block.BlockBuilder io.trino.spi.type.Type::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int) @ io.trino.spi.type.TinyintType</new>
+                                </item>
+                                <item>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.UuidType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</old>
+                                    <new>method io.trino.spi.block.BlockBuilder io.trino.spi.type.Type::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int) @ io.trino.spi.type.UuidType</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
