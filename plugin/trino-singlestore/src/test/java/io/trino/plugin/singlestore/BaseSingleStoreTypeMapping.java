@@ -19,7 +19,6 @@ import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
@@ -80,7 +79,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
  */
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public class TestSingleStoreTypeMapping
+public abstract class BaseSingleStoreTypeMapping
         extends AbstractTestQueryFramework
 {
     private static final String CHARACTER_SET_UTF8 = "CHARACTER SET utf8";
@@ -94,14 +93,6 @@ public class TestSingleStoreTypeMapping
 
     // minutes offset change since 1970-01-01, no DST
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        singleStoreServer = closeAfterClass(new TestingSingleStoreServer());
-        return SingleStoreQueryRunner.builder(singleStoreServer).build();
-    }
 
     @BeforeAll
     public void setUp()
