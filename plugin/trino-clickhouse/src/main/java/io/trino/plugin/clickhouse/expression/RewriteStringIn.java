@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.clickhouse.expression;
 
+import com.clickhouse.data.ClickHouseDataType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -31,6 +33,7 @@ import io.trino.spi.type.VarcharType;
 import java.util.List;
 import java.util.Optional;
 
+import static com.clickhouse.data.ClickHouseDataType.FixedString;
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.argument;
@@ -59,7 +62,7 @@ public class RewriteStringIn
             .with(argumentCount().equalTo(2))
             .with(argument(0).matching(variable()
                     .with(type().matching(type -> type instanceof CharType || type instanceof VarcharType))
-                    .matching((Variable variable, RewriteContext<ParameterizedExpression> context) -> supportsPushdown(variable, context))
+                    .matching((Variable variable, RewriteContext<ParameterizedExpression> context) -> supportsPushdown(variable, context, ImmutableSet.of(FixedString, ClickHouseDataType.String)))
                     .capturedAs(VALUE)))
             .with(argument(1).matching(call()
                     .with(functionName().equalTo(ARRAY_CONSTRUCTOR_FUNCTION_NAME))

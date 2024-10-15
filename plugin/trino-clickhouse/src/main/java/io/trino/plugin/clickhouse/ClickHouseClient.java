@@ -30,9 +30,10 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.expression.ConnectorExpressionRule.RewriteContext;
 import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.clickhouse.expression.RewriteComparison;
 import io.trino.plugin.clickhouse.expression.RewriteLike;
-import io.trino.plugin.clickhouse.expression.RewriteStringComparison;
 import io.trino.plugin.clickhouse.expression.RewriteStringIn;
+import io.trino.plugin.clickhouse.expression.RewriteTimestampConstant;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -108,12 +109,16 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import static com.clickhouse.data.ClickHouseDataType.DateTime;
+import static com.clickhouse.data.ClickHouseDataType.DateTime64;
+import static com.clickhouse.data.ClickHouseDataType.FixedString;
 import static com.clickhouse.data.ClickHouseValues.convertToQuotedString;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
@@ -241,7 +246,9 @@ public class ClickHouseClient
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
-                .add(new RewriteStringComparison())
+                .add(new RewriteTimestampConstant())
+                .add(new RewriteComparison(ImmutableList.of(CharType.class, VarcharType.class), ImmutableSet.of(FixedString, ClickHouseDataType.String)))
+                .add(new RewriteComparison(ImmutableList.of(TimestampType.class, TimestampWithTimeZoneType.class), ImmutableSet.of(DateTime, DateTime64)))
                 .add(new RewriteStringIn())
                 .add(new RewriteLike())
                 .map("$not($is_null(value))").to("value IS NOT NULL")
@@ -1064,7 +1071,7 @@ public class ClickHouseClient
         return (statement, index, value) -> statement.setObject(index, trinoUuidToJavaUuid(value), Types.OTHER);
     }
 
-    public static boolean supportsPushdown(Variable variable, RewriteContext<ParameterizedExpression> context)
+    public static boolean supportsPushdown(Variable variable, RewriteContext<ParameterizedExpression> context, Set<ClickHouseDataType> nativeTypes)
     {
         JdbcTypeHandle typeHandle = ((JdbcColumnHandle) context.getAssignment(variable.getName()))
                 .getJdbcTypeHandle();
@@ -1072,9 +1079,6 @@ public class ClickHouseClient
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
         ClickHouseColumn column = ClickHouseColumn.of("", jdbcTypeName);
         ClickHouseDataType columnDataType = column.getDataType();
-        return switch (columnDataType) {
-            case FixedString, String -> true;
-            default -> false;
-        };
+        return nativeTypes.contains(columnDataType);
     }
 }
