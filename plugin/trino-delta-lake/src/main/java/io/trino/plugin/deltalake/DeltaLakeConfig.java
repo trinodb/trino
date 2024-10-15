@@ -16,10 +16,13 @@ package io.trino.plugin.deltalake;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigHidden;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MaxDuration;
+import io.airlift.units.MinDuration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -74,6 +77,9 @@ public class DeltaLakeConfig
     private boolean collectExtendedStatisticsOnWrite = true;
     private HiveCompressionCodec compressionCodec = HiveCompressionCodec.SNAPPY;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
+    private boolean storeTableMetadataEnabled;
+    private int storeTableMetadataThreads = 5;
+    private Duration storeTableMetadataInterval = new Duration(1, SECONDS);
     private boolean deleteSchemaLocationsFallback;
     private String parquetTimeZone = TimeZone.getDefault().getID();
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
@@ -82,6 +88,8 @@ public class DeltaLakeConfig
     private boolean registerTableProcedureEnabled;
     private boolean projectionPushdownEnabled = true;
     private boolean queryPartitionFilterRequired;
+    private boolean deletionVectorsEnabled;
+    private boolean deltaLogFileSystemCacheDisabled;
 
     public Duration getMetadataCacheTtl()
     {
@@ -377,6 +385,49 @@ public class DeltaLakeConfig
         return this;
     }
 
+    public boolean isStoreTableMetadataEnabled()
+    {
+        return storeTableMetadataEnabled;
+    }
+
+    @Config("delta.metastore.store-table-metadata")
+    @ConfigDescription("Store table metadata in metastore")
+    public DeltaLakeConfig setStoreTableMetadataEnabled(boolean storeTableMetadataEnabled)
+    {
+        this.storeTableMetadataEnabled = storeTableMetadataEnabled;
+        return this;
+    }
+
+    @Min(0) // Allow 0 to use the same thread for testing purpose
+    public int getStoreTableMetadataThreads()
+    {
+        return storeTableMetadataThreads;
+    }
+
+    @Config("delta.metastore.store-table-metadata-threads")
+    @ConfigDescription("Number of threads used for storing table metadata in metastore")
+    public DeltaLakeConfig setStoreTableMetadataThreads(int storeTableMetadataThreads)
+    {
+        this.storeTableMetadataThreads = storeTableMetadataThreads;
+        return this;
+    }
+
+    @MinDuration("0ms")
+    @MaxDuration("1h")
+    public Duration getStoreTableMetadataInterval()
+    {
+        return storeTableMetadataInterval;
+    }
+
+    @ConfigHidden
+    @Config("delta.metastore.store-table-metadata-interval")
+    @ConfigDescription("Interval to store table metadata in metastore")
+    public DeltaLakeConfig setStoreTableMetadataInterval(Duration storeTableMetadataInterval)
+    {
+        this.storeTableMetadataInterval = storeTableMetadataInterval;
+        return this;
+    }
+
     public boolean isDeleteSchemaLocationsFallback()
     {
         return this.deleteSchemaLocationsFallback;
@@ -487,6 +538,32 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
     {
         this.queryPartitionFilterRequired = queryPartitionFilterRequired;
+        return this;
+    }
+
+    public boolean isDeletionVectorsEnabled()
+    {
+        return deletionVectorsEnabled;
+    }
+
+    @Config("delta.deletion-vectors-enabled")
+    @ConfigDescription("Enable deletion vectors by default for new tables")
+    public DeltaLakeConfig setDeletionVectorsEnabled(boolean deletionVectorsEnabled)
+    {
+        this.deletionVectorsEnabled = deletionVectorsEnabled;
+        return this;
+    }
+
+    public boolean isDeltaLogFileSystemCacheDisabled()
+    {
+        return deltaLogFileSystemCacheDisabled;
+    }
+
+    @Config("delta.fs.cache.disable-transaction-log-caching")
+    @ConfigDescription("Disable filesystem caching of the _delta_log directory (effective only when fs.cache.enabled=true)")
+    public DeltaLakeConfig setDeltaLogFileSystemCacheDisabled(boolean deltaLogFileSystemCacheDisabled)
+    {
+        this.deltaLogFileSystemCacheDisabled = deltaLogFileSystemCacheDisabled;
         return this;
     }
 }

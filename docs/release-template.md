@@ -16,8 +16,6 @@
 
 ## Accumulo connector
 
-## Atop connector
-
 ## BigQuery connector
 
 ## Blackhole connector
@@ -31,6 +29,8 @@
 ## Druid connector
 
 ## Elasticsearch connector
+
+## Exasol connector
 
 ## Google Sheets connector
 
@@ -49,8 +49,6 @@
 ## Kinesis connector
 
 ## Kudu connector
-
-## Local file connector
 
 ## MariaDB connector
 
@@ -71,8 +69,6 @@
 ## PostgreSQL connector
 
 ## Prometheus connector
-
-## Raptor connector
 
 ## Redis connector
 

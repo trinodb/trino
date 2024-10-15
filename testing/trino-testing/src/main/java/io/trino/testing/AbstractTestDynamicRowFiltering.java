@@ -38,7 +38,7 @@ import java.util.Map;
 
 import static io.trino.SystemSessionProperties.DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_ROW_FILTERING;
-import static io.trino.operator.project.PageProcessorMetrics.DYNAMIC_FILTER_INPUT_POSITIONS;
+import static io.trino.operator.project.PageProcessorMetrics.DYNAMIC_FILTER_OUTPUT_POSITIONS;
 import static io.trino.operator.project.PageProcessorMetrics.DYNAMIC_FILTER_TIME;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -159,8 +159,8 @@ public abstract class AbstractTestDynamicRowFiltering
                 .isLessThan(noRowFilteringProbeStats.getOutputPositions());
 
         Map<String, Metric<?>> metrics = rowFilteringProbeStats.getMetrics().getMetrics();
-        long filterInputPositions = ((Count<?>) metrics.get(DYNAMIC_FILTER_INPUT_POSITIONS)).getTotal();
-        assertThat(rowFilteringProbeStats.getOutputPositions()).isLessThan(filterInputPositions);
+        long filterOutputPositions = ((Count<?>) metrics.get(DYNAMIC_FILTER_OUTPUT_POSITIONS)).getTotal();
+        assertThat(filterOutputPositions).isLessThan(rowFilteringProbeStats.getInputPositions());
         assertThat(((DurationTiming) metrics.get(DYNAMIC_FILTER_TIME)).getDuration())
                 .isGreaterThan(Duration.ZERO);
     }
@@ -188,7 +188,7 @@ public abstract class AbstractTestDynamicRowFiltering
                 .isEqualTo(rowFilteringProbeStats.getPhysicalInputPositions());
 
         Map<String, Metric<?>> metrics = rowFilteringProbeStats.getMetrics().getMetrics();
-        long filterInputPositions = ((Count<?>) metrics.get(DYNAMIC_FILTER_INPUT_POSITIONS)).getTotal();
+        long filterInputPositions = ((Count<?>) metrics.get(DYNAMIC_FILTER_OUTPUT_POSITIONS)).getTotal();
         assertThat(rowFilteringProbeStats.getOutputPositions()).isEqualTo(filterInputPositions);
         assertThat(((DurationTiming) metrics.get(DYNAMIC_FILTER_TIME)).getDuration())
                 .isGreaterThan(Duration.ZERO);

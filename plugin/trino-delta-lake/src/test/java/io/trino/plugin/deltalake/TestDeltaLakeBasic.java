@@ -31,6 +31,7 @@ import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -42,6 +43,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
+import io.trino.testing.sql.TestTable;
 import org.apache.parquet.schema.PrimitiveType;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
@@ -59,6 +61,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -79,6 +82,7 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
+import static org.assertj.core.util.Files.fileNamesIn;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -98,15 +102,18 @@ public class TestDeltaLakeBasic
             new ResourceTable("allow_column_defaults", "deltalake/allow_column_defaults"),
             new ResourceTable("stats_with_minmax_nulls", "deltalake/stats_with_minmax_nulls"),
             new ResourceTable("no_column_stats", "databricks73/no_column_stats"),
-            new ResourceTable("deletion_vectors", "databricks122/deletion_vectors"),
             new ResourceTable("liquid_clustering", "deltalake/liquid_clustering"),
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"),
+            new ResourceTable("uniform_hudi", "deltalake/uniform_hudi"),
             new ResourceTable("uniform_iceberg_v1", "databricks133/uniform_iceberg_v1"),
             new ResourceTable("uniform_iceberg_v2", "databricks143/uniform_iceberg_v2"),
             new ResourceTable("unsupported_writer_feature", "deltalake/unsupported_writer_feature"),
             new ResourceTable("unsupported_writer_version", "deltalake/unsupported_writer_version"),
-            new ResourceTable("variant", "databricks153/variant"));
+            new ResourceTable("variant", "databricks153/variant"),
+            new ResourceTable("type_widening", "databricks153/type_widening"),
+            new ResourceTable("type_widening_partition", "databricks153/type_widening_partition"),
+            new ResourceTable("type_widening_nested", "databricks153/type_widening_nested"));
 
     // The col-{uuid} pattern for delta.columnMapping.physicalName
     private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -981,6 +988,57 @@ public class TestDeltaLakeBasic
                         entry("delta.identity.allowExplicitInsert", false));
     }
 
+    @Test
+    public void testWritesToTableWithIdentityColumnFails()
+            throws Exception
+    {
+        String tableName = "test_identity_columns_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/identity_columns").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // Disallowing all statements just in case though some statements may be unrelated to identity columns
+        assertQueryFails(
+                "INSERT INTO " + tableName + " VALUES (4, 4)",
+                "Writing to tables with identity columns is not supported");
+        assertQueryFails(
+                "UPDATE " + tableName + " SET a = 3",
+                "Writing to tables with identity columns is not supported");
+        assertQueryFails(
+                "DELETE FROM " + tableName,
+                "Writing to tables with identity columns is not supported");
+        assertQueryFails(
+                "MERGE INTO " + tableName + " t USING " + tableName + " s ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET a = 1",
+                "Writing to tables with identity columns is not supported");
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " EXECUTE optimize",
+                "Writing to tables with identity columns is not supported");
+    }
+
+    @Test
+    public void testIdentityColumnTableFeature()
+            throws Exception
+    {
+        String tableName = "test_identity_columns_table_feature_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks133/identity_columns_table_feature").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // Disallowing all statements just in case though some statements may be unrelated to identity columns
+        assertQueryFails(
+                "INSERT INTO " + tableName + " VALUES (4, 4)",
+                "\\QUnsupported writer features: [identityColumns]");
+        assertQueryFails(
+                "UPDATE " + tableName + " SET a = 3",
+                "\\QUnsupported writer features: [identityColumns]");
+        assertQueryFails(
+                "DELETE FROM " + tableName,
+                "\\QUnsupported writer features: [identityColumns]");
+        assertQueryFails(
+                "MERGE INTO " + tableName + " t USING " + tableName + " s ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET a = 1",
+                "\\QUnsupported writer features: [identityColumns]");
+    }
+
     /**
      * @see deltalake.allow_column_defaults
      */
@@ -994,14 +1052,207 @@ public class TestDeltaLakeBasic
         assertQueryFails("INSERT INTO allow_column_defaults (a) VALUES (2)", "\\QUnsupported writer features: [allowColumnDefaults]");
     }
 
+    @Test
+    public void testDeletionVectorsEnabledCreateTable()
+            throws Exception
+    {
+        testDeletionVectorsEnabledCreateTable("(x int) WITH (deletion_vectors_enabled = true)");
+        testDeletionVectorsEnabledCreateTable("WITH (deletion_vectors_enabled = true) AS SELECT 1 x");
+    }
+
+    private void testDeletionVectorsEnabledCreateTable(String tableDefinition)
+            throws Exception
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "deletion_vectors", tableDefinition)) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("deletion_vectors_enabled = true");
+
+            String tableLocation = getTableLocation(table.getName());
+            List<DeltaLakeTransactionLogEntry> transactionLogs = getEntriesFromJson(0, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow();
+            assertThat(transactionLogs.get(1).getProtocol())
+                    .isEqualTo(new ProtocolEntry(3, 7, Optional.of(Set.of("deletionVectors")), Optional.of(Set.of("deletionVectors"))));
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2, 3", 2);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
+
+            assertThat(fileNamesIn(new URI(tableLocation).getPath(), false))
+                    .anyMatch(path -> path.matches(".*/deletion_vector_.*.bin"));
+
+            // TODO Allow disabling deletion_vectors_enabled table property. Delta Lake allows the operation.
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES deletion_vectors_enabled = false",
+                    "The following properties cannot be updated: deletion_vectors_enabled");
+        }
+    }
+
+    @Test
+    public void testDeletionVectorsDisabledCreateTable()
+            throws Exception
+    {
+        testDeletionVectorsDisabledCreateTable("(x int) WITH (deletion_vectors_enabled = false)");
+        testDeletionVectorsDisabledCreateTable("WITH (deletion_vectors_enabled = false) AS SELECT 1 x");
+    }
+
+    private void testDeletionVectorsDisabledCreateTable(String tableDefinition)
+            throws Exception
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "deletion_vectors", tableDefinition)) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("deletion_vectors_enabled");
+
+            String tableLocation = getTableLocation(table.getName());
+            List<DeltaLakeTransactionLogEntry> transactionLogs = getEntriesFromJson(0, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow();
+            assertThat(transactionLogs.get(1).getProtocol())
+                    .isEqualTo(new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()));
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2, 3", 2);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
+
+            assertThat(fileNamesIn(new URI(tableLocation).getPath(), false))
+                    .noneSatisfy(path -> assertThat(path).matches(".*/deletion_vector_.*.bin"));
+
+            // TODO Allow enabling deletion_vectors_enabled table property. Delta Lake allows the operation.
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES deletion_vectors_enabled = true",
+                    "The following properties cannot be updated: deletion_vectors_enabled");
+        }
+    }
 
     /**
      * @see databricks122.deletion_vectors
      */
     @Test
     public void testDeletionVectors()
+            throws Exception
     {
-        assertQuery("SELECT * FROM deletion_vectors", "VALUES (1, 11)");
+        String tableName = "deletion_vectors" + randomNameSuffix();
+
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("deletion_vectors_enabled = true");
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, 31), (3, 32)", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (3, 31), (3, 32)");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE a = 3 AND b = 31", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (3, 32)");
+
+        assertUpdate("UPDATE " + tableName + " SET a = -3 WHERE b = 32", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (-3, 32)");
+
+        assertUpdate("UPDATE " + tableName + " SET a = -3 WHERE b = 32", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (-3, 32)");
+
+        assertUpdate("MERGE INTO " + tableName + " t " +
+                "USING (SELECT * FROM (VALUES 1)) AS s(a) " +
+                "ON (t.a = s.a) " +
+                "WHEN MATCHED THEN UPDATE SET b = -11", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, -11), (-3, 32)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDeletionVectorsAllRows()
+            throws Exception
+    {
+        String tableName = "deletion_vectors" + randomNameSuffix();
+
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE a != 999", 1);
+
+        // 'remove' entry should have the same deletion vector as the previous operation when deleting all rows
+        DeletionVectorEntry deletionVector = getEntriesFromJson(2, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow().get(2).getAdd().getDeletionVector().orElseThrow();
+        assertThat(getEntriesFromJson(3, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow().get(1).getRemove().deletionVector().orElseThrow())
+                .isEqualTo(deletionVector);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, 31), (3, 32)", 2);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a != 999", 2);
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20)", 2);
+        assertUpdate("UPDATE " + tableName + " SET a = a + 10", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (11, 10), (12, 20)");
+
+        assertUpdate("MERGE INTO " + tableName + " t " +
+                "USING (SELECT * FROM (VALUES 11, 12)) AS s(a) " +
+                "ON (t.a = s.a) " +
+                "WHEN MATCHED AND t.a = 11 THEN UPDATE SET b = 100 " +
+                "WHEN MATCHED AND t.a = 12 THEN DELETE", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (11, 100)");
+
+        assertUpdate("TRUNCATE TABLE " + tableName);
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDeletionVectorsLargeDelete()
+            throws Exception
+    {
+        String tableName = "deletion_vectors" + randomNameSuffix();
+
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors_empty").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertUpdate("INSERT INTO " + tableName + " SELECT orderkey, custkey FROM tpch.tiny.orders", 15000);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a != 1", 14999);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("SELECT CAST(orderkey AS integer), CAST(custkey AS integer) FROM tpch.tiny.orders WHERE orderkey = 1");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDeletionVectorsCheckPoint()
+            throws Exception
+    {
+        String tableName = "deletion_vectors" + randomNameSuffix();
+
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors_empty").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        for (int i = 0; i < 9; i++) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (" + i + ", " + i + ")", 1);
+        }
+
+        assertThat(tableLocation.resolve("_delta_log/00000000000000000010.checkpoint.parquet")).doesNotExist();
+        assertUpdate("DELETE FROM " + tableName + " WHERE a != 1", 8);
+        assertThat(tableLocation.resolve("_delta_log/00000000000000000010.checkpoint.parquet")).exists();
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUnsupportedVacuumDeletionVectors()
+            throws Exception
+    {
+        String tableName = "deletion_vectors" + randomNameSuffix();
+
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors_empty").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        // TODO https://github.com/trinodb/trino/issues/22809 Add support for vacuuming tables with deletion vectors
+        assertQueryFails(
+                "CALL delta.system.vacuum('tpch', '" + tableName + "', '7d')",
+                "Cannot execute vacuum procedure with deletionVectors writer features");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     /**
@@ -1023,13 +1274,24 @@ public class TestDeltaLakeBasic
     }
 
     /**
+     * @see deltalake.uniform_hudi
+     */
+    @Test
+    public void testUniFormHudi()
+    {
+        assertQuery("SELECT * FROM uniform_hudi", "VALUES (123)");
+        assertQueryFails("INSERT INTO uniform_hudi VALUES (456)", "\\QUnsupported universal formats: [hudi]");
+        assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, 'uniform_hudi', '7d')", "\\QUnsupported universal formats: [hudi]");
+    }
+
+    /**
      * @see databricks133.uniform_iceberg_v1
      */
     @Test
     public void testUniFormIcebergV1()
     {
         assertQuery("SELECT * FROM uniform_iceberg_v1", "VALUES (1, 'test data')");
-        assertQueryFails("INSERT INTO uniform_iceberg_v1 VALUES (2, 'new data')", "\\QUnsupported writer features: [icebergCompatV1]");
+        assertQueryFails("INSERT INTO uniform_iceberg_v1 VALUES (2, 'new data')", "\\QUnsupported universal formats: [iceberg]");
     }
 
     /**
@@ -1039,7 +1301,7 @@ public class TestDeltaLakeBasic
     public void testUniFormIcebergV2()
     {
         assertQuery("SELECT * FROM uniform_iceberg_v2", "VALUES (1, 'test data')");
-        assertQueryFails("INSERT INTO uniform_iceberg_v2 VALUES (2, 'new data')", "\\QUnsupported writer features: [icebergCompatV2]");
+        assertQueryFails("INSERT INTO uniform_iceberg_v2 VALUES (2, 'new data')", "\\QUnsupported universal formats: [iceberg]");
     }
 
     /**
@@ -1575,6 +1837,131 @@ public class TestDeltaLakeBasic
                 .matches("VALUES integer '127', integer '32767', integer '2147483647'");
     }
 
+    /**
+     * @see databricks153.type_widening_partition
+     */
+    @Test
+    public void testTypeWideningNotSkippingUnsupportedPartitionColumns()
+    {
+        assertThat(query("DESCRIBE type_widening_partition")).result().projected("Column", "Type")
+                .skippingTypesCheck()
+                .matches("VALUES ('col', 'tinyint'), " +
+                        "('byte_to_short', 'smallint'), " +
+                        "('byte_to_int', 'integer'), " +
+                        "('byte_to_long', 'bigint'), " +
+                        "('byte_to_decimal', 'decimal(10,0)'), " +
+                        "('byte_to_double', 'double'), " +
+                        "('short_to_int', 'integer'), " +
+                        "('short_to_long', 'bigint'), " +
+                        "('short_to_decimal', 'decimal(10,0)'), " +
+                        "('short_to_double', 'double'), " +
+                        "('int_to_long', 'bigint'), " +
+                        "('int_to_decimal', 'decimal(10,0)'), " +
+                        "('int_to_double', 'double'), " +
+                        "('long_to_decimal', 'decimal(20,0)'), " +
+                        "('float_to_double', 'double'), " +
+                        "('decimal_to_decimal', 'decimal(12,2)'), " +
+                        "('date_to_timestamp', 'timestamp(6)')");
+        assertThat(query("SELECT * FROM type_widening_partition FOR VERSION AS OF 0"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT * FROM type_widening_partition FOR VERSION AS OF 1"))
+                .matches("VALUES (tinyint '1', " +
+                        "tinyint '1', " +
+                        "tinyint '1', " +
+                        "tinyint '1', " +
+                        "tinyint '1', " +
+                        "tinyint '1', " +
+                        "smallint '1', " +
+                        "smallint '1', " +
+                        "smallint '1', " +
+                        "smallint '1', " +
+                        "integer '1', " +
+                        "integer '1', " +
+                        "integer '1', " +
+                        "bigint '1', " +
+                        "real '1', " +
+                        "CAST('1' AS decimal(10,0)), " +
+                        "DATE '2024-06-19')");
+        assertThat(query("SELECT * FROM type_widening_partition FOR VERSION AS OF 18"))
+                .matches("VALUES (tinyint '1', " +
+                        "smallint '1', " +
+                        "integer '1', " +
+                        "bigint '1', " +
+                        "CAST('1' AS decimal(10,0)), " +
+                        "double '1', " +
+                        "integer '1', " +
+                        "bigint '1', " +
+                        "CAST('1' AS decimal(10,0)), " +
+                        "double '1', " +
+                        "bigint '1', " +
+                        "CAST('1' AS decimal(10,0)), " +
+                        "double '1', " +
+                        "CAST('1' AS decimal(20,0)), " +
+                        "double '1', " +
+                        "CAST('1' AS decimal(12,2)), " +
+                        "CAST('2024-06-19' AS timestamp(6))), " +
+                        "(tinyint '2', " +
+                        "smallint '256', " +
+                        "integer '35000', " +
+                        "bigint '2147483650', " +
+                        "CAST('9223372036' AS decimal(10,0)), " +
+                        "double '9.323372040456E9', " +
+                        "integer '35000', " +
+                        "bigint '2147483650', " +
+                        "CAST('9223372036' AS decimal(10,0)), " +
+                        "double '9.323372040456E9', " +
+                        "bigint '2147483650', " +
+                        "CAST('9223372036' AS decimal(10,0)), " +
+                        "double '9.323372040456E9', " +
+                        "CAST('92233720368547758073' AS decimal(20,0)), " +
+                        "double '3.403E38', " +
+                        "CAST('9223372036.25' AS decimal(12,2)), " +
+                        "TIMESTAMP '2021-07-01 08:43:28.123456')");
+    }
+
+    /**
+     * @see databricks153.type_widening
+     */
+    @Test
+    public void testTypeWideningSkippingUnsupportedColumns()
+    {
+        assertQuery("SELECT * FROM type_widening FOR VERSION AS OF 1", "VALUES (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.0, 1, DATE '2024-06-19')");
+        assertThat(query("DESCRIBE type_widening")).result().projected("Column", "Type")
+                .skippingTypesCheck()
+                .matches("VALUES ('byte_to_short', 'smallint'), ('byte_to_int', 'integer'), ('short_to_int', 'integer')");
+        assertQuery("SELECT * FROM type_widening", "VALUES (1, 1, 1), (2, 2, 2)");
+    }
+
+    /**
+     * @see databricks153.type_widening_nested
+     */
+    @Test
+    public void testTypeWideningSkippingUnsupportedNested()
+    {
+        assertThat(query("DESCRIBE type_widening_nested")).result().projected("Column", "Type")
+                .skippingTypesCheck()
+                .isEmpty();
+        assertQueryFails("SELECT s FROM type_widening_nested", "(.*)Column 's' cannot be resolved");
+        assertQueryFails("SELECT * FROM type_widening_nested", "(.*)SELECT \\* not allowed from relation that has no columns");
+
+        assertThat(query("SELECT * FROM type_widening_nested FOR VERSION AS OF 0"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT * FROM type_widening_nested FOR VERSION AS OF 1"))
+                .matches("VALUES (CAST(ROW(127) AS ROW (field tinyint)), CAST(ROW(127, ROW(15)) AS ROW (field tinyint, field2 ROW(inner_field tinyint))), MAP(ARRAY[tinyint '-128'], ARRAY[tinyint '127']), ARRAY[tinyint '127'])");
+
+        // 2,3,4,5,6 versions changed nested fields from byte to short
+        assertThat(query("SELECT * FROM type_widening_nested FOR VERSION AS OF 7"))
+                .matches("VALUES (CAST(ROW(127) AS ROW (field smallint)), CAST(ROW(127, ROW(15)) AS ROW (field smallint, field2 ROW(inner_field smallint))), MAP(ARRAY[smallint '-128'], ARRAY[smallint '127']), ARRAY[smallint '127'])");
+
+        assertThat(query("SELECT * FROM type_widening_nested FOR VERSION AS OF 8"))
+                .matches("VALUES " +
+                        "(CAST(ROW(127) AS ROW (field smallint)), CAST(ROW(127, ROW(15)) AS ROW (field smallint, field2 ROW(inner_field smallint))), MAP(ARRAY[smallint '-128'], ARRAY[smallint '127']), ARRAY[smallint '127'])," +
+                        "(CAST(ROW(32767) AS ROW (field smallint)), CAST(ROW(32767, ROW(32767)) AS ROW (field smallint, field2 ROW(inner_field smallint))), MAP(ARRAY[smallint '-32768'], ARRAY[smallint '32767']), ARRAY[smallint '32767'])");
+
+        // 9,10,11,12 versions changed nested fields from short to integer/double
+        assertQueryFails("SELECT * FROM type_widening_nested FOR VERSION AS OF 13", "(.*)SELECT \\* not allowed from relation that has no columns");
+    }
+
     @Test
     public void testTypeWideningNested()
             throws Exception
@@ -1629,7 +2016,8 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource("deltalake/type_widening_unsupported").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
-        assertQueryFails("SELECT * FROM " + tableName, "Type change from 'byte' to 'unsupported' is not supported");
+        assertQueryFails("SELECT * FROM " + tableName, "(.*)SELECT \\* not allowed from relation that has no columns");
+        assertQueryFails("SELECT col FROM " + tableName, "(.*)Column 'col' cannot be resolved");
     }
 
     /**

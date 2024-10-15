@@ -19,14 +19,19 @@ system support:
 * - Property
   - Description
 * - `fs.native-azure.enabled`
-  - Activate the native implementation for Azure Storage support, and deactivate
-    all [legacy support](file-system-legacy). Defaults to `false`.
-    Must be set to `true` for all other properties be used.
+  - Activate the native implementation for Azure Storage support. Defaults to
+    `false`. Set to `true` to use Azure Storage and enable all other properties.
 * - `azure.auth-type`
   - Authentication type to use for Azure Storage access. Defaults no
     authentication used with `NONE`. Use `ACCESS_KEY` for
     [](azure-access-key-authentication) or and `OAUTH` for
     [](azure-oauth-authentication).
+* - `azure.endpoint`
+  - Hostname suffix of the Azure storage endpoint.
+    Defaults to `core.windows.net` for the global Azure cloud.
+    Use `core.usgovcloudapi.net` for the Azure US Government cloud,
+    `core.cloudapi.de` for the Azure Germany cloud,
+    or `core.chinacloudapi.cn` for the Azure China cloud.
 * - `azure.read-block-size`
   - [Data size](prop-type-data-size) for blocks during read operations. Defaults
     to `4MB`.
@@ -37,6 +42,11 @@ system support:
   - Maximum number of concurrent write operations. Defaults to 8.
 * - `azure.max-single-upload-size`
   - [Data size](prop-type-data-size) Defaults to `4MB`.
+* - `azure.max-http-requests`
+  - Maximum [integer](prop-type-integer) number of concurrent HTTP requests to
+    Azure from every node. Defaults to double the number of processors on the
+    node. Minimum `1`. Use this property to reduce the number of requests when
+    you encounter rate limiting issues.
 :::
 
 (azure-access-key-authentication)=

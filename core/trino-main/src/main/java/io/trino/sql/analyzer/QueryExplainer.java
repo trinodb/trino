@@ -20,6 +20,9 @@ import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.server.ServerConfig;
+import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
+import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.spi.TrinoException;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlFormatter;
@@ -46,6 +49,8 @@ import io.trino.sql.tree.Statement;
 import java.util.List;
 import java.util.Optional;
 
+import static io.airlift.tracing.Tracing.noopTracer;
+import static io.opentelemetry.api.OpenTelemetry.noop;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
@@ -168,6 +173,7 @@ public class QueryExplainer
                 planOptimizers,
                 idAllocator,
                 plannerContext,
+                new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer()),
                 statsCalculator,
                 costCalculator,
                 warningCollector,

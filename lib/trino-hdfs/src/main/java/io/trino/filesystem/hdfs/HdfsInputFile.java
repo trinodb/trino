@@ -44,9 +44,9 @@ class HdfsInputFile
     private final Path file;
     private final CallStats openFileCallStat;
     private Long length;
-    private FileStatus status;
+    private Instant lastModified;
 
-    public HdfsInputFile(Location location, Long length, HdfsEnvironment environment, HdfsContext context, CallStats openFileCallStat)
+    public HdfsInputFile(Location location, Long length, Instant lastModified, HdfsEnvironment environment, HdfsContext context, CallStats openFileCallStat)
     {
         this.location = requireNonNull(location, "location is null");
         this.environment = requireNonNull(environment, "environment is null");
@@ -55,6 +55,7 @@ class HdfsInputFile
         this.file = hadoopPath(location);
         this.length = length;
         checkArgument(length == null || length >= 0, "length is negative");
+        this.lastModified = lastModified;
         location.verifyValidFileLocation();
     }
 
@@ -77,7 +78,7 @@ class HdfsInputFile
             throws IOException
     {
         if (length == null) {
-            length = lazyStatus().getLen();
+            loadFileStatus();
         }
         return length;
     }
@@ -86,7 +87,10 @@ class HdfsInputFile
     public Instant lastModified()
             throws IOException
     {
-        return Instant.ofEpochMilli(lazyStatus().getModificationTime());
+        if (lastModified == null) {
+            loadFileStatus();
+        }
+        return requireNonNull(lastModified, "lastModified is null");
     }
 
     @Override
@@ -128,21 +132,24 @@ class HdfsInputFile
         });
     }
 
-    private FileStatus lazyStatus()
+    private void loadFileStatus()
             throws IOException
     {
-        if (status == null) {
-            FileSystem fileSystem = environment.getFileSystem(context, file);
-            try {
-                status = environment.doAs(context.getIdentity(), () -> fileSystem.getFileStatus(file));
+        FileSystem fileSystem = environment.getFileSystem(context, file);
+        try {
+            FileStatus status = environment.doAs(context.getIdentity(), () -> fileSystem.getFileStatus(file));
+            if (length == null) {
+                length = status.getLen();
             }
-            catch (FileNotFoundException e) {
-                throw withCause(new FileNotFoundException(toString()), e);
-            }
-            catch (IOException e) {
-                throw new IOException("Get status for file %s failed: %s".formatted(location, e.getMessage()), e);
+            if (lastModified == null) {
+                lastModified = Instant.ofEpochMilli(status.getModificationTime());
             }
         }
-        return status;
+        catch (FileNotFoundException e) {
+            throw withCause(new FileNotFoundException(toString()), e);
+        }
+        catch (IOException e) {
+            throw new IOException("Get status for file %s failed: %s" .formatted(location, e.getMessage()), e);
+        }
     }
 }

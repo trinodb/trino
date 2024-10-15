@@ -13,14 +13,20 @@
  */
 package io.trino.filesystem.gcs;
 
+import com.google.cloud.BaseServiceException;
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemException;
+import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -36,16 +42,22 @@ public class GcsUtils
     public static IOException handleGcsException(RuntimeException exception, String action, GcsLocation location)
             throws IOException
     {
+        if (exception instanceof BaseServiceException) {
+            throw new TrinoFileSystemException("GCS service error %s: %s".formatted(action, location), exception);
+        }
         throw new IOException("Error %s: %s".formatted(action, location), exception);
     }
 
     public static IOException handleGcsException(RuntimeException exception, String action, Collection<Location> locations)
             throws IOException
     {
+        if (exception instanceof BaseServiceException) {
+            throw new TrinoFileSystemException("GCS service error %s: %s".formatted(action, locations), exception);
+        }
         throw new IOException("Error %s: %s".formatted(action, locations), exception);
     }
 
-    public static ReadChannel getReadChannel(Blob blob, GcsLocation location, long position, int readBlockSize, OptionalLong limit)
+    public static ReadChannel getReadChannel(Blob blob, GcsLocation location, long position, int readBlockSize, OptionalLong limit, Optional<EncryptionKey> key)
             throws IOException
     {
         long fileSize = requireNonNull(blob.getSize(), "blob size is null");
@@ -53,7 +65,7 @@ public class GcsUtils
             throw new IOException("Cannot read at %s. File size is %s: %s".formatted(position, fileSize, location));
         }
         // Enable shouldReturnRawInputStream: currently set by default but just to ensure the behavior is predictable
-        ReadChannel readChannel = blob.reader(shouldReturnRawInputStream(true));
+        ReadChannel readChannel = blob.reader(blobSourceOptions(key));
 
         readChannel.setChunkSize(readBlockSize);
         readChannel.seek(position);
@@ -61,6 +73,12 @@ public class GcsUtils
             return readChannel.limit(limit.getAsLong());
         }
         return readChannel;
+    }
+
+    private static Blob.BlobSourceOption[] blobSourceOptions(Optional<EncryptionKey> key)
+    {
+        return key.map(encryption -> new Blob.BlobSourceOption[] {Blob.BlobSourceOption.decryptionKey(encodedKey(encryption)), shouldReturnRawInputStream(true)})
+                .orElse(new Blob.BlobSourceOption[] {shouldReturnRawInputStream(true)});
     }
 
     public static Optional<Blob> getBlob(Storage storage, GcsLocation location, Storage.BlobGetOption... blobGetOptions)
@@ -73,5 +91,22 @@ public class GcsUtils
             throws IOException
     {
         return getBlob(storage, location, blobGetOptions).orElseThrow(() -> new FileNotFoundException("File %s not found".formatted(location)));
+    }
+
+    public static String encodedKey(EncryptionKey key)
+    {
+        return Base64.getEncoder().encodeToString(key.key());
+    }
+
+    public static String keySha256Checksum(EncryptionKey key)
+    {
+        try {
+            MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+            byte[] hash = sha256.digest(key.key());
+            return Base64.getEncoder().encodeToString(hash);
+        }
+        catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

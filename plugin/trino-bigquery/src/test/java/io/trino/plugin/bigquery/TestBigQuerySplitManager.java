@@ -35,7 +35,6 @@ import java.util.Optional;
 
 import static com.google.cloud.bigquery.Field.Mode.REQUIRED;
 import static com.google.cloud.bigquery.StandardSQLTypeName.INT64;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.bigquery.BigQueryFilterQueryBuilder.buildFilter;
 import static io.trino.plugin.bigquery.ViewMaterializationCache.TEMP_TABLE_PREFIX;
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
@@ -81,7 +80,7 @@ public class TestBigQuerySplitManager
             assertThat(readSession.getTable()).contains(TEMP_TABLE_PREFIX);
 
             // Ignore constraints when creating temporary tables by default (view_materialization_with_filter is false)
-            BigQueryColumnHandle column = new BigQueryColumnHandle("cnt", BIGINT, INT64, true, REQUIRED, ImmutableList.of(), null, false);
+            BigQueryColumnHandle column = new BigQueryColumnHandle("cnt", ImmutableList.of(), BIGINT, INT64, true, REQUIRED, ImmutableList.of(), null, false);
             BigQueryTableHandle tableDifferentFilter = new BigQueryTableHandle(table.relationHandle(), TupleDomain.fromFixedValues(ImmutableMap.of(column, new NullableValue(BIGINT, 0L))), table.projectedColumns());
             assertThat(createReadSession(session, tableDifferentFilter).getTable())
                     .isEqualTo(readSession.getTable());
@@ -110,9 +109,7 @@ public class TestBigQuerySplitManager
         return splitManager.createReadSession(
                 session,
                 table.asPlainTable().getRemoteTableName().toTableId(),
-                table.projectedColumns().orElseThrow().stream()
-                        .map(BigQueryColumnHandle::name)
-                        .collect(toImmutableList()),
+                table.projectedColumns().orElseThrow(),
                 buildFilter(table.constraint()));
     }
 

@@ -17,7 +17,7 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -33,14 +33,11 @@ import java.util.regex.Pattern;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
-import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
-import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
-import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_POSITION;
-import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_SIZE;
+import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.CacheOperation;
+import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getCacheOperationSpans;
+import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getFileLocation;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
 @Execution(ExecutionMode.SAME_THREAD)
@@ -81,18 +78,18 @@ public class TestHiveAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p1/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p2/", 0, 281))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/", 0, 281))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/"))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/"))
+                        .add(new CacheOperation("Input.readFully", "key=p1/"))
+                        .add(new CacheOperation("Input.readFully", "key=p2/"))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/"))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/"))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/"))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/"))
                         .build());
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('3-xyz', 'p3')", 1);
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('4-xyz', 'p4')", 1);
@@ -100,26 +97,26 @@ public class TestHiveAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p3/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p4/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p5/", 0, 281))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p3/", 0, 281))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p4/", 0, 281))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p5/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/"))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/"))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p3/"))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p4/"))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p5/"))
+                        .add(new CacheOperation("Input.readFully", "key=p3/"))
+                        .add(new CacheOperation("Input.readFully", "key=p4/"))
+                        .add(new CacheOperation("Input.readFully", "key=p5/"))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p3/"))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p4/"))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p5/"))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 281))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/"))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/"))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p3/"))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p4/"))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p5/"))
                         .build());
     }
 
@@ -132,51 +129,29 @@ public class TestHiveAlluxioCacheFileOperations
 
     private Multiset<CacheOperation> getCacheOperations()
     {
-        return getQueryRunner().getSpans().stream()
-                .filter(span -> span.getName().startsWith("Alluxio."))
-                .filter(span -> !isTrinoSchemaOrPermissions(requireNonNull(span.getAttributes().get(CACHE_FILE_LOCATION))))
-                .map(span -> CacheOperation.create(span.getName(), span.getAttributes()))
+        return getCacheOperationSpans(getQueryRunner())
+                .stream()
+                .map(TestHiveAlluxioCacheFileOperations::createCacheOperation)
                 .collect(toCollection(HashMultiset::create));
     }
 
     private static final Pattern DATA_FILE_PATTERN = Pattern.compile(".*?/(?<partition>key=[^/]*/)?(?<queryId>\\d{8}_\\d{6}_\\d{5}_\\w{5})_(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})");
 
-    private record CacheOperation(String operationName, String fileId, long position, long length)
+    private static CacheOperation createCacheOperation(SpanData span)
     {
-        public static CacheOperation create(String operationName, Attributes attributes)
-        {
-            String path = requireNonNull(attributes.get(CACHE_FILE_LOCATION));
-            String fileName = path.replaceFirst(".*/", "");
+        String operationName = span.getName();
+        String path = getFileLocation(span);
+        String fileName = path.replaceFirst(".*/", "");
 
-            long position = switch (operationName) {
-                case "Alluxio.readCached" -> requireNonNull(attributes.get(CACHE_FILE_READ_POSITION));
-                case "Alluxio.readExternal" -> requireNonNull(attributes.get(CACHE_FILE_READ_POSITION));
-                case "Alluxio.writeCache" -> requireNonNull(attributes.get(CACHE_FILE_WRITE_POSITION));
-                default -> throw new IllegalArgumentException("Unexpected operation name: " + operationName);
-            };
-
-            long length = switch (operationName) {
-                case "Alluxio.readCached" -> requireNonNull(attributes.get(CACHE_FILE_READ_SIZE));
-                case "Alluxio.readExternal" -> requireNonNull(attributes.get(CACHE_FILE_READ_SIZE));
-                case "Alluxio.writeCache" -> requireNonNull(attributes.get(CACHE_FILE_WRITE_SIZE));
-                default -> throw new IllegalArgumentException("Unexpected operation name: " + operationName);
-            };
-
-            if (!path.contains("/.trino")) {
-                Matcher matcher = DATA_FILE_PATTERN.matcher(path);
-                if (matcher.matches()) {
-                    return new CacheOperation(operationName, matcher.group("partition"), position, length);
-                }
+        if (!path.contains("/.trino")) {
+            Matcher matcher = DATA_FILE_PATTERN.matcher(path);
+            if (matcher.matches()) {
+                return new CacheOperation(operationName, matcher.group("partition"));
             }
-            else {
-                return new CacheOperation(operationName, fileName, position, length);
-            }
-            throw new IllegalArgumentException("File not recognized: " + path);
         }
-    }
-
-    private static boolean isTrinoSchemaOrPermissions(String path)
-    {
-        return path.endsWith(".trinoSchema") || path.contains(".trinoPermissions");
+        else {
+            return new CacheOperation(operationName, fileName);
+        }
+        throw new IllegalArgumentException("File not recognized: " + path);
     }
 }

@@ -47,6 +47,8 @@ import java.util.stream.IntStream;
 
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
+import static io.trino.plugin.prometheus.PrometheusSessionProperties.getMaxQueryRange;
+import static io.trino.plugin.prometheus.PrometheusSessionProperties.getQueryChunkSize;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static java.time.Instant.ofEpochMilli;
 import static java.util.Objects.requireNonNull;
@@ -59,8 +61,6 @@ public class PrometheusSplitManager
     private final PrometheusClock prometheusClock;
 
     private final URI prometheusURI;
-    private final Duration maxQueryRangeDuration;
-    private final Duration queryChunkSizeDuration;
 
     @Inject
     public PrometheusSplitManager(PrometheusClient prometheusClient, PrometheusClock prometheusClock, PrometheusConnectorConfig config)
@@ -68,8 +68,6 @@ public class PrometheusSplitManager
         this.prometheusClient = requireNonNull(prometheusClient, "prometheusClient is null");
         this.prometheusClock = requireNonNull(prometheusClock, "prometheusClock is null");
         this.prometheusURI = config.getPrometheusURI();
-        this.maxQueryRangeDuration = config.getMaxQueryRangeDuration();
-        this.queryChunkSizeDuration = config.getQueryChunkSizeDuration();
     }
 
     @Override
@@ -81,12 +79,16 @@ public class PrometheusSplitManager
             Constraint constraint)
     {
         PrometheusTableHandle tableHandle = (PrometheusTableHandle) connectorTableHandle;
-        PrometheusTable table = prometheusClient.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
+        PrometheusTable table = prometheusClient.getTable(tableHandle.schemaName(), tableHandle.tableName());
 
         // this can happen if table is removed during a query
         if (table == null) {
             throw new TableNotFoundException(tableHandle.toSchemaTableName());
         }
+
+        Duration maxQueryRangeDuration = getMaxQueryRange(session);
+        Duration queryChunkSizeDuration = getQueryChunkSize(session);
+
         List<ConnectorSplit> splits = generateTimesForSplits(prometheusClock.now(), maxQueryRangeDuration, queryChunkSizeDuration, tableHandle)
                 .stream()
                 .map(time -> {
@@ -129,7 +131,7 @@ public class PrometheusSplitManager
     protected static List<String> generateTimesForSplits(Instant defaultUpperBound, Duration maxQueryRangeDurationRequested, Duration queryChunkSizeDurationRequested,
             PrometheusTableHandle tableHandle)
     {
-        Optional<PrometheusPredicateTimeInfo> predicateRange = tableHandle.getPredicate()
+        Optional<PrometheusPredicateTimeInfo> predicateRange = tableHandle.predicate()
                 .flatMap(PrometheusSplitManager::determinePredicateTimes);
 
         EffectiveLimits effectiveLimits = new EffectiveLimits(defaultUpperBound, maxQueryRangeDurationRequested, predicateRange);

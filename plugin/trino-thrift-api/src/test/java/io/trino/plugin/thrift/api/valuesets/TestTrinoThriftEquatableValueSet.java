@@ -36,7 +36,7 @@ public class TestTrinoThriftEquatableValueSet
         TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.all(JSON));
         assertThat(thriftValueSet.getEquatableValueSet()).isNotNull();
         assertThat(thriftValueSet.getEquatableValueSet().isInclusive()).isFalse();
-        assertThat(thriftValueSet.getEquatableValueSet().getValues().isEmpty()).isTrue();
+        assertThat(thriftValueSet.getEquatableValueSet().getValues()).isEmpty();
     }
 
     @Test
@@ -45,7 +45,7 @@ public class TestTrinoThriftEquatableValueSet
         TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.none(JSON));
         assertThat(thriftValueSet.getEquatableValueSet()).isNotNull();
         assertThat(thriftValueSet.getEquatableValueSet().isInclusive()).isTrue();
-        assertThat(thriftValueSet.getEquatableValueSet().getValues().isEmpty()).isTrue();
+        assertThat(thriftValueSet.getEquatableValueSet().getValues()).isEmpty();
     }
 
     @Test

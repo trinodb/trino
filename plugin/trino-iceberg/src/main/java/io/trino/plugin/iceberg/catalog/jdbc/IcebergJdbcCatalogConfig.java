@@ -23,12 +23,18 @@ import java.util.Optional;
 
 public class IcebergJdbcCatalogConfig
 {
+    public enum SchemaVersion
+    {
+        V0, V1
+    }
+
     private String driverClass;
     private String connectionUrl;
     private String connectionUser;
     private String connectionPassword;
     private String catalogName;
     private String defaultWarehouseDir;
+    private SchemaVersion schemaVersion = SchemaVersion.V1;
 
     @NotNull
     public String getDriverClass()
@@ -112,6 +118,20 @@ public class IcebergJdbcCatalogConfig
     public IcebergJdbcCatalogConfig setDefaultWarehouseDir(String defaultWarehouseDir)
     {
         this.defaultWarehouseDir = defaultWarehouseDir;
+        return this;
+    }
+
+    @NotNull
+    public SchemaVersion getSchemaVersion()
+    {
+        return schemaVersion;
+    }
+
+    @Config("iceberg.jdbc-catalog.schema-version")
+    @ConfigDescription("JDBC catalog schema version")
+    public IcebergJdbcCatalogConfig setSchemaVersion(SchemaVersion schemaVersion)
+    {
+        this.schemaVersion = schemaVersion;
         return this;
     }
 }

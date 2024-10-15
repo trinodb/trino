@@ -620,6 +620,7 @@ public class PlanBuilder
         private Optional<PlanNodeStatsEstimate> statistics = Optional.empty();
         private boolean updateTarget;
         private Optional<Boolean> useConnectorNodePartitioning = Optional.empty();
+        private Optional<PlanNodeId> nodeId = Optional.empty();
 
         private TableScanBuilder(PlanNodeIdAllocator idAllocator)
         {
@@ -667,6 +668,12 @@ public class PlanBuilder
             return this;
         }
 
+        public TableScanBuilder setNodeId(PlanNodeId id)
+        {
+            this.nodeId = Optional.of(id);
+            return this;
+        }
+
         public TableScanBuilder setUseConnectorNodePartitioning(Optional<Boolean> useConnectorNodePartitioning)
         {
             this.useConnectorNodePartitioning = useConnectorNodePartitioning;
@@ -676,7 +683,7 @@ public class PlanBuilder
         public TableScanNode build()
         {
             return new TableScanNode(
-                    idAllocator.getNextId(),
+                    nodeId.orElseGet(idAllocator::getNextId),
                     tableHandle,
                     symbols,
                     assignments,
@@ -1412,6 +1419,17 @@ public class PlanBuilder
             RetryPolicy retryPolicy)
     {
         return new RemoteSourceNode(idAllocator.getNextId(), sourceFragmentIds, outputs, orderingScheme, exchangeType, retryPolicy);
+    }
+
+    public RemoteSourceNode remoteSource(
+            PlanNodeId id,
+            List<PlanFragmentId> sourceFragmentIds,
+            List<Symbol> outputs,
+            Optional<OrderingScheme> orderingScheme,
+            ExchangeNode.Type exchangeType,
+            RetryPolicy retryPolicy)
+    {
+        return new RemoteSourceNode(id, sourceFragmentIds, outputs, orderingScheme, exchangeType, retryPolicy);
     }
 
     public static AggregationFunction aggregation(String name, List<Expression> arguments)

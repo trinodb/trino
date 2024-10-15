@@ -111,7 +111,7 @@ public class InformationSchemaMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
-        return informationSchemaTableHandle.getTable().getTableMetadata();
+        return informationSchemaTableHandle.table().getTableMetadata();
     }
 
     @Override
@@ -129,9 +129,9 @@ public class InformationSchemaMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
-        ConnectorTableMetadata tableMetadata = informationSchemaTableHandle.getTable().getTableMetadata();
+        ConnectorTableMetadata tableMetadata = informationSchemaTableHandle.table().getTableMetadata();
 
-        String columnName = ((InformationSchemaColumnHandle) columnHandle).getColumnName();
+        String columnName = ((InformationSchemaColumnHandle) columnHandle).columnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
         checkArgument(columnMetadata != null, "Column '%s' on table '%s' does not exist", columnName, tableMetadata.getTable());
@@ -143,7 +143,7 @@ public class InformationSchemaMetadata
     {
         InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
 
-        ConnectorTableMetadata tableMetadata = informationSchemaTableHandle.getTable().getTableMetadata();
+        ConnectorTableMetadata tableMetadata = informationSchemaTableHandle.table().getTableMetadata();
 
         return tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getName)
@@ -164,7 +164,7 @@ public class InformationSchemaMetadata
     {
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle) table;
         return new ConnectorTableProperties(
-                tableHandle.getPrefixes().isEmpty() ? TupleDomain.none() : TupleDomain.all(),
+                tableHandle.prefixes().isEmpty() ? TupleDomain.none() : TupleDomain.all(),
                 Optional.empty(),
                 Optional.empty(),
                 emptyList());
@@ -175,12 +175,12 @@ public class InformationSchemaMetadata
     {
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
 
-        if (table.getLimit().isPresent() && table.getLimit().getAsLong() <= limit) {
+        if (table.limit().isPresent() && table.limit().getAsLong() <= limit) {
             return Optional.empty();
         }
 
         return Optional.of(new LimitApplicationResult<>(
-                new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), table.getPrefixes(), OptionalLong.of(limit)),
+                new InformationSchemaTableHandle(table.catalogName(), table.table(), table.prefixes(), OptionalLong.of(limit)),
                 true,
                 false));
     }
@@ -190,16 +190,16 @@ public class InformationSchemaMetadata
     {
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
 
-        Set<QualifiedTablePrefix> prefixes = table.getPrefixes();
-        if (isTablesEnumeratingTable(table.getTable()) && table.getPrefixes().equals(defaultPrefixes(catalogName))) {
+        Set<QualifiedTablePrefix> prefixes = table.prefixes();
+        if (isTablesEnumeratingTable(table.table()) && table.prefixes().equals(defaultPrefixes(catalogName))) {
             prefixes = getPrefixes(session, table, constraint);
         }
 
-        if (prefixes.equals(table.getPrefixes())) {
+        if (prefixes.equals(table.prefixes())) {
             return Optional.empty();
         }
 
-        table = new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), prefixes, table.getLimit());
+        table = new InformationSchemaTableHandle(table.catalogName(), table.table(), prefixes, table.limit());
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), constraint.getExpression(), false));
     }
 
@@ -215,11 +215,11 @@ public class InformationSchemaMetadata
         }
 
         Optional<Set<String>> catalogs = filterString(constraint.getSummary(), CATALOG_COLUMN_HANDLE);
-        if (catalogs.isPresent() && !catalogs.get().contains(table.getCatalogName())) {
+        if (catalogs.isPresent() && !catalogs.get().contains(table.catalogName())) {
             return ImmutableSet.of();
         }
 
-        InformationSchemaTable informationSchemaTable = table.getTable();
+        InformationSchemaTable informationSchemaTable = table.table();
         Set<QualifiedTablePrefix> schemaPrefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
         Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(informationSchemaTable, session, schemaPrefixes, constraint.getSummary(), constraint.predicate());
         verify(tablePrefixes.size() <= maxPrefetchedInformationSchemaPrefixes, "calculatePrefixesWithTableName returned too many prefixes: %s", tablePrefixes.size());

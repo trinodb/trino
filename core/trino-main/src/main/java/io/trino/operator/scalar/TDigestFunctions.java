@@ -59,9 +59,15 @@ public final class TDigestFunctions
         return output.build();
     }
 
+    public static void verifyValue(double value)
+    {
+        checkCondition(Double.isFinite(value), INVALID_FUNCTION_ARGUMENT, () -> String.format("value must be finite; was %s", value));
+    }
+
     public static double verifyWeight(double weight)
     {
-        checkCondition(weight >= 1, INVALID_FUNCTION_ARGUMENT, "weight must be >= 1, was %s", weight);
+        checkCondition(Double.isFinite(weight), INVALID_FUNCTION_ARGUMENT, () -> String.format("weight must be finite, was %s", weight));
+        checkCondition(weight >= 1, INVALID_FUNCTION_ARGUMENT, () -> String.format("weight must be >= 1, was %s", weight));
         return weight;
     }
 }

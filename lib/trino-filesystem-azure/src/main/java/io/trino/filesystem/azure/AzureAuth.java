@@ -16,7 +16,8 @@ package io.trino.filesystem.azure;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
 
-public interface AzureAuth
+public sealed interface AzureAuth
+        permits AzureAuthAccessKey, AzureAuthDefault, AzureAuthOauth
 {
     void setAuth(String storageAccount, BlobContainerClientBuilder builder);
 

@@ -64,7 +64,7 @@ public class TestS3TableConfigClient
         assertThat(uri1.toString()).isEqualTo("s3://our.data.warehouse/prod/client_actions");
         assertThat(uri1.getBucket()).isEqualTo("our.data.warehouse");
         assertThat(uri1.getKey()).isEqualTo("prod/client_actions");
-        assertThat(uri1.getRegion() == null).isTrue();
+        assertThat(uri1.getRegion()).isNull();
 
         // show info:
         log.info("Tested out URI1 : %s", uri1);
@@ -76,7 +76,7 @@ public class TestS3TableConfigClient
         assertThat(uri2.toString()).isEqualTo("s3://some.big.bucket/long/complex/path");
         assertThat(uri2.getBucket()).isEqualTo("some.big.bucket");
         assertThat(uri2.getKey()).isEqualTo("long/complex/path");
-        assertThat(uri2.getRegion() == null).isTrue();
+        assertThat(uri2.getRegion()).isNull();
 
         // info:
         log.info("Tested out URI2 : %s", uri2);

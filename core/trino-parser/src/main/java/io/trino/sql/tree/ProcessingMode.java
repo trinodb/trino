@@ -29,12 +29,7 @@ public final class ProcessingMode
 
     public ProcessingMode(NodeLocation location, Mode mode)
     {
-        this(Optional.of(location), mode);
-    }
-
-    public ProcessingMode(Optional<NodeLocation> location, Mode mode)
-    {
-        super(location);
+        super(Optional.of(location));
         this.mode = requireNonNull(mode, "mode is null");
     }
 

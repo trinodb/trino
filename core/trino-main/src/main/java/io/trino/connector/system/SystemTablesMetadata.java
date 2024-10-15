@@ -100,7 +100,7 @@ public class SystemTablesMetadata
     {
         ConnectorTableMetadata tableMetadata = checkAndGetTable(session, tableHandle).getTableMetadata();
 
-        String columnName = ((SystemColumnHandle) columnHandle).getColumnName();
+        String columnName = ((SystemColumnHandle) columnHandle).columnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
         checkArgument(columnMetadata != null, "Column '%s' on table '%s' does not exist", columnName, tableMetadata.getTable());
@@ -117,9 +117,9 @@ public class SystemTablesMetadata
     private SystemTable checkAndGetTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SystemTableHandle systemTableHandle = (SystemTableHandle) tableHandle;
-        return tables.getSystemTable(session, systemTableHandle.getSchemaTableName())
+        return tables.getSystemTable(session, systemTableHandle.schemaTableName())
                 // table might disappear in the meantime
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", systemTableHandle.getSchemaTableName())));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", systemTableHandle.schemaTableName())));
     }
 
     @Override
@@ -150,7 +150,7 @@ public class SystemTablesMetadata
     {
         SystemTableHandle table = (SystemTableHandle) handle;
 
-        TupleDomain<ColumnHandle> oldDomain = table.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = table.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         if (oldDomain.equals(newDomain) && constraint.predicate().isEmpty()) {
             return Optional.empty();
@@ -169,7 +169,7 @@ public class SystemTablesMetadata
         if (newDomain.isNone()) {
             // TODO (https://github.com/trinodb/trino/issues/3647) indicate the table scan is empty
         }
-        table = new SystemTableHandle(table.getSchemaName(), table.getTableName(), newDomain);
+        table = new SystemTableHandle(table.schemaName(), table.tableName(), newDomain);
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), constraint.getExpression(), false));
     }
 

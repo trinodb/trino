@@ -245,7 +245,7 @@ public class PinotGrpcDataFetcher
             // GrpcQueryClient does not implement Closeable. The idle timeout is 30 minutes (grpc default).
             GrpcQueryClient client = clientCache.computeIfAbsent(mappedHostAndPort, hostAndPort -> {
                 GrpcQueryClient queryClient = proxyUri.isPresent() ? grpcQueryClientFactory.create(HostAndPort.fromString(proxyUri.get())) : grpcQueryClientFactory.create(hostAndPort);
-                closer.register(queryClient::close);
+                closer.register(queryClient);
                 return queryClient;
             });
             PinotProxyGrpcRequestBuilder grpcRequestBuilder = new PinotProxyGrpcRequestBuilder()

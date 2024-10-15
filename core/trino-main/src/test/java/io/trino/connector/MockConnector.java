@@ -78,6 +78,7 @@ import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
@@ -195,6 +196,7 @@ public class MockConnector
     private final BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute;
     private final WriterScalingOptions writerScalingOptions;
     private final Supplier<Set<ConnectorCapabilities>> capabilities;
+    private final boolean allowSplittingReadIntoMultipleSubQueries;
 
     MockConnector(
             Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper,
@@ -247,7 +249,8 @@ public class MockConnector
             OptionalInt maxWriterTasks,
             BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute,
             WriterScalingOptions writerScalingOptions,
-            Supplier<Set<ConnectorCapabilities>> capabilities)
+            Supplier<Set<ConnectorCapabilities>> capabilities,
+            boolean allowSplittingReadIntoMultipleSubQueries)
     {
         this.metadataWrapper = requireNonNull(metadataWrapper, "metadataWrapper is null");
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
@@ -300,6 +303,7 @@ public class MockConnector
         this.getLayoutForTableExecute = requireNonNull(getLayoutForTableExecute, "getLayoutForTableExecute is null");
         this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
         this.capabilities = requireNonNull(capabilities, "capabilities is null");
+        this.allowSplittingReadIntoMultipleSubQueries = allowSplittingReadIntoMultipleSubQueries;
     }
 
     @Override
@@ -317,7 +321,7 @@ public class MockConnector
     @Override
     public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
-        return metadataWrapper.apply(new MockConnectorMetadata());
+        return metadataWrapper.apply(new MockConnectorMetadata(allowSplittingReadIntoMultipleSubQueries));
     }
 
     @Override
@@ -444,6 +448,13 @@ public class MockConnector
     private class MockConnectorMetadata
             implements ConnectorMetadata
     {
+        private final boolean allowSplittingReadIntoMultipleSubQueries;
+
+        public MockConnectorMetadata(boolean allowSplittingReadIntoMultipleSubQueries)
+        {
+            this.allowSplittingReadIntoMultipleSubQueries = allowSplittingReadIntoMultipleSubQueries;
+        }
+
         @Override
         public boolean schemaExists(ConnectorSession session, String schemaName)
         {
@@ -629,7 +640,7 @@ public class MockConnector
         }
 
         @Override
-        public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting) {}
+        public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode) {}
 
         @Override
         public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle) {}
@@ -686,7 +697,7 @@ public class MockConnector
         public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column) {}
 
         @Override
-        public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace) {}
+        public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace) {}
 
         @Override
         public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target) {}
@@ -805,7 +816,12 @@ public class MockConnector
         }
 
         @Override
-        public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+        public Optional<ConnectorOutputMetadata> finishInsert(
+                ConnectorSession session,
+                ConnectorInsertTableHandle insertHandle,
+                List<ConnectorTableHandle> sourceTableHandles,
+                Collection<Slice> fragments,
+                Collection<ComputedStatistics> computedStatistics)
         {
             return Optional.empty();
         }
@@ -824,7 +840,7 @@ public class MockConnector
         }
 
         @Override
-        public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
+        public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode, boolean replace)
         {
             return new MockConnectorOutputTableHandle(tableMetadata.getTable());
         }
@@ -866,7 +882,7 @@ public class MockConnector
         }
 
         @Override
-        public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics) {}
+        public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics) {}
 
         @Override
         public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
@@ -875,7 +891,7 @@ public class MockConnector
         }
 
         @Override
-        public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
+        public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorAccessControl accessControl, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
         {
             MockConnectorTableHandle connectorTableHandle = (MockConnectorTableHandle) tableHandle;
             return Optional.of(new MockConnectorTableExecuteHandle(0, connectorTableHandle.getTableName()));
@@ -978,6 +994,12 @@ public class MockConnector
         public OptionalInt getMaxWriterTasks(ConnectorSession session)
         {
             return maxWriterTasks;
+        }
+
+        @Override
+        public boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
+        {
+            return allowSplittingReadIntoMultipleSubQueries;
         }
 
         @Override

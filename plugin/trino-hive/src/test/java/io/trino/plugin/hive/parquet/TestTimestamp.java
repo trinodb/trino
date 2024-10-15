@@ -43,7 +43,9 @@ import static com.google.common.collect.Iterables.transform;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
@@ -59,7 +61,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestTimestamp
 {
     @Test
-    public void testTimestampBackedByInt64()
+    public void testTimestampBackedByInt64WithDifferentTimezone()
+            throws Exception
+    {
+        testTimestampBackedByInt64(DateTimeZone.forID("America/New_York"));
+        testTimestampBackedByInt64(DateTimeZone.forID("UTC"));
+    }
+
+    private void testTimestampBackedByInt64(DateTimeZone dateTimeZone)
             throws Exception
     {
         for (HiveTimestampPrecision timestamp : HiveTimestampPrecision.values()) {
@@ -71,17 +80,17 @@ public class TestTimestamp
             MessageType parquetSchema = parseMessageType("message hive_timestamp { optional int64 test (" + logicalAnnotation + "); }");
 
             Iterable<Long> writeNullableDictionaryValues = limit(cycle(asList(1L, null, 3L, 5L, null, null, null, 7L, 11L, null, 13L, 17L)), 30_000);
-            testRoundTrip(parquetSchema, writeNullableDictionaryValues, timestamp);
+            testRoundTrip(parquetSchema, writeNullableDictionaryValues, timestamp, dateTimeZone);
 
             Iterable<Long> writeDictionaryValues = limit(cycle(asList(1L, 3L, 5L, 7L, 11L, 13L, 17L)), 30_000);
-            testRoundTrip(parquetSchema, writeDictionaryValues, timestamp);
+            testRoundTrip(parquetSchema, writeDictionaryValues, timestamp, dateTimeZone);
 
             Iterable<Long> writeValues = ContiguousSet.create(Range.closedOpen((long) -1_000, (long) 1_000), DiscreteDomain.longs());
-            testRoundTrip(parquetSchema, writeValues, timestamp);
+            testRoundTrip(parquetSchema, writeValues, timestamp, dateTimeZone);
         }
     }
 
-    private static void testRoundTrip(MessageType parquetSchema, Iterable<Long> writeValues, HiveTimestampPrecision timestamp)
+    private static void testRoundTrip(MessageType parquetSchema, Iterable<Long> writeValues, HiveTimestampPrecision timestamp, DateTimeZone dateTimeZone)
             throws Exception
     {
         Iterable<SqlTimestamp> timestampReadValues = transform(writeValues, value -> {
@@ -89,12 +98,21 @@ public class TestTimestamp
                 return null;
             }
             return switch (timestamp) {
-                case MILLISECONDS -> SqlTimestamp.fromMillis(timestamp.getPrecision(), value);
-                case MICROSECONDS -> SqlTimestamp.newInstance(timestamp.getPrecision(), value, 0);
-                case NANOSECONDS -> SqlTimestamp.newInstance(
+                case MILLISECONDS -> SqlTimestamp.fromMillis(
                         timestamp.getPrecision(),
-                        floorDiv(value, NANOSECONDS_PER_MICROSECOND),
-                        floorMod(value, NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND);
+                        dateTimeZone.convertUTCToLocal(value));
+                case MICROSECONDS -> SqlTimestamp.newInstance(
+                        timestamp.getPrecision(),
+                        (dateTimeZone.convertUTCToLocal(floorDiv(value, MICROSECONDS_PER_MILLISECOND)) * MICROSECONDS_PER_MILLISECOND)
+                                + floorMod(value, MICROSECONDS_PER_MILLISECOND),
+                        0);
+                case NANOSECONDS -> {
+                    long localMicros = dateTimeZone.convertUTCToLocal(floorDiv(value, NANOSECONDS_PER_MICROSECOND * MICROSECONDS_PER_MILLISECOND));
+                    yield SqlTimestamp.newInstance(
+                            timestamp.getPrecision(),
+                            (localMicros * MICROSECONDS_PER_MILLISECOND) + floorMod(value, NANOSECONDS_PER_MILLISECOND) / MICROSECONDS_PER_MILLISECOND,
+                            floorMod(value, NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND);
+                }
             };
         });
 
@@ -117,16 +135,16 @@ public class TestTimestamp
                     DateTimeZone.getDefault());
 
             ConnectorSession session = getHiveSession(new HiveConfig());
-            testReadingAs(createTimestampType(timestamp.getPrecision()), session, tempFile, columnNames, timestampReadValues);
-            testReadingAs(BIGINT, session, tempFile, columnNames, writeValues);
+            testReadingAs(createTimestampType(timestamp.getPrecision()), session, tempFile, columnNames, timestampReadValues, dateTimeZone);
+            testReadingAs(BIGINT, session, tempFile, columnNames, writeValues, dateTimeZone);
         }
     }
 
-    private static void testReadingAs(Type type, ConnectorSession session, ParquetTester.TempFile tempFile, List<String> columnNames, Iterable<?> expectedValues)
+    private static void testReadingAs(Type type, ConnectorSession session, ParquetTester.TempFile tempFile, List<String> columnNames, Iterable<?> expectedValues, DateTimeZone dateTimeZone)
              throws IOException
     {
         Iterator<?> expected = expectedValues.iterator();
-        try (ConnectorPageSource pageSource = ParquetUtil.createPageSource(session, tempFile.getFile(), columnNames, ImmutableList.of(type))) {
+        try (ConnectorPageSource pageSource = ParquetUtil.createPageSource(session, tempFile.getFile(), columnNames, ImmutableList.of(type), dateTimeZone)) {
             // skip a page to exercise the decoder's skip() logic
             Page firstPage = pageSource.getNextPage();
             assertThat(firstPage.getPositionCount() > 0)

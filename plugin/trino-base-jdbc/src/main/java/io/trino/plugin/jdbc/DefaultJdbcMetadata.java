@@ -52,6 +52,7 @@ import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
@@ -113,6 +114,7 @@ import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactional
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
+import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -387,7 +389,7 @@ public class DefaultJdbcMetadata
         Set<ConnectorExpression> translatedExpressions = new HashSet<>();
 
         for (ConnectorExpression projection : ImmutableSet.copyOf(projections)) {
-            RewrittenExpression rewrittenExpression = rewriteExpression(session, nextSyntheticColumnId, projection, assignments, translatedExpressions);
+            RewrittenExpression rewrittenExpression = rewriteExpression(session, handle, nextSyntheticColumnId, projection, assignments, translatedExpressions);
             nextSyntheticColumnId = rewrittenExpression.nextSyntheticColumnId();
             newVariablesBuilder.putAll(rewrittenExpression.syntheticVariables());
             columnExpressionsBuilder.putAll(rewrittenExpression.columnExpressions());
@@ -430,6 +432,7 @@ public class DefaultJdbcMetadata
 
     private RewrittenExpression rewriteExpression(
             ConnectorSession session,
+            JdbcTableHandle handle,
             int nextSyntheticColumnId,
             ConnectorExpression projection,
             Map<String, ColumnHandle> assignments,
@@ -453,7 +456,7 @@ public class DefaultJdbcMetadata
                     ImmutableSet.of((JdbcColumnHandle) assignments.get(variable.getName())),
                     ImmutableList.of(new Assignment(variable.getName(), assignments.get(variable.getName()), variable.getType())));
         }
-        Optional<JdbcExpression> convertedExpression = jdbcClient.convertProjection(session, projection, assignments);
+        Optional<JdbcExpression> convertedExpression = jdbcClient.convertProjection(session, handle, projection, assignments);
         if (convertedExpression.isPresent()) {
             String columnName = SYNTHETIC_COLUMN_NAME_PREFIX + nextSyntheticColumnId;
             JdbcColumnHandle newColumn = JdbcColumnHandle.builder()
@@ -481,6 +484,7 @@ public class DefaultJdbcMetadata
         for (ConnectorExpression child : projection.getChildren()) {
             RewrittenExpression rewrittenExpression = rewriteExpression(
                     session,
+                    handle,
                     nextSyntheticColumnId,
                     child,
                     assignments,
@@ -1078,7 +1082,7 @@ public class DefaultJdbcMetadata
         for (SchemaTableName tableName : tables) {
             try {
                 jdbcClient.getTableHandle(session, tableName)
-                        .ifPresent(tableHandle -> columns.put(tableName, getTableMetadata(session, tableHandle).getColumns()));
+                        .ifPresent(tableHandle -> columns.put(tableName, getColumnMetadata(session, tableHandle)));
             }
             catch (TableNotFoundException | AccessDeniedException e) {
                 // table disappeared during listing operation or user is not allowed to access it
@@ -1086,6 +1090,15 @@ public class DefaultJdbcMetadata
             }
         }
         return columns.buildOrThrow();
+    }
+
+    public List<ColumnMetadata> getColumnMetadata(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        return getColumnHandles(session, tableHandle).values()
+                .stream()
+                .map(JdbcColumnHandle.class::cast)
+                .map(JdbcColumnHandle::getColumnMetadata)
+                .collect(toImmutableList());
     }
 
     @Override
@@ -1144,17 +1157,23 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode, boolean replace)
     {
         verifyRetryMode(session, retryMode);
+        if (replace) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
+        }
         JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata);
         setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
         return handle;
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
+        if (saveMode == REPLACE) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
+        }
         jdbcClient.createTable(session, tableMetadata);
     }
 

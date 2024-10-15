@@ -142,7 +142,6 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosF
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.format.CompressionCodec.GZIP;
 import static org.apache.parquet.format.CompressionCodec.LZ4;
-import static org.apache.parquet.format.CompressionCodec.LZO;
 import static org.apache.parquet.format.CompressionCodec.SNAPPY;
 import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
 import static org.apache.parquet.format.CompressionCodec.ZSTD;
@@ -181,7 +180,7 @@ class ParquetTester
     public static ParquetTester fullParquetTester()
     {
         return new ParquetTester(
-                ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZO, LZ4, ZSTD),
+                ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZ4, ZSTD),
                 ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, ZSTD),
                 ImmutableSet.copyOf(WriterVersion.values()),
                 ImmutableSet.of(SESSION, SESSION_USE_NAME));

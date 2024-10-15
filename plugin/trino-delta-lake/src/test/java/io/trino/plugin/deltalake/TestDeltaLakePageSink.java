@@ -23,8 +23,10 @@ import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -160,7 +162,7 @@ public class TestDeltaLakePageSink
         DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig();
         DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
         for (DeltaLakeColumnHandle column : getColumnHandles()) {
-            deltaTable.addColumn(column.getColumnName(), serializeColumnType(NONE, new AtomicInteger(), column.getType()), true, null, ImmutableMap.of());
+            deltaTable.addColumn(column.columnName(), serializeColumnType(NONE, new AtomicInteger(), column.type()), true, null, ImmutableMap.of());
         }
         String schemaString = serializeSchemaAsJson(deltaTable.build());
         DeltaLakeOutputTableHandle tableHandle = new DeltaLakeOutputTableHandle(
@@ -172,6 +174,7 @@ public class TestDeltaLakePageSink
                 true,
                 Optional.empty(),
                 Optional.of(false),
+                false,
                 schemaString,
                 NONE,
                 OptionalInt.empty(),
@@ -185,7 +188,9 @@ public class TestDeltaLakePageSink
                 JsonCodec.jsonCodec(DataFileInfo.class),
                 JsonCodec.jsonCodec(DeltaLakeMergeResult.class),
                 stats,
+                new FileFormatDataSourceStats(),
                 deltaLakeConfig,
+                new ParquetReaderConfig(),
                 new TestingTypeManager(),
                 new NodeVersion("test-version"));
 

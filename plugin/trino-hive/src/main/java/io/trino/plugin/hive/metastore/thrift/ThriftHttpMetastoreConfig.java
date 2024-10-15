@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static java.lang.String.format;
+
 public class ThriftHttpMetastoreConfig
 {
     public enum AuthenticationMode
@@ -106,7 +108,7 @@ public class ThriftHttpMetastoreConfig
             }
         }
         catch (IndexOutOfBoundsException e) {
-            throw new IllegalArgumentException(String.format("Invalid format for 'hive.metastore.http.client.additional-headers'. " +
+            throw new IllegalArgumentException(format("Invalid format for 'hive.metastore.http.client.additional-headers'. " +
                     "Value provided is %s", httpHeaders), e);
         }
         return this;

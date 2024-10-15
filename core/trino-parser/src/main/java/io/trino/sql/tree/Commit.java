@@ -21,19 +21,9 @@ import java.util.Optional;
 public final class Commit
         extends Statement
 {
-    public Commit()
-    {
-        this(Optional.empty());
-    }
-
     public Commit(NodeLocation location)
     {
-        this(Optional.of(location));
-    }
-
-    private Commit(Optional<NodeLocation> location)
-    {
-        super(location);
+        super(Optional.of(location));
     }
 
     @Override

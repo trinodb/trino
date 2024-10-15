@@ -163,9 +163,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public Optional<JdbcExpression> convertProjection(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    public Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
-        return delegate().convertProjection(session, expression, assignments);
+        return delegate().convertProjection(session, handle, expression, assignments);
     }
 
     @Override
@@ -300,6 +300,13 @@ public abstract class ForwardingJdbcClient
     public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
         return delegate().buildInsertSql(handle, columnWriters);
+    }
+
+    @Override
+    public Connection getConnection(ConnectorSession session)
+            throws SQLException
+    {
+        return delegate().getConnection(session);
     }
 
     @Override

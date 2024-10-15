@@ -22,6 +22,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.sql.tree.Comment;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
@@ -63,7 +64,7 @@ public class TestCommentTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(TABLE, asQualifiedName(viewName), Optional.of("new comment"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("Table '%1$s' does not exist, but a view with that name exists. Did you mean COMMENT ON VIEW %1$s IS ...?", viewName);
+                .hasMessageContaining("Table '%1$s' does not exist, but a view with that name exists. Did you mean COMMENT ON VIEW %1$s IS ...?", viewName);
     }
 
     @Test
@@ -74,7 +75,7 @@ public class TestCommentTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(TABLE, asQualifiedName(materializedViewName), Optional.of("new comment"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Setting comments on materialized views is unsupported.", materializedViewName);
+                .hasMessageContaining("Table '%s' does not exist, but a materialized view with that name exists. Setting comments on materialized views is unsupported.", materializedViewName);
     }
 
     @Test
@@ -96,7 +97,7 @@ public class TestCommentTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(VIEW, asQualifiedName(tableName), Optional.of("new comment"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("View '%1$s' does not exist, but a table with that name exists. Did you mean COMMENT ON TABLE %1$s IS ...?", tableName);
+                .hasMessageContaining("View '%1$s' does not exist, but a table with that name exists. Did you mean COMMENT ON TABLE %1$s IS ...?", tableName);
     }
 
     @Test
@@ -107,7 +108,7 @@ public class TestCommentTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(VIEW, asQualifiedName(materializedViewName), Optional.of("new comment"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("View '%s' does not exist, but a materialized view with that name exists. Setting comments on materialized views is unsupported.", materializedViewName);
+                .hasMessageContaining("View '%s' does not exist, but a materialized view with that name exists. Setting comments on materialized views is unsupported.", materializedViewName);
     }
 
     @Test
@@ -139,7 +140,7 @@ public class TestCommentTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(COLUMN, missingColumnName, Optional.of("comment for missing column"))))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("Column does not exist: %s", missingColumnName.getSuffix());
+                .hasMessageContaining("Column does not exist: %s", missingColumnName.getSuffix());
     }
 
     @Test
@@ -158,11 +159,11 @@ public class TestCommentTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(COLUMN, missingColumnName, Optional.of("comment for missing column"))))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("Column does not exist: %s", missingColumnName.getSuffix());
+                .hasMessageContaining("Column does not exist: %s", missingColumnName.getSuffix());
     }
 
     private ListenableFuture<Void> setComment(Comment.Type type, QualifiedName viewName, Optional<String> comment)
     {
-        return new CommentTask(metadata, new AllowAllAccessControl()).execute(new Comment(type, viewName, comment), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return new CommentTask(metadata, new AllowAllAccessControl()).execute(new Comment(new NodeLocation(1, 1), type, viewName, comment), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

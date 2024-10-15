@@ -35,7 +35,7 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tests.product.TestGroups.CASSANDRA;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
+import static io.trino.tests.product.TpchTableResults.TRINO_NATION_RESULT;
 import static io.trino.tests.product.cassandra.CassandraTpchTableDefinitions.CASSANDRA_NATION;
 import static io.trino.tests.product.cassandra.CassandraTpchTableDefinitions.CASSANDRA_SUPPLIER;
 import static io.trino.tests.product.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
@@ -87,7 +87,7 @@ public class TestSelect
         QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
-        assertThat(queryResult).matches(PRESTO_NATION_RESULT);
+        assertThat(queryResult).matches(TRINO_NATION_RESULT);
     }
 
     @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})

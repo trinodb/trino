@@ -2,7 +2,10 @@
 
 Trino includes a native implementation to access [Amazon
 S3](https://aws.amazon.com/s3/) and compatible storage systems with a catalog
-using the Delta Lake, Hive, Hudi, or Iceberg connectors.
+using the Delta Lake, Hive, Hudi, or Iceberg connectors. While Trino is designed
+to support S3-compatible storage systems, only AWS S3 and MinIO are tested for
+compatibility. For other storage systems, perform your own testing and consult
+your vendor for more information.
 
 Enable the native implementation with `fs.native-s3.enabled=true` in your
 catalog properties file.
@@ -19,15 +22,16 @@ support:
 * - Property
   - Description
 * - `fs.native-s3.enabled`
-  - Activate the native implementation for S3 storage support, and deactivate
-    all [legacy support](file-system-legacy). Defaults to `false`. Must be set
-    to `true` for all other properties be used.
+  - Activate the native implementation for S3 storage support. Defaults to
+    `false`. Set to `true` to use S3 and enable all other properties.
 * - `s3.endpoint`
   - Required endpoint URL for S3.
 * - `s3.region`
   - Required region name for S3.
 * - `s3.path-style-access`
   - Use path-style access for all requests to S3
+* - `s3.exclusive-create`
+  - Whether conditional write is supported by the S3-compatible storage. Defaults to `true`.
 * - `s3.canned-acl`
   - [Canned ACL](https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl)
     to use when uploading files to S3. Defaults to `NONE`, which has the same
@@ -122,4 +126,141 @@ and secret keys, STS, or an IAM role:
     `trino-filesystem`.
 * - `s3.external-id`
   - External ID for the IAM role trust policy when connecting to S3.
+:::
+
+## Security mapping
+
+Trino supports flexible security mapping for S3, allowing for separate
+credentials or IAM roles for specific users or S3 locations. The IAM role
+for a specific query can be selected from a list of allowed roles by providing
+it as an *extra credential*.
+
+Each security mapping entry may specify one or more match criteria.
+If multiple criteria are specified, all criteria must match.
+The following match criteria are available:
+
+- `user`: Regular expression to match against username. Example: `alice|bob`
+- `group`: Regular expression to match against any of the groups that the user
+  belongs to. Example: `finance|sales`
+- `prefix`: S3 URL prefix. You can specify an entire bucket or a path within a
+  bucket. The URL must start with `s3://` but also matches for `s3a` or `s3n`.
+  Example: `s3://bucket-name/abc/xyz/`
+
+The security mapping must provide one or more configuration settings:
+
+- `accessKey` and `secretKey`: AWS access key and secret key. This overrides
+  any globally configured credentials, such as access key or instance credentials.
+- `iamRole`: IAM role to use if no user provided role is specified as an
+  extra credential. This overrides any globally configured IAM role. This role
+  is allowed to be specified as an extra credential, although specifying it
+  explicitly has no effect.
+- `roleSessionName`: Optional role session name to use with `iamRole`. This can only
+  be used when `iamRole` is specified. If `roleSessionName` includes the string
+  `${USER}`, then the `${USER}` portion of the string is replaced with the
+  current session's username. If `roleSessionName` is not specified, it defaults
+  to `trino-session`.
+- `allowedIamRoles`: IAM roles that are allowed to be specified as an extra
+  credential. This is useful because a particular AWS account may have permissions
+  to use many roles, but a specific user should only be allowed to use a subset
+  of those roles.
+- `kmsKeyId`: ID of KMS-managed key to be used for client-side encryption.
+- `allowedKmsKeyIds`: KMS-managed key IDs that are allowed to be specified as an extra
+  credential. If list cotains `*`, then any key can be specified via extra credential.
+- `endpoint`: The S3 storage endpoint server. This optional property can be used
+  to override S3 endpoints on a per-bucket basis.
+- `region`: The S3 region to connect to. This optional property can be used
+  to override S3 regions on a per-bucket basis.
+
+The security mapping entries are processed in the order listed in the JSON configuration.
+Therefore, specific mappings must be specified before less specific mappings.
+For example, the mapping list might have URL prefix `s3://abc/xyz/` followed by
+`s3://abc/` to allow different configuration for a specific path within a bucket
+than for other paths within the bucket. You can specify the default configuration
+by not including any match criteria for the last entry in the list.
+
+In addition to the preceding rules, the default mapping can contain the optional
+`useClusterDefault` boolean property set to `true` to use the default S3 configuration.
+It cannot be used with any other configuration settings.
+
+If no mapping entry matches and no default is configured, access is denied.
+
+The configuration JSON is read from a file via `s3.security-mapping.config-file`
+or from an HTTP endpoint via `s3.security-mapping.config-uri`.
+
+Example JSON configuration:
+
+```json
+{
+  "mappings": [
+    {
+      "prefix": "s3://bucket-name/abc/",
+      "iamRole": "arn:aws:iam::123456789101:role/test_path"
+    },
+    {
+      "user": "bob|charlie",
+      "iamRole": "arn:aws:iam::123456789101:role/test_default",
+      "allowedIamRoles": [
+        "arn:aws:iam::123456789101:role/test1",
+        "arn:aws:iam::123456789101:role/test2",
+        "arn:aws:iam::123456789101:role/test3"
+      ]
+    },
+    {
+      "prefix": "s3://special-bucket/",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret"
+    },
+    {
+      "prefix": "s3://regional-bucket/",
+      "iamRole": "arn:aws:iam::123456789101:role/regional-user",
+      "endpoint": "https://bucket.vpce-1a2b3c4d-5e6f.s3.us-east-1.vpce.amazonaws.com",
+      "region": "us-east-1"
+    },
+    {
+      "prefix": "s3://encrypted-bucket/",
+      "kmsKeyId": "kmsKey_10"
+    },
+    {
+      "user": "test.*",
+      "iamRole": "arn:aws:iam::123456789101:role/test_users"
+    },
+    {
+      "group": "finance",
+      "iamRole": "arn:aws:iam::123456789101:role/finance_users"
+    },
+    {
+      "iamRole": "arn:aws:iam::123456789101:role/default"
+    }
+  ]
+}
+```
+
+:::{list-table} Security mapping properties
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `s3.security-mapping.enabled`
+  - Activate the security mapping feature. Defaults to `false`.
+    Must be set to `true` for all other properties be used.
+* - `s3.security-mapping.config-file`
+  - Path to the JSON configuration file containing security mappings.
+* - `s3.security-mapping.config-uri`
+  - HTTP endpoint URI containing security mappings.
+* - `s3.security-mapping.json-pointer`
+  - A JSON pointer (RFC 6901) to mappings inside the JSON retrieved from the
+    configuration file or HTTP endpoint. The default is the root of the document.
+* - `s3.security-mapping.iam-role-credential-name`
+  - The name of the *extra credential* used to provide the IAM role.
+* - `s3.security-mapping.kms-key-id-credential-name`
+  - The name of the *extra credential* used to provide the KMS-managed key ID.
+* - `s3.security-mapping.refresh-period`
+  - How often to refresh the security mapping configuration, specified as a
+    {ref}`prop-type-duration`. By default, the configuration is not refreshed.
+* - `s3.security-mapping.colon-replacement`
+  - The character or characters to be used instead of a colon character
+    when specifying an IAM role name as an extra credential.
+    Any instances of this replacement value in the extra credential value
+    are converted to a colon.
+    Choose a value not used in any of your IAM ARNs.
 :::

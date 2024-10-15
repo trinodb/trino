@@ -14,20 +14,26 @@ To use the Hudi connector, you need:
 - Network access from the Trino coordinator and workers to the Hudi storage.
 - Access to a Hive metastore service (HMS).
 - Network access from the Trino coordinator to the HMS.
-- Data files stored in the [Parquet file format](hive-parquet-configuration) on
-  a [supported file system](hudi-file-system-configuration).
+- Data files stored in the [Parquet file format](parquet-format-configuration)
+  on a [supported file system](hudi-file-system-configuration).
 
 ## General configuration
 
 To configure the Hudi connector, create a catalog properties file
-`etc/catalog/example.properties` that references the `hudi`
-connector and defines the HMS to use with the `hive.metastore.uri`
-configuration property:
+`etc/catalog/example.properties` that references the `hudi` connector.
+
+You must configure a [metastore for table metadata](/object-storage/metastores).
+
+You must select and configure one of the [supported file
+systems](hudi-file-system-configuration).
 
 ```properties
 connector.name=hudi
 hive.metastore.uri=thrift://example.net:9083
+fs.x.enabled=true
 ```
+
+Replace the `fs.x.enabled` configuration property with the desired file system.
 
 There are {ref}`HMS configuration properties <general-metastore-properties>`
 available for use with the Hudi connector. The connector recognizes Hudi tables
@@ -96,17 +102,15 @@ Additionally, following configuration properties can be set depending on the use
 (hudi-file-system-configuration)=
 ## File system access configuration
 
-The connector supports native, high-performance file system access to object
-storage systems:
+The connector supports accessing the following file systems:
 
-* [](/object-storage)
 * [](/object-storage/file-system-azure)
 * [](/object-storage/file-system-gcs)
 * [](/object-storage/file-system-s3)
+* [](/object-storage/file-system-hdfs)
 
-You must enable and configure the specific native file system access. If none is
-activated, the [legacy support](file-system-legacy) is used and must be
-configured.
+You must enable and configure the specific file system access. [Legacy
+support](file-system-legacy) is not recommended and will be removed.
 
 ## SQL support
 

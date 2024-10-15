@@ -16,11 +16,6 @@ package io.trino.sql.tree;
 public final class SetViewAuthorization
         extends SetAuthorizationStatement
 {
-    public SetViewAuthorization(QualifiedName source, PrincipalSpecification principal)
-    {
-        super(source, principal);
-    }
-
     public SetViewAuthorization(NodeLocation location, QualifiedName source, PrincipalSpecification principal)
     {
         super(location, source, principal);

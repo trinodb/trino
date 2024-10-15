@@ -28,6 +28,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SetSession;
@@ -161,7 +162,7 @@ public class TestSetSessionTask
 
         assertThatThrownBy(() -> testSetSession("positive_property", new LongLiteral("-1"), "-1"))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage(MUST_BE_POSITIVE);
+                .hasMessageContaining(MUST_BE_POSITIVE);
     }
 
     @Test
@@ -169,7 +170,7 @@ public class TestSetSessionTask
     {
         assertThatThrownBy(() -> testSetSession("size_property", new StringLiteral("XL"), "XL"))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("Invalid value [XL]. Valid values: [SMALL, MEDIUM, LARGE]")
+                .hasMessageContaining("Invalid value [XL]. Valid values: [SMALL, MEDIUM, LARGE]")
                 .matches(throwable -> ((TrinoException) throwable).getErrorCode() == INVALID_SESSION_PROPERTY.toErrorCode());
     }
 
@@ -208,7 +209,7 @@ public class TestSetSessionTask
                 Optional.empty(),
                 true,
                 new NodeVersion("test"));
-        getFutureValue(new SetSessionTask(plannerContext, accessControl, sessionPropertyManager).execute(new SetSession(qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
+        getFutureValue(new SetSessionTask(plannerContext, accessControl, sessionPropertyManager).execute(new SetSession(new NodeLocation(1, 1), qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertThat(sessionProperties).isEqualTo(ImmutableMap.of(qualifiedPropName.toString(), expectedValue));

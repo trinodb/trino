@@ -22,6 +22,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.metastore.HiveType;
 import io.trino.parquet.Column;
 import io.trino.parquet.Field;
 import io.trino.parquet.ParquetCorruptionException;
@@ -41,9 +42,9 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
+import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.spi.TrinoException;
@@ -61,6 +62,7 @@ import org.apache.parquet.schema.Type;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -73,6 +75,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.metastore.type.Category.PRIMITIVE;
 import static io.trino.parquet.ParquetTypeUtils.constructField;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
@@ -95,9 +98,6 @@ import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames
 import static io.trino.plugin.hive.HiveSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.hive.parquet.ParquetPageSource.handleException;
 import static io.trino.plugin.hive.parquet.ParquetTypeTranslator.createCoercer;
-import static io.trino.plugin.hive.type.Category.PRIMITIVE;
-import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -145,12 +145,9 @@ public class ParquetPageSourceFactory
         domainCompactionThreshold = hiveConfig.getDomainCompactionThreshold();
     }
 
-    public static Map<String, String> stripUnnecessaryProperties(Map<String, String> schema)
+    public static boolean stripUnnecessaryProperties(String serializationLibraryName)
     {
-        if (PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
-            return ImmutableMap.of(SERIALIZATION_LIB, schema.get(SERIALIZATION_LIB));
-        }
-        return schema;
+        return PARQUET_SERDE_CLASS_NAMES.contains(serializationLibraryName);
     }
 
     @Override
@@ -160,7 +157,8 @@ public class ParquetPageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
-            Map<String, String> schema,
+            long fileModifiedTime,
+            Schema schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,
@@ -168,14 +166,14 @@ public class ParquetPageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
+        if (!PARQUET_SERDE_CLASS_NAMES.contains(schema.serializationLibraryName())) {
             return Optional.empty();
         }
 
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        TrinoInputFile inputFile = fileSystem.newInputFile(path, estimatedFileSize);
+        TrinoInputFile inputFile = fileSystem.newInputFile(path, estimatedFileSize, Instant.ofEpochMilli(fileModifiedTime));
 
         return Optional.of(createPageSource(
                 inputFile,

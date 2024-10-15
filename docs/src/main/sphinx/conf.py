@@ -117,7 +117,7 @@ myst_enable_extensions = [
 ]
 
 myst_substitutions = {
-    "breaking": "<a href='../release.html#breaking-changes' title='Breaking change'>⚠️</a>"
+    "breaking": "<a href='../release.html#breaking-changes' title='Breaking change'>⚠️ Breaking change:</a>"
 }
 
 # -- Options for HTML output ---------------------------------------------------

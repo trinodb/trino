@@ -19,6 +19,7 @@ import jakarta.annotation.Nullable;
 
 import java.util.Objects;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeTransactionLogEntry
@@ -216,6 +217,6 @@ public class DeltaLakeTransactionLogEntry
     @Override
     public String toString()
     {
-        return String.format("DeltaLakeTransactionLogEntry{%s, %s, %s, %s, %s, %s, %s, %s, %s}", txn, add, remove, metaData, protocol, commitInfo, cdcEntry, sidecar, checkpointMetadata);
+        return format("DeltaLakeTransactionLogEntry{%s, %s, %s, %s, %s, %s, %s, %s, %s}", txn, add, remove, metaData, protocol, commitInfo, cdcEntry, sidecar, checkpointMetadata);
     }
 }

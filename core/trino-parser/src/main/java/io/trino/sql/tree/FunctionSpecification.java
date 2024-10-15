@@ -32,16 +32,6 @@ public final class FunctionSpecification
     private final ControlStatement statement;
 
     public FunctionSpecification(
-            QualifiedName name,
-            List<ParameterDeclaration> parameters,
-            ReturnsClause returnsClause,
-            List<RoutineCharacteristic> routineCharacteristics,
-            ControlStatement statement)
-    {
-        this(Optional.empty(), name, parameters, returnsClause, routineCharacteristics, statement);
-    }
-
-    public FunctionSpecification(
             NodeLocation location,
             QualifiedName name,
             List<ParameterDeclaration> parameters,
@@ -49,18 +39,7 @@ public final class FunctionSpecification
             List<RoutineCharacteristic> routineCharacteristics,
             ControlStatement statement)
     {
-        this(Optional.of(location), name, parameters, returnsClause, routineCharacteristics, statement);
-    }
-
-    private FunctionSpecification(
-            Optional<NodeLocation> location,
-            QualifiedName name,
-            List<ParameterDeclaration> parameters,
-            ReturnsClause returnsClause,
-            List<RoutineCharacteristic> routineCharacteristics,
-            ControlStatement statement)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = requireNonNull(name, "name is null");
         this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
         this.returnsClause = requireNonNull(returnsClause, "returnClause is null");

@@ -42,12 +42,13 @@ public class DeltaLakeTableProperties
     public static final String CHECKPOINT_INTERVAL_PROPERTY = "checkpoint_interval";
     public static final String CHANGE_DATA_FEED_ENABLED_PROPERTY = "change_data_feed_enabled";
     public static final String COLUMN_MAPPING_MODE_PROPERTY = "column_mapping_mode";
+    public static final String DELETION_VECTORS_ENABLED_PROPERTY = "deletion_vectors_enabled";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
     @SuppressWarnings("unchecked")
     @Inject
-    public DeltaLakeTableProperties()
+    public DeltaLakeTableProperties(DeltaLakeConfig config)
     {
         tableProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(stringProperty(
@@ -88,6 +89,11 @@ public class DeltaLakeTableProperties
                             }
                         },
                         false))
+                .add(booleanProperty(
+                        DELETION_VECTORS_ENABLED_PROPERTY,
+                        "Enables deletion vectors",
+                        config.isDeletionVectorsEnabled(),
+                        false))
                 .build();
     }
 
@@ -127,5 +133,10 @@ public class DeltaLakeTableProperties
     public static ColumnMappingMode getColumnMappingMode(Map<String, Object> tableProperties)
     {
         return ColumnMappingMode.valueOf(tableProperties.get(COLUMN_MAPPING_MODE_PROPERTY).toString().toUpperCase(ENGLISH));
+    }
+
+    public static boolean getDeletionVectorsEnabled(Map<String, Object> tableProperties)
+    {
+        return (boolean) tableProperties.getOrDefault(DELETION_VECTORS_ENABLED_PROPERTY, false);
     }
 }

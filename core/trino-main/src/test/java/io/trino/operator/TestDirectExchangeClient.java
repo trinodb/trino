@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
@@ -364,24 +365,24 @@ public class TestDirectExchangeClient
 
         assertThat(exchangeClient.pollPage()).isNull();
         ListenableFuture<Void> firstBlocked = exchangeClient.isBlocked();
-        assertThat(tryGetFutureValue(firstBlocked, 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(tryGetFutureValue(firstBlocked, 10, MILLISECONDS)).isEmpty();
         assertThat(firstBlocked.isDone()).isFalse();
 
         assertThat(exchangeClient.pollPage()).isNull();
         ListenableFuture<Void> secondBlocked = exchangeClient.isBlocked();
-        assertThat(tryGetFutureValue(secondBlocked, 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(tryGetFutureValue(secondBlocked, 10, MILLISECONDS)).isEmpty();
         assertThat(secondBlocked.isDone()).isFalse();
 
         assertThat(exchangeClient.pollPage()).isNull();
         ListenableFuture<Void> thirdBlocked = exchangeClient.isBlocked();
-        assertThat(tryGetFutureValue(thirdBlocked, 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(tryGetFutureValue(thirdBlocked, 10, MILLISECONDS)).isEmpty();
         assertThat(thirdBlocked.isDone()).isFalse();
 
         thirdBlocked.cancel(true);
         assertThat(thirdBlocked.isDone()).isTrue();
-        assertThat(tryGetFutureValue(firstBlocked, 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(tryGetFutureValue(firstBlocked, 10, MILLISECONDS)).isEmpty();
         assertThat(firstBlocked.isDone()).isFalse();
-        assertThat(tryGetFutureValue(secondBlocked, 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(tryGetFutureValue(secondBlocked, 10, MILLISECONDS)).isEmpty();
         assertThat(secondBlocked.isDone()).isFalse();
 
         assertThat(exchangeClient.isFinished()).isFalse();
@@ -405,7 +406,7 @@ public class TestDirectExchangeClient
         assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(6));
 
-        assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS)).isEmpty();
         assertThat(exchangeClient.isFinished()).isFalse();
 
         exchangeClient.noMoreLocations();
@@ -458,7 +459,7 @@ public class TestDirectExchangeClient
 
         processor.setComplete(location1);
 
-        assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS)).isEmpty();
 
         RuntimeException randomException = new RuntimeException("randomfailure");
         processor.setFailed(location2, randomException);
@@ -492,7 +493,7 @@ public class TestDirectExchangeClient
                 scheduler,
                 DataSize.of(1, Unit.MEGABYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId());
@@ -512,11 +513,11 @@ public class TestDirectExchangeClient
                 (taskId, failure) -> {});
 
         exchangeClient.addLocation(attempt0Task1, attempt0Task1Location);
-        assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS)).isEmpty();
 
         exchangeClient.addLocation(attempt1Task1, attempt1Task1Location);
         exchangeClient.addLocation(attempt1Task2, attempt1Task2Location);
-        assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS)).isEmpty();
 
         exchangeClient.noMoreLocations();
         exchangeClient.isBlocked().get(10, SECONDS);
@@ -553,7 +554,7 @@ public class TestDirectExchangeClient
                         scheduler,
                         DataSize.of(1, Unit.KILOBYTE),
                         RetryPolicy.QUERY,
-                        new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
+                        new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
                         new QueryId("query"),
                         Span.getInvalid(),
                         createRandomExchangeId()),
@@ -1015,6 +1016,7 @@ public class TestDirectExchangeClient
         int clientCount = exchangeClient.scheduleRequestIfNecessary();
         // The first client filled the buffer. There is no place for the another one
         assertThat(clientCount).isEqualTo(1);
+        assertThat(exchangeClient.getRunningClients().size()).isEqualTo(1);
     }
 
     @Test
@@ -1048,6 +1050,7 @@ public class TestDirectExchangeClient
 
         int clientCount = exchangeClient.scheduleRequestIfNecessary();
         assertThat(clientCount).isEqualTo(2);
+        assertThat(exchangeClient.getRunningClients().size()).isEqualTo(2);
     }
 
     @Test
@@ -1080,11 +1083,13 @@ public class TestDirectExchangeClient
                 pageBufferClientCallbackExecutor,
                 (taskId, failure) -> {});
         exchangeClient.getAllClients().putAll(Map.of(locationOne, pendingClient, locationTwo, clientToBeSkipped));
+        exchangeClient.getRunningClients().add(pendingClient);
         exchangeClient.getQueuedClients().add(clientToBeSkipped);
 
         int clientCount = exchangeClient.scheduleRequestIfNecessary();
         // The first client is pending and it reserved the space in the buffer. There is no place for the another one
         assertThat(clientCount).isEqualTo(0);
+        assertThat(exchangeClient.getRunningClients().size()).isEqualTo(1);
     }
 
     private HttpPageBufferClient createHttpPageBufferClient(TestingHttpClient.Processor processor, DataSize expectedMaxSize, URI location, HttpPageBufferClient.ClientCallback callback)

@@ -24,6 +24,7 @@ import io.trino.hive.orc.NullMemoryManager;
 import io.trino.hive.orc.impl.WriterImpl;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Split;
+import io.trino.metastore.HiveType;
 import io.trino.operator.DriverContext;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import io.trino.operator.SourceOperator;
@@ -59,7 +60,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile.WriterOptions;
-import org.apache.hadoop.hive.ql.io.orc.OrcInputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.ql.io.orc.Writer;
@@ -82,7 +82,6 @@ import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -106,10 +105,10 @@ import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildCol
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.relational.Expressions.field;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -122,7 +121,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.ZLIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
@@ -489,7 +487,7 @@ public class TestOrcPageSourceMemoryTracking
     private class TestPreparer
     {
         private final FileSplit fileSplit;
-        private final Map<String, String> schema;
+        private final Schema schema;
         private final List<HiveColumnHandle> columns;
         private final List<Type> types;
         private final String partitionName;
@@ -507,12 +505,13 @@ public class TestOrcPageSourceMemoryTracking
                 throws Exception
         {
             OrcSerde serde = new OrcSerde();
-            schema = ImmutableMap.<String, String>builder()
-                    .put(LIST_COLUMNS, testColumns.stream().map(TestColumn::getName).collect(Collectors.joining(",")))
-                    .put(LIST_COLUMN_TYPES, testColumns.stream().map(TestColumn::getType).collect(Collectors.joining(",")))
-                    .put(FILE_INPUT_FORMAT, OrcInputFormat.class.getName())
-                    .put(SERIALIZATION_LIB, serde.getClass().getName())
-                    .buildOrThrow();
+            schema = new Schema(
+                    serde.getClass().getName(),
+                    false,
+                    ImmutableMap.<String, String>builder()
+                            .put(LIST_COLUMNS, testColumns.stream().map(TestColumn::getName).collect(Collectors.joining(",")))
+                            .put(LIST_COLUMN_TYPES, testColumns.stream().map(TestColumn::getType).collect(Collectors.joining(",")))
+                            .buildOrThrow());
 
             partitionKeys = testColumns.stream()
                     .filter(TestColumn::isPartitionKey)
@@ -531,7 +530,7 @@ public class TestOrcPageSourceMemoryTracking
 
                 ObjectInspector inspector = testColumn.getObjectInspector();
                 HiveType hiveType = HiveType.valueOf(inspector.getTypeName());
-                Type type = TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature());
+                Type type = TESTING_TYPE_MANAGER.getType(getTypeSignature(hiveType));
 
                 columnsBuilder.add(createBaseColumn(testColumn.getName(), columnIndex, hiveType, type, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
                 typesBuilder.add(type);
@@ -575,6 +574,7 @@ public class TestOrcPageSourceMemoryTracking
                     fileSplit.getStart(),
                     fileSplit.getLength(),
                     fileSplit.getLength(),
+                    12345,
                     schema,
                     TupleDomain.all(),
                     TESTING_TYPE_MANAGER,
@@ -618,7 +618,7 @@ public class TestOrcPageSourceMemoryTracking
                     new PlanNodeId("0"),
                     (catalog) -> (session, split, table, columnHandles, dynamicFilter) -> pageSource,
                     cursorProcessor,
-                    pageProcessor,
+                    (_) -> pageProcessor.get(),
                     TEST_TABLE_HANDLE,
                     columns.stream().map(ColumnHandle.class::cast).collect(toList()),
                     DynamicFilter.EMPTY,

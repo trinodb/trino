@@ -26,7 +26,6 @@ import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.testing.TestingNodeModule;
-import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.failuredetector.HeartbeatFailureDetector.Stats;
 import io.trino.server.InternalCommunicationConfig;
@@ -54,7 +53,6 @@ public class TestHeartbeatFailureDetector
                 new TestingJmxModule(),
                 new TestingDiscoveryModule(),
                 new TestingHttpServerModule(),
-                new TraceTokenModule(),
                 new JsonModule(),
                 new JaxrsModule(),
                 new FailureDetectorModule(),
@@ -84,7 +82,7 @@ public class TestHeartbeatFailureDetector
         assertThat(detector.getTotalCount()).isEqualTo(0);
         assertThat(detector.getActiveCount()).isEqualTo(0);
         assertThat(detector.getFailedCount()).isEqualTo(0);
-        assertThat(detector.getFailed().isEmpty()).isTrue();
+        assertThat(detector.getFailed()).isEmpty();
     }
 
     @Test

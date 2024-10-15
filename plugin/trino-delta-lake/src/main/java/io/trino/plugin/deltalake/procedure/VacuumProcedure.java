@@ -62,9 +62,12 @@ import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.MAX_WRITER_VERSION;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkUnsupportedUniversalFormat;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkValidTableHandle;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getVacuumMinRetention;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.DELETION_VECTORS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.unsupportedWriterFeatures;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
@@ -137,7 +140,10 @@ public class VacuumProcedure
         catch (TrinoException e) {
             throw e;
         }
-        catch (Exception e) {
+        catch (IOException e) {
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failure when vacuuming %s.%s with retention %s: %s", schema, table, retention, e), e);
+        }
+        catch (RuntimeException e) {
             // This is not categorized as TrinoException. All possible external failures should be handled explicitly.
             throw new RuntimeException(format("Failure when vacuuming %s.%s with retention %s: %s", schema, table, retention, e), e);
         }
@@ -182,14 +188,21 @@ public class VacuumProcedure
             accessControl.checkCanInsertIntoTable(null, tableName);
             accessControl.checkCanDeleteFromTable(null, tableName);
 
+            checkUnsupportedUniversalFormat(handle.getMetadataEntry());
+
             TableSnapshot tableSnapshot = metadata.getSnapshot(session, tableName, handle.getLocation(), Optional.of(handle.getReadVersion()));
             ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
             if (protocolEntry.minWriterVersion() > MAX_WRITER_VERSION) {
                 throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %d writer version".formatted(protocolEntry.minWriterVersion()));
             }
+            Set<String> writerFeatures = protocolEntry.writerFeatures().orElse(ImmutableSet.of());
             Set<String> unsupportedWriterFeatures = unsupportedWriterFeatures(protocolEntry.writerFeatures().orElse(ImmutableSet.of()));
             if (!unsupportedWriterFeatures.isEmpty()) {
                 throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %s writer features".formatted(unsupportedWriterFeatures));
+            }
+            if (writerFeatures.contains(DELETION_VECTORS_FEATURE_NAME)) {
+                // TODO https://github.com/trinodb/trino/issues/22809 Add support for vacuuming tables with deletion vectors
+                throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %s writer features".formatted(DELETION_VECTORS_FEATURE_NAME));
             }
 
             String tableLocation = tableSnapshot.getTableLocation();

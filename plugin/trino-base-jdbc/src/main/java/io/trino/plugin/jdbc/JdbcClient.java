@@ -100,7 +100,7 @@ public interface JdbcClient
         return Optional.empty();
     }
 
-    default Optional<JdbcExpression> convertProjection(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    default Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
     }
@@ -216,6 +216,9 @@ public interface JdbcClient
     boolean supportsRetries();
 
     String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters);
+
+    Connection getConnection(ConnectorSession session)
+            throws SQLException;
 
     Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException;

@@ -67,3 +67,28 @@ size limits.
 Prepared statement compression is not applied if the size gain is less than the
 configured value. Smaller statements do not benefit from compression, and are
 left uncompressed.
+
+(file-compression)=
+## File compression and decompression
+
+Trino uses the [aircompressor](https://github.com/airlift/aircompressor) library
+to compress and decompress ORC, Parquet, and other files using the LZ4, zstd,
+Snappy, and other algorithms. The library takes advantage of using embedded,
+higher performing, native implementations for these algorithms by default. 
+
+If necessary, this behavior can be deactivated to fall back on JVM-based
+implementations with the following configuration in the [](jvm-config):
+
+```properties
+-Dio.airlift.compress.v3.disable-native=true
+```
+
+The library relies on the [temporary directory used by the JVM](tmp-directory),
+including the execution of code in the directory, to load the embedded shared
+libraries. If this directory is mounted with `noexec`, and therefore not
+suitable, you can configure usage of a separate directory with an absolute path
+set with the following configuration in the [](jvm-config):
+
+```properties
+-Daircompressor.tmpdir=/mnt/example
+```

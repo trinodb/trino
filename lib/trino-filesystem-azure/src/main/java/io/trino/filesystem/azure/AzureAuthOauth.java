@@ -19,7 +19,7 @@ import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
 import com.google.inject.Inject;
 
-public class AzureAuthOauth
+public final class AzureAuthOauth
         implements AzureAuth
 {
     private final ClientSecretCredential credential;
@@ -37,7 +37,6 @@ public class AzureAuthOauth
                 .tenantId(tenantId)
                 .clientId(clientId)
                 .clientSecret(clientSecret)
-                .tenantId(tenantId)
                 .build();
     }
 

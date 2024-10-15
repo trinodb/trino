@@ -60,7 +60,7 @@ public final class DeltaLakeComputedStatistics
         return statistics.getColumnStatistics().entrySet().stream()
                 .filter(stats -> stats.getKey().getStatisticType() == NUMBER_OF_NON_NULL_VALUES
                         && lowercaseToColumnsHandles.containsKey(stats.getKey().getColumnName()))
-                .map(stats -> Map.entry(lowercaseToColumnsHandles.get(stats.getKey().getColumnName()).getBasePhysicalColumnName(), getBigintValue(stats.getValue())))
+                .map(stats -> Map.entry(lowercaseToColumnsHandles.get(stats.getKey().getColumnName()).basePhysicalColumnName(), getBigintValue(stats.getValue())))
                 .filter(stats -> stats.getValue().isPresent())
                 .map(nonNullCount -> Map.entry(nonNullCount.getKey(), rowCount - nonNullCount.getValue().getAsLong()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -79,8 +79,8 @@ public final class DeltaLakeComputedStatistics
 
     private static Optional<Map.Entry<String, Object>> mapSingleStatisticsValueToJsonRepresentation(Map.Entry<ColumnStatisticMetadata, Block> statistics, Map</* lowercase */ String, DeltaLakeColumnHandle> lowercaseToColumnsHandles)
     {
-        Type columnType = lowercaseToColumnsHandles.get(statistics.getKey().getColumnName()).getBasePhysicalType();
-        String physicalName = lowercaseToColumnsHandles.get(statistics.getKey().getColumnName()).getBasePhysicalColumnName();
+        Type columnType = lowercaseToColumnsHandles.get(statistics.getKey().getColumnName()).basePhysicalType();
+        String physicalName = lowercaseToColumnsHandles.get(statistics.getKey().getColumnName()).basePhysicalColumnName();
         if (columnType.equals(BOOLEAN) || columnType.equals(VARBINARY)) {
             return Optional.empty();
         }

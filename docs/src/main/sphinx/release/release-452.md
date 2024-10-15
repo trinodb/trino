@@ -2,6 +2,7 @@
 
 ## General
 
+* Add [](/connector/exasol). ({issue}`16083`)
 * Add support for processing the `X-Forwarded-Prefix` header when the
   `http-server.process-forwarded` property is enabled. ({issue}`22227`)
 * Add support for the {func}`euclidean_distance`, {func}`dot_product`, and

@@ -77,6 +77,7 @@ public class MetadataUtil
         objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>builder()
                 .put(Type.class, new TestingTypeDeserializer())
                 .put(DataSchema.class, new PinotModule.DataSchemaDeserializer())
+                .put(BrokerResponseNative.class, new PinotModule.BrokerResponseNativeDeserializer())
                 .buildOrThrow());
         JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
         COLUMN_CODEC = codecFactory.jsonCodec(PinotColumnHandle.class);

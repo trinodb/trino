@@ -3,13 +3,13 @@
 The OpenLineage event listener plugin allows streaming of lineage information,
 encoded in
 JSON format aligned with OpenLineage specification, to an external, OpenLineage
-copmpatible API, by POSTing them
+compatible API, by POSTing them
 to a specified URI.
 
 ## Rationale
 
 This event listener is aiming to capture every query that creates or modifies
-trino tables and transform it into lineage
+Trino tables and transform it into lineage
 information. Linage can be understood as relationship/flow between data/tables.
 OpenLineage is a widely used open-source
 standard for capturing lineage information from variety of system including (but

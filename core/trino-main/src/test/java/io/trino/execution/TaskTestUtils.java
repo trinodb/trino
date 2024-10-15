@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.tracing.Tracing;
 import io.opentelemetry.api.OpenTelemetry;
@@ -38,6 +39,7 @@ import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
+import io.trino.server.protocol.spooling.QueryDataEncoders;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.PageSinkManager;
@@ -67,6 +69,7 @@ import io.trino.util.FinalizerService;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -169,6 +172,8 @@ public final class TaskTestUtils
                 new GenericSpillerFactory((types, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
                 }),
+                new QueryDataEncoders(Set.of()),
+                Optional.empty(),
                 (types, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
                 },
@@ -183,7 +188,7 @@ public final class TaskTestUtils
                 blockTypeOperators,
                 PLANNER_CONTEXT.getTypeOperators(),
                 new TableExecuteContextManager(),
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
                 new NodeVersion("test"),
                 new CompilerConfig());
     }
@@ -196,7 +201,7 @@ public final class TaskTestUtils
     public static SplitMonitor createTestSplitMonitor()
     {
         return new SplitMonitor(
-                new EventListenerManager(new EventListenerConfig()),
+                new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of())),
                 new ObjectMapperProvider().get());
     }
 }

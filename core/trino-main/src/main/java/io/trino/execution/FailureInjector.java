@@ -13,115 +13,42 @@
  */
 package io.trino.execution;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.inject.Inject;
 import io.airlift.units.Duration;
-import io.trino.cache.NonEvictableCache;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.ErrorType;
 import io.trino.spi.TrinoException;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_FAILURE;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INSUFFICIENT_RESOURCES;
 import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 import static io.trino.spi.ErrorType.USER_ERROR;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class FailureInjector
+public interface FailureInjector
 {
-    public static final String FAILURE_INJECTION_MESSAGE = "This error is injected by the failure injection service";
-
-    private final NonEvictableCache<Key, InjectedFailure> failures;
-    private final Duration requestTimeout;
-
-    @Inject
-    public FailureInjector(FailureInjectionConfig config)
-    {
-        this(
-                config.getExpirationPeriod(),
-                config.getRequestTimeout());
-    }
-
-    public FailureInjector(Duration expirationPeriod, Duration requestTimeout)
-    {
-        failures = buildNonEvictableCache(CacheBuilder.newBuilder()
-                .expireAfterWrite(expirationPeriod.toMillis(), MILLISECONDS));
-        this.requestTimeout = requireNonNull(requestTimeout, "requestTimeout is null");
-    }
-
-    public void injectTaskFailure(
+    void injectTaskFailure(
             String traceToken,
             int stageId,
             int partitionId,
             int attemptId,
-            InjectedFailureType injectionType,
-            Optional<ErrorType> errorType)
-    {
-        failures.put(new Key(traceToken, stageId, partitionId, attemptId), new InjectedFailure(injectionType, errorType));
-    }
+            FailureInjector.InjectedFailureType injectionType,
+            Optional<ErrorType> errorType);
 
-    public Optional<InjectedFailure> getInjectedFailure(
+    Optional<InjectedFailure> getInjectedFailure(
             String traceToken,
             int stageId,
             int partitionId,
-            int attemptId)
-    {
-        if (failures.size() == 0) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(failures.getIfPresent(new Key(traceToken, stageId, partitionId, attemptId)));
-    }
+            int attemptId);
 
-    public Duration getRequestTimeout()
-    {
-        return requestTimeout;
-    }
+    Duration getRequestTimeout();
 
-    private static class Key
-    {
-        private final String traceToken;
-        private final int stageId;
-        private final int partitionId;
-        private final int attemptId;
-
-        private Key(String traceToken, int stageId, int partitionId, int attemptId)
-        {
-            this.traceToken = requireNonNull(traceToken, "traceToken is null");
-            this.stageId = stageId;
-            this.partitionId = partitionId;
-            this.attemptId = attemptId;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            Key key = (Key) o;
-            return stageId == key.stageId && partitionId == key.partitionId && attemptId == key.attemptId && Objects.equals(traceToken, key.traceToken);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(traceToken, stageId, partitionId, attemptId);
-        }
-    }
-
-    public enum InjectedFailureType
+    enum InjectedFailureType
     {
         TASK_MANAGEMENT_REQUEST_FAILURE,
         TASK_MANAGEMENT_REQUEST_TIMEOUT,
@@ -130,7 +57,9 @@ public class FailureInjector
         TASK_FAILURE,
     }
 
-    public static class InjectedFailure
+    String FAILURE_INJECTION_MESSAGE = "This error is injected by the failure injection service";
+
+    class InjectedFailure
     {
         private final InjectedFailureType injectedFailureType;
         private final Optional<ErrorType> taskFailureErrorType;
@@ -173,7 +102,7 @@ public class FailureInjector
         }
     }
 
-    public enum InjectedErrorCode
+    enum InjectedErrorCode
             implements ErrorCodeSupplier
     {
         INJECTED_USER_ERROR(1, USER_ERROR),

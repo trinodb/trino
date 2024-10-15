@@ -13,11 +13,13 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
@@ -61,6 +63,7 @@ import java.util.Set;
 import static com.google.common.base.Verify.verify;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
+import static java.util.Objects.requireNonNull;
 
 public class IcebergConnectorFactory
         implements ConnectorFactory
@@ -96,7 +99,7 @@ public class IcebergConnectorFactory
                     new IcebergSecurityModule(),
                     icebergCatalogModule.orElse(new IcebergCatalogModule()),
                     new MBeanServerModule(),
-                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry()),
+                    new IcebergFileSystemModule(catalogName, context),
                     binder -> {
                         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                         binder.bind(Tracer.class).toInstance(context.getTracer());
@@ -151,6 +154,28 @@ public class IcebergConnectorFactory
                     tableProcedures,
                     tableFunctions,
                     functionProvider);
+        }
+    }
+
+    private static class IcebergFileSystemModule
+            extends AbstractConfigurationAwareModule
+    {
+        private final String catalogName;
+        private final NodeManager nodeManager;
+        private final OpenTelemetry openTelemetry;
+
+        public IcebergFileSystemModule(String catalogName, ConnectorContext context)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            this.nodeManager = context.getNodeManager();
+            this.openTelemetry = context.getOpenTelemetry();
+        }
+
+        @Override
+        protected void setup(Binder binder)
+        {
+            boolean metadataCacheEnabled = buildConfigObject(IcebergConfig.class).isMetadataCacheEnabled();
+            install(new FileSystemModule(catalogName, nodeManager, openTelemetry, metadataCacheEnabled));
         }
     }
 }

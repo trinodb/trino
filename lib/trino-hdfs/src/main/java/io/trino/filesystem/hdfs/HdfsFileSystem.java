@@ -34,6 +34,7 @@ import org.apache.hadoop.hdfs.DistributedFileSystem;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -81,13 +82,19 @@ class HdfsFileSystem
     @Override
     public TrinoInputFile newInputFile(Location location)
     {
-        return new HdfsInputFile(location, null, environment, context, stats.getOpenFileCalls());
+        return new HdfsInputFile(location, null, null, environment, context, stats.getOpenFileCalls());
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
-        return new HdfsInputFile(location, length, environment, context, stats.getOpenFileCalls());
+        return new HdfsInputFile(location, length, null, environment, context, stats.getOpenFileCalls());
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+    {
+        return new HdfsInputFile(location, length, lastModified, environment, context, stats.getOpenFileCalls());
     }
 
     @Override
@@ -225,6 +232,7 @@ class HdfsFileSystem
     }
 
     @Override
+    // Warning: HDFS does not guarantee order of the returned files for local ViewFS which breaks the contract of this method.
     public FileIterator listFiles(Location location)
             throws IOException
     {
@@ -301,13 +309,9 @@ class HdfsFileSystem
                 if (!fileSystem.mkdirs(directory, permission.orElse(null))) {
                     throw new IOException("mkdirs failed");
                 }
-                // explicitly set permission since the default umask overrides it on creation
-                // CCCS-MODIFICATION: Folders are already created with the proper permissions and this
-                // call to the API generates a misleading error because the permissions can`t be changed
-                // but the folders get properly created on the filesystem and with the right permissions.
-                //  if (permission.isPresent()) {
-                //      fileSystem.setPermission(directory, permission.get());
-                //  }
+                if (permission.isPresent()) {
+                    fileSystem.setPermission(directory, permission.get());
+                }
             }
             catch (IOException e) {
                 stats.getCreateDirectoryCalls().recordException(e);

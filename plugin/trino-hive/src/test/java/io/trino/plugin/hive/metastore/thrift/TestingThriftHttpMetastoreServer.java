@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
-import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.http.server.HttpServerInfo;
-import io.airlift.http.server.TheServlet;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.node.testing.TestingNodeModule;
 import io.trino.hive.thrift.metastore.Database;
@@ -37,7 +34,6 @@ import org.apache.thrift.server.TServlet;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -59,8 +55,7 @@ public class TestingThriftHttpMetastoreServer
                 new TestingNodeModule(),
                 new TestingHttpServerModule(),
                 binder -> {
-                    binder.bind(new TypeLiteral<Map<String, String>>() {}).annotatedWith(TheServlet.class).toInstance(ImmutableMap.of());
-                    binder.bind(Servlet.class).annotatedWith(TheServlet.class).toInstance(thriftHttpServlet);
+                    binder.bind(Servlet.class).toInstance(thriftHttpServlet);
                 });
 
         Injector injector = app

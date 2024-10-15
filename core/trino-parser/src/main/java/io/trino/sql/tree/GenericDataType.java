@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class GenericDataType
+public final class GenericDataType
         extends DataType
 {
     private final Identifier name;

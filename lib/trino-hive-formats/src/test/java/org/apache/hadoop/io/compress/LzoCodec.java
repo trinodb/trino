@@ -14,5 +14,5 @@
 package org.apache.hadoop.io.compress;
 
 public class LzoCodec
-        extends io.airlift.compress.lzo.LzoCodec
+        extends io.airlift.compress.v3.lzo.LzoCodec
 {}

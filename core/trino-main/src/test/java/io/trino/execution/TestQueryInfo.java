@@ -290,7 +290,7 @@ public class TestQueryInfo
                 Duration.succinctDuration(value, SECONDS),
                 Duration.succinctDuration(value, SECONDS),
                 false,
-                org.weakref.jmx.$internal.guava.collect.ImmutableSet.of(),
+                ImmutableSet.of(),
                 succinctBytes(value),
                 succinctBytes(value),
                 value,

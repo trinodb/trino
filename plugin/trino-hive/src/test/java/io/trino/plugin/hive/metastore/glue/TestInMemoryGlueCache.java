@@ -15,15 +15,16 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.TableInfo;
+import io.trino.metastore.Column;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Partition;
+import io.trino.metastore.StorageFormat;
+import io.trino.metastore.Table;
+import io.trino.metastore.TableInfo;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.security.PrincipalType;
@@ -47,7 +48,13 @@ class TestInMemoryGlueCache
 {
     private static GlueCache createGlueCache()
     {
-        return new InMemoryGlueCache(new Duration(1, TimeUnit.DAYS), new Duration(1, TimeUnit.DAYS), Long.MAX_VALUE);
+        return new InMemoryGlueCache(
+                new CatalogName("testing"),
+                new Duration(1, TimeUnit.DAYS),
+                new Duration(1, TimeUnit.DAYS),
+                Optional.of(new Duration(12, TimeUnit.HOURS)),
+                1,
+                Long.MAX_VALUE);
     }
 
     @Test

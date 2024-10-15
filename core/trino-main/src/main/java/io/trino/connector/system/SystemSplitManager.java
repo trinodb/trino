@@ -62,11 +62,11 @@ public class SystemSplitManager
             Constraint constraint)
     {
         SystemTableHandle table = (SystemTableHandle) tableHandle;
-        TupleDomain<ColumnHandle> tableConstraint = table.getConstraint();
+        TupleDomain<ColumnHandle> tableConstraint = table.constraint();
 
-        SystemTable systemTable = tables.getSystemTable(session, table.getSchemaTableName())
+        SystemTable systemTable = tables.getSystemTable(session, table.schemaTableName())
                 // table might disappear in the meantime
-                .orElseThrow(() -> new TableNotFoundException(table.getSchemaTableName()));
+                .orElseThrow(() -> new TableNotFoundException(table.schemaTableName()));
 
         Distribution tableDistributionMode = systemTable.getDistribution();
         if (tableDistributionMode == SINGLE_COORDINATOR) {

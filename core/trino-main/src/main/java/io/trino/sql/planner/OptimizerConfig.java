@@ -100,6 +100,8 @@ public class OptimizerConfig
     private DataSize minInputSizePerTask = DataSize.of(5, GIGABYTE);
     private long minInputRowsPerTask = 10_000_000L;
 
+    private boolean allowUnsafePushdown; // TODO: remove once https://github.com/trinodb/trino/issues/22268 is fixed
+
     public enum JoinReorderingStrategy
     {
         NONE,
@@ -136,6 +138,7 @@ public class OptimizerConfig
         SINGLE_STEP,
         MARK_DISTINCT,
         PRE_AGGREGATE,
+        SPLIT_TO_SUBQUERIES,
         AUTOMATIC,
     }
 
@@ -817,6 +820,19 @@ public class OptimizerConfig
     public OptimizerConfig setPushFilterIntoValuesMaxRowCount(int pushFilterIntoValuesMaxRowCount)
     {
         this.pushFilterIntoValuesMaxRowCount = pushFilterIntoValuesMaxRowCount;
+        return this;
+    }
+
+    public boolean isUnsafePushdownAllowed()
+    {
+        return allowUnsafePushdown;
+    }
+
+    @Config("optimizer.allow-unsafe-pushdown")
+    @ConfigDescription("Allow pushing down expressions that mail fail for some inputs")
+    public OptimizerConfig setUnsafePushdownAllowed(boolean value)
+    {
+        this.allowUnsafePushdown = value;
         return this;
     }
 }

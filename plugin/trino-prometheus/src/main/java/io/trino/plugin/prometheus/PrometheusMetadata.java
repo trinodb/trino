@@ -82,7 +82,7 @@ public class PrometheusMetadata
             return null;
         }
 
-        return new PrometheusTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        return new PrometheusTableHandle(tableName.getSchemaName(), tableName.getTableName(), Optional.empty());
     }
 
     @Override
@@ -108,7 +108,7 @@ public class PrometheusMetadata
     {
         PrometheusTableHandle prometheusTableHandle = (PrometheusTableHandle) tableHandle;
 
-        PrometheusTable table = prometheusClient.getTable(prometheusTableHandle.getSchemaName(), prometheusTableHandle.getTableName());
+        PrometheusTable table = prometheusClient.getTable(prometheusTableHandle.schemaName(), prometheusTableHandle.tableName());
         if (table == null) {
             throw new TableNotFoundException(prometheusTableHandle.toSchemaTableName());
         }

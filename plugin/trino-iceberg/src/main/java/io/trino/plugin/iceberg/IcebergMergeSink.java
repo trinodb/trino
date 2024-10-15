@@ -13,14 +13,12 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.plugin.iceberg.delete.IcebergPositionDeletePageSink;
+import io.trino.plugin.iceberg.delete.PositionDeleteWriter;
 import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ConnectorMergeSink;
@@ -128,12 +126,12 @@ public class IcebergMergeSink
         List<Slice> fragments = new ArrayList<>(insertPageSink.finish().join());
 
         fileDeletions.forEach((dataFilePath, deletion) -> {
-            ConnectorPageSink sink = createPositionDeletePageSink(
+            PositionDeleteWriter writer = createPositionDeleteWriter(
                     dataFilePath.toStringUtf8(),
                     partitionsSpecs.get(deletion.partitionSpecId()),
                     deletion.partitionDataJson());
 
-            fragments.addAll(writePositionDeletes(sink, deletion.rowsToDelete()));
+            fragments.addAll(writePositionDeletes(writer, deletion.rowsToDelete()));
         });
 
         return completedFuture(fragments);
@@ -145,7 +143,7 @@ public class IcebergMergeSink
         insertPageSink.abort();
     }
 
-    private ConnectorPageSink createPositionDeletePageSink(String dataFilePath, PartitionSpec partitionSpec, String partitionDataJson)
+    private PositionDeleteWriter createPositionDeleteWriter(String dataFilePath, PartitionSpec partitionSpec, String partitionDataJson)
     {
         Optional<PartitionData> partitionData = Optional.empty();
         if (partitionSpec.isPartitioned()) {
@@ -155,7 +153,7 @@ public class IcebergMergeSink
             partitionData = Optional.of(PartitionData.fromJson(partitionDataJson, columnTypes));
         }
 
-        return new IcebergPositionDeletePageSink(
+        return new PositionDeleteWriter(
                 dataFilePath,
                 partitionSpec,
                 partitionData,
@@ -168,35 +166,15 @@ public class IcebergMergeSink
                 storageProperties);
     }
 
-    private static Collection<Slice> writePositionDeletes(ConnectorPageSink sink, ImmutableLongBitmapDataProvider rowsToDelete)
+    private static Collection<Slice> writePositionDeletes(PositionDeleteWriter writer, ImmutableLongBitmapDataProvider rowsToDelete)
     {
         try {
-            return doWritePositionDeletes(sink, rowsToDelete);
+            return writer.write(rowsToDelete);
         }
         catch (Throwable t) {
-            closeAllSuppress(t, sink::abort);
+            closeAllSuppress(t, writer::abort);
             throw t;
         }
-    }
-
-    private static Collection<Slice> doWritePositionDeletes(ConnectorPageSink sink, ImmutableLongBitmapDataProvider rowsToDelete)
-    {
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BIGINT));
-
-        rowsToDelete.forEach(rowPosition -> {
-            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), rowPosition);
-            pageBuilder.declarePosition();
-            if (pageBuilder.isFull()) {
-                sink.appendPage(pageBuilder.build());
-                pageBuilder.reset();
-            }
-        });
-
-        if (!pageBuilder.isEmpty()) {
-            sink.appendPage(pageBuilder.build());
-        }
-
-        return sink.finish().join();
     }
 
     private static class FileDeletion

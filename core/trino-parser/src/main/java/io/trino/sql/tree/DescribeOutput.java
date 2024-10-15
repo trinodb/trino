@@ -28,17 +28,7 @@ public class DescribeOutput
 
     public DescribeOutput(NodeLocation location, Identifier name)
     {
-        this(Optional.of(location), name);
-    }
-
-    public DescribeOutput(Identifier name)
-    {
-        this(Optional.empty(), name);
-    }
-
-    private DescribeOutput(Optional<NodeLocation> location, Identifier name)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = name;
     }
 

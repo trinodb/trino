@@ -553,7 +553,7 @@ public final class ShowQueriesRewrite
             List<Property> propertyNodes = toSqlProperties("materialized view " + objectName, INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
 
             String sql = formatSql(new CreateMaterializedView(
-                    Optional.empty(),
+                    node.getLocation().orElseThrow(),
                     QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
                     query,
                     false,
@@ -676,6 +676,7 @@ public final class ShowQueriesRewrite
             Optional<PrincipalSpecification> owner = metadata.getSchemaOwner(session, schemaName).map(MetadataUtil::createPrincipal);
 
             CreateSchema createSchema = new CreateSchema(
+                    node.getLocation().orElseThrow(),
                     qualifiedSchemaName,
                     false,
                     propertyNodes,

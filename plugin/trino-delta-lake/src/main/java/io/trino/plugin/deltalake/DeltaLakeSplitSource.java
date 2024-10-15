@@ -138,7 +138,7 @@ public class DeltaLakeSplitSource
                         return new ConnectorSplitBatch(ImmutableList.of(), noMoreSplits);
                     }
                     Map<DeltaLakeColumnHandle, Domain> partitionColumnDomains = dynamicFilterPredicate.getDomains().orElseThrow().entrySet().stream()
-                            .filter(entry -> entry.getKey().getColumnType() == DeltaLakeColumnType.PARTITION_KEY)
+                            .filter(entry -> entry.getKey().columnType() == DeltaLakeColumnType.PARTITION_KEY)
                             .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
                     List<ConnectorSplit> filteredSplits = splits.stream()
                             .map(DeltaLakeSplit.class::cast)

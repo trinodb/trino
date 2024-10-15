@@ -29,19 +29,9 @@ public class DropFunction
     private final List<ParameterDeclaration> parameters;
     private final boolean exists;
 
-    public DropFunction(QualifiedName name, List<ParameterDeclaration> parameters, boolean exists)
-    {
-        this(Optional.empty(), name, parameters, exists);
-    }
-
     public DropFunction(NodeLocation location, QualifiedName name, List<ParameterDeclaration> parameters, boolean exists)
     {
-        this(Optional.of(location), name, parameters, exists);
-    }
-
-    private DropFunction(Optional<NodeLocation> location, QualifiedName name, List<ParameterDeclaration> parameters, boolean exists)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = requireNonNull(name, "name is null");
         this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
         this.exists = exists;

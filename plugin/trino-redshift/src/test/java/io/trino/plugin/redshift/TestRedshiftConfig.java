@@ -27,16 +27,19 @@ public class TestRedshiftConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(RedshiftConfig.class));
+        assertRecordedDefaults(recordDefaults(RedshiftConfig.class)
+                .setFetchSize(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("redshift.fetch-size", "2000")
                 .buildOrThrow();
 
-        RedshiftConfig expected = new RedshiftConfig();
+        RedshiftConfig expected = new RedshiftConfig()
+                .setFetchSize(2000);
 
         assertFullMapping(properties, expected);
     }

@@ -1,0 +1,93 @@
+name: Upload test results
+
+on:
+  workflow_run:
+    workflows: ["ci", "docs"]
+    types:
+      - completed
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+jobs:
+  upload-to-s3:
+    if: github.secret_source != 'None' && github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Download artifact'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const opts = github.rest.actions.listWorkflowRunArtifacts.endpoint.merge({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: ${{github.event.workflow_run.id }},
+            });
+            const artifacts = await github.paginate(opts);
+            for (const artifact of artifacts) {
+              if (!artifact.name.startsWith('test report ')) {
+                continue;
+              }
+              const download = await github.rest.actions.downloadArtifact({
+                 owner: context.repo.owner,
+                 repo: context.repo.repo,
+                 artifact_id: artifact.id,
+                 archive_format: 'zip',
+              });
+              fs.writeFileSync('${{github.workspace}}/' + artifact.name + '.zip', Buffer.from(download.data));
+            }
+      - run: |
+          for archive in *.zip; do
+            # $archive is literally *.zip if there are no zip files matching the glob expression
+            [ -f "$archive" ] || continue
+            name=$(basename "$archive" .zip)
+            mkdir "$name"
+            (cd "$name" && unzip ../"$archive")
+          done
+      - name: Upload test results to S3
+        env:
+          S3_BUCKET: ${{ vars.TEST_RESULTS_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ vars.TEST_RESULTS_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TEST_RESULTS_AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-2
+        if: env.S3_BUCKET != '' && env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != ''
+        shell: bash --noprofile --norc -euo pipefail {0}
+        run: |
+          # 1. Don't prefix attributes, because +@ (the default prefix) is not a valid character in nested row field names in the Hive connector for JSON files.
+          # 2. When converting to JSON, make sure 'testcase' is always an array: https://mikefarah.gitbook.io/yq/usage/xml#parse-xml-force-as-an-array
+          # 3. Remove system-err and system-out, because they cannot be easily parsed and add significant bloat, making storing and processing the data much more costly.
+          # 4. Remove properties, because they leak secret values.
+          # 5. Truncate all strings to 1k characters to avoid having lines longer than 100MB.
+          yq_opts=(
+              --input-format=xml
+              --output-format=json
+              --xml-attribute-prefix=''
+              --xml-content-name='content'
+              --xml-skip-directives
+              --xml-skip-proc-inst
+              '.testsuite.testcase |= ([] + .) | .testsuite.testcase[] |= del(.system-err, .system-out) | .testsuite |= del(.properties) | .. |= select(tag == "!!str") |= sub("(.{0,1000}).*", "${1}")'
+          )
+          artifact_id='${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}.json.gz'
+
+          find . \
+            -name TEST-\*.xml \
+            -exec yq "${yq_opts[@]}" {} \; \
+                | jq -c > surefire.ndjson
+          find . \
+            -name testng-results.xml \
+            -exec yq "${yq_opts[@]}" {} \; \
+                | jq -c > testng.ndjson
+
+          for filename in *.ndjson; do
+            if [ ! -s "$filename" ]; then
+              continue;
+            fi
+            jq -c \
+              --argjson addObj '{"branch":"${{ github.event.workflow_run.head_branch }}","git_sha":"${{ github.event.workflow_run.head_sha }}","workflow_name":"${{ github.event.workflow.name }}","workflow_run":"${{ github.event.workflow_run.id }}","workflow_conclusion":"${{ github.event.workflow_run.conclusion }}","workflow_job":"","workflow_run_attempt":"${{ github.event.workflow_run.run_attempt }}","timestamp":""}' \
+              --arg timestamp "$(date -u '+%F %T.%3NZ')" \
+              '. + $addObj | .timestamp=$timestamp' "$filename" | gzip -c > "$artifact_id"
+
+            aws s3 cp --no-progress "$artifact_id" "s3://$S3_BUCKET/tests/results/type=$(basename "$filename" .ndjson)/repo=$(basename "${{ github.repository }}")/date_created=$(date -u '+%Y-%m-%d')/$artifact_id"
+          done

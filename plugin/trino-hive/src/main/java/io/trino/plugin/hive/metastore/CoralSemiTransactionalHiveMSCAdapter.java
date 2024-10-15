@@ -25,7 +25,7 @@ import io.trino.spi.connector.SchemaTableName;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static java.util.Objects.requireNonNull;
@@ -134,7 +134,6 @@ public class CoralSemiTransactionalHiveMSCAdapter
         var result = new com.linkedin.coral.hive.metastore.api.SerDeInfo();
         result.setName(info.getName());
         result.setDescription(info.getDescription());
-        result.setSerializationLib(info.getSerializationLib());
         result.setSerializerClass(info.getSerializerClass());
         result.setDeserializerClass(info.getDeserializerClass());
         result.setParameters(info.getParameters());

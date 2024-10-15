@@ -97,7 +97,6 @@ public class TestMemoryConnectorTest
                  SUPPORTS_MERGE,
                  SUPPORTS_PREDICATE_PUSHDOWN,
                  SUPPORTS_RENAME_FIELD,
-                 SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_UPDATE -> false;
@@ -282,15 +281,14 @@ public class TestMemoryConnectorTest
     public void testJoinDynamicFilteringBlockProbeSide()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
-            // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
+            // Wait for both build side to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
             assertDynamicFiltering(
                     "SELECT l.comment" +
-                            " FROM  lineitem l, part p, orders o" +
-                            " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '" +
-                            " AND p.partkey = l.partkey AND p.comment = 'onic deposits'",
+                            " FROM  lineitem l, orders o" +
+                            " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '",
                     noJoinReordering(joinDistributionType),
-                    1,
-                    1, PART_COUNT, ORDERS_COUNT);
+                    6,
+                    6, ORDERS_COUNT);
         }
     }
 
@@ -603,6 +601,19 @@ public class TestMemoryConnectorTest
 
         assertUpdate("DROP VIEW test_different_schema.test_view_renamed");
         assertUpdate("DROP SCHEMA test_different_schema");
+    }
+
+    @Test
+    void testInsertAfterTruncate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_truncate", "AS SELECT 1 x")) {
+            assertUpdate("TRUNCATE TABLE " + table.getName());
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES 2");
+        }
     }
 
     @Override

@@ -30,7 +30,6 @@ import io.openlineage.client.OpenLineage.RunEvent;
 import io.openlineage.client.OpenLineage.RunFacet;
 import io.openlineage.client.OpenLineage.RunFacetsBuilder;
 import io.openlineage.client.OpenLineageClient;
-import io.trino.plugin.openlineage.config.OpenLineageListenerConfig;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.OutputColumnMetadata;
 import io.trino.spi.eventlistener.QueryCompletedEvent;

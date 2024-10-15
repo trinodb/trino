@@ -496,6 +496,39 @@ public abstract class BaseOracleConnectorTest
         }
     }
 
+    @Test
+    public void testJoinPushdownWithImplicitCast()
+    {
+        try (TestTable leftTable = new TestTable(getQueryRunner()::execute, "left_table", "(id int, varchar_50 varchar(50))", ImmutableList.of("(1, 'India')", "(2, 'Poland')"));
+                TestTable rightTable = new TestTable(getQueryRunner()::execute, "right_table_", "(varchar_100 varchar(100), varchar_unbounded varchar)", ImmutableList.of("('India', 'Japan')", "('France', 'Poland')"))) {
+            String leftTableName = leftTable.getName();
+            String rightTableName = rightTable.getName();
+            Session session = joinPushdownEnabled(getSession());
+
+            // Implicit cast between bounded varchar
+            String joinWithBoundedVarchar = "SELECT id FROM %s l %s %s r ON l.varchar_50 = r.varchar_100".formatted(leftTableName, "%s", rightTableName);
+            assertThat(query(session, joinWithBoundedVarchar.formatted("LEFT JOIN")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinWithBoundedVarchar.formatted("RIGHT JOIN")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinWithBoundedVarchar.formatted("INNER JOIN")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinWithBoundedVarchar.formatted("FULL JOIN")))
+                    .isFullyPushedDown();
+
+            // Implicit cast between bounded and unbounded varchar
+            String joinWithUnboundedVarchar = "SELECT id FROM %s l %s %s r ON l.varchar_50 = r.varchar_unbounded".formatted(leftTableName, "%s", rightTableName);
+            assertThat(query(session, joinWithUnboundedVarchar.formatted("LEFT JOIN")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinWithUnboundedVarchar.formatted("RIGHT JOIN")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinWithUnboundedVarchar.formatted("INNER JOIN")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinWithUnboundedVarchar.formatted("FULL JOIN")))
+                    .joinIsNotFullyPushedDown();
+        }
+    }
+
     protected String getUser()
     {
         return TEST_USER;

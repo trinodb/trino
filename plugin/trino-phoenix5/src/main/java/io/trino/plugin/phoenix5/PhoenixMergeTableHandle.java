@@ -17,20 +17,30 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
+import io.trino.spi.predicate.TupleDomain;
 
-public record PhoenixMergeTableHandle(JdbcTableHandle tableHandle, PhoenixOutputTableHandle phoenixOutputTableHandle, JdbcColumnHandle mergeRowIdColumnHandle)
+import static java.util.Objects.requireNonNull;
+
+public record PhoenixMergeTableHandle(
+        JdbcTableHandle tableHandle,
+        PhoenixOutputTableHandle phoenixOutputTableHandle,
+        JdbcColumnHandle mergeRowIdColumnHandle,
+        TupleDomain<ColumnHandle> primaryKeysDomain)
         implements ConnectorMergeTableHandle
 {
     @JsonCreator
     public PhoenixMergeTableHandle(
             @JsonProperty("tableHandle") JdbcTableHandle tableHandle,
             @JsonProperty("phoenixOutputTableHandle") PhoenixOutputTableHandle phoenixOutputTableHandle,
-            @JsonProperty("mergeRowIdColumnHandle") JdbcColumnHandle mergeRowIdColumnHandle)
+            @JsonProperty("mergeRowIdColumnHandle") JdbcColumnHandle mergeRowIdColumnHandle,
+            @JsonProperty("primaryKeysDomain") TupleDomain<ColumnHandle> primaryKeysDomain)
     {
-        this.tableHandle = tableHandle;
-        this.phoenixOutputTableHandle = phoenixOutputTableHandle;
-        this.mergeRowIdColumnHandle = mergeRowIdColumnHandle;
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.phoenixOutputTableHandle = requireNonNull(phoenixOutputTableHandle, "phoenixOutputTableHandle is null");
+        this.mergeRowIdColumnHandle = requireNonNull(mergeRowIdColumnHandle, "mergeRowIdColumnHandle is null");
+        this.primaryKeysDomain = requireNonNull(primaryKeysDomain, "primaryKeysDomain is null");
     }
 
     @JsonProperty
@@ -52,5 +62,12 @@ public record PhoenixMergeTableHandle(JdbcTableHandle tableHandle, PhoenixOutput
     public JdbcColumnHandle mergeRowIdColumnHandle()
     {
         return mergeRowIdColumnHandle;
+    }
+
+    @Override
+    @JsonProperty
+    public TupleDomain<ColumnHandle> primaryKeysDomain()
+    {
+        return primaryKeysDomain;
     }
 }

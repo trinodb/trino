@@ -150,6 +150,21 @@ public final class PlanMatchPattern
                         sourceFragmentIds,
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    public static PlanMatchPattern remoteSource(
+            List<PlanFragmentId> sourceFragmentIds,
+            List<String> outputSymbols,
+            ExchangeNode.Type exchangeType)
+    {
+        return node(RemoteSourceNode.class)
+                .with(new RemoteSourceMatcher(
+                        sourceFragmentIds,
+                        Optional.of(outputSymbols),
+                        Optional.empty(),
+                        Optional.of(exchangeType),
                         Optional.empty()));
     }
 

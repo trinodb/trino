@@ -15,29 +15,34 @@ package io.trino.filesystem.s3;
 
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.memory.context.AggregatedMemoryContext;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.concurrent.ExecutorService;
+import java.util.Optional;
+import java.util.concurrent.Executor;
 
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
 
 final class S3OutputFile
         implements TrinoOutputFile
 {
-    private final ExecutorService uploadExecutor;
+    private final Executor uploadExecutor;
     private final S3Client client;
     private final S3Context context;
     private final S3Location location;
+    private final Optional<EncryptionKey> key;
 
-    public S3OutputFile(ExecutorService uploadExecutor, S3Client client, S3Context context, S3Location location)
+    public S3OutputFile(Executor uploadExecutor, S3Client client, S3Context context, S3Location location, Optional<EncryptionKey> key)
     {
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.client = requireNonNull(client, "client is null");
         this.context = requireNonNull(context, "context is null");
         this.location = requireNonNull(location, "location is null");
+        this.key = requireNonNull(key, "key is null");
         location.location().verifyValidFileLocation();
     }
 
@@ -45,7 +50,20 @@ final class S3OutputFile
     public void createOrOverwrite(byte[] data)
             throws IOException
     {
-        try (OutputStream out = create()) {
+        try (OutputStream out = create(newSimpleAggregatedMemoryContext(), false)) {
+            out.write(data);
+        }
+    }
+
+    @Override
+    public void createExclusive(byte[] data)
+            throws IOException
+    {
+        if (!context.exclusiveWriteSupported()) {
+            throw new UnsupportedOperationException("createExclusive not supported by " + getClass());
+        }
+
+        try (OutputStream out = create(newSimpleAggregatedMemoryContext(), true)) {
             out.write(data);
         }
     }
@@ -53,7 +71,12 @@ final class S3OutputFile
     @Override
     public OutputStream create(AggregatedMemoryContext memoryContext)
     {
-        return new S3OutputStream(memoryContext, uploadExecutor, client, context, location);
+        return create(memoryContext, context.exclusiveWriteSupported());
+    }
+
+    public OutputStream create(AggregatedMemoryContext memoryContext, boolean exclusive)
+    {
+        return new S3OutputStream(memoryContext, uploadExecutor, client, context, location, exclusive, key);
     }
 
     @Override

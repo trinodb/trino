@@ -21,17 +21,26 @@ import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.Column;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.Storage;
 import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.blackhole.BlackHolePlugin;
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.DoubleRange;
+import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -41,6 +50,7 @@ import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.FileContent;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -56,6 +66,7 @@ import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -69,6 +80,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
@@ -87,7 +99,9 @@ import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTableWithSchema;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
@@ -98,7 +112,9 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
+import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
+import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -216,6 +232,11 @@ public class TestIcebergV2
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         // nationkey is before the equality delete column in the table schema, comment is after
         assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
+
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation", 25);
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {2L})), ImmutableMap.of("regionkey", 2L));
+        // the equality delete file is applied to 2 data files
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = " + FileContent.EQUALITY_DELETES.id(), "VALUES 2");
     }
 
     @Test
@@ -333,6 +354,23 @@ public class TestIcebergV2
         assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE nationkey < 5");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
         assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
+    }
+
+    @Test
+    public void testOptimizePopulateSplitOffsets()
+    {
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+        Session session = Session.builder(getSession())
+                .setSystemProperty("task_min_writer_count", "1")
+                .build();
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_optimize_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
+            assertUpdate(session, "ALTER TABLE " + table.getName() + " EXECUTE optimize");
+            assertThat(computeActual("SELECT split_offsets FROM \"" + table.getName() + "$files\""))
+                    .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
+                            .row(ImmutableList.of(4L))
+                            .build());
+        }
     }
 
     @Test
@@ -869,8 +907,6 @@ public class TestIcebergV2
                 .withEncryptionKeyMetadata(ByteBuffer.wrap("Trino".getBytes(UTF_8)))
                 .build();
         table.newAppend().appendFile(dataFile).commit();
-        // TODO Currently, Trino does not include equality delete files stats in the $files table.
-        //  Once it is fixed by https://github.com/trinodb/trino/pull/16232, include equality delete output in the test.
         writeEqualityDeleteToNationTable(table);
         assertQuery(
                 "SELECT " +
@@ -892,7 +928,7 @@ public class TestIcebergV2
                                        (0,
                                         'PARQUET',
                                         25L,
-                                        JSON '{"1":141,"2":220,"3":99,"4":807}',
+                                        JSON '{"1":137,"2":216,"3":91,"4":801}',
                                         JSON '{"1":25,"2":25,"3":25,"4":25}',
                                         jSON '{"1":0,"2":0,"3":0,"4":0}',
                                         jSON '{}',
@@ -912,7 +948,19 @@ public class TestIcebergV2
                                         JSON '{"1":"4"}',
                                         X'54 72 69 6e 6f',
                                         ARRAY[4L],
-                                        null)
+                                        null),
+                                        (2,
+                                        'PARQUET',
+                                        1L,
+                                        JSON '{"3":49}',
+                                        JSON '{"3":1}',
+                                        JSON '{"3":0}',
+                                        JSON '{}',
+                                        JSON '{"3":"1"}',
+                                        JSON '{"3":"1"}',
+                                        null,
+                                        ARRAY[4],
+                                        ARRAY[3])
                         """);
     }
 
@@ -926,7 +974,15 @@ public class TestIcebergV2
             Optional<Long> snapshotId = Optional.of((long) computeScalar("SELECT snapshot_id FROM \"" + testTable.getName() + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
             TypeManager typeManager = new TestingTypeManager();
             Table table = loadTable(testTable.getName());
-            TableStatistics withNoFilter = TableStatisticsReader.makeTableStatistics(typeManager, table, snapshotId, TupleDomain.all(), TupleDomain.all(), true, fileSystemFactory.create(SESSION));
+            TableStatistics withNoFilter = TableStatisticsReader.makeTableStatistics(
+                    typeManager,
+                    table,
+                    snapshotId,
+                    TupleDomain.all(),
+                    TupleDomain.all(),
+                    ImmutableSet.of(),
+                    true,
+                    fileSystemFactory.create(SESSION));
             assertThat(withNoFilter.getRowCount().getValue()).isEqualTo(4.0);
 
             TableStatistics withPartitionFilter = TableStatisticsReader.makeTableStatistics(
@@ -934,25 +990,154 @@ public class TestIcebergV2
                     table,
                     snapshotId,
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(1, "b"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
+                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(2, "b"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
                             Domain.singleValue(INTEGER, 10L))),
                     TupleDomain.all(),
+                    ImmutableSet.of(),
                     true,
                     fileSystemFactory.create(SESSION));
             assertThat(withPartitionFilter.getRowCount().getValue()).isEqualTo(3.0);
 
+            IcebergColumnHandle column = new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
             TableStatistics withUnenforcedFilter = TableStatisticsReader.makeTableStatistics(
                     typeManager,
                     table,
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(0, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
+                            column,
                             Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 100L)), true))),
+                    ImmutableSet.of(column),
                     true,
                     fileSystemFactory.create(SESSION));
             assertThat(withUnenforcedFilter.getRowCount().getValue()).isEqualTo(2.0);
         }
+    }
+
+    @Test
+    public void testColumnStatsPruning()
+    {
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_column_stats_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 10), (10, 10)", 2);
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (200, 10), (300, 20)", 2);
+
+            Optional<Long> snapshotId = Optional.of((long) computeScalar("SELECT snapshot_id FROM \"" + testTable.getName() + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
+            TypeManager typeManager = new TestingTypeManager();
+            Table table = loadTable(testTable.getName());
+            TableStatistics withNoProjectedColumns = TableStatisticsReader.makeTableStatistics(
+                    typeManager,
+                    table,
+                    snapshotId,
+                    TupleDomain.all(),
+                    TupleDomain.all(),
+                    ImmutableSet.of(),
+                    true,
+                    fileSystemFactory.create(SESSION));
+            assertThat(withNoProjectedColumns.getRowCount().getValue()).isEqualTo(4.0);
+            assertThat(withNoProjectedColumns.getColumnStatistics()).isEmpty();
+
+            IcebergColumnHandle column = new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
+            TableStatistics withProjectedColumns = TableStatisticsReader.makeTableStatistics(
+                    typeManager,
+                    table,
+                    snapshotId,
+                    TupleDomain.all(),
+                    TupleDomain.all(),
+                    ImmutableSet.of(column),
+                    true,
+                    fileSystemFactory.create(SESSION));
+            assertThat(withProjectedColumns.getRowCount().getValue()).isEqualTo(4.0);
+            assertThat(withProjectedColumns.getColumnStatistics()).containsOnlyKeys(column);
+            assertThat(withProjectedColumns.getColumnStatistics().get(column))
+                    .isEqualTo(ColumnStatistics.builder()
+                            .setNullsFraction(Estimate.zero())
+                            .setDistinctValuesCount(Estimate.of(4.0))
+                            .setRange(new DoubleRange(1.0, 300.0))
+                            .build());
+
+            TableStatistics withPartitionFilterAndProjectedColumn = TableStatisticsReader.makeTableStatistics(
+                    typeManager,
+                    table,
+                    snapshotId,
+                    TupleDomain.all(),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(
+                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(2, "b"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
+                            Domain.singleValue(INTEGER, 10L))),
+                    ImmutableSet.of(column),
+                    true,
+                    fileSystemFactory.create(SESSION));
+            assertThat(withPartitionFilterAndProjectedColumn.getRowCount().getValue()).isEqualTo(3.0);
+            assertThat(withPartitionFilterAndProjectedColumn.getColumnStatistics()).containsOnlyKeys(column);
+            assertThat(withPartitionFilterAndProjectedColumn.getColumnStatistics().get(column))
+                    .isEqualTo(ColumnStatistics.builder()
+                            .setNullsFraction(Estimate.zero())
+                            .setDistinctValuesCount(Estimate.of(4.0))
+                            .setRange(new DoubleRange(1.0, 200.0))
+                            .build());
+        }
+    }
+
+    @Test
+    public void testInt96TimestampWithTimeZone()
+    {
+        assertUpdate("CREATE TABLE hive.tpch.test_timestamptz_base (t timestamp) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO hive.tpch.test_timestamptz_base (t) VALUES (timestamp '2022-07-26 12:13')", 1);
+
+        // Writing TIMESTAMP WITH LOCAL TIME ZONE is not supported, so we first create Parquet object by writing unzoned
+        // timestamp (which is converted to UTC using default timezone) and then creating another table that reads from the same file.
+        String tableLocation = metastore.getTable("tpch", "test_timestamptz_base").orElseThrow().getStorage().getLocation();
+
+        // TIMESTAMP WITH LOCAL TIME ZONE is not mapped to any Trino type, so we need to create the metastore entry manually
+        metastore.createTable(
+                new io.trino.metastore.Table(
+                        "tpch",
+                        "test_timestamptz",
+                        Optional.of("hive"),
+                        "EXTERNAL_TABLE",
+                        new Storage(
+                                HiveStorageFormat.PARQUET.toStorageFormat(),
+                                Optional.of(tableLocation),
+                                Optional.empty(),
+                                false,
+                                ImmutableMap.of()),
+                        List.of(new Column("t", HiveType.HIVE_TIMESTAMPLOCALTZ, Optional.empty(), Map.of())),
+                        List.of(),
+                        ImmutableMap.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        OptionalLong.empty()),
+                PrincipalPrivileges.fromHivePrivilegeInfos(ImmutableSet.of()));
+
+        assertThat(query("SELECT * FROM hive.tpch.test_timestamptz"))
+                .matches("VALUES TIMESTAMP '2022-07-26 17:13:00.000 UTC'");
+
+        String path = (String) computeScalar("SELECT \"$path\" FROM hive.tpch.test_timestamptz_base");
+        long size = (long) computeScalar("SELECT \"$file_size\" FROM hive.tpch.test_timestamptz_base");
+
+        // Read a Parquet file from Iceberg connector
+        assertUpdate("CREATE TABLE iceberg.tpch.test_timestamptz_migrated(t TIMESTAMP(6) WITH TIME ZONE)");
+
+        BaseTable table = loadTable("test_timestamptz_migrated");
+
+        table.updateProperties()
+                .set(DEFAULT_NAME_MAPPING, toJson(MappingUtil.create(table.schema())))
+                .commit();
+
+        table.newAppend()
+                .appendFile(DataFiles.builder(table.spec())
+                        .withPath(path)
+                        .withFormat(PARQUET)
+                        .withFileSizeInBytes(size)
+                        .withRecordCount(1)
+                        .build())
+                .commit();
+
+        assertThat(query("SELECT * FROM iceberg.tpch.test_timestamptz_migrated"))
+                .matches("VALUES TIMESTAMP '2022-07-26 17:13:00.000000 UTC'");
+
+        assertUpdate("DROP TABLE hive.tpch.test_timestamptz_base");
+        assertUpdate("DROP TABLE hive.tpch.test_timestamptz");
+        assertUpdate("DROP TABLE iceberg.tpch.test_timestamptz_migrated");
     }
 
     @Test
@@ -1331,7 +1516,7 @@ public class TestIcebergV2
 
     private List<String> getActiveFiles(String tableName)
     {
-        return computeActual(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumn()
+        return computeActual(format("SELECT file_path FROM \"%s$files\" WHERE content = %d", tableName, FileContent.DATA.id())).getOnlyColumn()
                 .map(String.class::cast)
                 .collect(toImmutableList());
     }

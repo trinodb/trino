@@ -63,6 +63,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                         .put("hive.metastore", "glue")
                         .put("hive.metastore.glue.default-warehouse-dir", dataDirectory.toUri().toString())
                         .put("delta.hive-catalog-name", "hive_with_redirections")
+                        .put("fs.hadoop.enabled", "true")
                         .buildOrThrow());
 
         this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory, this::closeAfterClass);
@@ -70,7 +71,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
         queryRunner.createCatalog(
                 "hive_with_redirections",
                 "hive",
-                ImmutableMap.of("hive.delta-lake-catalog-name", "delta_with_redirections"));
+                ImmutableMap.of("hive.delta-lake-catalog-name", "delta_with_redirections", "fs.hadoop.enabled", "true"));
 
         queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = '" + dataDirectory.toUri() + "')");
         queryRunner.execute("CREATE TABLE hive_with_redirections." + schema + ".hive_table (a_integer) WITH (format='PARQUET') AS VALUES 1, 2, 3");

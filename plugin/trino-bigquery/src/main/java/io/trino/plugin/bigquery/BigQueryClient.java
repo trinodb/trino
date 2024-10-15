@@ -33,10 +33,14 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.http.BaseHttpServiceException;
+import com.google.common.base.Joiner;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.cache.EvictableCacheBuilder;
@@ -47,13 +51,13 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.cloud.bigquery.JobStatistics.QueryStatistics.StatementType.SELECT;
@@ -88,7 +92,15 @@ public class BigQueryClient
     private static final Logger log = Logger.get(BigQueryClient.class);
     private static final int PAGE_SIZE = 100;
 
-    static final Set<TableDefinition.Type> TABLE_TYPES = ImmutableSet.of(TABLE, VIEW, MATERIALIZED_VIEW, EXTERNAL, SNAPSHOT);
+    // BigQuery has different table_type in `INFORMATION_SCHEMA` than API responses that returns TableDefinition.Type
+    // see https://cloud.google.com/bigquery/docs/information-schema-tables#schema
+    static final Map<TableDefinition.Type, String> TABLE_TYPES = ImmutableMap.<TableDefinition.Type, String>builder()
+            .put(TABLE, "BASE TABLE")
+            .put(VIEW, "VIEW")
+            .put(MATERIALIZED_VIEW, "MATERIALIZED VIEW")
+            .put(EXTERNAL, "EXTERNAL")
+            .put(SNAPSHOT, "SNAPSHOT")
+            .buildOrThrow();
 
     private final BigQuery bigQuery;
     private final BigQueryLabelFactory labelFactory;
@@ -96,8 +108,8 @@ public class BigQueryClient
     private final ViewMaterializationCache materializationCache;
     private final boolean caseInsensitiveNameMatching;
     private final LoadingCache<String, List<DatasetId>> remoteDatasetIdCache;
-    private final Cache<String, Map<String, RemoteDatabaseObject>> remoteDatasetCaseInsentiveCache;
-    private final Cache<DatasetId, Map<TableId, RemoteDatabaseObject>> remoteTableCaseInsentiveCache;
+    private final Cache<DatasetId, RemoteDatabaseObject> remoteDatasetCaseInsensitiveCache;
+    private final Cache<TableId, RemoteDatabaseObject> remoteTableCaseInsensitiveCache;
     private final Optional<String> configProjectId;
 
     public BigQueryClient(
@@ -119,8 +131,8 @@ public class BigQueryClient
                 .expireAfterWrite(metadataCacheTtl.toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build(CacheLoader.from(this::listDatasetIdsFromBigQuery));
-        this.remoteDatasetCaseInsentiveCache = buildCache(caseInsensitiveNameMatchingCacheTtl);
-        this.remoteTableCaseInsentiveCache = buildCache(caseInsensitiveNameMatchingCacheTtl);
+        this.remoteDatasetCaseInsensitiveCache = buildCache(caseInsensitiveNameMatchingCacheTtl);
+        this.remoteTableCaseInsensitiveCache = buildCache(caseInsensitiveNameMatchingCacheTtl);
         this.configProjectId = requireNonNull(configProjectId, "projectId is null");
     }
 
@@ -151,28 +163,25 @@ public class BigQueryClient
             return Optional.of(RemoteDatabaseObject.of(datasetName));
         }
 
-        try {
-            Map<String, RemoteDatabaseObject> datasetMap = remoteDatasetCaseInsentiveCache.get(projectId, () -> {
-                Map<String, RemoteDatabaseObject> mapping = new HashMap<>();
-                for (DatasetId dataset : datasetIds.get()) {
-                    mapping.merge(
-                            dataset.getDataset().toLowerCase(ENGLISH),
-                            RemoteDatabaseObject.of(dataset.getDataset()),
-                            (currentValue, collision) -> currentValue.registerCollision(collision.getOnlyRemoteName()));
-                }
-                return mapping;
-            });
+        DatasetId cacheKey = DatasetId.of(projectId, datasetName);
 
-            return Optional.ofNullable(datasetMap.get(datasetName));
+        Optional<RemoteDatabaseObject> remoteDataSetFromCache = Optional.ofNullable(remoteDatasetCaseInsensitiveCache.getIfPresent(cacheKey));
+        if (remoteDataSetFromCache.isPresent()) {
+            return remoteDataSetFromCache;
         }
-        catch (ExecutionException e) {
-            return Optional.empty();
+
+        // Get all information from BigQuery and update cache from all fetched information
+        for (DatasetId datasetId : datasetIds.get()) {
+            DatasetId newCacheKey = datasetIdToLowerCase(datasetId);
+            RemoteDatabaseObject newValue = RemoteDatabaseObject.of(datasetId.getDataset());
+            updateCache(remoteDatasetCaseInsensitiveCache, newCacheKey, newValue);
         }
+        return Optional.ofNullable(remoteDatasetCaseInsensitiveCache.getIfPresent(cacheKey));
     }
 
-    public Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName)
+    public Optional<RemoteDatabaseObject> toRemoteTable(ConnectorSession session, String projectId, String remoteDatasetName, String tableName)
     {
-        return toRemoteTable(projectId, remoteDatasetName, tableName, () -> listTableIds(DatasetId.of(projectId, remoteDatasetName)));
+        return toRemoteTable(projectId, remoteDatasetName, tableName, () -> findTableIdsIgnoreCase(session, DatasetId.of(projectId, remoteDatasetName), tableName));
     }
 
     public Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName, Iterable<TableId> tableIds)
@@ -191,24 +200,47 @@ public class BigQueryClient
         }
 
         TableId cacheKey = TableId.of(projectId, remoteDatasetName, tableName);
-        DatasetId datasetId = DatasetId.of(projectId, remoteDatasetName);
-        try {
-            Map<TableId, RemoteDatabaseObject> tableMap = remoteTableCaseInsentiveCache.get(datasetId, () -> {
-                Map<TableId, RemoteDatabaseObject> mapping = new HashMap<>();
-                for (TableId table : tableIds.get()) {
-                    mapping.merge(
-                            tableIdToLowerCase(table),
-                            RemoteDatabaseObject.of(table.getTable()),
-                            (currentValue, collision) -> currentValue.registerCollision(collision.getOnlyRemoteName()));
-                }
-                return mapping;
-            });
 
-            return Optional.ofNullable(tableMap.get(cacheKey));
+        Optional<RemoteDatabaseObject> remoteTableFromCache = Optional.ofNullable(remoteTableCaseInsensitiveCache.getIfPresent(cacheKey));
+        if (remoteTableFromCache.isPresent()) {
+            return remoteTableFromCache;
+        }
+
+        // Get all information from BigQuery and update cache from all fetched information
+        for (TableId table : tableIds.get()) {
+            TableId newCacheKey = tableIdToLowerCase(table);
+            RemoteDatabaseObject newValue = RemoteDatabaseObject.of(table.getTable());
+            updateCache(remoteTableCaseInsensitiveCache, newCacheKey, newValue);
+        }
+
+        return Optional.ofNullable(remoteTableCaseInsensitiveCache.getIfPresent(cacheKey));
+    }
+
+    private static <T> void updateCache(Cache<T, RemoteDatabaseObject> caseInsensitiveCache, T newCacheKey, RemoteDatabaseObject newValue)
+    {
+        try {
+            RemoteDatabaseObject currentCacheValue = caseInsensitiveCache.getIfPresent(newCacheKey);
+            if (currentCacheValue == null) {
+                caseInsensitiveCache.get(newCacheKey, () -> newValue);
+            }
+            else if (!currentCacheValue.remoteNames.contains(newValue.getOnlyRemoteName())) {
+                // Cache already has key, check if new value is already registered and update with collision if it's not
+                RemoteDatabaseObject mergedValue = currentCacheValue.registerCollision(newValue.getOnlyRemoteName());
+                caseInsensitiveCache.invalidate(newCacheKey);
+                caseInsensitiveCache.get(newCacheKey, () -> mergedValue);
+            }
         }
         catch (ExecutionException e) {
-            return Optional.empty();
+            // Loading cache value should never throw as it's only storing precomputed value
+            throw new UncheckedExecutionException(e);
         }
+    }
+
+    private static DatasetId datasetIdToLowerCase(DatasetId datasetId)
+    {
+        return DatasetId.of(
+                datasetId.getProject(),
+                datasetId.getDataset().toLowerCase(ENGLISH));
     }
 
     private static TableId tableIdToLowerCase(TableId tableId)
@@ -235,7 +267,7 @@ public class BigQueryClient
         }
     }
 
-    public TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<String> requiredColumns, Optional<String> filter)
+    public TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<BigQueryColumnHandle> requiredColumns, Optional<String> filter)
     {
         String query = selectSql(remoteTableId.getTableId(), requiredColumns, filter);
         log.debug("query is %s", query);
@@ -248,7 +280,7 @@ public class BigQueryClient
      */
     public String getParentProjectId()
     {
-        return bigQuery.getOptions().getProjectId();
+        return Optional.ofNullable(bigQuery.getOptions().getQuotaProjectId()).orElse(bigQuery.getOptions().getProjectId());
     }
 
     /**
@@ -300,9 +332,34 @@ public class BigQueryClient
             throw new TrinoException(BIGQUERY_LISTING_TABLE_ERROR, "Failed to retrieve tables from BigQuery", e);
         }
         return stream(allTables)
-                .filter(table -> TABLE_TYPES.contains(table.getDefinition().getType()))
+                .filter(table -> TABLE_TYPES.containsKey(table.getDefinition().getType()))
                 .map(TableInfo::getTableId)
                 .collect(toImmutableList());
+    }
+
+    public Iterable<TableId> findTableIdsIgnoreCase(ConnectorSession session, DatasetId remoteDatasetId, String tableName)
+    {
+        try {
+            TableResult tableNamesMatchingResults = executeQuery(session, """
+                    SELECT table_name
+                    FROM %s.%s.INFORMATION_SCHEMA.TABLES
+                    WHERE LOWER(table_name) = '%s' AND table_type IN (%s)""".formatted(
+                    quote(remoteDatasetId.getProject()),
+                    quote(remoteDatasetId.getDataset()),
+                    tableName.toLowerCase(ENGLISH),
+                    TABLE_TYPES.values().stream().map(value -> "'" + value + "'").collect(Collectors.joining(","))));
+
+            return tableNamesMatchingResults.streamAll()
+                    .map(row -> TableId.of(remoteDatasetId.getProject(), remoteDatasetId.getDataset(), row.getFirst().getStringValue()))
+                    .collect(toImmutableList());
+        }
+        catch (TrinoException e) {
+            if (e.getMessage().contains("Dataset %s:%s was not found".formatted(remoteDatasetId.getProject(), remoteDatasetId.getDataset()))) {
+                // means that schema is missing, let MetadataManager handle it gracefully
+                return ImmutableList.of();
+            }
+            throw e;
+        }
     }
 
     Table update(TableInfo table)
@@ -314,7 +371,7 @@ public class BigQueryClient
     {
         bigQuery.create(datasetInfo);
         remoteDatasetIdCache.invalidate(datasetInfo.getDatasetId().getProject());
-        remoteDatasetCaseInsentiveCache.invalidate(datasetInfo.getDatasetId().getProject());
+        remoteDatasetCaseInsensitiveCache.invalidate(datasetIdToLowerCase(datasetInfo.getDatasetId()));
     }
 
     public void dropSchema(DatasetId datasetId, boolean cascade)
@@ -326,19 +383,19 @@ public class BigQueryClient
             bigQuery.delete(datasetId);
         }
         remoteDatasetIdCache.invalidate(datasetId.getProject());
-        remoteDatasetCaseInsentiveCache.invalidate(datasetId.getProject());
+        remoteDatasetCaseInsensitiveCache.invalidate(datasetIdToLowerCase(datasetId));
     }
 
     public void createTable(TableInfo tableInfo)
     {
         bigQuery.create(tableInfo);
-        remoteTableCaseInsentiveCache.invalidate(DatasetId.of(tableInfo.getTableId().getProject(), tableInfo.getTableId().getDataset()));
+        remoteTableCaseInsensitiveCache.invalidate(tableIdToLowerCase(tableInfo.getTableId()));
     }
 
     public void dropTable(TableId tableId)
     {
         bigQuery.delete(tableId);
-        remoteTableCaseInsentiveCache.invalidate(DatasetId.of(tableId.getProject(), tableId.getDataset()));
+        remoteTableCaseInsensitiveCache.invalidate(tableIdToLowerCase(tableId));
     }
 
     Job create(JobInfo jobInfo)
@@ -430,10 +487,19 @@ public class BigQueryClient
         return requireNonNull(((QueryJobConfiguration) jobConfiguration).getDestinationTable(), "Cannot determine destination table for query");
     }
 
-    public static String selectSql(TableId table, List<String> requiredColumns, Optional<String> filter)
+    public static String selectSql(TableId table, List<BigQueryColumnHandle> requiredColumns, Optional<String> filter)
     {
-        String columns = requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
-        return selectSql(table, columns, filter);
+        return selectSql(table,
+                requiredColumns.stream()
+                        .map(column -> Joiner.on('.')
+                                .join(ImmutableList.<String>builder()
+                                        .add(format("`%s`", column.name()))
+                                        .addAll(column.dereferenceNames().stream()
+                                                .map(dereferenceName -> format("`%s`", dereferenceName))
+                                                .collect(toImmutableList()))
+                                        .build()))
+                        .collect(joining(",")),
+                filter);
     }
 
     public static String selectSql(TableId table, String formattedColumns, Optional<String> filter)

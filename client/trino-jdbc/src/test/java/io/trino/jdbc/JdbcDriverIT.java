@@ -52,6 +52,27 @@ public class JdbcDriverIT
         }
     }
 
+    @Test
+    public void testOpenTelemetryIsNotShaded()
+    {
+        String file = System.getProperty("jdbc-jar");
+        try (JarFile jarFile = new JarFile(file)) {
+            List<String> openTelemetryFiles = jarFile.stream()
+                    .filter(value -> !value.isDirectory())
+                    .map(ZipEntry::getName)
+                    .filter(name -> name.contains("io/opentelemetry"))
+                    .filter(name -> !name.contains("io/opentelemetry/instrumentation/okhttp/v3_0"))
+                    .collect(toImmutableList());
+
+            assertThat(openTelemetryFiles)
+                    .describedAs("OpenTelemetry files in the shaded jar")
+                    .isEmpty();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     public static boolean isExpectedFile(String filename)
     {
         return MANIFEST_FILES.contains(filename) || filename.startsWith("io/trino/jdbc");

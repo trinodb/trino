@@ -28,19 +28,9 @@ public final class CreateFunction
     private final FunctionSpecification specification;
     private final boolean replace;
 
-    public CreateFunction(FunctionSpecification specification, boolean replace)
-    {
-        this(Optional.empty(), specification, replace);
-    }
-
     public CreateFunction(NodeLocation location, FunctionSpecification specification, boolean replace)
     {
-        this(Optional.of(location), specification, replace);
-    }
-
-    private CreateFunction(Optional<NodeLocation> location, FunctionSpecification specification, boolean replace)
-    {
-        super(location);
+        super(Optional.of(location));
         this.specification = requireNonNull(specification, "specification is null");
         this.replace = replace;
     }

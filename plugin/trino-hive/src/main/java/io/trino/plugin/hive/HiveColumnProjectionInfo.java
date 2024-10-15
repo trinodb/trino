@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.SizeOf;
+import io.trino.metastore.HiveType;
 import io.trino.spi.type.Type;
 
 import java.util.List;

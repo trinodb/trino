@@ -28,19 +28,9 @@ public final class RenameView
     private final QualifiedName source;
     private final QualifiedName target;
 
-    public RenameView(QualifiedName source, QualifiedName target)
-    {
-        this(Optional.empty(), source, target);
-    }
-
     public RenameView(NodeLocation location, QualifiedName source, QualifiedName target)
     {
-        this(Optional.of(location), source, target);
-    }
-
-    private RenameView(Optional<NodeLocation> location, QualifiedName source, QualifiedName target)
-    {
-        super(location);
+        super(Optional.of(location));
         this.source = requireNonNull(source, "source name is null");
         this.target = requireNonNull(target, "target name is null");
     }

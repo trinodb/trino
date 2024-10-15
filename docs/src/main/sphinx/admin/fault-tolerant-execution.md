@@ -124,16 +124,11 @@ configuration properties have their default values changed to follow best
 practices for a fault-tolerant cluster. However, this automatic change does not
 affect clusters that have these properties manually configured. If you have
 any of the following properties configured in the `config.properties` file on
-a cluster with a `TASK` retry policy, it is strongly recommended to make the
-following changes:
-
-- Set the `task.low-memory-killer.policy`
-  {doc}`query management property </admin/properties-query-management>` to
-  `total-reservation-on-blocked-nodes`, or queries may
-  need to be manually killed if the cluster runs out of memory.
-- Set the `query.low-memory-killer.delay`
-  {doc}`query management property </admin/properties-query-management>` to
-  `0s` so the cluster immediately unblocks nodes that run out of memory.
+a cluster with a `TASK` retry policy, it is strongly recommended to set the
+`task.low-memory-killer.policy`
+{doc}`query management property </admin/properties-query-management>` to
+`total-reservation-on-blocked-nodes`, or queries may need to be manually killed
+if the cluster runs out of memory.
 
 :::{note}
 A `TASK` retry policy is best suited for large batch queries, but this
@@ -242,7 +237,7 @@ properties only apply to a `TASK` retry policy.
     May be overridden for the current session with the
     `fault_tolerant_execution_max_task_split_count` [session
     property](session-properties-definition).
-  - `256`
+  - `2048`
 * - `fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-growth-period`
   - The number of tasks created for any given non-writer stage of arbitrary
     distribution before task size is increased.
@@ -517,18 +512,23 @@ the property may be configured for:
   - HDFS
 :::
 
-It is recommended to set the `exchange.compression-codec` property to
-`LZ4` in the cluster's `config.properties` file, to reduce the exchange
-manager's overall I/O load. It is also recommended to configure a bucket
-lifecycle rule to automatically expire abandoned objects in the event of a node
-crash.
+To reduce the exchange manager's overall I/O load, the
+[](prop-exchange-compression-codec) configuration property defaults to `LZ4`. In
+addition, [](file-compression) is automatically performed and some details can
+be configured.
+
+It is also recommended to configure a bucket lifecycle rule to automatically
+expire abandoned objects in the event of a node crash.
 
 (fte-exchange-aws-s3)=
 #### AWS S3
 
 The following example `exchange-manager.properties` configuration specifies an
 AWS S3 bucket as the spooling storage destination. Note that the destination
-does not have to be in AWS, but can be any S3-compatible storage system.
+does not have to be in AWS, but can be any S3-compatible storage system. While
+the exchange manager is designed to support S3-compatible storage systems, only
+AWS S3 and MinIO are tested for compatibility. For other storage systems,
+perform your own testing and consult your vendor for more information.
 
 ```properties
 exchange-manager.name=filesystem
@@ -619,3 +619,10 @@ from all worker nodes.
 exchange-manager.name=filesystem
 exchange.base-directories=/tmp/trino-exchange-manager
 ```
+
+## Adaptive plan optimizations
+
+Fault-tolerant execution mode offers several adaptive plan 
+optimizations that adjust query execution plans dynamically based on 
+runtime statistics. For more information, see 
+[](/optimizer/adaptive-plan-optimizations).

@@ -26,19 +26,9 @@ public class ResetSession
 {
     private final QualifiedName name;
 
-    public ResetSession(QualifiedName name)
-    {
-        this(Optional.empty(), name);
-    }
-
     public ResetSession(NodeLocation location, QualifiedName name)
     {
-        this(Optional.of(location), name);
-    }
-
-    private ResetSession(Optional<NodeLocation> location, QualifiedName name)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = name;
     }
 

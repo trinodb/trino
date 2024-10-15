@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 
@@ -32,18 +31,6 @@ public class ConnectorIdentity
     private final Set<String> enabledSystemRoles;
     private final Optional<SelectedRole> connectorRole;
     private final Map<String, String> extraCredentials;
-
-    @Deprecated
-    public ConnectorIdentity(String user, Optional<Principal> principal, Optional<SelectedRole> connectorRole)
-    {
-        this(user, principal, connectorRole, emptyMap());
-    }
-
-    @Deprecated
-    public ConnectorIdentity(String user, Optional<Principal> principal, Optional<SelectedRole> connectorRole, Map<String, String> extraCredentials)
-    {
-        this(user, emptySet(), principal, emptySet(), connectorRole, extraCredentials);
-    }
 
     private ConnectorIdentity(
             String user,
@@ -79,15 +66,6 @@ public class ConnectorIdentity
     public Set<String> getEnabledSystemRoles()
     {
         return enabledSystemRoles;
-    }
-
-    /**
-     * @deprecated Use getConnectorRole
-     */
-    @Deprecated
-    public Optional<SelectedRole> getRole()
-    {
-        return getConnectorRole();
     }
 
     public Optional<SelectedRole> getConnectorRole()
@@ -159,24 +137,6 @@ public class ConnectorIdentity
         {
             this.enabledSystemRoles = new HashSet<>(requireNonNull(enabledSystemRoles, "enabledSystemRoles is null"));
             return this;
-        }
-
-        /**
-         * @deprecated Use withConnectorRole
-         */
-        @Deprecated
-        public Builder withRole(SelectedRole role)
-        {
-            return withConnectorRole(role);
-        }
-
-        /**
-         * @deprecated Use withConnectorRole
-         */
-        @Deprecated
-        public Builder withRole(Optional<SelectedRole> role)
-        {
-            return withConnectorRole(role);
         }
 
         public Builder withConnectorRole(SelectedRole connectorRole)

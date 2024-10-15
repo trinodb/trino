@@ -28,19 +28,9 @@ public final class StartTransaction
 {
     private final List<TransactionMode> transactionModes;
 
-    public StartTransaction(List<TransactionMode> transactionModes)
-    {
-        this(Optional.empty(), transactionModes);
-    }
-
     public StartTransaction(NodeLocation location, List<TransactionMode> transactionModes)
     {
-        this(Optional.of(location), transactionModes);
-    }
-
-    private StartTransaction(Optional<NodeLocation> location, List<TransactionMode> transactionModes)
-    {
-        super(location);
+        super(Optional.of(location));
         this.transactionModes = ImmutableList.copyOf(requireNonNull(transactionModes, "transactionModes is null"));
     }
 

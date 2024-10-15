@@ -28,19 +28,9 @@ public final class RenameSchema
     private final QualifiedName source;
     private final Identifier target;
 
-    public RenameSchema(QualifiedName source, Identifier target)
-    {
-        this(Optional.empty(), source, target);
-    }
-
     public RenameSchema(NodeLocation location, QualifiedName source, Identifier target)
     {
-        this(Optional.of(location), source, target);
-    }
-
-    private RenameSchema(Optional<NodeLocation> location, QualifiedName source, Identifier target)
-    {
-        super(location);
+        super(Optional.of(location));
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
     }

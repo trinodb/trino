@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -94,7 +95,7 @@ public class TestDefaultJdbcMetadata
                 ImmutableSet.of());
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
 
-        assertThatThrownBy(() -> metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED))
+        assertThatThrownBy(() -> metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED, false))
                 .hasMessageContaining("This connector does not support query or task retries");
 
         assertThatThrownBy(() -> metadata.beginInsert(SESSION, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED))
@@ -116,7 +117,7 @@ public class TestDefaultJdbcMetadata
                         PropertyMetadata.booleanProperty(JdbcWriteSessionProperties.NON_TRANSACTIONAL_INSERT, "description", true, false)))
                 .build();
 
-        assertThatThrownBy(() -> metadata.beginCreateTable(session, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED))
+        assertThatThrownBy(() -> metadata.beginCreateTable(session, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED, false))
                 .hasMessageContaining("Query and task retries are incompatible with non-transactional inserts");
 
         assertThatThrownBy(() -> metadata.beginInsert(session, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED))
@@ -246,7 +247,7 @@ public class TestDefaultJdbcMetadata
     public void testCreateAndAlterTable()
     {
         SchemaTableName table = new SchemaTableName("example", "foo");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(table, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), false);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(table, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), SaveMode.FAIL);
 
         JdbcTableHandle handle = metadata.getTableHandle(SESSION, table, Optional.empty(), Optional.empty());
 
@@ -305,7 +306,7 @@ public class TestDefaultJdbcMetadata
         assertThat(aggregationResult).isPresent();
 
         SchemaTableName noAggregationPushdownTable = new SchemaTableName("example", "no_aggregation_pushdown");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(noAggregationPushdownTable, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), false);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(noAggregationPushdownTable, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), SaveMode.FAIL);
         ConnectorTableHandle noAggregationPushdownTableHandle = metadata.getTableHandle(session, noAggregationPushdownTable, Optional.empty(), Optional.empty());
         aggregationResult = applyAggregation.apply(noAggregationPushdownTableHandle);
         assertThat(aggregationResult).isEmpty();

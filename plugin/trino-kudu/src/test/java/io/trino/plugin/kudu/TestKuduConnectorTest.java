@@ -953,6 +953,15 @@ public class TestKuduConnectorTest
     @Test
     @Disabled
     @Override
+    public void testUpdateMultipleCondition() {}
+
+    /**
+     * This test fails intermittently because Kudu doesn't have strong enough
+     * semantics to support writing from multiple threads.
+     */
+    @Test
+    @Disabled
+    @Override
     public void testRowLevelUpdate()
     {
         withTableName("test_update", tableName -> {

@@ -69,7 +69,7 @@ public class SystemPageSourceProvider
         requireNonNull(columns, "columns is null");
         SystemTransactionHandle systemTransaction = (SystemTransactionHandle) transaction;
         SystemSplit systemSplit = (SystemSplit) split;
-        SchemaTableName tableName = ((SystemTableHandle) table).getSchemaTableName();
+        SchemaTableName tableName = ((SystemTableHandle) table).schemaTableName();
         SystemTable systemTable = tables.getSystemTable(session, tableName)
                 // table might disappear in the meantime
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", tableName)));
@@ -87,7 +87,7 @@ public class SystemPageSourceProvider
         ImmutableList.Builder<Integer> userToSystemFieldIndex = ImmutableList.builder();
         ImmutableSet.Builder<Integer> requiredColumns = ImmutableSet.builder();
         for (ColumnHandle column : columns) {
-            String columnName = ((SystemColumnHandle) column).getColumnName();
+            String columnName = ((SystemColumnHandle) column).columnName();
 
             Integer index = columnsByName.get(columnName);
             if (index == null) {
@@ -103,7 +103,7 @@ public class SystemPageSourceProvider
             return new EmptyPageSource();
         }
         TupleDomain<Integer> newConstraint = systemSplit.getConstraint().transformKeys(columnHandle ->
-                columnsByName.get(((SystemColumnHandle) columnHandle).getColumnName()));
+                columnsByName.get(((SystemColumnHandle) columnHandle).columnName()));
 
         try {
             return new MappedPageSource(systemTable.pageSource(systemTransaction.getConnectorTransactionHandle(), session, newConstraint), userToSystemFieldIndex.build());

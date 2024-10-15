@@ -122,7 +122,7 @@ public class DeltaLakeJsonFileStatistics
         if (!columnHandle.isBaseColumn()) {
             return Optional.empty();
         }
-        Optional<Object> value = getStat(columnHandle.getBasePhysicalColumnName(), maxValues);
+        Optional<Object> value = getStat(columnHandle.basePhysicalColumnName(), maxValues);
         return value.flatMap(o -> deserializeStatisticsValue(columnHandle, String.valueOf(o)));
     }
 
@@ -132,7 +132,7 @@ public class DeltaLakeJsonFileStatistics
         if (!columnHandle.isBaseColumn()) {
             return Optional.empty();
         }
-        Optional<Object> value = getStat(columnHandle.getBasePhysicalColumnName(), minValues);
+        Optional<Object> value = getStat(columnHandle.basePhysicalColumnName(), minValues);
         return value.flatMap(o -> deserializeStatisticsValue(columnHandle, String.valueOf(o)));
     }
 
@@ -143,7 +143,7 @@ public class DeltaLakeJsonFileStatistics
         }
         Object columnValue = deserializeColumnValue(columnHandle, statValue, DeltaLakeJsonFileStatistics::readStatisticsTimestamp, DeltaLakeJsonFileStatistics::readStatisticsTimestampWithZone);
 
-        Type columnType = columnHandle.getBaseType();
+        Type columnType = columnHandle.baseType();
         if (columnType.equals(DATE)) {
             long epochDate = (long) columnValue;
             if (epochDate < START_OF_MODERN_ERA_EPOCH_DAY) {

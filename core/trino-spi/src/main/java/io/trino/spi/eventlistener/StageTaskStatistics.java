@@ -58,6 +58,9 @@ public class StageTaskStatistics
     private final DoubleSymmetricDistribution lastEndTimeScaledDistribution;
     private final DoubleSymmetricDistribution endTimeScaledDistribution;
 
+    // split generation stats
+    private final DoubleSymmetricDistribution getSplitDistribution;
+
     @JsonCreator
     @Unstable
     public StageTaskStatistics(
@@ -85,7 +88,8 @@ public class StageTaskStatistics
             @JsonProperty("lastStartTimeScaledDistribution") DoubleSymmetricDistribution lastStartTimeScaledDistribution,
             @JsonProperty("terminatingStartTimeScaledDistribution") DoubleSymmetricDistribution terminatingStartTimeScaledDistribution,
             @JsonProperty("lastEndTimeScaledDistribution") DoubleSymmetricDistribution lastEndTimeScaledDistribution,
-            @JsonProperty("endTimeScaledDistribution") DoubleSymmetricDistribution endTimeScaledDistribution)
+            @JsonProperty("endTimeScaledDistribution") DoubleSymmetricDistribution endTimeScaledDistribution,
+            @JsonProperty("getSplitDistribution") DoubleSymmetricDistribution getSplitDistribution)
     {
         this.stageId = stageId;
         this.tasks = tasks;
@@ -112,6 +116,7 @@ public class StageTaskStatistics
         this.terminatingStartTimeScaledDistribution = requireNonNull(terminatingStartTimeScaledDistribution, "terminatingStartTimeScaledDistribution is null");
         this.lastEndTimeScaledDistribution = requireNonNull(lastEndTimeScaledDistribution, "lastEndTimeScaledDistribution is null");
         this.endTimeScaledDistribution = requireNonNull(endTimeScaledDistribution, "endTimeScaledDistribution is null");
+        this.getSplitDistribution = requireNonNull(getSplitDistribution, "getSplitDistribution is null");
     }
 
     @JsonProperty
@@ -262,5 +267,11 @@ public class StageTaskStatistics
     public DoubleSymmetricDistribution getEndTimeScaledDistribution()
     {
         return endTimeScaledDistribution;
+    }
+
+    @JsonProperty
+    public DoubleSymmetricDistribution getGetSplitDistribution()
+    {
+        return getSplitDistribution;
     }
 }

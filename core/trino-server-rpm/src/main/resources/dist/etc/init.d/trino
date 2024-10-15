@@ -33,6 +33,7 @@ CONFIGURATION=(
     --node-config "$NODE_PROPERTIES"
     --jvm-config /etc/trino/jvm.config
     --config /etc/trino/config.properties
+    --secrets-config /etc/trino/secrets.toml
     --launcher-log-file "${LAUNCHER_LOG_FILE:-/var/log/trino/launcher.log}"
     --server-log-file "${SERVER_LOG_FILE:-/var/log/trino/server.log}"
 )

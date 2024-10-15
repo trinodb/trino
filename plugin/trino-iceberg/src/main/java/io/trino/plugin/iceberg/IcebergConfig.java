@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -28,12 +29,15 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -76,12 +80,12 @@ public class IcebergConfig
     private double minimumAssignedSplitWeight = 0.05;
     private boolean hideMaterializedViewStorageTable = true;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
-    private String catalogWarehouse;
-    private int catalogCacheSize = 10;
     private boolean sortedWritingEnabled = true;
     private boolean queryPartitionFilterRequired;
+    private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
     private boolean incrementalRefreshEnabled = true;
+    private boolean metadataCacheEnabled = true;
 
     public CatalogType getCatalogType()
     {
@@ -393,31 +397,6 @@ public class IcebergConfig
         return this;
     }
 
-    public String getCatalogWarehouse()
-    {
-        return catalogWarehouse;
-    }
-
-    @Config("iceberg.catalog.warehouse")
-    public IcebergConfig setCatalogWarehouse(String catalogWarehouse)
-    {
-        this.catalogWarehouse = catalogWarehouse;
-        return this;
-    }
-
-    @Min(1)
-    public int getCatalogCacheSize()
-    {
-        return catalogCacheSize;
-    }
-
-    @Config("iceberg.catalog.cache-size")
-    public IcebergConfig setCatalogCacheSize(int catalogCacheSize)
-    {
-        this.catalogCacheSize = catalogCacheSize;
-        return this;
-    }
-
     public boolean isSortedWritingEnabled()
     {
         return sortedWritingEnabled;
@@ -442,6 +421,21 @@ public class IcebergConfig
     public boolean isQueryPartitionFilterRequired()
     {
         return queryPartitionFilterRequired;
+    }
+
+    public Set<String> getQueryPartitionFilterRequiredSchemas()
+    {
+        return queryPartitionFilterRequiredSchemas;
+    }
+
+    @Config("iceberg.query-partition-filter-required-schemas")
+    @ConfigDescription("List of schemas for which filter on partition column is enforced")
+    public IcebergConfig setQueryPartitionFilterRequiredSchemas(Set<String> queryPartitionFilterRequiredSchemas)
+    {
+        this.queryPartitionFilterRequiredSchemas = queryPartitionFilterRequiredSchemas.stream()
+                .map(value -> value.toLowerCase(ENGLISH))
+                .collect(toImmutableSet());
+        return this;
     }
 
     @Min(0)
@@ -475,5 +469,18 @@ public class IcebergConfig
     public boolean isStorageSchemaSetWhenHidingIsEnabled()
     {
         return hideMaterializedViewStorageTable && materializedViewsStorageSchema.isPresent();
+    }
+
+    public boolean isMetadataCacheEnabled()
+    {
+        return metadataCacheEnabled;
+    }
+
+    @Config("iceberg.metadata-cache.enabled")
+    @ConfigDescription("Enables in-memory caching of metadata files on coordinator if fs.cache.enabled is not set to true")
+    public IcebergConfig setMetadataCacheEnabled(boolean metadataCacheEnabled)
+    {
+        this.metadataCacheEnabled = metadataCacheEnabled;
+        return this;
     }
 }

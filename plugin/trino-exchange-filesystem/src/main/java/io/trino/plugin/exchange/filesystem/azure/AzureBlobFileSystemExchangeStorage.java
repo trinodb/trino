@@ -49,6 +49,8 @@ import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
+import io.trino.plugin.exchange.filesystem.MetricsBuilder;
+import io.trino.plugin.exchange.filesystem.MetricsBuilder.CounterMetricBuilder;
 import jakarta.annotation.PreDestroy;
 import reactor.core.publisher.Flux;
 
@@ -79,6 +81,7 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeFutures.translateFailures;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
+import static io.trino.plugin.exchange.filesystem.MetricsBuilder.SOURCE_FILES_PROCESSED;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
@@ -124,9 +127,9 @@ public class AzureBlobFileSystemExchangeStorage
     }
 
     @Override
-    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
+    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize, MetricsBuilder metricsBuilder)
     {
-        return new AzureExchangeStorageReader(blobServiceAsyncClient, sourceFiles, blockSize, maxPageStorageSize);
+        return new AzureExchangeStorageReader(blobServiceAsyncClient, sourceFiles, metricsBuilder, blockSize, maxPageStorageSize);
     }
 
     @Override
@@ -279,6 +282,7 @@ public class AzureBlobFileSystemExchangeStorage
         private final Queue<ExchangeSourceFile> sourceFiles;
         private final int blockSize;
         private final int bufferSize;
+        CounterMetricBuilder sourceFilesProcessedMetric;
 
         @GuardedBy("this")
         private ExchangeSourceFile currentFile;
@@ -295,11 +299,14 @@ public class AzureBlobFileSystemExchangeStorage
         public AzureExchangeStorageReader(
                 BlobServiceAsyncClient blobServiceAsyncClient,
                 List<ExchangeSourceFile> sourceFiles,
+                MetricsBuilder metricsBuilder,
                 int blockSize,
                 int maxPageStorageSize)
         {
             this.blobServiceAsyncClient = requireNonNull(blobServiceAsyncClient, "blobServiceAsyncClient is null");
             this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
+            requireNonNull(metricsBuilder, "metricsBuilder is null");
+            sourceFilesProcessedMetric = metricsBuilder.getCounterMetric(SOURCE_FILES_PROCESSED);
             this.blockSize = blockSize;
             // Make sure buffer can accommodate at least one complete Slice, and keep reads aligned to block boundaries
             this.bufferSize = maxPageStorageSize + blockSize;
@@ -440,6 +447,7 @@ public class AzureBlobFileSystemExchangeStorage
                 }
 
                 if (fileOffset == fileSize) {
+                    sourceFilesProcessedMetric.increment();
                     currentFile = sourceFiles.poll();
                     if (currentFile == null) {
                         break;

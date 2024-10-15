@@ -122,7 +122,7 @@ class TestCreateMaterializedViewTask
     void testCreateMaterializedViewIfNotExists()
     {
         CreateMaterializedView statement = new CreateMaterializedView(
-                Optional.empty(),
+                new NodeLocation(1, 1),
                 QualifiedName.of("test_mv_if_not_exists"),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
@@ -142,7 +142,7 @@ class TestCreateMaterializedViewTask
     void testCreateMaterializedViewWithExistingView()
     {
         CreateMaterializedView statement = new CreateMaterializedView(
-                Optional.empty(),
+                new NodeLocation(1, 1),
                 QualifiedName.of("test_mv_with_existing_view"),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
@@ -164,7 +164,7 @@ class TestCreateMaterializedViewTask
     void testCreateMaterializedViewWithInvalidProperty()
     {
         CreateMaterializedView statement = new CreateMaterializedView(
-                Optional.empty(),
+                new NodeLocation(1, 1),
                 QualifiedName.of("test_mv_with_invalid_property"),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
@@ -186,7 +186,7 @@ class TestCreateMaterializedViewTask
     void testCreateMaterializedViewWithDefaultProperties()
     {
         CreateMaterializedView statement = new CreateMaterializedView(
-                Optional.empty(),
+                new NodeLocation(1, 1),
                 QualifiedName.of(TEST_CATALOG_NAME, "schema", "mv_default_properties"),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
@@ -212,7 +212,7 @@ class TestCreateMaterializedViewTask
     public void testCreateDenyPermission()
     {
         CreateMaterializedView statement = new CreateMaterializedView(
-                Optional.empty(),
+                new NodeLocation(1, 1),
                 QualifiedName.of("test_mv_deny"),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,

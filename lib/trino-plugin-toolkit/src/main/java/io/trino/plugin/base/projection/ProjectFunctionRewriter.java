@@ -19,6 +19,7 @@ import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.projection.ProjectFunctionRule.RewriteContext;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.expression.ConnectorExpression;
 
 import java.util.Iterator;
@@ -39,8 +40,9 @@ public final class ProjectFunctionRewriter<ProjectionResult, ExpressionResult>
         this.rules = ImmutableSet.copyOf(requireNonNull(rules, "rules is null"));
     }
 
-    public Optional<ProjectionResult> rewrite(ConnectorSession session, ConnectorExpression projectionExpression, Map<String, ColumnHandle> assignments)
+    public Optional<ProjectionResult> rewrite(ConnectorSession session, ConnectorTableHandle handle, ConnectorExpression projectionExpression, Map<String, ColumnHandle> assignments)
     {
+        requireNonNull(handle, "handle is null");
         requireNonNull(projectionExpression, "projectionExpression is null");
         requireNonNull(assignments, "assignments is null");
 
@@ -70,7 +72,7 @@ public final class ProjectFunctionRewriter<ProjectionResult, ExpressionResult>
                 Iterator<Match> matches = rule.getPattern().match(projectionExpression, context).iterator();
                 while (matches.hasNext()) {
                     Match match = matches.next();
-                    Optional<ProjectionResult> rewritten = rule.rewrite(projectionExpression, match.captures(), context);
+                    Optional<ProjectionResult> rewritten = rule.rewrite(handle, projectionExpression, match.captures(), context);
                     if (rewritten.isPresent()) {
                         return rewritten;
                     }

@@ -58,16 +58,16 @@ public class TestSqlFormatter
     public void testShowCatalogs()
     {
         assertThat(formatSql(
-                new ShowCatalogs(Optional.empty(), Optional.empty())))
+                new ShowCatalogs(new NodeLocation(1, 1), Optional.empty(), Optional.empty())))
                 .isEqualTo("SHOW CATALOGS");
         assertThat(formatSql(
-                new ShowCatalogs(Optional.of("%"), Optional.empty())))
+                new ShowCatalogs(new NodeLocation(1, 1), Optional.of("%"), Optional.empty())))
                 .isEqualTo("SHOW CATALOGS LIKE '%'");
         assertThat(formatSql(
-                new ShowCatalogs(Optional.of("%$_%"), Optional.of("$"))))
+                new ShowCatalogs(new NodeLocation(1, 1), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW CATALOGS LIKE '%$_%' ESCAPE '$'");
         assertThat(formatSql(
-                new ShowCatalogs(Optional.of("%機動隊"), Optional.of("😂"))))
+                new ShowCatalogs(new NodeLocation(1, 1), Optional.of("%機動隊"), Optional.of("😂"))))
                 .isEqualTo("SHOW CATALOGS LIKE '%機動隊' ESCAPE '😂'");
     }
 
@@ -75,16 +75,16 @@ public class TestSqlFormatter
     public void testShowSchemas()
     {
         assertThat(formatSql(
-                new ShowSchemas(Optional.empty(), Optional.empty(), Optional.empty())))
+                new ShowSchemas(new NodeLocation(1, 1), Optional.empty(), Optional.empty(), Optional.empty())))
                 .isEqualTo("SHOW SCHEMAS");
         assertThat(formatSql(
-                new ShowSchemas(Optional.empty(), Optional.of("%"), Optional.empty())))
+                new ShowSchemas(new NodeLocation(1, 1), Optional.empty(), Optional.of("%"), Optional.empty())))
                 .isEqualTo("SHOW SCHEMAS LIKE '%'");
         assertThat(formatSql(
-                new ShowSchemas(Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
+                new ShowSchemas(new NodeLocation(1, 1), Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'");
         assertThat(formatSql(
-                new ShowSchemas(Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
+                new ShowSchemas(new NodeLocation(1, 1), Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
                 .isEqualTo("SHOW SCHEMAS LIKE '%機動隊' ESCAPE '😂'");
     }
 
@@ -92,16 +92,16 @@ public class TestSqlFormatter
     public void testShowTables()
     {
         assertThat(formatSql(
-                new ShowTables(Optional.empty(), Optional.empty(), Optional.empty())))
+                new ShowTables(new NodeLocation(1, 1), Optional.empty(), Optional.empty(), Optional.empty())))
                 .isEqualTo("SHOW TABLES");
         assertThat(formatSql(
-                new ShowTables(Optional.empty(), Optional.of("%"), Optional.empty())))
+                new ShowTables(new NodeLocation(1, 1), Optional.empty(), Optional.of("%"), Optional.empty())))
                 .isEqualTo("SHOW TABLES LIKE '%'");
         assertThat(formatSql(
-                new ShowTables(Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
+                new ShowTables(new NodeLocation(1, 1), Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW TABLES LIKE '%$_%' ESCAPE '$'");
         assertThat(formatSql(
-                new ShowTables(Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
+                new ShowTables(new NodeLocation(1, 1), Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
                 .isEqualTo("SHOW TABLES LIKE '%機動隊' ESCAPE '😂'");
     }
 
@@ -109,16 +109,16 @@ public class TestSqlFormatter
     public void testShowColumns()
     {
         assertThat(formatSql(
-                new ShowColumns(QualifiedName.of("a"), Optional.empty(), Optional.empty())))
+                new ShowColumns(new NodeLocation(1, 1), QualifiedName.of("a"), Optional.empty(), Optional.empty())))
                 .isEqualTo("SHOW COLUMNS FROM a");
         assertThat(formatSql(
-                new ShowColumns(QualifiedName.of("a"), Optional.of("%"), Optional.empty())))
+                new ShowColumns(new NodeLocation(1, 1), QualifiedName.of("a"), Optional.of("%"), Optional.empty())))
                 .isEqualTo("SHOW COLUMNS FROM a LIKE '%'");
         assertThat(formatSql(
-                new ShowColumns(QualifiedName.of("a"), Optional.of("%$_%"), Optional.of("$"))))
+                new ShowColumns(new NodeLocation(1, 1), QualifiedName.of("a"), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW COLUMNS FROM a LIKE '%$_%' ESCAPE '$'");
         assertThat(formatSql(
-                new ShowColumns(QualifiedName.of("a"), Optional.of("%機動隊"), Optional.of("😂"))))
+                new ShowColumns(new NodeLocation(1, 1), QualifiedName.of("a"), Optional.of("%機動隊"), Optional.of("😂"))))
                 .isEqualTo("SHOW COLUMNS FROM a LIKE '%機動隊' ESCAPE '😂'");
     }
 
@@ -126,16 +126,16 @@ public class TestSqlFormatter
     public void testShowFunctions()
     {
         assertThat(formatSql(
-                new ShowFunctions(Optional.empty(), Optional.empty(), Optional.empty())))
+                new ShowFunctions(new NodeLocation(1, 1), Optional.empty(), Optional.empty(), Optional.empty())))
                 .isEqualTo("SHOW FUNCTIONS");
         assertThat(formatSql(
-                new ShowFunctions(Optional.empty(), Optional.of("%"), Optional.empty())))
+                new ShowFunctions(new NodeLocation(1, 1), Optional.empty(), Optional.of("%"), Optional.empty())))
                 .isEqualTo("SHOW FUNCTIONS LIKE '%'");
         assertThat(formatSql(
-                new ShowFunctions(Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
+                new ShowFunctions(new NodeLocation(1, 1), Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW FUNCTIONS LIKE '%$_%' ESCAPE '$'");
         assertThat(formatSql(
-                new ShowFunctions(Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
+                new ShowFunctions(new NodeLocation(1, 1), Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
                 .isEqualTo("SHOW FUNCTIONS LIKE '%機動隊' ESCAPE '😂'");
     }
 
@@ -143,16 +143,16 @@ public class TestSqlFormatter
     public void testShowSession()
     {
         assertThat(formatSql(
-                new ShowSession(Optional.empty(), Optional.empty())))
+                new ShowSession(new NodeLocation(1, 1), Optional.empty(), Optional.empty())))
                 .isEqualTo("SHOW SESSION");
         assertThat(formatSql(
-                new ShowSession(Optional.of("%"), Optional.empty())))
+                new ShowSession(new NodeLocation(1, 1), Optional.of("%"), Optional.empty())))
                 .isEqualTo("SHOW SESSION LIKE '%'");
         assertThat(formatSql(
-                new ShowSession(Optional.of("%$_%"), Optional.of("$"))))
+                new ShowSession(new NodeLocation(1, 1), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW SESSION LIKE '%$_%' ESCAPE '$'");
         assertThat(formatSql(
-                new ShowSession(Optional.of("%機動隊"), Optional.of("😂"))))
+                new ShowSession(new NodeLocation(1, 1), Optional.of("%機動隊"), Optional.of("😂"))))
                 .isEqualTo("SHOW SESSION LIKE '%機動隊' ESCAPE '😂'");
     }
 
@@ -184,6 +184,7 @@ public class TestSqlFormatter
     {
         assertThat(formatSql(
                 new CreateCatalog(
+                        new NodeLocation(1, 1),
                         new Identifier("test"),
                         false,
                         new Identifier("conn"),
@@ -193,6 +194,7 @@ public class TestSqlFormatter
                 .isEqualTo("CREATE CATALOG test USING conn");
         assertThat(formatSql(
                 new CreateCatalog(
+                        new NodeLocation(1, 1),
                         new Identifier("test"),
                         false,
                         new Identifier("conn"),
@@ -203,6 +205,7 @@ public class TestSqlFormatter
                         "COMMENT 'test comment'");
         assertThat(formatSql(
                 new CreateCatalog(
+                        new NodeLocation(1, 1),
                         new Identifier("test"),
                         false,
                         new Identifier("conn"),
@@ -409,7 +412,7 @@ public class TestSqlFormatter
     {
         assertThat(formatSql(
                 new CreateMaterializedView(
-                        Optional.empty(),
+                        new NodeLocation(1, 1),
                         QualifiedName.of("test_mv"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("test_base"))),
                         false,
@@ -423,7 +426,7 @@ public class TestSqlFormatter
                         "  test_base\n");
         assertThat(formatSql(
                 new CreateMaterializedView(
-                        Optional.empty(),
+                        new NodeLocation(1, 1),
                         QualifiedName.of("test_mv"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("test_base"))),
                         false,
@@ -443,6 +446,7 @@ public class TestSqlFormatter
     {
         assertThat(formatSql(
                 new AddColumn(
+                        new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
                         new ColumnDefinition(QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
@@ -453,6 +457,7 @@ public class TestSqlFormatter
                 .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR");
         assertThat(formatSql(
                 new AddColumn(
+                        new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
                         new ColumnDefinition(QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
@@ -467,10 +472,10 @@ public class TestSqlFormatter
     public void testCommentOnTable()
     {
         assertThat(formatSql(
-                new Comment(Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("test"))))
+                new Comment(new NodeLocation(1, 1), Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("test"))))
                 .isEqualTo("COMMENT ON TABLE a IS 'test'");
         assertThat(formatSql(
-                new Comment(Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("攻殻機動隊"))))
+                new Comment(new NodeLocation(1, 1), Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("攻殻機動隊"))))
                 .isEqualTo("COMMENT ON TABLE a IS '攻殻機動隊'");
     }
 
@@ -478,10 +483,10 @@ public class TestSqlFormatter
     public void testCommentOnView()
     {
         assertThat(formatSql(
-                new Comment(Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("test"))))
+                new Comment(new NodeLocation(1, 1), Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("test"))))
                 .isEqualTo("COMMENT ON VIEW a IS 'test'");
         assertThat(formatSql(
-                new Comment(Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("攻殻機動隊"))))
+                new Comment(new NodeLocation(1, 1), Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("攻殻機動隊"))))
                 .isEqualTo("COMMENT ON VIEW a IS '攻殻機動隊'");
     }
 
@@ -489,10 +494,10 @@ public class TestSqlFormatter
     public void testCommentOnColumn()
     {
         assertThat(formatSql(
-                new Comment(Comment.Type.COLUMN, QualifiedName.of("test", "a"), Optional.of("test"))))
+                new Comment(new NodeLocation(1, 1), Comment.Type.COLUMN, QualifiedName.of("test", "a"), Optional.of("test"))))
                 .isEqualTo("COMMENT ON COLUMN test.a IS 'test'");
         assertThat(formatSql(
-                new Comment(Comment.Type.COLUMN, QualifiedName.of("test", "a"), Optional.of("攻殻機動隊"))))
+                new Comment(new NodeLocation(1, 1), Comment.Type.COLUMN, QualifiedName.of("test", "a"), Optional.of("攻殻機動隊"))))
                 .isEqualTo("COMMENT ON COLUMN test.a IS '攻殻機動隊'");
     }
 

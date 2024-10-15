@@ -27,19 +27,9 @@ public class ShowRoleGrants
 {
     private final Optional<Identifier> catalog;
 
-    public ShowRoleGrants(Optional<Identifier> catalog)
-    {
-        this(Optional.empty(), catalog);
-    }
-
     public ShowRoleGrants(NodeLocation location, Optional<Identifier> catalog)
     {
-        this(Optional.of(location), catalog);
-    }
-
-    public ShowRoleGrants(Optional<NodeLocation> location, Optional<Identifier> catalog)
-    {
-        super(location);
+        super(Optional.of(location));
         this.catalog = requireNonNull(catalog, "catalog is null");
     }
 

@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.PETABYTE;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultCoordinatorTaskMemory;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultTaskMemory;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryEstimationQuantile;
@@ -70,7 +71,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
                 MemoryManagerConfig memoryManagerConfig)
         {
             this(
-                    clusterMemoryManager::getWorkerMemoryInfo,
+                    clusterMemoryManager::getWorkersMemoryInfo,
                     memoryManagerConfig.isFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled());
         }
 
@@ -169,16 +170,21 @@ public class ExponentialGrowthPartitionMemoryEstimator
     }
 
     @Override
-    public MemoryRequirements getNextRetryMemoryRequirements(MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode)
+    public MemoryRequirements getNextRetryMemoryRequirements(MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode, int remainingAttempts)
     {
         DataSize previousMemory = previousMemoryRequirements.getRequiredMemory();
 
         // start with the maximum of previously used memory and actual usage
         DataSize newMemory = Ordering.natural().max(peakMemoryUsage, previousMemory);
         if (shouldIncreaseMemoryRequirement(errorCode)) {
-            // multiply if we hit an oom error
-
-            newMemory = DataSize.of((long) (newMemory.toBytes() * growthFactor), DataSize.Unit.BYTE);
+            if (remainingAttempts == 1) {
+                // on last attempt try as much memory as possible
+                newMemory = DataSize.of(1, PETABYTE);
+            }
+            else {
+                // multiply if we hit an oom error
+                newMemory = DataSize.of((long) (newMemory.toBytes() * growthFactor), DataSize.Unit.BYTE);
+            }
         }
 
         // if we are still below current estimate for new partition let's bump further

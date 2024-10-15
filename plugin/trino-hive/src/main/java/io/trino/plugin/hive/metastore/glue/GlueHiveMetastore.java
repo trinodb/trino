@@ -14,39 +14,35 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.base.Strings;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
-import dev.failsafe.Failsafe;
-import dev.failsafe.FailsafeException;
-import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.hive.HiveBasicStatistics;
+import io.trino.metastore.Column;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveBasicStatistics;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.HivePrivilegeInfo;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Partition;
+import io.trino.metastore.PartitionStatistics;
+import io.trino.metastore.PartitionWithStatistics;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.StatisticsUpdateMode;
+import io.trino.metastore.Table;
+import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.HivePartitionManager;
-import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
-import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
-import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.PartitionWithStatistics;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
-import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.TableInfo;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -66,7 +62,6 @@ import software.amazon.awssdk.services.glue.model.AlreadyExistsException;
 import software.amazon.awssdk.services.glue.model.BatchGetPartitionResponse;
 import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionRequestEntry;
 import software.amazon.awssdk.services.glue.model.ColumnStatistics;
-import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
 import software.amazon.awssdk.services.glue.model.CreateTableRequest;
 import software.amazon.awssdk.services.glue.model.DatabaseInput;
 import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
@@ -85,7 +80,6 @@ import software.amazon.awssdk.services.glue.model.TableInput;
 import software.amazon.awssdk.services.glue.model.UserDefinedFunctionInput;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -102,6 +96,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -115,9 +110,9 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.opentelemetry.context.Context.taskWrapping;
+import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
@@ -136,9 +131,14 @@ import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
+import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
+import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
@@ -168,12 +168,6 @@ public class GlueHiveMetastore
     private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
     private static final int BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int AWS_GLUE_GET_FUNCTIONS_MAX_RESULTS = 100;
-
-    private static final RetryPolicy<Object> CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY = RetryPolicy.builder()
-            .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof ConcurrentModificationException)
-            .withDelay(Duration.ofMillis(100))
-            .withMaxRetries(3)
-            .build();
 
     private static final AtomicInteger poolCounter = new AtomicInteger();
 
@@ -424,23 +418,64 @@ public class GlueHiveMetastore
     private List<TableInfo> getTablesInternal(Consumer<Table> cacheTable, String databaseName)
     {
         try {
-            return stats.getGetTables()
+            ImmutableList<software.amazon.awssdk.services.glue.model.Table> glueTables = stats.getGetTables()
                     .call(() -> glueClient.getTablesPaginator(builder -> builder
                                     .applyMutation(glueContext::configureClient)
                                     .databaseName(databaseName)).stream()
                             .map(GetTablesResponse::tableList)
                             .flatMap(List::stream))
                     .filter(tableVisibilityFilter)
-                    .map(glueTable -> GlueConverter.fromGlueTable(glueTable, databaseName))
-                    .peek(cacheTable)
+                    .collect(toImmutableList());
+
+            // Store only valid tables in cache
+            for (software.amazon.awssdk.services.glue.model.Table table : glueTables) {
+                convertFromGlueIgnoringErrors(table, databaseName)
+                        .ifPresent(cacheTable);
+            }
+
+            return glueTables.stream()
                     .map(table -> new TableInfo(
-                            new SchemaTableName(databaseName, table.getTableName()),
-                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(table.getTableType(), table.getParameters().get(TABLE_COMMENT))))
+                            new SchemaTableName(databaseName, table.name()),
+                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(table.tableType(), table.parameters().get(TABLE_COMMENT))))
                     .toList();
         }
         catch (EntityNotFoundException _) {
             // Database might have been deleted concurrently.
             return ImmutableList.of();
+        }
+        catch (SdkException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    private static Optional<Table> convertFromGlueIgnoringErrors(software.amazon.awssdk.services.glue.model.Table glueTable, String databaseName)
+    {
+        try {
+            return Optional.of(GlueConverter.fromGlueTable(glueTable, databaseName));
+        }
+        catch (RuntimeException e) {
+            handleListingError(e, schemaTableName(glueTable.databaseName(), glueTable.name()));
+            return Optional.empty();
+        }
+    }
+
+    private static void handleListingError(RuntimeException e, SchemaTableName tableName)
+    {
+        boolean silent = false;
+        if (e instanceof TrinoException trinoException) {
+            ErrorCode errorCode = trinoException.getErrorCode();
+            silent = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
+                    // e.g. table deleted concurrently
+                    errorCode.equals(TABLE_NOT_FOUND.toErrorCode()) ||
+                    errorCode.equals(NOT_FOUND.toErrorCode()) ||
+                    // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
+                    errorCode.getType() == EXTERNAL;
+        }
+        if (silent) {
+            log.debug(e, "Failed to get metadata for table: %s", tableName);
+        }
+        else {
+            log.warn(e, "Failed to get metadata for table: %s", tableName);
         }
     }
 
@@ -526,8 +561,7 @@ public class GlueHiveMetastore
                 .name(tableName)
                 .build();
         try {
-            Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
-                    .run(() -> stats.getDeleteTable().call(() -> glueClient.deleteTable(deleteTableRequest)));
+            stats.getDeleteTable().call(() -> glueClient.deleteTable(deleteTableRequest));
         }
         catch (EntityNotFoundException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
@@ -564,45 +598,34 @@ public class GlueHiveMetastore
         updateTable(databaseName, tableName, _ -> newTable);
     }
 
-    private void updateTable(String databaseName, String tableName, TableModifier modifier)
+    private void updateTable(String databaseName, String tableName, UnaryOperator<Table> modifier)
     {
-        try {
-            Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY).run(() -> {
-                Table existingTable = getTable(databaseName, tableName)
-                        .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
-                Table newTable = modifier.modify(existingTable);
-                if (!existingTable.getDatabaseName().equals(newTable.getDatabaseName()) || !existingTable.getTableName().equals(newTable.getTableName())) {
-                    throw new TrinoException(NOT_SUPPORTED, "Update cannot be used to change rename a table");
-                }
-                if (existingTable.getParameters().getOrDefault("table_type", "").equalsIgnoreCase("iceberg") && !Objects.equals(
-                        existingTable.getParameters().get("metadata_location"),
-                        newTable.getParameters().get("previous_metadata_location"))) {
-                    throw new TrinoException(NOT_SUPPORTED, "Cannot update Iceberg table: supplied previous location does not match current location");
-                }
-                try {
-                    stats.getUpdateTable().call(() -> glueClient.updateTable(builder -> builder
-                            .applyMutation(glueContext::configureClient)
-                            .databaseName(databaseName)
-                            .tableInput(toGlueTableInput(newTable))));
-                }
-                catch (EntityNotFoundException e) {
-                    throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-                }
-            });
+        Table existingTable = getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        Table newTable = modifier.apply(existingTable);
+        if (!existingTable.getDatabaseName().equals(newTable.getDatabaseName()) || !existingTable.getTableName().equals(newTable.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, "Update cannot be used to change rename a table");
         }
-        catch (FailsafeException e) {
-            throwIfUnchecked(e.getCause());
+        if (existingTable.getParameters().getOrDefault("table_type", "").equalsIgnoreCase("iceberg") && !Objects.equals(
+                existingTable.getParameters().get("metadata_location"),
+                newTable.getParameters().get("previous_metadata_location"))) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot update Iceberg table: supplied previous location does not match current location");
+        }
+        try {
+            stats.getUpdateTable().call(() -> glueClient.updateTable(builder -> builder
+                    .applyMutation(glueContext::configureClient)
+                    .databaseName(databaseName)
+                    .tableInput(toGlueTableInput(newTable))));
+        }
+        catch (EntityNotFoundException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         finally {
             glueCache.invalidateTable(databaseName, tableName, false);
         }
-    }
-
-    private interface TableModifier
-    {
-        Table modify(Table table)
-                throws Exception;
     }
 
     @Override
@@ -668,7 +691,7 @@ public class GlueHiveMetastore
         }
     }
 
-    private static TableInput.Builder asTableInputBuilder(software.amazon.awssdk.services.glue.model.Table table)
+    public static TableInput.Builder asTableInputBuilder(software.amazon.awssdk.services.glue.model.Table table)
     {
         return TableInput.builder()
                 .name(table.name())
@@ -731,9 +754,9 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
-        verify(!transaction.isTransactional(), "Glue metastore does not support Hive Acid tables");
+        verify(acidWriteId.isEmpty(), "Glue metastore does not support Hive Acid tables");
 
         // adding zero rows does not change stats
         if (mode == StatisticsUpdateMode.MERGE_INCREMENTAL && statisticsUpdate.basicStatistics().getRowCount().equals(OptionalLong.of(0))) {
@@ -753,11 +776,9 @@ public class GlueHiveMetastore
         // first update the basic statistics on the table, which requires a read-modify-write cycle
         BasicTableStatisticsResult result;
         try {
-            result = Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
-                    .get(context -> updateBasicTableStatistics(databaseName, tableName, mode, statisticsUpdate, existingColumnStatistics));
+            result = updateBasicTableStatistics(databaseName, tableName, mode, statisticsUpdate, existingColumnStatistics);
         }
-        catch (FailsafeException e) {
-            throwIfUnchecked(e.getCause());
+        catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         finally {
@@ -1438,6 +1459,7 @@ public class GlueHiveMetastore
                     .collect(toImmutableList()));
         }
         catch (software.amazon.awssdk.services.glue.model.EntityNotFoundException | AccessDeniedException e) {
+            log.warn(e, "Failed to get SQL routines for pattern: %s in schema: %s", functionNamePattern, databaseName);
             return ImmutableList.of();
         }
         catch (SdkException e) {

@@ -30,19 +30,9 @@ public class AddColumn
     private final boolean tableExists;
     private final boolean columnNotExists;
 
-    public AddColumn(QualifiedName name, ColumnDefinition column, boolean tableExists, boolean columnNotExists)
-    {
-        this(Optional.empty(), name, column, tableExists, columnNotExists);
-    }
-
     public AddColumn(NodeLocation location, QualifiedName name, ColumnDefinition column, boolean tableExists, boolean columnNotExists)
     {
-        this(Optional.of(location), name, column, tableExists, columnNotExists);
-    }
-
-    private AddColumn(Optional<NodeLocation> location, QualifiedName name, ColumnDefinition column, boolean tableExists, boolean columnNotExists)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = requireNonNull(name, "name is null");
         this.column = requireNonNull(column, "column is null");
         this.tableExists = tableExists;

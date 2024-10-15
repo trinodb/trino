@@ -16,6 +16,7 @@ package io.trino.filesystem.azure;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
+import com.azure.storage.blob.specialized.BlockBlobClient;
 import com.azure.storage.file.datalake.DataLakeFileSystemClient;
 import com.azure.storage.file.datalake.DataLakeServiceClient;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
@@ -25,6 +26,10 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.encryption.EncryptionEnforcingFileSystem;
+import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -39,11 +44,15 @@ import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 @TestInstance(Lifecycle.PER_CLASS)
 public abstract class AbstractTestAzureFileSystem
         extends AbstractTestTrinoFileSystem
 {
+    private final EncryptionKey key = EncryptionKey.randomAes256();
+
     protected static String getRequiredEnvironmentVariable(String name)
     {
         return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
@@ -112,12 +121,14 @@ public abstract class AbstractTestAzureFileSystem
     private boolean isHierarchicalNamespaceEnabled()
             throws IOException
     {
-        DataLakeFileSystemClient fileSystemClient = createDataLakeFileSystemClient();
         try {
-            return fileSystemClient.getDirectoryClient("/").exists();
+            BlockBlobClient blockBlobClient = blobContainerClient
+                    .getBlobClient("/")
+                    .getBlockBlobClient();
+            return blockBlobClient.exists();
         }
         catch (RuntimeException e) {
-            throw new IOException("Failed to check whether hierarchical namespaces is enabled for the storage account %s and container %s".formatted(account, containerName));
+            throw new IOException("Failed to check whether hierarchical namespaces is enabled for the storage account %s and container %s".formatted(account, containerName), e);
         }
     }
 
@@ -177,8 +188,17 @@ public abstract class AbstractTestAzureFileSystem
     }
 
     @Override
+    protected boolean supportsPreSignedUri()
+    {
+        return true;
+    }
+
+    @Override
     protected final TrinoFileSystem getFileSystem()
     {
+        if (useServerSideEncryptionWithCustomerKey()) {
+            return new EncryptionEnforcingFileSystem(fileSystem, key);
+        }
         return fileSystem;
     }
 
@@ -194,12 +214,6 @@ public abstract class AbstractTestAzureFileSystem
         assertThat(blobContainerClient.listBlobs()).map(BlobItem::getName).isEmpty();
     }
 
-    @Override
-    protected boolean supportsCreateExclusive()
-    {
-        return true;
-    }
-
     @Test
     @Override
     public void testPaths()
@@ -207,5 +221,72 @@ public abstract class AbstractTestAzureFileSystem
     {
         // Azure file paths are always hierarchical
         testPathHierarchical();
+    }
+
+    @Test
+    void testWasb()
+            throws IOException
+    {
+        try (TempBlob tempBlob = new TempBlob(Location.of("wasb://%s@%s.blob.core.windows.net/wasb-test/%s".formatted(containerName, account, randomUUID())))) {
+            assertThat(tempBlob.exists()).isFalse();
+
+            TrinoInputFile inputFile = getFileSystem().newInputFile(tempBlob.location());
+            assertThat(inputFile.location()).isEqualTo(tempBlob.location());
+            assertThat(inputFile.exists()).isFalse();
+
+            // create file with data
+            tempBlob.createOrOverwrite("123456");
+            assertThat(inputFile.length()).isEqualTo(6);
+            try (TrinoInput input = inputFile.newInput()) {
+                assertThat(input.readFully(0, 6).toStringUtf8()).isEqualTo("123456");
+            }
+
+            // delete the file
+            tempBlob.close();
+            assertThat(inputFile.exists()).isFalse();
+        }
+    }
+
+    @Test
+    @Override
+    public void testFileWithTrailingWhitespace()
+            throws IOException
+    {
+        if (useServerSideEncryptionWithCustomerKey()) {
+            assertThatThrownBy(super::testFileWithTrailingWhitespace)
+                    .hasStackTraceContaining("Status code 409, BlobUsesCustomerSpecifiedEncryption");
+            abort("Azure requires decryption key to check for the existence of an encrypted file");
+            return;
+        }
+
+        super.testFileWithTrailingWhitespace();
+    }
+
+    @Test
+    @Override
+    protected void testRenameFile()
+            throws IOException
+    {
+        if (useServerSideEncryptionWithCustomerKey()) {
+            assertThatThrownBy(super::testRenameFile)
+                    .hasStackTraceContaining("Status code 409, BlobUsesCustomerSpecifiedEncryption");
+            abort("Azure requires decryption key to rename an encrypted file");
+            return;
+        }
+
+        super.testRenameFile();
+    }
+
+    @Test
+    @Override
+    public void testDirectoryExists()
+            throws IOException
+    {
+        if (isHierarchical() && useServerSideEncryptionWithCustomerKey()) {
+            assertThatThrownBy(super::testDirectoryExists)
+                    .hasStackTraceContaining("Status code 409, BlobUsesCustomerSpecifiedEncryption");
+            abort("Azure requires decryption key to check for the existence of an encrypted blob");
+        }
+        super.testDirectoryExists();
     }
 }

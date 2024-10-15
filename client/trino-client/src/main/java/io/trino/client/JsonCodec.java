@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -46,6 +47,8 @@ public class JsonCodec<T>
                 .build();
 
         return JsonMapper.builder(jsonFactory)
+                .enable(StreamReadFeature.USE_FAST_DOUBLE_PARSER)
+                .enable(StreamReadFeature.USE_FAST_BIG_NUMBER_PARSER)
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .disable(MapperFeature.AUTO_DETECT_CREATORS)
                 .disable(MapperFeature.AUTO_DETECT_FIELDS)
@@ -57,6 +60,7 @@ public class JsonCodec<T>
                 .disable(MapperFeature.INFER_PROPERTY_MUTATORS)
                 .disable(MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS)
                 .addModule(new Jdk8Module())
+                .addModule(new QueryDataClientJacksonModule())
                 .build();
     };
 
@@ -104,6 +108,16 @@ public class JsonCodec<T>
             T value = mapper.readerFor(javaType).readValue(parser);
             checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
             return value;
+        }
+    }
+
+    public String toJson(T instance)
+    {
+        try {
+            return mapper.writerFor(javaType).writeValueAsString(instance);
+        }
+        catch (IOException exception) {
+            throw new IllegalArgumentException(String.format("%s could not be converted to JSON", instance.getClass().getName()), exception);
         }
     }
 }

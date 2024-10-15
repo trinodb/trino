@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import io.airlift.stats.QuantileDigest;
 import io.trino.operator.aggregation.state.QuantileDigestAndPercentileState;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -50,7 +51,7 @@ public final class LegacyApproximateLongPercentileAggregations
                 digest = new QuantileDigest(accuracy);
             }
             else {
-                throw new IllegalArgumentException("Percentile accuracy must be strictly between 0 and 1");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Percentile accuracy must be strictly between 0 and 1");
             }
             state.setDigest(digest);
             state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());

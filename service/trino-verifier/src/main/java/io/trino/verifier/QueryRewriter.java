@@ -30,6 +30,7 @@ import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QueryBody;
 import io.trino.sql.tree.QuerySpecification;
@@ -256,7 +257,7 @@ public class QueryRewriter
 
     private static String dropTableSql(QualifiedName table)
     {
-        return formatSql(new DropTable(table, true));
+        return formatSql(new DropTable(new NodeLocation(1, 1), table, true));
     }
 
     private static String escapeLikeExpression(Connection connection, String value)

@@ -14,8 +14,8 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metastore.HivePartition;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hive.HivePartition;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;

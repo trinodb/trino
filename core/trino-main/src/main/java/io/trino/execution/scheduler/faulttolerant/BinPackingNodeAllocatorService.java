@@ -121,7 +121,7 @@ public class BinPackingNodeAllocatorService
             MemoryManagerConfig memoryManagerConfig)
     {
         this(nodeManager,
-                clusterMemoryManager::getWorkerMemoryInfo,
+                clusterMemoryManager::getAllNodesMemoryInfo,
                 nodeSchedulerConfig.isIncludeCoordinator(),
                 Duration.ofMillis(nodeSchedulerConfig.getAllowedNoMatchingNodePeriod().toMillis()),
                 nodeSchedulerConfig.getOptimizedLocalScheduling(),
@@ -167,9 +167,9 @@ public class BinPackingNodeAllocatorService
                     catch (InterruptedException e) {
                         currentThread().interrupt();
                     }
-                    catch (Exception e) {
+                    catch (Throwable e) {
                         // ignore to avoid getting unscheduled
-                        log.warn(e, "Error updating nodes");
+                        log.error(e, "Error processing pending acquires");
                     }
                 }
             }, 0, TimeUnit.SECONDS);
@@ -316,7 +316,7 @@ public class BinPackingNodeAllocatorService
     @Override
     public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass)
     {
-        BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes(), executionClass);
+        BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes(), executionClass, nodeRequirements);
         PendingAcquire pendingAcquire = new PendingAcquire(nodeRequirements, nodeLease, ticker);
         pendingAcquires.add(pendingAcquire);
         wakeupProcessPendingAcquires();
@@ -342,14 +342,14 @@ public class BinPackingNodeAllocatorService
 
     @Managed
     @Nested
-    public CounterStat processCalls()
+    public CounterStat getProcessCalls()
     {
         return processCalls;
     }
 
     @Managed
     @Nested
-    public CounterStat processPending()
+    public CounterStat getProcessPending()
     {
         return processPending;
     }
@@ -510,12 +510,14 @@ public class BinPackingNodeAllocatorService
         private final AtomicLong memoryLease;
         private final AtomicReference<TaskId> taskId = new AtomicReference<>();
         private final AtomicReference<TaskExecutionClass> executionClass;
+        private final NodeRequirements nodeRequirements;
 
-        private BinPackingNodeLease(long memoryLease, TaskExecutionClass executionClass)
+        private BinPackingNodeLease(long memoryLease, TaskExecutionClass executionClass, NodeRequirements nodeRequirements)
         {
             this.memoryLease = new AtomicLong(memoryLease);
             requireNonNull(executionClass, "executionClass is null");
             this.executionClass = new AtomicReference<>(executionClass);
+            this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
         }
 
         @Override
@@ -614,6 +616,7 @@ public class BinPackingNodeAllocatorService
                     .add("memoryLease", memoryLease)
                     .add("taskId", taskId)
                     .add("executionClass", executionClass)
+                    .add("nodeRequirements", nodeRequirements)
                     .toString();
         }
     }

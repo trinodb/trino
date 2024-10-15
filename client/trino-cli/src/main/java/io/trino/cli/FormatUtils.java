@@ -90,49 +90,55 @@ public final class FormatUtils
         return rateString;
     }
 
-    public static String formatDataSize(DataSize size, boolean longForm)
+    public static String formatDataSize(DataSize size, boolean longForm, boolean decimalDataSize)
     {
+        int divisor = decimalDataSize ? 1000 : 1024;
         double fractional = size.toBytes();
         String unit = null;
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= divisor) {
+            fractional /= divisor;
             unit = "K";
         }
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= divisor) {
+            fractional /= divisor;
             unit = "M";
         }
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= divisor) {
+            fractional /= divisor;
             unit = "G";
         }
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= divisor) {
+            fractional /= divisor;
             unit = "T";
         }
-        if (fractional >= 1024) {
-            fractional /= 1024;
+        if (fractional >= divisor) {
+            fractional /= divisor;
             unit = "P";
         }
 
         if (unit == null) {
             unit = "B";
         }
-        else if (longForm) {
-            unit += "B";
+        else {
+            if (!decimalDataSize) {
+                unit += "i";
+            }
+            if (longForm) {
+                unit += "B";
+            }
         }
 
         return format("%s%s", getFormat(fractional).format(fractional), unit);
     }
 
-    public static String formatDataRate(DataSize dataSize, Duration duration, boolean longForm)
+    public static String formatDataRate(DataSize dataSize, Duration duration, boolean longForm, boolean decimalDataSize)
     {
         long rate = Math.round(dataSize.toBytes() / duration.getValue(SECONDS));
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
             rate = 0;
         }
 
-        String rateString = formatDataSize(DataSize.ofBytes(rate), false);
+        String rateString = formatDataSize(DataSize.ofBytes(rate), false, decimalDataSize);
         if (longForm) {
             if (!rateString.endsWith("B")) {
                 rateString += "B";

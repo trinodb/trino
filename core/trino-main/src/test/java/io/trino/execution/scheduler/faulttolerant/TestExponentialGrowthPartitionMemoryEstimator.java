@@ -103,43 +103,75 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                 estimator.getNextRetryMemoryRequirements(
                         new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(10, MEGABYTE),
-                        StandardErrorCode.CORRUPT_PAGE.toErrorCode()))
+                        StandardErrorCode.CORRUPT_PAGE.toErrorCode(),
+                        5))
                 .isEqualTo(new MemoryRequirements(DataSize.of(50, MEGABYTE)));
 
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(10, MEGABYTE),
-                        StandardErrorCode.CLUSTER_OUT_OF_MEMORY.toErrorCode()))
+                        StandardErrorCode.CLUSTER_OUT_OF_MEMORY.toErrorCode(),
+                        5))
                 .isEqualTo(new MemoryRequirements(DataSize.of(150, MEGABYTE)));
 
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(10, MEGABYTE),
-                        StandardErrorCode.TOO_MANY_REQUESTS_FAILED.toErrorCode()))
+                        StandardErrorCode.TOO_MANY_REQUESTS_FAILED.toErrorCode(),
+                        5))
                 .isEqualTo(new MemoryRequirements(DataSize.of(150, MEGABYTE)));
 
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(10, MEGABYTE),
-                        EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()))
+                        EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode(),
+                        5))
                 .isEqualTo(new MemoryRequirements(DataSize.of(150, MEGABYTE)));
+
+        assertThat(
+                estimator.getNextRetryMemoryRequirements(
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE)),
+                        DataSize.of(10, MEGABYTE),
+                        EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode(),
+                        2))
+                .isEqualTo(new MemoryRequirements(DataSize.of(150, MEGABYTE)));
+
+        // on last retry we expect whole node on memory error
+        assertThat(
+                estimator.getNextRetryMemoryRequirements(
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE)),
+                        DataSize.of(10, MEGABYTE),
+                        StandardErrorCode.TOO_MANY_REQUESTS_FAILED.toErrorCode(),
+                        1))
+                .isEqualTo(new MemoryRequirements(DataSize.of(64, GIGABYTE)));
+
+        // standard logic even for last retry on non memory related error
+        assertThat(
+                estimator.getNextRetryMemoryRequirements(
+                        new MemoryRequirements(DataSize.of(50, MEGABYTE)),
+                        DataSize.of(10, MEGABYTE),
+                        StandardErrorCode.CORRUPT_PAGE.toErrorCode(),
+                        1))
+                .isEqualTo(new MemoryRequirements(DataSize.of(50, MEGABYTE)));
 
         // peak memory of failed task 70MB
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(70, MEGABYTE),
-                        StandardErrorCode.CORRUPT_PAGE.toErrorCode()))
+                        StandardErrorCode.CORRUPT_PAGE.toErrorCode(),
+                        5))
                 .isEqualTo(new MemoryRequirements(DataSize.of(70, MEGABYTE)));
 
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
                         new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(70, MEGABYTE),
-                        EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()))
+                        EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode(),
+                        5))
                 .isEqualTo(new MemoryRequirements(DataSize.of(210, MEGABYTE)));
 
         // register a couple successful attempts; 90th percentile is at 300MB
@@ -164,7 +196,8 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                 estimator.getNextRetryMemoryRequirements(
                         new MemoryRequirements(DataSize.of(50, MEGABYTE)),
                         DataSize.of(70, MEGABYTE),
-                        EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()))
+                        EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode(),
+                        5))
                 .isEqualTo(new MemoryRequirements(DataSize.of(300, MEGABYTE)));
 
         // a couple oom errors are registered

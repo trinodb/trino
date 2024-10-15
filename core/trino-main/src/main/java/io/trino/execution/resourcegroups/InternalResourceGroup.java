@@ -312,6 +312,19 @@ public class InternalResourceGroup
         }
     }
 
+    @Managed
+    public long getCpuUsageMillis()
+    {
+        return getResourceUsageSnapshot().getCpuUsageMillis();
+    }
+
+    @Managed
+    public long getMemoryUsageBytes()
+    {
+        return getResourceUsageSnapshot().getMemoryUsageBytes();
+    }
+
+    @Managed
     @Override
     public long getSoftMemoryLimitBytes()
     {
@@ -329,6 +342,14 @@ public class InternalResourceGroup
             if (canRunMore() != oldCanRun) {
                 updateEligibility();
             }
+        }
+    }
+
+    @Managed
+    public long getSoftCpuLimitMillis()
+    {
+        synchronized (root) {
+            return softCpuLimitMillis;
         }
     }
 
@@ -355,6 +376,14 @@ public class InternalResourceGroup
         }
     }
 
+    @Managed
+    public long getHardCpuLimitMillis()
+    {
+        synchronized (root) {
+            return hardCpuLimitMillis;
+        }
+    }
+
     @Override
     public Duration getHardCpuLimit()
     {
@@ -378,6 +407,7 @@ public class InternalResourceGroup
         }
     }
 
+    @Managed
     @Override
     public long getCpuQuotaGenerationMillisPerSecond()
     {
@@ -395,6 +425,7 @@ public class InternalResourceGroup
         }
     }
 
+    @Managed
     @Override
     public int getSoftConcurrencyLimit()
     {
@@ -465,6 +496,7 @@ public class InternalResourceGroup
         return timeBetweenStartsSec;
     }
 
+    @Managed
     @Override
     public int getSchedulingWeight()
     {
@@ -485,6 +517,7 @@ public class InternalResourceGroup
         }
     }
 
+    @Managed
     @Override
     public SchedulingPolicy getSchedulingPolicy()
     {

@@ -16,6 +16,7 @@ package io.trino.plugin.opensearch;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.opensearch.client.OpenSearchClient;
 import io.trino.plugin.opensearch.ptf.RawQuery;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -47,6 +48,7 @@ public class OpenSearchConnectorModule
         newOptionalBinder(binder, AwsSecurityConfig.class);
         newOptionalBinder(binder, PasswordConfig.class);
 
+        newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(OpenSearchSessionProperties.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(RawQuery.class).in(Scopes.SINGLETON);
 
         install(conditionalModule(

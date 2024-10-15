@@ -48,13 +48,6 @@ public interface ConnectorSplit
         return Map.of();
     }
 
-    @Deprecated(forRemoval = true)
-    @JsonIgnore
-    default Object getInfo()
-    {
-        throw new UnsupportedOperationException("getInfo is deprecated and will be removed in the future. Use getSplitInfo instead.");
-    }
-
     default SplitWeight getSplitWeight()
     {
         return SplitWeight.standard();

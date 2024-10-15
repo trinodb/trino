@@ -41,6 +41,7 @@ public class TrimmedBasicQueryInfo
     private final Optional<String> sessionPrincipal;
     private final Optional<String> sessionSource;
     private final Optional<ResourceGroupId> resourceGroupId;
+    private final Optional<String> queryDataEncoding;
     private final QueryState state;
     private final boolean scheduled;
     private final URI self;
@@ -60,6 +61,7 @@ public class TrimmedBasicQueryInfo
         this.sessionPrincipal = requireNonNull(queryInfo.getSession().getPrincipal(), "principal is null");
         this.sessionSource = requireNonNull(queryInfo.getSession().getSource(), "source is null");
         this.resourceGroupId = requireNonNull(queryInfo.getResourceGroupId(), "resourceGroupId is null");
+        this.queryDataEncoding = requireNonNull(queryInfo.getSession().getQueryDataEncoding(), "queryDataEncoding is null");
         this.state = requireNonNull(queryInfo.getState(), "state is null");
         this.errorType = Optional.ofNullable(queryInfo.getErrorType());
         this.errorCode = Optional.ofNullable(queryInfo.getErrorCode());
@@ -107,6 +109,12 @@ public class TrimmedBasicQueryInfo
     public Optional<ResourceGroupId> getResourceGroupId()
     {
         return resourceGroupId;
+    }
+
+    @JsonProperty
+    public Optional<String> getQueryDataEncoding()
+    {
+        return queryDataEncoding;
     }
 
     @JsonProperty

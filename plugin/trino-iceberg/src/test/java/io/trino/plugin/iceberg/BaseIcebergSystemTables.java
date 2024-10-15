@@ -20,6 +20,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import org.apache.iceberg.FileContent;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -361,6 +362,23 @@ public abstract class BaseIcebergSystemTables
                         .row(ImmutableList.of(offset))
                         .row(ImmutableList.of(offset))
                         .build());
+    }
+
+    @Test
+    public void testFilesTableWithDelete()
+    {
+        assertUpdate("CREATE TABLE test_schema.test_table_with_delete (_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
+        assertUpdate("INSERT INTO test_schema.test_table_with_delete VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+        assertUpdate("INSERT INTO test_schema.test_table_with_delete VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+        assertUpdate("DELETE FROM test_schema.test_table_with_delete WHERE _bigint = 5", 1);
+        assertUpdate("DELETE FROM test_schema.test_table_with_delete WHERE _bigint = 2", 1);
+
+        assertQuery("SELECT count(*) FROM test_schema.test_table_with_delete", "VALUES 4");
+        assertQuery("SELECT count(*) FROM test_schema.\"test_table_with_delete$files\" WHERE content = " + FileContent.DATA.id(), "VALUES 4");
+        assertQuery("SELECT count(*) FROM test_schema.\"test_table_with_delete$files\" WHERE content = " + FileContent.POSITION_DELETES.id(), "VALUES 2");
+        assertQuery("SELECT count(*) FROM test_schema.\"test_table_with_delete$files\" WHERE content = " + FileContent.EQUALITY_DELETES.id(), "VALUES 0");
+
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_with_delete");
     }
 
     private Long nanCount(long value)

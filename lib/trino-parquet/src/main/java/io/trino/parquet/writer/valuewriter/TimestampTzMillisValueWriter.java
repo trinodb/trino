@@ -14,11 +14,13 @@
 package io.trino.parquet.writer.valuewriter;
 
 import io.trino.spi.block.Block;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static java.util.Objects.requireNonNull;
 
 public class TimestampTzMillisValueWriter
         extends PrimitiveValueWriter
@@ -31,11 +33,14 @@ public class TimestampTzMillisValueWriter
     @Override
     public void write(Block block)
     {
+        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
+        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!block.isNull(i)) {
+            if (!mayHaveNull || !block.isNull(i)) {
                 long millis = unpackMillisUtc(TIMESTAMP_TZ_MILLIS.getLong(block, i));
-                getValueWriter().writeLong(millis);
-                getStatistics().updateStats(millis);
+                valuesWriter.writeLong(millis);
+                statistics.updateStats(millis);
             }
         }
     }

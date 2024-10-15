@@ -13,54 +13,16 @@
  */
 package io.trino.connector.informationschema;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.transaction.TransactionId;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
-public class InformationSchemaTransactionHandle
+public record InformationSchemaTransactionHandle(TransactionId transactionId)
         implements ConnectorTransactionHandle
 {
-    private final TransactionId transactionId;
-
-    @JsonCreator
-    public InformationSchemaTransactionHandle(@JsonProperty("transactionId") TransactionId transactionId)
+    public InformationSchemaTransactionHandle
     {
-        this.transactionId = requireNonNull(transactionId, "transactionId is null");
-    }
-
-    @JsonProperty
-    public TransactionId getTransactionId()
-    {
-        return transactionId;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return transactionId.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        InformationSchemaTransactionHandle other = (InformationSchemaTransactionHandle) obj;
-        return Objects.equals(transactionId, other.transactionId);
-    }
-
-    @Override
-    public String toString()
-    {
-        return transactionId.toString();
+        requireNonNull(transactionId, "transactionId is null");
     }
 }

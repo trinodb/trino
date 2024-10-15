@@ -316,9 +316,9 @@ public class TestHiveRedirectionToIceberg
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + hiveTableName))
                 .containsOnly(
                         row("nationkey", null, 25d, 0d, null, "0", "24"),
-                        row("name", 1231d, 25d, 0d, null, null, null),
+                        row("name", 1182d, 25d, 0d, null, null, null),
                         row("regionkey", null, 5d, 0d, null, "0", "4"),
-                        row("comment", 3558d, 25d, 0d, null, null, null),
+                        row("comment", 3507d, 25d, 0d, null, null, null),
                         row(null, null, null, null, 25d, null, null));
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);

@@ -32,9 +32,10 @@
 (requirements-java)=
 ### Java runtime environment
 
-Trino requires a 64-bit version of Java 22, with a minimum required version of 22.0.0.
-Earlier  versions such as Java 8, Java 11, Java 17 or Java 21 do not work.
-Newer versions such as Java 23 are not supported -- they may work, but are not tested.
+Trino requires a 64-bit version of Java 22, with a minimum required version of
+22.0.1 and a recommendation to use the latest patch version. Earlier major versions
+such as Java 8, Java 11, Java 17 or Java 21 do not work. Newer versions such as
+Java 23 are not supported -- they may work, but are not tested.
 
 We recommend using the Eclipse Temurin OpenJDK distribution from
 [Adoptium](https://adoptium.net/) as the JDK for Trino, as Trino is tested
@@ -138,9 +139,6 @@ The following provides a good starting point for creating `etc/jvm.config`:
 -Dfile.encoding=UTF-8
 # Allow loading dynamic agent used by JOL
 -XX:+EnableDynamicAgentLoading
-# https://bugs.openjdk.org/browse/JDK-8329528
--XX:+UnlockDiagnosticVMOptions
--XX:G1NumCollectionsKeepPinned=10000000
 ```
 
 You must adjust the value for the memory used by Trino, specified with `-Xmx`
@@ -164,12 +162,18 @@ Because an `OutOfMemoryError` typically leaves the JVM in an
 inconsistent state, we write a heap dump, for debugging, and forcibly
 terminate the process when this occurs.
 
-The temporary directory used by the JVM must allow execution of code.
-Specifically, the mount must not have the `noexec` flag set. The default
-`/tmp` directory is mounted with this flag in some installations, which
-prevents Trino from starting. You can workaround this by overriding the
-temporary directory by adding `-Djava.io.tmpdir=/path/to/other/tmpdir` to the
-list of JVM options.
+(tmp-directory)=
+#### Temporary directory
+
+The temporary directory used by the JVM must allow execution of code, because
+Trino accesses and uses shared library binaries for purposes such as
+[](file-compression).
+
+Specifically, the partition mount and directory must not have the `noexec` flag
+set. The default `/tmp` directory is mounted with this flag in some operating
+system installations, which prevents Trino from starting. You can work around
+this by overriding the temporary directory by adding
+`-Djava.io.tmpdir=/path/to/other/tmpdir` to the list of JVM options.
 
 (config-properties)=
 ### Config properties

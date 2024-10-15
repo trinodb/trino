@@ -132,7 +132,9 @@ public abstract class BaseIcebergConnectorSmokeTest
         ExecutorService executor = newFixedThreadPool(threads);
         List<String> rows = ImmutableList.of("(1, 0, 0, 0)", "(0, 1, 0, 0)", "(0, 0, 1, 0)", "(0, 0, 0, 1)");
 
-        String[] expectedErrors = new String[] {"Failed to commit Iceberg update to table:", "Failed to replace table due to concurrent updates:"};
+        String[] expectedErrors = new String[] {"Failed to commit the transaction during write:",
+                "Failed to replace table due to concurrent updates:",
+                "Failed to commit during write:"};
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "test_concurrent_delete",

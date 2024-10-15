@@ -17,7 +17,8 @@ The JDBC driver version should be identical to the version of the Trino cluster,
 or newer. Older versions typically work, but only a subset is regularly tested.
 Versions before 350 are not supported.
 
-## Installing
+(jdbc-installation)=
+## Installation
 
 Download {maven_download}`jdbc` and add it to the classpath of your Java application.
 
@@ -69,6 +70,9 @@ jdbc:trino://host:port
 jdbc:trino://host:port/catalog
 jdbc:trino://host:port/catalog/schema
 ```
+
+The value for `port` is optional if Trino is available at the default HTTP port
+`80` or with `SSL=true` and the default HTTPS port `443`.
 
 The following is an example of a JDBC URL used to create a connection:
 
@@ -133,6 +137,9 @@ may not be specified using both methods.
   - Extra information about the client.
 * - `clientTags`
   - Client tags for selecting resource groups. Example: `abc,xyz`
+* - `path`
+  - Set the default [SQL path](/sql/set-path) for the session. Useful for
+    setting a catalog and schema location for [catalog routines](routine-catalog).
 * - `traceToken`
   - Trace token for correlating requests across systems.
 * - `source`
@@ -163,6 +170,12 @@ may not be specified using both methods.
 * - `SSLKeyStoreType`
   - The type of the KeyStore. The default type is provided by the Java
     `keystore.type` security property or `jks` if none exists.
+* - `SSLUseSystemKeyStore`
+  - Set `true` to automatically use the system KeyStore based on the operating
+    system. The supported OSes are Windows and macOS. For Windows, the
+    `Windows-MY` KeyStore is selected. For macOS, the `KeychainStore`
+    KeyStore is selected. For other OSes, the default Java KeyStore is loaded.
+    The KeyStore specification can be overridden using `SSLKeyStoreType`.
 * - `SSLTrustStorePath`
   - The location of the Java TrustStore file to use to validate HTTPS server
     certificates.

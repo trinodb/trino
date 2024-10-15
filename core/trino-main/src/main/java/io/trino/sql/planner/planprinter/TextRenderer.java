@@ -34,6 +34,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_COLUMN_NAME;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isFinite;
@@ -75,6 +76,7 @@ public class TextRenderer
                 .append("\n");
 
         String columns = node.getOutputs().stream()
+                .filter(s -> !s.name().equals(SPOOLING_METADATA_COLUMN_NAME))
                 .map(s -> s.name() + ":" + s.type())
                 .collect(joining(", "));
 

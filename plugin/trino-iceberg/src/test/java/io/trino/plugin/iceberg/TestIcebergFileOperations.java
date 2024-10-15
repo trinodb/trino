@@ -20,7 +20,7 @@ import com.google.common.collect.Multiset;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.util.FileOperationUtils;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -96,6 +96,8 @@ public class TestIcebergFileOperations
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.<String, String>builder()
                 .put("iceberg.split-manager-threads", "0")
+                // FS accesses with metadata cache are tested separately in io.trino.plugin.iceberg.TestIcebergMemoryCacheFileOperations
+                .put("iceberg.metadata-cache.enabled", "false")
                 .buildOrThrow());
 
         metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
@@ -497,6 +499,40 @@ public class TestIcebergFileOperations
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
                         .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 4)
+                        .build());
+    }
+
+    @Test
+    public void testSelfJoinStatistics()
+    {
+        assertUpdate("CREATE TABLE test_self_join AS SELECT 'name1' AS name, 2 AS age, 'id1' AS id", 1);
+
+        // We use column statistics for all three columns from t1 and single column from t2.
+        // IcebergMetadata#tableStatisticsCache should be able to avoid multiple reads by re-using stats from t1.
+        assertFileSystemAccesses("EXPLAIN SELECT t1.name, t1.age FROM test_self_join t1 JOIN test_self_join t2 ON t1.id = t2.id",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .build());
+
+        // Same columns projected from both t1 and t2, but with different predicate which prevents reuse of statistics from IcebergMetadata#tableStatisticsCache
+        assertFileSystemAccesses("EXPLAIN SELECT t1.age FROM test_self_join t1 JOIN test_self_join t2 ON t1.id = t2.id WHERE t2.age > 0",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .build());
+
+        // Different columns projected from t1 and t2 prevents reuse of statistics from IcebergMetadata#tableStatisticsCache
+        assertFileSystemAccesses("EXPLAIN SELECT t1.name FROM test_self_join t1 JOIN test_self_join t2 ON t1.name = t2.id",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
                         .build());
     }
 

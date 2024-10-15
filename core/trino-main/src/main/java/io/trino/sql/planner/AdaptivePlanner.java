@@ -129,7 +129,7 @@ public class AdaptivePlanner
 
         // rewrite remote source nodes to exchange nodes, except for fragments which are finisher or whose stats are
         // estimated by progress.
-        ReplaceUnchangedFragmentsWithRemoteSourcesRewriter rewriter = new ReplaceUnchangedFragmentsWithRemoteSourcesRewriter(runtimeInfoProvider);
+        ReplaceRemoteSourcesWithExchanges rewriter = new ReplaceRemoteSourcesWithExchanges(runtimeInfoProvider);
         PlanNode currentAdaptivePlan = rewriteWith(rewriter, root.getFragment().getRoot(), root.getChildren());
 
         // Remove the adaptive plan node and replace it with initial plan
@@ -306,12 +306,12 @@ public class AdaptivePlanner
         return StreamSupport.stream(iterable.spliterator(), false);
     }
 
-    private static class ReplaceUnchangedFragmentsWithRemoteSourcesRewriter
+    private static class ReplaceRemoteSourcesWithExchanges
             extends SimplePlanRewriter<List<SubPlan>>
     {
         private final RuntimeInfoProvider runtimeInfoProvider;
 
-        private ReplaceUnchangedFragmentsWithRemoteSourcesRewriter(RuntimeInfoProvider runtimeInfoProvider)
+        private ReplaceRemoteSourcesWithExchanges(RuntimeInfoProvider runtimeInfoProvider)
         {
             this.runtimeInfoProvider = requireNonNull(runtimeInfoProvider, "runtimeInfoProvider is null");
         }
@@ -348,18 +348,24 @@ public class AdaptivePlanner
             }
 
             List<PlanNode> sourceNodes = sourceNodesBuilder.build();
-            List<List<Symbol>> inputs = sourceNodes.stream().map(PlanNode::getOutputSymbols).collect(toImmutableList());
-            PartitioningScheme partitioningScheme = node.getSourceFragmentIds().stream()
+
+            // Find the input symbols for the exchange node
+            List<PartitioningScheme> outputPartitioningSchemes = node.getSourceFragmentIds().stream()
                     .map(runtimeInfoProvider::getPlanFragment)
                     .map(PlanFragment::getOutputPartitioningScheme)
-                    .findFirst()
-                    .orElseThrow();
+                    .collect(toImmutableList());
+            verify(outputPartitioningSchemes.size() == sourceNodes.size(), "Output partitioning schemes size does not match source nodes size");
+            List<List<Symbol>> inputs = outputPartitioningSchemes.stream()
+                    .map(PartitioningScheme::getOutputLayout)
+                    .collect(toImmutableList());
 
             return new ExchangeNode(
                     node.getId(),
                     node.getExchangeType(),
                     REMOTE,
-                    partitioningScheme,
+                    // We need to translate the output layout of the partitioning scheme to the output layout
+                    // of the RemoteSourceNode.
+                    outputPartitioningSchemes.getFirst().translateOutputLayout(node.getOutputSymbols()),
                     sourceNodes,
                     inputs,
                     node.getOrderingScheme());

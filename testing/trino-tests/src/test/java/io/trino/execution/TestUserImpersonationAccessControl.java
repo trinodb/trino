@@ -75,14 +75,14 @@ public class TestUserImpersonationAccessControl
     }
 
     @Nullable
-    private QueryError trySelectQuery(String assumedUser)
+    private QueryError trySelectQuery(String sessionUser)
     {
         OkHttpClient httpClient = new OkHttpClient();
         try {
             ClientSession clientSession = ClientSession.builder()
                     .server(getDistributedQueryRunner().getCoordinator().getBaseUrl())
-                    .principal(Optional.of("user"))
-                    .user(Optional.of(assumedUser))
+                    .user(Optional.of("user"))
+                    .sessionUser(Optional.of(sessionUser))
                     .source("source")
                     .timeZone(ZoneId.of("America/Los_Angeles"))
                     .locale(Locale.ENGLISH)

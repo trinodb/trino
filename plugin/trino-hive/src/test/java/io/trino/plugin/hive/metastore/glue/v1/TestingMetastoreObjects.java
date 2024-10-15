@@ -21,10 +21,10 @@ import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.HiveType;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Storage;
+import io.trino.metastore.StorageFormat;
 import io.trino.plugin.hive.TableType;
-import io.trino.plugin.hive.metastore.Storage;
-import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.security.PrincipalType;
 
 import java.util.List;
@@ -33,9 +33,9 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.metastore.Table.TABLE_COMMENT;
+import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
-import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static java.lang.String.format;
 
@@ -127,9 +127,9 @@ public final class TestingMetastoreObjects
 
     // --------------- Trino Objects ---------------
 
-    public static io.trino.plugin.hive.metastore.Database getTrinoTestDatabase()
+    public static io.trino.metastore.Database getTrinoTestDatabase()
     {
-        return io.trino.plugin.hive.metastore.Database.builder()
+        return io.trino.metastore.Database.builder()
                 .setDatabaseName("test-db" + generateRandom())
                 .setComment(Optional.of("database desc"))
                 .setLocation(Optional.of("/db"))
@@ -139,9 +139,9 @@ public final class TestingMetastoreObjects
                 .build();
     }
 
-    public static io.trino.plugin.hive.metastore.Table getTrinoTestTable(String dbName)
+    public static io.trino.metastore.Table getTrinoTestTable(String dbName)
     {
-        return io.trino.plugin.hive.metastore.Table.builder()
+        return io.trino.metastore.Table.builder()
                 .setDatabaseName(dbName)
                 .setTableName("test-tbl" + generateRandom())
                 .setOwner(Optional.of("owner"))
@@ -154,9 +154,9 @@ public final class TestingMetastoreObjects
                 .withStorage(STORAGE_CONSUMER).build();
     }
 
-    public static io.trino.plugin.hive.metastore.Partition getTrinoTestPartition(String dbName, String tblName, List<String> values)
+    public static io.trino.metastore.Partition getTrinoTestPartition(String dbName, String tblName, List<String> values)
     {
-        return io.trino.plugin.hive.metastore.Partition.builder()
+        return io.trino.metastore.Partition.builder()
                 .setDatabaseName(dbName)
                 .setTableName(tblName)
                 .setValues(values)
@@ -165,9 +165,9 @@ public final class TestingMetastoreObjects
                 .withStorage(STORAGE_CONSUMER).build();
     }
 
-    public static io.trino.plugin.hive.metastore.Column getTrinoTestColumn()
+    public static io.trino.metastore.Column getTrinoTestColumn()
     {
-        return new io.trino.plugin.hive.metastore.Column("test-col" + generateRandom(), HiveType.HIVE_STRING, Optional.of("column comment"), Map.of());
+        return new io.trino.metastore.Column("test-col" + generateRandom(), HiveType.HIVE_STRING, Optional.of("column comment"), Map.of());
     }
 
     private static final Consumer<Storage.Builder> STORAGE_CONSUMER = storage ->

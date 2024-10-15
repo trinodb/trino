@@ -44,6 +44,11 @@ public final class EnvironmentContainers
         return name.startsWith(TRINO);
     }
 
+    public static boolean isTrinoWorker(String name)
+    {
+        return name.startsWith(WORKER);
+    }
+
     /**
      * Use this method only when you place `tempto-configuration.yaml' in environment configuration directory.
      */
@@ -52,7 +57,7 @@ public final class EnvironmentContainers
         builder.configureContainer(TESTS, dockerContainer -> {
             Path path = configDir.getPath("tempto-configuration.yaml");
             String suffix = getParentDirectoryName(path) + "-" + randomNameSuffix();
-            String temptoConfig = "/docker/presto-product-tests/conf/tempto/tempto-configuration-for-" + suffix + ".yaml";
+            String temptoConfig = "/docker/trino-product-tests/conf/tempto/tempto-configuration-for-" + suffix + ".yaml";
             dockerContainer
                     .withCopyFileToContainer(forHostPath(path), temptoConfig)
                     .withEnv("TEMPTO_CONFIG_FILES", temptoConfigFiles ->

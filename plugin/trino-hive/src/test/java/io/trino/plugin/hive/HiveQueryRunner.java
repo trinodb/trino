@@ -20,8 +20,8 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.ColumnNaming;
@@ -221,6 +221,9 @@ public final class HiveQueryRunner
                 if (metastore.isEmpty() && !hiveProperties.buildOrThrow().containsKey("hive.metastore")) {
                     hiveProperties.put("hive.metastore", "file");
                     hiveProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toString());
+                }
+                if (!hiveProperties.buildOrThrow().containsKey("fs.hadoop.enabled")) {
+                    hiveProperties.put("fs.hadoop.enabled", "true");
                 }
 
                 queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore));

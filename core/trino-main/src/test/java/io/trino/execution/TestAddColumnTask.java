@@ -30,6 +30,7 @@ import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
@@ -145,7 +146,7 @@ public class TestAddColumnTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("test"), INTEGER, Optional.empty(), false, false)))
                 .hasErrorCode(COLUMN_ALREADY_EXISTS)
-                .hasMessage("Column 'test' already exists");
+                .hasMessageContaining("Column 'test' already exists");
     }
 
     @Test
@@ -196,7 +197,7 @@ public class TestAddColumnTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "x", "c"), INTEGER, false, false)))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("Field 'x' does not exist within row(a row(b integer))");
+                .hasMessageContaining("Field 'x' does not exist within row(a row(b integer))");
     }
 
     @Test
@@ -228,10 +229,10 @@ public class TestAddColumnTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "a"), INTEGER, false, false)))
                 .hasErrorCode(COLUMN_ALREADY_EXISTS)
-                .hasMessage("Field 'a' already exists");
+                .hasMessageContaining("Field 'a' already exists");
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "A"), INTEGER, false, false)))
                 .hasErrorCode(COLUMN_ALREADY_EXISTS)
-                .hasMessage("Field 'a' already exists");
+                .hasMessageContaining("Field 'a' already exists");
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("col", rowType(new RowType.Field(Optional.of("a"), BIGINT))));
     }
@@ -255,7 +256,7 @@ public class TestAddColumnTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "a", "z"), INTEGER, false, false)))
                 .hasErrorCode(AMBIGUOUS_NAME)
-                .hasMessage("Field path [a, z] within row(a row(x integer), A row(y integer)) is ambiguous");
+                .hasMessageContaining("Field path [a, z] within row(a row(x integer), A row(y integer)) is ambiguous");
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("col", rowType(
                         new RowType.Field(Optional.of("a"), rowType(new RowType.Field(Optional.of("x"), INTEGER))),
@@ -282,7 +283,7 @@ public class TestAddColumnTask
     private ListenableFuture<Void> executeAddColumn(QualifiedName table, ColumnDefinition columnDefinition, boolean tableExists, boolean columnNotExists)
     {
         return new AddColumnTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager)
-                .execute(new AddColumn(table, columnDefinition, tableExists, columnNotExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+                .execute(new AddColumn(new NodeLocation(1, 1), table, columnDefinition, tableExists, columnNotExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 
     private static ConnectorTableMetadata rowTable(QualifiedObjectName tableName, RowType.Field... fields)

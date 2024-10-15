@@ -30,17 +30,7 @@ public class Execute
 
     public Execute(NodeLocation location, Identifier name, List<Expression> parameters)
     {
-        this(Optional.of(location), name, parameters);
-    }
-
-    public Execute(Identifier name, List<Expression> parameters)
-    {
-        this(Optional.empty(), name, parameters);
-    }
-
-    private Execute(Optional<NodeLocation> location, Identifier name, List<Expression> parameters)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = requireNonNull(name, "name is null");
         this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
     }

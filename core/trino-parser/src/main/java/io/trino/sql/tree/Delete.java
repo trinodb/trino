@@ -28,19 +28,9 @@ public class Delete
     private final Table table;
     private final Optional<Expression> where;
 
-    public Delete(Table table, Optional<Expression> where)
-    {
-        this(Optional.empty(), table, where);
-    }
-
     public Delete(NodeLocation location, Table table, Optional<Expression> where)
     {
-        this(Optional.of(location), table, where);
-    }
-
-    private Delete(Optional<NodeLocation> location, Table table, Optional<Expression> where)
-    {
-        super(location);
+        super(Optional.of(location));
         this.table = requireNonNull(table, "table is null");
         this.where = requireNonNull(where, "where is null");
     }

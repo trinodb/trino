@@ -19,6 +19,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.filesystem.Location;
+import io.trino.metastore.HiveTypeName;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.spi.HostAddress;
@@ -32,8 +33,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.metastore.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -67,7 +68,7 @@ public class TestHiveSplit
                 87,
                 88,
                 Instant.now().toEpochMilli(),
-                schema,
+                new Schema("abc", true, schema),
                 partitionKeys,
                 addresses,
                 OptionalInt.empty(),

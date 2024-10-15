@@ -805,7 +805,7 @@ public class TestRealOperators
         int[] zeroes = {floatToIntBits(0.0f), floatToIntBits(-0.0f)};
         for (int zero : zeroes) {
             //noinspection SimplifiedTestNGAssertion
-            assertThat(intBitsToFloat(zero) == 0f).isTrue();
+            assertThat(intBitsToFloat(zero)).isEqualTo(0f);
             assertThat(executeHashOperator(zero)).isEqualTo(executeHashOperator(zeroes[0]));
             assertThat(executeXxHas64hOperator(zero)).isEqualTo(executeXxHas64hOperator(zeroes[0]));
         }

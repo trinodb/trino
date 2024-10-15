@@ -20,16 +20,27 @@ import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
+import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 
+/**
+ * Simplify CASE expressions with constant TRUE/FALSE results:
+ *
+ * <ul>
+ *     <li>{@code Case([When(a, true), When(b, false), When(c, true)], false) -> $identical(Or(a, c), true)}
+ *     <li>{@code Case([When(a, true), When(b, false), When(c, false)], true) -> $not($identical(Or(b, c), true)}
+ * </ul>
+ */
 public class SimplifyRedundantCase
         implements IrOptimizerRule
 {
@@ -47,20 +58,28 @@ public class SimplifyRedundantCase
             return Optional.empty();
         }
 
-        // TODO: generalize to arbitrary number of clauses
-        if (caseTerm.whenClauses().size() != 1) {
+        Expression defaultValue = caseTerm.defaultValue();
+        if (!caseTerm.whenClauses().stream().map(WhenClause::getResult).allMatch(result -> result.equals(TRUE) || result.equals(FALSE)) ||
+                (!defaultValue.equals(TRUE) && !defaultValue.equals(FALSE)) ||
+                caseTerm.whenClauses().stream().map(WhenClause::getOperand).anyMatch(e -> !isDeterministic(e))) {
             return Optional.empty();
         }
 
-        WhenClause thenClause = caseTerm.whenClauses().getFirst();
-        if (thenClause.getResult().equals(TRUE) && caseTerm.defaultValue().equals(FALSE)) {
-            return Optional.of(new Comparison(Comparison.Operator.IDENTICAL, thenClause.getOperand(), TRUE));
-        }
+        if (defaultValue.equals(FALSE)) {
+            List<Expression> operands = caseTerm.whenClauses().stream()
+                    .filter(clause -> clause.getResult().equals(TRUE))
+                    .map(WhenClause::getOperand)
+                    .toList();
 
-        if (thenClause.getResult().equals(FALSE) && caseTerm.defaultValue().equals(TRUE)) {
-            return Optional.of(IrExpressions.not(metadata, new Comparison(Comparison.Operator.IDENTICAL, thenClause.getOperand(), TRUE)));
+            return Optional.of(new Comparison(Comparison.Operator.IDENTICAL, IrUtils.or(operands), TRUE));
         }
+        else {
+            List<Expression> operands = caseTerm.whenClauses().stream()
+                    .filter(clause -> clause.getResult().equals(FALSE))
+                    .map(WhenClause::getOperand)
+                    .toList();
 
-        return Optional.empty();
+            return Optional.of(IrExpressions.not(metadata, new Comparison(Comparison.Operator.IDENTICAL, IrUtils.or(operands), TRUE)));
+        }
     }
 }

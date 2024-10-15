@@ -17,10 +17,14 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetTimestampUtils.JULIAN_EPOCH_OFFSET_DAYS;
@@ -59,71 +63,69 @@ public class Int96TimestampValueWriter
     @Override
     public void write(Block block)
     {
-        int positionCount = block.getPositionCount();
-        long[] localEpochMillis = new long[positionCount];
-        int[] nanosOfMillis = new int[positionCount];
-        int nonNullsCount = 0;
         if (timestampType.isShort()) {
-            for (int position = 0; position < positionCount; position++) {
-                if (!block.isNull(position)) {
-                    long epochMicros = timestampType.getLong(block, position);
-                    localEpochMillis[nonNullsCount] = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
-                    nanosOfMillis[nonNullsCount] = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * NANOSECONDS_PER_MICROSECOND;
-                    nonNullsCount++;
-                }
-            }
+            writeShortTimestamps(block);
         }
         else {
-            for (int position = 0; position < positionCount; position++) {
-                if (!block.isNull(position)) {
-                    LongTimestamp timestamp = (LongTimestamp) timestampType.getObject(block, position);
-                    long epochMicros = timestamp.getEpochMicros();
-                    // This should divide exactly because timestamp precision is <= 9
-                    int nanosOfMicro = timestamp.getPicosOfMicro() / PICOSECONDS_PER_NANOSECOND;
-                    localEpochMillis[nonNullsCount] = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
-                    nanosOfMillis[nonNullsCount] = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * NANOSECONDS_PER_MICROSECOND + nanosOfMicro;
-                    nonNullsCount++;
-                }
+            writeLongTimestamps(block);
+        }
+    }
+
+    private void writeShortTimestamps(Block block)
+    {
+        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
+        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        boolean mayHaveNull = block.mayHaveNull();
+        byte[] buffer = new byte[Long.BYTES + Integer.BYTES];
+        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
+
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!mayHaveNull || !block.isNull(position)) {
+                long epochMicros = timestampType.getLong(block, position);
+                long localEpochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
+                int nanosOfMillis = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * NANOSECONDS_PER_MICROSECOND;
+
+                convertAndWriteToBuffer(localEpochMillis, nanosOfMillis, buffer);
+                valuesWriter.writeBytes(reusedBinary);
+                statistics.updateStats(reusedBinary);
             }
         }
+    }
 
-        for (int i = 0; i < nonNullsCount; i++) {
-            long epochMillis = parquetTimeZone.convertLocalToUTC(localEpochMillis[i], false);
-            long epochDay = floorDiv(epochMillis, MILLISECONDS_PER_DAY);
-            int julianDay = JULIAN_EPOCH_OFFSET_DAYS + toIntExact(epochDay);
+    private void writeLongTimestamps(Block block)
+    {
+        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
+        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        boolean mayHaveNull = block.mayHaveNull();
+        byte[] buffer = new byte[Long.BYTES + Integer.BYTES];
+        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
 
-            long nanosOfEpochDay = nanosOfMillis[i] + ((long) floorMod(epochMillis, MILLISECONDS_PER_DAY) * NANOSECONDS_PER_MILLISECOND);
-            Binary binary = toBinary(julianDay, nanosOfEpochDay);
-            getValueWriter().writeBytes(binary);
-            getStatistics().updateStats(binary);
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!mayHaveNull || !block.isNull(position)) {
+                LongTimestamp timestamp = (LongTimestamp) timestampType.getObject(block, position);
+                long epochMicros = timestamp.getEpochMicros();
+                // This should divide exactly because timestamp precision is <= 9
+                int nanosOfMicro = timestamp.getPicosOfMicro() / PICOSECONDS_PER_NANOSECOND;
+                long localEpochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
+                int nanosOfMillis = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * NANOSECONDS_PER_MICROSECOND + nanosOfMicro;
+
+                convertAndWriteToBuffer(localEpochMillis, nanosOfMillis, buffer);
+                valuesWriter.writeBytes(reusedBinary);
+                statistics.updateStats(reusedBinary);
+            }
         }
     }
 
-    private Binary toBinary(int julianDay, long nanosOfEpochDay)
+    private void convertAndWriteToBuffer(long localEpochMillis, int nanosOfMillis, byte[] buffer)
     {
-        byte[] buffer = new byte[Long.BYTES + Integer.BYTES];
-        longToBytes(buffer, nanosOfEpochDay);
-        intToBytes(buffer, julianDay);
-        return Binary.fromConstantByteArray(buffer);
-    }
+        long epochMillis = parquetTimeZone.convertLocalToUTC(localEpochMillis, false);
+        long epochDay = floorDiv(epochMillis, MILLISECONDS_PER_DAY);
+        int julianDay = JULIAN_EPOCH_OFFSET_DAYS + toIntExact(epochDay);
 
-    private static void intToBytes(byte[] outBuffer, int value)
-    {
-        outBuffer[Long.BYTES + 3] = (byte) (value >>> 24);
-        outBuffer[Long.BYTES + 2] = (byte) (value >>> 16);
-        outBuffer[Long.BYTES + 1] = (byte) (value >>> 8);
-        outBuffer[Long.BYTES] = (byte) value;
-    }
-
-    private static void longToBytes(byte[] outBuffer, long value)
-    {
-        outBuffer[7] = (byte) (value >>> 56);
-        outBuffer[6] = (byte) (value >>> 48);
-        outBuffer[5] = (byte) (value >>> 40);
-        outBuffer[4] = (byte) (value >>> 32);
-        outBuffer[3] = (byte) (value >>> 24);
-        outBuffer[2] = (byte) (value >>> 16);
-        outBuffer[1] = (byte) (value >>> 8);
-        outBuffer[0] = (byte) value;
+        long nanosOfEpochDay = nanosOfMillis + ((long) floorMod(epochMillis, MILLISECONDS_PER_DAY) * NANOSECONDS_PER_MILLISECOND);
+        ByteBuffer.wrap(buffer)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .putLong(0, nanosOfEpochDay)
+                .putInt(Long.BYTES, julianDay);
     }
 }

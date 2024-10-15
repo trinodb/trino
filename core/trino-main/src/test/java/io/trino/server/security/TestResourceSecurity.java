@@ -34,6 +34,7 @@ import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.protocol.PreparedStatementEncoder;
+import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.security.oauth2.ChallengeFailedException;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.security.oauth2.TokenPairSerializer;
@@ -179,6 +180,7 @@ public class TestResourceSecurity
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 Optional.of(LOCALHOST_KEYSTORE),
                 Optional.empty(),
                 Optional.empty(),
@@ -449,6 +451,7 @@ public class TestResourceSecurity
                     Optional.of(LOCALHOST_KEYSTORE),
                     Optional.empty(),
                     Optional.empty(),
+                    false,
                     Optional.of(LOCALHOST_KEYSTORE),
                     Optional.empty(),
                     Optional.empty(),
@@ -1209,7 +1212,8 @@ public class TestResourceSecurity
                     createTestMetadataManager(),
                     user -> ImmutableSet.of(),
                     accessControl,
-                    new ProtocolConfig());
+                    new ProtocolConfig(),
+                    QueryDataEncoder.EncoderSelector.noEncoder());
         }
 
         @ResourceSecurity(AUTHENTICATED_USER)
@@ -1487,7 +1491,7 @@ public class TestResourceSecurity
         HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
 
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet(), ImmutableMap.of());
+        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet());
     }
 
     private static class JwkServlet

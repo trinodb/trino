@@ -29,19 +29,9 @@ public final class DropCatalog
     private final boolean exists;
     private final boolean cascade;
 
-    public DropCatalog(Identifier catalogName, boolean exists, boolean cascade)
-    {
-        this(Optional.empty(), catalogName, exists, cascade);
-    }
-
     public DropCatalog(NodeLocation location, Identifier catalogName, boolean exists, boolean cascade)
     {
-        this(Optional.of(location), catalogName, exists, cascade);
-    }
-
-    private DropCatalog(Optional<NodeLocation> location, Identifier catalogName, boolean exists, boolean cascade)
-    {
-        super(location);
+        super(Optional.of(location));
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.exists = exists;
         this.cascade = cascade;

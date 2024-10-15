@@ -197,23 +197,24 @@ public final class ColumnReaderFactory
             if (timestampWithTimeZoneType.isShort()) {
                 return createColumnReader(field, valueDecoders::getInt96ToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER, memoryContext);
             }
-            throw unsupportedException(type, field);
+            return createColumnReader(field, valueDecoders::getInt96ToLongTimestampWithTimeZoneDecoder, FIXED12_ADAPTER, memoryContext);
         }
         if (type instanceof TimestampType timestampType && primitiveType == INT64) {
             if (!(annotation instanceof TimestampLogicalTypeAnnotation timestampAnnotation)) {
                 throw unsupportedException(type, field);
             }
+            DateTimeZone readTimeZone = timestampAnnotation.isAdjustedToUTC() ? timeZone : DateTimeZone.UTC;
             if (timestampType.isShort()) {
                 return switch (timestampAnnotation.getUnit()) {
-                    case MILLIS -> createColumnReader(field, valueDecoders::getInt64TimestampMillsToShortTimestampDecoder, LONG_ADAPTER, memoryContext);
-                    case MICROS -> createColumnReader(field, valueDecoders::getInt64TimestampMicrosToShortTimestampDecoder, LONG_ADAPTER, memoryContext);
-                    case NANOS -> createColumnReader(field, valueDecoders::getInt64TimestampNanosToShortTimestampDecoder, LONG_ADAPTER, memoryContext);
+                    case MILLIS -> createColumnReader(field, encoding -> valueDecoders.getInt64TimestampMillisToShortTimestampDecoder(encoding, readTimeZone), LONG_ADAPTER, memoryContext);
+                    case MICROS -> createColumnReader(field, encoding -> valueDecoders.getInt64TimestampMicrosToShortTimestampDecoder(encoding, readTimeZone), LONG_ADAPTER, memoryContext);
+                    case NANOS -> createColumnReader(field, encoding -> valueDecoders.getInt64TimestampNanosToShortTimestampDecoder(encoding, readTimeZone), LONG_ADAPTER, memoryContext);
                 };
             }
             return switch (timestampAnnotation.getUnit()) {
-                case MILLIS -> createColumnReader(field, valueDecoders::getInt64TimestampMillisToLongTimestampDecoder, FIXED12_ADAPTER, memoryContext);
-                case MICROS -> createColumnReader(field, valueDecoders::getInt64TimestampMicrosToLongTimestampDecoder, FIXED12_ADAPTER, memoryContext);
-                case NANOS -> createColumnReader(field, valueDecoders::getInt64TimestampNanosToLongTimestampDecoder, FIXED12_ADAPTER, memoryContext);
+                case MILLIS -> createColumnReader(field, encoding -> valueDecoders.getInt64TimestampMillisToLongTimestampDecoder(encoding, readTimeZone), FIXED12_ADAPTER, memoryContext);
+                case MICROS -> createColumnReader(field, encoding -> valueDecoders.getInt64TimestampMicrosToLongTimestampDecoder(encoding, readTimeZone), FIXED12_ADAPTER, memoryContext);
+                case NANOS -> createColumnReader(field, encoding -> valueDecoders.getInt64TimestampNanosToLongTimestampDecoder(encoding, readTimeZone), FIXED12_ADAPTER, memoryContext);
             };
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && primitiveType == INT64) {

@@ -28,19 +28,9 @@ public final class Call
     private final QualifiedName name;
     private final List<CallArgument> arguments;
 
-    public Call(QualifiedName name, List<CallArgument> arguments)
-    {
-        this(Optional.empty(), name, arguments);
-    }
-
     public Call(NodeLocation location, QualifiedName name, List<CallArgument> arguments)
     {
-        this(Optional.of(location), name, arguments);
-    }
-
-    public Call(Optional<NodeLocation> location, QualifiedName name, List<CallArgument> arguments)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = requireNonNull(name, "name is null");
         this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
     }

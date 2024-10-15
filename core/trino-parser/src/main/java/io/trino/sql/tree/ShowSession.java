@@ -28,19 +28,9 @@ public class ShowSession
     private final Optional<String> likePattern;
     private final Optional<String> escape;
 
-    public ShowSession(Optional<String> likePattern, Optional<String> escape)
-    {
-        this(Optional.empty(), likePattern, escape);
-    }
-
     public ShowSession(NodeLocation location, Optional<String> likePattern, Optional<String> escape)
     {
-        this(Optional.of(location), likePattern, escape);
-    }
-
-    private ShowSession(Optional<NodeLocation> location, Optional<String> likePattern, Optional<String> escape)
-    {
-        super(location);
+        super(Optional.of(location));
         this.likePattern = requireNonNull(likePattern, "likePattern is null");
         this.escape = requireNonNull(escape, "escape is null");
     }

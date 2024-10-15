@@ -27,9 +27,9 @@ public final class RefreshMaterializedView
 {
     private final Table table;
 
-    public RefreshMaterializedView(Optional<NodeLocation> location, Table table)
+    public RefreshMaterializedView(NodeLocation location, Table table)
     {
-        super(location);
+        super(Optional.of(location));
         this.table = requireNonNull(table, "name is null");
     }
 

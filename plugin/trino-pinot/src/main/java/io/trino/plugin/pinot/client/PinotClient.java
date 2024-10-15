@@ -442,8 +442,8 @@ public class PinotClient
         {
             if (timeColumn != null && timeValue != null) {
                 // See org.apache.pinot.broker.requesthandler.BaseBrokerRequestHandler::attachTimeBoundary
-                offlineTimePredicate = Optional.of(format("%s <= %s", timeColumn, timeValue));
-                onlineTimePredicate = Optional.of(format("%s > %s", timeColumn, timeValue));
+                offlineTimePredicate = Optional.of(format("%s <= '%s'", timeColumn, timeValue));
+                onlineTimePredicate = Optional.of(format("%s > '%s'", timeColumn, timeValue));
             }
             else {
                 onlineTimePredicate = Optional.empty();
@@ -557,10 +557,10 @@ public class PinotClient
             BrokerResponseNative response = doHttpActionWithHeadersJson(builder, Optional.of(queryRequest), brokerResponseCodec,
                     additionalHeadersBuilder.build());
 
-            if (response.getExceptionsSize() > 0 && response.getProcessingExceptions() != null && !response.getProcessingExceptions().isEmpty()) {
+            if (response.getExceptionsSize() > 0 && response.getExceptions() != null && !response.getExceptions().isEmpty()) {
                 // Pinot is known to return exceptions with benign errorcodes like 200
                 // so we treat any exception as an error
-                String processingExceptionMessage = response.getProcessingExceptions().stream()
+                String processingExceptionMessage = response.getExceptions().stream()
                         .map(e -> "code: '%s' message: '%s'".formatted(e.getErrorCode(), e.getMessage()))
                         .collect(joining(","));
                 throw new PinotException(

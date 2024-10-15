@@ -20,12 +20,14 @@ import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
+import io.trino.tests.product.launcher.env.common.HttpProxy;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.common.HttpProxy.PROXY;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
@@ -40,9 +42,14 @@ public class EnvSinglenodeOauth2HttpProxy
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvSinglenodeOauth2HttpProxy(DockerFiles dockerFiles, PortBinder binder, Standard standard, HydraIdentityProvider hydraIdentityProvider)
+    public EnvSinglenodeOauth2HttpProxy(
+            DockerFiles dockerFiles,
+            PortBinder binder,
+            Standard standard,
+            HydraIdentityProvider hydraIdentityProvider,
+            HttpProxy httpProxy)
     {
-        super(ImmutableList.of(standard, hydraIdentityProvider));
+        super(ImmutableList.of(standard, hydraIdentityProvider, httpProxy));
 
         this.binder = requireNonNull(binder, "binder is null");
         this.hydraIdentityProvider = requireNonNull(hydraIdentityProvider, "hydraIdentityProvider is null");
@@ -70,14 +77,11 @@ public class EnvSinglenodeOauth2HttpProxy
                 "trinodb_client_id",
                 "trinodb_client_secret",
                 "client_secret_basic",
-                "trinodb_client_id/",
+                "trinodb_client_id",
                 "https://presto-master:7778/oauth2/callback,https://localhost:7778/oauth2/callback");
 
         builder.containerDependsOn(COORDINATOR, hydraClientConfig.getLogicalName());
 
-        DockerContainer proxy = new DockerContainer("httpd:2.4.51", "proxy");
-        proxy.withCopyFileToContainer(forHostPath(configDir.getPath("httpd.conf")), "/usr/local/apache2/conf/httpd.conf");
-        builder.addContainer(proxy);
-        builder.containerDependsOn(COORDINATOR, "proxy");
+        builder.containerDependsOn(COORDINATOR, PROXY);
     }
 }

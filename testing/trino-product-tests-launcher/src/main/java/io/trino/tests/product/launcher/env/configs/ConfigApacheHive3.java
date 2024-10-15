@@ -25,6 +25,6 @@ public class ConfigApacheHive3
     @Override
     public String getTemptoEnvironmentConfigFile()
     {
-        return "/docker/presto-product-tests/conf/tempto/tempto-configuration-for-hms-only.yaml";
+        return "/docker/trino-product-tests/conf/tempto/tempto-configuration-for-hms-only.yaml";
     }
 }

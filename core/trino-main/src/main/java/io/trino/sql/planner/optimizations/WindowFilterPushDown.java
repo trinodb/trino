@@ -161,7 +161,7 @@ public class WindowFilterPushDown
 
                 if (upperBound.isPresent()) {
                     if (upperBound.getAsInt() <= 0) {
-                        return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
+                        return new ValuesNode(node.getId(), node.getOutputSymbols());
                     }
                     source = mergeLimit((RowNumberNode) source, upperBound.getAsInt());
                     return rewriteFilterSource(node, source, rowNumberSymbol, ((RowNumberNode) source).getMaxRowCountPerPartition().get());
@@ -175,7 +175,7 @@ public class WindowFilterPushDown
 
                     if (upperBound.isPresent()) {
                         if (upperBound.getAsInt() <= 0) {
-                            return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
+                            return new ValuesNode(node.getId(), node.getOutputSymbols());
                         }
                         source = convertToTopNRanking(windowNode, rankingType.get(), upperBound.getAsInt());
                         return rewriteFilterSource(node, source, rankingSymbol, upperBound.getAsInt());

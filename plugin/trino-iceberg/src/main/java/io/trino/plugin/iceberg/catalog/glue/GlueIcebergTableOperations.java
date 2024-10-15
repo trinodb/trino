@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.services.glue.AWSGlueAsync;
+import com.amazonaws.services.glue.model.AWSGlueException;
 import com.amazonaws.services.glue.model.AlreadyExistsException;
 import com.amazonaws.services.glue.model.ConcurrentModificationException;
 import com.amazonaws.services.glue.model.CreateTableRequest;
@@ -49,6 +50,7 @@ import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
@@ -137,13 +139,17 @@ public class GlueIcebergTableOperations
         try {
             stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
         }
-        catch (AlreadyExistsException
-               | EntityNotFoundException
-               | InvalidInputException
-               | ResourceNumberLimitExceededException e) {
-            // clean up metadata files corresponding to the current transaction
-            fileIo.deleteFile(newMetadataLocation);
-            throw e;
+        catch (AWSGlueException e) {
+            switch (e) {
+                case AlreadyExistsException _,
+                     EntityNotFoundException _,
+                     InvalidInputException _,
+                     ResourceNumberLimitExceededException _ ->
+                    // clean up metadata files corresponding to the current transaction
+                        fileIo.deleteFile(newMetadataLocation);
+                default -> {}
+            }
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Cannot commit table creation", e);
         }
         shouldRefresh = true;
     }
@@ -154,7 +160,7 @@ public class GlueIcebergTableOperations
         commitTableUpdate(
                 getTable(database, tableName, false),
                 metadata,
-                (table, newMetadataLocation) ->
+                (_, newMetadataLocation) ->
                         getTableInput(
                                 typeManager,
                                 tableName,
@@ -202,7 +208,7 @@ public class GlueIcebergTableOperations
         }
         catch (EntityNotFoundException | InvalidInputException | ResourceNumberLimitExceededException e) {
             // Signal a non-retriable commit failure and eventually clean up metadata files corresponding to the current transaction
-            throw e;
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Cannot commit table update", e);
         }
         catch (RuntimeException e) {
             // Cannot determine whether the `updateTable` operation was successful,

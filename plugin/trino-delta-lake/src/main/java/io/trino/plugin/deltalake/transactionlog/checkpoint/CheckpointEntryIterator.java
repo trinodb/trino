@@ -40,7 +40,6 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
-import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
@@ -95,6 +94,7 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.SIDECAR;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -153,6 +153,7 @@ public class CheckpointEntryIterator
     private final Optional<RowType> addDeletionVectorType;
     private final Optional<RowType> addParsedStatsFieldType;
     private final Optional<RowType> removeType;
+    private final Optional<RowType> removeDeletionVectorType;
     private final Optional<RowType> metadataType;
     private final Optional<RowType> protocolType;
     private final Optional<RowType> commitType;
@@ -230,7 +231,7 @@ public class CheckpointEntryIterator
                 parquetReaderOptions,
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.empty());
+                OptionalLong.of(fileSize));
 
         this.pageSource = (ParquetPageSource) pageSource.get();
         try {
@@ -246,6 +247,7 @@ public class CheckpointEntryIterator
             addDeletionVectorType = addType.flatMap(type -> getOptionalFieldType(type, "deletionVector"));
             addParsedStatsFieldType = addType.flatMap(type -> getOptionalFieldType(type, "stats_parsed"));
             removeType = getParquetType(fields, REMOVE);
+            removeDeletionVectorType = removeType.flatMap(type -> getOptionalFieldType(type, "deletionVector"));
             metadataType = getParquetType(fields, METADATA);
             protocolType = getParquetType(fields, PROTOCOL);
             commitType = getParquetType(fields, COMMIT);
@@ -370,7 +372,7 @@ public class CheckpointEntryIterator
                 Optional.of(new HiveColumnProjectionInfo(
                         ImmutableList.of(0), // hiveColumnIndex; we provide fake value because we always find columns by name
                         ImmutableList.of(field),
-                        HiveType.toHiveType(type),
+                        toHiveType(type),
                         type)),
                 ColumnType.REGULAR,
                 column.getComment());
@@ -393,9 +395,9 @@ public class CheckpointEntryIterator
                 addColumn.getBaseType(),
                 Optional.of(new HiveColumnProjectionInfo(
                         ImmutableList.of(0, 0), // hiveColumnIndex; we provide fake value because we always find columns by name
-                        ImmutableList.of("partitionvalues_parsed", partitionColumn.getColumnName()),
-                        DeltaHiveTypeTranslator.toHiveType(partitionColumn.getType()),
-                        partitionColumn.getType())),
+                        ImmutableList.of("partitionvalues_parsed", partitionColumn.columnName()),
+                        DeltaHiveTypeTranslator.toHiveType(partitionColumn.type()),
+                        partitionColumn.type())),
                 HiveColumnHandle.ColumnType.REGULAR,
                 addColumn.getComment());
     }
@@ -537,11 +539,17 @@ public class CheckpointEntryIterator
                     format("Expected block %s to have %d children, but found %s", block, removeFields, removeEntryRow.getFieldCount()));
         }
         CheckpointFieldReader remove = new CheckpointFieldReader(session, removeEntryRow, type);
+        Optional<DeletionVectorEntry> deletionVector = Optional.empty();
+        if (deletionVectorsEnabled) {
+            deletionVector = Optional.ofNullable(remove.getRow("deletionVector"))
+                    .map(row -> parseDeletionVectorFromParquet(session, row, removeDeletionVectorType.orElseThrow()));
+        }
         RemoveFileEntry result = new RemoveFileEntry(
                 remove.getString("path"),
                 remove.getMap(stringMap, "partitionValues"),
                 remove.getLong("deletionTimestamp"),
-                remove.getBoolean("dataChange"));
+                remove.getBoolean("dataChange"),
+                deletionVector);
         log.debug("Result: %s", result);
         return DeltaLakeTransactionLogEntry.removeFileEntry(result);
     }

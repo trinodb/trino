@@ -15,9 +15,9 @@ package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.Partition;
+import io.trino.metastore.Table;
 
 import java.util.Map;
 import java.util.Set;

@@ -15,7 +15,6 @@ package io.trino.plugin.openlineage;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.openlineage.config.OpenLineageListenerConfig;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;

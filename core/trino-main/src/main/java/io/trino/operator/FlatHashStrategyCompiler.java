@@ -30,7 +30,7 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.airlift.jmx.CacheStatsMBean;
+import io.trino.cache.CacheStatsMBean;
 import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;

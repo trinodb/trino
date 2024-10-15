@@ -48,19 +48,9 @@ public final class Isolation
 
     private final Level level;
 
-    public Isolation(Level level)
-    {
-        this(Optional.empty(), level);
-    }
-
     public Isolation(NodeLocation location, Level level)
     {
-        this(Optional.of(location), level);
-    }
-
-    private Isolation(Optional<NodeLocation> location, Level level)
-    {
-        super(location);
+        super(Optional.of(location));
         this.level = requireNonNull(level, "level is null");
     }
 

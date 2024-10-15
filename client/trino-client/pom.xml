@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>452</version>
+        <version>460</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -50,6 +50,11 @@
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>logging-interceptor</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
         </dependency>
 
@@ -65,6 +70,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>aircompressor</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
             <!-- JDK8 support dropped by version 1.8+ -->
             <version>1.7</version>
@@ -75,6 +85,12 @@
             <artifactId>jakarta.annotation-api</artifactId>
             <!-- JDK8 support dropped by version 3.0.0+ -->
             <version>2.1.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>

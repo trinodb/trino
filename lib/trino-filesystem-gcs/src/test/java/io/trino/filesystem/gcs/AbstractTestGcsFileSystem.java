@@ -21,6 +21,8 @@ import com.google.cloud.storage.testing.RemoteStorageHelper;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.encryption.EncryptionEnforcingFileSystem;
+import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -31,6 +33,7 @@ import java.io.IOException;
 import java.util.Base64;
 
 import static com.google.cloud.storage.Storage.BlobTargetOption.doesNotExist;
+import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class AbstractTestGcsFileSystem
         extends AbstractTestTrinoFileSystem
 {
+    protected final EncryptionKey randomEncryptionKey = randomAes256();
     private TrinoFileSystem fileSystem;
     private Location rootLocation;
     private Storage storage;
@@ -109,6 +113,9 @@ public abstract class AbstractTestGcsFileSystem
     @Override
     protected TrinoFileSystem getFileSystem()
     {
+        if (useServerSideEncryptionWithCustomerKey()) {
+            return new EncryptionEnforcingFileSystem(fileSystem, randomEncryptionKey);
+        }
         return fileSystem;
     }
 
@@ -126,15 +133,15 @@ public abstract class AbstractTestGcsFileSystem
     }
 
     @Override
-    protected final boolean supportsCreateExclusive()
-    {
-        return true;
-    }
-
-    @Override
     protected final boolean supportsRenameFile()
     {
         return false;
+    }
+
+    @Override
+    protected boolean supportsPreSignedUri()
+    {
+        return true;
     }
 
     @Test

@@ -29,19 +29,9 @@ public final class RenameTable
     private final QualifiedName target;
     private final boolean exists;
 
-    public RenameTable(QualifiedName source, QualifiedName target, boolean exists)
-    {
-        this(Optional.empty(), source, target, exists);
-    }
-
     public RenameTable(NodeLocation location, QualifiedName source, QualifiedName target, boolean exists)
     {
-        this(Optional.of(location), source, target, exists);
-    }
-
-    private RenameTable(Optional<NodeLocation> location, QualifiedName source, QualifiedName target, boolean exists)
-    {
-        super(location);
+        super(Optional.of(location));
         this.source = requireNonNull(source, "source name is null");
         this.target = requireNonNull(target, "target name is null");
         this.exists = exists;

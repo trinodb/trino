@@ -19,6 +19,7 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.execution.resourcegroups.IndexedPriorityQueue;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
@@ -39,6 +40,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getMaxMemoryPerPartitionWriter;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
+import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.ceil;
@@ -106,10 +108,13 @@ public class SkewedPartitionRebalancer
 
     public static boolean checkCanScalePartitionsRemotely(Session session, int taskCount, PartitioningHandle partitioningHandle, NodePartitioningManager nodePartitioningManager)
     {
+        if (SystemSessionProperties.getRetryPolicy(session) == TASK) {
+            return false;
+        }
         // In case of connector partitioning, check if bucketToPartitions has fixed mapping or not. If it is fixed
         // then we can't distribute a bucket across multiple tasks.
         boolean hasFixedNodeMapping = partitioningHandle.getCatalogHandle()
-                .map(handle -> nodePartitioningManager.getConnectorBucketNodeMap(session, partitioningHandle)
+                .map(_ -> nodePartitioningManager.getConnectorBucketNodeMap(session, partitioningHandle)
                         .map(ConnectorBucketNodeMap::hasFixedMapping)
                         .orElse(false))
                 .orElse(false);
@@ -295,6 +300,7 @@ public class SkewedPartitionRebalancer
         dataProcessedAtLastRebalance.set(dataProcessed);
     }
 
+    @GuardedBy("this")
     private void calculatePartitionDataSize(long dataProcessed)
     {
         long totalPartitionRowCount = 0;
@@ -315,6 +321,7 @@ public class SkewedPartitionRebalancer
         }
     }
 
+    @GuardedBy("this")
     private long calculateTaskBucketDataSizeSinceLastRebalance(IndexedPriorityQueue<Integer> maxPartitions)
     {
         long estimatedDataSizeSinceLastRebalance = 0;
@@ -324,6 +331,7 @@ public class SkewedPartitionRebalancer
         return estimatedDataSizeSinceLastRebalance;
     }
 
+    @GuardedBy("this")
     private void rebalanceBasedOnTaskBucketSkewness(
             IndexedPriorityQueue<TaskBucket> maxTaskBuckets,
             IndexedPriorityQueue<TaskBucket> minTaskBuckets,
@@ -376,6 +384,7 @@ public class SkewedPartitionRebalancer
         }
     }
 
+    @GuardedBy("this")
     private List<TaskBucket> findSkewedMinTaskBuckets(TaskBucket maxTaskBucket, IndexedPriorityQueue<TaskBucket> minTaskBuckets)
     {
         ImmutableList.Builder<TaskBucket> minSkewedTaskBuckets = ImmutableList.builder();
@@ -395,6 +404,7 @@ public class SkewedPartitionRebalancer
         return minSkewedTaskBuckets.build();
     }
 
+    @GuardedBy("this")
     private boolean rebalancePartition(
             int partitionId,
             TaskBucket toTaskBucket,

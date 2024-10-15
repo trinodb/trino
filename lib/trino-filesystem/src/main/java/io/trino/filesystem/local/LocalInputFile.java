@@ -35,21 +35,24 @@ public class LocalInputFile
 {
     private final Location location;
     private final Path path;
-    private OptionalLong length = OptionalLong.empty();
-    private Optional<Instant> lastModified = Optional.empty();
+    private OptionalLong length;
+    private Optional<Instant> lastModified;
 
     public LocalInputFile(Location location, Path path)
     {
         this.location = requireNonNull(location, "location is null");
         this.path = requireNonNull(path, "path is null");
+        this.length = OptionalLong.empty();
+        this.lastModified = Optional.empty();
     }
 
-    public LocalInputFile(Location location, Path path, long length)
+    public LocalInputFile(Location location, Path path, long length, Instant lastModified)
     {
         this.location = requireNonNull(location, "location is null");
         this.path = requireNonNull(path, "path is null");
         checkArgument(length >= 0, "length is negative");
         this.length = OptionalLong.of(length);
+        this.lastModified = Optional.ofNullable(lastModified);
     }
 
     public LocalInputFile(File file)

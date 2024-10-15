@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.Table;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.AbstractTestHiveMetastore;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.Table;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -31,12 +31,11 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.reflect.Reflection.newProxy;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
-import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -127,7 +126,7 @@ final class TestBridgingHiveMetastore
                 .setTableType(EXTERNAL_TABLE.name())
                 .setOwner(Optional.empty());
         table.getStorageBuilder()
-                .setStorageFormat(fromHiveStorageFormat(PARQUET));
+                .setStorageFormat(PARQUET.toStorageFormat());
         getMetastore().createTable(table.build(), NO_PRIVILEGES);
 
         table.setParameters(Map.of(TRINO_QUERY_ID_NAME, "another_query_id"));
@@ -155,7 +154,7 @@ final class TestBridgingHiveMetastore
                 .setTableType(EXTERNAL_TABLE.name())
                 .setOwner(Optional.empty());
         table.getStorageBuilder()
-                .setStorageFormat(fromHiveStorageFormat(PARQUET));
+                .setStorageFormat(PARQUET.toStorageFormat());
         getMetastore().createTable(table.build(), NO_PRIVILEGES);
 
         assertThat(getMetastore().getTable(databaseName, tableName)).isPresent();

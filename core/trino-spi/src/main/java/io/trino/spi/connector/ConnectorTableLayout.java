@@ -27,14 +27,6 @@ public final class ConnectorTableLayout
     private final List<String> partitionColumns;
     private final boolean multipleWritersPerPartitionSupported;
 
-    @Deprecated
-    public ConnectorTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitionColumns)
-    {
-        // Keep the value of multipleWritersPerPartitionSupported false by default if partitioning is present
-        // for backward compatibility.
-        this(partitioning, partitionColumns, false);
-    }
-
     public ConnectorTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitionColumns, boolean multipleWritersPerPartitionSupported)
     {
         this.partitioning = Optional.of(requireNonNull(partitioning, "partitioning is null"));

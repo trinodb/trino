@@ -29,13 +29,13 @@ import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
+import io.trino.metastore.Database;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.spi.NodeManager;
@@ -523,7 +523,7 @@ public class TestDeltaLakeMetadata
 
         constrainedColumns.forEach(column -> {
             verify(column.isBaseColumn(), "Unexpected dereference: %s", column);
-            tupleBuilder.put(column, Domain.notNull(column.getBaseType()));
+            tupleBuilder.put(column, Domain.notNull(column.baseType()));
         });
 
         return TupleDomain.withColumnDomains(tupleBuilder.buildOrThrow());
@@ -534,7 +534,7 @@ public class TestDeltaLakeMetadata
         return assignments.entrySet().stream()
                 .map(assignment -> {
                     DeltaLakeColumnHandle column = ((DeltaLakeColumnHandle) assignment.getValue());
-                    Type type = column.getProjectionInfo().map(DeltaLakeColumnProjectionInfo::getType).orElse(column.getBaseType());
+                    Type type = column.projectionInfo().map(DeltaLakeColumnProjectionInfo::getType).orElse(column.baseType());
                     return new Assignment(
                             assignment.getKey(),
                             assignment.getValue(),

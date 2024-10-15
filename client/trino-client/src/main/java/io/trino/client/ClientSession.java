@@ -13,6 +13,7 @@
  */
 package io.trino.client;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -20,6 +21,7 @@ import io.airlift.units.Duration;
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -34,8 +36,8 @@ import static java.util.Objects.requireNonNull;
 public class ClientSession
 {
     private final URI server;
-    private final Optional<String> principal;
     private final Optional<String> user;
+    private final Optional<String> sessionUser;
     private final Optional<String> authorizationUser;
     private final String source;
     private final Optional<String> traceToken;
@@ -43,7 +45,7 @@ public class ClientSession
     private final String clientInfo;
     private final Optional<String> catalog;
     private final Optional<String> schema;
-    private final String path;
+    private final List<String> path;
     private final ZoneId timeZone;
     private final Locale locale;
     private final Map<String, String> resourceEstimates;
@@ -54,6 +56,7 @@ public class ClientSession
     private final String transactionId;
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
+    private Optional<String> encoding;
 
     public static Builder builder()
     {
@@ -74,8 +77,8 @@ public class ClientSession
 
     private ClientSession(
             URI server,
-            Optional<String> principal,
             Optional<String> user,
+            Optional<String> sessionUser,
             Optional<String> authorizationUser,
             String source,
             Optional<String> traceToken,
@@ -83,7 +86,7 @@ public class ClientSession
             String clientInfo,
             Optional<String> catalog,
             Optional<String> schema,
-            String path,
+            List<String> path,
             ZoneId timeZone,
             Locale locale,
             Map<String, String> resourceEstimates,
@@ -93,19 +96,20 @@ public class ClientSession
             Map<String, String> extraCredentials,
             String transactionId,
             Duration clientRequestTimeout,
-            boolean compressionDisabled)
+            boolean compressionDisabled,
+            Optional<String> encoding)
     {
         this.server = requireNonNull(server, "server is null");
-        this.principal = requireNonNull(principal, "principal is null");
         this.user = requireNonNull(user, "user is null");
+        this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
         this.authorizationUser = requireNonNull(authorizationUser, "authorizationUser is null");
-        this.source = source;
+        this.source = requireNonNull(source, "source is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
         this.clientInfo = clientInfo;
         this.catalog = catalog;
         this.schema = schema;
-        this.path = path;
+        this.path = ImmutableList.copyOf(requireNonNull(path, "path is null"));
         this.locale = locale;
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.transactionId = transactionId;
@@ -116,6 +120,7 @@ public class ClientSession
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.clientRequestTimeout = clientRequestTimeout;
         this.compressionDisabled = compressionDisabled;
+        this.encoding = requireNonNull(encoding, "encoding is null");
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -151,14 +156,14 @@ public class ClientSession
         return server;
     }
 
-    public Optional<String> getPrincipal()
-    {
-        return principal;
-    }
-
     public Optional<String> getUser()
     {
         return user;
+    }
+
+    public Optional<String> getSessionUser()
+    {
+        return sessionUser;
     }
 
     public Optional<String> getAuthorizationUser()
@@ -196,7 +201,7 @@ public class ClientSession
         return schema;
     }
 
-    public String getPath()
+    public List<String> getPath()
     {
         return path;
     }
@@ -259,13 +264,18 @@ public class ClientSession
         return compressionDisabled;
     }
 
+    public Optional<String> getEncoding()
+    {
+        return encoding;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("server", server)
-                .add("principal", principal)
                 .add("user", user)
+                .add("sessionUser", sessionUser)
                 .add("authorizationUser", authorizationUser)
                 .add("clientTags", clientTags)
                 .add("clientInfo", clientInfo)
@@ -277,6 +287,11 @@ public class ClientSession
                 .add("locale", locale)
                 .add("properties", properties)
                 .add("transactionId", transactionId)
+                .add("source", source)
+                .add("resourceEstimates", resourceEstimates)
+                .add("clientRequestTimeout", clientRequestTimeout)
+                .add("compressionDisabled", compressionDisabled)
+                .add("encoding", encoding)
                 .omitNullValues()
                 .toString();
     }
@@ -284,8 +299,8 @@ public class ClientSession
     public static final class Builder
     {
         private URI server;
-        private Optional<String> principal = Optional.empty();
         private Optional<String> user = Optional.empty();
+        private Optional<String> sessionUser = Optional.empty();
         private Optional<String> authorizationUser = Optional.empty();
         private String source;
         private Optional<String> traceToken = Optional.empty();
@@ -293,7 +308,7 @@ public class ClientSession
         private String clientInfo;
         private String catalog;
         private String schema;
-        private String path;
+        private List<String> path = ImmutableList.of();
         private ZoneId timeZone;
         private Locale locale;
         private Map<String, String> resourceEstimates = ImmutableMap.of();
@@ -304,6 +319,7 @@ public class ClientSession
         private String transactionId;
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
+        private Optional<String> encoding = Optional.empty();
 
         private Builder() {}
 
@@ -311,8 +327,8 @@ public class ClientSession
         {
             requireNonNull(clientSession, "clientSession is null");
             server = clientSession.getServer();
-            principal = clientSession.getPrincipal();
             user = clientSession.getUser();
+            sessionUser = clientSession.getSessionUser();
             authorizationUser = clientSession.getAuthorizationUser();
             source = clientSession.getSource();
             traceToken = clientSession.getTraceToken();
@@ -331,6 +347,7 @@ public class ClientSession
             transactionId = clientSession.getTransactionId();
             clientRequestTimeout = clientSession.getClientRequestTimeout();
             compressionDisabled = clientSession.isCompressionDisabled();
+            encoding = clientSession.getEncoding();
         }
 
         public Builder server(URI server)
@@ -345,15 +362,15 @@ public class ClientSession
             return this;
         }
 
-        public Builder authorizationUser(Optional<String> authorizationUser)
+        public Builder sessionUser(Optional<String> sessionUser)
         {
-            this.authorizationUser = authorizationUser;
+            this.sessionUser = sessionUser;
             return this;
         }
 
-        public Builder principal(Optional<String> principal)
+        public Builder authorizationUser(Optional<String> authorizationUser)
         {
-            this.principal = principal;
+            this.authorizationUser = authorizationUser;
             return this;
         }
 
@@ -393,7 +410,7 @@ public class ClientSession
             return this;
         }
 
-        public Builder path(String path)
+        public Builder path(List<String> path)
         {
             this.path = path;
             return this;
@@ -459,12 +476,18 @@ public class ClientSession
             return this;
         }
 
+        public Builder encoding(Optional<String> encoding)
+        {
+            this.encoding = encoding;
+            return this;
+        }
+
         public ClientSession build()
         {
             return new ClientSession(
                     server,
-                    principal,
                     user,
+                    sessionUser,
                     authorizationUser,
                     source,
                     traceToken,
@@ -482,7 +505,8 @@ public class ClientSession
                     credentials,
                     transactionId,
                     clientRequestTimeout,
-                    compressionDisabled);
+                    compressionDisabled,
+                    encoding);
         }
     }
 }

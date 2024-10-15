@@ -204,7 +204,7 @@ public class TestTrinoResultSet
                         }
 
                         @Override
-                        public Optional<String> getSetPath()
+                        public Optional<List<String>> getSetPath()
                         {
                             throw new UnsupportedOperationException();
                         }

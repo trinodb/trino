@@ -276,7 +276,7 @@ public class TestSystemRuntimeConnector
                 .collect(toOptional());
         assertThat(metadataFuture.isDone()).isFalse();
         assertThat(queryFuture.isDone()).isFalse();
-        assertThat(queryId.isPresent()).isTrue();
+        assertThat(queryId).isPresent();
 
         getQueryRunner().execute(format("CALL system.runtime.kill_query('%s', 'because')", queryId.get()));
         // Cancellation should happen within kill_query, but it still needs to be propagated to the thread performing analysis.

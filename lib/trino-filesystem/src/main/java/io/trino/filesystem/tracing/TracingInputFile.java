@@ -34,12 +34,14 @@ final class TracingInputFile
     private final Tracer tracer;
     private final TrinoInputFile delegate;
     private Optional<Long> length;
+    private boolean isLastModifiedKnown;
 
-    public TracingInputFile(Tracer tracer, TrinoInputFile delegate, Optional<Long> length)
+    public TracingInputFile(Tracer tracer, TrinoInputFile delegate, Optional<Long> length, Optional<Instant> lastModified)
     {
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.length = requireNonNull(length, "length is null");
+        this.isLastModifiedKnown = lastModified.isPresent();
     }
 
     @Override
@@ -85,10 +87,17 @@ final class TracingInputFile
     public Instant lastModified()
             throws IOException
     {
+        // skip tracing if lastModified is cached, but delegate anyway
+        if (isLastModifiedKnown) {
+            return delegate.lastModified();
+        }
+
         Span span = tracer.spanBuilder("InputFile.lastModified")
                 .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
                 .startSpan();
-        return withTracing(span, delegate::lastModified);
+        Instant fileLastModified = withTracing(span, delegate::lastModified);
+        isLastModifiedKnown = true;
+        return fileLastModified;
     }
 
     @Override

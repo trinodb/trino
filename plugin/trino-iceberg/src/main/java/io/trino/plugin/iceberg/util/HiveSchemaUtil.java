@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.iceberg.util;
 
-import io.trino.plugin.hive.type.TypeInfo;
+import io.trino.metastore.type.TypeInfo;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types.DecimalType;
 
-import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeInfoFromTypeString;
+import static io.trino.metastore.type.TypeInfoUtils.getTypeInfoFromTypeString;
 import static java.util.stream.Collectors.joining;
 
 // based on org.apache.iceberg.hive.HiveSchemaUtil
