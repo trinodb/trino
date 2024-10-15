@@ -57,7 +57,7 @@ public class BigQueryStorageArrowPageSource
     private final AtomicLong readTimeNanos = new AtomicLong();
     private final BigQueryReadClient bigQueryReadClient;
     private final ExecutorService executor;
-    private final BigQuerySplit split;
+    private final String streamName;
     private final BigQueryArrowToPageConverter bigQueryArrowToPageConverter;
     private final BufferAllocator streamBufferAllocator;
     private final PageBuilder pageBuilder;
@@ -76,7 +76,8 @@ public class BigQueryStorageArrowPageSource
     {
         this.bigQueryReadClient = requireNonNull(bigQueryReadClient, "bigQueryReadClient is null");
         this.executor = requireNonNull(executor, "executor is null");
-        this.split = requireNonNull(split, "split is null");
+        requireNonNull(split, "split is null");
+        this.streamName = split.getStreamName();
         requireNonNull(columns, "columns is null");
         Schema schema = deserializeSchema(split.getSchemaString());
         log.debug("Starting to read from %s", split.getStreamName());
@@ -134,11 +135,7 @@ public class BigQueryStorageArrowPageSource
     @Override
     public long getMemoryUsage()
     {
-        long memoryUsage = streamBufferAllocator.getAllocatedMemory();
-        if (split.getDataSize().isPresent()) {
-            memoryUsage += split.getDataSize().getAsInt() + pageBuilder.getRetainedSizeInBytes();
-        }
-        return memoryUsage;
+        return streamBufferAllocator.getAllocatedMemory() + pageBuilder.getRetainedSizeInBytes();
     }
 
     @Override
@@ -168,7 +165,7 @@ public class BigQueryStorageArrowPageSource
     {
         int serializedSize = response.getArrowRecordBatch().getSerializedSize();
         long totalReadSize = readBytes.addAndGet(serializedSize);
-        log.debug("Read %d bytes (total %d) from %s", serializedSize, totalReadSize, split.getStreamName());
+        log.debug("Read %d bytes (total %d) from %s", serializedSize, totalReadSize, streamName);
 
         try {
             return MessageSerializer.deserializeRecordBatch(readChannelForByteString(response.getArrowRecordBatch().getSerializedRecordBatch()), allocator);
