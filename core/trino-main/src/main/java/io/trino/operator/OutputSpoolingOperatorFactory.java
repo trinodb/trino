@@ -304,7 +304,7 @@ public class OutputSpoolingOperatorFactory
             Block[] blocks = new Block[layout.size()];
             for (Map.Entry<Symbol, Integer> entry : layout.entrySet()) {
                 if (!entry.getKey().type().equals(SPOOLING_METADATA_TYPE)) {
-                    blocks[entry.getValue()] = entry.getKey().type().createBlockBuilder(null, 1).appendNull().build();
+                    blocks[entry.getValue()] = entry.getKey().type().createNullBlock();
                 }
             }
 

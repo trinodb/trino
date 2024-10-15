@@ -439,9 +439,7 @@ public class RcFileReader
         checkState(currentChunkRowCount > 0, "No more data");
 
         if (columnIndex >= columns.length) {
-            Type type = readColumns.get(columnIndex);
-            Block nullBlock = type.createBlockBuilder(null, 1, 0).appendNull().build();
-            return RunLengthEncodedBlock.create(nullBlock, currentChunkRowCount);
+            return RunLengthEncodedBlock.create(readColumns.get(columnIndex).createNullBlock(), currentChunkRowCount);
         }
 
         return columns[columnIndex].readBlock(rowGroupPosition, currentChunkRowCount);
