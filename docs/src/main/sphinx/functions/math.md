@@ -98,8 +98,9 @@ Returns the signum function of `x`, that is:
 - 1 if the argument is greater than 0,
 - -1 if the argument is less than 0.
 
-For double arguments, the function additionally returns:
+For floating point arguments, the function additionally returns:
 
+- -0 if the argument is -0,
 - NaN if the argument is NaN,
 - 1 if the argument is +Infinity,
 - -1 if the argument is -Infinity.
