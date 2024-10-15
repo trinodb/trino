@@ -117,7 +117,7 @@ public class BigQueryStorageArrowPageSource
     {
         long memoryUsage = streamBufferAllocator.getAllocatedMemory();
         if (split.getDataSize().isPresent()) {
-            memoryUsage += split.getDataSize().getAsInt() + pageBuilder.getSizeInBytes();
+            memoryUsage += split.getDataSize().getAsInt() + pageBuilder.getRetainedSizeInBytes();
         }
         return memoryUsage;
     }
