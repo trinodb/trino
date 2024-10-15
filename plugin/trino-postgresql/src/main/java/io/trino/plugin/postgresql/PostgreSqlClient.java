@@ -453,20 +453,14 @@ public class PostgreSqlClient
     }
 
     @Override
-    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        if (tableHandle.getColumns().isPresent()) {
-            return tableHandle.getColumns().get();
-        }
-        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
-        SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
-
         try (Connection connection = connectionFactory.openConnection(session)) {
             Map<String, Integer> arrayColumnDimensions = ImmutableMap.of();
             if (getArrayMapping(session) == AS_ARRAY) {
-                arrayColumnDimensions = getArrayColumnDimensions(connection, tableHandle);
+                arrayColumnDimensions = getArrayColumnDimensions(connection, remoteTableName);
             }
-            try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+            try (ResultSet resultSet = getColumns(remoteTableName, connection.getMetaData())) {
                 int allColumns = 0;
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 while (resultSet.next()) {
@@ -528,7 +522,7 @@ public class PostgreSqlClient
         return super.getAllTableColumns(connection, remoteSchemaName);
     }
 
-    private static Map<String, Integer> getArrayColumnDimensions(Connection connection, JdbcTableHandle tableHandle)
+    private static Map<String, Integer> getArrayColumnDimensions(Connection connection, RemoteTableName remoteTableName)
             throws SQLException
     {
         String sql = "" +
@@ -541,7 +535,6 @@ public class PostgreSqlClient
                 "AND tbl.relname = ? " +
                 "AND attyp.typcategory = 'A' ";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
             statement.setString(1, remoteTableName.getSchemaName().orElse(null));
             statement.setString(2, remoteTableName.getTableName());
 

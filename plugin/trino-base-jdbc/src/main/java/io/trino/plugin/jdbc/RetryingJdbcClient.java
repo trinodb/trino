@@ -100,9 +100,15 @@ public class RetryingJdbcClient
     }
 
     @Override
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
+    {
+        return retry(policy, () -> delegate.getColumns(session, schemaTableName, remoteTableName));
+    }
+
+    @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return retry(policy, () -> delegate.getColumns(session, tableHandle));
+        return delegate.getColumns(session, tableHandle);
     }
 
     @Override
