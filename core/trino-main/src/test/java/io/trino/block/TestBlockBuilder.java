@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.IntStream;
 
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -72,13 +73,15 @@ public class TestBlockBuilder
             pageBuilder.declarePosition();
         }
 
-        PageBuilder newPageBuilder = pageBuilder.newPageBuilderLike();
+        List<BlockBuilder> originalBlockBuilders = IntStream.range(0, channels.size()).mapToObj(pageBuilder::getBlockBuilder).toList();
+        pageBuilder.reset();
         for (int i = 0; i < channels.size(); i++) {
             // we should get new block builder instances
-            assertThat(pageBuilder.getBlockBuilder(i))
-                    .isNotEqualTo(newPageBuilder.getBlockBuilder(i));
-            assertThat(newPageBuilder.getBlockBuilder(i).getPositionCount()).isEqualTo(0);
-            assertThat(newPageBuilder.getBlockBuilder(i).getRetainedSizeInBytes() < pageBuilder.getBlockBuilder(i).getRetainedSizeInBytes()).isTrue();
+            assertThat(originalBlockBuilders.get(i))
+                    .isNotEqualTo(pageBuilder.getBlockBuilder(i));
+            assertThat(pageBuilder.getBlockBuilder(i).getPositionCount()).isEqualTo(0);
+            assertThat(pageBuilder.getBlockBuilder(i).getSizeInBytes()).isLessThan(originalBlockBuilders.get(i).getSizeInBytes());
+            assertThat(pageBuilder.getBlockBuilder(i).getRetainedSizeInBytes()).isLessThan(originalBlockBuilders.get(i).getRetainedSizeInBytes());
         }
     }
 
