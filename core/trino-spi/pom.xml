@@ -303,6 +303,10 @@
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.type.Type io.trino.spi.PageBuilder::getType(int)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.PageBuilder::reset(int)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
