@@ -193,8 +193,6 @@
         <dep.confluent.version>7.7.1</dep.confluent.version>
         <dep.docker.images.version>102</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
-        <!-- temporary downgrade due to https://github.com/google/error-prone/issues/4598 -->
-        <dep.errorprone.version>2.32.0</dep.errorprone.version>
         <dep.flyway.version>10.19.0</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v20.17.0</dep.frontend-node.version>
@@ -241,7 +239,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.48.0</version>
+                <version>26.49.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -2866,7 +2864,7 @@
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR \
                                     -Xep:InvalidInlineTag:ERROR \
                                     -Xep:MissingCasesInEnumSwitch:ERROR \
-                                    -Xep:MissingOverride:ERROR \
+                                    <!-- Temporary disabled due to https://github.com/google/error-prone/issues/4598 -Xep:MissingOverride:ERROR \ -->
                                     <!-- Sometimes our javadoc contains just a @see directive -->
                                     -Xep:MissingSummary:OFF \
                                     -Xep:ModifiedButNotUsed:ERROR \
