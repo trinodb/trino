@@ -120,8 +120,7 @@ public class UnityCatalogContainer
                 .setHeader("Content-Type", "application/json")
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
-        var execute = HTTP_CLIENT.execute(request, createStringResponseHandler());
-        System.out.println(execute);
+        HTTP_CLIENT.execute(request, createStringResponseHandler());
     }
 
     public void copyTpchTables(Iterable<TpchTable<?>> tpchTables)
