@@ -296,7 +296,7 @@ public class BigQueryStorageAvroPageSource
     public long getMemoryUsage()
     {
         if (split.getDataSize().isPresent()) {
-            return split.getDataSize().getAsInt() + pageBuilder.getSizeInBytes();
+            return split.getDataSize().getAsInt() + pageBuilder.getRetainedSizeInBytes();
         }
 
         return 0;
