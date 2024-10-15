@@ -120,13 +120,8 @@ public abstract class AbstractTrinoCatalog
     protected static final String TRINO_CREATED_BY = HiveMetadata.TRINO_CREATED_BY;
     protected static final String TRINO_QUERY_ID_NAME = HiveMetadata.TRINO_QUERY_ID_NAME;
 
-<<<<<<< HEAD
-    protected final CatalogName catalogName;
-    private final TypeManager typeManager;
-=======
     private final CatalogName catalogName;
     protected final TypeManager typeManager;
->>>>>>> tags/460
     protected final IcebergTableOperationsProvider tableOperationsProvider;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean useUniqueTableLocation;

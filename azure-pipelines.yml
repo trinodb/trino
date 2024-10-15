@@ -19,48 +19,9 @@ jobs:
           mkdir -p ${{ variables.m2RepoNodePath }}
         displayName: Create required directories
 
-  - job: BuildAndPushRedHatImage
-    displayName: Pull RedHat image and push it to UChimera
-    pool:
-      vmImage: ubuntu-latest
-    steps:
-      - task: Bash@3
-        name: CreateRedHatJDKImage
-        displayName: Docker build - Red Hat and JDK image
-        inputs:
-          targetType: 'inline'
-          script: |
-            cd $(Build.SourcesDirectory)/core/docker
-            chmod g+w ${HOME}
-            chmod ug+x ./build.sh
-            ./build.sh -a amd64 -b $(Build.BuildId)
-            if [ $? -ne 0 ]; then
-            echo "Docker build failed"
-            exit 1
-            fi
-      - task: Docker@2
-        displayName: Login to ${{ variables.containerRegistry }}
-        inputs:
-          command: login
-          containerRegistry: ${{ variables.containerRegistry }}
-      - task: Docker@2
-        displayName: Push RedHat image to ${{ variables.containerRegistry }}
-        inputs:
-          command: push
-          containerRegistry: ${{ variables.containerRegistry }}
-          repository: cccs/ubi-minimal-jdk
-          tags: $(Build.BuildId)-amd64
-      - task: Docker@2
-        displayName: Logout of ${{ variables.containerRegistry }}
-        inputs:
-          command: logout
-          containerRegistry: ${{ variables.containerRegistry }}
-        condition: always()
-
   - job: ContainerBuild
     dependsOn:
       - PrepareNode
-      - BuildAndPushRedHatImage
     displayName: Maven Build (Container)
     pool: cauldron-vmss
     variables:
@@ -70,7 +31,7 @@ jobs:
       JAVA_TOOL_OPTIONS: " -Xmx8g"
       DOCKER_BUILDKIT: 1
     container:
-      image: uchimera.azurecr.io/cccs/dev/trino-build:452_cccs-main_20240920131647_b10980
+      image: uchimera.azurecr.io/cccs/dev/trino-build:460_trino-460-merge-fixes_20241010184058_b11020
       options: --entrypoint="" --user=0
       endpoint: uchimera
       volumes:
@@ -105,8 +66,8 @@ jobs:
           script: |
             cd $(Build.SourcesDirectory)/core/docker
             chmod g+w ${HOME}
-            chmod ug+x ./build-trino-base.sh
-            ./build-trino-base.sh -a amd64 -t $(Build.BuildId)
+            chmod ug+x ./build.sh
+            ./build.sh -a amd64 -x
             if [ $? -ne 0 ]; then
             echo "Docker build failed"
             exit 1

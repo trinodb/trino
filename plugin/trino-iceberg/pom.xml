@@ -15,11 +15,7 @@
 
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-<<<<<<< HEAD
-        <dep.nessie.version>0.92.1</dep.nessie.version>
-=======
         <dep.nessie.version>0.99.0</dep.nessie.version>
->>>>>>> tags/460
     </properties>
 
     <dependencies>
@@ -69,12 +65,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <version>3.0.2</version>
         </dependency>
 
         <dependency>

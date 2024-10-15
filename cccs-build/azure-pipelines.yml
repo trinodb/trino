@@ -11,7 +11,7 @@ variables:
   containerRegistry: uchimera
   imageRepository: cccs/dev/trino-build
   buildTimestamp: $[format('{0:yyyyMMddHHmmss}', pipeline.startTime)]
-  baseImageTag: 22-jdk-jammy
+  baseImageTag: 23-jdk-noble
 
 pool:
   vmImage: ubuntu-latest

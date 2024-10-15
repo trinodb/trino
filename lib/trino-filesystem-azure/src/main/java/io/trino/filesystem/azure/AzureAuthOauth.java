@@ -37,7 +37,6 @@ public final class AzureAuthOauth
                 .tenantId(tenantId)
                 .clientId(clientId)
                 .clientSecret(clientSecret)
-                .tenantId(tenantId)
                 .build();
     }
 

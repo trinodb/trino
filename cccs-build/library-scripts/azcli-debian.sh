@@ -14,7 +14,7 @@ set -e
 AZ_VERSION=${1:-"latest"}
 MICROSOFT_GPG_KEYS_URI="https://packages.microsoft.com/keys/microsoft.asc"
 AZCLI_ARCHIVE_ARCHITECTURES="amd64"
-AZCLI_ARCHIVE_VERSION_CODENAMES="stretch buster bullseye bionic focal jammy"
+AZCLI_ARCHIVE_VERSION_CODENAMES="stretch buster bullseye bionic focal jammy noble"
 
 if [ "$(id -u)" -ne 0 ]; then
     echo -e 'Script must be run as root. Use sudo, su, or add "USER root" to your Dockerfile before running this script.'

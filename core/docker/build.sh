@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -xeuo pipefail
 
 usage() {
     cat <<EOF 1>&2
@@ -9,14 +9,9 @@ Builds the Trino Docker image
 
 -h       Display help
 -a       Build the specified comma-separated architectures, defaults to amd64,arm64,ppc64le
--b       Build the Trino release with the base image tag
 -r       Build the specified Trino release version, downloads all required artifacts
-<<<<<<< HEAD
--t       Build the Trino release with specified Temurin JDK release
-=======
 -j       Build the Trino release with specified JDK distribution
 -x       Skip image tests
->>>>>>> tags/460
 EOF
 }
 
@@ -27,19 +22,14 @@ cd "${SCRIPT_DIR}" || exit 2
 SOURCE_DIR="${SCRIPT_DIR}/../.."
 
 ARCHITECTURES=(amd64 arm64 ppc64le)
-BASE_IMAGE_TAG=
 TRINO_VERSION=
 
 JDK_RELEASE=$(cat "${SOURCE_DIR}/core/jdk/current")
 JDKS_PATH="${SOURCE_DIR}/core/jdk"
 
-<<<<<<< HEAD
-while getopts ":a:b:h:r:t" o; do
-=======
 SKIP_TESTS=false
 
 while getopts ":a:h:r:j:x" o; do
->>>>>>> tags/460
     case "${o}" in
         a)
             IFS=, read -ra ARCH_ARG <<< "$OPTARG"
@@ -50,9 +40,6 @@ while getopts ":a:h:r:j:x" o; do
                 fi
             done
             ARCHITECTURES=("${ARCH_ARG[@]}")
-            ;;
-        b)
-            BASE_IMAGE_TAG="${OPTARG}"
             ;;
         r)
             TRINO_VERSION=${OPTARG}
@@ -100,12 +87,32 @@ function jdk_download_link() {
 
 check_environment
 
-TRINO_VERSION=$("${SOURCE_DIR}/mvnw" -f "${SOURCE_DIR}/pom.xml" --quiet help:evaluate -Dexpression=project.version -DforceStdout)
+if [ -n "$TRINO_VERSION" ]; then
+    echo "🎣 Downloading server and client artifacts for release version ${TRINO_VERSION}"
+    for artifactId in io.trino:trino-server:"${TRINO_VERSION}":tar.gz io.trino:trino-cli:"${TRINO_VERSION}":jar:executable; do
+        "${SOURCE_DIR}/mvnw" -C dependency:get -Dtransitive=false -Dartifact="$artifactId"
+    done
+    local_repo=$("${SOURCE_DIR}/mvnw" -B help:evaluate -Dexpression=settings.localRepository -q -DforceStdout)
+    trino_server="$local_repo/io/trino/trino-server/${TRINO_VERSION}/trino-server-${TRINO_VERSION}.tar.gz"
+    trino_client="$local_repo/io/trino/trino-cli/${TRINO_VERSION}/trino-cli-${TRINO_VERSION}-executable.jar"
+    chmod +x "$trino_client"
+else
+    TRINO_VERSION=$("${SOURCE_DIR}/mvnw" -f "${SOURCE_DIR}/pom.xml" --quiet help:evaluate -Dexpression=project.version -DforceStdout)
+    echo "🎯 Using currently built artifacts from the core/trino-server and client/trino-cli modules and version ${TRINO_VERSION}"
+    trino_server="${SOURCE_DIR}/core/trino-server/target/trino-server-${TRINO_VERSION}.tar.gz"
+    trino_client="${SOURCE_DIR}/client/trino-cli/target/trino-cli-${TRINO_VERSION}-executable.jar"
+fi
 
 echo "🧱 Preparing the image build context directory"
 WORK_DIR="$(mktemp -d)"
+cp "$trino_server" "${WORK_DIR}/"
+cp "$trino_client" "${WORK_DIR}/"
+tar -C "${WORK_DIR}" -xzf "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
+rm "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
+cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
+cp -R default "${WORK_DIR}/"
 
-TAG_PREFIX="uchimera.azurecr.io/cccs/ubi-minimal-jdk:${BASE_IMAGE_TAG}"
+TAG_PREFIX="trino:${TRINO_VERSION}"
 
 for arch in "${ARCHITECTURES[@]}"; do
     echo "🫙  Building the image for $arch with JDK ${JDK_RELEASE}"
@@ -118,13 +125,11 @@ for arch in "${ARCHITECTURES[@]}"; do
         --platform "linux/$arch" \
         -f Dockerfile \
         -t "${TAG_PREFIX}-$arch" \
-
+        --build-arg "TRINO_VERSION=${TRINO_VERSION}"
 done
 
 echo "🧹 Cleaning up the build context directory"
 rm -r "${WORK_DIR}"
-<<<<<<< HEAD
-=======
 
 echo -n "🏃 Testing built images"
 if [[ "${SKIP_TESTS}" == "true" ]];then
@@ -137,5 +142,3 @@ else
       docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' "${TAG_PREFIX}-$arch"
   done
 fi
-
->>>>>>> tags/460
