@@ -245,9 +245,7 @@ public class ParquetPageSource
 
         private NullColumn(Type type)
         {
-            this.nullBlock = type.createBlockBuilder(null, 1, 0)
-                    .appendNull()
-                    .build();
+            this.nullBlock = type.createNullBlock();
         }
 
         @Override

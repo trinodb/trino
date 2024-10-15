@@ -75,9 +75,7 @@ public class GroupIdOperator
             // it's easier to create null blocks for every output column even though we only null out some grouping column outputs
             Block[] nullBlocks = new Block[outputTypes.size()];
             for (int i = 0; i < outputTypes.size(); i++) {
-                nullBlocks[i] = outputTypes.get(i).createBlockBuilder(null, 1)
-                        .appendNull()
-                        .build();
+                nullBlocks[i] = outputTypes.get(i).createNullBlock();
             }
 
             // create groupid blocks for every group

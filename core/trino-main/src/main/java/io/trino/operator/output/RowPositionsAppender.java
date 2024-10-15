@@ -163,7 +163,7 @@ public class RowPositionsAppender
             result = fromNotNullSuppressedFieldBlocks(positionCount, hasNullRow ? Optional.of(rowIsNull) : Optional.empty(), fieldBlocks);
         }
         else if (hasNullRow) {
-            Block nullRowBlock = type.createBlockBuilder(null, 0).appendNull().build();
+            Block nullRowBlock = type.createNullBlock();
             result = RunLengthEncodedBlock.create(nullRowBlock, positionCount);
         }
         else {
