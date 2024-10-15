@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.clickhouse.expression;
 
+import com.clickhouse.data.ClickHouseDataType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -24,9 +26,8 @@ import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.VarcharType;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -43,26 +44,34 @@ import static io.trino.plugin.clickhouse.ClickHouseClient.supportsPushdown;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
 
-public class RewriteStringComparison
+public class RewriteComparison
         implements ConnectorExpressionRule<Call, ParameterizedExpression>
 {
     private static final Capture<ConnectorExpression> LEFT = newCapture();
     private static final Capture<ConnectorExpression> RIGHT = newCapture();
-    private static final Pattern<Call> PATTERN = call()
-            .with(type().equalTo(BOOLEAN))
-            .with(functionName().matching(Stream.of(ComparisonOperator.values())
-                    .filter(comparison -> comparison != ComparisonOperator.IDENTICAL)
-                    .map(ComparisonOperator::getFunctionName)
-                    .collect(toImmutableSet())
-                    ::contains))
-            .with(argumentCount().equalTo(2))
-            .with(argument(0).matching(expression().with(type().matching(type -> type instanceof CharType || type instanceof VarcharType)).capturedAs(LEFT)))
-            .with(argument(1).matching(expression().with(type().matching(type -> type instanceof CharType || type instanceof VarcharType)).capturedAs(RIGHT)));
+
+    private final Pattern<Call> pattern;
+    private final ImmutableSet<ClickHouseDataType> nativeTypes;
+
+    public RewriteComparison(List<Class<?>> classes, ImmutableSet<ClickHouseDataType> nativeTypes)
+    {
+        pattern = call()
+                .with(type().equalTo(BOOLEAN))
+                .with(functionName().matching(Stream.of(ComparisonOperator.values())
+                        .filter(comparison -> comparison != ComparisonOperator.IDENTICAL)
+                        .map(ComparisonOperator::getFunctionName)
+                        .collect(toImmutableSet())
+                        ::contains))
+                .with(argumentCount().equalTo(2))
+                .with(argument(0).matching(expression().with(type().matching(type -> classes.stream().anyMatch(aClass -> aClass.isInstance(type)))).capturedAs(LEFT)))
+                .with(argument(1).matching(expression().with(type().matching(type -> classes.stream().anyMatch(aClass -> aClass.isInstance(type)))).capturedAs(RIGHT)));
+        this.nativeTypes = nativeTypes;
+    }
 
     @Override
     public Pattern<Call> getPattern()
     {
-        return PATTERN;
+        return pattern;
     }
 
     @Override
@@ -72,11 +81,11 @@ public class RewriteStringComparison
         ConnectorExpression leftExpression = captures.get(LEFT);
         ConnectorExpression rightExpression = captures.get(RIGHT);
 
-        if (leftExpression instanceof Variable variable && !supportsPushdown(variable, context)) {
+        if (leftExpression instanceof Variable variable && !supportsPushdown(variable, context, nativeTypes)) {
             return Optional.empty();
         }
 
-        if (rightExpression instanceof Variable variable && !supportsPushdown(variable, context)) {
+        if (rightExpression instanceof Variable variable && !supportsPushdown(variable, context, nativeTypes)) {
             return Optional.empty();
         }
 
