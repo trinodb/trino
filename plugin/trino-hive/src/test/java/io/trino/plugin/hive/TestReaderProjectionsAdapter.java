@@ -202,7 +202,7 @@ public class TestReaderProjectionsAdapter
 
     private static Block createLongArrayBlock(List<Object> data)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(null, data.size());
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(data.size());
         for (int i = 0; i < data.size(); i++) {
             Long value = (Long) data.get(i);
             if (value == null) {

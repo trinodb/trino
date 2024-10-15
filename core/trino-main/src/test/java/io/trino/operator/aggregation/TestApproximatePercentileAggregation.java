@@ -759,7 +759,7 @@ public class TestApproximatePercentileAggregation
 
     private static Block createRleBlock(double percentile, int positionCount)
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = DOUBLE.createFixedSizeBlockBuilder(1);
         DOUBLE.writeDouble(blockBuilder, percentile);
         return RunLengthEncodedBlock.create(blockBuilder.build(), positionCount);
     }

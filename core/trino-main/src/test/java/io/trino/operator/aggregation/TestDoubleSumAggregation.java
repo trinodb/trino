@@ -40,7 +40,7 @@ public class TestDoubleSumAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = DOUBLE.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             DOUBLE.writeDouble(blockBuilder, i);
         }
@@ -75,7 +75,7 @@ public class TestDoubleSumAggregation
 
     protected static Block[] getSequenceBlocksForDoubleNaNTest(int start, int length)
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = DOUBLE.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length - 5; i++) {
             DOUBLE.writeDouble(blockBuilder, i);
         }
@@ -88,7 +88,7 @@ public class TestDoubleSumAggregation
 
     protected static Block[] getSequenceBlocksForDoubleInfinityTest(int start, int length)
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = DOUBLE.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length - 5; i++) {
             DOUBLE.writeDouble(blockBuilder, i);
         }

@@ -110,8 +110,8 @@ public final class BlackHolePageSourceProvider
         }
 
         BlockBuilder builder;
-        if (type instanceof FixedWidthType) {
-            builder = type.createBlockBuilder(null, rowsCount);
+        if (type instanceof FixedWidthType fixedWidthType) {
+            builder = fixedWidthType.createFixedSizeBlockBuilder(rowsCount);
         }
         else {
             builder = type.createBlockBuilder(null, rowsCount, slice.length());

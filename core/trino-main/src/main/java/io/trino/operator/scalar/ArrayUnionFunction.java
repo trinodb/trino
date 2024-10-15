@@ -82,7 +82,7 @@ public final class ArrayUnionFunction
         int leftArrayCount = leftArray.getPositionCount();
         int rightArrayCount = rightArray.getPositionCount();
         LongSet set = new LongOpenHashSet(leftArrayCount + rightArrayCount);
-        BlockBuilder distinctElementBlockBuilder = BIGINT.createBlockBuilder(null, leftArrayCount + rightArrayCount);
+        BlockBuilder distinctElementBlockBuilder = BIGINT.createFixedSizeBlockBuilder(leftArrayCount + rightArrayCount);
         AtomicBoolean containsNull = new AtomicBoolean(false);
         appendBigintArray(leftArray, containsNull, set, distinctElementBlockBuilder);
         appendBigintArray(rightArray, containsNull, set, distinctElementBlockBuilder);

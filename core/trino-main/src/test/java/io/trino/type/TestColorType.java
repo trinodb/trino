@@ -54,7 +54,7 @@ public class TestColorType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = COLOR.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = COLOR.createFixedSizeBlockBuilder(15);
         COLOR.writeLong(blockBuilder, rgb(1, 1, 1));
         COLOR.writeLong(blockBuilder, rgb(1, 1, 1));
         COLOR.writeLong(blockBuilder, rgb(1, 1, 1));

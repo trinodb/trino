@@ -34,7 +34,7 @@ public class TestTimeWithTimeZoneType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = TIME_TZ_MILLIS.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = TIME_TZ_MILLIS.createFixedSizeBlockBuilder(15);
         TIME_TZ_MILLIS.writeLong(blockBuilder, packTimeWithTimeZone(1_111_000_000L, 0));
         TIME_TZ_MILLIS.writeLong(blockBuilder, packTimeWithTimeZone(1_111_000_000L, 1));
         TIME_TZ_MILLIS.writeLong(blockBuilder, packTimeWithTimeZone(1_111_000_000L, 2));

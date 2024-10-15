@@ -1608,13 +1608,13 @@ public class PostgreSqlClient
             // getArray is unsupported for vectors type
             String result = resultSet.getString(columnIndex);
             if (result == null) {
-                BlockBuilder builder = REAL.createBlockBuilder(null, 1);
+                BlockBuilder builder = REAL.createFixedSizeBlockBuilder(1);
                 builder.appendNull();
                 return builder.build();
             }
             verify(result.charAt(0) == '[' && result.charAt(result.length() - 1) == ']', "vector must be enclosed in square brackets: %s", result);
             String[] vectors = result.substring(1, result.length() - 1).split(",");
-            BlockBuilder builder = REAL.createBlockBuilder(null, vectors.length);
+            BlockBuilder builder = REAL.createFixedSizeBlockBuilder(vectors.length);
             for (String vector : vectors) {
                 REAL.writeFloat(builder, Float.parseFloat(vector));
             }

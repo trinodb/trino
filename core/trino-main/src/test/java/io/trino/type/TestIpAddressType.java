@@ -34,7 +34,7 @@ public class TestIpAddressType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = IPADDRESS.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = IPADDRESS.createFixedSizeBlockBuilder(1);
         IPADDRESS.writeSlice(blockBuilder, getSliceForAddress("2001:db8::ff00:42:8320"));
         IPADDRESS.writeSlice(blockBuilder, getSliceForAddress("2001:db8::ff00:42:8321"));
         IPADDRESS.writeSlice(blockBuilder, getSliceForAddress("2001:db8::ff00:42:8322"));

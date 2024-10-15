@@ -49,7 +49,7 @@ public class TestIntegerArrayType
     protected Object getGreaterValue(Object value)
     {
         Block block = (Block) value;
-        BlockBuilder blockBuilder = INTEGER.createBlockBuilder(null, block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = INTEGER.createFixedSizeBlockBuilder(block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
             INTEGER.appendTo(block, i, blockBuilder);
         }

@@ -319,7 +319,7 @@ public class FilesTable
             if (values == null) {
                 return null;
             }
-            BlockBuilder builder = INTEGER.createBlockBuilder(null, values.size());
+            BlockBuilder builder = INTEGER.createFixedSizeBlockBuilder(values.size());
             values.forEach(value -> INTEGER.writeLong(builder, value));
             return builder.build();
         }
@@ -330,7 +330,7 @@ public class FilesTable
             if (values == null) {
                 return null;
             }
-            BlockBuilder builder = BIGINT.createBlockBuilder(null, values.size());
+            BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(values.size());
             values.forEach(value -> BIGINT.writeLong(builder, value));
             return builder.build();
         }

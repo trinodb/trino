@@ -174,7 +174,7 @@ public class QueryResultRows
 
         public Builder withSingleBooleanValue(Column column, boolean value)
         {
-            BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, 1);
+            BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(1);
             BOOLEAN.writeBoolean(blockBuilder, value);
             pages = ImmutableList.<Page>builder().add(new Page(blockBuilder.build()));
             columns = Optional.of(combine(ImmutableList.of(column), ImmutableList.of(BOOLEAN)));

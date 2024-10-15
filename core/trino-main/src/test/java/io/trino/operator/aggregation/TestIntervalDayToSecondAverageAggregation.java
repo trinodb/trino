@@ -30,7 +30,7 @@ public class TestIntervalDayToSecondAverageAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = INTERVAL_DAY_TIME.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = INTERVAL_DAY_TIME.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             INTERVAL_DAY_TIME.writeLong(blockBuilder, i * 250L);
         }

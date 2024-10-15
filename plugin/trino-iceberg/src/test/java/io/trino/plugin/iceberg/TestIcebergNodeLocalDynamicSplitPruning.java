@@ -129,7 +129,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     true,
                     OrcWriteValidation.OrcWriteValidationMode.BOTH,
                     new OrcWriterStats())) {
-                BlockBuilder keyBuilder = INTEGER.createBlockBuilder(null, 1);
+                BlockBuilder keyBuilder = INTEGER.createFixedSizeBlockBuilder(1);
                 INTEGER.writeLong(keyBuilder, keyColumnValue);
                 BlockBuilder dataBuilder = VARCHAR.createBlockBuilder(null, 1);
                 VARCHAR.writeString(dataBuilder, dataColumnValue);
@@ -298,11 +298,11 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     true,
                     OrcWriteValidation.OrcWriteValidationMode.BOTH,
                     new OrcWriterStats())) {
-                BlockBuilder dateBuilder = DATE.createBlockBuilder(null, 1);
+                BlockBuilder dateBuilder = DATE.createFixedSizeBlockBuilder(1);
                 DATE.writeLong(dateBuilder, dateColumnValue);
                 BlockBuilder receiptBuilder = VARCHAR.createBlockBuilder(null, 1);
                 VARCHAR.writeString(receiptBuilder, receiptColumnValue);
-                BlockBuilder amountBuilder = amountColumnType.createBlockBuilder(null, 1);
+                BlockBuilder amountBuilder = amountColumnType.createFixedSizeBlockBuilder(1);
                 writeShortDecimal(amountBuilder, amountColumnValue.unscaledValue().longValueExact());
                 writer.write(new Page(dateBuilder.build(), receiptBuilder.build(), amountBuilder.build()));
             }
@@ -448,13 +448,13 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     true,
                     OrcWriteValidation.OrcWriteValidationMode.BOTH,
                     new OrcWriterStats())) {
-                BlockBuilder yearBuilder = INTEGER.createBlockBuilder(null, 1);
+                BlockBuilder yearBuilder = INTEGER.createFixedSizeBlockBuilder(1);
                 INTEGER.writeLong(yearBuilder, yearColumnValue);
-                BlockBuilder monthBuilder = INTEGER.createBlockBuilder(null, 1);
+                BlockBuilder monthBuilder = INTEGER.createFixedSizeBlockBuilder(1);
                 INTEGER.writeLong(monthBuilder, monthColumnValue);
                 BlockBuilder receiptBuilder = VARCHAR.createBlockBuilder(null, 1);
                 VARCHAR.writeString(receiptBuilder, receiptColumnValue);
-                BlockBuilder amountBuilder = amountColumnType.createBlockBuilder(null, 1);
+                BlockBuilder amountBuilder = amountColumnType.createFixedSizeBlockBuilder(1);
                 writeShortDecimal(amountBuilder, amountColumnValue.unscaledValue().longValueExact());
                 writer.write(new Page(yearBuilder.build(), monthBuilder.build(), receiptBuilder.build(), amountBuilder.build()));
             }

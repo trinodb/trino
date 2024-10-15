@@ -38,7 +38,7 @@ public class TestBlockBuilder
     @Test
     public void testMultipleValuesWithNull()
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 10);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(10);
         blockBuilder.appendNull();
         BIGINT.writeLong(blockBuilder, 42);
         blockBuilder.appendNull();

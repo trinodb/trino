@@ -142,7 +142,7 @@ public class TestFileSingleStreamSpillerFactory
 
     private Page buildPage()
     {
-        BlockBuilder col1 = BIGINT.createBlockBuilder(null, 1);
+        BlockBuilder col1 = BIGINT.createFixedSizeBlockBuilder(1);
         BIGINT.writeLong(col1, 42);
         return new Page(col1.build());
     }
