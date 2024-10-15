@@ -31,7 +31,7 @@
 - Use nulls-last ordering for {func}`array_sort`.
 - Validate that `TRY` is used with exactly one argument.
 - Allow running Presto with early-access Java versions.
-- Add {doc}`/connector/accumulo`.
+- Add Accumulo connector.
 
 ## Functions and language features
 
