@@ -31,8 +31,10 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -68,6 +70,7 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
 public abstract class BaseClickHouseTypeMapping
@@ -1491,4 +1494,22 @@ public abstract class BaseClickHouseTypeMapping
     {
         return clickhouseServer::execute;
     }
+
+    @RepeatedTest(1)
+    @Execution(SAME_THREAD)
+    public void testNoop()
+    {
+        // to keep necessary imports
+    }
+
+//    @RepeatedTest(1000)
+//    @Execution(SAME_THREAD)
+//    public void testRepeated()
+//    {
+//        testTimestamp();
+//        testClickHouseDateTimeMinMaxValues();
+//        testUnsupportedTimestamp();
+//        testClickHouseDateTimeWithTimeZone();
+//        testDateTimePredicatePushdown();
+//    }
 }
