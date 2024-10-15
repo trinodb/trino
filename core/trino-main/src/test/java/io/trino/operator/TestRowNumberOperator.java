@@ -373,7 +373,7 @@ public class TestRowNumberOperator
 
     private static Block getRowNumberColumn(List<Page> pages)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(null, pages.size() * 100);
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(pages.size() * 100);
         for (Page page : pages) {
             int rowNumberChannel = page.getChannelCount() - 1;
             for (int i = 0; i < page.getPositionCount(); i++) {

@@ -42,7 +42,7 @@ public class TestLongTimestampWithTimeZoneType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = TIMESTAMP_TZ_MICROS.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = TIMESTAMP_TZ_MICROS.createFixedSizeBlockBuilder(15);
         TIMESTAMP_TZ_MICROS.writeObject(blockBuilder, LongTimestampWithTimeZone.fromEpochMillisAndFraction(1111, 0, getTimeZoneKeyForOffset(0)));
         TIMESTAMP_TZ_MICROS.writeObject(blockBuilder, LongTimestampWithTimeZone.fromEpochMillisAndFraction(1111, 0, getTimeZoneKeyForOffset(1)));
         TIMESTAMP_TZ_MICROS.writeObject(blockBuilder, LongTimestampWithTimeZone.fromEpochMillisAndFraction(1111, 0, getTimeZoneKeyForOffset(2)));

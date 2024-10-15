@@ -294,7 +294,7 @@ public final class TestingUnnesterUtil
     private static Block buildExpectedOrdinalityBlock(UnnestedLengths unnestedLengths, int totalEntries)
     {
         int[] maxCardinalities = unnestedLengths.getMaxCardinalities();
-        BlockBuilder ordinalityBlockBuilder = BIGINT.createBlockBuilder(null, totalEntries);
+        BlockBuilder ordinalityBlockBuilder = BIGINT.createFixedSizeBlockBuilder(totalEntries);
         for (int i = 0; i < maxCardinalities.length; i++) {
             int maxCardinality = maxCardinalities[i];
             if (maxCardinality == 1 && unnestedLengths.isNullAppendForOuter(i)) {

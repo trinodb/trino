@@ -86,7 +86,7 @@ public class TestPage
         Block commonSourceIdBlock1 = createProjectedDictionaryBlock(positionCount, dictionary1, commonDictionaryIds, commonSourceId);
 
         // second dictionary block is "length(firstColumn)"
-        BlockBuilder dictionary2 = BIGINT.createBlockBuilder(null, dictionary1.getPositionCount());
+        BlockBuilder dictionary2 = BIGINT.createFixedSizeBlockBuilder(dictionary1.getPositionCount());
         for (Slice expectedValue : dictionaryValues1) {
             BIGINT.writeLong(dictionary2, expectedValue.length());
         }
@@ -121,7 +121,7 @@ public class TestPage
     public void testGetPositions()
     {
         int entries = 10;
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(entries);
         for (int i = 0; i < entries; i++) {
             BIGINT.writeLong(blockBuilder, i);
         }
@@ -143,7 +143,7 @@ public class TestPage
     public void testGetLoadedPage()
     {
         int entries = 10;
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(entries);
         for (int i = 0; i < entries; i++) {
             BIGINT.writeLong(blockBuilder, i);
         }

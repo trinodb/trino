@@ -37,7 +37,7 @@ public class TestLookupJoinPageBuilder
     public void testPageBuilder()
     {
         int entries = 10_000;
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(entries);
         for (int i = 0; i < entries; i++) {
             BIGINT.writeLong(blockBuilder, i);
         }
@@ -158,7 +158,7 @@ public class TestLookupJoinPageBuilder
     @Test
     public void testCrossJoinWithEmptyBuild()
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(1);
         BIGINT.writeLong(blockBuilder, 0);
         Page page = new Page(blockBuilder.build());
 

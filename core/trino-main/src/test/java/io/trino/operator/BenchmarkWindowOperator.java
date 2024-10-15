@@ -175,8 +175,8 @@ public class BenchmarkWindowOperator
             RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(false, ImmutableList.of(0), typesArray);
 
             for (int i = 0; i < TOTAL_PAGES; i++) {
-                BlockBuilder firstColumnBlockBuilder = BIGINT.createBlockBuilder(null, ROWS_PER_PAGE);
-                BlockBuilder secondColumnBlockBuilder = BIGINT.createBlockBuilder(null, ROWS_PER_PAGE);
+                BlockBuilder firstColumnBlockBuilder = BIGINT.createFixedSizeBlockBuilder(ROWS_PER_PAGE);
+                BlockBuilder secondColumnBlockBuilder = BIGINT.createFixedSizeBlockBuilder(ROWS_PER_PAGE);
                 int currentNumberOfRowsInPartition = 0;
                 int numberOfPartitionsInCurrentGroup = 0;
                 int currentGroupIdentifier = groupIdentifier++;

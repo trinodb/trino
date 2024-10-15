@@ -113,7 +113,7 @@ public class TestScalarFunctionAdapter
                 simpleConvention(BLOCK_BUILDER, BOXED_NULLABLE));
 
         // verify non-null and null value are written to the block
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = DOUBLE.createFixedSizeBlockBuilder(1);
         adaptedMethodHandle.invoke(1.1, blockBuilder);
         adaptedMethodHandle.invoke(null, blockBuilder);
         Block block = blockBuilder.buildValueBlock();
@@ -578,7 +578,7 @@ public class TestScalarFunctionAdapter
             return Slices.utf8Slice("test");
         }
         if (argumentType.equals(ARRAY_TYPE)) {
-            BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 4);
+            BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(4);
             blockBuilder.appendNull();
             BIGINT.writeLong(blockBuilder, 99);
             blockBuilder.appendNull();

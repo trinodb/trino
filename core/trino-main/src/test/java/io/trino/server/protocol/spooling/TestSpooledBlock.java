@@ -88,7 +88,7 @@ class TestSpooledBlock
 
     public static Block blockWithPositions(int count, boolean isNull)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, count);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(count);
         for (int i = 0; i < count; i++) {
             if (isNull) {
                 blockBuilder.appendNull();

@@ -434,7 +434,7 @@ public class TestDictionaryAwarePageProjection
                 this.yieldSignal = yieldSignal;
                 this.block = page.getBlock(0);
                 this.selectedPositions = selectedPositions;
-                this.blockBuilder = BIGINT.createBlockBuilder(null, selectedPositions.size());
+                this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(selectedPositions.size());
             }
 
             @Override

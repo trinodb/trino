@@ -33,7 +33,7 @@ public class TestLongDecimalMaxAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = LONG_DECIMAL.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = LONG_DECIMAL.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             writeBigDecimal(LONG_DECIMAL, blockBuilder, BigDecimal.valueOf(i));
         }

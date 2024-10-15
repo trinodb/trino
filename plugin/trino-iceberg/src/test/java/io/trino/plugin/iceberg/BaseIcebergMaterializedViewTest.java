@@ -1174,7 +1174,7 @@ public abstract class BaseIcebergMaterializedViewTest
             if (finished.get()) {
                 return FINISHED;
             }
-            BlockBuilder builder = INTEGER.createBlockBuilder(null, 1);
+            BlockBuilder builder = INTEGER.createFixedSizeBlockBuilder(1);
             INTEGER.writeInt(builder, generator.getAndIncrement());
             finished.set(true);
             return produced(new Page(builder.build()));

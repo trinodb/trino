@@ -31,7 +31,7 @@ public class TestBitwiseXorAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(length);
 
         for (int i = start; i < start + length; i++) {
             BIGINT.writeLong(blockBuilder, i);
