@@ -74,7 +74,6 @@ public class TestBlockBuilder
 
         PageBuilder newPageBuilder = pageBuilder.newPageBuilderLike();
         for (int i = 0; i < channels.size(); i++) {
-            assertThat(newPageBuilder.getType(i)).isEqualTo(pageBuilder.getType(i));
             // we should get new block builder instances
             assertThat(pageBuilder.getBlockBuilder(i))
                     .isNotEqualTo(newPageBuilder.getBlockBuilder(i));

@@ -299,6 +299,10 @@
                                     <code>java.class.removed</code>
                                     <old>class io.trino.spi.connector.ConnectorMetadata.Helper</old>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.Type io.trino.spi.PageBuilder::getType(int)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
