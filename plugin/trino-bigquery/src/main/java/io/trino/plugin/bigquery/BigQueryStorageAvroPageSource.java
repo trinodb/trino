@@ -93,7 +93,8 @@ public class BigQueryStorageAvroPageSource
     private final BigQueryTypeManager typeManager;
     private final BigQuerySplit split;
     private final List<BigQueryColumnHandle> columns;
-    private final AtomicLong readBytes;
+    private final AtomicLong readBytes = new AtomicLong();
+    private final AtomicLong readTimeNanos = new AtomicLong();
     private final PageBuilder pageBuilder;
     private final Iterator<ReadRowsResponse> responses;
 
@@ -112,7 +113,6 @@ public class BigQueryStorageAvroPageSource
         this.executor = requireNonNull(executor, "executor is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.split = requireNonNull(split, "split is null");
-        this.readBytes = new AtomicLong();
         this.columns = requireNonNull(columns, "columns is null");
         this.pageBuilder = new PageBuilder(columns.stream()
                 .map(BigQueryColumnHandle::trinoType)
@@ -132,7 +132,7 @@ public class BigQueryStorageAvroPageSource
     @Override
     public long getReadTimeNanos()
     {
-        return 0;
+        return readTimeNanos.get();
     }
 
     @Override
@@ -154,6 +154,7 @@ public class BigQueryStorageAvroPageSource
             return null;
         }
         nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
+        long start = System.nanoTime();
         Iterable<GenericRecord> records = parse(response);
         for (GenericRecord record : records) {
             pageBuilder.declarePosition();
@@ -166,6 +167,7 @@ public class BigQueryStorageAvroPageSource
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
+        readTimeNanos.addAndGet(System.nanoTime() - start);
         return page;
     }
 
@@ -333,7 +335,9 @@ public class BigQueryStorageAvroPageSource
 
     private ReadRowsResponse getResponse()
     {
+        long start = System.nanoTime();
         ReadRowsResponse response = responses.next();
+        readTimeNanos.addAndGet(System.nanoTime() - start);
         return response;
     }
 

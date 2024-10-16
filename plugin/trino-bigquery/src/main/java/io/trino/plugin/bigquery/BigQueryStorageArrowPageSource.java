@@ -54,6 +54,7 @@ public class BigQueryStorageArrowPageSource
             .build());
 
     private final AtomicLong readBytes = new AtomicLong();
+    private final AtomicLong readTimeNanos = new AtomicLong();
     private final BigQueryReadClient bigQueryReadClient;
     private final ExecutorService executor;
     private final BigQuerySplit split;
@@ -97,7 +98,7 @@ public class BigQueryStorageArrowPageSource
     @Override
     public long getReadTimeNanos()
     {
-        return 0;
+        return readTimeNanos.get();
     }
 
     @Override
@@ -119,12 +120,14 @@ public class BigQueryStorageArrowPageSource
             return null;
         }
         nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
+        long start = System.nanoTime();
         try (ArrowRecordBatch batch = deserializeResponse(streamBufferAllocator, response)) {
             bigQueryArrowToPageConverter.convert(pageBuilder, batch);
         }
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
+        readTimeNanos.addAndGet(System.nanoTime() - start);
         return page;
     }
 
@@ -155,7 +158,9 @@ public class BigQueryStorageArrowPageSource
 
     private ReadRowsResponse getResponse()
     {
+        long start = System.nanoTime();
         ReadRowsResponse response = responses.next();
+        readTimeNanos.addAndGet(System.nanoTime() - start);
         return response;
     }
 
