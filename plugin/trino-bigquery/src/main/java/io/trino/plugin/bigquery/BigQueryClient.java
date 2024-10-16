@@ -417,10 +417,16 @@ public class BigQueryClient
 
     public TableResult executeQuery(ConnectorSession session, String sql)
     {
+        return executeQuery(session, sql, null);
+    }
+
+    public TableResult executeQuery(ConnectorSession session, String sql, Long maxResults)
+    {
         log.debug("Execute query: %s", sql);
         QueryJobConfiguration job = QueryJobConfiguration.newBuilder(sql)
                 .setUseQueryCache(isQueryResultsCacheEnabled(session))
                 .setCreateDisposition(createDisposition(session))
+                .setMaxResults(maxResults)
                 .build();
         return execute(session, job);
     }
