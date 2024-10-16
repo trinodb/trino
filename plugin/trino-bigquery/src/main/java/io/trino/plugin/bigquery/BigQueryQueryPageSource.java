@@ -44,9 +44,12 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.bigquery.BigQueryClient.selectSql;
 import static io.trino.plugin.bigquery.BigQueryTypeManager.toTrinoTimestamp;
@@ -78,7 +81,8 @@ public class BigQueryQueryPageSource
     private final List<BigQueryColumnHandle> columnHandles;
     private final PageBuilder pageBuilder;
     private final boolean isQueryFunction;
-    private final TableResult tableResult;
+
+    private final CompletableFuture<TableResult> tableResult;
 
     private boolean finished;
 
@@ -86,11 +90,13 @@ public class BigQueryQueryPageSource
             ConnectorSession session,
             BigQueryTypeManager typeManager,
             BigQueryClient client,
+            ExecutorService executor,
             BigQueryTableHandle table,
             List<BigQueryColumnHandle> columnHandles,
             Optional<String> filter)
     {
         requireNonNull(client, "client is null");
+        requireNonNull(executor, "executor is null");
         requireNonNull(table, "table is null");
         requireNonNull(filter, "filter is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -102,7 +108,7 @@ public class BigQueryQueryPageSource
                 client.getProjectId(),
                 ImmutableList.copyOf(columnHandles),
                 filter);
-        this.tableResult = client.executeQuery(session, sql);
+        this.tableResult = CompletableFuture.supplyAsync(() -> client.executeQuery(session, sql), executor);
     }
 
     private String buildSql(BigQueryTableHandle table, String projectId, List<BigQueryColumnHandle> columns, Optional<String> filter)
@@ -146,7 +152,7 @@ public class BigQueryQueryPageSource
     public Page getNextPage()
     {
         verify(pageBuilder.isEmpty());
-        for (FieldValueList record : tableResult.iterateAll()) {
+        for (FieldValueList record : getFutureValue(tableResult).iterateAll()) {
             pageBuilder.declarePosition();
             for (int column = 0; column < columnHandles.size(); column++) {
                 BigQueryColumnHandle columnHandle = columnHandles.get(column);
@@ -255,5 +261,14 @@ public class BigQueryQueryPageSource
     }
 
     @Override
-    public void close() {}
+    public void close()
+    {
+        tableResult.cancel(true);
+    }
+
+    @Override
+    public CompletableFuture<?> isBlocked()
+    {
+        return tableResult;
+    }
 }
