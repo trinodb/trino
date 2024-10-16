@@ -44,7 +44,7 @@ public final class ViewInfo
     {
         this.originalSql = viewDefinition.getOriginalSql();
         this.columns = viewDefinition.getColumns().stream()
-                .map(column -> new ViewColumn(column.getName(), column.getType(), column.getComment()))
+                .map(column -> new ViewColumn(column.name(), column.type(), column.comment()))
                 .collect(toImmutableList());
         this.comment = viewDefinition.getComment();
         this.storageTable = viewDefinition.getStorageTable();

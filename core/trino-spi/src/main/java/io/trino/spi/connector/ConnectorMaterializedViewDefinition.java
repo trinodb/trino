@@ -155,12 +155,8 @@ public class ConnectorMaterializedViewDefinition
         return Objects.hash(originalSql, storageTable, catalog, schema, columns, gracePeriod, comment, owner, path);
     }
 
-    public static final class Column
+    public record Column(String name, TypeId type, Optional<String> comment)
     {
-        private final String name;
-        private final TypeId type;
-        private final Optional<String> comment;
-
         public Column(String name, TypeId type, Optional<String> comment)
         {
             this.name = requireNonNull(name, "name is null");
@@ -168,46 +164,10 @@ public class ConnectorMaterializedViewDefinition
             this.comment = requireNonNull(comment, "comment is null");
         }
 
-        public String getName()
-        {
-            return name;
-        }
-
-        public TypeId getType()
-        {
-            return type;
-        }
-
-        public Optional<String> getComment()
-        {
-            return comment;
-        }
-
         @Override
         public String toString()
         {
             return name + " " + type;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            Column column = (Column) o;
-            return Objects.equals(name, column.name) &&
-                    Objects.equals(type, column.type) &&
-                    Objects.equals(comment, column.comment);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(name, type, comment);
         }
     }
 }

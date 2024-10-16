@@ -1209,7 +1209,7 @@ public class TrinoGlueCatalog
                 definition.getCatalog(),
                 definition.getSchema(),
                 definition.getColumns().stream()
-                        .map(currentViewColumn -> Objects.equals(columnName, currentViewColumn.getName()) ? new ConnectorMaterializedViewDefinition.Column(currentViewColumn.getName(), currentViewColumn.getType(), comment) : currentViewColumn)
+                        .map(currentViewColumn -> Objects.equals(columnName, currentViewColumn.name()) ? new ConnectorMaterializedViewDefinition.Column(currentViewColumn.name(), currentViewColumn.type(), comment) : currentViewColumn)
                         .collect(toImmutableList()),
                 definition.getGracePeriod(),
                 definition.getComment(),

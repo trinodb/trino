@@ -359,7 +359,7 @@ public abstract class AbstractTrinoCatalog
         Schema schemaWithTimestampTzPreserved = schemaFromMetadata(mappedCopy(
                 definition.getColumns(),
                 column -> {
-                    Type type = typeManager.getType(column.getType());
+                    Type type = typeManager.getType(column.type());
                     if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6) {
                         // For now preserve timestamptz columns so that we can parse partitioning
                         type = TIMESTAMP_TZ_MICROS;
@@ -367,7 +367,7 @@ public abstract class AbstractTrinoCatalog
                     else {
                         type = typeForMaterializedViewStorageTable(type);
                     }
-                    return new ColumnMetadata(column.getName(), type);
+                    return new ColumnMetadata(column.name(), type);
                 }));
         PartitionSpec partitionSpec = parsePartitionFields(schemaWithTimestampTzPreserved, getPartitioning(materializedViewProperties));
         Set<String> temporalPartitioningSources = partitionSpec.fields().stream()
@@ -385,15 +385,15 @@ public abstract class AbstractTrinoCatalog
         return mappedCopy(
                 definition.getColumns(),
                 column -> {
-                    Type type = typeManager.getType(column.getType());
-                    if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6 && temporalPartitioningSources.contains(column.getName())) {
+                    Type type = typeManager.getType(column.type());
+                    if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6 && temporalPartitioningSources.contains(column.name())) {
                         // Apply point-in-time semantics to maintain partitioning capabilities
                         type = TIMESTAMP_TZ_MICROS;
                     }
                     else {
                         type = typeForMaterializedViewStorageTable(type);
                     }
-                    return new ColumnMetadata(column.getName(), type);
+                    return new ColumnMetadata(column.name(), type);
                 });
     }
 

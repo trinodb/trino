@@ -725,14 +725,14 @@ public final class MetadataManager
         for (ConnectorMaterializedViewDefinition.Column column : columns) {
             try {
                 columnMetadata.add(ColumnMetadata.builder()
-                        .setName(column.getName())
-                        .setType(typeManager.getType(column.getType()))
-                        .setComment(column.getComment())
+                        .setName(column.name())
+                        .setType(typeManager.getType(column.type()))
+                        .setComment(column.comment())
                         .build());
             }
             catch (TypeNotFoundException e) {
                 QualifiedObjectName name = new QualifiedObjectName(catalogName, materializedViewName.getSchemaName(), materializedViewName.getTableName());
-                throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in materialized view: %s", column.getType(), column.getName(), name));
+                throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in materialized view: %s", column.type(), column.name(), name));
             }
         }
         return columnMetadata.build();
@@ -1773,7 +1773,7 @@ public final class MetadataManager
                 view.getCatalog(),
                 view.getSchema(),
                 view.getColumns().stream()
-                        .map(column -> new ViewColumn(column.getName(), column.getType(), Optional.empty()))
+                        .map(column -> new ViewColumn(column.name(), column.type(), Optional.empty()))
                         .collect(toImmutableList()),
                 view.getGracePeriod(),
                 view.getComment(),

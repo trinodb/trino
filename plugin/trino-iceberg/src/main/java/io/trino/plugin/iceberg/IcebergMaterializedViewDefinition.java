@@ -76,7 +76,7 @@ public record IcebergMaterializedViewDefinition(
                 definition.getCatalog(),
                 definition.getSchema(),
                 definition.getColumns().stream()
-                        .map(column -> new Column(column.getName(), column.getType(), column.getComment()))
+                        .map(column -> new Column(column.name(), column.type(), column.comment()))
                         .collect(toImmutableList()),
                 definition.getGracePeriod(),
                 definition.getComment(),
