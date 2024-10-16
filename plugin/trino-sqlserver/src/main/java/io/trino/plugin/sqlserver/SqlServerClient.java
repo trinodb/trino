@@ -783,7 +783,7 @@ public class SqlServerClient
 
             Map<String, String> columnNameToStatisticsName = getColumnNameToStatisticsName(table, statisticsDao, tableObjectId);
 
-            for (JdbcColumnHandle column : this.getColumns(session, table)) {
+            for (JdbcColumnHandle column : this.getColumns(session, table.getRequiredNamedRelation().getSchemaTableName(), table.getRequiredNamedRelation().getRemoteTableName())) {
                 String statisticName = columnNameToStatisticsName.get(column.getColumnName());
                 if (statisticName == null) {
                     // No statistic for column

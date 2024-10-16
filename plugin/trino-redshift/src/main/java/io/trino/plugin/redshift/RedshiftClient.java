@@ -375,7 +375,7 @@ public class RedshiftClient
             return TableStatistics.empty();
         }
         try {
-            return statisticsReader.readTableStatistics(session, handle, () -> this.getColumns(session, handle));
+            return statisticsReader.readTableStatistics(session, handle, () -> this.getColumns(session, handle.getRequiredNamedRelation().getSchemaTableName(), handle.getRequiredNamedRelation().getRemoteTableName()));
         }
         catch (SQLException | RuntimeException e) {
             throwIfInstanceOf(e, TrinoException.class);

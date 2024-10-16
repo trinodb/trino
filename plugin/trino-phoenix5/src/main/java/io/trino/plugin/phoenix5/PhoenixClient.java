@@ -1017,7 +1017,7 @@ public class PhoenixClient
         }
 
         Map<String, Object> tableProperties = getTableProperties(session, tableHandle);
-        List<JdbcColumnHandle> primaryKeyColumnHandles = getColumns(session, tableHandle)
+        List<JdbcColumnHandle> primaryKeyColumnHandles = getColumns(session, tableHandle.getRequiredNamedRelation().getSchemaTableName(), tableHandle.getRequiredNamedRelation().getRemoteTableName())
                 .stream()
                 .filter(columnHandle -> PhoenixColumnProperties.isPrimaryKey(columnHandle.getColumnMetadata(), tableProperties))
                 .collect(toImmutableList());

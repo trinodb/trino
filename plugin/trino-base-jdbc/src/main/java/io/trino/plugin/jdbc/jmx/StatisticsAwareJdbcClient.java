@@ -130,12 +130,6 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
-    {
-        return delegate().getColumns(session, tableHandle);
-    }
-
-    @Override
     public Iterator<RelationColumnsMetadata> getAllTableColumns(ConnectorSession session, Optional<String> schema)
     {
         // Note: no stats here. As it results an Iterator, the stats would not reflect actual time.
