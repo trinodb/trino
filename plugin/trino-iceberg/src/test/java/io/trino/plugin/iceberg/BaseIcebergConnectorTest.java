@@ -5522,11 +5522,13 @@ public abstract class BaseIcebergConnectorTest
 
         assertQuery(
                 "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
-                "VALUES '1'");
+                "VALUES '0'");
         List<String> allDataFilesAfterOptimizeWithWhere = getAllDataFilesFromTableDirectory(tableName);
         assertThat(allDataFilesAfterOptimizeWithWhere)
-                .hasSize(6)
+                .hasSize(5)
                 .doesNotContain(allDataFilesInitially.stream().filter(file -> file.contains("regionkey=3"))
+                        .toArray(String[]::new))
+                .contains(allDataFilesInitially.stream().filter(file -> !file.contains("regionkey=3"))
                         .toArray(String[]::new));
 
         assertThat(query("SELECT * FROM " + tableName))

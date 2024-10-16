@@ -271,9 +271,17 @@ public class IcebergSplitSource
                 }
 
                 if (recordScannedFiles) {
-                    // Positional and Equality deletes can only be cleaned up if the whole table has been optimized.
-                    // Equality deletes may apply to many files, and position deletes may be grouped together. This makes it difficult to know if they are obsolete.
-                    List<org.apache.iceberg.DeleteFile> fullyAppliedDeletes = tableHandle.getEnforcedPredicate().isAll() ? wholeFileTask.deletes() : ImmutableList.of();
+                    // Equality deletes can only be cleaned up if the whole table has been optimized.
+                    // Equality and position deletes may apply to many files, however position deletes are always local to a partition
+                    // https://github.com/apache/iceberg/blob/70c506ebad2dfc6d61b99c05efd59e884282bfa6/core/src/main/java/org/apache/iceberg/deletes/DeleteGranularity.java#L61
+                    // OPTIMIZE supports only enforced predicates which select whole partitions, so if there is no path or fileModifiedTime predicate, then we can clean up position deletes
+                    List<org.apache.iceberg.DeleteFile> fullyAppliedDeletes = wholeFileTask.deletes().stream()
+                            .filter(deleteFile -> switch (deleteFile.content()) {
+                                case POSITION_DELETES -> pathDomain.isAll() && fileModifiedTimeDomain.isAll();
+                                case EQUALITY_DELETES -> tableHandle.getEnforcedPredicate().isAll();
+                                case DATA -> throw new IllegalStateException("Unexpected delete file: " + deleteFile);
+                            })
+                            .collect(toImmutableList());
                     scannedFiles.add(new DataFileWithDeleteFiles(wholeFileTask.file(), fullyAppliedDeletes));
                 }
 
