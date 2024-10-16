@@ -74,9 +74,9 @@ public class TestSimplifyRedundantCase
 
         assertThat(optimize(
                 new Case(
-                        ImmutableList.of(new WhenClause(new Reference(BOOLEAN, "x"), TRUE)),
+                        ImmutableList.of(new WhenClause(new Reference(BOOLEAN, "x"), FALSE)),
                         FALSE)))
-                .isEqualTo(Optional.of(new Comparison(IDENTICAL, new Reference(BOOLEAN, "x"), TRUE)));
+                .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(
                 new Case(

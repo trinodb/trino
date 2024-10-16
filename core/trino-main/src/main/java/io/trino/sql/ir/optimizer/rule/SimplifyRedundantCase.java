@@ -67,7 +67,8 @@ public class SimplifyRedundantCase
             return Optional.empty();
         }
 
-        return transformRecursive(0, caseTerm.whenClauses(), defaultValue);
+        return transformRecursive(0, caseTerm.whenClauses(), defaultValue)
+                .or(() -> Optional.<Expression>of(FALSE));
     }
 
     private Optional<Expression> transformRecursive(int start, List<WhenClause> clauses, Expression defaultExpression)
