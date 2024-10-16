@@ -28,6 +28,7 @@ resource-groups.config-file=etc/resource-groups.json
 The path to the JSON file can be an absolute path, or a path relative to the Trino
 data directory. The JSON file only needs to be present on the coordinator.
 
+(db-resource-group-manager)=
 ## Database resource group manager
 
 The database resource group manager loads the configuration from a relational database. The
