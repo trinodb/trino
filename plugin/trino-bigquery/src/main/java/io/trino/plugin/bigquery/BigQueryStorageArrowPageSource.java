@@ -32,10 +32,14 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryStorageArrowPageSource
@@ -51,25 +55,32 @@ public class BigQueryStorageArrowPageSource
 
     private final AtomicLong readBytes = new AtomicLong();
     private final BigQueryReadClient bigQueryReadClient;
+    private final ExecutorService executor;
     private final BigQuerySplit split;
-    private final Iterator<ReadRowsResponse> responses;
     private final BigQueryArrowToPageConverter bigQueryArrowToPageConverter;
     private final BufferAllocator streamBufferAllocator;
     private final PageBuilder pageBuilder;
+    private final Iterator<ReadRowsResponse> responses;
+
+    private CompletableFuture<ReadRowsResponse> nextResponse;
+    private boolean finished;
 
     public BigQueryStorageArrowPageSource(
             BigQueryTypeManager typeManager,
             BigQueryReadClient bigQueryReadClient,
+            ExecutorService executor,
             int maxReadRowsRetries,
             BigQuerySplit split,
             List<BigQueryColumnHandle> columns)
     {
         this.bigQueryReadClient = requireNonNull(bigQueryReadClient, "bigQueryReadClient is null");
+        this.executor = requireNonNull(executor, "executor is null");
         this.split = requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
         Schema schema = deserializeSchema(split.getSchemaString());
         log.debug("Starting to read from %s", split.getStreamName());
         responses = new ReadRowsHelper(bigQueryReadClient, split.getStreamName(), maxReadRowsRetries).readRows();
+        nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
         this.streamBufferAllocator = allocator.newChildAllocator(split.getStreamName(), 1024, Long.MAX_VALUE);
         this.bigQueryArrowToPageConverter = new BigQueryArrowToPageConverter(typeManager, streamBufferAllocator, schema, columns);
         this.pageBuilder = new PageBuilder(columns.stream()
@@ -92,17 +103,22 @@ public class BigQueryStorageArrowPageSource
     @Override
     public boolean isFinished()
     {
-        return !responses.hasNext();
+        return finished;
     }
 
     @Override
     public Page getNextPage()
     {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
-        if (!responses.hasNext()) {
+        ReadRowsResponse response;
+        try {
+            response = getFutureValue(nextResponse);
+        }
+        catch (NoSuchElementException ignored) {
+            finished = true;
             return null;
         }
-        ReadRowsResponse response = responses.next();
+        nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
         try (ArrowRecordBatch batch = deserializeResponse(streamBufferAllocator, response)) {
             bigQueryArrowToPageConverter.convert(pageBuilder, batch);
         }
@@ -127,7 +143,20 @@ public class BigQueryStorageArrowPageSource
     {
         streamBufferAllocator.close();
         bigQueryArrowToPageConverter.close();
+        nextResponse.cancel(true);
         bigQueryReadClient.close();
+    }
+
+    @Override
+    public CompletableFuture<?> isBlocked()
+    {
+        return nextResponse;
+    }
+
+    private ReadRowsResponse getResponse()
+    {
+        ReadRowsResponse response = responses.next();
+        return response;
     }
 
     private ArrowRecordBatch deserializeResponse(BufferAllocator allocator, ReadRowsResponse response)
