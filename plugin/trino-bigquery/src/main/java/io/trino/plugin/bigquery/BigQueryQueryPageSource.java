@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -83,6 +84,8 @@ public class BigQueryQueryPageSource
     private final PageBuilder pageBuilder;
     private final boolean isQueryFunction;
 
+    private final AtomicLong readTimeNanos = new AtomicLong();
+
     private CompletableFuture<TableResult> tableResultFuture;
     private TableResult tableResult;
     private boolean finished;
@@ -111,7 +114,9 @@ public class BigQueryQueryPageSource
                 ImmutableList.copyOf(columnHandles),
                 filter);
         this.tableResultFuture = CompletableFuture.supplyAsync(() -> {
+            long start = System.nanoTime();
             TableResult result = client.executeQuery(session, sql, MAX_PAGE_ROW_COUNT);
+            readTimeNanos.addAndGet(System.nanoTime() - start);
             return result;
         }, executor);
     }
@@ -138,7 +143,7 @@ public class BigQueryQueryPageSource
     @Override
     public long getReadTimeNanos()
     {
-        return 0;
+        return readTimeNanos.get();
     }
 
     @Override
@@ -161,14 +166,21 @@ public class BigQueryQueryPageSource
             tableResult = getFutureValue(tableResultFuture);
         }
         else if (tableResult.hasNextPage()) {
+            long start = System.nanoTime();
             tableResult = tableResult.getNextPage();
+            readTimeNanos.addAndGet(System.nanoTime() - start);
         }
         else {
             finished = true;
             return null;
         }
 
-        for (FieldValueList record : tableResult.getValues()) {
+        long start = System.nanoTime();
+        List<FieldValueList> values = ImmutableList.copyOf(tableResult.getValues());
+        finished = !tableResult.hasNextPage();
+        readTimeNanos.addAndGet(System.nanoTime() - start);
+
+        for (FieldValueList record : values) {
             pageBuilder.declarePosition();
             for (int column = 0; column < columnHandles.size(); column++) {
                 BigQueryColumnHandle columnHandle = columnHandles.get(column);
@@ -177,7 +189,6 @@ public class BigQueryQueryPageSource
                 appendTo(columnHandle.trinoType(), fieldValue, output);
             }
         }
-        finished = !tableResult.hasNextPage();
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
