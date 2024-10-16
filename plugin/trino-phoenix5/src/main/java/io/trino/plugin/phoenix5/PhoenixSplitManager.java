@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.jdbc.JdbcMetadata.getColumns;
 import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_INTERNAL_ERROR;
 import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_SPLIT_ERROR;
 import static java.util.Objects.requireNonNull;
@@ -80,7 +81,7 @@ public class PhoenixSplitManager
         try (Connection connection = phoenixClient.getConnection(session)) {
             List<JdbcColumnHandle> columns = tableHandle.getColumns()
                     .map(columnSet -> columnSet.stream().map(JdbcColumnHandle.class::cast).collect(toList()))
-                    .orElseGet(() -> phoenixClient.getColumns(session, tableHandle));
+                    .orElseGet(() -> getColumns(session, phoenixClient, tableHandle));
             PhoenixPreparedStatement inputQuery = phoenixClient.prepareStatement(
                     session,
                     connection,

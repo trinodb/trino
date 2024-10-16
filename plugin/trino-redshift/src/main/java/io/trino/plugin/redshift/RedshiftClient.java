@@ -33,6 +33,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
@@ -390,7 +391,7 @@ public class RedshiftClient
             return TableStatistics.empty();
         }
         try {
-            return statisticsReader.readTableStatistics(session, handle, () -> this.getColumns(session, handle));
+            return statisticsReader.readTableStatistics(session, handle, () -> JdbcMetadata.getColumns(session, this, handle));
         }
         catch (SQLException | RuntimeException e) {
             throwIfInstanceOf(e, TrinoException.class);
