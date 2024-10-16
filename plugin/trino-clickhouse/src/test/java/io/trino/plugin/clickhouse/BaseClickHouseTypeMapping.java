@@ -19,6 +19,7 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.UuidType;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -1128,6 +1129,8 @@ public abstract class BaseClickHouseTypeMapping
                         "'8', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456789'",
                         "'9', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789'"
                 ))) {
+            testAggregationPushdown(table.getName());
+
             assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime_1 = TIMESTAMP '2024-01-01 00:00:00'")).isFullyPushedDown();
             assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime_1 = TIMESTAMP '2024-01-01 00:00:00'" + withConnectorExpression)).isFullyPushedDown();
             assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 00:00:00.0'")).isFullyPushedDown();
@@ -1263,6 +1266,114 @@ public abstract class BaseClickHouseTypeMapping
             assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 > c_datetime64_9_1")).isNotFullyPushedDown(FilterNode.class);
             assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 > c_datetime64_9_1" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
         }
+    }
+
+    public void testAggregationPushdown(String name)
+    {
+        assertThat(query("SELECT count(*) FROM %s".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT count(some_column) FROM %s".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT c_datetime_1, min(some_column) FROM %s GROUP BY c_datetime_1".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT c_datetime_1, max(some_column) FROM %s GROUP BY c_datetime_1".formatted(name))).isFullyPushedDown();
+
+        assertThat(query("SELECT day_of_month(c_datetime_1) FROM %s GROUP BY day_of_month(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day(c_datetime_1) FROM %s GROUP BY day(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_month(c_datetime_1) FROM %s GROUP BY day_of_month(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_week(c_datetime_1) FROM %s GROUP BY day_of_week(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_year(c_datetime_1) FROM %s GROUP BY day_of_year(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT dow(c_datetime_1) FROM %s GROUP BY dow(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT doy(c_datetime_1) FROM %s GROUP BY doy(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT hour(c_datetime_1) FROM %s GROUP BY hour(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        // v24.2 Changelog
+//            assertThat(query( "SELECT count(some_column) FROM %s GROUP BY millisecond(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT minute(c_datetime_1) FROM %s GROUP BY minute(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT month(c_datetime_1) FROM %s GROUP BY month(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT quarter(c_datetime_1) FROM %s GROUP BY quarter(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT second(c_datetime_1) FROM %s GROUP BY second(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week(c_datetime_1) FROM %s GROUP BY week(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week_of_year(c_datetime_1) FROM %s GROUP BY week_of_year(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year(c_datetime_1) FROM %s GROUP BY year(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year_of_week(c_datetime_1) FROM %s GROUP BY year_of_week(c_datetime_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT yow(c_datetime_1) FROM %s GROUP BY yow(c_datetime_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT day_of_month(c_datetime64_3_1) FROM %s GROUP BY day_of_month(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day(c_datetime64_3_1) FROM %s GROUP BY day(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_month(c_datetime64_3_1) FROM %s GROUP BY day_of_month(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_week(c_datetime64_3_1) FROM %s GROUP BY day_of_week(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_year(c_datetime64_3_1) FROM %s GROUP BY day_of_year(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT dow(c_datetime64_3_1) FROM %s GROUP BY dow(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT doy(c_datetime64_3_1) FROM %s GROUP BY doy(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT hour(c_datetime64_3_1) FROM %s GROUP BY hour(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        // v24.2 Changelog
+//            assertThat(query( "SELECT count(some_column) FROM %s GROUP BY millisecond(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT minute(c_datetime64_3_1) FROM %s GROUP BY minute(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT month(c_datetime64_3_1) FROM %s GROUP BY month(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT quarter(c_datetime64_3_1) FROM %s GROUP BY quarter(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT second(c_datetime64_3_1) FROM %s GROUP BY second(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week(c_datetime64_3_1) FROM %s GROUP BY week(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week_of_year(c_datetime64_3_1) FROM %s GROUP BY week_of_year(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year(c_datetime64_3_1) FROM %s GROUP BY year(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year_of_week(c_datetime64_3_1) FROM %s GROUP BY year_of_week(c_datetime64_3_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT yow(c_datetime64_3_1) FROM %s GROUP BY yow(c_datetime64_3_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT day_of_month(c_datetime64_9_1) FROM %s GROUP BY day_of_month(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day(c_datetime64_9_1) FROM %s GROUP BY day(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_month(c_datetime64_9_1) FROM %s GROUP BY day_of_month(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_week(c_datetime64_9_1) FROM %s GROUP BY day_of_week(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_year(c_datetime64_9_1) FROM %s GROUP BY day_of_year(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT dow(c_datetime64_9_1) FROM %s GROUP BY dow(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT doy(c_datetime64_9_1) FROM %s GROUP BY doy(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT hour(c_datetime64_9_1) FROM %s GROUP BY hour(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        // v24.2 Changelog
+//            assertThat(query( "SELECT count(some_column) FROM %s GROUP BY millisecond(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT minute(c_datetime64_9_1) FROM %s GROUP BY minute(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT month(c_datetime64_9_1) FROM %s GROUP BY month(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT quarter(c_datetime64_9_1) FROM %s GROUP BY quarter(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT second(c_datetime64_9_1) FROM %s GROUP BY second(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week(c_datetime64_9_1) FROM %s GROUP BY week(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week_of_year(c_datetime64_9_1) FROM %s GROUP BY week_of_year(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year(c_datetime64_9_1) FROM %s GROUP BY year(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year_of_week(c_datetime64_9_1) FROM %s GROUP BY year_of_week(c_datetime64_9_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT yow(c_datetime64_9_1) FROM %s GROUP BY yow(c_datetime64_9_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT day_of_month(c_datetime64_3_zone_1) FROM %s GROUP BY day_of_month(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day(c_datetime64_3_zone_1) FROM %s GROUP BY day(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_month(c_datetime64_3_zone_1) FROM %s GROUP BY day_of_month(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_week(c_datetime64_3_zone_1) FROM %s GROUP BY day_of_week(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_year(c_datetime64_3_zone_1) FROM %s GROUP BY day_of_year(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT dow(c_datetime64_3_zone_1) FROM %s GROUP BY dow(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT doy(c_datetime64_3_zone_1) FROM %s GROUP BY doy(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT hour(c_datetime64_3_zone_1) FROM %s GROUP BY hour(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        // v24.2 Changelog
+//            assertThat(query( "SELECT count(some_column) FROM %s GROUP BY millisecond(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT minute(c_datetime64_3_zone_1) FROM %s GROUP BY minute(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT month(c_datetime64_3_zone_1) FROM %s GROUP BY month(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT quarter(c_datetime64_3_zone_1) FROM %s GROUP BY quarter(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT second(c_datetime64_3_zone_1) FROM %s GROUP BY second(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week(c_datetime64_3_zone_1) FROM %s GROUP BY week(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week_of_year(c_datetime64_3_zone_1) FROM %s GROUP BY week_of_year(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year(c_datetime64_3_zone_1) FROM %s GROUP BY year(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year_of_week(c_datetime64_3_zone_1) FROM %s GROUP BY year_of_week(c_datetime64_3_zone_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT yow(c_datetime64_3_zone_1) FROM %s GROUP BY yow(c_datetime64_3_zone_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT day_of_month(c_datetime64_9_zone_1) FROM %s GROUP BY day_of_month(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day(c_datetime64_9_zone_1) FROM %s GROUP BY day(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_month(c_datetime64_9_zone_1) FROM %s GROUP BY day_of_month(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_week(c_datetime64_9_zone_1) FROM %s GROUP BY day_of_week(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_year(c_datetime64_9_zone_1) FROM %s GROUP BY day_of_year(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT dow(c_datetime64_9_zone_1) FROM %s GROUP BY dow(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT doy(c_datetime64_9_zone_1) FROM %s GROUP BY doy(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT hour(c_datetime64_9_zone_1) FROM %s GROUP BY hour(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        // v24.2 Changelog
+//            assertThat(query( "SELECT count(some_column) FROM %s GROUP BY millisecond(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT minute(c_datetime64_9_zone_1) FROM %s GROUP BY minute(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT month(c_datetime64_9_zone_1) FROM %s GROUP BY month(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT quarter(c_datetime64_9_zone_1) FROM %s GROUP BY quarter(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT second(c_datetime64_9_zone_1) FROM %s GROUP BY second(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week(c_datetime64_9_zone_1) FROM %s GROUP BY week(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week_of_year(c_datetime64_9_zone_1) FROM %s GROUP BY week_of_year(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year(c_datetime64_9_zone_1) FROM %s GROUP BY year(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year_of_week(c_datetime64_9_zone_1) FROM %s GROUP BY year_of_week(c_datetime64_9_zone_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT yow(c_datetime64_9_zone_1) FROM %s GROUP BY yow(c_datetime64_9_zone_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
     }
 
     private List<ZoneId> timezones()
