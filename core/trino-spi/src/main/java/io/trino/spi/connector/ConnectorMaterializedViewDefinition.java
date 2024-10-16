@@ -74,7 +74,7 @@ public record ConnectorMaterializedViewDefinition(
         catalog.ifPresent(value -> joiner.add("catalog=" + value));
         schema.ifPresent(value -> joiner.add("schema=" + value));
         joiner.add("columns=" + columns);
-        gracePeriod.ifPresent(value -> joiner.add("gracePeriod=" + gracePeriod));
+        gracePeriod.ifPresent(_ -> joiner.add("gracePeriod=" + gracePeriod));
         comment.ifPresent(value -> joiner.add("comment=" + value));
         joiner.add("owner=" + owner);
         joiner.add(path.stream().map(CatalogSchemaName::toString).collect(joining(", ", "path=(", ")")));
