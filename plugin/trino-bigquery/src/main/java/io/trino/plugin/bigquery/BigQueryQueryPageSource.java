@@ -70,6 +70,7 @@ import static java.util.Objects.requireNonNull;
 public class BigQueryQueryPageSource
         implements ConnectorPageSource
 {
+    private static final long MAX_PAGE_ROW_COUNT = 8192L;
     private static final DateTimeFormatter TIME_FORMATTER = new DateTimeFormatterBuilder()
             .appendPattern("HH:mm:ss")
             .optionalStart()
@@ -82,8 +83,8 @@ public class BigQueryQueryPageSource
     private final PageBuilder pageBuilder;
     private final boolean isQueryFunction;
 
-    private final CompletableFuture<TableResult> tableResult;
-
+    private CompletableFuture<TableResult> tableResultFuture;
+    private TableResult tableResult;
     private boolean finished;
 
     public BigQueryQueryPageSource(
@@ -95,12 +96,13 @@ public class BigQueryQueryPageSource
             List<BigQueryColumnHandle> columnHandles,
             Optional<String> filter)
     {
+        requireNonNull(session, "session is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         requireNonNull(client, "client is null");
         requireNonNull(executor, "executor is null");
         requireNonNull(table, "table is null");
-        requireNonNull(filter, "filter is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
+        requireNonNull(filter, "filter is null");
         this.pageBuilder = new PageBuilder(columnHandles.stream().map(BigQueryColumnHandle::trinoType).collect(toImmutableList()));
         this.isQueryFunction = table.relationHandle() instanceof BigQueryQueryRelationHandle;
         String sql = buildSql(
@@ -108,7 +110,10 @@ public class BigQueryQueryPageSource
                 client.getProjectId(),
                 ImmutableList.copyOf(columnHandles),
                 filter);
-        this.tableResult = CompletableFuture.supplyAsync(() -> client.executeQuery(session, sql), executor);
+        this.tableResultFuture = CompletableFuture.supplyAsync(() -> {
+            TableResult result = client.executeQuery(session, sql, MAX_PAGE_ROW_COUNT);
+            return result;
+        }, executor);
     }
 
     private String buildSql(BigQueryTableHandle table, String projectId, List<BigQueryColumnHandle> columns, Optional<String> filter)
@@ -152,7 +157,18 @@ public class BigQueryQueryPageSource
     public Page getNextPage()
     {
         verify(pageBuilder.isEmpty());
-        for (FieldValueList record : getFutureValue(tableResult).iterateAll()) {
+        if (tableResult == null) {
+            tableResult = getFutureValue(tableResultFuture);
+        }
+        else if (tableResult.hasNextPage()) {
+            tableResult = tableResult.getNextPage();
+        }
+        else {
+            finished = true;
+            return null;
+        }
+
+        for (FieldValueList record : tableResult.getValues()) {
             pageBuilder.declarePosition();
             for (int column = 0; column < columnHandles.size(); column++) {
                 BigQueryColumnHandle columnHandle = columnHandles.get(column);
@@ -161,7 +177,7 @@ public class BigQueryQueryPageSource
                 appendTo(columnHandle.trinoType(), fieldValue, output);
             }
         }
-        finished = true;
+        finished = !tableResult.hasNextPage();
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
@@ -263,12 +279,13 @@ public class BigQueryQueryPageSource
     @Override
     public void close()
     {
-        tableResult.cancel(true);
+        tableResultFuture.cancel(true);
+        tableResult = null;
     }
 
     @Override
     public CompletableFuture<?> isBlocked()
     {
-        return tableResult;
+        return tableResultFuture;
     }
 }
