@@ -82,7 +82,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public abstract class BaseSingleStoreTypeMapping
         extends AbstractTestQueryFramework
 {
-    private static final String CHARACTER_SET_UTF8 = "CHARACTER SET utf8";
+    public static final String CHARACTER_SET_UTF8 = "CHARACTER SET utf8";
 
     protected TestingSingleStoreServer singleStoreServer;
 
@@ -155,16 +155,6 @@ public abstract class BaseSingleStoreTypeMapping
     }
 
     @Test
-    public void testUnsupportedTinyint()
-    {
-        // SingleStore stores incorrect results when the values are out of supported range. This test should be fixed when SingleStore changes the behavior.
-        SqlDataTypeTest.create()
-                .addRoundTrip("tinyint", "-129", TINYINT, "TINYINT '-128'")
-                .addRoundTrip("tinyint", "128", TINYINT, "TINYINT '127'")
-                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_unsupported_tinyint"));
-    }
-
-    @Test
     public void testSmallint()
     {
         SqlDataTypeTest.create()
@@ -175,16 +165,6 @@ public abstract class BaseSingleStoreTypeMapping
                 .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_smallint"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
-    }
-
-    @Test
-    public void testUnsupportedSmallint()
-    {
-        // SingleStore stores incorrect results when the values are out of supported range. This test should be fixed when SingleStore changes the behavior.
-        SqlDataTypeTest.create()
-                .addRoundTrip("smallint", "-32769", SMALLINT, "SMALLINT '-32768'")
-                .addRoundTrip("smallint", "32768", SMALLINT, "SMALLINT '32767'")
-                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_unsupported_smallint"));
     }
 
     @Test
@@ -201,16 +181,6 @@ public abstract class BaseSingleStoreTypeMapping
     }
 
     @Test
-    public void testUnsupportedInteger()
-    {
-        // SingleStore stores incorrect results when the values are out of supported range. This test should be fixed when SingleStore changes the behavior.
-        SqlDataTypeTest.create()
-                .addRoundTrip("integer", "-2147483649", INTEGER, "INTEGER '-2147483648'")
-                .addRoundTrip("integer", "2147483648", INTEGER, "INTEGER '2147483647'")
-                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_unsupported_integer"));
-    }
-
-    @Test
     public void testBigint()
     {
         SqlDataTypeTest.create()
@@ -221,16 +191,6 @@ public abstract class BaseSingleStoreTypeMapping
                 .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_bigint"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
-    }
-
-    @Test
-    public void testUnsupportedBigint()
-    {
-        // SingleStore stores incorrect results when the values are out of supported range. This test should be fixed when SingleStore changes the behavior.
-        SqlDataTypeTest.create()
-                .addRoundTrip("bigint", "-9223372036854775809", BIGINT, "BIGINT '-9223372036854775808'")
-                .addRoundTrip("bigint", "9223372036854775808", BIGINT, "BIGINT '9223372036854775807'")
-                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_unsupported_bigint"));
     }
 
     @Test
@@ -565,8 +525,6 @@ public abstract class BaseSingleStoreTypeMapping
                         createVarcharType(sampleUnicodeLiteral.length()), "CAST(" + sampleUnicodeLiteral + " AS varchar(" + sampleUnicodeLiteral.length() + "))")
                 .addRoundTrip("varchar(32) " + CHARACTER_SET_UTF8, sampleUnicodeLiteral, createVarcharType(32), "CAST(" + sampleUnicodeLiteral + " AS varchar(32))")
                 .addRoundTrip("varchar(20000) " + CHARACTER_SET_UTF8, sampleUnicodeLiteral, createVarcharType(20000), "CAST(" + sampleUnicodeLiteral + " AS varchar(20000))")
-                // SingleStore version >= 7.5 supports utf8mb4, but older versions store an empty character for a 4 bytes character
-                .addRoundTrip("varchar(1) " + CHARACTER_SET_UTF8, "'😂'", createVarcharType(1), "CAST('' AS varchar(1))")
                 .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.singlestore_test_parameterized_varchar_unicode"));
     }
 
@@ -639,8 +597,6 @@ public abstract class BaseSingleStoreTypeMapping
 
         SqlDataTypeTest.create()
                 .addRoundTrip("date", "CAST(NULL AS date)", DATE, "CAST(NULL AS date)")
-                .addRoundTrip("date", "CAST('0000-01-01' AS date)", DATE, "DATE '0000-01-01'")
-                .addRoundTrip("date", "CAST('0001-01-01' AS date)", DATE, "DATE '0001-01-01'")
                 .addRoundTrip("date", "CAST('1000-01-01' AS date)", DATE, "DATE '1000-01-01'") // min date in docs
                 .addRoundTrip("date", "CAST('1582-10-04' AS date)", DATE, "DATE '1582-10-04'") // before julian->gregorian switch
                 .addRoundTrip("date", "CAST('1582-10-05' AS date)", DATE, "DATE '1582-10-05'") // begin julian->gregorian switch
@@ -767,7 +723,7 @@ public abstract class BaseSingleStoreTypeMapping
     {
         // This test should be fixed if future SingleStore supports those precisions
         assertThatThrownBy(() -> singleStoreServer.execute(format("CREATE TABLE test_unsupported_timestamp_precision (col1 TIME(%s))", precision)))
-                .hasMessageContaining("Feature 'TIME type with precision other than 0 or 6' is not supported by MemSQL.");
+                .hasMessageContaining("Feature 'TIME type with precision other than 0 or 6' is not supported");
     }
 
     @Test
@@ -986,10 +942,10 @@ public abstract class BaseSingleStoreTypeMapping
     {
         // This test should be fixed if future SingleStore supports those precisions
         assertThatThrownBy(() -> singleStoreServer.execute(format("CREATE TABLE test_unsupported_timestamp_precision (col1 TIMESTAMP(%s))", precision)))
-                .hasMessageContaining("Feature 'TIMESTAMP type with precision other than 0 or 6' is not supported by MemSQL.");
+                .hasMessageContaining("Feature 'TIMESTAMP type with precision other than 0 or 6' is not supported");
 
         assertThatThrownBy(() -> singleStoreServer.execute(format("CREATE TABLE test_unsupported_datetime_precision (col1 DATETIME(%s))", precision)))
-                .hasMessageContaining("Feature 'DATETIME type with precision other than 0 or 6' is not supported by MemSQL.");
+                .hasMessageContaining("Feature 'DATETIME type with precision other than 0 or 6' is not supported");
     }
 
     @Test
@@ -1037,27 +993,27 @@ public abstract class BaseSingleStoreTypeMapping
         }
     }
 
-    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
+    protected DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
         return trinoCreateAsSelect(getSession(), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
+    protected DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    protected DataSetup trinoCreateAndInsert(String tableNamePrefix)
     {
         return trinoCreateAndInsert(getSession(), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
+    protected DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup singleStoreCreateAndInsert(String tableNamePrefix)
+    protected DataSetup singleStoreCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(singleStoreServer::execute, tableNamePrefix);
     }
