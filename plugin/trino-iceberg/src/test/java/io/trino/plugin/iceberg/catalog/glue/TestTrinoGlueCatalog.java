@@ -185,7 +185,7 @@ public class TestTrinoGlueCatalog
             assertThat(materializedViews.get(0).getTableName()).isEqualTo(table);
             Optional<ConnectorMaterializedViewDefinition> returned = glueTrinoCatalog.getMaterializedView(SESSION, materializedViews.get(0));
             assertThat(returned).isPresent();
-            assertThat(returned.get().getOwner()).isEmpty();
+            assertThat(returned.get().owner()).isEmpty();
         }
         finally {
             try {

@@ -72,15 +72,15 @@ public record IcebergMaterializedViewDefinition(
     public static IcebergMaterializedViewDefinition fromConnectorMaterializedViewDefinition(ConnectorMaterializedViewDefinition definition)
     {
         return new IcebergMaterializedViewDefinition(
-                definition.getOriginalSql(),
-                definition.getCatalog(),
-                definition.getSchema(),
-                definition.getColumns().stream()
+                definition.originalSql(),
+                definition.catalog(),
+                definition.schema(),
+                definition.columns().stream()
                         .map(column -> new Column(column.name(), column.type(), column.comment()))
                         .collect(toImmutableList()),
-                definition.getGracePeriod(),
-                definition.getComment(),
-                definition.getPath());
+                definition.gracePeriod(),
+                definition.comment(),
+                definition.path());
     }
 
     public IcebergMaterializedViewDefinition

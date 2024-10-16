@@ -42,12 +42,12 @@ public final class ViewInfo
 
     public ViewInfo(ConnectorMaterializedViewDefinition viewDefinition)
     {
-        this.originalSql = viewDefinition.getOriginalSql();
-        this.columns = viewDefinition.getColumns().stream()
+        this.originalSql = viewDefinition.originalSql();
+        this.columns = viewDefinition.columns().stream()
                 .map(column -> new ViewColumn(column.name(), column.type(), column.comment()))
                 .collect(toImmutableList());
-        this.comment = viewDefinition.getComment();
-        this.storageTable = viewDefinition.getStorageTable();
+        this.comment = viewDefinition.comment();
+        this.storageTable = viewDefinition.storageTable();
     }
 
     public String getOriginalSql()

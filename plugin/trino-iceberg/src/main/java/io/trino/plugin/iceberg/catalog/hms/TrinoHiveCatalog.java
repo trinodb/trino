@@ -651,19 +651,19 @@ public class TrinoHiveCatalog
                 .orElseThrow(() -> new ViewNotFoundException(viewName));
 
         ConnectorMaterializedViewDefinition newDefinition = new ConnectorMaterializedViewDefinition(
-                definition.getOriginalSql(),
-                definition.getStorageTable(),
-                definition.getCatalog(),
-                definition.getSchema(),
-                definition.getColumns().stream()
+                definition.originalSql(),
+                definition.storageTable(),
+                definition.catalog(),
+                definition.schema(),
+                definition.columns().stream()
                         .map(currentViewColumn -> Objects.equals(columnName, currentViewColumn.name())
                                 ? new ConnectorMaterializedViewDefinition.Column(currentViewColumn.name(), currentViewColumn.type(), comment)
                                 : currentViewColumn)
                         .collect(toImmutableList()),
-                definition.getGracePeriod(),
-                definition.getComment(),
-                definition.getOwner(),
-                definition.getPath());
+                definition.gracePeriod(),
+                definition.comment(),
+                definition.owner(),
+                definition.path());
 
         replaceMaterializedView(session, viewName, existing, newDefinition);
     }

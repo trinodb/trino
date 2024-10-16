@@ -196,12 +196,12 @@ public abstract class AbstractTrinoCatalog
     @Override
     public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
     {
-        SchemaTableName storageTableName = definition.getStorageTable()
+        SchemaTableName storageTableName = definition.storageTable()
                 .orElseThrow(() -> new TrinoException(ICEBERG_INVALID_METADATA, "Materialized view definition is missing a storage table"))
                 .getSchemaTableName();
 
         try {
-            Table storageTable = loadTable(session, definition.getStorageTable().orElseThrow().getSchemaTableName());
+            Table storageTable = loadTable(session, definition.storageTable().orElseThrow().getSchemaTableName());
             return ImmutableMap.<String, Object>builder()
                     .putAll(getIcebergTableProperties(storageTable))
                     .put(STORAGE_SCHEMA, storageTableName.getSchemaName())
@@ -357,7 +357,7 @@ public abstract class AbstractTrinoCatalog
     private List<ColumnMetadata> columnsForMaterializedView(ConnectorMaterializedViewDefinition definition, Map<String, Object> materializedViewProperties)
     {
         Schema schemaWithTimestampTzPreserved = schemaFromMetadata(mappedCopy(
-                definition.getColumns(),
+                definition.columns(),
                 column -> {
                     Type type = typeManager.getType(column.type());
                     if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6) {
@@ -383,7 +383,7 @@ public abstract class AbstractTrinoCatalog
                 .collect(toImmutableSet());
 
         return mappedCopy(
-                definition.getColumns(),
+                definition.columns(),
                 column -> {
                     Type type = typeManager.getType(column.type());
                     if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6 && temporalPartitioningSources.contains(column.name())) {

@@ -635,7 +635,7 @@ public final class MetadataManager
             try {
                 return Optional.<RelationColumnsMetadata>empty()
                         .or(() -> getMaterializedViewInternal(session, objectName)
-                                .map(materializedView -> RelationColumnsMetadata.forMaterializedView(schemaTableName, materializedView.getColumns())))
+                                .map(materializedView -> RelationColumnsMetadata.forMaterializedView(schemaTableName, materializedView.columns())))
                         .or(() -> getViewInternal(session, objectName)
                                 .map(view -> RelationColumnsMetadata.forView(schemaTableName, view.getColumns())))
                         .or(() -> {
@@ -1756,12 +1756,12 @@ public final class MetadataManager
         }
 
         if (isCatalogManagedSecurity(session, viewName.catalogName())) {
-            String runAsUser = connectorView.get().getOwner().orElseThrow(() -> new TrinoException(INVALID_VIEW, "Owner not set for a run-as invoker view: " + viewName));
+            String runAsUser = connectorView.get().owner().orElseThrow(() -> new TrinoException(INVALID_VIEW, "Owner not set for a run-as invoker view: " + viewName));
             return Optional.of(createMaterializedViewDefinition(connectorView.get(), Identity.ofUser(runAsUser)));
         }
 
         Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())
-                .or(() -> connectorView.get().getOwner().map(Identity::ofUser))
+                .or(() -> connectorView.get().owner().map(Identity::ofUser))
                 .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Materialized view does not have an owner: " + viewName));
         return Optional.of(createMaterializedViewDefinition(connectorView.get(), runAsIdentity));
     }
@@ -1769,17 +1769,17 @@ public final class MetadataManager
     private static MaterializedViewDefinition createMaterializedViewDefinition(ConnectorMaterializedViewDefinition view, Identity runAsIdentity)
     {
         return new MaterializedViewDefinition(
-                view.getOriginalSql(),
-                view.getCatalog(),
-                view.getSchema(),
-                view.getColumns().stream()
+                view.originalSql(),
+                view.catalog(),
+                view.schema(),
+                view.columns().stream()
                         .map(column -> new ViewColumn(column.name(), column.type(), Optional.empty()))
                         .collect(toImmutableList()),
-                view.getGracePeriod(),
-                view.getComment(),
+                view.gracePeriod(),
+                view.comment(),
                 runAsIdentity,
-                view.getPath(),
-                view.getStorageTable());
+                view.path(),
+                view.storageTable());
     }
 
     private Optional<ConnectorMaterializedViewDefinition> getMaterializedViewInternal(Session session, QualifiedObjectName viewName)

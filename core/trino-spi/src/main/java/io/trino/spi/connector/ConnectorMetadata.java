@@ -372,7 +372,7 @@ public interface ConnectorMetadata
 
         // if view and materialized view names overlap, the materialized view wins
         for (Map.Entry<SchemaTableName, ConnectorMaterializedViewDefinition> entry : getMaterializedViews(session, schemaName).entrySet()) {
-            relationColumns.put(entry.getKey(), RelationColumnsMetadata.forMaterializedView(entry.getKey(), entry.getValue().getColumns()));
+            relationColumns.put(entry.getKey(), RelationColumnsMetadata.forMaterializedView(entry.getKey(), entry.getValue().columns()));
         }
 
         return relationFilter.apply(relationColumns.keySet()).stream()
@@ -389,7 +389,7 @@ public interface ConnectorMetadata
     default Iterator<RelationCommentMetadata> streamRelationComments(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
         List<RelationCommentMetadata> materializedViews = getMaterializedViews(session, schemaName).entrySet().stream()
-                .map(entry -> RelationCommentMetadata.forRelation(entry.getKey(), entry.getValue().getComment()))
+                .map(entry -> RelationCommentMetadata.forRelation(entry.getKey(), entry.getValue().comment()))
                 .toList();
         Set<SchemaTableName> mvNames = materializedViews.stream()
                 .map(RelationCommentMetadata::name)

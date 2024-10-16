@@ -3375,7 +3375,7 @@ public class IcebergMetadata
             return new MaterializedViewFreshness(STALE, Optional.empty());
         }
 
-        SchemaTableName storageTableName = materializedViewDefinition.get().getStorageTable()
+        SchemaTableName storageTableName = materializedViewDefinition.get().storageTable()
                 .map(CatalogSchemaTableName::getSchemaTableName)
                 .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + materializedViewName));
 

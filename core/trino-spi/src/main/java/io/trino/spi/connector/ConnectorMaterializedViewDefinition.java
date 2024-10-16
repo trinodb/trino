@@ -17,7 +17,6 @@ import io.trino.spi.type.TypeId;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.StringJoiner;
 
@@ -25,18 +24,17 @@ import static io.trino.spi.connector.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
-public class ConnectorMaterializedViewDefinition
+public record ConnectorMaterializedViewDefinition(
+        String originalSql,
+        Optional<CatalogSchemaTableName> storageTable,
+        Optional<String> catalog,
+        Optional<String> schema,
+        List<Column> columns,
+        Optional<Duration> gracePeriod,
+        Optional<String> comment,
+        Optional<String> owner,
+        List<CatalogSchemaName> path)
 {
-    private final String originalSql;
-    private final Optional<CatalogSchemaTableName> storageTable;
-    private final Optional<String> catalog;
-    private final Optional<String> schema;
-    private final List<Column> columns;
-    private final Optional<Duration> gracePeriod;
-    private final Optional<String> comment;
-    private final Optional<String> owner;
-    private final List<CatalogSchemaName> path;
-
     public ConnectorMaterializedViewDefinition(
             String originalSql,
             Optional<CatalogSchemaTableName> storageTable,
@@ -67,51 +65,6 @@ public class ConnectorMaterializedViewDefinition
         }
     }
 
-    public String getOriginalSql()
-    {
-        return originalSql;
-    }
-
-    public Optional<CatalogSchemaTableName> getStorageTable()
-    {
-        return storageTable;
-    }
-
-    public Optional<String> getCatalog()
-    {
-        return catalog;
-    }
-
-    public Optional<String> getSchema()
-    {
-        return schema;
-    }
-
-    public List<Column> getColumns()
-    {
-        return columns;
-    }
-
-    public Optional<Duration> getGracePeriod()
-    {
-        return gracePeriod;
-    }
-
-    public Optional<String> getComment()
-    {
-        return comment;
-    }
-
-    public Optional<String> getOwner()
-    {
-        return owner;
-    }
-
-    public List<CatalogSchemaName> getPath()
-    {
-        return path;
-    }
-
     @Override
     public String toString()
     {
@@ -126,33 +79,6 @@ public class ConnectorMaterializedViewDefinition
         joiner.add("owner=" + owner);
         joiner.add(path.stream().map(CatalogSchemaName::toString).collect(joining(", ", "path=(", ")")));
         return getClass().getSimpleName() + joiner;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ConnectorMaterializedViewDefinition that = (ConnectorMaterializedViewDefinition) o;
-        return Objects.equals(originalSql, that.originalSql) &&
-                Objects.equals(storageTable, that.storageTable) &&
-                Objects.equals(catalog, that.catalog) &&
-                Objects.equals(schema, that.schema) &&
-                Objects.equals(columns, that.columns) &&
-                Objects.equals(gracePeriod, that.gracePeriod) &&
-                Objects.equals(comment, that.comment) &&
-                Objects.equals(owner, that.owner) &&
-                Objects.equals(path, that.path);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(originalSql, storageTable, catalog, schema, columns, gracePeriod, comment, owner, path);
     }
 
     public record Column(String name, TypeId type, Optional<String> comment)
