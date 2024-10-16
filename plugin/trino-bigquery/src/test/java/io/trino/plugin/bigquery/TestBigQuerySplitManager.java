@@ -20,7 +20,10 @@ import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
@@ -76,13 +79,13 @@ public class TestBigQuerySplitManager
         try {
             BigQueryTableHandle table = (BigQueryTableHandle) metadata.getTableHandle(session, new SchemaTableName("test", materializedView), Optional.empty(), Optional.empty());
 
-            ReadSession readSession = createReadSession(session, table);
+            ReadSession readSession = createReadSession(transaction, session, table);
             assertThat(readSession.getTable()).contains(TEMP_TABLE_PREFIX);
 
             // Ignore constraints when creating temporary tables by default (view_materialization_with_filter is false)
             BigQueryColumnHandle column = new BigQueryColumnHandle("cnt", ImmutableList.of(), BIGINT, INT64, true, REQUIRED, ImmutableList.of(), null, false);
             BigQueryTableHandle tableDifferentFilter = new BigQueryTableHandle(table.relationHandle(), TupleDomain.fromFixedValues(ImmutableMap.of(column, new NullableValue(BIGINT, 0L))), table.projectedColumns());
-            assertThat(createReadSession(session, tableDifferentFilter).getTable())
+            assertThat(createReadSession(transaction, session, tableDifferentFilter).getTable())
                     .isEqualTo(readSession.getTable());
 
             // Don't reuse the same temporary table when view_materialization_with_filter is true
@@ -90,12 +93,12 @@ public class TestBigQuerySplitManager
                     .setPropertyMetadata(new BigQuerySessionProperties(new BigQueryConfig()).getSessionProperties())
                     .setPropertyValues(ImmutableMap.of("view_materialization_with_filter", true))
                     .build();
-            String temporaryTableWithFilter = createReadSession(viewMaterializationWithFilter, tableDifferentFilter).getTable();
+            String temporaryTableWithFilter = createReadSession(transaction, viewMaterializationWithFilter, tableDifferentFilter).getTable();
             assertThat(temporaryTableWithFilter)
                     .isNotEqualTo(readSession.getTable());
 
             // Reuse the same temporary table when the filters are identical
-            assertThat(createReadSession(viewMaterializationWithFilter, tableDifferentFilter).getTable())
+            assertThat(createReadSession(transaction, viewMaterializationWithFilter, tableDifferentFilter).getTable())
                     .isEqualTo(temporaryTableWithFilter);
         }
         finally {
@@ -103,14 +106,16 @@ public class TestBigQuerySplitManager
         }
     }
 
-    private ReadSession createReadSession(ConnectorSession session, BigQueryTableHandle table)
+    private ReadSession createReadSession(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table)
     {
         BigQuerySplitManager splitManager = (BigQuerySplitManager) connector.getSplitManager();
-        return splitManager.createReadSession(
+        BigQuerySplitSource splitSource = (BigQuerySplitSource) splitManager.getSplits(transaction, session, table, DynamicFilter.EMPTY, Constraint.alwaysTrue());
+        BigQueryTableHandle bigQueryTable = (BigQueryTableHandle) table;
+        return splitSource.createReadSession(
                 session,
-                table.asPlainTable().getRemoteTableName().toTableId(),
-                table.projectedColumns().orElseThrow(),
-                buildFilter(table.constraint()));
+                bigQueryTable.asPlainTable().getRemoteTableName().toTableId(),
+                bigQueryTable.projectedColumns().orElseThrow(),
+                buildFilter(bigQueryTable.constraint()));
     }
 
     private void onBigQuery(@Language("SQL") String sql)
