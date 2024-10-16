@@ -13,6 +13,7 @@
  */
 package io.trino.sql.ir.optimizer.rule;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.sql.PlannerContext;
@@ -25,6 +26,7 @@ import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,21 +67,59 @@ public class SimplifyRedundantCase
             return Optional.empty();
         }
 
-        if (defaultValue.equals(FALSE)) {
-            List<Expression> operands = caseTerm.whenClauses().stream()
-                    .filter(clause -> clause.getResult().equals(TRUE))
-                    .map(WhenClause::getOperand)
-                    .toList();
+        return transformRecursive(0, caseTerm.whenClauses(), defaultValue)
+                .or(() -> Optional.<Expression>of(FALSE));
+    }
 
-            return Optional.of(new Comparison(Comparison.Operator.IDENTICAL, IrUtils.or(operands), TRUE));
+    private Optional<Expression> transformRecursive(int start, List<WhenClause> clauses, Expression defaultExpression)
+    {
+        // An expression such as:
+        // CASE
+        //   WHEN a1 THEN false
+        //   WHEN a2 THEN false
+        //   WHEN a3 THEN true
+        //   WHEN a4 THEN false
+        //   WHEN a5 THEN true
+        //   WHEN a6 THEN false
+        //   ELSE true
+        // END
+        //
+        // can be transformed to:
+        //     (a1 ≢ true AND a2 ≢ true AND a3 ≡ true) OR
+        //     (a1 ≢ true AND a2 ≢ true AND a3 ≢ true AND a4 ≢ true AND a5 ≡ true) OR
+        //     (a1 ≢ true AND a2 ≢ true AND a3 ≢ true AND a4 ≢ true AND a5 ≢ true AND a6 ≢ true)
+        //
+        // which can be further simplified to:
+        //
+        //     a1 ≢ true AND a2 ≢ true AND (a3 ≡ true OR (a4 ≢ true AND (a5 ≡ true OR a6 ≢ true)))
+        //
+        // This method constructs the simplified expression recursively.
+
+        int end = start;
+        while (end < clauses.size() && clauses.get(end).getResult().equals(FALSE)) {
+            end++;
+        }
+
+        List<Expression> falseTerms = clauses.subList(start, end).stream()
+                .map(clause -> IrExpressions.not(metadata, new Comparison(Comparison.Operator.IDENTICAL, clause.getOperand(), TRUE)))
+                .toList();
+
+        if (end < clauses.size()) {
+            List<Expression> terms = new ArrayList<>();
+            terms.add(new Comparison(Comparison.Operator.IDENTICAL, clauses.get(end).getOperand(), TRUE));
+            transformRecursive(end + 1, clauses, defaultExpression).ifPresent(terms::add);
+
+            return Optional.of(IrUtils.and(
+                    ImmutableList.<Expression>builder()
+                            .addAll(falseTerms)
+                            .add(IrUtils.or(terms))
+                            .build()));
+        }
+        else if (defaultExpression.equals(TRUE)) {
+            return Optional.of(IrUtils.and(falseTerms));
         }
         else {
-            List<Expression> operands = caseTerm.whenClauses().stream()
-                    .filter(clause -> clause.getResult().equals(FALSE))
-                    .map(WhenClause::getOperand)
-                    .toList();
-
-            return Optional.of(IrExpressions.not(metadata, new Comparison(Comparison.Operator.IDENTICAL, IrUtils.or(operands), TRUE)));
+            return Optional.empty();
         }
     }
 }
