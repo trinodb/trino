@@ -169,7 +169,7 @@ implementation is used:
   - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
   - `false`
 * - `iceberg.add_files-procedure.enabled`
-  - Enable to allow user to call `add_files` procedure.
+  - Enable to allow user to call [`add_files` procedure](iceberg-add-files).
   - `false`
 * - `iceberg.query-partition-filter-required`
   - Set to `true` to force a query to use a partition filter for schemas
