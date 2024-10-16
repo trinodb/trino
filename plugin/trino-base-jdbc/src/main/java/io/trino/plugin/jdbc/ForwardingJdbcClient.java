@@ -109,12 +109,6 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
-    {
-        return delegate().getColumns(session, tableHandle);
-    }
-
-    @Override
     public Iterator<RelationColumnsMetadata> getAllTableColumns(ConnectorSession session, Optional<String> schema)
     {
         return delegate().getAllTableColumns(session, schema);

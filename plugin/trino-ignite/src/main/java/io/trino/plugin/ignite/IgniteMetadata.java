@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.jdbc.JdbcMetadata.getColumns;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SaveMode.REPLACE;
@@ -89,7 +90,7 @@ public class IgniteMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
         }
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        Optional<String> dummyIdColumn = igniteClient.getColumns(session, handle).stream()
+        Optional<String> dummyIdColumn = getColumns(session, igniteClient, handle).stream()
                 .map(JdbcColumnHandle::getColumnName)
                 .filter(IGNITE_DUMMY_ID::equalsIgnoreCase)
                 .findFirst();
@@ -137,7 +138,7 @@ public class IgniteMetadata
     @Override
     public List<ColumnMetadata> getColumnMetadata(ConnectorSession session, JdbcTableHandle handle)
     {
-        return igniteClient.getColumns(session, handle).stream()
+        return getColumns(session, igniteClient, handle).stream()
                 .filter(column -> !IGNITE_DUMMY_ID.equalsIgnoreCase(column.getColumnName()))
                 .map(JdbcColumnHandle::getColumnMetadata)
                 .collect(toImmutableList());
