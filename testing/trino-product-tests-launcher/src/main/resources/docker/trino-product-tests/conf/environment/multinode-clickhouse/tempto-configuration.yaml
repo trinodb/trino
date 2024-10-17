@@ -1,3 +1,3 @@
 databases:
-  presto:
-    jdbc_url: "jdbc:trino://${databases.presto.host}:${databases.presto.port}/clickhouse/default"
+  trino:
+    jdbc_url: "jdbc:trino://${databases.trino.host}:${databases.trino.port}/clickhouse/default"
