@@ -45,7 +45,7 @@ public class TestSqlStandardAccessControlChecks
         aliceExecutor = connectToTrino("alice@trino");
         bobExecutor = connectToTrino("bob@trino");
         charlieExecutor = connectToTrino("charlie@trino");
-        caseSensitiveUserNameExecutor = connectToTrino("CaseSensitiveUserName@presto");
+        caseSensitiveUserNameExecutor = connectToTrino("CaseSensitiveUserName@trino");
         hdfsExecutor = connectToTrino("hdfs@trino");
 
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
