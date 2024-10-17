@@ -42,7 +42,7 @@ public class TestSqlStandardAccessControlChecks
     @BeforeMethodWithContext
     public void setup()
     {
-        aliceExecutor = connectToTrino("alice@presto");
+        aliceExecutor = connectToTrino("alice@trino");
         bobExecutor = connectToTrino("bob@presto");
         charlieExecutor = connectToTrino("charlie@presto");
         caseSensitiveUserNameExecutor = connectToTrino("CaseSensitiveUserName@presto");

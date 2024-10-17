@@ -519,7 +519,7 @@ public abstract class AbstractTestHiveViews
 
         String testQuery = "SELECT cu FROM current_user_hive_view";
         assertThat(onTrino().executeQuery(testQuery)).containsOnly(row("hive"));
-        assertThat(connectToTrino("alice@presto").executeQuery(testQuery)).containsOnly(row("alice"));
+        assertThat(connectToTrino("alice@trino").executeQuery(testQuery)).containsOnly(row("alice"));
     }
 
     @Test
@@ -751,8 +751,8 @@ public abstract class AbstractTestHiveViews
 
         String definerQuery = "SELECT * FROM hive.default.run_as_invoker_view";
         String invokerQuery = "SELECT * FROM hive_with_run_view_as_invoker.default.run_as_invoker_view";
-        assertThat(connectToTrino("alice@presto").executeQuery(definerQuery)).hasNoRows(); // Allowed
-        assertThatThrownBy(() -> connectToTrino("alice@presto").executeQuery(invokerQuery))
+        assertThat(connectToTrino("alice@trino").executeQuery(definerQuery)).hasNoRows(); // Allowed
+        assertThatThrownBy(() -> connectToTrino("alice@trino").executeQuery(invokerQuery))
                 .hasMessageContaining("Access Denied");
 
         onHive().executeQuery("DROP VIEW run_as_invoker_view");

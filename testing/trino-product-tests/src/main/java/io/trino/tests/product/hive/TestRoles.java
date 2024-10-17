@@ -792,7 +792,7 @@ public class TestRoles
 
     private static QueryExecutor onPrestoAlice()
     {
-        return connectToTrino("alice@presto");
+        return connectToTrino("alice@trino");
     }
 
     private static QueryExecutor onPrestoBob()

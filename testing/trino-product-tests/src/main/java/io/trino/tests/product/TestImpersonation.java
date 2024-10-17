@@ -47,7 +47,7 @@ public class TestImpersonation
     private HdfsClient hdfsClient;
 
     @Inject
-    @Named("databases.alice@presto.jdbc_user")
+    @Named("databases.alice@trino.jdbc_user")
     private String aliceJdbcUser;
 
     @Inject
@@ -68,7 +68,7 @@ public class TestImpersonation
     @BeforeMethodWithContext
     public void setup()
     {
-        aliceExecutor = connectToTrino("alice@presto");
+        aliceExecutor = connectToTrino("alice@trino");
         bobExecutor = connectToTrino("bob@presto");
     }
 
