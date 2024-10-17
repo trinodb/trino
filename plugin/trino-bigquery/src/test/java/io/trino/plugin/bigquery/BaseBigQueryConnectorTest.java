@@ -65,6 +65,7 @@ public abstract class BaseBigQueryConnectorTest
 {
     protected BigQuerySqlExecutor bigQuerySqlExecutor;
     private String gcpStorageBucket;
+    private String bigQueryConnectionId;
 
     @BeforeAll
     public void initBigQueryExecutor()
@@ -72,6 +73,7 @@ public abstract class BaseBigQueryConnectorTest
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
         // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
         this.gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
+        this.bigQueryConnectionId = requiredNonEmptySystemProperty("testing.bigquery-connection-id");
     }
 
     @Override
@@ -752,6 +754,36 @@ public abstract class BaseBigQueryConnectorTest
         }
         finally {
             onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + externalTable);
+        }
+    }
+
+    @Test
+    public void testBigLakeExternalTable()
+    {
+        String biglakeExternalTable = "test_biglake_external" + randomNameSuffix();
+        try {
+            onBigQuery("CREATE EXTERNAL TABLE test." + biglakeExternalTable +
+                    " WITH CONNECTION `" + bigQueryConnectionId + "`" +
+                    " OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + biglakeExternalTable + "'", "VALUES 'BASE TABLE'");
+
+            assertThat(query("DESCRIBE test." + biglakeExternalTable)).matches("DESCRIBE tpch.region");
+            assertThat(query("SELECT * FROM test." + biglakeExternalTable)).matches("SELECT * FROM tpch.region");
+
+            assertUpdate("DROP TABLE test." + biglakeExternalTable);
+            assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + biglakeExternalTable + "'");
+
+            // BigLake tables should not run queries, since they are read directly using the storage read API.
+            assertThat(bigQuerySqlExecutor.executeQuery("""
+                         SELECT count(*) FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
+                             SELECT * FROM UNNEST(referenced_tables) AS referenced_table
+                                 WHERE referenced_table.table_id = '%s')
+                        """.formatted(biglakeExternalTable)).getValues())
+                    .extracting(fieldValues -> fieldValues.getFirst().getLongValue())
+                    .containsExactly(0L);
+        }
+        finally {
+            onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + biglakeExternalTable);
         }
     }
 

@@ -646,7 +646,8 @@ jobs:
             -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.bigquery-project-id="${BIGQUERY_TESTING_PROJECT_ID}" \
-            -Dtesting.bigquery-parent-project-id="${BIGQUERY_TESTING_PARENT_PROJECT_ID}"
+            -Dtesting.bigquery-parent-project-id="${BIGQUERY_TESTING_PARENT_PROJECT_ID}" \
+            -Dtesting.bigquery-connection-id="projects/sep-bq-cicd/locations/us/connections/sep-bq-cicd-biglake"
       - name: Cloud BigQuery Smoke Tests
         id: tests-bq-smoke
         env:
