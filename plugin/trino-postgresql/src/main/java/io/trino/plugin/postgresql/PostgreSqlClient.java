@@ -274,6 +274,26 @@ public class PostgreSqlClient
         return FULL_PUSHDOWN.apply(session, simplifiedDomain);
     };
 
+    private static final ColumnMapping POSTGRESQL_MERGE_ROW_ID_COLUMN_MAPPING = ColumnMapping.sliceMapping(
+            VARCHAR,
+            varcharReadFunction(VARCHAR),
+            new SliceWriteFunction()
+            {
+                @Override
+                public void set(PreparedStatement statement, int index, Slice value)
+                        throws SQLException
+                {
+                    statement.setString(index, value.toStringUtf8());
+                }
+
+                @Override
+                public String getBindExpression()
+                {
+                    return "?::tid";
+                }
+            },
+            FULL_PUSHDOWN);
+
     private final Type jsonType;
     private final Type uuidType;
     private final MapType varcharMapType;
@@ -581,6 +601,8 @@ public class PostgreSqlClient
                 return Optional.of(hstoreColumnMapping(session));
             case "vector":
                 return Optional.of(vectorColumnMapping());
+            case "ctid":
+                return Optional.of(POSTGRESQL_MERGE_ROW_ID_COLUMN_MAPPING);
         }
         if (jdbcTypeName.endsWith("\"vector\"")) {
             // TODO: Find more reliable way to detect vector type. The type name can be "schema-name"."vector"
@@ -1184,6 +1206,14 @@ public class PostgreSqlClient
         if (columnName.length() > databaseMetadata.getMaxColumnNameLength()) {
             throw new TrinoException(NOT_SUPPORTED, format("Column name must be shorter than or equal to '%s' characters but got '%s': '%s'", databaseMetadata.getMaxColumnNameLength(), columnName.length(), columnName));
         }
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        return ImmutableList.of(new JdbcColumnHandle("ctid",
+                new JdbcTypeHandle(Types.VARCHAR, Optional.of("ctid"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+                VARCHAR));
     }
 
     private static ColumnMapping charColumnMapping(int charLength)
