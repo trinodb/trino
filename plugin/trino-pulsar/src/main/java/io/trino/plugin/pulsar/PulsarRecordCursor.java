@@ -249,7 +249,7 @@ public class PulsarRecordCursor
      * 2. If the available cache size > 0, return true.
      * 3. If the available cache size is invalid and the queue size == 0, return true, ensure not block the query.
      */
-    private boolean haveAvailableCacheSize(CacheSizeAllocator cacheSizeAllocator, SpscArrayQueue queue)
+    private boolean haveAvailableCacheSize(CacheSizeAllocator cacheSizeAllocator, @SuppressWarnings("rawtypes") SpscArrayQueue queue)
     {
         if (cacheSizeAllocator instanceof NullCacheSizeAllocator) {
             return true;
@@ -257,6 +257,7 @@ public class PulsarRecordCursor
         return cacheSizeAllocator.getAvailableCacheSize() > 0 || queue.size() == 0;
     }
 
+    @SuppressWarnings("null")
     @Override
     public boolean advanceNextPosition()
     {
@@ -359,6 +360,7 @@ public class PulsarRecordCursor
                 decodedKey.ifPresent(currentRowValuesMap::putAll);
             }
             if (valueColumnHandles.size() > 0) {
+                @SuppressWarnings("null")
                 Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue =
                         valueDecoder.decodeRow(valueByteBuf);
                 decodedValue.ifPresent(currentRowValuesMap::putAll);

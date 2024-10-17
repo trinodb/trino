@@ -260,6 +260,7 @@ public class PulsarConnectorConfig
         return statsProviderConfigs;
     }
 
+    @SuppressWarnings("unchecked")
     @Config("pulsar.stats-provider-configs")
     public PulsarConnectorConfig setStatsProviderConfigs(String statsProviderConfigs)
             throws IOException

@@ -37,17 +37,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.errorprone</groupId>
-            <artifactId>error_prone_annotations</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.github.ben-manes.caffeine</groupId>
-                    <artifactId>caffeine</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
@@ -81,25 +70,9 @@
             <version>2.6</version>
         </dependency>
 
-        <!--<dependency>
-            <groupId>commons-logging</groupId>
-            <artifactId>commons-logging</artifactId>
-            <version>1.2</version>
-        </dependency>-->
-
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>bootstrap</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>log-manager</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>units</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -115,12 +88,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-            <version>1.10</version>
         </dependency>
 
         <dependency>
@@ -275,17 +242,6 @@
             <artifactId>pulsar-client-api</artifactId>
             <version>${pulsar.version}</version>
         </dependency>
-        <!--<dependency>
-            <groupId>org.apache.pulsar</groupId>
-            <artifactId>pulsar-client-admin-original</artifactId>
-            <version>${pulsar.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>jakarta.activation</groupId>
-                    <artifactId>jakarta.activation-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>-->
         <dependency>
             <groupId>org.apache.pulsar</groupId>
             <artifactId>pulsar-client-original</artifactId>
@@ -414,10 +370,21 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
-            <version>267</version>
-            <scope>test</scope>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -540,43 +507,6 @@
                         <goals>
                             <goal>sort</goal>
                         </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.8.0</version>
-                <executions>
-                    <execution>
-                        <id>analyze</id>
-                        <goals>
-                            <goal>analyze-only</goal>
-                        </goals>
-                        <configuration>
-
-                            <failOnWarning>true</failOnWarning>
-
-                            <ignoredUsedUndeclaredDependencies>
-                                <ignoredUsedUndeclaredDependency>io.airlift:log-manager</ignoredUsedUndeclaredDependency>
-                                <ignoredUsedUndeclaredDependency>io.trino:trino-cache</ignoredUsedUndeclaredDependency>
-                                <ignoredUsedUndeclaredDependency>io.airlift:units</ignoredUsedUndeclaredDependency>
-                            </ignoredUsedUndeclaredDependencies>
-
-                            <!-- ignore annotations for "unused but declared" warnings -->
-                            <ignoredUnusedDeclaredDependencies>
-                                <ignoredUnusedDeclaredDependency>io.airlift:log-manager</ignoredUnusedDeclaredDependency>
-                                <ignoredUnusedDeclaredDependency>io.airlift:units</ignoredUnusedDeclaredDependency>
-                                <ignoredUnusedDeclaredDependency>com.google.errorprone:error_prone_annotations</ignoredUnusedDeclaredDependency>
-                            </ignoredUnusedDeclaredDependencies>
-
-                            <ignoredNonTestScopedDependencies>
-                                <!-- optional but enabled-by-default dependency, used via reflection if present -->
-                                <ignoredNonTestScopedDependency>io.airlift:log-manager</ignoredNonTestScopedDependency>
-                                <ignoredNonTestScopedDependency>io.airlift:units</ignoredNonTestScopedDependency>
-                                <ignoredNonTestScopedDependency>com.google.errorprone:error_prone_annotations</ignoredNonTestScopedDependency>
-                            </ignoredNonTestScopedDependencies>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
