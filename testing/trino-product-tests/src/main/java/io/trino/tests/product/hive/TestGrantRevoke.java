@@ -61,7 +61,7 @@ public class TestGrantRevoke
      * (2) tempto-configuration.yaml file should have definitions for the following connections to Presto server:
      *          - "alice@trino" that has "jdbc_user: alice"
      *          - "bob@trino" that has "jdbc_user: bob"
-     *          - "charlie@presto" that has "jdbc_user: charlie"
+     *          - "charlie@trino" that has "jdbc_user: charlie"
      *     (all other values of the connection are same as that of the default "trino" connection).
      */
 
@@ -72,7 +72,7 @@ public class TestGrantRevoke
         viewName = "alice_view";
         aliceExecutor = connectToTrino("alice@trino");
         bobExecutor = connectToTrino("bob@trino");
-        charlieExecutor = connectToTrino("charlie@presto");
+        charlieExecutor = connectToTrino("charlie@trino");
 
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint)", tableName));

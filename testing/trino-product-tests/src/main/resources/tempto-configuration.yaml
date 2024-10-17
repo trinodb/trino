@@ -75,7 +75,7 @@ databases:
     https_keystore_path: ${databases.trino.https_keystore_path}
     https_keystore_password: ${databases.trino.https_keystore_password}
 
-  charlie@presto:
+  charlie@trino:
     host: ${databases.trino.host}
     port: ${databases.trino.port}
     server_address: ${databases.trino.server_address}
