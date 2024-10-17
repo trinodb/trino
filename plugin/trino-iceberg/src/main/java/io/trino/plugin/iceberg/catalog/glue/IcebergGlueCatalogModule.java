@@ -28,6 +28,7 @@ import io.trino.plugin.hive.metastore.glue.v1.ForGlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.v1.GlueCredentialsProvider;
 import io.trino.plugin.hive.metastore.glue.v1.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.v1.GlueMetastoreModule;
+import io.trino.plugin.hive.metastore.glue.v1.SkipArchiveRequestHandler;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.procedure.MigrateProcedure;
@@ -37,7 +38,6 @@ import java.util.function.Predicate;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -56,10 +56,11 @@ public class IcebergGlueCatalogModule
         binder.bind(TrinoCatalogFactory.class).to(TrinoGlueCatalogFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TrinoCatalogFactory.class).withGeneratedName();
 
-        install(conditionalModule(
-                IcebergGlueCatalogConfig.class,
-                IcebergGlueCatalogConfig::isSkipArchive,
-                internalBinder -> newSetBinder(internalBinder, RequestHandler2.class, ForGlueHiveMetastore.class).addBinding().toInstance(new SkipArchiveRequestHandler())));
+        GlueHiveMetastoreConfig glueHiveConfig = buildConfigObject(GlueHiveMetastoreConfig.class);
+        IcebergGlueCatalogConfig glueIcebergConfig = buildConfigObject(IcebergGlueCatalogConfig.class);
+        if (glueIcebergConfig.isSkipArchive() || !glueHiveConfig.isSkipArchive()) {
+            newSetBinder(binder, RequestHandler2.class, ForGlueHiveMetastore.class).addBinding().toInstance(new SkipArchiveRequestHandler());
+        }
 
         // Required to inject HiveMetastoreFactory for migrate procedure
         binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(false);

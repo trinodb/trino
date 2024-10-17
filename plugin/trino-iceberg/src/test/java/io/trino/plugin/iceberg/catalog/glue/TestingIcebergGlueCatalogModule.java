@@ -27,6 +27,7 @@ import io.trino.plugin.hive.metastore.glue.v1.ForGlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.v1.GlueCredentialsProvider;
 import io.trino.plugin.hive.metastore.glue.v1.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.v1.GlueMetastoreModule;
+import io.trino.plugin.hive.metastore.glue.v1.SkipArchiveRequestHandler;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 
