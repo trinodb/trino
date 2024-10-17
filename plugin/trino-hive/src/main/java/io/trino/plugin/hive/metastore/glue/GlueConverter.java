@@ -140,6 +140,11 @@ final class GlueConverter
 
     public static Table fromGlueTable(software.amazon.awssdk.services.glue.model.Table glueTable, String databaseName)
     {
+        return fromGlueTable(glueTable, databaseName, false);
+    }
+
+    public static Table fromGlueTable(software.amazon.awssdk.services.glue.model.Table glueTable, String databaseName, boolean ignoreDeltaLakeColumns)
+    {
         // Athena treats a missing table type as EXTERNAL_TABLE.
         String tableType = firstNonNull(glueTable.tableType(), "EXTERNAL_TABLE");
 
@@ -176,7 +181,12 @@ final class GlueConverter
         }
         else {
             boolean isCsv = sd.serdeInfo() != null && HiveStorageFormat.CSV.getSerde().equals(sd.serdeInfo().serializationLibrary());
-            dataColumns = fromGlueColumns(sd.columns(), ColumnType.DATA, isCsv);
+            if (isDeltaLakeTable(tableParameters) && ignoreDeltaLakeColumns) {
+                dataColumns = ImmutableList.of(FAKE_COLUMN);
+            }
+            else {
+                dataColumns = fromGlueColumns(sd.columns(), ColumnType.DATA, isCsv);
+            }
             if (glueTable.partitionKeys() != null) {
                 partitionColumns = fromGlueColumns(glueTable.partitionKeys(), ColumnType.PARTITION, isCsv);
             }
