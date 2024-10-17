@@ -126,6 +126,19 @@ public class ConnectorViewDefinition
                 path);
     }
 
+    public ConnectorViewDefinition withRunAsInvoker()
+    {
+        return new ConnectorViewDefinition(
+                originalSql,
+                catalog,
+                schema,
+                columns,
+                comment,
+                Optional.empty(),
+                true,
+                path);
+    }
+
     @Override
     public String toString()
     {
