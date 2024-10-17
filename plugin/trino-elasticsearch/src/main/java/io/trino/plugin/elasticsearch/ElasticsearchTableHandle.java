@@ -14,13 +14,17 @@
 package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
+import io.trino.plugin.elasticsearch.aggregation.TermAggregation;
+import io.trino.plugin.elasticsearch.expression.TopN;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
@@ -32,12 +36,14 @@ public record ElasticsearchTableHandle(
         TupleDomain<ColumnHandle> constraint,
         Map<String, String> regexes,
         Optional<String> query,
-        OptionalLong limit)
+        List<TermAggregation> termAggregations,
+        List<MetricAggregation> metricAggregations,
+        Optional<TopN> topN)
         implements ConnectorTableHandle
 {
     public enum Type
     {
-        SCAN, QUERY
+        SCAN, QUERY, AGGREGATION
     }
 
     public ElasticsearchTableHandle(Type type, String schema, String index, Optional<String> query)
@@ -49,7 +55,9 @@ public record ElasticsearchTableHandle(
                 TupleDomain.all(),
                 ImmutableMap.of(),
                 query,
-                OptionalLong.empty());
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Optional.empty());
     }
 
     public ElasticsearchTableHandle
@@ -60,7 +68,9 @@ public record ElasticsearchTableHandle(
         requireNonNull(constraint, "constraint is null");
         regexes = ImmutableMap.copyOf(requireNonNull(regexes, "regexes is null"));
         requireNonNull(query, "query is null");
-        requireNonNull(limit, "limit is null");
+        requireNonNull(termAggregations, "aggTerms is null");
+        requireNonNull(metricAggregations, "aggregates is null");
+        requireNonNull(topN, "topN is null");
     }
 
     @Override
@@ -77,8 +87,8 @@ public record ElasticsearchTableHandle(
                     .collect(Collectors.joining(", ")));
             attributes.append("]");
         }
-        limit.ifPresent(value -> attributes.append("limit=" + value));
         query.ifPresent(value -> attributes.append("query" + value));
+        topN.ifPresent(value -> attributes.append("topN=" + value));
 
         if (attributes.length() > 0) {
             builder.append("(");
