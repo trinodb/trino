@@ -60,7 +60,7 @@ public class TestGrantRevoke
      * (1) hive.properties file should have this property set: hive.security=sql-standard
      * (2) tempto-configuration.yaml file should have definitions for the following connections to Presto server:
      *          - "alice@trino" that has "jdbc_user: alice"
-     *          - "bob@presto" that has "jdbc_user: bob"
+     *          - "bob@trino" that has "jdbc_user: bob"
      *          - "charlie@presto" that has "jdbc_user: charlie"
      *     (all other values of the connection are same as that of the default "trino" connection).
      */
@@ -71,7 +71,7 @@ public class TestGrantRevoke
         tableName = "alice_owned_table";
         viewName = "alice_view";
         aliceExecutor = connectToTrino("alice@trino");
-        bobExecutor = connectToTrino("bob@presto");
+        bobExecutor = connectToTrino("bob@trino");
         charlieExecutor = connectToTrino("charlie@presto");
 
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
