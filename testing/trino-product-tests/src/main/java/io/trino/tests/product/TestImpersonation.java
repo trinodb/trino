@@ -51,7 +51,7 @@ public class TestImpersonation
     private String aliceJdbcUser;
 
     @Inject
-    @Named("databases.bob@presto.jdbc_user")
+    @Named("databases.bob@trino.jdbc_user")
     private String bobJdbcUser;
 
     // The value for configuredHdfsUser is profile dependent
@@ -69,7 +69,7 @@ public class TestImpersonation
     public void setup()
     {
         aliceExecutor = connectToTrino("alice@trino");
-        bobExecutor = connectToTrino("bob@presto");
+        bobExecutor = connectToTrino("bob@trino");
     }
 
     @AfterMethodWithContext
