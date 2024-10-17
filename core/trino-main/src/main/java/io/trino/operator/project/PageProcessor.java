@@ -263,15 +263,11 @@ public class PageProcessor
             retainedSizeInBytes = Page.getInstanceSizeInBytes(page.getChannelCount());
             ReferenceCountMap referenceCountMap = new ReferenceCountMap();
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                Block block = page.getBlock(channel);
-                // TODO: block might be partially loaded
-                if (block.isLoaded()) {
-                    block.retainedBytesForEachPart((object, size) -> {
-                        if (referenceCountMap.incrementAndGet(object) == 1) {
-                            retainedSizeInBytes += size;
-                        }
-                    });
-                }
+                page.getBlock(channel).retainedBytesForEachPart((object, size) -> {
+                    if (referenceCountMap.incrementAndGet(object) == 1) {
+                        retainedSizeInBytes += size;
+                    }
+                });
             }
             for (Block previouslyComputedResult : previouslyComputedResults) {
                 if (previouslyComputedResult != null) {

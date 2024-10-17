@@ -109,7 +109,10 @@ public final class LazyBlock
     @Override
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
-        getBlock().retainedBytesForEachPart(consumer);
+        Block block = lazyData.getBlockIfLoaded();
+        if (block != null) {
+            block.retainedBytesForEachPart(consumer);
+        }
         consumer.accept(this, INSTANCE_SIZE);
     }
 
@@ -289,6 +292,12 @@ public final class LazyBlock
             }
 
             load(true);
+            return block;
+        }
+
+        @Nullable
+        public Block getBlockIfLoaded()
+        {
             return block;
         }
 
