@@ -436,16 +436,15 @@ public class PhoenixClient
     }
 
     @Override
-    protected ResultSet getColumns(JdbcTableHandle handle, DatabaseMetaData metadata)
+    protected ResultSet getColumns(RemoteTableName remoteTableName, DatabaseMetaData metadata)
             throws SQLException
     {
         try {
-            return super.getColumns(handle, metadata);
+            return super.getColumns(remoteTableName, metadata);
         }
         catch (org.apache.phoenix.schema.TableNotFoundException e) {
             // Most JDBC driver return an empty result when DatabaseMetaData.getColumns can't find objects, but Phoenix driver throws an exception
             // Rethrow as Trino TableNotFoundException to suppress the exception during listing information_schema
-            RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
             throw new io.trino.spi.connector.TableNotFoundException(new SchemaTableName(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()));
         }
     }
@@ -1018,7 +1017,7 @@ public class PhoenixClient
         }
 
         Map<String, Object> tableProperties = getTableProperties(session, tableHandle);
-        List<JdbcColumnHandle> primaryKeyColumnHandles = getColumns(session, tableHandle)
+        List<JdbcColumnHandle> primaryKeyColumnHandles = getColumns(session, tableHandle.getRequiredNamedRelation().getSchemaTableName(), tableHandle.getRequiredNamedRelation().getRemoteTableName())
                 .stream()
                 .filter(columnHandle -> PhoenixColumnProperties.isPrimaryKey(columnHandle.getColumnMetadata(), tableProperties))
                 .collect(toImmutableList());
