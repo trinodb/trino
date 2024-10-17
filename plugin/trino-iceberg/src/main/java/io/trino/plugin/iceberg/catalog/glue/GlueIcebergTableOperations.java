@@ -13,17 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.model.AWSGlueException;
-import com.amazonaws.services.glue.model.AlreadyExistsException;
-import com.amazonaws.services.glue.model.ConcurrentModificationException;
-import com.amazonaws.services.glue.model.CreateTableRequest;
-import com.amazonaws.services.glue.model.EntityNotFoundException;
-import com.amazonaws.services.glue.model.InvalidInputException;
-import com.amazonaws.services.glue.model.ResourceNumberLimitExceededException;
-import com.amazonaws.services.glue.model.Table;
-import com.amazonaws.services.glue.model.TableInput;
-import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
@@ -38,6 +27,17 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.AlreadyExistsException;
+import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
+import software.amazon.awssdk.services.glue.model.CreateTableRequest;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.GlueException;
+import software.amazon.awssdk.services.glue.model.InvalidInputException;
+import software.amazon.awssdk.services.glue.model.ResourceNumberLimitExceededException;
+import software.amazon.awssdk.services.glue.model.Table;
+import software.amazon.awssdk.services.glue.model.TableInput;
+import software.amazon.awssdk.services.glue.model.UpdateTableRequest;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -47,8 +47,8 @@ import java.util.function.BiFunction;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
+import static io.trino.plugin.hive.metastore.glue.v2.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v2.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -66,7 +66,7 @@ public class GlueIcebergTableOperations
 {
     private final TypeManager typeManager;
     private final boolean cacheTableMetadata;
-    private final AWSGlueAsync glueClient;
+    private final GlueClient glueClient;
     private final GlueMetastoreStats stats;
     private final GetGlueTable getGlueTable;
 
@@ -76,7 +76,7 @@ public class GlueIcebergTableOperations
     protected GlueIcebergTableOperations(
             TypeManager typeManager,
             boolean cacheTableMetadata,
-            AWSGlueAsync glueClient,
+            GlueClient glueClient,
             GlueMetastoreStats stats,
             GetGlueTable getGlueTable,
             FileIO fileIo,
@@ -106,7 +106,7 @@ public class GlueIcebergTableOperations
         else {
             table = getTable(database, tableName, invalidateCaches);
         }
-        glueVersionId = table.getVersionId();
+        glueVersionId = table.versionId();
 
         String tableType = getTableType(table);
         Map<String, String> parameters = getTableParameters(table);
@@ -133,13 +133,14 @@ public class GlueIcebergTableOperations
         String newMetadataLocation = writeNewMetadata(metadata, 0);
         TableInput tableInput = getTableInput(typeManager, tableName, owner, metadata, newMetadataLocation, ImmutableMap.of(), cacheTableMetadata);
 
-        CreateTableRequest createTableRequest = new CreateTableRequest()
-                .withDatabaseName(database)
-                .withTableInput(tableInput);
+        CreateTableRequest createTableRequest = CreateTableRequest.builder()
+                .databaseName(database)
+                .tableInput(tableInput)
+                .build();
         try {
             stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
         }
-        catch (AWSGlueException e) {
+        catch (GlueException e) {
             switch (e) {
                 case AlreadyExistsException _,
                      EntityNotFoundException _,
@@ -183,9 +184,9 @@ public class GlueIcebergTableOperations
                     parameters.put(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation);
 
                     return getMaterializedViewTableInput(
-                            table.getName(),
-                            table.getViewOriginalText(),
-                            table.getOwner(),
+                            table.name(),
+                            table.viewOriginalText(),
+                            table.owner(),
                             parameters);
                 });
     }
@@ -195,10 +196,11 @@ public class GlueIcebergTableOperations
         String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
         TableInput tableInput = tableUpdateFunction.apply(table, newMetadataLocation);
 
-        UpdateTableRequest updateTableRequest = new UpdateTableRequest()
-                .withDatabaseName(database)
-                .withTableInput(tableInput)
-                .withVersionId(glueVersionId);
+        UpdateTableRequest updateTableRequest = UpdateTableRequest.builder()
+                .databaseName(database)
+                .tableInput(tableInput)
+                .versionId(glueVersionId)
+                .build();
         try {
             stats.getUpdateTable().call(() -> glueClient.updateTable(updateTableRequest));
         }
