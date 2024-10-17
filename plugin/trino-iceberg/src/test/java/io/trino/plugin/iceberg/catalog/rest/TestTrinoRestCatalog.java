@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -210,5 +211,32 @@ public class TestTrinoRestCatalog
                 .isInstanceOf(BadRequestException.class)
                 .as("should fail as the prefix dev is not implemented for the current endpoint")
                 .hasMessageContaining("Malformed request: No route for request: POST v1/dev/namespaces");
+    }
+
+    @Test
+    void testNestedNamespace()
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+
+        String firstLevel = "level-1" + randomNameSuffix();
+        String secondLevel = "level-2" + randomNameSuffix();
+        String thirdLevel = "level-3" + randomNameSuffix();
+
+        List<String> namespaces = ImmutableList.<String>builder()
+                .add(firstLevel)
+                .add(firstLevel + "." + secondLevel)
+                .add(firstLevel + "." + secondLevel + "." + thirdLevel)
+                .build();
+
+        namespaces.forEach(namespace -> catalog.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser())));
+
+        try {
+            assertThat(catalog.listNamespaces(SESSION))
+                    .hasSize(namespaces.size())
+                    .containsAll(namespaces);
+        }
+        finally {
+            namespaces.forEach(namespace -> catalog.dropNamespace(SESSION, namespace));
+        }
     }
 }

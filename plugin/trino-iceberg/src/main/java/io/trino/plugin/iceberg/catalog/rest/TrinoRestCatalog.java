@@ -79,6 +79,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -137,6 +138,12 @@ public class TrinoRestCatalog
     }
 
     @Override
+    public Optional<String> getNamespaceSeparator()
+    {
+        return Optional.of(".");
+    }
+
+    @Override
     public boolean namespaceExists(ConnectorSession session, String namespace)
     {
         return restSessionCatalog.namespaceExists(convert(session), toNamespace(namespace));
@@ -145,8 +152,15 @@ public class TrinoRestCatalog
     @Override
     public List<String> listNamespaces(ConnectorSession session)
     {
+        return collectNamespaces(session, parentNamespace);
+    }
+
+    private List<String> collectNamespaces(ConnectorSession session, Namespace parentNamespace)
+    {
         return restSessionCatalog.listNamespaces(convert(session), parentNamespace).stream()
-                .map(this::toSchemaName)
+                .flatMap(childNamespace -> Stream.concat(
+                        Stream.of(childNamespace.toString()),
+                        collectNamespaces(session, childNamespace).stream()))
                 .collect(toImmutableList());
     }
 
@@ -154,7 +168,7 @@ public class TrinoRestCatalog
     public void dropNamespace(ConnectorSession session, String namespace)
     {
         try {
-            restSessionCatalog.dropNamespace(convert(session), Namespace.of(namespace));
+            restSessionCatalog.dropNamespace(convert(session), toNamespace(namespace));
         }
         catch (NoSuchNamespaceException e) {
             throw new SchemaNotFoundException(namespace);
@@ -188,7 +202,7 @@ public class TrinoRestCatalog
     {
         restSessionCatalog.createNamespace(
                 convert(session),
-                Namespace.of(namespace),
+                toNamespace(namespace),
                 Maps.transformValues(properties, property -> {
                     if (property instanceof String stringProperty) {
                         return stringProperty;
@@ -439,7 +453,7 @@ public class TrinoRestCatalog
         ViewBuilder viewBuilder = restSessionCatalog.buildView(convert(session), toIdentifier(schemaViewName));
         viewBuilder = viewBuilder.withSchema(schema)
                 .withQuery("trino", definition.getOriginalSql())
-                .withDefaultNamespace(Namespace.of(schemaViewName.getSchemaName()))
+                .withDefaultNamespace(toNamespace(schemaViewName.getSchemaName()))
                 .withDefaultCatalog(definition.getCatalog().orElse(null))
                 .withProperties(properties.buildOrThrow())
                 .withLocation(defaultTableLocation(session, schemaViewName));
