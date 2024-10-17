@@ -945,6 +945,24 @@ public final class StringFunctions
     }
 
     @Description("Translate characters from the source string based on original and translations strings")
+    @ScalarFunction("translate")
+    @LiteralParameters({"x", "y", "z"})
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice translateChar(
+            @LiteralParameter("x") Long x,
+            @LiteralParameter("y") Long y,
+            @LiteralParameter("z") Long z,
+            @SqlType("char(x)") Slice source,
+            @SqlType("char(y)") Slice from,
+            @SqlType("char(z)") Slice to)
+    {
+        source = padSpaces(source, x.intValue());
+        from = padSpaces(from, y.intValue());
+        to = padSpaces(to, z.intValue());
+        return translate(source, from, to);
+    }
+
+    @Description("Translate characters from the source string based on original and translations strings")
     @ScalarFunction
     @LiteralParameters({"x", "y", "z"})
     @SqlType(StandardTypes.VARCHAR)
