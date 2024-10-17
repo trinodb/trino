@@ -254,11 +254,12 @@ public class PulsarMetadata
                     connectorId,
                     pulsarColumnMetadata.getNameWithCase(),
                     pulsarColumnMetadata.getType(),
-                    pulsarColumnMetadata.isHidden(),
-                    pulsarColumnMetadata.isInternal(),
                     pulsarColumnMetadata.getDecoderExtraInfo().getMapping(),
                     pulsarColumnMetadata.getDecoderExtraInfo().getDataFormat(),
                     pulsarColumnMetadata.getDecoderExtraInfo().getFormatHint(),
+                    true,
+                    pulsarColumnMetadata.isHidden(),
+                    pulsarColumnMetadata.isInternal(),
                     pulsarColumnMetadata.getHandleKeyValueType());
 
             columnHandles.put(

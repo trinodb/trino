@@ -18,7 +18,6 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.trino.decoder.DecoderModule;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
@@ -26,6 +25,7 @@ import jakarta.inject.Inject;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -35,34 +35,30 @@ public class PulsarConnectorModule
             implements Module
 {
     private final String connectorId;
-    private final TypeManager typeManager;
 
-    public PulsarConnectorModule(String connectorId, TypeManager typeManager)
+    PulsarConnectorModule(String connectorId)
     {
-        this.connectorId = requireNonNull(connectorId, "connector id is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.connectorId = connectorId;
     }
 
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(TypeManager.class).toInstance(typeManager);
-
         binder.bind(PulsarConnector.class).in(Scopes.SINGLETON);
-        binder.bind(PulsarConnectorId.class).toInstance(new PulsarConnectorId(connectorId));
-
         binder.bind(PulsarMetadata.class).in(Scopes.SINGLETON);
         binder.bind(PulsarSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(PulsarRecordSetProvider.class).in(Scopes.SINGLETON);
+        jsonCodecBinder(binder).bindJsonCodec(PulsarTableDescription.class);
+        configBinder(binder).bindConfig(PulsarConnectorConfig.class);
+
+        //binder.bind(TypeManager.class).toInstance(typeManager);
+        binder.bind(PulsarConnectorId.class).toInstance(new PulsarConnectorId(connectorId));
         binder.bind(PulsarAuth.class).in(Scopes.SINGLETON);
 
         binder.bind(PulsarDispatchingRowDecoderFactory.class).in(Scopes.SINGLETON);
-
-        configBinder(binder).bindConfig(PulsarConnectorConfig.class);
-
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
 
-        binder.install(new DecoderModule());
+        binder.install(new PulsarDecoderModule());
     }
 
     /**

@@ -44,6 +44,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.ParseException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -55,7 +57,7 @@ import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.SECONDS;
-//import static java.util.UUID.randomUUID;
+import static java.util.UUID.randomUUID;
 
 public class PulsarServer
             implements Closeable
@@ -130,7 +132,9 @@ public class PulsarServer
     public PulsarServer(String pulsarImage)
             throws IOException
     {
-        hostWorkingDirectory = "/tpch"; //Files.createDirectory(Paths.get("/tpch")).toAbsolutePath().toString();
+        hostWorkingDirectory = Files.createDirectory(
+            Paths.get("/tmp/docker-tests-files-" + randomUUID().toString()))
+            .toAbsolutePath().toString();
         File f = new File(hostWorkingDirectory);
         // Enable read/write/exec access for the services running in containers
         f.setWritable(true, false);
@@ -139,6 +143,16 @@ public class PulsarServer
         pulsar = new GenericContainer<>(pulsarImage)
                 .withExposedPorts(BROKER_HTTP_PORT, ZK_PORT, PULSAR_PORT, BK_PORT)
                 .withCommand("/pulsar/bin/pulsar standalone")
+                .withEnv("PULSAR_MEM", "-Xms512m -Xmx512m -XX:MaxDirectMemorySize=1g")
+                .withEnv("PULSAR_PREFIX_acknowledgmentAtBatchIndexLevelEnabled", "true")
+                .withEnv("PULSAR_PREFIX_nettyMaxFrameSizeBytes", "5253120")
+                .withEnv("PULSAR_PREFIX_transactionCoordinatorEnabled", "true")
+                .withEnv("PULSAR_PREFIX_brokerDeleteInactiveTopicsEnabled", "true")
+                .withEnv("PULSAR_PREFIX_defaultRetentionTimeInMinutes", "-1") //Default message retention time. 0 means retention is disabled. -1 means data is not removed by time quota
+                .withEnv("PULSAR_PREFIX_defaultRetentionSizeInMB", "-1") //Default retention size. 0 means retention is disabled. -1 means data is not removed by size quota
+                .withEnv("PULSAR_STANDALONE_USE_ZOOKEEPER", "1")
+                .withEnv("PULSAR_PREFIX_exposingBrokerEntryMetadataToClientEnabled", "true")
+                .withEnv("PULSAR_PREFIX_brokerEntryMetadataInterceptors", "org.apache.pulsar.common.intercept.AppendBrokerTimestampMetadataInterceptor,org.apache.pulsar.common.intercept.AppendIndexMetadataInterceptor")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("/tpch/customer.json"), "/container-entrypoint-initdb.d/customer.json")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("/tpch/lineitem.json"), "/container-entrypoint-initdb.d/lineitem.json")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("/tpch/nation.json"), "/container-entrypoint-initdb.d/nation.json")

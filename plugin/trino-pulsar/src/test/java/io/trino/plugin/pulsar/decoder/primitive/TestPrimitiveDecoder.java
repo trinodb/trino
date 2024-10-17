@@ -76,7 +76,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderInt8.decodeRow(Unpooled
                         .copiedBuffer(schemaInt8.encode(int8Value))).get();
         checkValue(decodedRowInt8, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, TINYINT, false, false, PRIMITIVE_COLUMN_NAME, null, null, PulsarColumnHandle.HandleKeyValueType.NONE), int8Value);
+                PRIMITIVE_COLUMN_NAME, TINYINT, null, null, PRIMITIVE_COLUMN_NAME, false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE), int8Value);
 
         short int16Value = 2;
         SchemaInfo schemaInfoInt16 = SchemaInfoImpl.builder().type(SchemaType.INT16).build();
@@ -88,7 +88,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderInt16.decodeRow(Unpooled
                         .copiedBuffer(schemaInt16.encode(int16Value))).get();
         checkValue(decodedRowInt16, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, SMALLINT, false, false, PRIMITIVE_COLUMN_NAME, null, null, PulsarColumnHandle.HandleKeyValueType.NONE), int16Value);
+                PRIMITIVE_COLUMN_NAME, SMALLINT, null, null, PRIMITIVE_COLUMN_NAME, false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE), int16Value);
 
         int int32Value = 2;
         SchemaInfo schemaInfoInt32 = SchemaInfoImpl.builder().type(SchemaType.INT32).build();
@@ -101,7 +101,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderInt32.decodeRow(Unpooled
                         .copiedBuffer(schemaInt32.encode(int32Value))).get();
         checkValue(decodedRowInt32, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, INTEGER, false, false, PRIMITIVE_COLUMN_NAME, null, null, PulsarColumnHandle.HandleKeyValueType.NONE), int32Value);
+                PRIMITIVE_COLUMN_NAME, INTEGER, null, null, PRIMITIVE_COLUMN_NAME, false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE), int32Value);
 
         long int64Value = 2;
         SchemaInfo schemaInfoInt64 = SchemaInfoImpl.builder().type(SchemaType.INT64).build();
@@ -114,7 +114,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderInt64.decodeRow(Unpooled
                         .copiedBuffer(schemaInt64.encode(int64Value))).get();
         checkValue(decodedRowInt64, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, BIGINT, false, false, PRIMITIVE_COLUMN_NAME, null, null,
+                PRIMITIVE_COLUMN_NAME, BIGINT, null, null, PRIMITIVE_COLUMN_NAME, false, false, false,
                 PulsarColumnHandle.HandleKeyValueType.NONE), int64Value);
 
         String stringValue = "test";
@@ -128,7 +128,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderString.decodeRow(Unpooled
                         .copiedBuffer(schemaString.encode(stringValue))).get();
         checkValue(decodedRowString, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, VARCHAR, false, false, PRIMITIVE_COLUMN_NAME, null, null,
+                PRIMITIVE_COLUMN_NAME, VARCHAR, null, null, PRIMITIVE_COLUMN_NAME, false, false, false,
                 PulsarColumnHandle.HandleKeyValueType.NONE), stringValue);
 
         float floatValue = 0.2f;
@@ -142,7 +142,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderFloat.decodeRow(Unpooled
                         .copiedBuffer(schemaFloat.encode(floatValue))).get();
         checkValue(decodedRowFloat, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, REAL, false, false, PRIMITIVE_COLUMN_NAME, null, null,
+                PRIMITIVE_COLUMN_NAME, REAL, null, null, PRIMITIVE_COLUMN_NAME, false, false, false,
                 PulsarColumnHandle.HandleKeyValueType.NONE), Long.valueOf(Float.floatToIntBits(floatValue)));
 
         double doubleValue = 0.22d;
@@ -156,7 +156,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderDouble.decodeRow(Unpooled
                         .copiedBuffer(schemaDouble.encode(doubleValue))).get();
         checkValue(decodedRowDouble, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, DOUBLE, false, false, PRIMITIVE_COLUMN_NAME, null, null,
+                PRIMITIVE_COLUMN_NAME, DOUBLE, null, null, PRIMITIVE_COLUMN_NAME, false, false, false,
                 PulsarColumnHandle.HandleKeyValueType.NONE), doubleValue);
 
         boolean booleanValue = true;
@@ -170,7 +170,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderBoolean.decodeRow(Unpooled
                         .copiedBuffer(schemaBoolean.encode(booleanValue))).get();
         checkValue(decodedRowBoolean, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, BOOLEAN, false, false, PRIMITIVE_COLUMN_NAME, null, null,
+                PRIMITIVE_COLUMN_NAME, BOOLEAN, null, null, PRIMITIVE_COLUMN_NAME, false, false, false,
                 PulsarColumnHandle.HandleKeyValueType.NONE), booleanValue);
 
         byte[] bytesValue = new byte[1];
@@ -185,7 +185,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderBytes.decodeRow(Unpooled
                         .copiedBuffer(schemaBytes.encode(bytesValue))).get();
         checkValue(decodedRowBytes, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, VARBINARY, false, false, PRIMITIVE_COLUMN_NAME, null, null,
+                PRIMITIVE_COLUMN_NAME, VARBINARY, null, null, PRIMITIVE_COLUMN_NAME, false, false, false,
                 PulsarColumnHandle.HandleKeyValueType.NONE), Slices.wrappedBuffer(bytesValue));
 
         Date dateValue = new Date(System.currentTimeMillis());
@@ -199,7 +199,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderDate.decodeRow(Unpooled
                         .copiedBuffer(schemaDate.encode(dateValue))).get();
         checkValue(decodedRowDate, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, DATE, false, false, PRIMITIVE_COLUMN_NAME, null, null,
+                PRIMITIVE_COLUMN_NAME, DATE, null, null, PRIMITIVE_COLUMN_NAME, false, false, false,
                 PulsarColumnHandle.HandleKeyValueType.NONE), dateValue.getTime());
 
         Time timeValue = new Time(System.currentTimeMillis());
@@ -213,7 +213,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderTime.decodeRow(Unpooled
                         .copiedBuffer(schemaTime.encode(timeValue))).get();
         checkValue(decodedRowTime, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, TIMESTAMP_MILLIS, false, false, PRIMITIVE_COLUMN_NAME, null, null,
+                PRIMITIVE_COLUMN_NAME, TIMESTAMP_MILLIS, null, null, PRIMITIVE_COLUMN_NAME, false, false, false,
                 PulsarColumnHandle.HandleKeyValueType.NONE), timeValue.getTime());
 
         Timestamp timestampValue = new Timestamp(System.currentTimeMillis());
@@ -227,7 +227,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderTimestamp.decodeRow(Unpooled
                         .copiedBuffer(schemaTimestamp.encode(timestampValue))).get();
         checkValue(decodedRowTimestamp, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, TIMESTAMP_MILLIS, false, false, PRIMITIVE_COLUMN_NAME, null, null,
+                PRIMITIVE_COLUMN_NAME, TIMESTAMP_MILLIS, null, null, PRIMITIVE_COLUMN_NAME, false, false, false,
                 PulsarColumnHandle.HandleKeyValueType.NONE), timestampValue.getTime());
     }
 }

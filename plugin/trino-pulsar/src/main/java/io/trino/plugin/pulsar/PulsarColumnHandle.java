@@ -55,16 +55,16 @@ public class PulsarColumnHandle
     private final HandleKeyValueType handleKeyValueType;
 
     /**
-     * {@link org.apache.pulsar.sql.presto.PulsarColumnMetadata.DecoderExtraInfo#mapping}.
+     * {@link io.trino.plugin.pulsar.PulsarColumnMetadata.DecoderExtraInfo#mapping}.
      */
     private final String mapping;
     /**
-     * {@link org.apache.pulsar.sql.presto.PulsarColumnMetadata.DecoderExtraInfo#dataFormat}.
+     * {@link io.trino.plugin.pulsar.PulsarColumnMetadata.DecoderExtraInfo#dataFormat}.
      */
     private final String dataFormat;
 
     /**
-     * {@link org.apache.pulsar.sql.presto.PulsarColumnMetadata.DecoderExtraInfo#formatHint}.
+     * {@link io.trino.plugin.pulsar.PulsarColumnMetadata.DecoderExtraInfo#formatHint}.
      */
     private final String formatHint;
 
@@ -73,11 +73,12 @@ public class PulsarColumnHandle
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
-            @JsonProperty("hidden") boolean hidden,
-            @JsonProperty("internal") boolean internal,
             @JsonProperty("mapping") String mapping,
             @JsonProperty("dataFormat") String dataFormat,
             @JsonProperty("formatHint") String formatHint,
+            @JsonProperty("keyDecoder") boolean keyDecoder,
+            @JsonProperty("hidden") boolean hidden,
+            @JsonProperty("internal") boolean internal,
             @JsonProperty("handleKeyValueType") HandleKeyValueType handleKeyValueType)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");

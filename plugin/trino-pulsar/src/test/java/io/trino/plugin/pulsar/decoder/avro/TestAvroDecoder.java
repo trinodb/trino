@@ -104,31 +104,31 @@ public class TestAvroDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = pulsarRowDecoder.decodeRow(payload).get();
 
         PulsarColumnHandle stringFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "stringField", VARCHAR, false, false, "stringField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
+                "stringField", VARCHAR, null, null, "stringField", false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, stringFieldColumnHandle, message.stringField);
 
         PulsarColumnHandle intFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "intField", INTEGER, false, false, "intField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
+                "intField", INTEGER, null, null, "intField", false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, intFieldColumnHandle, message.intField);
 
         PulsarColumnHandle floatFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "floatField", REAL, false, false, "floatField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
+                "floatField", REAL, null, null, "floatField", false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, floatFieldColumnHandle, floatToIntBits(message.floatField));
 
         PulsarColumnHandle doubleFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "doubleField", DOUBLE, false, false, "doubleField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
+                "doubleField", DOUBLE, null, null, "doubleField", false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, doubleFieldColumnHandle, message.doubleField);
 
         PulsarColumnHandle booleanFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "booleanField", BOOLEAN, false, false, "booleanField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
+                "booleanField", BOOLEAN, null, null, "booleanField", false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, booleanFieldColumnHandle, message.booleanField);
 
         PulsarColumnHandle longFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "longField", BIGINT, false, false, "longField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
+                "longField", BIGINT, null, null, "longField", false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, longFieldColumnHandle, message.longField);
 
         PulsarColumnHandle enumFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "enumField", VARCHAR, false, false, "enumField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
+                "enumField", VARCHAR, null, null, "enumField", false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, enumFieldColumnHandle, message.enumField.toString());
     }
 
@@ -163,7 +163,7 @@ public class TestAvroDecoder
                 .build());
 
         PulsarColumnHandle columnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "rowField", columnType, false, false, "rowField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
+                "rowField", columnType, null, null, "rowField", false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE);
 
         checkRowValues(getBlock(decodedRow, columnHandle), columnHandle.getType(), fieldValue);
     }
@@ -183,8 +183,8 @@ public class TestAvroDecoder
 
         ArrayType columnType = new ArrayType(VARCHAR);
         PulsarColumnHandle columnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "arrayField", columnType, false, false, "arrayField",
-                null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
+                "arrayField", columnType, null, null, "arrayField",
+                false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE);
 
         checkArrayValues(getBlock(decodedRow, columnHandle), columnHandle.getType(), fieldValue);
     }
@@ -208,8 +208,8 @@ public class TestAvroDecoder
                 ImmutableList.of(TypeSignatureParameter.typeParameter(VarcharType.VARCHAR.getTypeSignature()),
                         TypeSignatureParameter.typeParameter(BigintType.BIGINT.getTypeSignature())));
 
-        PulsarColumnHandle columnHandle = new PulsarColumnHandle(getCatalogName().toString(), "mapField", columnType, false, false,
-                "mapField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
+        PulsarColumnHandle columnHandle = new PulsarColumnHandle(getCatalogName().toString(), "mapField", columnType, null, null,
+                "mapField", false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkMapValues(getBlock(decodedRow, columnHandle), columnHandle.getType(), fieldValue);
     }
 
@@ -276,7 +276,7 @@ public class TestAvroDecoder
                 .build());
 
         PulsarColumnHandle columnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "compositeRow", columnType, false, false, "compositeRow", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
+                "compositeRow", columnType, null, null, "compositeRow", false, false, false, PulsarColumnHandle.HandleKeyValueType.NONE);
 
         checkRowValues(getBlock(decodedRow, columnHandle), columnHandle.getType(), fieldValue);
     }

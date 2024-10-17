@@ -21,7 +21,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
-public class PulsarTopicDescription
+public class PulsarTableDescription
 {
     private final String tableName;
     private final String topicName;
@@ -30,7 +30,7 @@ public class PulsarTopicDescription
     //private final Optional<PulsarTopicFieldGroup> message;
 
     @JsonCreator
-    public PulsarTopicDescription(
+    public PulsarTableDescription(
             @JsonProperty("tableName") String tableName,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("topicName") String topicName)

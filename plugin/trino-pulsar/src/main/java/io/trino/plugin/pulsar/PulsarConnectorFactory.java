@@ -14,16 +14,22 @@
 package io.trino.plugin.pulsar;
 
 import com.google.inject.Injector;
+import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.airlift.log.Logger;
+import io.trino.plugin.base.TypeDeserializerModule;
+import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Supplier;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -32,7 +38,12 @@ import static java.util.Objects.requireNonNull;
 public class PulsarConnectorFactory
             implements ConnectorFactory
 {
-    private static final Logger log = Logger.get(PulsarConnectorFactory.class);
+    private final Optional<Supplier<Map<SchemaTableName, PulsarTableDescription>>> tableDescriptionSupplier;
+
+    PulsarConnectorFactory(Optional<Supplier<Map<SchemaTableName, PulsarTableDescription>>> tableDescriptionSupplier)
+    {
+        this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
+    }
 
     @Override
     public String getName()
@@ -41,28 +52,34 @@ public class PulsarConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        requireNonNull(config, "requiredConfig is null");
-        if (log.isDebugEnabled()) {
-            log.debug("Creating Pulsar connector with configs: %s", config);
-        }
-        try {
-            // A plugin is not required to use Guice; it is just very convenient
-            Bootstrap app = new Bootstrap(new JsonModule(), new PulsarConnectorModule(connectorId, context.getTypeManager()));
-            Injector injector = app
-                    //.strictConfig()
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(config, "config is null");
+        checkStrictSpiVersionMatch(context, this);
 
-            PulsarConnector connector = injector.getInstance(PulsarConnector.class);
-            connector.initConnectorCache();
-            return connector;
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
+        Bootstrap app = new Bootstrap(
+                new JsonModule(),
+                new TypeDeserializerModule(context.getTypeManager()),
+                new PulsarConnectorModule(catalogName),
+                binder -> {
+                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+
+                    if (tableDescriptionSupplier.isPresent()) {
+                        binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, PulsarTableDescription>>>() {}).toInstance(tableDescriptionSupplier.get());
+                    }
+                    else {
+                        binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, PulsarTableDescription>>>() {})
+                                .to(PulsarTableDescriptionSupplier.class)
+                                .in(Scopes.SINGLETON);
+                    }
+                });
+
+        Injector injector = app
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
+
+        return injector.getInstance(PulsarConnector.class);
     }
 }

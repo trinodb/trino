@@ -15,7 +15,6 @@ package io.trino.plugin.pulsar;
 
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
-import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
@@ -68,7 +67,7 @@ public class PulsarConnector
     @Override
     public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
     {
-        return new ClassLoaderSafeConnectorMetadata(metadata, getClass().getClassLoader());
+        return metadata;
     }
 
     @Override

@@ -111,8 +111,12 @@ public class PulsarInternalColumn
         return new PulsarColumnHandle(connectorId,
                 getName(),
                 getType(),
-                hidden,
-                true, getName(), null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
+                null,
+                null,
+                getName(),
+                true,
+                hidden, false,
+                PulsarColumnHandle.HandleKeyValueType.NONE);
     }
 
     PulsarColumnMetadata getColumnMetadata(boolean hidden)

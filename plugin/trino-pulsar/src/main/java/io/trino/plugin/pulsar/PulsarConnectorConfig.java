@@ -14,7 +14,9 @@
 package io.trino.plugin.pulsar;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import org.apache.bookkeeper.stats.NullStatsProvider;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.client.admin.PulsarAdmin;
@@ -28,10 +30,12 @@ import org.apache.pulsar.common.protocol.Commands;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.client.ClientBuilder;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.regex.Matcher;
 
 /**
@@ -92,6 +96,24 @@ public class PulsarConnectorConfig
     // --- Nar extraction
     private String narExtractionDirectory = NarClassLoader.DEFAULT_NAR_EXTRACTION_DIR;
 
+    private String defaultSchema = "default";
+    private Set<String> tableNames = ImmutableSet.of();
+    private File tableDescriptionDir = new File("etc/pulsar/");
+
+    @NotNull
+    public File getTableDescriptionDir()
+    {
+        return tableDescriptionDir;
+    }
+
+    @Config("pulsar.table-description-dir")
+    @ConfigDescription("Folder holding the JSON description files for Pulsar values")
+    public PulsarConnectorConfig setTableDescriptionDir(File tableDescriptionDir)
+    {
+        this.tableDescriptionDir = tableDescriptionDir;
+        return this;
+    }
+
     @NotNull
     public String getBrokerServiceUrl()
     {
@@ -101,6 +123,34 @@ public class PulsarConnectorConfig
         else {
             return getWebServiceUrl();
         }
+    }
+
+    @NotNull
+    public Set<String> getTableNames()
+    {
+        return tableNames;
+    }
+
+    @Config("pulsar.table-names")
+    @ConfigDescription("Set of tables known to this connector. For each table, a description file may be present in the catalog folder which describes columns for the given table")
+    public PulsarConnectorConfig setTableNames(Set<String> tableNames)
+    {
+        this.tableNames = ImmutableSet.copyOf(tableNames);
+        return this;
+    }
+
+    @NotNull
+    public String getDefaultSchema()
+    {
+        return defaultSchema;
+    }
+
+    @Config("pulsar.default-schema")
+    @ConfigDescription("The schema name to use in the connector")
+    public PulsarConnectorConfig setDefaultSchema(String defaultSchema)
+    {
+        this.defaultSchema = defaultSchema;
+        return this;
     }
 
     @Config("pulsar.broker-service-url")

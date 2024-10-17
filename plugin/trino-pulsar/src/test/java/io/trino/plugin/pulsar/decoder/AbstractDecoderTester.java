@@ -132,7 +132,7 @@ public abstract class AbstractDecoderTester
         columnMetadata.forEach(column ->
         {
             PulsarColumnMetadata pulsarColumnMetadata = (PulsarColumnMetadata) column;
-            columnHandles.add(new PulsarColumnHandle(pulsarConnectorId.toString(), pulsarColumnMetadata.getNameWithCase(), pulsarColumnMetadata.getType(), pulsarColumnMetadata.isHidden(), pulsarColumnMetadata.isInternal(), pulsarColumnMetadata.getDecoderExtraInfo().getMapping(), pulsarColumnMetadata.getDecoderExtraInfo().getDataFormat(), pulsarColumnMetadata.getDecoderExtraInfo().getFormatHint(), pulsarColumnMetadata.getHandleKeyValueType()));
+            columnHandles.add(new PulsarColumnHandle(pulsarConnectorId.toString(), pulsarColumnMetadata.getNameWithCase(), pulsarColumnMetadata.getType(), pulsarColumnMetadata.getDecoderExtraInfo().getMapping(), pulsarColumnMetadata.getDecoderExtraInfo().getDataFormat(), pulsarColumnMetadata.getDecoderExtraInfo().getFormatHint(), pulsarColumnMetadata.isHidden(), false, pulsarColumnMetadata.isInternal(), pulsarColumnMetadata.getHandleKeyValueType()));
         });
         return columnHandles;
     }

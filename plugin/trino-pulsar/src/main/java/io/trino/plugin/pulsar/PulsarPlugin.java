@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
+import java.util.Optional;
+
 public class PulsarPlugin
             implements Plugin
 {
@@ -42,6 +44,6 @@ public class PulsarPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new PulsarConnectorFactory());
+        return ImmutableList.of(new PulsarConnectorFactory(Optional.empty()));
     }
 }
