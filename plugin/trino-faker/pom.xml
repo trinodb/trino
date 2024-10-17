@@ -167,5 +167,11 @@
             <artifactId>log-manager</artifactId>
             <scope>test-jar</scope>
         </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-client</artifactId>
+            <scope>test-jar</scope>
+        </dependency>
     </dependencies>
 </project>
