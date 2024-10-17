@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -21,6 +22,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestIcebergRestCatalogConfig
 {
@@ -35,7 +37,9 @@ public class TestIcebergRestCatalogConfig
                 .setNestedNamespaceEnabled(false)
                 .setSessionType(IcebergRestCatalogConfig.SessionType.NONE)
                 .setSecurity(IcebergRestCatalogConfig.Security.NONE)
-                .setVendedCredentialsEnabled(false));
+                .setVendedCredentialsEnabled(false)
+                .setCaseInsensitiveNameMatching(false)
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
     }
 
     @Test
@@ -50,6 +54,8 @@ public class TestIcebergRestCatalogConfig
                 .put("iceberg.rest-catalog.security", "OAUTH2")
                 .put("iceberg.rest-catalog.session", "USER")
                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
+                .put("iceberg.rest-catalog.case-insensitive-name-matching", "true")
+                .put("iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl", "3m")
                 .buildOrThrow();
 
         IcebergRestCatalogConfig expected = new IcebergRestCatalogConfig()
@@ -60,7 +66,9 @@ public class TestIcebergRestCatalogConfig
                 .setNestedNamespaceEnabled(true)
                 .setSessionType(IcebergRestCatalogConfig.SessionType.USER)
                 .setSecurity(IcebergRestCatalogConfig.Security.OAUTH2)
-                .setVendedCredentialsEnabled(true);
+                .setVendedCredentialsEnabled(true)
+                .setCaseInsensitiveNameMatching(true)
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(3, MINUTES));
 
         assertFullMapping(properties, expected);
     }

@@ -15,11 +15,15 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
 import org.apache.iceberg.catalog.Namespace;
 
 import java.net.URI;
 import java.util.Optional;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class IcebergRestCatalogConfig
 {
@@ -43,6 +47,8 @@ public class IcebergRestCatalogConfig
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
     private boolean vendedCredentialsEnabled;
+    private boolean caseInsensitiveNameMatching;
+    private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
 
     @NotNull
     public URI getBaseUri()
@@ -150,6 +156,34 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setVendedCredentialsEnabled(boolean vendedCredentialsEnabled)
     {
         this.vendedCredentialsEnabled = vendedCredentialsEnabled;
+        return this;
+    }
+
+    public boolean isCaseInsensitiveNameMatching()
+    {
+        return caseInsensitiveNameMatching;
+    }
+
+    @Config("iceberg.rest-catalog.case-insensitive-name-matching")
+    @ConfigDescription("Match object names case-insensitively")
+    public IcebergRestCatalogConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
+    {
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getCaseInsensitiveNameMatchingCacheTtl()
+    {
+        return caseInsensitiveNameMatchingCacheTtl;
+    }
+
+    @Config("iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl")
+    @ConfigDescription("Duration to keep case insensitive object mapping prior to eviction")
+    public IcebergRestCatalogConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
+    {
+        this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
         return this;
     }
 }
