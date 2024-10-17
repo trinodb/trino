@@ -306,7 +306,7 @@ export const RootLayout = (props: {
       </Drawer>
       <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
         <Toolbar />
-        <Container maxWidth="md">
+        <Container maxWidth="lg">
           {props.children}
         </Container>
       </Box>
