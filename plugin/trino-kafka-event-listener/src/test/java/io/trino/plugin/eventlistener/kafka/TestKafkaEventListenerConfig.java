@@ -47,7 +47,7 @@ final class TestKafkaEventListenerConfig
                 .setExcludedFields(Set.of())
                 .setKafkaClientOverrides("")
                 .setRequestTimeout(new Duration(10, TimeUnit.SECONDS))
-                .setTerminateOnInitializationFailure(true)
+                .setTerminateOnInitializationFailure(false)
                 .setEnvironmentVariablePrefix(null));
     }
 
@@ -68,7 +68,7 @@ final class TestKafkaEventListenerConfig
                 .put("kafka-event-listener.request-timeout", "3s")
                 .put("kafka-event-listener.env-var-prefix", "INSIGHTS_")
                 .put("kafka-event-listener.anonymization.enabled", "true")
-                .put("kafka-event-listener.terminate-on-initialization-failure", "false")
+                .put("kafka-event-listener.terminate-on-initialization-failure", "true")
                 .buildOrThrow();
 
         KafkaEventListenerConfig expected = new KafkaEventListenerConfig()
@@ -85,7 +85,7 @@ final class TestKafkaEventListenerConfig
                 .setKafkaClientOverrides("foo=bar,baz=yoo")
                 .setRequestTimeout(new Duration(3, TimeUnit.SECONDS))
                 .setEnvironmentVariablePrefix("INSIGHTS_")
-                .setTerminateOnInitializationFailure(false);
+                .setTerminateOnInitializationFailure(true);
 
         assertFullMapping(properties, expected);
     }
