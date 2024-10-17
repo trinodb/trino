@@ -116,6 +116,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionAdaptiveJoinReorderingEnabled(true)
                 .setFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(DataSize.of(5, GIGABYTE))
                 .setFaultTolerantExecutionAdaptiveJoinReorderingSizeDifferenceRatio(1.5)
+                .setFaultTolerantExecutionAdaptiveBroadcastToPartitionedJoinEnabled(true)
                 .setMaxWriterTaskCount(100));
     }
 
@@ -198,6 +199,7 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-adaptive-join-reordering-enabled", "false")
                 .put("fault-tolerant-execution-adaptive-join-reordering-min-size-threshold", "1GB")
                 .put("fault-tolerant-execution-adaptive-join-reordering-size-difference-ratio", "2")
+                .put("fault-tolerant-execution-adaptive-broadcast-to-partitioned-join-enabled", "false")
                 .buildOrThrow();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -275,6 +277,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionAdaptiveJoinReorderingEnabled(false)
                 .setFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(DataSize.of(1, GIGABYTE))
                 .setFaultTolerantExecutionAdaptiveJoinReorderingSizeDifferenceRatio(2.0)
+                .setFaultTolerantExecutionAdaptiveBroadcastToPartitionedJoinEnabled(false)
                 .setMaxWriterTaskCount(101);
 
         assertFullMapping(properties, expected);
