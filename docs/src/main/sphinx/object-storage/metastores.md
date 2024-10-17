@@ -503,6 +503,11 @@ following properties:
 * - `iceberg.rest-catalog.nested-namespace-enabled`
   - Support querying objects under nested namespace.
     Defaults to `false`.
+* - `iceberg.rest-catalog.case-insensitive-name-matching`
+  - Match namespace, table, and view names case insensitively. Defaults to `false`.
+* - `iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl`
+  - [Duration](prop-type-duration) for which case-insensitive namespace, table, 
+    and view names are cached. Defaults to `1m`.
   :::
 
 The following example shows a minimal catalog configuration using an Iceberg
