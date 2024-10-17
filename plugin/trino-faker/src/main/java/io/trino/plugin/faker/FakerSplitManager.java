@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.faker;
 
+import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -21,12 +22,27 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
+import jakarta.inject.Inject;
 
 import java.util.List;
+import java.util.stream.Stream;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class FakerSplitManager
         implements ConnectorSplitManager
 {
+    private final int minSplits;
+    private final NodeManager nodeManager;
+
+    @Inject
+    public FakerSplitManager(FakerConfig config, NodeManager nodeManager)
+    {
+        this.minSplits = requireNonNull(config, "config is null").getMinSplits();
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+    }
+
     @Override
     public ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
@@ -35,6 +51,11 @@ public class FakerSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
-        return new FixedSplitSource(List.of(new FakerSplit()));
+        List<FakerSplit> splits = nodeManager.getRequiredWorkerNodes().stream()
+                .flatMap(_ -> Stream.generate(FakerSplit::new)
+                        .limit(minSplits))
+                .collect(toImmutableList());
+
+        return new FixedSplitSource(splits);
     }
 }

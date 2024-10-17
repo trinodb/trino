@@ -79,6 +79,7 @@ public class FakerMetadata
     private final List<SchemaInfo> schemas = new ArrayList<>();
     private final double nullProbability;
     private final long defaultLimit;
+    private final int minSplits;
 
     private final AtomicLong nextTableId = new AtomicLong();
     @GuardedBy("this")
@@ -92,6 +93,7 @@ public class FakerMetadata
         this.schemas.add(new SchemaInfo(SCHEMA_NAME));
         this.nullProbability = config.getNullProbability();
         this.defaultLimit = config.getDefaultLimit();
+        this.minSplits = config.getMinSplits();
     }
 
     @Override
@@ -141,6 +143,7 @@ public class FakerMetadata
         }
         long schemaLimit = (long) schema.getProperties().getOrDefault(SchemaInfo.DEFAULT_LIMIT_PROPERTY, defaultLimit);
         long tableLimit = (long) tables.get(id).getProperties().getOrDefault(TableInfo.DEFAULT_LIMIT_PROPERTY, schemaLimit);
+        tableLimit = (tableLimit + minSplits - 1) / minSplits;
         return new FakerTableHandle(id, tableName, TupleDomain.all(), tableLimit);
     }
 
