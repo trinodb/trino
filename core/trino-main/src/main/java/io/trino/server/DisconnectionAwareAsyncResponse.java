@@ -19,6 +19,7 @@ import jakarta.servlet.AsyncContext;
 import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.TimeoutHandler;
 import jakarta.ws.rs.core.Context;
@@ -44,17 +45,20 @@ public class DisconnectionAwareAsyncResponse
 
     private final AsyncContext asyncContext;
     private final AsyncResponse delegate;
+    private final HttpServletResponse response;
 
-    public DisconnectionAwareAsyncResponse(@Context HttpServletRequest request, AsyncResponse delegate)
+    public DisconnectionAwareAsyncResponse(@Context HttpServletRequest request, @Context HttpServletResponse response, AsyncResponse delegate)
     {
         requireNonNull(request, "request is null");
+        requireNonNull(response, "response is null");
         requireNonNull(delegate, "delegate is null");
         verify(request.isAsyncStarted(), "AsyncContext is not started, did you forget @Suspended?");
 
         this.delegate = delegate;
         this.asyncContext = request.getAsyncContext();
+        this.response = response;
 
-        request.getAsyncContext().addListener(new AsyncListener()
+        asyncContext.addListener(new AsyncListener()
         {
             @Override
             public void onComplete(AsyncEvent event) {}
@@ -85,9 +89,18 @@ public class DisconnectionAwareAsyncResponse
         }
     }
 
+    private boolean isCommitedOrTerminated()
+    {
+        return terminated.get() || response.isCommitted();
+    }
+
     @Override
     public boolean resume(Object response)
     {
+        if (isCommitedOrTerminated()) {
+            return false;
+        }
+
         try {
             return delegate.resume(response);
         }
@@ -102,6 +115,10 @@ public class DisconnectionAwareAsyncResponse
     @Override
     public boolean resume(Throwable response)
     {
+        if (isCommitedOrTerminated()) {
+            return false;
+        }
+
         try {
             return delegate.resume(response);
         }
@@ -116,6 +133,10 @@ public class DisconnectionAwareAsyncResponse
     @Override
     public boolean cancel()
     {
+        if (isCommitedOrTerminated()) {
+            return false;
+        }
+
         try {
             return delegate.cancel();
         }
@@ -130,6 +151,10 @@ public class DisconnectionAwareAsyncResponse
     @Override
     public boolean cancel(int retryAfter)
     {
+        if (isCommitedOrTerminated()) {
+            return false;
+        }
+
         try {
             return delegate.cancel(retryAfter);
         }
@@ -144,6 +169,10 @@ public class DisconnectionAwareAsyncResponse
     @Override
     public boolean cancel(Date retryAfter)
     {
+        if (isCommitedOrTerminated()) {
+            return false;
+        }
+
         try {
             return delegate.cancel(retryAfter);
         }
@@ -170,7 +199,7 @@ public class DisconnectionAwareAsyncResponse
     @Override
     public boolean isDone()
     {
-        if (wasTerminated()) {
+        if (isCommitedOrTerminated()) {
             return true;
         }
         return delegate.isDone();
@@ -210,11 +239,6 @@ public class DisconnectionAwareAsyncResponse
     public Map<Class<?>, Collection<Class<?>>> register(Object callback, Object... callbacks)
     {
         return delegate.register(callback, callbacks);
-    }
-
-    private boolean wasTerminated()
-    {
-        return terminated.get();
     }
 
     private static boolean wasRequestTerminated(Throwable throwable)
