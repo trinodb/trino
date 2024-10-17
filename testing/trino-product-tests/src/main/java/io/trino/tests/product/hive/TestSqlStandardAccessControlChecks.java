@@ -44,7 +44,7 @@ public class TestSqlStandardAccessControlChecks
     {
         aliceExecutor = connectToTrino("alice@trino");
         bobExecutor = connectToTrino("bob@trino");
-        charlieExecutor = connectToTrino("charlie@presto");
+        charlieExecutor = connectToTrino("charlie@trino");
         caseSensitiveUserNameExecutor = connectToTrino("CaseSensitiveUserName@presto");
         hdfsExecutor = connectToTrino("hdfs@presto");
 
