@@ -571,12 +571,27 @@ This is an alias for {func}`year_of_week`.
 :::
 
 :::{function} timezone(timestamp(p) with time zone) -> varchar 
-Returns the IANA timezone ID from `timestamp(p) with time zone`. 
+
+Returns the timezone identifier from `timestamp(p) with time zone`. The format
+of the returned identifier is identical to the [format used in the input
+timestamp](timestamp-p-with-time-zone-data-type):
+
+```sql
+SELECT timezone(TIMESTAMP '2024-01-01 12:00:00 Asia/Tokyo'); -- Asia/Tokyo
+SELECT timezone(TIMESTAMP '2024-01-01 12:00:00 +01:00'); -- +01:00
+SELECT timezone(TIMESTAMP '2024-02-29 12:00:00 UTC'); -- UTC
+```
 :::
 
 :::{function} timezone(time(p) with time zone) -> varchar
 :no-index:
-Returns the IANA timezone ID from `time(p) with time zone`. 
+Returns the timezone identifier from a `time(p) with time zone`. The format
+of the returned identifier is identical to the [format used in the input
+time](time-with-time-zone-data-type):
+
+```sql
+SELECT timezone(TIME '12:00:00+09:00'); -- +09:00
+```
 :::
 
 [datetimeformat]: http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html
