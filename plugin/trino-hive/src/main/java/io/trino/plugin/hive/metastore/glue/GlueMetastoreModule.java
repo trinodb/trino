@@ -130,6 +130,7 @@ public class GlueMetastoreModule
                         .setCaptureExperimentalSpanAttributes(true)
                         .setRecordIndividualHttpError(true)
                         .build().newExecutionInterceptor())
+                .addExecutionInterceptor(new GlueHiveExecutionInterceptor(config.isSkipArchive()))
                 .retryStrategy(retryBuilder -> retryBuilder
                         .retryOnException(throwable -> throwable instanceof ConcurrentModificationException)
                         .backoffStrategy(BackoffStrategy.exponentialDelay(
