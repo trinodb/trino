@@ -14,12 +14,10 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
 
 public class IcebergGlueCatalogConfig
 {
     private boolean cacheTableMetadata = true;
-    private boolean skipArchive = true;
 
     public boolean isCacheTableMetadata()
     {
@@ -30,19 +28,6 @@ public class IcebergGlueCatalogConfig
     public IcebergGlueCatalogConfig setCacheTableMetadata(boolean cacheTableMetadata)
     {
         this.cacheTableMetadata = cacheTableMetadata;
-        return this;
-    }
-
-    public boolean isSkipArchive()
-    {
-        return skipArchive;
-    }
-
-    @Config("iceberg.glue.skip-archive")
-    @ConfigDescription("Skip archiving an old table version when creating a new version in a commit")
-    public IcebergGlueCatalogConfig setSkipArchive(boolean skipArchive)
-    {
-        this.skipArchive = skipArchive;
         return this;
     }
 }
