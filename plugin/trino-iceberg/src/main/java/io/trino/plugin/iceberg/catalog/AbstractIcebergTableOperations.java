@@ -13,8 +13,11 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
+import io.airlift.log.Logger;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -29,11 +32,14 @@ import io.trino.spi.connector.SchemaTableName;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
+import org.apache.iceberg.io.SupportsBulkOperations;
 import org.apache.iceberg.types.Types.NestedField;
+import org.apache.iceberg.util.Tasks;
 
 import java.io.UncheckedIOException;
 import java.time.Duration;
@@ -42,6 +48,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -73,6 +80,7 @@ import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 public abstract class AbstractIcebergTableOperations
         implements IcebergTableOperations
 {
+    private static final Logger log = Logger.get(AbstractIcebergTableOperations.class);
     public static final StorageFormat ICEBERG_METASTORE_STORAGE_FORMAT = StorageFormat.create(
             LAZY_SIMPLE_SERDE_CLASS,
             FILE_INPUT_FORMAT_CLASS,
@@ -158,6 +166,7 @@ public abstract class AbstractIcebergTableOperations
 
         if (isMaterializedViewStorage(tableName)) {
             commitMaterializedViewRefresh(base, metadata);
+            deleteRemovedMetadataFiles(base, metadata);
             return;
         }
 
@@ -174,6 +183,7 @@ public abstract class AbstractIcebergTableOperations
         }
         else {
             commitToExistingTable(base, metadata);
+            deleteRemovedMetadataFiles(base, metadata);
         }
 
         shouldRefresh = true;
@@ -308,5 +318,42 @@ public abstract class AbstractIcebergTableOperations
                         Optional.empty(),
                         Map.of()))
                 .collect(toImmutableList());
+    }
+
+    private void deleteRemovedMetadataFiles(TableMetadata base, TableMetadata metadata)
+    {
+        if (base == null) {
+            return;
+        }
+
+        boolean deleteAfterCommit =
+                metadata.propertyAsBoolean(
+                        TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED,
+                        TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT);
+
+        if (deleteAfterCommit) {
+            Set<TableMetadata.MetadataLogEntry> removedPreviousMetadataFiles =
+                    Sets.newHashSet(base.previousFiles());
+            // TableMetadata#addPreviousFile builds up the metadata log and uses
+            // TableProperties.METADATA_PREVIOUS_VERSIONS_MAX to determine how many files should stay in
+            // the log, thus we don't include metadata.previousFiles() for deletion - everything else can
+            // be removed
+            removedPreviousMetadataFiles.removeAll(metadata.previousFiles());
+            if (io() instanceof SupportsBulkOperations) {
+                ((SupportsBulkOperations) io())
+                        .deleteFiles(
+                                Iterables.transform(
+                                        removedPreviousMetadataFiles, TableMetadata.MetadataLogEntry::file));
+            }
+            else {
+                Tasks.foreach(removedPreviousMetadataFiles)
+                        .noRetry()
+                        .suppressFailureWhenFinished()
+                        .onFailure(
+                                (file, e) ->
+                                        log.warn(e, "Delete failed for previous metadata file: %s", file))
+                        .run(previousMetadataFile -> io().deleteFile(previousMetadataFile.file()));
+            }
+        }
     }
 }
