@@ -414,6 +414,9 @@ properties:
 * - `hive.metastore.glue.partitions-segments`
   - Number of segments for partitioned Glue tables.
   - `5`
+* - `hive.metastore.glue.skip-archive`
+  - Skip archiving an old table version when creating a new version in a commit.
+  - `false`
 :::
 
 (iceberg-glue-catalog)=
