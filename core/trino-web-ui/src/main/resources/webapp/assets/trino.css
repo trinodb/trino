@@ -426,6 +426,7 @@ pre {
 .query-header-timestamp {
     text-align: right;
     color: #b1b1b1;
+    margin-left: -15px;
 }
 
 .query-progress-container {
