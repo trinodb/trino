@@ -169,7 +169,7 @@ implementation is used:
   - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
   - `false`
 * - `iceberg.add_files-procedure.enabled`
-  - Enable to allow user to call `add_files` procedure.
+  - Enable to allow user to call [`add_files` procedure](iceberg-add-files).
   - `false`
 * - `iceberg.query-partition-filter-required`
   - Set to `true` to force a query to use a partition filter for schemas
@@ -197,7 +197,28 @@ implementation is used:
   - Set to `false` to disable in-memory caching of metadata files on the 
     coordinator. This cache is not used when `fs.cache.enabled` is set to true.
   - `true`
-
+* - `iceberg.expire_snapshots.min-retention`
+  -  Minimal retention period for the
+     [`expire_snapshot` command](iceberg-expire-snapshots).
+     Equivalent session property is `expire_snapshots_min_retention`.
+  -  `7d` 
+* - `iceberg.remove_orphan_files.min-retention`
+  -  Minimal retention period for the 
+     [`remove_orphan_files` command](iceberg-remove-orphan-files).
+     Equivalent session property is `remove_orphan_files_min_retention`.
+  -  `7d`
+* - `iceberg.idle-writer-min-file-size`
+  -  Minimum data written by a single partition writer before it can
+     be considered as idle and can be closed by the engine. Equivalent
+     session property is `idle_writer_min_file_size`.
+  -  `16MB`
+* - `iceberg.sorted-writing-enabled`
+  -  Enable [sorted writing](iceberg-sorted-files) to tables with a specified sort order. Equivalent
+     session property is `sorted_writing_enabled`.
+  -  `true` 
+* - `iceberg.split-manager-threads`
+  -  Number of threads to use for generating splits.
+  -  Double the number of processors on the coordinator node.
 :::
 
 (iceberg-fte-support)=
@@ -707,6 +728,7 @@ EXECUTE <alter-table-execute>`.
 ```{include} optimize.fragment
 ```
 
+(iceberg-expire-snapshots)=
 ##### expire_snapshots
 
 The `expire_snapshots` command removes all snapshots and all related metadata
@@ -727,6 +749,7 @@ procedure fails with a similar message: `Retention specified (1.00d) is shorter
 than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
 
+(iceberg-remove-orphan-files)=
 ##### remove_orphan_files
 
 The `remove_orphan_files` command removes all files from a table's data
@@ -1409,6 +1432,7 @@ CREATE TABLE example.testdb.customer_orders (
 WITH (partitioning = ARRAY['month(order_date)', 'bucket(account_number, 10)', 'country'])
 ```
 
+(iceberg-sorted-files)=
 #### Sorted tables
 
 The connector supports sorted files as a performance improvement. Data is sorted
