@@ -260,3 +260,10 @@ subsequent requests to be consistent with the response headers received.
 Class `io.trino.client.ProtocolHeaders` in module `trino-client` in the
 `client` directory of Trino source enumerates all the HTTP request and
 response headers allowed by the Trino client REST API.
+
+
+(spooled-protocol)=
+## Spooled protocol
+
+https://www.linkedin.com/posts/mateuszgajewski_trino-trino-performance-activity-7244658731991392258-0udu?utm_source=share&utm_medium=member_desktop
+

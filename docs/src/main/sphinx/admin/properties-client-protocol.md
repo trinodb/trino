@@ -1,0 +1,99 @@
+# Client protocol properties
+
+bla bla intro with links to clients
+
+## v1 protocol
+
+blabla intro
+
+### `protocol.v1.alternate-header-name`
+
+**Type:** `string`
+
+The 351 release of Trino changes the HTTP client protocol headers to start with
+`X-Trino-`. Clients for versions 350 and lower expect the HTTP headers to
+start with `X-Presto-`, while newer clients expect `X-Trino-`. You can support these
+older clients by setting this property to `Presto`.
+
+The preferred approach to migrating from versions earlier than 351 is to update
+all clients together with the release, or immediately afterwards, and then
+remove usage of this property.
+
+Ensure to use this only as a temporary measure to assist in your migration
+efforts.
+
+### `protocol.v1.prepared-statement-compression.length-threshold`
+
+- **Type:** [](prop-type-integer)
+- **Default value:** `2048`
+
+Prepared statements that are submitted to Trino for processing, and are longer
+than the value of this property, are compressed for transport via the HTTP
+header to improve handling, and to avoid failures due to hitting HTTP header
+size limits.
+
+### `protocol.v1.prepared-statement-compression.min-gain`
+
+- **Type:** [](prop-type-integer)
+- **Default value:** `512`
+
+Prepared statement compression is not applied if the size gain is less than the
+configured value. Smaller statements do not benefit from compression, and are
+left uncompressed.
+
+## Spooling protocol
+
+intro and more - do we want a separate page in the admin section like we do for
+FTE instead or in addition? maybe a separate page since the file system details
+need to be configured
+
+### `protocol.spooling.worker-access`
+
+- **Type:** [](prop-type-boolean)
+- **Default value:** `false`
+
+Use worker nodes to retrieve data from spooling location
+
+
+### `protocol.spooling.direct-storage-access`
+
+- **Type:** [](prop-type-boolean)
+- **Default value:** `true`
+
+Retrieve segments directly from the spooling location
+
+### `protocol.spooling.direct-storage-fallback`
+
+- **Type:** [](prop-type-boolean)
+- **Default value:** `false`
+
+Fallback segment retrieval through the coordinator when direct storage access is
+not possible.
+
+### `protocol.spooling.initial-segment-size`
+
+- **Type:** [](prop-type-data-size)
+- **Default value:** 8MB
+
+Initial size of the spooled segments in bytes
+
+### `protocol.spooling.maximum-segment-size`
+
+- **Type:** [](prop-type-data-size)
+- **Default value:** 16MB
+
+tbd
+
+### `protocol.spooling.inline-segments`
+
+- **Type:** [](prop-type-boolean)
+- **Default value:** `false`
+
+Allow protocol to inline data
+
+### `protocol.spooling.shared-secret-key`
+
+- **Type:** 
+- **Default value:** 
+
+256 bit, base64-encoded secret key used to secure segment identifiers.

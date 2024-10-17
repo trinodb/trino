@@ -33,41 +33,6 @@ across nodes in the cluster. It can be disabled, when it is known that the
 output data set is not skewed, in order to avoid the overhead of hashing and
 redistributing all the data across the network.
 
-## `protocol.v1.alternate-header-name`
-
-**Type:** `string`
-
-The 351 release of Trino changes the HTTP client protocol headers to start with
-`X-Trino-`. Clients for versions 350 and lower expect the HTTP headers to
-start with `X-Presto-`, while newer clients expect `X-Trino-`. You can support these
-older clients by setting this property to `Presto`.
-
-The preferred approach to migrating from versions earlier than 351 is to update
-all clients together with the release, or immediately afterwards, and then
-remove usage of this property.
-
-Ensure to use this only as a temporary measure to assist in your migration
-efforts.
-
-## `protocol.v1.prepared-statement-compression.length-threshold`
-
-- **Type:** {ref}`prop-type-integer`
-- **Default value:** `2048`
-
-Prepared statements that are submitted to Trino for processing, and are longer
-than the value of this property, are compressed for transport via the HTTP
-header to improve handling, and to avoid failures due to hitting HTTP header
-size limits.
-
-## `protocol.v1.prepared-statement-compression.min-gain`
-
-- **Type:** {ref}`prop-type-integer`
-- **Default value:** `512`
-
-Prepared statement compression is not applied if the size gain is less than the
-configured value. Smaller statements do not benefit from compression, and are
-left uncompressed.
-
 (file-compression)=
 ## File compression and decompression
 
