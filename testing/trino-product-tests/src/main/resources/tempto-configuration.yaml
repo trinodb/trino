@@ -51,7 +51,7 @@ databases:
     jdbc_password: ""
     jdbc_pooling: false
 
-  alice@presto:
+  alice@trino:
     host: ${databases.trino.host}
     port: ${databases.trino.port}
     server_address: ${databases.trino.server_address}
