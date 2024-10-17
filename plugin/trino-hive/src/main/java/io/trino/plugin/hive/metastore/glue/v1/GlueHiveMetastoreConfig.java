@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -48,6 +49,7 @@ public class GlueHiveMetastoreConfig
     private int readStatisticsThreads = 5;
     private int writeStatisticsThreads = 20;
     private boolean assumeCanonicalPartitionKeys;
+    private boolean skipArchive;
 
     public Optional<String> getGlueRegion()
     {
@@ -314,6 +316,20 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
+    }
+
+    public boolean isSkipArchive()
+    {
+        return skipArchive;
+    }
+
+    @Config("hive.metastore.glue.skip-archive")
+    @LegacyConfig("iceberg.glue.skip-archive")
+    @ConfigDescription("Skip archiving an old table version when updating a table in the Glue metastore")
+    public GlueHiveMetastoreConfig setSkipArchive(boolean skipArchive)
+    {
+        this.skipArchive = skipArchive;
         return this;
     }
 

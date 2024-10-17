@@ -436,16 +436,11 @@ described with the following additional property:
 * - Property name
   - Description
   - Default
-* - `iceberg.glue.skip-archive`
-  - Skip archiving an old table version when creating a new version in a commit.
-    See [AWS Glue Skip
-    Archive](https://iceberg.apache.org/docs/latest/aws/#skip-archive).
-  - `true`
 * - `iceberg.glue.cache-table-metadata`
   - While updating the table in AWS Glue, store the table metadata with the
     purpose of accelerating `information_schema.columns` and
     `system.metadata.table_comments` queries.
-  - `true` 
+  - `true`
   :::
 
 ## Iceberg-specific metastores

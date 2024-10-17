@@ -46,6 +46,7 @@ public class TestGlueHiveMetastoreConfig
                 .setPartitionSegments(5)
                 .setGetPartitionThreads(20)
                 .setAssumeCanonicalPartitionKeys(false)
+                .setSkipArchive(false)
                 .setReadStatisticsThreads(5)
                 .setWriteStatisticsThreads(20));
     }
@@ -72,6 +73,7 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.partitions-segments", "10")
                 .put("hive.metastore.glue.get-partition-threads", "42")
                 .put("hive.metastore.glue.assume-canonical-partition-keys", "true")
+                .put("hive.metastore.glue.skip-archive", "true")
                 .put("hive.metastore.glue.read-statistics-threads", "42")
                 .put("hive.metastore.glue.write-statistics-threads", "43")
                 .buildOrThrow();
@@ -95,6 +97,7 @@ public class TestGlueHiveMetastoreConfig
                 .setPartitionSegments(10)
                 .setGetPartitionThreads(42)
                 .setAssumeCanonicalPartitionKeys(true)
+                .setSkipArchive(true)
                 .setReadStatisticsThreads(42)
                 .setWriteStatisticsThreads(43);
 

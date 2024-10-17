@@ -94,7 +94,18 @@ public class GlueMetastoreModule
     @ProvidesIntoSet
     @Singleton
     @ForGlueHiveMetastore
-    public RequestHandler2 createRequestHandler(OpenTelemetry openTelemetry)
+    public RequestHandler2 createSkipArchiveRequestHandler(GlueHiveMetastoreConfig config)
+    {
+        if (!config.isSkipArchive()) {
+            return new RequestHandler2() {};
+        }
+        return new SkipArchiveRequestHandler();
+    }
+
+    @ProvidesIntoSet
+    @Singleton
+    @ForGlueHiveMetastore
+    public RequestHandler2 createTelemetryRequestHandler(OpenTelemetry openTelemetry)
     {
         return AwsSdkTelemetry.builder(openTelemetry)
                 .setCaptureExperimentalSpanAttributes(true)
