@@ -570,22 +570,51 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Add the specified column
+     * @deprecated Use {@link #addColumn(ConnectorSession, ConnectorTableHandle, ColumnMetadata, ColumnPosition, Optional)}
      */
+    @Deprecated
     default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns");
     }
 
     /**
-     * Add the specified field, potentially nested, to a row.
+     * Add the specified column
      *
-     * @param parentPath path to a field within the column, without leaf field name.
+     * @param afterColumnName the new column must be added after this column. The value exists if and only if {@code position} is AFTER.
      */
-    @Experimental(eta = "2023-06-01") // TODO add support for rows inside arrays and maps and for anonymous row fields
+    default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position, Optional<String> afterColumnName)
+    {
+        switch (position) {
+            case FIRST -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            case AFTER -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+            case LAST -> addColumn(session, tableHandle, column);
+        }
+    }
+
+    /**
+     * @deprecated Use {@link #addField(ConnectorSession, ConnectorTableHandle, List, String, Type, ColumnPosition, Optional, boolean)}
+     */
+    @Deprecated
     default void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding fields");
+    }
+
+    /**
+     * Add the specified field, potentially nested, to a row.
+     *
+     * @param parentPath path to a field within the column, without leaf field name.
+     * @param afterFieldName the new field must be added after this field. The value exists if and only if {@code position} is AFTER.
+     */
+    @Experimental(eta = "2024-12-01") // TODO add support for rows inside arrays and maps and for anonymous row fields
+    default void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, ColumnPosition position, Optional<String> afterFieldName, boolean ignoreExisting)
+    {
+        switch (position) {
+            case FIRST -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding fields with FIRST clause");
+            case AFTER -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding fields with AFTER clause");
+            case LAST -> addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+        }
     }
 
     /**
