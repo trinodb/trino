@@ -77,14 +77,12 @@ public final class TestingPlannerContext
         public Builder withMetadata(Metadata metadata)
         {
             checkState(this.metadata == null, "metadata already set");
-            checkState(this.transactionManager == null, "transactionManager already set");
             this.metadata = requireNonNull(metadata, "metadata is null");
             return this;
         }
 
         public Builder withTransactionManager(TransactionManager transactionManager)
         {
-            checkState(this.metadata == null, "metadata already set");
             checkState(this.transactionManager == null, "transactionManager already set");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
             return this;
