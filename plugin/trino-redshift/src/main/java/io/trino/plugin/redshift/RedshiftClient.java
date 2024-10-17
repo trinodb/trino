@@ -136,7 +136,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_INVALID_TYPE;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -243,6 +242,8 @@ public class RedshiftClient
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
         connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .withTypeClass("varchar_type", ImmutableSet.of("char", "varchar"))
+                .map("$equal(left: varchar_type, right: varchar_type)").to("COLLATE(left, 'case_sensitive') = COLLATE(right, 'case_sensitive')")
                 .addStandardRules(this::quoted)
                 .add(new RewriteComparison(ImmutableSet.of(ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL)))
                 .map("$less_than(left, right)").to("left < right")
@@ -666,10 +667,7 @@ public class RedshiftClient
                         RedshiftClient::writeChar));
 
             case Types.VARCHAR: {
-                if (type.columnSize().isEmpty()) {
-                    throw new TrinoException(REDSHIFT_INVALID_TYPE, "column size not present");
-                }
-                int length = type.requiredColumnSize();
+                int length = type.columnSize().orElse(REDSHIFT_MAX_VARCHAR);
                 return Optional.of(varcharColumnMapping(
                         length < VarcharType.MAX_LENGTH
                                 ? createVarcharType(length)
