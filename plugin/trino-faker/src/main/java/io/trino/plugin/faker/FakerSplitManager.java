@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.faker;
 
+import io.trino.spi.HostAddress;
+import io.trino.spi.Node;
+import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -20,13 +23,28 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.connector.FixedSplitSource;
+import jakarta.inject.Inject;
 
 import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class FakerSplitManager
         implements ConnectorSplitManager
 {
+    private final int minSplitsPerNode;
+    private final List<HostAddress> addresses;
+
+    @Inject
+    public FakerSplitManager(FakerConfig config, NodeManager nodeManager)
+    {
+        this.minSplitsPerNode = requireNonNull(config, "config is null").getMinSplitsPerNode();
+        this.addresses = requireNonNull(nodeManager, "nodeManager is null").getRequiredWorkerNodes().stream()
+                .map(Node::getHostAndPort)
+                .collect(toImmutableList());
+    }
+
     @Override
     public ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
@@ -35,6 +53,7 @@ public class FakerSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
-        return new FixedSplitSource(List.of(new FakerSplit()));
+        FakerTableHandle fakerTable = (FakerTableHandle) table;
+        return new FakerSplitSource(addresses, minSplitsPerNode, fakerTable.limit());
     }
 }

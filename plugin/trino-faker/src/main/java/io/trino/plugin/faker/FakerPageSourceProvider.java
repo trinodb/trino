@@ -43,7 +43,8 @@ public class FakerPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction,
+    public ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
@@ -56,8 +57,8 @@ public class FakerPageSourceProvider
                 .collect(toImmutableList());
 
         FakerTableHandle fakerTable = (FakerTableHandle) table;
-
-        return new FakerPageSource(faker, random, handles, fakerTable);
+        FakerSplit fakerSplit = (FakerSplit) split;
+        return new FakerPageSource(faker, random, handles, fakerTable.constraint(), fakerSplit.limit());
     }
 
     public void validateGenerator(String generator)
