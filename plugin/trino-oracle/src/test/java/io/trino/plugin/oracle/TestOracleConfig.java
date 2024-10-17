@@ -41,9 +41,11 @@ public class TestOracleConfig
                 .setNumberRoundingMode(RoundingMode.UNNECESSARY)
                 .setConnectionPoolEnabled(true)
                 .setConnectionPoolMinSize(1)
-                .setConnectionPoolMaxSize(30)
+                .setConnectionPoolMaxSize(50)
                 .setInactiveConnectionTimeout(new Duration(20, MINUTES))
-                .setFetchSize(null));
+                .setFetchSize(null)
+                .setExperimentalSplit(true)
+                .setSplitRule(""));
     }
 
     @Test
@@ -59,6 +61,8 @@ public class TestOracleConfig
                 .put("oracle.connection-pool.max-size", "20")
                 .put("oracle.connection-pool.inactive-timeout", "30s")
                 .put("oracle.fetch-size", "2000")
+                .put("oracle.experimental.split", "false")
+                .put("oracle.split_rule", "ROWID:*(100)")
                 .buildOrThrow();
 
         OracleConfig expected = new OracleConfig()
@@ -70,7 +74,9 @@ public class TestOracleConfig
                 .setConnectionPoolMinSize(10)
                 .setConnectionPoolMaxSize(20)
                 .setInactiveConnectionTimeout(new Duration(30, SECONDS))
-                .setFetchSize(2000);
+                .setFetchSize(2000)
+                .setSplitRule("ROWID:*(100)")
+                .setExperimentalSplit(false);
 
         assertFullMapping(properties, expected);
     }
