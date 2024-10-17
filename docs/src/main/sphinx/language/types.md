@@ -210,6 +210,7 @@ for the fraction of seconds. A precision of up to 12 (picoseconds) is supported.
 
 Example: `TIME '01:02:03.456'`
 
+(time-with-time-zone-data-type)=
 ### `TIME WITH TIME ZONE`
 
 Time of day (hour, minute, second, millisecond) with a time zone.
