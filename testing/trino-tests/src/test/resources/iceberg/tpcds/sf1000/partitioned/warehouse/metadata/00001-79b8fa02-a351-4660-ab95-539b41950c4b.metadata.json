@@ -168,21 +168,7 @@
     "fields" : [ ]
   } ],
   "properties" : {
-    "trino.stats.ndv.7.ndv" : "13",
-    "trino.stats.ndv.2.ndv" : "20",
-    "trino.stats.ndv.4.ndv" : "19",
-    "trino.stats.ndv.5.ndv" : "18",
-    "trino.stats.ndv.9.ndv" : "12",
-    "trino.stats.ndv.14.ndv" : "3",
-    "trino.stats.ndv.12.ndv" : "18",
-    "trino.stats.ndv.10.ndv" : "14",
-    "trino.stats.ndv.8.ndv" : "17",
-    "trino.stats.ndv.1.ndv" : "20",
-    "trino.stats.ndv.3.ndv" : "19",
-    "trino.stats.ndv.6.ndv" : "19",
-    "write.format.default" : "PARQUET",
-    "trino.stats.ndv.13.ndv" : "1",
-    "trino.stats.ndv.11.ndv" : "13"
+    "write.format.default" : "PARQUET"
   },
   "current-snapshot-id" : 6500222206325327167,
   "refs" : {
@@ -209,6 +195,125 @@
     },
     "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/warehouse/metadata/snap-6500222206325327167-1-daea3a99-100e-421d-bd48-d963bf217bbb.avro",
     "schema-id" : 0
+  } ],
+  "statistics" : [ {
+    "snapshot-id" : 6500222206325327167,
+    "statistics-path" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/warehouse/metadata/20240320_235034_02778_t6z6k-7e35ed2f-2f1e-489a-a140-a3886b12f328.stats",
+    "file-size-in-bytes" : 4762,
+    "file-footer-size-in-bytes" : 2712,
+    "blob-metadata" : [ {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 1 ],
+      "properties" : {
+        "ndv" : "20"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 2 ],
+      "properties" : {
+        "ndv" : "20"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 3 ],
+      "properties" : {
+        "ndv" : "19"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 4 ],
+      "properties" : {
+        "ndv" : "19"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 5 ],
+      "properties" : {
+        "ndv" : "18"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 6 ],
+      "properties" : {
+        "ndv" : "19"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 7 ],
+      "properties" : {
+        "ndv" : "13"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 8 ],
+      "properties" : {
+        "ndv" : "17"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 9 ],
+      "properties" : {
+        "ndv" : "12"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 10 ],
+      "properties" : {
+        "ndv" : "14"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 11 ],
+      "properties" : {
+        "ndv" : "13"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 12 ],
+      "properties" : {
+        "ndv" : "18"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 13 ],
+      "properties" : {
+        "ndv" : "1"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6500222206325327167,
+      "sequence-number" : 2,
+      "fields" : [ 14 ],
+      "properties" : {
+        "ndv" : "3"
+      }
+    } ]
   } ],
   "snapshot-log" : [ {
     "timestamp-ms" : 1648081270989,
