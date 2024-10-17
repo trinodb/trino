@@ -43,7 +43,7 @@ databases:
     jdbc_password: ${databases.trino.jdbc_password}
     jdbc_pooling: ${databases.trino.${databases.trino.jdbc_user}}
 
-  presto_tpcds:
+  trino_tpcds:
     host: localhost
     jdbc_driver_class: ${databases.trino.jdbc_driver_class}
     jdbc_url: jdbc:trino://${databases.trino.host}:${databases.trino.port}/hive/tpcds
