@@ -19,9 +19,11 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -109,7 +111,7 @@ class FakerPageSource
 
     private final Random random;
     private final Faker faker;
-    private final FakerTableHandle table;
+    private final long limit;
     private final List<Generator> generators;
     private long completedRows;
 
@@ -117,20 +119,22 @@ class FakerPageSource
 
     private boolean closed;
 
-    FakerPageSource(Faker faker, Random random, List<FakerColumnHandle> columns, FakerTableHandle table)
+    FakerPageSource(Faker faker, Random random, List<FakerColumnHandle> columns, TupleDomain<ColumnHandle> constraint, long limit)
     {
         this.faker = requireNonNull(faker, "faker is null");
         this.random = requireNonNull(random, "random is null");
-        this.table = requireNonNull(table, "table is null");
         List<Type> types = requireNonNull(columns, "columns is null")
                 .stream()
                 .map(FakerColumnHandle::type)
                 .collect(toImmutableList());
+        requireNonNull(constraint, "constraint is null");
+        this.limit = limit;
+
         this.generators = columns
                 .stream()
                 .map(column -> constraintedValueGenerator(
                         column,
-                        table.constraint().getDomains().get().getOrDefault(column, Domain.all(column.type()))))
+                        constraint.getDomains().get().getOrDefault(column, Domain.all(column.type()))))
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(types);
     }
@@ -157,7 +161,7 @@ class FakerPageSource
     public Page getNextPage()
     {
         if (!closed) {
-            int positions = (int) Math.min(table.limit() - completedRows, ROWS_PER_PAGE);
+            int positions = (int) Math.min(limit - completedRows, ROWS_PER_PAGE);
             if (positions <= 0) {
                 closed = true;
             }
