@@ -797,6 +797,6 @@ public class TestRoles
 
     private static QueryExecutor onPrestoBob()
     {
-        return connectToTrino("bob@presto");
+        return connectToTrino("bob@trino");
     }
 }
