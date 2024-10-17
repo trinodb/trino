@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
+import io.trino.plugin.iceberg.procedure.MigrationUtils.DuplicateFile;
 import io.trino.plugin.iceberg.procedure.MigrationUtils.RecursiveDirectory;
 import jakarta.annotation.Nullable;
 
@@ -23,12 +24,14 @@ import static java.util.Objects.requireNonNull;
 public record IcebergAddFilesFromTableHandle(
         io.trino.metastore.Table table,
         @Nullable Map<String, String> partitionFilter,
-        RecursiveDirectory recursiveDirectory)
+        RecursiveDirectory recursiveDirectory,
+        DuplicateFile duplicateFile)
         implements IcebergProcedureHandle
 {
     public IcebergAddFilesFromTableHandle
     {
         requireNonNull(table, "table is null");
         requireNonNull(recursiveDirectory, "recursiveDirectory is null");
+        requireNonNull(duplicateFile, "duplicateFile is null");
     }
 }
