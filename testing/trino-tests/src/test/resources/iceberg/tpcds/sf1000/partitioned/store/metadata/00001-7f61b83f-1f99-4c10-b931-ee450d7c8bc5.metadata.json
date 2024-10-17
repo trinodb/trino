@@ -318,36 +318,7 @@
     "fields" : [ ]
   } ],
   "properties" : {
-    "trino.stats.ndv.22.ndv" : "75",
-    "trino.stats.ndv.2.ndv" : "511",
-    "trino.stats.ndv.7.ndv" : "101",
-    "trino.stats.ndv.27.ndv" : "1",
-    "trino.stats.ndv.19.ndv" : "530",
-    "trino.stats.ndv.18.ndv" : "1",
-    "trino.stats.ndv.14.ndv" : "709",
-    "trino.stats.ndv.23.ndv" : "54",
-    "trino.stats.ndv.21.ndv" : "20",
-    "trino.stats.ndv.8.ndv" : "733",
-    "trino.stats.ndv.3.ndv" : "4",
-    "write.format.default" : "PARQUET",
-    "trino.stats.ndv.17.ndv" : "1",
-    "trino.stats.ndv.13.ndv" : "756",
-    "trino.stats.ndv.26.ndv" : "362",
-    "trino.stats.ndv.16.ndv" : "1",
-    "trino.stats.ndv.4.ndv" : "3",
-    "trino.stats.ndv.5.ndv" : "162",
-    "trino.stats.ndv.29.ndv" : "12",
-    "trino.stats.ndv.9.ndv" : "3",
-    "trino.stats.ndv.12.ndv" : "1",
-    "trino.stats.ndv.25.ndv" : "21",
-    "trino.stats.ndv.10.ndv" : "747",
-    "trino.stats.ndv.28.ndv" : "4",
-    "trino.stats.ndv.1.ndv" : "1008",
-    "trino.stats.ndv.15.ndv" : "1",
-    "trino.stats.ndv.6.ndv" : "10",
-    "trino.stats.ndv.20.ndv" : "543",
-    "trino.stats.ndv.24.ndv" : "27",
-    "trino.stats.ndv.11.ndv" : "10"
+    "write.format.default" : "PARQUET"
   },
   "current-snapshot-id" : 5538226458318650132,
   "refs" : {
@@ -378,6 +349,245 @@
   "snapshot-log" : [ {
     "timestamp-ms" : 1648081262291,
     "snapshot-id" : 5538226458318650132
+  } ],
+  "statistics" : [ {
+    "snapshot-id" : 5538226458318650132,
+    "statistics-path" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/store/metadata/20240320_234919_01729_8axqf-b0b692fd-cdbf-4c0a-a0c4-51ecc8df05c8.stats",
+    "file-size-in-bytes" : 57756,
+    "file-footer-size-in-bytes" : 5570,
+    "blob-metadata" : [ {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 1 ],
+      "properties" : {
+        "ndv" : "1002"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 2 ],
+      "properties" : {
+        "ndv" : "501"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 3 ],
+      "properties" : {
+        "ndv" : "4"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 4 ],
+      "properties" : {
+        "ndv" : "3"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 5 ],
+      "properties" : {
+        "ndv" : "162"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 6 ],
+      "properties" : {
+        "ndv" : "10"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 7 ],
+      "properties" : {
+        "ndv" : "101"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 8 ],
+      "properties" : {
+        "ndv" : "754"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 9 ],
+      "properties" : {
+        "ndv" : "3"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 10 ],
+      "properties" : {
+        "ndv" : "742"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 11 ],
+      "properties" : {
+        "ndv" : "10"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 12 ],
+      "properties" : {
+        "ndv" : "1"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 13 ],
+      "properties" : {
+        "ndv" : "764"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 14 ],
+      "properties" : {
+        "ndv" : "728"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 15 ],
+      "properties" : {
+        "ndv" : "1"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 16 ],
+      "properties" : {
+        "ndv" : "1"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 17 ],
+      "properties" : {
+        "ndv" : "1"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 18 ],
+      "properties" : {
+        "ndv" : "1"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 19 ],
+      "properties" : {
+        "ndv" : "519"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 20 ],
+      "properties" : {
+        "ndv" : "547"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 21 ],
+      "properties" : {
+        "ndv" : "20"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 22 ],
+      "properties" : {
+        "ndv" : "75"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 23 ],
+      "properties" : {
+        "ndv" : "54"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 24 ],
+      "properties" : {
+        "ndv" : "27"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 25 ],
+      "properties" : {
+        "ndv" : "21"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 26 ],
+      "properties" : {
+        "ndv" : "353"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 27 ],
+      "properties" : {
+        "ndv" : "1"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 28 ],
+      "properties" : {
+        "ndv" : "4"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5538226458318650132,
+      "sequence-number" : 2,
+      "fields" : [ 29 ],
+      "properties" : {
+        "ndv" : "12"
+      }
+    } ]
   } ],
   "metadata-log" : [ {
     "timestamp-ms" : 1648081262291,

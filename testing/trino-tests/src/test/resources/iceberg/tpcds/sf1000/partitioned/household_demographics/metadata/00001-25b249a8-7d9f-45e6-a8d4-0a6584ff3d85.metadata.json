@@ -78,12 +78,7 @@
     "fields" : [ ]
   } ],
   "properties" : {
-    "trino.stats.ndv.2.ndv" : "20",
-    "trino.stats.ndv.1.ndv" : "7082",
-    "trino.stats.ndv.3.ndv" : "6",
-    "write.format.default" : "PARQUET",
-    "trino.stats.ndv.4.ndv" : "10",
-    "trino.stats.ndv.5.ndv" : "6"
+    "write.format.default" : "PARQUET"
   },
   "current-snapshot-id" : 6765154030047008235,
   "refs" : {
@@ -110,6 +105,53 @@
     },
     "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/household_demographics/metadata/snap-6765154030047008235-1-4f730f87-2407-41d0-9fd5-85e7668336e3.avro",
     "schema-id" : 0
+  } ],
+  "statistics" : [ {
+    "snapshot-id" : 6765154030047008235,
+    "statistics-path" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/household_demographics/metadata/20240320_234859_02765_t6z6k-fa26df05-138e-4edb-9806-743e1bdf9bfb.stats",
+    "file-size-in-bytes" : 34299,
+    "file-footer-size-in-bytes" : 1037,
+    "blob-metadata" : [ {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6765154030047008235,
+      "sequence-number" : 2,
+      "fields" : [ 1 ],
+      "properties" : {
+        "ndv" : "7160"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6765154030047008235,
+      "sequence-number" : 2,
+      "fields" : [ 2 ],
+      "properties" : {
+        "ndv" : "20"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6765154030047008235,
+      "sequence-number" : 2,
+      "fields" : [ 3 ],
+      "properties" : {
+        "ndv" : "6"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6765154030047008235,
+      "sequence-number" : 2,
+      "fields" : [ 4 ],
+      "properties" : {
+        "ndv" : "10"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6765154030047008235,
+      "sequence-number" : 2,
+      "fields" : [ 5 ],
+      "properties" : {
+        "ndv" : "6"
+      }
+    } ]
   } ],
   "snapshot-log" : [ {
     "timestamp-ms" : 1648081244264,
