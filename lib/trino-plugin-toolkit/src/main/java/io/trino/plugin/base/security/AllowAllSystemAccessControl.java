@@ -81,9 +81,6 @@ public class AllowAllSystemAccessControl
     public void checkCanWriteSystemInformation(Identity identity) {}
 
     @Override
-    public void checkCanExecuteQuery(Identity identity) {}
-
-    @Override
     public void checkCanExecuteQuery(Identity identity, QueryId queryId) {}
 
     @Override
@@ -97,9 +94,6 @@ public class AllowAllSystemAccessControl
     {
         return queryOwners;
     }
-
-    @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName) {}
 
     @Override
     public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName) {}

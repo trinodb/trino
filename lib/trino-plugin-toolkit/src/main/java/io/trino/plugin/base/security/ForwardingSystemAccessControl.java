@@ -84,12 +84,6 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteQuery(Identity identity)
-    {
-        delegate().checkCanExecuteQuery(identity);
-    }
-
-    @Override
     public void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
         delegate().checkCanExecuteQuery(identity, queryId);
@@ -111,12 +105,6 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner)
     {
         delegate().checkCanKillQueryOwnedBy(identity, queryOwner);
-    }
-
-    @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
-    {
-        delegate().checkCanSetSystemSessionProperty(identity, propertyName);
     }
 
     @Override
