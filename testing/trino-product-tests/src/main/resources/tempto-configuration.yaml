@@ -35,7 +35,7 @@ databases:
     jdbc_password: ""
     jdbc_pooling: false
 
-  presto_no_default_catalog:
+  trino_no_default_catalog:
     host: ${databases.trino.host}
     jdbc_driver_class: ${databases.trino.jdbc_driver_class}
     jdbc_url: jdbc:trino://${databases.trino.host}:${databases.trino.port}

@@ -470,7 +470,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW IF EXISTS no_catalog_schema_view");
         onHive().executeQuery("CREATE VIEW no_catalog_schema_view AS SELECT * FROM nation WHERE n_nationkey = 1");
 
-        QueryExecutor executor = connectToTrino("presto_no_default_catalog");
+        QueryExecutor executor = connectToTrino("trino_no_default_catalog");
         assertQueryFailure(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
                 .hasMessageMatching(".*Schema must be specified when session schema is not set.*");
         assertThat(executor.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view"))
