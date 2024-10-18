@@ -89,3 +89,6 @@ is collected </admin/properties-query-management>` for display in the Web UI:
 
 - `query.min-expire-age`
 - `query.max-history`
+
+To store more query events, you must use [an event
+listener](admin-event-listeners).
