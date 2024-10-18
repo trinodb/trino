@@ -100,18 +100,7 @@ public final class Page
     {
         long sizeInBytes = this.sizeInBytes;
         if (sizeInBytes < 0) {
-            // load all blocks
-            getLoadedPage();
-
-            sizeInBytes = 0;
-            for (Block block : blocks) {
-                long blockSizeInBytes = block.getSizeInBytes();
-                if (blockSizeInBytes < 0) {
-                    throw new IllegalStateException(format("Block sizeInBytes is negative (%s)", blockSizeInBytes));
-                }
-                sizeInBytes += blockSizeInBytes;
-            }
-            this.sizeInBytes = sizeInBytes;
+            return updateSizeInBytes();
         }
         return sizeInBytes;
     }
@@ -197,7 +186,7 @@ public final class Page
             }
         }
 
-        updateCachedSizeCalculation();
+        updateCachedSizeCalculations();
     }
 
     private Map<DictionaryId, DictionaryBlockIndexes> getRelatedDictionaryBlocks()
@@ -236,7 +225,7 @@ public final class Page
             }
         }
         if (updateSize) {
-            updateCachedSizeCalculation();
+            updateCachedSizeCalculations();
         }
         return this;
     }
@@ -250,7 +239,7 @@ public final class Page
             else if (!blocks[column].isLoaded()) {
                 blocks[column].getLoadedBlock();
             }
-            updateCachedSizeCalculation();
+            updateCachedSizeCalculations();
         }
         return wrapBlocksWithoutCopy(positionCount, new Block[] {this.blocks[column].getLoadedBlock()});
     }
@@ -278,7 +267,7 @@ public final class Page
         }
 
         if (updateSize) {
-            updateCachedSizeCalculation();
+            updateCachedSizeCalculations();
         }
         return wrapBlocksWithoutCopy(positionCount, selectedBlocks);
     }
@@ -300,7 +289,7 @@ public final class Page
             }
         }
         if (updateSize) {
-            updateCachedSizeCalculation();
+            updateCachedSizeCalculations();
         }
         Block[] blocks = new Block[columns.length];
         for (int i = 0; i < columns.length; i++) {
@@ -382,11 +371,28 @@ public final class Page
         return wrapBlocksWithoutCopy(positionCount, result);
     }
 
-    private void updateCachedSizeCalculation()
+    private void updateCachedSizeCalculations()
     {
+        if (sizeInBytes >= 0) {
+            updateSizeInBytes();
+        }
         if (retainedSizeInBytes >= 0) {
             updateRetainedSize();
         }
+    }
+
+    private long updateSizeInBytes()
+    {
+        long sizeInBytes = 0;
+        for (Block block : blocks) {
+            long blockSizeInBytes = block.getSizeInBytes();
+            if (blockSizeInBytes < 0) {
+                throw new IllegalStateException(format("Block sizeInBytes is negative (%s)", blockSizeInBytes));
+            }
+            sizeInBytes += blockSizeInBytes;
+        }
+        this.sizeInBytes = sizeInBytes;
+        return sizeInBytes;
     }
 
     private long updateRetainedSize()
