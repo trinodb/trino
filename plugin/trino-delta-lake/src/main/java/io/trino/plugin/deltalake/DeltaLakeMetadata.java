@@ -2852,12 +2852,6 @@ public class DeltaLakeMetadata
         }
         checkUnsupportedUniversalFormat(handle.getMetadataEntry());
         checkUnsupportedWriterFeatures(handle.getProtocolEntry());
-
-        boolean changeDataFeedEnabled = changeDataFeedEnabled(handle.getMetadataEntry(), handle.getProtocolEntry()).orElse(false);
-        boolean deletionVectorEnabled = isDeletionVectorEnabled(handle.getMetadataEntry(), handle.getProtocolEntry());
-        if (changeDataFeedEnabled && deletionVectorEnabled) {
-            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with both change data feed and deletion vectors enabled is not supported");
-        }
     }
 
     public static void checkUnsupportedUniversalFormat(MetadataEntry metadataEntry)

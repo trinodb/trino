@@ -431,6 +431,35 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testChangeDataFeedWithDeletionVectors()
+    {
+        String tableName = "test_change_data_feed_with_deletion_vectors_" + randomNameSuffix();
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                "(col1 STRING, updated_column INT)" +
+                "USING delta " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
+                "TBLPROPERTIES ('delta.enableChangeDataFeed' = true, 'delta.enableDeletionVectors' = true)");
+        onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES ('testValue1', 1), ('testValue2', 2), ('testValue3', 3)");
+        onTrino().executeQuery("UPDATE delta.default." + tableName + "  SET updated_column = 30 WHERE col1 = 'testValue3'");
+
+        assertThat(onDelta().executeQuery("SELECT col1, updated_column, _change_type FROM table_changes('default." + tableName + "', 0)"))
+                .containsOnly(
+                        row("testValue1", 1, "insert"),
+                        row("testValue2", 2, "insert"),
+                        row("testValue3", 3, "insert"),
+                        row("testValue3", 3, "update_preimage"),
+                        row("testValue3", 30, "update_postimage"));
+        assertThat(onTrino().executeQuery("SELECT col1, updated_column, _change_type FROM TABLE(delta.system.table_changes('default', '" + tableName + "', 0))"))
+                .containsOnly(
+                        row("testValue1", 1, "insert"),
+                        row("testValue2", 2, "insert"),
+                        row("testValue3", 3, "insert"),
+                        row("testValue3", 3, "update_preimage"),
+                        row("testValue3", 30, "update_postimage"));
+    }
+
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS},
             dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
     public void testDeletionVectorsAcrossAddFile(boolean partitioned)
