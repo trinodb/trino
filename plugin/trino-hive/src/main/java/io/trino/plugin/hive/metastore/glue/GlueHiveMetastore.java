@@ -451,7 +451,7 @@ public class GlueHiveMetastore
     private static Optional<Table> convertFromGlueIgnoringErrors(software.amazon.awssdk.services.glue.model.Table glueTable, String databaseName)
     {
         try {
-            return Optional.of(GlueConverter.fromGlueTable(glueTable, databaseName));
+            return Optional.of(GlueConverter.fromGlueTable(glueTable, databaseName, true));
         }
         catch (RuntimeException e) {
             handleListingError(e, schemaTableName(glueTable.databaseName(), glueTable.name()));
@@ -492,7 +492,7 @@ public class GlueHiveMetastore
                     .applyMutation(glueContext::configureClient)
                     .databaseName(databaseName)
                     .name(tableName)));
-            return Optional.of(GlueConverter.fromGlueTable(result.table(), databaseName));
+            return Optional.of(GlueConverter.fromGlueTable(result.table(), databaseName, true));
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();
