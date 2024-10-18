@@ -16,7 +16,6 @@ package io.trino.plugin.postgresql;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -33,6 +32,6 @@ public class TestPostgreSqlPlugin
                 ImmutableMap.of(
                         "connection-url", "jdbc:postgresql:test",
                         "bootstrap.quiet", "true"),
-                new TestingConnectorContext()).shutdown();
+                new TestingPostgreSqlConnectorContext()).shutdown();
     }
 }
