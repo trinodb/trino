@@ -49,6 +49,7 @@ public class IcebergTableHandle
     private final int formatVersion;
     private final String tableLocation;
     private final Map<String, String> storageProperties;
+    private final Optional<String> branch;
 
     // Filter used during split generation and table scan, but not required to be strictly enforced by Iceberg Connector
     private final TupleDomain<IcebergColumnHandle> unenforcedPredicate;
@@ -89,7 +90,8 @@ public class IcebergTableHandle
             @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns,
             @JsonProperty("nameMappingJson") Optional<String> nameMappingJson,
             @JsonProperty("tableLocation") String tableLocation,
-            @JsonProperty("storageProperties") Map<String, String> storageProperties)
+            @JsonProperty("storageProperties") Map<String, String> storageProperties,
+            @JsonProperty("branch") Optional<String> branch)
     {
         return new IcebergTableHandle(
                 catalog,
@@ -107,6 +109,7 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
+                branch,
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
@@ -129,6 +132,7 @@ public class IcebergTableHandle
             Optional<String> nameMappingJson,
             String tableLocation,
             Map<String, String> storageProperties,
+            Optional<String> branch,
             boolean recordScannedFiles,
             Optional<DataSize> maxScannedFileSize,
             Set<IcebergColumnHandle> constraintColumns,
@@ -149,6 +153,7 @@ public class IcebergTableHandle
         this.nameMappingJson = requireNonNull(nameMappingJson, "nameMappingJson is null");
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
         this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
+        this.branch = requireNonNull(branch, "branch is null");
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
@@ -246,6 +251,12 @@ public class IcebergTableHandle
         return storageProperties;
     }
 
+    @JsonProperty
+    public Optional<String> getBranch()
+    {
+        return branch;
+    }
+
     @JsonIgnore
     public boolean isRecordScannedFiles()
     {
@@ -298,6 +309,7 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
+                branch,
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
@@ -322,6 +334,7 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
+                branch,
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
@@ -346,6 +359,7 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
+                branch,
                 recordScannedFiles,
                 Optional.of(maxScannedFileSize),
                 constraintColumns,
@@ -379,6 +393,7 @@ public class IcebergTableHandle
                 Objects.equals(nameMappingJson, that.nameMappingJson) &&
                 Objects.equals(tableLocation, that.tableLocation) &&
                 Objects.equals(storageProperties, that.storageProperties) &&
+                Objects.equals(branch, that.branch) &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
                 Objects.equals(constraintColumns, that.constraintColumns) &&
                 Objects.equals(forAnalyze, that.forAnalyze);
@@ -403,6 +418,7 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
+                branch,
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,

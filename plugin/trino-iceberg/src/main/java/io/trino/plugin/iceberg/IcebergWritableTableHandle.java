@@ -22,6 +22,7 @@ import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -37,7 +38,8 @@ public record IcebergWritableTableHandle(
         IcebergFileFormat fileFormat,
         Map<String, String> storageProperties,
         RetryMode retryMode,
-        Map<String, String> fileIoProperties)
+        Map<String, String> fileIoProperties,
+        Optional<String> branch)
         implements ConnectorInsertTableHandle, ConnectorOutputTableHandle
 {
     public IcebergWritableTableHandle
@@ -53,6 +55,7 @@ public record IcebergWritableTableHandle(
         requireNonNull(retryMode, "retryMode is null");
         checkArgument(partitionsSpecsAsJson.containsKey(partitionSpecId), "partitionSpecId missing from partitionSpecs");
         fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
+        requireNonNull(branch, "branch is null");
     }
 
     @Override
