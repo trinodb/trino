@@ -27,6 +27,15 @@ documentation](/connector).
 (admin-event-listeners)=
 ## Event listeners
 
+Event listeners are plugins that allow streaming of query events, such as query
+started or query finished, to an external system. 
+
+Using an event listener you can process and store the query events in a separate
+system for long periods of time. Some of these external systems can be queried
+with Trino for further analysis or reporting.
+
+The following event listeners are available:
+
 ```{toctree}
 :titlesonly: true
 
@@ -35,6 +44,11 @@ admin/event-listeners-kafka
 admin/event-listeners-mysql
 admin/event-listeners-openlineage
 ```
+
+Unrelated to event listeners, the coordinator stores information about recent
+queries in memory for usage by the [](/admin/web-interface) - see also
+`query.max-history` and `query.min-expire-age` in
+[](/admin/properties-query-management).
 
 ## Properties reference
 
