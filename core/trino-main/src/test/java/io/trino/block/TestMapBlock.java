@@ -18,6 +18,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.DuplicateMapKeyException;
+import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.SqlMap;
@@ -67,6 +68,23 @@ public class TestMapBlock
 
         // underlying key/value block is not compact
         testNotCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, inCompactKeyBlock, inCompactValueBlock));
+    }
+
+    @Test
+    public void testLazyKeyBlock()
+    {
+        LazyBlock keyBlock = new LazyBlock(10, () -> createLongsBlock(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+        Block valueBlock = createLongsBlock(10, 20, 30, 40, 50, 60, 70, 80, 90, 100);
+        MapType mapType = mapType(BIGINT, BIGINT);
+        MapBlock mapBlock = MapBlock.fromKeyValueBlock(Optional.empty(), new int[]{0, 5, 10}, keyBlock, valueBlock, mapType);
+        assertThat(mapBlock.isLoaded()).isFalse();
+        assertThat(mapBlock.getPositionCount()).isEqualTo(2);
+        assertThat(mapBlock.getKeyBlock()).isInstanceOf(LazyBlock.class);
+        assertThat(mapBlock.getValueBlock().isLoaded()).isTrue();
+        MapBlock loadedMap = (MapBlock) mapBlock.getLoadedBlock();
+        assertThat(loadedMap.getPositionCount()).isEqualTo(2);
+        assertThat(loadedMap.getKeyBlock().isLoaded()).isTrue();
+        assertThat(loadedMap.getValueBlock().isLoaded()).isTrue();
     }
 
     @Test

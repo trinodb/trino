@@ -292,13 +292,9 @@ public final class MapBlock
     @Override
     public Block getLoadedBlock()
     {
-        if (keyBlock != keyBlock.getLoadedBlock()) {
-            // keyBlock has to be loaded since MapBlock constructs hash table eagerly.
-            throw new IllegalStateException();
-        }
-
+        Block loadedKeyBlock = keyBlock.getLoadedBlock();
         Block loadedValueBlock = valueBlock.getLoadedBlock();
-        if (loadedValueBlock == valueBlock) {
+        if (loadedKeyBlock == keyBlock && loadedValueBlock == valueBlock) {
             return this;
         }
         return createMapBlockInternal(
@@ -307,7 +303,7 @@ public final class MapBlock
                 positionCount,
                 Optional.ofNullable(mapIsNull),
                 offsets,
-                keyBlock,
+                loadedKeyBlock,
                 loadedValueBlock,
                 hashTables);
     }
