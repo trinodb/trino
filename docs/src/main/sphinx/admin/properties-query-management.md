@@ -181,18 +181,25 @@ to get killed with `REMOTE_TASK_ERROR` and the message
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `100`
 
-The maximum number of queries to keep in the query history to provide
-statistics and other information. If this amount is reached, queries are
-removed based on age.
+The maximum number of queries to keep in the query history to provide statistics
+and other information, and make the data available in the
+[](/admin/web-interface). If this amount is reached, queries are removed based
+on age.
+
+To store query events and therefore information about more queries in an
+external system you must use [an event listener](admin-event-listeners).
 
 ## `query.min-expire-age`
 
 - **Type:** {ref}`prop-type-duration`
 - **Default value:** `15m`
 
-The minimal age of a query in the history before it is expired. An expired
-query is removed from the query history buffer and no longer available in
-the {doc}`/admin/web-interface`.
+The minimal age of a query in the history before it is expired. An expired query
+is removed from the query history buffer and no longer available in the
+[](/admin/web-interface).
+
+To store query events and therefore information about more queries in an
+external system you must use [an event listener](admin-event-listeners).
 
 ## `query.remote-task.enable-adaptive-request-size`
 
