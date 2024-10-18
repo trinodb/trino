@@ -20,6 +20,7 @@ client/jdbc
 The Trino project maintains the following other client libraries:
 
 * [trino-go-client](https://github.com/trinodb/trino-go-client)
+* [trino-js-client](https://github.com/trinodb/trino-js-client)
 * [trino-python-client](https://github.com/trinodb/trino-python-client)
 
 In addition, other communities and vendors provide [numerous other client
