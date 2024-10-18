@@ -132,6 +132,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -148,8 +149,11 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
+import static io.trino.plugin.geospatial.GeoFunctions.stAsBinary;
+import static io.trino.plugin.geospatial.GeoFunctions.stGeomFromBinary;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -278,6 +282,7 @@ public class PostgreSqlClient
     private final Type jsonType;
     private final Type uuidType;
     private final MapType varcharMapType;
+    private final Type geometryType;
     private final List<String> tableTypes;
     private final boolean statisticsEnabled;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
@@ -300,6 +305,7 @@ public class PostgreSqlClient
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        this.geometryType = typeManager.getType(new TypeSignature(StandardTypes.GEOMETRY));
 
         ImmutableList.Builder<String> tableTypes = ImmutableList.builder();
         tableTypes.add("TABLE", "PARTITIONED TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
@@ -575,6 +581,8 @@ public class PostgreSqlClient
                 return Optional.of(hstoreColumnMapping(session));
             case "vector":
                 return Optional.of(vectorColumnMapping());
+            case "geometry":
+                return Optional.of(geometryColumnMapping());
         }
         if (jdbcTypeName.endsWith("\"vector\"")) {
             // TODO: Find more reliable way to detect vector type. The type name can be "schema-name"."vector"
@@ -1621,6 +1629,39 @@ public class PostgreSqlClient
         return ObjectWriteFunction.of(Block.class, (_, _, _) -> {
             throw new TrinoException(NOT_SUPPORTED, "Writing to vector type is unsupported");
         });
+    }
+
+    private ColumnMapping geometryColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                geometryType,
+                (resultSet, columnIndex) -> {
+                    String hexWkb = resultSet.getString(columnIndex);
+                    byte[] wkb = HexFormat.of().parseHex(hexWkb);
+                    return stGeomFromBinary(wrappedBuffer(wkb));
+                },
+                geometryWriteFunction(),
+                DISABLE_PUSHDOWN);
+    }
+
+    private static SliceWriteFunction geometryWriteFunction()
+    {
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return "ST_GeomFromWKB(?)";
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice slice)
+                    throws SQLException
+            {
+                byte[] bytes = stAsBinary(slice).getBytes();
+                statement.setBytes(index, bytes);
+            }
+        };
     }
 
     private static class StatisticsDao

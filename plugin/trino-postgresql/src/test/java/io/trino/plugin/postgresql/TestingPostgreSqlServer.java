@@ -20,6 +20,7 @@ import io.trino.plugin.jdbc.RemoteLogTracingEvent;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.OutputFrame;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -82,6 +83,11 @@ public class TestingPostgreSqlServer
     }
 
     public TestingPostgreSqlServer(String dockerImageName, boolean shouldExposeFixedPorts)
+    {
+        this(DockerImageName.parse(dockerImageName), shouldExposeFixedPorts);
+    }
+
+    public TestingPostgreSqlServer(DockerImageName dockerImageName, boolean shouldExposeFixedPorts)
     {
         dockerContainer = new PostgreSQLContainer<>(dockerImageName)
                 .withStartupAttempts(3)
