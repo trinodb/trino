@@ -66,7 +66,7 @@ public class DelegatingRestSessionCatalog
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
         RestCatalogServlet servlet = new RestCatalogServlet(adapter);
 
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, servlet);
+        return new TestingHttpServer(httpServerInfo, nodeInfo, config, servlet, false, true, false);
     }
 
     public static Builder builder()
