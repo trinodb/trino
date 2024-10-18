@@ -4082,7 +4082,15 @@ public class TestArrayOperators
                 .hasType(new ArrayType(INTEGER))
                 .isEqualTo(ImmutableList.of(1, 1, 1, 1, 1));
 
+        assertThat(assertions.function("repeat", "1", "CAST(5 as bigint)"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of(1, 1, 1, 1, 1));
+
         assertThat(assertions.function("repeat", "'varchar'", "3"))
+                .hasType(new ArrayType(createVarcharType(7)))
+                .isEqualTo(ImmutableList.of("varchar", "varchar", "varchar"));
+
+        assertThat(assertions.function("repeat", "'varchar'", "CAST(3 as bigint)"))
                 .hasType(new ArrayType(createVarcharType(7)))
                 .isEqualTo(ImmutableList.of("varchar", "varchar", "varchar"));
 
@@ -4090,11 +4098,23 @@ public class TestArrayOperators
                 .hasType(new ArrayType(BOOLEAN))
                 .isEqualTo(ImmutableList.of(true));
 
+        assertThat(assertions.function("repeat", "true", "CAST(1 as bigint)"))
+                .hasType(new ArrayType(BOOLEAN))
+                .isEqualTo(ImmutableList.of(true));
+
         assertThat(assertions.function("repeat", "0.5E0", "4"))
                 .hasType(new ArrayType(DOUBLE))
                 .isEqualTo(ImmutableList.of(0.5, 0.5, 0.5, 0.5));
 
+        assertThat(assertions.function("repeat", "0.5E0", "CAST(4 as bigint)"))
+                .hasType(new ArrayType(DOUBLE))
+                .isEqualTo(ImmutableList.of(0.5, 0.5, 0.5, 0.5));
+
         assertThat(assertions.function("repeat", "array[1]", "4"))
+                .hasType(new ArrayType(new ArrayType(INTEGER)))
+                .isEqualTo(ImmutableList.of(ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1)));
+
+        assertThat(assertions.function("repeat", "array[1]", "CAST(4 as bigint)"))
                 .hasType(new ArrayType(new ArrayType(INTEGER)))
                 .isEqualTo(ImmutableList.of(ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1)));
 
