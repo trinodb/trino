@@ -66,7 +66,8 @@ public class TestFeaturesConfig
                 .setHideInaccessibleColumns(false)
                 .setForceSpillingJoin(false)
                 .setColumnarFilterEvaluationEnabled(true)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
+                .setFaultTolerantExecutionExchangeEncryptionEnabled(true)
+                .setRunViewsAsInvokerEnabled(false));
     }
 
     @Test
@@ -101,6 +102,7 @@ public class TestFeaturesConfig
                 .put("force-spilling-join-operator", "true")
                 .put("experimental.columnar-filter-evaluation.enabled", "false")
                 .put("fault-tolerant-execution-exchange-encryption-enabled", "false")
+                .put("run-views-as-invoker", "true")
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -131,7 +133,8 @@ public class TestFeaturesConfig
                 .setHideInaccessibleColumns(true)
                 .setForceSpillingJoin(true)
                 .setColumnarFilterEvaluationEnabled(false)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
+                .setFaultTolerantExecutionExchangeEncryptionEnabled(false)
+                .setRunViewsAsInvokerEnabled(true);
         assertFullMapping(properties, expected);
     }
 }
