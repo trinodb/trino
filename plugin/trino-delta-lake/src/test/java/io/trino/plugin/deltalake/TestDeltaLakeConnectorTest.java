@@ -1354,6 +1354,27 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testChangeDataFeedWithDeletionVectors()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_cdf",
+                "(x VARCHAR, y INT) WITH (change_data_feed_enabled = true, deletion_vectors_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES('test1', 1)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES('test2', 2)", 1);
+            assertUpdate("UPDATE " + table.getName() + " SET y = 20 WHERE x = 'test2'", 1);
+            assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + table.getName() + "'))",
+                    """
+                            VALUES
+                                ('test1', 1, 'insert', BIGINT '1'),
+                                ('test2', 2, 'insert', BIGINT '2'),
+                                ('test2', 2, 'update_preimage', BIGINT '3'),
+                                ('test2', 20, 'update_postimage', BIGINT '3')
+                            """);
+        }
+    }
+
+    @Test
     public void testUnsupportedCreateTableWithChangeDataFeed()
     {
         for (String columnName : CHANGE_DATA_FEED_COLUMN_NAMES) {

@@ -62,6 +62,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -356,10 +357,25 @@ public class DeltaLakeMergeSink
 
     private Slice writeMergeResult(Slice path, FileDeletion deletion)
     {
+        RoaringBitmapArray rowsDeletedByDelete = deletion.rowsDeletedByDelete();
+        RoaringBitmapArray rowsDeletedByUpdate = deletion.rowsDeletedByUpdate();
         RoaringBitmapArray deletedRows = loadDeletionVector(Location.of(path.toStringUtf8()));
-        deletedRows.or(deletion.rowsDeletedByDelete());
-        deletedRows.or(deletion.rowsDeletedByUpdate());
+        deletedRows.or(rowsDeletedByDelete);
+        deletedRows.or(rowsDeletedByUpdate);
 
+        if (cdfEnabled) {
+            try (ConnectorPageSource connectorPageSource = createParquetPageSource(Location.of(path.toStringUtf8())).get()) {
+                readConnectorPageSource(
+                        connectorPageSource,
+                        rowsDeletedByDelete,
+                        rowsDeletedByUpdate,
+                        deletion,
+                        _ -> {});
+            }
+            catch (IOException e) {
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Error reading Parquet file: " + path, e);
+            }
+        }
         TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(path.toStringUtf8()));
         try (ParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, parquetReaderOptions, fileFormatDataSourceStats)) {
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
@@ -523,47 +539,16 @@ public class DeltaLakeMergeSink
         RoaringBitmapArray rowsDeletedByDelete = deletion.rowsDeletedByDelete();
         RoaringBitmapArray rowsDeletedByUpdate = deletion.rowsDeletedByUpdate();
         try (ConnectorPageSource connectorPageSource = createParquetPageSource(path).get()) {
-            long filePosition = 0;
-            while (!connectorPageSource.isFinished()) {
-                Page page = connectorPageSource.getNextPage();
-                if (page == null) {
-                    continue;
-                }
-
-                int positionCount = page.getPositionCount();
-                int[] retained = new int[positionCount];
-                int[] deletedByDelete = new int[(int) rowsDeletedByDelete.cardinality()];
-                int[] deletedByUpdate = new int[(int) rowsDeletedByUpdate.cardinality()];
-                int retainedCount = 0;
-                int deletedByUpdateCount = 0;
-                int deletedByDeleteCount = 0;
-                for (int position = 0; position < positionCount; position++) {
-                    if (rowsDeletedByDelete.contains(filePosition)) {
-                        deletedByDelete[deletedByDeleteCount] = position;
-                        deletedByDeleteCount++;
-                    }
-                    else if (rowsDeletedByUpdate.contains(filePosition)) {
-                        deletedByUpdate[deletedByUpdateCount] = position;
-                        deletedByUpdateCount++;
-                    }
-                    else {
-                        retained[retainedCount] = position;
-                        retainedCount++;
-                    }
-                    filePosition++;
-                }
-
-                storeCdfEntries(page, deletedByDelete, deletedByDeleteCount, deletion, DELETE_CDF_LABEL);
-                storeCdfEntries(page, deletedByUpdate, deletedByUpdateCount, deletion, UPDATE_PREIMAGE_CDF_LABEL);
-
-                if (retainedCount != positionCount) {
-                    page = page.getPositions(retained, 0, retainedCount);
-                }
-
-                if (page.getPositionCount() > 0) {
-                    fileWriter.appendRows(page);
-                }
-            }
+            readConnectorPageSource(
+                    connectorPageSource,
+                    rowsDeletedByDelete,
+                    rowsDeletedByUpdate,
+                    deletion,
+                    page -> {
+                        if (page.getPositionCount() > 0) {
+                            fileWriter.appendRows(page);
+                        }
+                    });
             if (fileWriter.getRowCount() == 0) {
                 fileWriter.rollback();
                 return Optional.empty();
@@ -583,6 +568,54 @@ public class DeltaLakeMergeSink
         }
 
         return Optional.of(fileWriter.getDataFileInfo());
+    }
+
+    private void readConnectorPageSource(
+            ConnectorPageSource connectorPageSource,
+            RoaringBitmapArray rowsDeletedByDelete,
+            RoaringBitmapArray rowsDeletedByUpdate,
+            FileDeletion deletion,
+            Consumer<Page> pageConsumer)
+    {
+        long filePosition = 0;
+        while (!connectorPageSource.isFinished()) {
+            Page page = connectorPageSource.getNextPage();
+            if (page == null) {
+                continue;
+            }
+
+            int positionCount = page.getPositionCount();
+            int[] retained = new int[positionCount];
+            int[] deletedByDelete = new int[(int) rowsDeletedByDelete.cardinality()];
+            int[] deletedByUpdate = new int[(int) rowsDeletedByUpdate.cardinality()];
+            int retainedCount = 0;
+            int deletedByUpdateCount = 0;
+            int deletedByDeleteCount = 0;
+            for (int position = 0; position < positionCount; position++) {
+                if (rowsDeletedByDelete.contains(filePosition)) {
+                    deletedByDelete[deletedByDeleteCount] = position;
+                    deletedByDeleteCount++;
+                }
+                else if (rowsDeletedByUpdate.contains(filePosition)) {
+                    deletedByUpdate[deletedByUpdateCount] = position;
+                    deletedByUpdateCount++;
+                }
+                else {
+                    retained[retainedCount] = position;
+                    retainedCount++;
+                }
+                filePosition++;
+            }
+
+            storeCdfEntries(page, deletedByDelete, deletedByDeleteCount, deletion, DELETE_CDF_LABEL);
+            storeCdfEntries(page, deletedByUpdate, deletedByUpdateCount, deletion, UPDATE_PREIMAGE_CDF_LABEL);
+
+            if (retainedCount != positionCount) {
+                page = page.getPositions(retained, 0, retainedCount);
+            }
+
+            pageConsumer.accept(page);
+        }
     }
 
     private void storeCdfEntries(Page page, int[] deleted, int deletedCount, FileDeletion deletion, String operation)
