@@ -149,6 +149,7 @@ public class IcebergNessieTableOperations
             // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
             throw new CommitFailedException(e, "Cannot commit: ref hash is out of date. Update the ref '%s' and try again", nessieClient.refName());
         }
+        deleteRemovedMetadataFiles(base, metadata);
         shouldRefresh = true;
     }
 
