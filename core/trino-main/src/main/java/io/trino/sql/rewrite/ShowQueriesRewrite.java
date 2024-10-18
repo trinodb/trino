@@ -30,6 +30,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
+import io.trino.metadata.RedirectionAwareViewHandle;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SessionPropertyManager.SessionPropertyValue;
@@ -571,9 +572,12 @@ public final class ShowQueriesRewrite
             if (metadata.isMaterializedView(session, objectName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
             }
-
+            RedirectionAwareViewHandle redirectionView = metadata.getRedirectionAwareViewHandle(session, objectName);
+            Optional<QualifiedObjectName> targetViewName = redirectionView.redirectedViewName();
+            if (targetViewName.isPresent()) {
+                objectName = targetViewName.get();
+            }
             Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
-
             if (viewDefinition.isEmpty()) {
                 if (metadata.getTableHandle(session, objectName).isPresent()) {
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
