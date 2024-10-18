@@ -7,6 +7,8 @@
 * Improve performance of {func}`arrays_overlap`. ({issue}`20900`)
 * Export JMX statistics for resource groups by default. This can be disabled
   with the `jmxExport` resource group property. ({issue}`20810`)
+* {{breaking}} Remove defunct `http-client.max-connections` property.
+  ([Airlift PR #1118](https://github.com/airlift/airlift/pull/1118))
 * Fix query failure when a check constraint is null. ({issue}`20906`)
 * Fix query failure for aggregations over `CASE` expressions when the input
   evaluation could throw an error. ({issue}`20652`)
