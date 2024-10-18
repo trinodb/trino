@@ -45,10 +45,12 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
@@ -408,6 +410,9 @@ public class TrinoPreparedStatement
         if (value instanceof LocalDateTime) {
             return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));
         }
+        if (value instanceof Instant) {
+            return LOCAL_DATE_TIME_FORMATTER.format(LocalDateTime.ofInstant((Instant) value, ZoneId.systemDefault()));
+        }
         if (value instanceof String) {
             // TODO validate proper format
             return (String) value;
@@ -597,6 +602,12 @@ public class TrinoPreparedStatement
         }
         else if (x instanceof LocalDate) {
             setAsDate(parameterIndex, x);
+        }
+        else if (x instanceof LocalDateTime) {
+            setAsTimestamp(parameterIndex, x);
+        }
+        else if (x instanceof Instant) {
+            setAsTimestamp(parameterIndex, x);
         }
         else if (x instanceof Time) {
             setTime(parameterIndex, (Time) x);
