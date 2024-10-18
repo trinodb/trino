@@ -18,6 +18,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.s3.S3Context.S3SseContext;
 import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -88,8 +89,10 @@ final class S3FileSystemLoader
         this.context = new S3Context(
                 toIntExact(config.getStreamingPartSize().toBytes()),
                 config.isRequesterPays(),
-                config.getSseType(),
-                config.getSseKmsKeyId(),
+                S3SseContext.of(
+                        config.getSseType(),
+                        config.getSseKmsKeyId(),
+                        config.getSseCustomerKey()),
                 Optional.empty(),
                 config.getCannedAcl(),
                 config.isSupportsExclusiveCreate());
