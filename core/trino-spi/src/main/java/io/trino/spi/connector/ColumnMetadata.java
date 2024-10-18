@@ -67,6 +67,9 @@ public class ColumnMetadata
         return type;
     }
 
+    /**
+     * This method should return false only when not null constraint is guaranteed by the underlying data source.
+     */
     public boolean isNullable()
     {
         return nullable;
