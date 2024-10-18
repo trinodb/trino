@@ -1,5 +1,8 @@
 # Administration
 
+The following documents cover a number of different aspect of configuring,
+running, and managing Trino clusters.
+
 ```{toctree}
 :maxdepth: 1
 
@@ -16,6 +19,10 @@ admin/dynamic-filtering
 admin/graceful-shutdown
 admin/fault-tolerant-execution
 ```
+
+Details about connecting [data sources](trino-concept-data-source) as
+[catalogs](trino-concept-catalog) are available in the [connector
+documentation](/connector).
 
 (admin-event-listeners)=
 ## Event listeners
