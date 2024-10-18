@@ -34,17 +34,27 @@ servers and other components of Trino's architecture.
 (trino-concept-cluster)=
 ### Cluster
 
-A Trino cluster consists of a {ref}`coordinator <trino-concept-coordinator>` and
-many {ref}`workers <trino-concept-worker>`. Users connect to the coordinator
-with their {ref}`SQL <glossSQL>` query tool. The coordinator collaborates with the
-workers. The coordinator and the workers access the connected
-{ref}`data sources <trino-concept-data-source>`. This access is configured in
-{ref}`catalogs <trino-concept-catalog>`.
+A Trino cluster consists of several Trino [nodes](trino-concept-node) - one
+[coordinator](trino-concept-coordinator) and zero or more
+[workers](trino-concept-worker). Users connect to the coordinator with their
+[SQL](glossSQL) query tool. The coordinator collaborates with the workers. The
+coordinator and the workers access the connected [data
+sources](trino-concept-data-source). This access is configured in
+[catalogs](trino-concept-catalog).
 
 Processing each query is a stateful operation. The workload is orchestrated by
 the coordinator and spread parallel across all workers in the cluster. Each node
 runs Trino in one JVM instance, and processing is parallelized further using
 threads.
+
+(trino-concept-node)=
+### Node
+
+Any Trino server in a specific Trino cluster is considered a **node** of the
+[cluster](trino-concept-cluster). Technically this refers to the Java process
+running the Trino program, but node is often used to refer to the computer
+running the process due to the recommendation to run only one Trino process per
+computer.
 
 (trino-concept-coordinator)=
 ### Coordinator
