@@ -62,6 +62,8 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 import org.locationtech.jts.operation.distance.DistanceOp;
 
@@ -174,6 +176,8 @@ public final class GeoFunctions
 
     private static final EnumSet<GeometryType> VALID_TYPES_FOR_ST_POINTS = EnumSet.of(
             LINE_STRING, POLYGON, POINT, MULTI_POINT, MULTI_LINE_STRING, MULTI_POLYGON, GEOMETRY_COLLECTION);
+
+    private static final WKBReader WKB_READER = new WKBReader();
 
     private GeoFunctions() {}
 
@@ -1538,18 +1542,15 @@ public final class GeoFunctions
         return geometry;
     }
 
-    private static OGCGeometry geomFromBinary(Slice input)
+    private static Geometry geomFromBinary(Slice input)
     {
         requireNonNull(input, "input is null");
-        OGCGeometry geometry;
         try {
-            geometry = OGCGeometry.fromBinary(input.toByteBuffer().slice());
+            return WKB_READER.read(input.getBytes());
         }
-        catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+        catch (ParseException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);
         }
-        geometry.setSpatialReference(null);
-        return geometry;
     }
 
     private static ByteBuffer getShapeByteBuffer(Slice input)

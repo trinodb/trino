@@ -2159,6 +2159,12 @@ public class TestGeoFunctions
         assertGeomFromBinary("MULTIPOLYGON (((1 1, 3 1, 3 3, 1 3, 1 1)), ((2 4, 6 4, 6 6, 2 6, 2 4)))");
         assertGeomFromBinary("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (0 0, 1 2, 3 4), POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0)))");
 
+        // The EWKB representation of "SRID=4326;POINT (1 1)".
+        assertThat(assertions.expression("ST_AsText(ST_GeomFromBinary(wkb))")
+                .binding("wkb", "x'0101000020E6100000000000000000F03F000000000000F03F'"))
+                .hasType(VARCHAR)
+                .isEqualTo("POINT (1 1)");
+
         // array of geometries
         assertThat(assertions.expression("transform(a, wkb -> ST_AsText(ST_GeomFromBinary(wkb)))")
                 .binding("a", "ARRAY[ST_AsBinary(ST_Point(1, 2)), ST_AsBinary(ST_Point(3, 4))]"))

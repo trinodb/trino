@@ -61,7 +61,7 @@ Returns a geometry type object from WKT representation.
 :::
 
 :::{function} ST_GeomFromBinary(varbinary) -> Geometry
-Returns a geometry type object from WKB representation.
+Returns a geometry type object from WKB or EWKB representation.
 :::
 
 :::{function} geometry_from_hadoop_shape(varbinary) -> Geometry
