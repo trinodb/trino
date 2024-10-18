@@ -782,6 +782,15 @@ public class TracingAccessControl
         }
     }
 
+    @Override
+    public void checkCanSetEntityAuthorization(SecurityContext context, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        Span span = startSpan("checkCanSetEntityAuthorization");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanSetEntityAuthorization(context, ownedKind, name, principal);
+        }
+    }
+
     private Span startSpan(String methodName)
     {
         return tracer.spanBuilder("AccessControl." + methodName)

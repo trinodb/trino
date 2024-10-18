@@ -1549,6 +1549,15 @@ public class TracingMetadata
         }
     }
 
+    @Override
+    public void setEntityAuthorization(Session session, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        Span span = startSpan("setEntityAuthorization", name.stream().collect(Collectors.joining(".")));
+        try (var ignored = scopedSpan(span)) {
+            delegate.setEntityAuthorization(session, ownedKind, name, principal);
+        }
+    }
+
     private Span startSpan(String methodName)
     {
         return tracer.spanBuilder("Metadata." + methodName)
