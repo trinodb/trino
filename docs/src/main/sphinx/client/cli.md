@@ -602,6 +602,36 @@ Query 20200707_170726_00030_2iup9 failed: line 1:25: Column 'region' cannot be r
 SELECT nationkey, name, region FROM tpch.sf1.nation LIMIT 3
 ```
 
+(cli-spooled-protocol)=
+## Spooled protocol
+
+
+    --encoding=<encoding>  Experimental spooled protocol encoding [available: json, json+zstd, json+lz4]
+
+validate encoding? 
+
+ CLI options 
+
+
+--encoding-id - renamed to --encoding yet?
+
+validate encoding in CLI? 
+
+
+segment expiry configuration
+
+spolling location configuration
+accessbile from all nodes
+
+
+sizing of spooling storage location
+management of old spooled data
+survives cluster restart? Or is picked up cleanly after restart?
+
+
+https://www.linkedin.com/posts/mateuszgajewski_trino-trino-performance-activity-7244658731991392258-0udu?utm_source=share&utm_medium=member_desktop
+
+
 (cli-output-format)=
 ## Output formats
 

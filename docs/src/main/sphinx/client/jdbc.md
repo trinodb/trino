@@ -262,3 +262,10 @@ may not be specified using both methods.
     network overhead and uses smaller HTTP headers and requires Trino 431 or
     greater.
 :::
+
+
+(cli-spooled-protocol)=
+## Spooled protocol
+
+
+    --encoding=<encoding>  Experimental spooled protocol encoding [available: json, json+zstd, json+lz4]
