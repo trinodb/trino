@@ -82,6 +82,8 @@ public class TestIcebergGlueCatalogSkipArchive
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.catalog.type", "glue")
+                                // this is not required, since iceberg.glue.skip-archive is true by default, but verify that Guice modules load correctly
+                                .put("hive.metastore.glue.skip-archive", "true")
                                 .put("hive.metastore.glue.default-warehouse-dir", schemaDirectory.getAbsolutePath())
                                 .buildOrThrow())
                 .setSchemaInitializer(

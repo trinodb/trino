@@ -63,6 +63,9 @@ public class GlueMetastoreModule
         glueConfig.getCatalogId().ifPresent(catalogId -> requestHandlers.addBinding().toInstance(new GlueCatalogIdRequestHandler(catalogId)));
         glueConfig.getGlueProxyApiId().ifPresent(glueProxyApiId -> requestHandlers.addBinding()
                 .toInstance(new ProxyApiRequestHandler(glueProxyApiId)));
+        if (glueConfig.isSkipArchive()) {
+            requestHandlers.addBinding().toInstance(new SkipArchiveRequestHandler());
+        }
         binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, Key.get(new TypeLiteral<Predicate<Table>>() {}, ForGlueHiveMetastore.class))
