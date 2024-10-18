@@ -23,22 +23,34 @@ import jakarta.ws.rs.core.Response;
 
 import java.io.IOException;
 
+import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.web.ui.WebUiResources.webUiResource;
 
-@Path("/ui/preview")
+@Path("")
 public class WebUiPreviewStaticResource
 {
-    @ResourceSecurity(WEB_UI)
+    @ResourceSecurity(PUBLIC)
     @GET
+    @Path("/ui/preview")
     public Response getUiPreview(@BeanParam ExternalUriInfo externalUriInfo)
     {
-        return Response.seeOther(externalUriInfo.absolutePath("/ui/preview/index.html")).build();
+        return Response.seeOther(externalUriInfo.absolutePath("/ui/preview/")).build();
+    }
+
+    // asset files are always visible
+    @ResourceSecurity(PUBLIC)
+    @GET
+    @Path("/ui/preview/assets/{path: .*}")
+    public Response getAssetsFile(@PathParam("path") String path)
+            throws IOException
+    {
+        return getFile("assets/" + path);
     }
 
     @ResourceSecurity(WEB_UI)
     @GET
-    @Path("{path: .*}")
+    @Path("/ui/preview/{path: .*}")
     public Response getFile(@PathParam("path") String path)
             throws IOException
     {
