@@ -134,7 +134,7 @@ public final class FormatUtils
     public static String formatDataRate(DataSize dataSize, Duration duration, boolean longForm, boolean decimalDataSize)
     {
         long rate = Math.round(dataSize.toBytes() / duration.getValue(SECONDS));
-        if (Double.isNaN(rate) || Double.isInfinite(rate)) {
+        if (rate == Long.MAX_VALUE) {
             rate = 0;
         }
 
