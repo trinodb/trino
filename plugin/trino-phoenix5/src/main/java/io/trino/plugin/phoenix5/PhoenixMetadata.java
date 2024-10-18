@@ -350,7 +350,17 @@ public class PhoenixMetadata
         }
 
         return new PhoenixMergeTableHandle(
-                phoenixClient.updatedScanColumnTable(session, handle, handle.getColumns(), mergeRowIdColumnHandle),
+                new JdbcTableHandle(
+                        handle.getRelationHandle(),
+                        handle.getConstraint(),
+                        handle.getConstraintExpressions(),
+                        handle.getSortOrder(),
+                        handle.getLimit(),
+                        Optional.of(columns),
+                        handle.getOtherReferencedTables(),
+                        handle.getNextSyntheticColumnId(),
+                        handle.getAuthorization(),
+                        handle.getUpdateAssignments()),
                 phoenixOutputTableHandle,
                 mergeRowIdColumnHandle,
                 TupleDomain.withColumnDomains(primaryKeysDomainBuilder.buildOrThrow()));
