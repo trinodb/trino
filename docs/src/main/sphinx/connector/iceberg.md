@@ -855,6 +855,10 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Comma-separated list of columns to use for Parquet bloom filter. It improves
     the performance of queries using Equality and IN predicates when reading
     Parquet files. Requires Parquet format. Defaults to `[]`.
+* - `extra_properties`
+  - Additional properties added to a Iceberg table. The properties are not used by Trino,
+    and are available in the `$properties` metadata table.
+    The properties are not included in the output of `SHOW CREATE TABLE` statements.
 :::
 
 The table definition below specifies to use Parquet files, partitioning by columns
