@@ -16,6 +16,7 @@ package io.trino.spi;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
+import io.trino.spi.block.LazyBlock;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -99,9 +100,12 @@ public final class Page
     {
         long sizeInBytes = this.sizeInBytes;
         if (sizeInBytes < 0) {
+            // load all blocks
+            getLoadedPage();
+
             sizeInBytes = 0;
             for (Block block : blocks) {
-                long blockSizeInBytes = block.getLoadedBlock().getSizeInBytes();
+                long blockSizeInBytes = block.getSizeInBytes();
                 if (blockSizeInBytes < 0) {
                     throw new IllegalStateException(format("Block sizeInBytes is negative (%s)", blockSizeInBytes));
                 }
@@ -193,7 +197,7 @@ public final class Page
             }
         }
 
-        updateRetainedSize();
+        updateCachedSizeCalculation();
     }
 
     private Map<DictionaryId, DictionaryBlockIndexes> getRelatedDictionaryBlocks()
@@ -219,24 +223,35 @@ public final class Page
      */
     public Page getLoadedPage()
     {
+        boolean updateSize = false;
         for (int i = 0; i < blocks.length; i++) {
-            Block loaded = blocks[i].getLoadedBlock();
-            if (loaded != blocks[i]) {
-                // Transition to new block creation mode after the first newly loaded block is encountered
-                Block[] loadedBlocks = blocks.clone();
-                loadedBlocks[i++] = loaded;
-                for (; i < blocks.length; i++) {
-                    loadedBlocks[i] = blocks[i].getLoadedBlock();
+            if (!blocks[i].isLoaded()) {
+                if (blocks[i] instanceof LazyBlock) {
+                    blocks[i] = blocks[i].getLoadedBlock();
                 }
-                return wrapBlocksWithoutCopy(positionCount, loadedBlocks);
+                else {
+                    blocks[i].getLoadedBlock();
+                }
+                updateSize = true;
             }
         }
-        // No newly loaded blocks
+        if (updateSize) {
+            updateCachedSizeCalculation();
+        }
         return this;
     }
 
     public Page getLoadedPage(int column)
     {
+        if (!blocks[column].isLoaded()) {
+            if (blocks[column] instanceof LazyBlock) {
+                blocks[column] = blocks[column].getLoadedBlock();
+            }
+            else if (!blocks[column].isLoaded()) {
+                blocks[column].getLoadedBlock();
+            }
+            updateCachedSizeCalculation();
+        }
         return wrapBlocksWithoutCopy(positionCount, new Block[] {this.blocks[column].getLoadedBlock()});
     }
 
@@ -244,22 +259,48 @@ public final class Page
     {
         requireNonNull(columns, "columns is null");
 
-        Block[] blocks = new Block[columns.length];
+        boolean updateSize = false;
+        Block[] selectedBlocks = new Block[columns.length];
         for (int i = 0; i < columns.length; i++) {
-            blocks[i] = this.blocks[columns[i]].getLoadedBlock();
+            Block block = blocks[columns[i]];
+            if (!block.isLoaded()) {
+                if (block instanceof LazyBlock) {
+                    block = block.getLoadedBlock();
+                    blocks[columns[i]] = block;
+                }
+                else {
+                    block.getLoadedBlock();
+                }
+                updateSize = true;
+            }
+            blocks[i] = block;
+            selectedBlocks[i] = block;
         }
-        return wrapBlocksWithoutCopy(positionCount, blocks);
+
+        if (updateSize) {
+            updateCachedSizeCalculation();
+        }
+        return wrapBlocksWithoutCopy(positionCount, selectedBlocks);
     }
 
     public Page getLoadedPage(int[] columns, int[] eagerlyLoadedColumns)
     {
         requireNonNull(columns, "columns is null");
 
+        boolean updateSize = false;
         for (int column : eagerlyLoadedColumns) {
-            this.blocks[column] = this.blocks[column].getLoadedBlock();
+            if (!blocks[column].isLoaded()) {
+                if (blocks[column] instanceof LazyBlock) {
+                    blocks[column] = blocks[column].getLoadedBlock();
+                }
+                else if (!blocks[column].isLoaded()) {
+                    blocks[column].getLoadedBlock();
+                }
+                updateSize = true;
+            }
         }
-        if (retainedSizeInBytes != -1 && eagerlyLoadedColumns.length > 0) {
-            updateRetainedSize();
+        if (updateSize) {
+            updateCachedSizeCalculation();
         }
         Block[] blocks = new Block[columns.length];
         for (int i = 0; i < columns.length; i++) {
@@ -339,6 +380,13 @@ public final class Page
         System.arraycopy(blocks, 0, result, 1, blocks.length);
 
         return wrapBlocksWithoutCopy(positionCount, result);
+    }
+
+    private void updateCachedSizeCalculation()
+    {
+        if (retainedSizeInBytes >= 0) {
+            updateRetainedSize();
+        }
     }
 
     private long updateRetainedSize()

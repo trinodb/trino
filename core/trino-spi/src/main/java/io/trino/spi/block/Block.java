@@ -171,10 +171,9 @@ public sealed interface Block
     }
 
     /**
-     * Returns a fully loaded block that assures all data is in memory.
-     * Neither the returned block nor any nested block will be a {@link LazyBlock}.
-     * The same block will be returned if neither the current block nor any
-     * nested blocks are {@link LazyBlock},
+     * Returns a fully loaded block without any {@link LazyBlock} instances.
+     * Blocks are updated in-place, and the same block is returned, unless the
+     * current block is a {@link LazyBlock} in which case a different block is returned.
      * <p>
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.

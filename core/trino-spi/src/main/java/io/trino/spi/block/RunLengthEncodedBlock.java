@@ -239,14 +239,11 @@ public final class RunLengthEncodedBlock
     }
 
     @Override
-    public Block getLoadedBlock()
+    public RunLengthEncodedBlock getLoadedBlock()
     {
-        Block loadedValueBlock = value.getLoadedBlock();
-
-        if (loadedValueBlock == value) {
-            return this;
-        }
-        return create(loadedValueBlock, positionCount);
+        // dictionary cannot be a {@link LazyBlock}, but it can be a block that contains {@link LazyBlock}s
+        value.getLoadedBlock();
+        return this;
     }
 
     @Override

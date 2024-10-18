@@ -153,17 +153,16 @@ public class TestPage
         Page page = new Page(lazyBlock);
         long lazyPageRetainedSize = Page.INSTANCE_SIZE + sizeOf(new Block[] {block}) + lazyBlock.getRetainedSizeInBytes();
         assertThat(page.getRetainedSizeInBytes()).isEqualTo(lazyPageRetainedSize);
-        Page loadedPage = page.getLoadedPage();
-        // Retained size of page remains the same
-        assertThat(page.getRetainedSizeInBytes()).isEqualTo(lazyPageRetainedSize);
+        // load the page and assert instance is the same
+        assertThat(page).isSameAs(page.getLoadedPage());
         long loadedPageRetainedSize = Page.INSTANCE_SIZE + sizeOf(new Block[] {block}) + block.getRetainedSizeInBytes();
         // Retained size of loaded page depends on the loaded block
-        assertThat(loadedPage.getRetainedSizeInBytes()).isEqualTo(loadedPageRetainedSize);
+        assertThat(page.getRetainedSizeInBytes()).isEqualTo(loadedPageRetainedSize);
 
         lazyBlock = lazyWrapper(block);
         page = new Page(lazyBlock);
         assertThat(page.getRetainedSizeInBytes()).isEqualTo(lazyPageRetainedSize);
-        loadedPage = page.getLoadedPage(new int[] {0}, new int[] {0});
+        Page loadedPage = page.getLoadedPage(new int[] {0}, new int[] {0});
         // Retained size of page is updated based on loaded block
         assertThat(page.getRetainedSizeInBytes()).isEqualTo(loadedPageRetainedSize);
         assertThat(loadedPage.getRetainedSizeInBytes()).isEqualTo(loadedPageRetainedSize);

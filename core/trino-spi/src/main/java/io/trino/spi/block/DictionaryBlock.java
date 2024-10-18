@@ -37,7 +37,7 @@ public final class DictionaryBlock
     private static final int NULL_NOT_FOUND = -1;
 
     private final int positionCount;
-    private final ValueBlock dictionary;
+    private ValueBlock dictionary;
     private final int idsOffset;
     private final int[] ids;
     private final long retainedSizeInBytes;
@@ -464,14 +464,11 @@ public final class DictionaryBlock
     }
 
     @Override
-    public Block getLoadedBlock()
+    public DictionaryBlock getLoadedBlock()
     {
-        Block loadedDictionary = dictionary.getLoadedBlock();
-
-        if (loadedDictionary == dictionary) {
-            return this;
-        }
-        return createInternal(idsOffset, getPositionCount(), loadedDictionary, ids, randomDictionaryId());
+        // dictionary cannot be a {@link LazyBlock}, but it can be a block that contains {@link LazyBlock}s
+        dictionary.getLoadedBlock();
+        return this;
     }
 
     @Override

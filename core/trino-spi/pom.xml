@@ -342,6 +342,26 @@
                                     <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.UuidType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</old>
                                     <new>method io.trino.spi.block.BlockBuilder io.trino.spi.type.Type::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int) @ io.trino.spi.type.UuidType</new>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.DictionaryBlock::getLoadedBlock()</old>
+                                    <new>method io.trino.spi.block.DictionaryBlock io.trino.spi.block.DictionaryBlock::getLoadedBlock()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::getLoadedBlock()</old>
+                                    <new>method io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::getLoadedBlock()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RowBlock::getLoadedBlock()</old>
+                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::getLoadedBlock()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RunLengthEncodedBlock::getLoadedBlock()</old>
+                                    <new>method io.trino.spi.block.RunLengthEncodedBlock io.trino.spi.block.RunLengthEncodedBlock::getLoadedBlock()</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

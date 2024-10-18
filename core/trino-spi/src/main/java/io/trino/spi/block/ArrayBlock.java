@@ -42,7 +42,7 @@ public final class ArrayBlock
     private final int arrayOffset;
     private final int positionCount;
     private final boolean[] valueIsNull;
-    private final Block values;
+    private Block values;
     private final int[] offsets;
 
     private volatile long sizeInBytes;
@@ -219,17 +219,13 @@ public final class ArrayBlock
     @Override
     public ArrayBlock getLoadedBlock()
     {
-        Block loadedValuesBlock = values.getLoadedBlock();
-
-        if (loadedValuesBlock == values) {
-            return this;
+        if (values instanceof LazyBlock) {
+            values = values.getLoadedBlock();
         }
-        return createArrayBlockInternal(
-                arrayOffset,
-                positionCount,
-                valueIsNull,
-                offsets,
-                loadedValuesBlock);
+        else {
+            values.getLoadedBlock();
+        }
+        return this;
     }
 
     @Override

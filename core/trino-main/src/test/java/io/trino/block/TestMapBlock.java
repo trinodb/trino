@@ -81,10 +81,11 @@ public class TestMapBlock
         assertThat(mapBlock.getPositionCount()).isEqualTo(2);
         assertThat(mapBlock.getKeyBlock()).isInstanceOf(LazyBlock.class);
         assertThat(mapBlock.getValueBlock().isLoaded()).isTrue();
-        MapBlock loadedMap = (MapBlock) mapBlock.getLoadedBlock();
+        MapBlock loadedMap = mapBlock.getLoadedBlock();
         assertThat(loadedMap.getPositionCount()).isEqualTo(2);
         assertThat(loadedMap.getKeyBlock().isLoaded()).isTrue();
         assertThat(loadedMap.getValueBlock().isLoaded()).isTrue();
+        assertThat(loadedMap).isSameAs(mapBlock);
     }
 
     @Test

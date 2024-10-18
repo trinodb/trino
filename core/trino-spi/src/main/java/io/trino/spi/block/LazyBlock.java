@@ -319,6 +319,9 @@ public final class LazyBlock
             }
 
             block = requireNonNull(loader.load(), "loader returned null");
+            if (block instanceof LazyBlock) {
+                throw new IllegalStateException("LazyBlock returned by loader");
+            }
             if (block.getPositionCount() != positionsCount) {
                 throw new IllegalStateException(format("Loaded block positions count (%s) doesn't match lazy block positions count (%s)", block.getPositionCount(), positionsCount));
             }

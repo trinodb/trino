@@ -20,12 +20,14 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.LazyBlock;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Random;
 
+import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -114,6 +116,21 @@ public class TestArrayBlock
             }
         }
         return expectedValues;
+    }
+
+    @Test
+    public void testLazyValuesBlock()
+    {
+        LazyBlock elementsBlock = new LazyBlock(10, () -> createLongsBlock(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+        ArrayBlock arrayBlock = fromElementBlock(2, Optional.empty(), new int[]{0, 5, 10}, elementsBlock);
+        assertThat(arrayBlock.isLoaded()).isFalse();
+        assertThat(arrayBlock.getPositionCount()).isEqualTo(2);
+        assertThat(arrayBlock.getElementsBlock()).isInstanceOf(LazyBlock.class);
+        assertThat(arrayBlock.getElementsBlock().isLoaded()).isFalse();
+        ArrayBlock loadedArray = arrayBlock.getLoadedBlock();
+        assertThat(loadedArray.getPositionCount()).isEqualTo(2);
+        assertThat(loadedArray.getElementsBlock().isLoaded()).isTrue();
+        assertThat(loadedArray).isSameAs(arrayBlock);
     }
 
     @Test

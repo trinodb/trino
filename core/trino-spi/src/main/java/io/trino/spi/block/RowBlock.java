@@ -29,7 +29,6 @@ import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.BlockUtil.ensureBlocksAreLoaded;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -224,14 +223,17 @@ public final class RowBlock
     }
 
     @Override
-    public Block getLoadedBlock()
+    public RowBlock getLoadedBlock()
     {
-        Block[] loadedFieldBlocks = ensureBlocksAreLoaded(fieldBlocks);
-        if (loadedFieldBlocks == fieldBlocks) {
-            // All blocks are already loaded
-            return this;
+        for (int i = 0; i < fieldBlocks.length; i++) {
+            if (fieldBlocks[i] instanceof LazyBlock) {
+                fieldBlocks[i] = fieldBlocks[i].getLoadedBlock();
+            }
+            else {
+                fieldBlocks[i].getLoadedBlock();
+            }
         }
-        return new RowBlock(positionCount, rowIsNull, loadedFieldBlocks, fixedSizePerRow);
+        return this;
     }
 
     @Override

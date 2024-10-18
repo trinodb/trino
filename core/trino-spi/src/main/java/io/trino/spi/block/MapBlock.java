@@ -52,8 +52,8 @@ public final class MapBlock
     @Nullable
     private final boolean[] mapIsNull;
     private final int[] offsets;
-    private final Block keyBlock;
-    private final Block valueBlock;
+    private Block keyBlock;
+    private Block valueBlock;
     private final MapHashTables hashTables;
 
     private final long baseSizeInBytes;
@@ -290,22 +290,21 @@ public final class MapBlock
     }
 
     @Override
-    public Block getLoadedBlock()
+    public MapBlock getLoadedBlock()
     {
-        Block loadedKeyBlock = keyBlock.getLoadedBlock();
-        Block loadedValueBlock = valueBlock.getLoadedBlock();
-        if (loadedKeyBlock == keyBlock && loadedValueBlock == valueBlock) {
-            return this;
+        if (keyBlock instanceof LazyBlock) {
+            keyBlock = keyBlock.getLoadedBlock();
         }
-        return createMapBlockInternal(
-                getMapType(),
-                startOffset,
-                positionCount,
-                Optional.ofNullable(mapIsNull),
-                offsets,
-                loadedKeyBlock,
-                loadedValueBlock,
-                hashTables);
+        else {
+            keyBlock.getLoadedBlock();
+        }
+        if (valueBlock instanceof LazyBlock) {
+            valueBlock = valueBlock.getLoadedBlock();
+        }
+        else {
+            valueBlock.getLoadedBlock();
+        }
+        return this;
     }
 
     void ensureHashTableLoaded()
