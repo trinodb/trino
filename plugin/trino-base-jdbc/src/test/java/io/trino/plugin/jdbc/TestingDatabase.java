@@ -28,6 +28,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.plugin.jdbc.DefaultJdbcMetadata.getColumns;
 import static java.util.function.Function.identity;
 
 final class TestingDatabase
@@ -108,7 +109,7 @@ final class TestingDatabase
 
     public Map<String, JdbcColumnHandle> getColumnHandles(ConnectorSession session, JdbcTableHandle table)
     {
-        return jdbcClient.getColumns(session, table).stream()
+        return getColumns(session, jdbcClient, table).stream()
                 .collect(toImmutableMap(column -> column.getColumnMetadata().getName(), identity()));
     }
 }
