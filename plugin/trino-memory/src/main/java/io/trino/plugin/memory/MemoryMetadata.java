@@ -505,6 +505,7 @@ public class MemoryMetadata
                 comment,
                 view.getOwner(),
                 view.isRunAsInvoker(),
+                view.isHybrid(),
                 view.getPath()));
     }
 
@@ -522,6 +523,7 @@ public class MemoryMetadata
                 view.getComment(),
                 view.getOwner(),
                 view.isRunAsInvoker(),
+                view.isHybrid(),
                 view.getPath()));
     }
 

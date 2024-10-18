@@ -46,8 +46,8 @@ import static io.trino.connector.MockConnectorEntities.TPCH_WITH_HIDDEN_COLUMN_D
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -88,6 +88,7 @@ public class TestColumnMask
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 false,
+                false,
                 ImmutableList.of());
 
         ConnectorViewDefinition viewWithNested = new ConnectorViewDefinition(
@@ -108,6 +109,7 @@ public class TestColumnMask
                         new ConnectorViewDefinition.ViewColumn("id", INTEGER.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
+                false,
                 false,
                 ImmutableList.of());
 
