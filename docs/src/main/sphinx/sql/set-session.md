@@ -40,20 +40,22 @@ lost.
 The following example sets a system session property to enable optimized hash
 generation:
 
-```
+```sql
 SET SESSION optimize_hash_generation = true;
 ```
 
-The following example sets the `optimize_locality_enabled` catalog session
-property for an {doc}`Accumulo catalog </connector/accumulo>` named `acc01`:
+The following example sets the `incremental_refresh_enabled` catalog session
+property for a catalog using the [](/connector/iceberg) named `example`:
 
-```
-SET SESSION acc01.optimize_locality_enabled = false;
+```sql
+SET SESSION example.incremental_refresh_enabled=false;
 ```
 
-The example `acc01.optimize_locality_enabled` catalog session property
-does not apply to any other catalog, even if another catalog also uses the
-Accumulo connector.
+The related catalog configuration property `iceberg.incremental-refresh-enabled`
+defaults to `true`, and the session property allows you to override this setting
+in for specific catalog and the current session. The
+`example.incremental_refresh_enabled` catalog session property does not apply to
+any other catalog, even if another catalog also uses the Iceberg connector.
 
 ## See also
 

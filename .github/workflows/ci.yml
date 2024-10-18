@@ -333,7 +333,6 @@ jobs:
         id: tests
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
-            !:trino-accumulo,
             !:trino-base-jdbc,
             !:trino-bigquery,
             !:trino-cassandra,
@@ -443,7 +442,6 @@ jobs:
             - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
             - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
             - { modules: lib/trino-hdfs, profile: cloud-tests }
-            - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
             - { modules: plugin/trino-bigquery, profile: cloud-tests-2 }
             - { modules: plugin/trino-cassandra }
