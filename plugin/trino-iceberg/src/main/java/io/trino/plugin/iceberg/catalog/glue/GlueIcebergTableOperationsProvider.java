@@ -13,16 +13,15 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
+import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.util.Optional;
 
@@ -34,21 +33,18 @@ public class GlueIcebergTableOperationsProvider
     private final TypeManager typeManager;
     private final boolean cacheTableMetadata;
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final AWSGlueAsync glueClient;
-    private final GlueMetastoreStats stats;
+    private final GlueClient glueClient;
 
     @Inject
     public GlueIcebergTableOperationsProvider(
             TypeManager typeManager,
             IcebergGlueCatalogConfig catalogConfig,
             TrinoFileSystemFactory fileSystemFactory,
-            GlueMetastoreStats stats,
-            AWSGlueAsync glueClient)
+            GlueClient glueClient)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.cacheTableMetadata = catalogConfig.isCacheTableMetadata();
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.stats = requireNonNull(stats, "stats is null");
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
     }
 
@@ -65,7 +61,6 @@ public class GlueIcebergTableOperationsProvider
                 typeManager,
                 cacheTableMetadata,
                 glueClient,
-                stats,
                 // Share Glue Table cache between Catalog and TableOperations so that, when doing metadata queries (e.g. information_schema.columns)
                 // the GetTableRequest is issued once per table.
                 ((TrinoGlueCatalog) catalog)::getTable,
