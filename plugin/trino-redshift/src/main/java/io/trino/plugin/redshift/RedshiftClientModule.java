@@ -16,6 +16,7 @@ package io.trino.plugin.redshift;
 import com.amazon.redshift.Driver;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
@@ -27,10 +28,12 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcRecordSetProvider;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.RemoteQueryCancellationModule;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.util.Properties;
@@ -54,6 +57,9 @@ public class RedshiftClientModule
         install(new DecimalModule());
         install(new JdbcJoinPushdownSupportModule());
         install(new RemoteQueryCancellationModule());
+        binder.bind(ConnectorRecordSetProvider.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
+
+        binder.bind(RedshiftConnector.class).in(Scopes.SINGLETON);
     }
 
     @Singleton
