@@ -2174,6 +2174,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitTypeCast(SqlBaseParser.TypeCastContext context)
+    {
+        return new Cast(getLocation(context), (Expression) visit(context.left), (DataType) visit(context.right), false);
+    }
+
+    @Override
     public Node visitBetween(SqlBaseParser.BetweenContext context)
     {
         Expression expression = new BetweenPredicate(
