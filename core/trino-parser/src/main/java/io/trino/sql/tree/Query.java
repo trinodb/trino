@@ -26,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class Query
         extends Statement
 {
+    private final List<SessionProperty> sessionProperties;
     private final List<FunctionSpecification> functions;
     private final Optional<With> with;
     private final QueryBody queryBody;
@@ -35,6 +36,7 @@ public class Query
 
     @Deprecated
     public Query(
+            List<SessionProperty> sessionProperties,
             List<FunctionSpecification> functions,
             Optional<With> with,
             QueryBody queryBody,
@@ -42,11 +44,12 @@ public class Query
             Optional<Offset> offset,
             Optional<Node> limit)
     {
-        this(Optional.empty(), functions, with, queryBody, orderBy, offset, limit);
+        this(Optional.empty(), sessionProperties, functions, with, queryBody, orderBy, offset, limit);
     }
 
     public Query(
             NodeLocation location,
+            List<SessionProperty> sessionProperties,
             List<FunctionSpecification> functions,
             Optional<With> with,
             QueryBody queryBody,
@@ -54,11 +57,12 @@ public class Query
             Optional<Offset> offset,
             Optional<Node> limit)
     {
-        this(Optional.of(location), functions, with, queryBody, orderBy, offset, limit);
+        this(Optional.of(location), sessionProperties, functions, with, queryBody, orderBy, offset, limit);
     }
 
     private Query(
             Optional<NodeLocation> location,
+            List<SessionProperty> sessionProperties,
             List<FunctionSpecification> functions,
             Optional<With> with,
             QueryBody queryBody,
@@ -67,7 +71,8 @@ public class Query
             Optional<Node> limit)
     {
         super(location);
-        requireNonNull(functions, "function si snull");
+        requireNonNull(sessionProperties, "sessionProperties is null");
+        requireNonNull(functions, "functions is null");
         requireNonNull(with, "with is null");
         requireNonNull(queryBody, "queryBody is null");
         requireNonNull(orderBy, "orderBy is null");
@@ -75,12 +80,18 @@ public class Query
         requireNonNull(limit, "limit is null");
         checkArgument(!limit.isPresent() || limit.get() instanceof FetchFirst || limit.get() instanceof Limit, "limit must be optional of either FetchFirst or Limit type");
 
+        this.sessionProperties = ImmutableList.copyOf(sessionProperties);
         this.functions = ImmutableList.copyOf(functions);
         this.with = with;
         this.queryBody = queryBody;
         this.orderBy = orderBy;
         this.offset = offset;
         this.limit = limit;
+    }
+
+    public List<SessionProperty> getSessionProperties()
+    {
+        return sessionProperties;
     }
 
     public List<FunctionSpecification> getFunctions()
@@ -124,6 +135,7 @@ public class Query
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
         nodes.addAll(functions);
+        nodes.addAll(sessionProperties);
         with.ifPresent(nodes::add);
         nodes.add(queryBody);
         orderBy.ifPresent(nodes::add);
@@ -136,6 +148,7 @@ public class Query
     public String toString()
     {
         return toStringHelper(this)
+                .add("sessionProperties", sessionProperties.isEmpty() ? null : sessionProperties)
                 .add("functions", functions.isEmpty() ? null : functions)
                 .add("with", with.orElse(null))
                 .add("queryBody", queryBody)
@@ -156,7 +169,8 @@ public class Query
             return false;
         }
         Query o = (Query) obj;
-        return Objects.equals(functions, o.functions) &&
+        return Objects.equals(sessionProperties, o.sessionProperties) &&
+                Objects.equals(functions, o.functions) &&
                 Objects.equals(with, o.with) &&
                 Objects.equals(queryBody, o.queryBody) &&
                 Objects.equals(orderBy, o.orderBy) &&
@@ -167,7 +181,7 @@ public class Query
     @Override
     public int hashCode()
     {
-        return Objects.hash(functions, with, queryBody, orderBy, offset, limit);
+        return Objects.hash(sessionProperties, functions, with, queryBody, orderBy, offset, limit);
     }
 
     @Override
