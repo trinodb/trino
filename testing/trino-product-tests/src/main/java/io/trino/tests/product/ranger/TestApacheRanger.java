@@ -14,7 +14,7 @@
 package io.trino.tests.product.ranger;
 
 import io.trino.tempto.ProductTest;
-import io.trino.tempto.query.QueryResult;
+import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -32,15 +32,21 @@ public class TestApacheRanger
     {
         String tableName = "memory.default.nation_" + randomNameSuffix();
 
-        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        QueryResult result = onTrino().executeQuery("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation");
-        try {
-            assertThat(result).updatedRowsCountIsEqualTo(25);
-            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM " + tableName))
-                    .containsOnly(row(25));
-        }
-        finally {
-            onTrino().executeQuery("DROP TABLE " + tableName);
+        try (QueryExecutor trino = onTrino()) {
+            try {
+                trino.executeQuery("DROP TABLE IF EXISTS " + tableName);
+                assertThat(trino.executeQuery("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation")).updatedRowsCountIsEqualTo(25);
+                assertThat(trino.executeQuery("SELECT COUNT(*) FROM " + tableName)).containsOnly(row(25));
+                assertThat(trino.executeQuery("TRUNCATE TABLE " + tableName)).updatedRowsCountIsEqualTo(0);
+                assertThat(trino.executeQuery("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation")).updatedRowsCountIsEqualTo(25);
+                /* memory catalog does not support UPDATE and DELETE
+                assertThat(trino.executeQuery("UPDATE " + tableName + " SET comment = name")).updatedRowsCountIsEqualTo(25);
+                assertThat(trino.executeQuery("DELETE FROM " + tableName)).updatedRowsCountIsEqualTo(25);
+                */
+            }
+            finally {
+                trino.executeQuery("DROP TABLE " + tableName);
+            }
         }
     }
 }

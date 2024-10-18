@@ -15,6 +15,10 @@
     <name>Trino - Apache Ranger access control</name>
     <description>Trino - Apache Ranger access control</description>
 
+    <properties>
+        <dep.commons.collections.version>3.2.2</dep.commons.collections.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -183,11 +187,6 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.vintage</groupId>
-            <artifactId>junit-vintage-engine</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

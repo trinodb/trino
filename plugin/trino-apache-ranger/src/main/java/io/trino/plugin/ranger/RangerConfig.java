@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.ranger;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
-import java.util.Arrays;
 import java.util.List;
 
 public class RangerConfig
@@ -28,8 +28,8 @@ public class RangerConfig
     public static final String RANGER_TRINO_DEFAULT_HADOOP_CONF = "trino-ranger-site.xml";
 
     private String serviceName = RANGER_TRINO_DEFAULT_SERVICE_NAME;
-    private List<String> pluginConfigResource = Arrays.asList(RANGER_TRINO_DEFAULT_SECURITY_CONF, RANGER_TRINO_DEFAULT_AUDIT_CONF, RANGER_TRINO_DEFAULT_POLICYMGR_SSL_CONF);
-    private List<String> hadoopConfigResource = Arrays.asList(RANGER_TRINO_DEFAULT_HADOOP_CONF);
+    private List<String> pluginConfigResource = ImmutableList.of(RANGER_TRINO_DEFAULT_SECURITY_CONF, RANGER_TRINO_DEFAULT_AUDIT_CONF, RANGER_TRINO_DEFAULT_POLICYMGR_SSL_CONF);
+    private List<String> hadoopConfigResource = ImmutableList.of(RANGER_TRINO_DEFAULT_HADOOP_CONF);
 
     public String getServiceName()
     {
@@ -37,7 +37,7 @@ public class RangerConfig
     }
 
     @Config("apache-ranger.service.name")
-    @ConfigDescription("Name of Ranger service containing policies to enforce. Defaults to dev_trino")
+    @ConfigDescription("Name of Ranger service containing policies to enforce")
     public RangerConfig setServiceName(String serviceName)
     {
         this.serviceName = serviceName;
@@ -50,7 +50,7 @@ public class RangerConfig
     }
 
     @Config("apache-ranger.plugin.config.resource")
-    @ConfigDescription("List of paths to Ranger plugin configuration files. Defaults to ranger-trino-security.xml,ranger-trino-audit.xml,ranger-policymgr-ssl.xml in classpath")
+    @ConfigDescription("List of paths to Ranger plugin configuration files")
     public RangerConfig setPluginConfigResource(List<String> pluginConfigResource)
     {
         this.pluginConfigResource = pluginConfigResource;
@@ -58,7 +58,7 @@ public class RangerConfig
     }
 
     @Config("apache-ranger.hadoop.config.resource")
-    @ConfigDescription("List of paths to hadoop configuration files. Defaults to trino-ranger-site.xml in classpath")
+    @ConfigDescription("List of paths to hadoop configuration files")
     @SuppressWarnings("unused")
     public RangerConfig setHadoopConfigResource(List<String> hadoopConfigResource)
     {
