@@ -692,7 +692,7 @@ public final class Environment
                 tempFile = File.createTempFile("tempto-configured-features-", ".yaml");
                 objectMapper.writeValue(tempFile,
                         Map.of("databases",
-                                Map.of("presto",
+                                Map.of("trino",
                                         Map.of(
                                                 "configured_connectors",
                                                 configuredFeatures.asMap().getOrDefault(CONNECTOR, ImmutableList.of()),

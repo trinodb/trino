@@ -1,4 +1,4 @@
--- database: presto; groups: insert; mutable_tables: datatype|created; tables: datatype
+-- database: trino; groups: insert; mutable_tables: datatype|created; tables: datatype
 -- delimiter: |; ignoreOrder: true;
 --!
 insert into ${mutableTables.hive.datatype} select * from datatype order by 1 limit 2;

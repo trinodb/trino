@@ -1,4 +1,4 @@
--- database: presto; groups: tpch,large_query; tables: supplier,lineitem,orders,nation
+-- database: trino; groups: tpch,large_query; tables: supplier,lineitem,orders,nation
 SELECT
   s_name,
   count(*) AS numwait

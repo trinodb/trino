@@ -1,4 +1,4 @@
--- database: presto; groups: tpch; tables: partsupp,supplier,nation
+-- database: trino; groups: tpch; tables: partsupp,supplier,nation
 SELECT
   ps_partkey,
   sum(ps_supplycost * ps_availqty) AS value

@@ -1,4 +1,4 @@
--- database: presto; groups: sqlserver, profile_specific_tests; queryType: SELECT; tables: sqlserver.dbo.workers_sqlserver
+-- database: trino; groups: sqlserver, profile_specific_tests; queryType: SELECT; tables: sqlserver.dbo.workers_sqlserver
 --!
 describe sqlserver.dbo.workers_sqlserver
 --!

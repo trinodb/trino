@@ -1,4 +1,4 @@
--- database: presto; groups: mysql,profile_specific_tests; queryType: SELECT; tables: mysql.test.workers_mysql
+-- database: trino; groups: mysql,profile_specific_tests; queryType: SELECT; tables: mysql.test.workers_mysql
 --!
 describe mysql.test.workers_mysql
 --!

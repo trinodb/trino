@@ -1,4 +1,4 @@
--- database: presto; groups: system
+-- database: trino; groups: system
 SELECT
   table_catalog,
   table_schema,

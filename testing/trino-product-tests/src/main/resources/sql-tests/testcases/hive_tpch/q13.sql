@@ -1,4 +1,4 @@
--- database: presto; groups: tpch; tables: customer
+-- database: trino; groups: tpch; tables: customer
 SELECT
   c_count,
   count(*) AS custdist

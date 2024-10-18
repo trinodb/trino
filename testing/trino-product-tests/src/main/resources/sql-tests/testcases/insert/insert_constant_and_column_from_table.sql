@@ -1,5 +1,5 @@
--- database: presto; groups: insert; mutable_tables: datatype|created; tables: datatype
--- delimiter: |; ignoreOrder: true; 
+-- database: trino; groups: insert; mutable_tables: datatype|created; tables: datatype
+-- delimiter: |; ignoreOrder: true;
 --!
 insert into ${mutableTables.hive.datatype} select 1, c_double, 'abc', cast('2014-01-01' as date), c_timestamp, FALSE, DECIMAL '123.22', DECIMAL '12345678901234567890.0123456789' from datatype;
 select * from ${mutableTables.hive.datatype}

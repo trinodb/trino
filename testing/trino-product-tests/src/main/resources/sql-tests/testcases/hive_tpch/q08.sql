@@ -1,4 +1,4 @@
--- database: presto; groups: tpch; tables: part,supplier,lineitem,orders,customer,nation,region
+-- database: trino; groups: tpch; tables: part,supplier,lineitem,orders,customer,nation,region
 SELECT
   o_year,
   sum(CASE

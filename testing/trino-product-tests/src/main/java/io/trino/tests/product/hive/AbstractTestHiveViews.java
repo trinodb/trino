@@ -470,7 +470,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW IF EXISTS no_catalog_schema_view");
         onHive().executeQuery("CREATE VIEW no_catalog_schema_view AS SELECT * FROM nation WHERE n_nationkey = 1");
 
-        QueryExecutor executor = connectToTrino("presto_no_default_catalog");
+        QueryExecutor executor = connectToTrino("trino_no_default_catalog");
         assertQueryFailure(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
                 .hasMessageMatching(".*Schema must be specified when session schema is not set.*");
         assertThat(executor.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view"))
@@ -519,7 +519,7 @@ public abstract class AbstractTestHiveViews
 
         String testQuery = "SELECT cu FROM current_user_hive_view";
         assertThat(onTrino().executeQuery(testQuery)).containsOnly(row("hive"));
-        assertThat(connectToTrino("alice@presto").executeQuery(testQuery)).containsOnly(row("alice"));
+        assertThat(connectToTrino("alice@trino").executeQuery(testQuery)).containsOnly(row("alice"));
     }
 
     @Test
@@ -751,8 +751,8 @@ public abstract class AbstractTestHiveViews
 
         String definerQuery = "SELECT * FROM hive.default.run_as_invoker_view";
         String invokerQuery = "SELECT * FROM hive_with_run_view_as_invoker.default.run_as_invoker_view";
-        assertThat(connectToTrino("alice@presto").executeQuery(definerQuery)).hasNoRows(); // Allowed
-        assertThatThrownBy(() -> connectToTrino("alice@presto").executeQuery(invokerQuery))
+        assertThat(connectToTrino("alice@trino").executeQuery(definerQuery)).hasNoRows(); // Allowed
+        assertThatThrownBy(() -> connectToTrino("alice@trino").executeQuery(invokerQuery))
                 .hasMessageContaining("Access Denied");
 
         onHive().executeQuery("DROP VIEW run_as_invoker_view");

@@ -1,4 +1,4 @@
--- database: presto; groups: tpch; tables: partsupp,part,supplier
+-- database: trino; groups: tpch; tables: partsupp,part,supplier
 SELECT
   p_brand,
   p_type,

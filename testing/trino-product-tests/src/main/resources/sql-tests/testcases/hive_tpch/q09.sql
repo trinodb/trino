@@ -1,4 +1,4 @@
--- database: presto; groups: tpch, large_query; tables: part,supplier,lineitem,partsupp,orders,nation
+-- database: trino; groups: tpch, large_query; tables: part,supplier,lineitem,partsupp,orders,nation
 SELECT
   nation,
   o_year,

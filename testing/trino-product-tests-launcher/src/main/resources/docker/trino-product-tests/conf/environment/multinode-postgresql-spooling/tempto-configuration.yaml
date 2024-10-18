@@ -1,3 +1,3 @@
 databases:
-  presto:
-    jdbc_url: jdbc:trino://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}?encoding=json
+  trino:
+    jdbc_url: jdbc:trino://${databases.trino.host}:${databases.trino.port}/hive/${databases.hive.schema}?encoding=json

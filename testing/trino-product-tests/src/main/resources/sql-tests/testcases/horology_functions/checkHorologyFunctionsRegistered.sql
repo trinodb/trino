@@ -1,2 +1,2 @@
--- database: presto; groups: qe, horology_functions, functions
+-- database: trino; groups: qe, horology_functions, functions
 show functions
