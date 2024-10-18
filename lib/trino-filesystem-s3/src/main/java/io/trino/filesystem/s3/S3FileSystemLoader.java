@@ -148,6 +148,7 @@ final class S3FileSystemLoader
         Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
         Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
         boolean pathStyleAccess = config.isPathStyleAccess();
+        boolean isCrossRegionAccessEnabled = config.isCrossRegionAccessEnabled();
         boolean useWebIdentityTokenCredentialsProvider = config.isUseWebIdentityTokenCredentialsProvider();
         Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
         String staticRoleSessionName = config.getRoleSessionName();
@@ -168,8 +169,17 @@ final class S3FileSystemLoader
             s3.overrideConfiguration(overrideConfiguration);
             s3.httpClient(httpClient);
 
-            region.map(Region::of).ifPresent(s3::region);
-            endpoint.map(URI::create).ifPresent(s3::endpointOverride);
+            Optional<Region> awsRegion = region.map(Region::of);
+            Optional<URI> awsEndpoint = endpoint.map(URI::create);
+            awsRegion.ifPresent(s3::region);
+            awsEndpoint.ifPresent(s3::endpointOverride);
+            if (isCrossRegionAccessEnabled && awsEndpoint.isEmpty()) {
+                if (awsRegion.isEmpty()) {
+                    s3.region(Region.US_EAST_1);
+                }
+                s3.crossRegionAccessEnabled(true);
+            }
+
             s3.forcePathStyle(pathStyleAccess);
 
             if (useWebIdentityTokenCredentialsProvider) {
