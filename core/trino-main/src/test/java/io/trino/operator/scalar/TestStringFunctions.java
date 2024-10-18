@@ -2379,6 +2379,26 @@ public class TestStringFunctions
     @Test
     public void testTranslate()
     {
+        assertFunction("translate('abcd', '', '')", VARCHAR, "abcd");
+        assertFunction("translate('abcd', 'a', 'z')", VARCHAR, "zbcd");
+        assertFunction("translate('abcda', 'a', 'z')", VARCHAR, "zbcdz");
+        assertFunction("translate('a bc ', CHAR ' ', '_')", VARCHAR, "a_bc_");
+        assertFunction("translate('a  bc  ', CHAR '  ', '__')", VARCHAR, "a__bc__");
+
+        // Test translate (char(x), char(y), char(z))
+
+        assertFunction("translate(CHAR 'a bc ', ' ', '_')", VARCHAR, "a_bc_");
+        assertFunction("translate(CHAR 'a  bc  ', '  ', '__')", VARCHAR, "a__bc__");
+        assertFunction("translate(CHAR '  a  bc  ', '  ', '__')", VARCHAR, "__a__bc__");
+        assertFunction("translate(CHAR 'abcd', 'a', 'zy')", VARCHAR, "zbcd");
+        assertFunction("translate(CHAR 'abcd', 'ac', 'z')", VARCHAR, "zbd");
+        assertFunction("translate(CHAR 'abcd', 'aac', 'zq')", VARCHAR, "zbd");
+
+        assertFunction("translate(CAST(CHAR 'a bc ' AS VARCHAR), ' ', '_')", VARCHAR, "a_bc_");
+        assertFunction("translate(CHAR 'abc', 'c', ' ')", VARCHAR, "ab ");
+        assertFunction("translate(CHAR 'abc ', 'c', 'z')", VARCHAR, "abz ");
+        assertFunction("translate('áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU");
+
         assertThat(assertions.function("translate", "'abcd'", "''", "''"))
                 .hasType(VARCHAR)
                 .isEqualTo("abcd");
