@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Resources;
 import com.google.common.net.HostAndPort;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.Session;
@@ -41,6 +42,11 @@ import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.testing.PlanTester;
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -50,15 +56,20 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Predicates.equalTo;
+import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_8_IMAGE;
+import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
+import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_7_IMAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
@@ -86,6 +97,8 @@ final class TestElasticsearchProjectionPushdownPlans
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
     private static final String CATALOG = "elasticsearch";
     private static final String SCHEMA = "test";
+    public static final String USER = "elastic_user";
+    public static final String PASSWORD = "123456";
 
     private ElasticsearchServer elasticsearch;
     private RestHighLevelClient client;
@@ -101,33 +114,62 @@ final class TestElasticsearchProjectionPushdownPlans
         PlanTester planTester = PlanTester.create(session);
 
         try {
-            elasticsearch = new ElasticsearchServer(ELASTICSEARCH_8_IMAGE);
+            elasticsearch = new ElasticsearchServer(ELASTICSEARCH_7_IMAGE);
         }
         catch (IOException e) {
             throw new RuntimeException(e);
         }
         HostAndPort address = elasticsearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
+        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort(), "https"))
+                .setHttpClientConfigCallback(this::setupSslContext));
 
         try {
             planTester.installPlugin(new ElasticsearchPlugin());
             planTester.createCatalog(
                     CATALOG,
                     "elasticsearch",
-                    ImmutableMap.of(
-                            "elasticsearch.host", address.getHost(),
-                            "elasticsearch.port", Integer.toString(address.getPort()),
-                            "elasticsearch.ignore-publish-address", "true",
-                            "elasticsearch.default-schema-name", SCHEMA,
-                            "elasticsearch.scroll-size", "1000",
-                            "elasticsearch.scroll-timeout", "1m",
-                            "elasticsearch.request-timeout", "2m"));
+                    ImmutableMap.<String, String>builder()
+                            .put("elasticsearch.host", address.getHost())
+                            .put("elasticsearch.port", Integer.toString(address.getPort()))
+                            .put("elasticsearch.ignore-publish-address", "true")
+                            .put("elasticsearch.default-schema-name", SCHEMA)
+                            .put("elasticsearch.scroll-size", "1000")
+                            .put("elasticsearch.scroll-timeout", "1m")
+                            .put("elasticsearch.request-timeout", "2m")
+                            .put("elasticsearch.tls.enabled", "true")
+                            .put("elasticsearch.tls.truststore-path", new File(getResource("truststore.jks").toURI()).getPath())
+                            .put("elasticsearch.tls.truststore-password", "123456")
+                            .put("elasticsearch.tls.verify-hostnames", "false")
+                            .put("elasticsearch.security", "PASSWORD")
+                            .put("elasticsearch.auth.user", USER)
+                            .put("elasticsearch.auth.password", PASSWORD)
+                            .buildOrThrow());
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
         }
         catch (Throwable e) {
             closeAllSuppress(e, planTester);
             throw e;
         }
         return planTester;
+    }
+
+    private HttpAsyncClientBuilder setupSslContext(HttpAsyncClientBuilder clientBuilder)
+    {
+        final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(USER, PASSWORD));
+        try {
+            return clientBuilder.setSSLContext(createSSLContext(
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.of(new File(Resources.getResource("truststore.jks").toURI())),
+                            Optional.of("123456")))
+                    .setDefaultCredentialsProvider(credentialsProvider);
+        }
+        catch (GeneralSecurityException | IOException | URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @AfterAll

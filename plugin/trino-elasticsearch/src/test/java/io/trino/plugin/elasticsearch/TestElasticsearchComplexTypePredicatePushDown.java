@@ -16,25 +16,36 @@ package io.trino.plugin.elasticsearch;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import com.google.common.net.HostAndPort;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 
-import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_8_IMAGE;
+import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
+import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_7_IMAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,6 +55,9 @@ final class TestElasticsearchComplexTypePredicatePushDown
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
+    public static final String USER = "elastic_user";
+    public static final String PASSWORD = "123456";
+
     private ElasticsearchServer elasticsearch;
     private RestHighLevelClient client;
 
@@ -51,10 +65,28 @@ final class TestElasticsearchComplexTypePredicatePushDown
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        elasticsearch = closeAfterClass(new ElasticsearchServer(ELASTICSEARCH_8_IMAGE));
+        elasticsearch = closeAfterClass(new ElasticsearchServer(ELASTICSEARCH_7_IMAGE));
         HostAndPort address = elasticsearch.getAddress();
-        client = closeAfterClass(new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort()))));
+        client = closeAfterClass(new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort(), "https"))
+                .setHttpClientConfigCallback(this::setupSslContext)));
         return ElasticsearchQueryRunner.builder(elasticsearch).build();
+    }
+
+    private HttpAsyncClientBuilder setupSslContext(HttpAsyncClientBuilder clientBuilder)
+    {
+        final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(USER, PASSWORD));
+        try {
+            return clientBuilder.setSSLContext(createSSLContext(
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.of(new File(Resources.getResource("truststore.jks").toURI())),
+                    Optional.of("123456")))
+                    .setDefaultCredentialsProvider(credentialsProvider);
+        }
+        catch (GeneralSecurityException | IOException | URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
