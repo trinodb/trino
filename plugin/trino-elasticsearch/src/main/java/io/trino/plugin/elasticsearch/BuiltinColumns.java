@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.decoders.IdColumnDecoder;
 import io.trino.plugin.elasticsearch.decoders.ScoreColumnDecoder;
@@ -86,7 +87,7 @@ enum BuiltinColumns
     public ColumnHandle getColumnHandle()
     {
         return new ElasticsearchColumnHandle(
-                name,
+                ImmutableList.of(name),
                 type,
                 elasticsearchType,
                 decoderDescriptor,
