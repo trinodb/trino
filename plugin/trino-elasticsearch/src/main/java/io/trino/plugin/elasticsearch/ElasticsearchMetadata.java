@@ -679,6 +679,71 @@ public class ElasticsearchMetadata
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 
+    @Override
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            List<ConnectorExpression> projections,
+            Map<String, ColumnHandle> assignments)
+    {
+        ElasticsearchTableHandle tableHandle = (ElasticsearchTableHandle) handle;
+
+        if (isPassthroughQuery(tableHandle)) {
+            return Optional.empty();
+        }
+
+        List<ConnectorExpression> newProjections = new ArrayList<>();
+        List<Assignment> newAssignments = new ArrayList<>();
+
+        for (ConnectorExpression projection : projections) {
+            if (projection instanceof Variable) {
+                ColumnHandle column = assignments.get(((Variable) projection).getName());
+                newAssignments.add(new Assignment(((Variable) projection).getName(), column, ((ElasticsearchColumnHandle) column).getType()));
+                newProjections.add(projection);
+            }
+            else if (projection instanceof FieldDereference && ((FieldDereference) projection).getTarget() instanceof Variable) {
+                FieldDereference dereference = (FieldDereference) projection;
+                Variable base = (Variable) dereference.getTarget();
+                ElasticsearchColumnHandle baseColumn = (ElasticsearchColumnHandle) assignments.get(base.getName());
+
+                if (baseColumn != null && baseColumn.getType() instanceof RowType) {
+                    RowType rowType = (RowType) baseColumn.getType();
+                    int index = dereference.getField();
+                    if (index < rowType.getFields().size()) {
+                        String fieldName = rowType.getFields().get(index).getName().orElseThrow();
+                        Type fieldType = rowType.getFields().get(index).getType();
+                        
+                        String fullFieldName = baseColumn.getName() + "." + fieldName;
+                        ElasticsearchColumnHandle newColumn = new ElasticsearchColumnHandle(
+                                fullFieldName,
+                                fieldType,
+                                baseColumn.getDecoderDescriptor(),
+                                baseColumn.supportsPredicates());
+                        
+                        newAssignments.add(new Assignment(fullFieldName, newColumn, fieldType));
+                        newProjections.add(new Variable(fullFieldName, fieldType));
+                    }
+                }
+            }
+        }
+
+        if (newProjections.equals(projections)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new ProjectionApplicationResult<>(
+                new ElasticsearchTableHandle(
+                        tableHandle.getType(),
+                        tableHandle.getSchema(),
+                        tableHandle.getIndex(),
+                        tableHandle.getConstraint(),
+                        tableHandle.getRegexes(),
+                        tableHandle.getQuery(),
+                        tableHandle.getLimit()),
+                newProjections,
+                newAssignments.stream().collect(toImmutableMap(Assignment::getVariable, Assignment::getColumn))));
+    }
+
     private record InternalTableMetadata(SchemaTableName tableName, List<ColumnMetadata> columnMetadata, Map<String, ColumnHandle> columnHandles) {}
 
     private record TypeAndDecoder(Type type, DecoderDescriptor decoderDescriptor) {}

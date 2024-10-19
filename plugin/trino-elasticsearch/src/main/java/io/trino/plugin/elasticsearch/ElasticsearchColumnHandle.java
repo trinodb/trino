@@ -37,4 +37,9 @@ public record ElasticsearchColumnHandle(
     {
         return name() + "::" + type();
     }
+
+    public ElasticsearchColumnHandle withName(String newName)
+    {
+        return new ElasticsearchColumnHandle(newName, type, decoderDescriptor, supportsPredicates);
+    }
 }

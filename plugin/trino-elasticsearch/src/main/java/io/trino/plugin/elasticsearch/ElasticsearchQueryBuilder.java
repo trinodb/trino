@@ -27,6 +27,9 @@ import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.RegexpQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.index.query.NestedQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.ScoreMode;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -168,5 +171,20 @@ public final class ElasticsearchQueryBuilder
                     .format(ISO_DATE_TIME);
         }
         throw new IllegalArgumentException("Unhandled type: " + type);
+    }
+
+    private static void buildTermQuery(String columnName, Object value, QueryBuilder queryBuilder)
+    {
+        String[] parts = columnName.split("\\.");
+        if (parts.length > 1) {
+            NestedQueryBuilder nestedQuery = QueryBuilders.nestedQuery(
+                    String.join(".", Arrays.copyOfRange(parts, 0, parts.length - 1)),
+                    QueryBuilders.termQuery(columnName, value),
+                    ScoreMode.None);
+            queryBuilder.must(nestedQuery);
+        }
+        else {
+            queryBuilder.must(QueryBuilders.termQuery(columnName, value));
+        }
     }
 }
