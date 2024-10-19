@@ -30,6 +30,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import javax.net.ssl.SSLContext;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -50,7 +51,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
-public class ElasticsearchServer
+public class ElasticsearchServer implements Closeable
 {
     public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.16.2";
     public static final String ELASTICSEARCH_8_IMAGE = "elasticsearch:8.11.3";
@@ -95,16 +96,17 @@ public class ElasticsearchServer
         container.start();
     }
 
-    public void stop()
+    public HostAndPort getAddress()
+    {
+        return HostAndPort.fromString(container.getHttpHostAddress());
+    }
+
+    @Override
+    public void close()
             throws IOException
     {
         container.close();
         deleteRecursively(configurationPath, ALLOW_INSECURE);
-    }
-
-    public HostAndPort getAddress()
-    {
-        return HostAndPort.fromString(container.getHttpHostAddress());
     }
 
     public RestHighLevelClient getClient()
