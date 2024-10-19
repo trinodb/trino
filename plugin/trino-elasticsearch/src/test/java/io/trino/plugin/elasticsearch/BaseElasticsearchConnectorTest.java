@@ -288,6 +288,23 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testFieldNameWithSpecialCharacters()
+            throws IOException
+    {
+        String index = "field_name_with_special_characters_" + randomNameSuffix();
+        index(index, ImmutableMap.<String, Object>builder()
+                .put("with$sign", 55)
+                .put("nested", ImmutableMap.<String, Object>builder()
+                        .put("with$sign", "few bucks")
+                        .buildOrThrow())
+                .buildOrThrow());
+
+        assertThat(query("SELECT \"with$sign\", nested.\"with$sign\" FROM " + index))
+                .skippingTypesCheck()
+                .matches("VALUES (CAST(55 AS BIGINT), 'few bucks')");
+    }
+
+    @Test
     public void testNameConflict()
             throws IOException
     {
@@ -980,7 +997,23 @@ public abstract class BaseElasticsearchConnectorTest
             throws IOException
     {
         String indexName = "nested_variants";
+        @Language("JSON")
+        String properties =
+                """
+                {
+                    "properties": {
+                        "a": {
+                            "properties": {
+                                "b.c": {
+                                    "type": "text"
+                                }
+                            }
+                        }
+                    }
+                }
+                """;
 
+        createIndex(indexName, properties);
         index(indexName,
                 ImmutableMap.of("a",
                         ImmutableMap.of("b",
@@ -1003,6 +1036,9 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery(
                 "SELECT a.b.c FROM nested_variants",
                 "VALUES 'value1', 'value2', 'value3', 'value4'");
+
+        assertThatThrownBy(() -> computeActual("SELECT a.\"b.c\" FROM nested_variants"))
+                .hasMessageContaining("Column 'a.b.c' cannot be resolved");
     }
 
     @Test
