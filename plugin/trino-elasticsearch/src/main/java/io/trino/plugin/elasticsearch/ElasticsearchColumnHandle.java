@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
@@ -21,6 +22,7 @@ import static java.util.Objects.requireNonNull;
 public record ElasticsearchColumnHandle(
         String name,
         Type type,
+        IndexMetadata.Type elasticsearchType,
         DecoderDescriptor decoderDescriptor,
         boolean supportsPredicates)
         implements ColumnHandle
@@ -29,6 +31,7 @@ public record ElasticsearchColumnHandle(
     {
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
+        requireNonNull(elasticsearchType, "elasticsearchType is null");
         requireNonNull(decoderDescriptor, "decoderDescriptor is null");
     }
 
