@@ -75,6 +75,7 @@ public class ElasticsearchConfig
     private String truststorePassword;
     private boolean ignorePublishAddress;
     private boolean verifyHostnames = true;
+    private boolean projectionPushDownEnabled = true;
 
     private Security security;
 
@@ -339,6 +340,19 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setIgnorePublishAddress(boolean ignorePublishAddress)
     {
         this.ignorePublishAddress = ignorePublishAddress;
+        return this;
+    }
+
+    public boolean isProjectionPushdownEnabled()
+    {
+        return projectionPushDownEnabled;
+    }
+
+    @Config("elasticsearch.projection-pushdown-enabled")
+    @ConfigDescription("Read only required fields from a row type")
+    public ElasticsearchConfig setProjectionPushdownEnabled(boolean projectionPushDownEnabled)
+    {
+        this.projectionPushDownEnabled = projectionPushDownEnabled;
         return this;
     }
 

@@ -51,7 +51,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
-public class ElasticsearchServer implements Closeable
+public class ElasticsearchServer
+        implements Closeable
 {
     public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.16.2";
     public static final String ELASTICSEARCH_8_IMAGE = "elasticsearch:8.11.3";
