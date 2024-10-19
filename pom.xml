@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>188</version>
+        <version>189</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -184,7 +184,7 @@
         <!-- keep dependency properties sorted -->
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.accumulo.version>3.0.0</dep.accumulo.version>
-        <dep.airlift.version>275</dep.airlift.version>
+        <dep.airlift.version>276</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
@@ -2863,8 +2863,9 @@
                                     -Xep:InconsistentHashCode:ERROR \
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR \
                                     -Xep:InvalidInlineTag:ERROR \
+                                    -Xep:MisleadingEscapedSpace:OFF \
                                     -Xep:MissingCasesInEnumSwitch:ERROR \
-                                    <!-- Temporary disabled due to https://github.com/google/error-prone/issues/4598 -Xep:MissingOverride:ERROR \ -->
+                                    -Xep:MissingOverride:ERROR \
                                     <!-- Sometimes our javadoc contains just a @see directive -->
                                     -Xep:MissingSummary:OFF \
                                     -Xep:ModifiedButNotUsed:ERROR \
