@@ -157,7 +157,7 @@ public class RangerSystemAccessControl
         for (String configPath : config.getHadoopConfigResource()) {
             URL url = hadoopConf.getResource(configPath);
 
-            LOG.info("Loading Hadoop config {} from url %s", configPath, url);
+            LOG.info("Loading Hadoop config %s from url %s", configPath, url);
 
             if (url == null) {
                 LOG.warn("Hadoop config %s not found", configPath);
