@@ -324,6 +324,7 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_WINDOW;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_CATALOG_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_CHECK_CONSTRAINT;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_COPARTITIONING;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -5200,7 +5201,7 @@ class StatementAnalyzer
         {
             String column = columnSchema.getName();
             if (analysis.hasColumnMask(tableName, column, currentIdentity)) {
-                throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Column mask for '%s.%s' is recursive", tableName, column), null);
+                throw new TrinoException(INVALID_COLUMN_MASK, extractLocation(table), format("Column mask for '%s.%s' is recursive", tableName, column), null);
             }
 
             Expression expression;
@@ -5208,7 +5209,7 @@ class StatementAnalyzer
                 expression = sqlParser.createExpression(mask.getExpression());
             }
             catch (ParsingException e) {
-                throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getErrorMessage()), e);
+                throw new TrinoException(INVALID_COLUMN_MASK, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getErrorMessage()), e);
             }
 
             ExpressionAnalysis expressionAnalysis;
