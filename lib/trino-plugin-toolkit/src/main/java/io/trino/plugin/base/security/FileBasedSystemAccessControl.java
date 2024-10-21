@@ -304,17 +304,11 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteQuery(Identity identity)
+    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
         if (!canAccessQuery(identity, Optional.empty(), QueryAccessRule.AccessMode.EXECUTE)) {
             denyExecuteQuery();
         }
-    }
-
-    @Override
-    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
-    {
-        checkCanExecuteQuery(identity);
     }
 
     @Override
@@ -386,7 +380,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
     {
         boolean allowed = sessionPropertyRules.stream()
                 .map(rule -> rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), propertyName))
@@ -396,12 +390,6 @@ public class FileBasedSystemAccessControl
         if (!allowed) {
             denySetSystemSessionProperty(propertyName);
         }
-    }
-
-    @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
-    {
-        checkCanSetSystemSessionProperty(identity, propertyName);
     }
 
     @Override
