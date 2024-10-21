@@ -1,4 +1,4 @@
--- database: presto; groups: postgresql,profile_specific_tests; tables: postgres.public.workers_psql
+-- database: trino; groups: postgresql,profile_specific_tests; tables: postgres.public.workers_psql
 --!
 select * from postgresql.public.workers_psql
 --!

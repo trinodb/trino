@@ -1,2 +1,2 @@
--- database: presto; groups: qe, json_functions, functions
+-- database: trino; groups: qe, json_functions, functions
 show functions

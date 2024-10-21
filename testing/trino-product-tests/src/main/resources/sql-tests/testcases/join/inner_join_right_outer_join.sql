@@ -1,4 +1,4 @@
--- database: presto; groups: join; tables: nation, region, part
+-- database: trino; groups: join; tables: nation, region, part
 SELECT p_partkey,
        n_name,
        r_name

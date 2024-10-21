@@ -1,4 +1,4 @@
--- database: presto; tables: nation, workers; groups: set_operation;
+-- database: trino; tables: nation, workers; groups: set_operation;
 -- delimiter: |; ignoreOrder: true;
 --! name: except_union_intersect
 SELECT n_name FROM nation WHERE n_nationkey = 17

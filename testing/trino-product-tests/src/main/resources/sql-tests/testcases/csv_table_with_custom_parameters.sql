@@ -1,4 +1,4 @@
--- database: presto; tables: csv_table_with_custom_parameters; groups: hive, storage_formats;
+-- database: trino; tables: csv_table_with_custom_parameters; groups: hive, storage_formats;
 --! name: scan from csv table
 SELECT * FROM csv_table_with_custom_parameters
 --!

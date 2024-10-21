@@ -435,7 +435,12 @@ described with the following additional property:
     See [AWS Glue Skip
     Archive](https://iceberg.apache.org/docs/latest/aws/#skip-archive).
   - `true`
-:::
+* - `iceberg.glue.cache-table-metadata`
+  - While updating the table in AWS Glue, store the table metadata with the
+    purpose of accelerating `information_schema.columns` and
+    `system.metadata.table_comments` queries.
+  - `true` 
+  :::
 
 ## Iceberg-specific metastores
 
@@ -489,7 +494,10 @@ following properties:
 * - `iceberg.rest-catalog.oauth2.scope`
   - Scope to be used when communicating with the REST Catalog. Applicable only
     when using `credential`.
-:::
+* - `iceberg.rest-catalog.vended-credentials-enabled`
+  - Use credentials provided by the REST backend for file system access.
+    Defaults to `false`.
+  :::
 
 The following example shows a minimal catalog configuration using an Iceberg
 REST metadata catalog:
@@ -527,6 +535,29 @@ The Iceberg JDBC catalog is supported for the Iceberg connector.  At a minimum,
 `iceberg.jdbc-catalog.catalog-name` must be configured. When using any
 database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
 directory.
+
+:::{list-table} JDBC catalog configuration properties
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `iceberg.jdbc-catalog.driver-class`
+  - JDBC driver class name.
+* - `iceberg.jdbc-catalog.connection-url`
+  - The URI to connect to the JDBC server.
+* - `iceberg.jdbc-catalog.connection-user`
+  - User name for JDBC client.
+* - `iceberg.jdbc-catalog.connection-password`
+  - Password for JDBC client.
+* - `iceberg.jdbc-catalog.catalog-name`
+  - Iceberg JDBC metastore catalog name.
+* - `iceberg.jdbc-catalog.default-warehouse-dir`
+  - The default warehouse directory to use for JDBC.
+* - `iceberg.jdbc-catalog.schema-version`
+  - JDBC catalog schema version.
+    Valid values are `V0` or `V1`. Defaults to `V1`.
+:::
 
 :::{warning}
 The JDBC catalog may have compatibility issues if Iceberg introduces breaking

@@ -78,12 +78,7 @@
     "fields" : [ ]
   } ],
   "properties" : {
-    "trino.stats.ndv.2.ndv" : "10311101",
-    "trino.stats.ndv.1.ndv" : "205115671",
-    "trino.stats.ndv.3.ndv" : "10167",
-    "write.format.default" : "PARQUET",
-    "trino.stats.ndv.4.ndv" : "102793",
-    "trino.stats.ndv.5.ndv" : "317104119"
+    "write.format.default" : "PARQUET"
   },
   "current-snapshot-id" : 4939042327833546636,
   "refs" : {
@@ -110,6 +105,53 @@
     },
     "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet/partsupp/metadata/snap-4939042327833546636-1-00c1c648-86af-4ecf-b9cb-85595ef91a48.avro",
     "schema-id" : 0
+  } ],
+   "statistics" : [ {
+    "snapshot-id" : 4939042327833546636,
+    "statistics-path" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet/partsupp-85ddf0486e194c8abb0cba328ad012a5/metadata/20240327_145100_02020_h3sru-e988d350-09f8-46cb-98cf-d57eaf6cf919.stats",
+    "file-size-in-bytes" : 151307,
+    "file-footer-size-in-bytes" : 1075,
+    "blob-metadata" : [ {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4939042327833546636,
+      "sequence-number" : 1,
+      "fields" : [ 1 ],
+      "properties" : {
+        "ndv" : "204362960"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4939042327833546636,
+      "sequence-number" : 1,
+      "fields" : [ 2 ],
+      "properties" : {
+        "ndv" : "10101679"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4939042327833546636,
+      "sequence-number" : 1,
+      "fields" : [ 3 ],
+      "properties" : {
+        "ndv" : "10178"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4939042327833546636,
+      "sequence-number" : 1,
+      "fields" : [ 4 ],
+      "properties" : {
+        "ndv" : "101507"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4939042327833546636,
+      "sequence-number" : 1,
+      "fields" : [ 5 ],
+      "properties" : {
+        "ndv" : "303133539"
+      }
+    } ]
   } ],
   "snapshot-log" : [ {
     "timestamp-ms" : 1647890125634,

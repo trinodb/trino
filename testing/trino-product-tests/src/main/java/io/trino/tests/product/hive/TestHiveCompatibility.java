@@ -54,7 +54,7 @@ public class TestHiveCompatibility
         extends HiveProductTest
 {
     @Inject(optional = true)
-    @Named("databases.presto.admin_role_enabled")
+    @Named("databases.trino.admin_role_enabled")
     private boolean adminRoleEnabled;
 
     @Test(dataProvider = "storageFormatsWithConfiguration", groups = STORAGE_FORMATS_DETAILED)

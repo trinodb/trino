@@ -48,7 +48,7 @@ public class TestRoles
     private static final Set<String> TEST_ROLES = ImmutableSet.of(ROLE1, ROLE2, ROLE3);
 
     @Inject
-    @Named("databases.presto.jdbc_user")
+    @Named("databases.trino.jdbc_user")
     private String userName;
 
     @BeforeMethodWithContext
@@ -792,11 +792,11 @@ public class TestRoles
 
     private static QueryExecutor onPrestoAlice()
     {
-        return connectToTrino("alice@presto");
+        return connectToTrino("alice@trino");
     }
 
     private static QueryExecutor onPrestoBob()
     {
-        return connectToTrino("bob@presto");
+        return connectToTrino("bob@trino");
     }
 }

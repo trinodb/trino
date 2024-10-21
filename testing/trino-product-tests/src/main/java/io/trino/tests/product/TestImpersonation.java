@@ -47,18 +47,18 @@ public class TestImpersonation
     private HdfsClient hdfsClient;
 
     @Inject
-    @Named("databases.alice@presto.jdbc_user")
+    @Named("databases.alice@trino.jdbc_user")
     private String aliceJdbcUser;
 
     @Inject
-    @Named("databases.bob@presto.jdbc_user")
+    @Named("databases.bob@trino.jdbc_user")
     private String bobJdbcUser;
 
     // The value for configuredHdfsUser is profile dependent
     // For non-Kerberos environments this variable will be equal to -DHADOOP_USER_NAME as set in jvm.config
     // For Kerberized environments this variable will be equal to the hive.hdfs.trino.principal property as set in hive.properties
     @Inject
-    @Named("databases.presto.configured_hdfs_user")
+    @Named("databases.trino.configured_hdfs_user")
     private String configuredHdfsUser;
 
     @Inject
@@ -68,8 +68,8 @@ public class TestImpersonation
     @BeforeMethodWithContext
     public void setup()
     {
-        aliceExecutor = connectToTrino("alice@presto");
-        bobExecutor = connectToTrino("bob@presto");
+        aliceExecutor = connectToTrino("alice@trino");
+        bobExecutor = connectToTrino("bob@trino");
     }
 
     @AfterMethodWithContext

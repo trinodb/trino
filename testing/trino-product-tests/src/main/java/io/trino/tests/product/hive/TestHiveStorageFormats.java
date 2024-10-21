@@ -84,7 +84,7 @@ public class TestHiveStorageFormats
     private static final String TPCH_SCHEMA = "tiny";
 
     @Inject(optional = true)
-    @Named("databases.presto.admin_role_enabled")
+    @Named("databases.trino.admin_role_enabled")
     private boolean adminRoleEnabled;
 
     @Inject

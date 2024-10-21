@@ -1,5 +1,5 @@
 databases:
-  presto:
+  trino:
     jdbc_user: root
   delta:
     jdbc_driver_class: com.databricks.client.jdbc.Driver

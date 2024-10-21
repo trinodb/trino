@@ -32,7 +32,7 @@ public final class QueryExecutors
 
     public static QueryExecutor onTrino()
     {
-        return connectToTrino("presto");
+        return connectToTrino("trino");
     }
 
     public static QueryExecutor onCompatibilityTestServer()
