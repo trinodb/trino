@@ -340,6 +340,7 @@ public class ServerMainModule
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
         binder.bind(PagesInputStreamFactory.class);
+        jaxrsBinder(binder).bind(IoExceptionSuppressingWriterInterceptor.class);
 
         // exchange client
         binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
