@@ -80,6 +80,13 @@ only need to append something, consider using the `+` operator.  Please avoid
 
 Avoid using the ternary operator except for trivial expressions.
 
+ ### Avoid `get` in method names, unless an object must be a Java bean
+
+In most cases, replace `get` with a more specific verb that describes what is 
+happening in the method, like `find` or `fetch`. If there isn't a more specific 
+verb or the method is a getter, omit `get` because it isn't helpful to readers 
+and makes method names longer.
+
 ### Define class API for private inner classes too
 
 It is suggested to declare members in private inner classes as public if they
