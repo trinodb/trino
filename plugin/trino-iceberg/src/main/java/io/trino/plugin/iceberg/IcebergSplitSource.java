@@ -19,6 +19,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
 import io.airlift.units.DataSize;
@@ -137,8 +138,7 @@ public class IcebergSplitSource
     private CloseableIterable<FileScanTask> fileScanIterable;
     private long targetSplitSize;
     private CloseableIterator<FileScanTask> fileScanIterator;
-    private Iterator<FileScanTask> fileTasksIterator = emptyIterator();
-    private TupleDomain<IcebergColumnHandle> fileStatisticsDomain;
+    private Iterator<FileScanTaskWithDomain> fileTasksIterator = emptyIterator();
 
     private final boolean recordScannedFiles;
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
@@ -265,8 +265,8 @@ public class IcebergSplitSource
                 FileScanTask wholeFileTask = fileScanIterator.next();
                 boolean fileHasNoDeletions = wholeFileTask.deletes().isEmpty();
 
-                fileStatisticsDomain = createFileStatisticsDomain(wholeFileTask);
-                if (pruneFileScanTask(wholeFileTask, fileHasNoDeletions, dynamicFilterPredicate, fileStatisticsDomain)) {
+                FileScanTaskWithDomain fileScanTaskWithDomain = createFileScanTaskWithDomain(wholeFileTask);
+                if (pruneFileScanTask(fileScanTaskWithDomain, fileHasNoDeletions, dynamicFilterPredicate)) {
                     continue;
                 }
 
@@ -291,21 +291,22 @@ public class IcebergSplitSource
                 }
 
                 if (fileHasNoDeletions && noDataColumnsProjected(wholeFileTask)) {
-                    fileTasksIterator = List.of(wholeFileTask).iterator();
+                    fileTasksIterator = List.of(fileScanTaskWithDomain).iterator();
                 }
                 else {
-                    fileTasksIterator = wholeFileTask.split(targetSplitSize).iterator();
+                    fileTasksIterator = fileScanTaskWithDomain.split(targetSplitSize);
                 }
                 // In theory, .split() could produce empty iterator, so let's evaluate the outer loop condition again.
                 continue;
             }
-            splits.add(toIcebergSplit(fileTasksIterator.next(), fileStatisticsDomain));
+            splits.add(toIcebergSplit(fileTasksIterator.next()));
         }
         return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
     }
 
-    private boolean pruneFileScanTask(FileScanTask fileScanTask, boolean fileHasNoDeletions, TupleDomain<IcebergColumnHandle> dynamicFilterPredicate, TupleDomain<IcebergColumnHandle> fileStatisticsDomain)
+    private boolean pruneFileScanTask(FileScanTaskWithDomain fileScanTaskWithDomain, boolean fileHasNoDeletions, TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
     {
+        FileScanTask fileScanTask = fileScanTaskWithDomain.fileScanTask();
         if (fileHasNoDeletions &&
                 maxScannedFileSizeInBytes.isPresent() &&
                 fileScanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
@@ -338,7 +339,7 @@ public class IcebergSplitSource
                     dynamicFilterPredicate)) {
                 return true;
             }
-            if (!fileStatisticsDomain.overlaps(dynamicFilterPredicate)) {
+            if (!fileScanTaskWithDomain.fileStatisticsDomain().overlaps(dynamicFilterPredicate)) {
                 return true;
             }
         }
@@ -390,18 +391,30 @@ public class IcebergSplitSource
         }
     }
 
-    private TupleDomain<IcebergColumnHandle> createFileStatisticsDomain(FileScanTask wholeFileTask)
+    private FileScanTaskWithDomain createFileScanTaskWithDomain(FileScanTask wholeFileTask)
     {
         List<IcebergColumnHandle> predicatedColumns = wholeFileTask.schema().columns().stream()
                 .filter(column -> predicatedColumnIds.contains(column.fieldId()))
                 .map(column -> getColumnHandle(column, typeManager))
                 .collect(toImmutableList());
-        return createFileStatisticsDomain(
-                fieldIdToType,
-                wholeFileTask.file().lowerBounds(),
-                wholeFileTask.file().upperBounds(),
-                wholeFileTask.file().nullValueCounts(),
-                predicatedColumns);
+        return new FileScanTaskWithDomain(
+                wholeFileTask,
+                createFileStatisticsDomain(
+                        fieldIdToType,
+                        wholeFileTask.file().lowerBounds(),
+                        wholeFileTask.file().upperBounds(),
+                        wholeFileTask.file().nullValueCounts(),
+                        predicatedColumns));
+    }
+
+    private record FileScanTaskWithDomain(FileScanTask fileScanTask, TupleDomain<IcebergColumnHandle> fileStatisticsDomain)
+    {
+        Iterator<FileScanTaskWithDomain> split(long targetSplitSize)
+        {
+            return Iterators.transform(
+                    fileScanTask().split(targetSplitSize).iterator(),
+                    task -> new FileScanTaskWithDomain(task, fileStatisticsDomain));
+        }
     }
 
     @VisibleForTesting
@@ -521,8 +534,9 @@ public class IcebergSplitSource
         return true;
     }
 
-    private IcebergSplit toIcebergSplit(FileScanTask task, TupleDomain<IcebergColumnHandle> fileStatisticsDomain)
+    private IcebergSplit toIcebergSplit(FileScanTaskWithDomain taskWithDomain)
     {
+        FileScanTask task = taskWithDomain.fileScanTask();
         return new IcebergSplit(
                 task.file().path().toString(),
                 task.start(),
@@ -536,7 +550,7 @@ public class IcebergSplitSource
                         .map(DeleteFile::fromIceberg)
                         .collect(toImmutableList()),
                 SplitWeight.fromProportion(clamp(getSplitWeight(task), minimumAssignedSplitWeight, 1.0)),
-                fileStatisticsDomain,
+                taskWithDomain.fileStatisticsDomain(),
                 fileIoProperties,
                 cachingHostAddressProvider.getHosts(task.file().path().toString(), ImmutableList.of()),
                 task.file().dataSequenceNumber());
