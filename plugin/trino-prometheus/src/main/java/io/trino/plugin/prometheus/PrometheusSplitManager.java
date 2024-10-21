@@ -44,11 +44,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
+import static io.trino.plugin.prometheus.PrometheusSessionProperties.getMatchFilter;
 import static io.trino.plugin.prometheus.PrometheusSessionProperties.getMaxQueryRange;
 import static io.trino.plugin.prometheus.PrometheusSessionProperties.getQueryChunkSize;
+import static io.trino.plugin.prometheus.PrometheusSessionProperties.getQueryFunctions;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static java.time.Instant.ofEpochMilli;
 import static java.util.Objects.requireNonNull;
@@ -59,7 +62,6 @@ public class PrometheusSplitManager
     static final long OFFSET_MILLIS = 1L;
     private final PrometheusClient prometheusClient;
     private final PrometheusClock prometheusClock;
-
     private final URI prometheusURI;
 
     @Inject
@@ -88,31 +90,57 @@ public class PrometheusSplitManager
 
         Duration maxQueryRangeDuration = getMaxQueryRange(session);
         Duration queryChunkSizeDuration = getQueryChunkSize(session);
-
+        Optional<String> matchString = getMatchFilter(session);
+        Set<String> queryFunctions = getQueryFunctions(session);
         List<ConnectorSplit> splits = generateTimesForSplits(prometheusClock.now(), maxQueryRangeDuration, queryChunkSizeDuration, tableHandle)
                 .stream()
-                .map(time -> {
-                    try {
-                        return new PrometheusSplit(buildQuery(
-                                prometheusURI,
-                                time,
-                                table.name(),
-                                queryChunkSizeDuration).toString());
+                .flatMap(time -> {
+                    if (queryFunctions.isEmpty()) {
+                        try {
+                            return Stream.of(new PrometheusSplit(buildQuery(
+                                    prometheusURI,
+                                    time,
+                                    table.name(),
+                                    queryChunkSizeDuration,
+                                    matchString,
+                                    Optional.empty()).toString()));
+                        }
+                        catch (URISyntaxException e) {
+                            throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "split URI invalid: " + e.getMessage());
+                        }
                     }
-                    catch (URISyntaxException e) {
-                        throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "split URI invalid: " + e.getMessage());
+                    else {
+                        return queryFunctions.stream().map(function -> {
+                            try {
+                                return new PrometheusSplit(buildQuery(
+                                        prometheusURI,
+                                        time,
+                                        table.name(),
+                                        queryChunkSizeDuration,
+                                        matchString,
+                                        Optional.of(function)).toString());
+                            }
+                            catch (URISyntaxException e) {
+                                throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "split URI invalid: " + e.getMessage());
+                            }
+                        });
                     }
-                }).collect(Collectors.toList());
+                })
+                .collect(Collectors.toList());
         return new FixedSplitSource(splits);
     }
 
     // HttpUriBuilder handles URI encode
-    private static URI buildQuery(URI baseURI, String time, String metricName, Duration queryChunkSizeDuration)
+    private static URI buildQuery(URI baseURI, String time, String metricName, Duration queryChunkSizeDuration, Optional<String> matchString, Optional<String> functionName)
             throws URISyntaxException
     {
+        String matchFilter = matchString.orElse("");
+        String queryString = functionName.map(s -> "label_replace(" + s + "(" + metricName + matchFilter + "[" + queryChunkSizeDuration.roundTo(queryChunkSizeDuration.getUnit()) + Duration.timeUnitToString(queryChunkSizeDuration.getUnit()) + "]),\"__function_name__\"," + "\"" + s + "\"" + ",\"\", \".*\")")
+                .orElseGet(() -> metricName + matchFilter + "[" + queryChunkSizeDuration.roundTo(queryChunkSizeDuration.getUnit()) + Duration.timeUnitToString(queryChunkSizeDuration.getUnit()) + "]");
+
         return HttpUriBuilder.uriBuilderFrom(baseURI)
                 .appendPath("api/v1/query")
-                .addParameter("query", metricName + "[" + queryChunkSizeDuration.roundTo(queryChunkSizeDuration.getUnit()) + Duration.timeUnitToString(queryChunkSizeDuration.getUnit()) + "]")
+                .addParameter("query", queryString)
                 .addParameter("time", time)
                 .build();
     }

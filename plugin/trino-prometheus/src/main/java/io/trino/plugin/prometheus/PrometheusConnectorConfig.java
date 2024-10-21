@@ -15,6 +15,7 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
 import com.google.inject.ConfigurationException;
 import com.google.inject.spi.Message;
@@ -29,11 +30,15 @@ import jakarta.validation.constraints.NotNull;
 import java.io.File;
 import java.net.URI;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class PrometheusConnectorConfig
 {
@@ -48,6 +53,8 @@ public class PrometheusConnectorConfig
     private String password;
     private boolean caseInsensitiveNameMatching;
     private Map<String, String> additionalHeaders = ImmutableMap.of();
+    private String matchString;
+    private Set<String> queryFunctions = ImmutableSet.of();
 
     @NotNull
     public URI getPrometheusURI()
@@ -213,6 +220,34 @@ public class PrometheusConnectorConfig
         catch (IndexOutOfBoundsException e) {
             throw new IllegalArgumentException(format("Invalid format for 'prometheus.http.additional-headers' because %s. Value provided is %s", e.getMessage(), httpHeaders), e);
         }
+        return this;
+    }
+
+    public Optional<String> getMatchString()
+    {
+        return Optional.ofNullable(matchString);
+    }
+
+    @Config("prometheus.query.match.string")
+    @ConfigDescription("match[] filter to be used in Prometheus HTTP API")
+    public PrometheusConnectorConfig setMatchString(String matchString)
+    {
+        this.matchString = matchString;
+        return this;
+    }
+
+    public Set<String> getQueryFunctions()
+    {
+        return queryFunctions;
+    }
+
+    @Config("prometheus.query.functions")
+    @ConfigDescription("Comma separated list of functions to be sent to Prometheus HTTP API as part of query")
+    public PrometheusConnectorConfig setQueryFunctions(List<String> queryFunctions)
+    {
+        this.queryFunctions = queryFunctions.stream()
+            .map(value -> value.toLowerCase(ENGLISH))
+            .collect(toImmutableSet());
         return this;
     }
 
