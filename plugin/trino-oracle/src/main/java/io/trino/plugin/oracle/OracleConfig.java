@@ -36,13 +36,39 @@ public class OracleConfig
     private RoundingMode numberRoundingMode = RoundingMode.UNNECESSARY;
     private boolean connectionPoolEnabled = true;
     private int connectionPoolMinSize = 1;
-    private int connectionPoolMaxSize = 30;
+    private int connectionPoolMaxSize = 50;
     private Duration inactiveConnectionTimeout = new Duration(20, MINUTES);
     private Integer fetchSize;
+    private boolean experimentalSplit = true;
+    private String splitRule = "";
 
     public boolean isSynonymsEnabled()
     {
         return synonymsEnabled;
+    }
+
+    public boolean getExperimentalSplit()
+    {
+        return experimentalSplit;
+    }
+
+    @Config("oracle.split_rule")
+    public OracleConfig setSplitRule(String s)
+    {
+        this.splitRule = s;
+        return this;
+    }
+
+    public String getSplitRule()
+    {
+        return splitRule;
+    }
+
+    @Config("oracle.experimental.split")
+    public OracleConfig setExperimentalSplit(boolean split)
+    {
+        this.experimentalSplit = split;
+        return this;
     }
 
     @Config("oracle.synonyms.enabled")
