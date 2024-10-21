@@ -25,6 +25,7 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -238,4 +239,9 @@ public interface SystemSecurityMetadata
      * Column's NOT NULL constraint was dropped
      */
     void columnNotNullConstraintDropped(Session session, CatalogSchemaTableName table, String column);
+
+    default void setEntityAuthorization(Session session, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

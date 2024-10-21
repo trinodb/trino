@@ -858,4 +858,6 @@ public interface Metadata
      * Returns writer scaling options for the specified table.
      */
     WriterScalingOptions getInsertWriterScalingOptions(Session session, TableHandle tableHandle);
+
+    void setEntityAuthorization(Session session, String ownedKind, List<String> name, TrinoPrincipal principal);
 }
