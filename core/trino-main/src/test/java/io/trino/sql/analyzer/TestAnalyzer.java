@@ -1642,12 +1642,43 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testWindowAttributesForLagLeadFunctions()
+    public void testWindowAttributes()
     {
         assertFails("SELECT lag(x, 2) OVER() FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
                 .hasErrorCode(MISSING_ORDER_BY);
         assertFails("SELECT lag(x, 2) OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
-                .hasErrorCode(INVALID_WINDOW_FRAME);
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:34: Cannot specify window frame for lag function");
+
+        assertFails("SELECT lead(x, 2) OVER() FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(MISSING_ORDER_BY);
+        assertFails("SELECT lead(x, 2) OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:35: Cannot specify window frame for lead function");
+
+        assertFails("SELECT row_number() OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:37: Cannot specify window frame for row_number function");
+
+        assertFails("SELECT rank() OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:31: Cannot specify window frame for rank function");
+
+        assertFails("SELECT percent_rank() OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:39: Cannot specify window frame for percent_rank function");
+
+        assertFails("SELECT dense_rank() OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:37: Cannot specify window frame for dense_rank function");
+
+        assertFails("SELECT cume_dist() OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:36: Cannot specify window frame for cume_dist function");
+
+        assertFails("SELECT ntile(4) OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:33: Cannot specify window frame for ntile function");
     }
 
     @Test
@@ -1662,36 +1693,36 @@ public class TestAnalyzer
     @Test
     public void testWindowFrameTypeRows()
     {
-        assertFails("SELECT rank() OVER (ROWS UNBOUNDED FOLLOWING)")
+        assertFails("SELECT array_agg(x) OVER (ROWS UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ROWS 2 FOLLOWING)")
+        assertFails("SELECT array_agg(x) OVER (ROWS 2 FOLLOWING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ROWS BETWEEN UNBOUNDED FOLLOWING AND CURRENT ROW)")
+        assertFails("SELECT array_agg(x) OVER (ROWS BETWEEN UNBOUNDED FOLLOWING AND CURRENT ROW) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ROWS BETWEEN CURRENT ROW AND UNBOUNDED PRECEDING)")
+        assertFails("SELECT array_agg(x) OVER (ROWS BETWEEN CURRENT ROW AND UNBOUNDED PRECEDING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ROWS BETWEEN CURRENT ROW AND 5 PRECEDING)")
+        assertFails("SELECT array_agg(x) OVER (ROWS BETWEEN CURRENT ROW AND 5 PRECEDING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ROWS BETWEEN 2 FOLLOWING AND 5 PRECEDING)")
+        assertFails("SELECT array_agg(x) OVER (ROWS BETWEEN 2 FOLLOWING AND 5 PRECEDING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ROWS BETWEEN 2 FOLLOWING AND CURRENT ROW)")
+        assertFails("SELECT array_agg(x) OVER (ROWS BETWEEN 2 FOLLOWING AND CURRENT ROW) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
 
-        assertFails("SELECT rank() OVER (ROWS 5e-1 PRECEDING)")
+        assertFails("SELECT array_agg(x) OVER (ROWS 5e-1 PRECEDING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("SELECT rank() OVER (ROWS 'foo' PRECEDING)")
+        assertFails("SELECT array_agg(x) OVER (ROWS 'foo' PRECEDING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("SELECT rank() OVER (ROWS BETWEEN CURRENT ROW AND 5e-1 FOLLOWING)")
+        assertFails("SELECT array_agg(x) OVER (ROWS BETWEEN CURRENT ROW AND 5e-1 FOLLOWING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("SELECT rank() OVER (ROWS BETWEEN CURRENT ROW AND 'foo' FOLLOWING)")
+        assertFails("SELECT array_agg(x) OVER (ROWS BETWEEN CURRENT ROW AND 'foo' FOLLOWING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(TYPE_MISMATCH);
 
-        analyze("SELECT rank() OVER (ROWS BETWEEN SMALLINT '1' PRECEDING AND SMALLINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ROWS BETWEEN TINYINT '1' PRECEDING AND TINYINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ROWS BETWEEN INTEGER '1' PRECEDING AND INTEGER '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ROWS BETWEEN BIGINT '1' PRECEDING AND BIGINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ROWS BETWEEN DECIMAL '1' PRECEDING AND DECIMAL '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ROWS BETWEEN CAST(1 AS decimal(38, 0)) PRECEDING AND CAST(2 AS decimal(38, 0)) FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ROWS BETWEEN SMALLINT '1' PRECEDING AND SMALLINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ROWS BETWEEN TINYINT '1' PRECEDING AND TINYINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ROWS BETWEEN INTEGER '1' PRECEDING AND INTEGER '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ROWS BETWEEN BIGINT '1' PRECEDING AND BIGINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ROWS BETWEEN DECIMAL '1' PRECEDING AND DECIMAL '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ROWS BETWEEN CAST(1 AS decimal(38, 0)) PRECEDING AND CAST(2 AS decimal(38, 0)) FOLLOWING) FROM (VALUES 1) t(x)");
     }
 
     @Test
@@ -1777,46 +1808,46 @@ public class TestAnalyzer
     @Test
     public void testWindowFrameTypeGroups()
     {
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x GROUPS UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS 2 FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x GROUPS 2 FOLLOWING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN UNBOUNDED FOLLOWING AND CURRENT ROW) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x GROUPS BETWEEN UNBOUNDED FOLLOWING AND CURRENT ROW) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND UNBOUNDED PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND UNBOUNDED PRECEDING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 5 PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 5 PRECEDING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN 2 FOLLOWING AND 5 PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x GROUPS BETWEEN 2 FOLLOWING AND 5 PRECEDING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN 2 FOLLOWING AND CURRENT ROW) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x GROUPS BETWEEN 2 FOLLOWING AND CURRENT ROW) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
 
-        assertFails("SELECT rank() OVER (GROUPS 2 PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (GROUPS 2 PRECEDING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(MISSING_ORDER_BY);
 
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS 5e-1 PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x GROUPS 5e-1 PRECEDING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS 'foo' PRECEDING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x GROUPS 'foo' PRECEDING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 5e-1 FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 5e-1 FOLLOWING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 'foo' FOLLOWING) FROM (VALUES 1) t(x)")
+        assertFails("SELECT array_agg(x) OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 'foo' FOLLOWING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(TYPE_MISMATCH);
 
-        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN SMALLINT '1' PRECEDING AND SMALLINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN TINYINT '1' PRECEDING AND TINYINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN INTEGER '1' PRECEDING AND INTEGER '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN BIGINT '1' PRECEDING AND BIGINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN DECIMAL '1' PRECEDING AND DECIMAL '2' FOLLOWING) FROM (VALUES 1) t(x)");
-        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CAST(1 AS decimal(38, 0)) PRECEDING AND CAST(2 AS decimal(38, 0)) FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x GROUPS BETWEEN SMALLINT '1' PRECEDING AND SMALLINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x GROUPS BETWEEN TINYINT '1' PRECEDING AND TINYINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x GROUPS BETWEEN INTEGER '1' PRECEDING AND INTEGER '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x GROUPS BETWEEN BIGINT '1' PRECEDING AND BIGINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x GROUPS BETWEEN DECIMAL '1' PRECEDING AND DECIMAL '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT array_agg(x) OVER (ORDER BY x GROUPS BETWEEN CAST(1 AS decimal(38, 0)) PRECEDING AND CAST(2 AS decimal(38, 0)) FOLLOWING) FROM (VALUES 1) t(x)");
     }
 
     @Test
     public void testWindowFrameWithPatternRecognition()
     {
         // in-line window specification
-        analyze("SELECT rank() OVER (" +
+        analyze("SELECT array_agg(x) OVER (" +
                 "                           PARTITION BY x " +
                 "                           ORDER BY y " +
                 "                           MEASURES A.z AS last_z " +
@@ -1832,7 +1863,7 @@ public class TestAnalyzer
                 "           FROM (VALUES (1, 2, 3)) t(x, y, z)");
 
         // window clause
-        analyze("SELECT rank() OVER w FROM (VALUES (1, 2, 3)) t(x, y, z) " +
+        analyze("SELECT array_agg(x) OVER w FROM (VALUES (1, 2, 3)) t(x, y, z) " +
                 "                       WINDOW w AS (" +
                 "                           PARTITION BY x " +
                 "                           ORDER BY y " +
@@ -1851,7 +1882,7 @@ public class TestAnalyzer
     @Test
     public void testInvalidWindowFrameWithPatternRecognition()
     {
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                           PARTITION BY x " +
                 "                           ORDER BY y " +
                 "                           MEASURES A.z AS last_z " +
@@ -1863,9 +1894,9 @@ public class TestAnalyzer
                 "                         ) " +
                 "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
                 .hasErrorCode(MISSING_VARIABLE_DEFINITIONS)
-                .hasMessage("line 1:128: Pattern recognition requires DEFINE clause");
+                .hasMessage("line 1:134: Pattern recognition requires DEFINE clause");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                           PARTITION BY x " +
                 "                           ORDER BY y " +
                 "                           MEASURES A.z AS last_z " +
@@ -1880,9 +1911,9 @@ public class TestAnalyzer
                 "                         ) " +
                 "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
                 .hasErrorCode(INVALID_WINDOW_FRAME)
-                .hasMessage("line 1:128: Pattern recognition requires ROWS frame type");
+                .hasMessage("line 1:134: Pattern recognition requires ROWS frame type");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                           PARTITION BY x " +
                 "                           ORDER BY y " +
                 "                           MEASURES A.z AS last_z " +
@@ -1897,57 +1928,57 @@ public class TestAnalyzer
                 "                         ) " +
                 "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
                 .hasErrorCode(INVALID_WINDOW_FRAME)
-                .hasMessage("line 1:128: Pattern recognition requires frame specified as BETWEEN CURRENT ROW AND ...");
+                .hasMessage("line 1:134: Pattern recognition requires frame specified as BETWEEN CURRENT ROW AND ...");
 
-        assertFails("SELECT rank() OVER ( " +
+        assertFails("SELECT array_agg(x) OVER ( " +
                 "                               MEASURES A.z AS last_z " +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING) " +
                 "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
                 .hasErrorCode(MISSING_ROW_PATTERN)
-                .hasMessage("line 1:53: Row pattern measures require PATTERN clause");
+                .hasMessage("line 1:59: Row pattern measures require PATTERN clause");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               AFTER MATCH SKIP TO NEXT ROW) " +
                 "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
                 .hasErrorCode(MISSING_ROW_PATTERN)
-                .hasMessage("line 1:136: AFTER MATCH SKIP clause requires PATTERN clause");
+                .hasMessage("line 1:142: AFTER MATCH SKIP clause requires PATTERN clause");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               SEEK) " +
                 "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
                 .hasErrorCode(MISSING_ROW_PATTERN)
-                .hasMessage("line 1:124: SEEK modifier requires PATTERN clause");
+                .hasMessage("line 1:130: SEEK modifier requires PATTERN clause");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               SUBSET U = (A, B)) " +
                 "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
                 .hasErrorCode(MISSING_ROW_PATTERN)
-                .hasMessage("line 1:131: Union variable definitions require PATTERN clause");
+                .hasMessage("line 1:137: Union variable definitions require PATTERN clause");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               DEFINE B AS false) " +
                 "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
                 .hasErrorCode(MISSING_ROW_PATTERN)
-                .hasMessage("line 1:131: Primary pattern variable definitions require PATTERN clause");
+                .hasMessage("line 1:137: Primary pattern variable definitions require PATTERN clause");
     }
 
     @Test
     public void testSubsetClauseInWindow()
     {
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (A B) " +
                 "                               SUBSET A = (C) " +
                 "                               DEFINE B AS false) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_LABEL)
-                .hasMessage("line 1:176: union pattern variable name: A is a duplicate of primary pattern variable name");
+                .hasMessage("line 1:182: union pattern variable name: A is a duplicate of primary pattern variable name");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (A B) " +
                 "                               SUBSET " +
@@ -1956,30 +1987,30 @@ public class TestAnalyzer
                 "                               DEFINE B AS false) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_LABEL)
-                .hasMessage("line 1:255: union pattern variable name: U is declared twice");
+                .hasMessage("line 1:261: union pattern variable name: U is declared twice");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (A B) " +
                 "                               SUBSET U = (A, C) " +
                 "                               DEFINE B AS false) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_LABEL)
-                .hasMessage("line 1:184: subset element: C is not a primary pattern variable");
+                .hasMessage("line 1:190: subset element: C is not a primary pattern variable");
     }
 
     @Test
     public void testDefineClauseInWindow()
     {
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (A B) " +
                 "                               DEFINE C AS false) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_LABEL)
-                .hasMessage("line 1:176: defined variable: C is not a primary pattern variable");
+                .hasMessage("line 1:182: defined variable: C is not a primary pattern variable");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (A B) " +
                 "                               DEFINE " +
@@ -1987,56 +2018,56 @@ public class TestAnalyzer
                 "                                       A AS false) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_LABEL)
-                .hasMessage("line 1:265: pattern variable with name: A is defined twice");
+                .hasMessage("line 1:271: pattern variable with name: A is defined twice");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (A B) " +
                 "                               DEFINE A AS FINAL LAST(A.x) > 0) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_PROCESSING_MODE)
-                .hasMessage("line 1:181: FINAL semantics is not supported in DEFINE clause");
+                .hasMessage("line 1:187: FINAL semantics is not supported in DEFINE clause");
     }
 
     @Test
     public void testRangeQuantifiersInWindow()
     {
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (A{,0}) " +
                 "                               DEFINE A AS false) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
-                .hasMessage("line 1:134: Pattern quantifier upper bound must be greater than or equal to 1");
+                .hasMessage("line 1:140: Pattern quantifier upper bound must be greater than or equal to 1");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (A{,3000000000}) " +
                 "                               DEFINE A AS false) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
-                .hasMessage("line 1:134: Pattern quantifier upper bound must not exceed 2147483647");
+                .hasMessage("line 1:140: Pattern quantifier upper bound must not exceed 2147483647");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (A{100,1}) " +
                 "                               DEFINE A AS false) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_RANGE)
-                .hasMessage("line 1:134: Pattern quantifier lower bound must not exceed upper bound");
+                .hasMessage("line 1:140: Pattern quantifier lower bound must not exceed upper bound");
     }
 
     @Test
     public void testAfterMatchSkipInWindow()
     {
-        analyze("SELECT rank() OVER (" +
+        analyze("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               AFTER MATCH SKIP TO FIRST B " +
                 "                               PATTERN (A B) " +
                 "                               DEFINE A AS false) " +
                 "           FROM (VALUES 1) t(x)");
 
-        analyze("SELECT rank() OVER (" +
+        analyze("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               AFTER MATCH SKIP TO FIRST U " +
                 "                               PATTERN (A B) " +
@@ -2044,27 +2075,27 @@ public class TestAnalyzer
                 "                               DEFINE A AS false) " +
                 "           FROM (VALUES 1) t(x)");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               AFTER MATCH SKIP TO FIRST C " +
                 "                               PATTERN (A B) " +
                 "                               DEFINE A AS false) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_LABEL)
-                .hasMessage("line 1:150: C is not a primary or union pattern variable");
+                .hasMessage("line 1:156: C is not a primary or union pattern variable");
     }
 
     @Test
     public void testPatternSearchModeInWindow()
     {
-        analyze("SELECT rank() OVER (" +
+        analyze("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               INITIAL " +
                 "                               PATTERN (A B) " +
                 "                               DEFINE A AS false) " +
                 "           FROM (VALUES 1) t(x)");
 
-        analyze("SELECT rank() OVER (" +
+        analyze("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               SEEK " +
                 "                               PATTERN (A B) " +
@@ -2075,27 +2106,27 @@ public class TestAnalyzer
     @Test
     public void testAnchorPatternInWindow()
     {
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (^ A B) " +
                 "                               DEFINE B AS false) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_ROW_PATTERN)
-                .hasMessage("line 1:133: Anchor pattern syntax is not allowed in window");
+                .hasMessage("line 1:139: Anchor pattern syntax is not allowed in window");
 
-        assertFails("SELECT rank() OVER (" +
+        assertFails("SELECT array_agg(x) OVER (" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (A B $) " +
                 "                               DEFINE B AS false) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_ROW_PATTERN)
-                .hasMessage("line 1:137: Anchor pattern syntax is not allowed in window");
+                .hasMessage("line 1:143: Anchor pattern syntax is not allowed in window");
     }
 
     @Test
     public void testMatchNumberFunctionInWindow()
     {
-        assertFails("SELECT rank() OVER ( " +
+        assertFails("SELECT array_agg(x) OVER ( " +
                 "                               MEASURES 1 + MATCH_NUMBER() AS m" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (A B) " +
@@ -2103,9 +2134,9 @@ public class TestAnalyzer
                 "                              ) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
-                .hasMessage("line 1:66: MATCH_NUMBER function is not supported in window");
+                .hasMessage("line 1:72: MATCH_NUMBER function is not supported in window");
 
-        assertFails("SELECT rank() OVER ( " +
+        assertFails("SELECT array_agg(x) OVER ( " +
                 "                               MEASURES B.x AS m" +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (A B) " +
@@ -2113,14 +2144,14 @@ public class TestAnalyzer
                 "                              ) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
-                .hasMessage("line 1:230: MATCH_NUMBER function is not supported in window");
+                .hasMessage("line 1:236: MATCH_NUMBER function is not supported in window");
     }
 
     @Test
     public void testLabelNamesInWindow()
     {
         // SQL identifier semantics
-        analyze("SELECT rank() OVER ( " +
+        analyze("SELECT array_agg(x) OVER ( " +
                 "                               MEASURES " +
                 "                                       \"B\".x AS m1, " +
                 "                                       B.x AS m2 " +
@@ -2130,14 +2161,14 @@ public class TestAnalyzer
                 "                              ) " +
                 "           FROM (VALUES 1) t(x)");
 
-        assertFails("SELECT rank() OVER ( " +
+        assertFails("SELECT array_agg(x) OVER ( " +
                 "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
                 "                               PATTERN (A B) " +
                 "                               DEFINE B AS \"b\".x > 0" +
                 "                              ) " +
                 "           FROM (VALUES 1) t(x)")
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:182: Column 'b.x' cannot be resolved");
+                .hasMessage("line 1:188: Column 'b.x' cannot be resolved");
     }
 
     @Test
