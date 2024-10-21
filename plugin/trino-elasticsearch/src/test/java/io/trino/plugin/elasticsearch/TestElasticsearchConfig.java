@@ -57,6 +57,7 @@ public class TestElasticsearchConfig
                 .setTruststorePassword(null)
                 .setVerifyHostnames(true)
                 .setIgnorePublishAddress(false)
+                .setProjectionPushdownEnabled(true)
                 .setSecurity(null));
     }
 
@@ -88,6 +89,7 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.tls.truststore-password", "truststore-password")
                 .put("elasticsearch.tls.verify-hostnames", "false")
                 .put("elasticsearch.ignore-publish-address", "true")
+                .put("elasticsearch.projection-pushdown-enabled", "false")
                 .put("elasticsearch.security", "AWS")
                 .buildOrThrow();
 
@@ -112,6 +114,7 @@ public class TestElasticsearchConfig
                 .setTruststorePassword("truststore-password")
                 .setVerifyHostnames(false)
                 .setIgnorePublishAddress(true)
+                .setProjectionPushdownEnabled(false)
                 .setSecurity(AWS);
 
         assertFullMapping(properties, expected);
