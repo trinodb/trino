@@ -28,6 +28,9 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;
 import static io.airlift.units.Duration.ZERO;
+import static io.trino.plugin.jdbc.BaseJdbcConfig.DEFAULT_STATISTICS_CACHE_TTL;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,7 +46,7 @@ public class TestBaseJdbcConfig
                 .setMetadataCacheTtl(ZERO)
                 .setSchemaNamesCacheTtl(null)
                 .setTableNamesCacheTtl(null)
-                .setStatisticsCacheTtl(null)
+                .setStatisticsCacheTtl(DEFAULT_STATISTICS_CACHE_TTL)
                 .setCacheMissing(false)
                 .setCacheMaximumSize(10000));
     }
@@ -75,6 +78,27 @@ public class TestBaseJdbcConfig
         assertFullMapping(properties, expected);
 
         assertThat(expected.getJdbcTypesMappedToVarchar()).containsOnly("mytype", "struct_type1");
+    }
+
+    @Test
+    public void testStatsCacheTtl()
+    {
+        // enabled by default
+        assertThat(new BaseJdbcConfig().getStatisticsCacheTtl()).isEqualTo(DEFAULT_STATISTICS_CACHE_TTL);
+
+        // takes higher of the DEFAULT_STATISTICS_CACHE_TTL or metastoreTtl if not set explicitly
+        assertThat(new BaseJdbcConfig()
+                .setMetadataCacheTtl(new Duration(1, SECONDS))
+                .getStatisticsCacheTtl()).isEqualTo(DEFAULT_STATISTICS_CACHE_TTL);
+        assertThat(new BaseJdbcConfig()
+                .setMetadataCacheTtl(new Duration(1111, DAYS))
+                .getStatisticsCacheTtl()).isEqualTo(new Duration(1111, DAYS));
+
+        // explicit configuration is honored
+        assertThat(new BaseJdbcConfig()
+                .setStatisticsCacheTtl(new Duration(135, MILLISECONDS))
+                .setMetadataCacheTtl(new Duration(1111, DAYS))
+                .getStatisticsCacheTtl()).isEqualTo(new Duration(135, MILLISECONDS));
     }
 
     @Test
