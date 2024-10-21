@@ -15,218 +15,162 @@ package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.plugin.jdbc.JdbcAssignmentItem;
 import io.trino.plugin.jdbc.JdbcClient;
-import io.trino.plugin.jdbc.JdbcOutputTableHandle;
-import io.trino.plugin.jdbc.JdbcPageSink;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcMergeSink;
+import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
+import io.trino.plugin.jdbc.JdbcProcedureHandle;
+import io.trino.plugin.jdbc.JdbcRelationHandle;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
-import io.trino.plugin.jdbc.SinkSqlProvider;
+import io.trino.plugin.jdbc.WriteFunction;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.Page;
-import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.RowBlock;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
-import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.type.RowType;
+import io.trino.spi.connector.JoinType;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.SQLException;
+import java.sql.PreparedStatement;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.IntStream;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static io.trino.plugin.phoenix5.PhoenixClient.ROWKEY;
-import static io.trino.plugin.phoenix5.PhoenixClient.ROWKEY_COLUMN_HANDLE;
-import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;
+import static java.util.Objects.requireNonNull;
 
 public class PhoenixMergeSink
         implements ConnectorMergeSink
 {
-    private final boolean hasRowKey;
-    private final int columnCount;
-
-    private final ConnectorPageSink insertSink;
-    private final ConnectorPageSink updateSink;
-    private final ConnectorPageSink deleteSink;
+    private final ConnectorMergeSink delegate;
 
     public PhoenixMergeSink(
             ConnectorSession session,
             ConnectorMergeTableHandle mergeHandle,
             PhoenixClient phoenixClient,
             ConnectorPageSinkId pageSinkId,
-            RemoteQueryModifier remoteQueryModifier,
+            RemoteQueryModifier queryModifier,
             QueryBuilder queryBuilder)
     {
-        PhoenixMergeTableHandle phoenixMergeTableHandle = (PhoenixMergeTableHandle) mergeHandle;
-        PhoenixOutputTableHandle phoenixOutputTableHandle = phoenixMergeTableHandle.phoenixOutputTableHandle();
-        this.hasRowKey = phoenixOutputTableHandle.rowkeyColumn().isPresent();
-        this.columnCount = phoenixOutputTableHandle.getColumnNames().size();
+        requireNonNull(session, "session is null");
+        requireNonNull(mergeHandle, "mergeHandle is null");
+        requireNonNull(phoenixClient, "phoenixClient is null");
+        requireNonNull(pageSinkId, "pageSinkId is null");
+        requireNonNull(queryModifier, "queryModifier is null");
+        requireNonNull(queryBuilder, "queryBuilder is null");
 
-        this.insertSink = new JdbcPageSink(session, phoenixOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier, JdbcClient::buildInsertSql);
-        this.updateSink = createUpdateSink(session, phoenixOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier);
-
-        ImmutableList.Builder<String> mergeRowIdFieldNamesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Type> mergeRowIdFieldTypesBuilder = ImmutableList.builder();
-        RowType mergeRowIdColumnType = (RowType) phoenixMergeTableHandle.mergeRowIdColumnHandle().getColumnType();
-        for (RowType.Field field : mergeRowIdColumnType.getFields()) {
-            checkArgument(field.getName().isPresent(), "Merge row id column field must have name");
-            mergeRowIdFieldNamesBuilder.add(getEscapedArgument(field.getName().get()));
-            mergeRowIdFieldTypesBuilder.add(field.getType());
-        }
-        List<String> mergeRowIdFieldNames = mergeRowIdFieldNamesBuilder.build();
-        this.deleteSink = createDeleteSink(session, mergeRowIdFieldTypesBuilder.build(), phoenixClient, phoenixMergeTableHandle, mergeRowIdFieldNames, pageSinkId, remoteQueryModifier, queryBuilder);
+        this.delegate = new JdbcMergeSink(session, mergeHandle, phoenixClient, pageSinkId, queryModifier, new MergeQueryBuilder(queryBuilder));
     }
 
-    private static ConnectorPageSink createUpdateSink(
-            ConnectorSession session,
-            PhoenixOutputTableHandle phoenixOutputTableHandle,
-            PhoenixClient phoenixClient,
-            ConnectorPageSinkId pageSinkId,
-            RemoteQueryModifier remoteQueryModifier)
+    /**
+     * The class only used in Phoenix merge process.
+     */
+    private record MergeQueryBuilder(QueryBuilder delegate)
+            implements QueryBuilder
     {
-        ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
-        columnNamesBuilder.addAll(phoenixOutputTableHandle.getColumnNames());
-        columnTypesBuilder.addAll(phoenixOutputTableHandle.getColumnTypes());
-        if (phoenixOutputTableHandle.rowkeyColumn().isPresent()) {
-            columnNamesBuilder.add(ROWKEY);
-            columnTypesBuilder.add(ROWKEY_COLUMN_HANDLE.getColumnType());
+        @Override
+        public PreparedQuery prepareSelectQuery(JdbcClient client, ConnectorSession session, Connection connection, JdbcRelationHandle baseRelation, Optional<List<List<JdbcColumnHandle>>> groupingSets, List<JdbcColumnHandle> columns, Map<String, ParameterizedExpression> columnExpressions, TupleDomain<ColumnHandle> tupleDomain, Optional<ParameterizedExpression> additionalPredicate)
+        {
+            throw new UnsupportedOperationException("Not supported");
         }
 
-        PhoenixOutputTableHandle updateOutputTableHandle = new PhoenixOutputTableHandle(
-                phoenixOutputTableHandle.getRemoteTableName(),
-                columnNamesBuilder.build(),
-                columnTypesBuilder.build(),
-                Optional.empty(),
-                Optional.empty());
-        return new JdbcPageSink(session, updateOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier, JdbcClient::buildInsertSql);
-    }
-
-    private static ConnectorPageSink createDeleteSink(
-            ConnectorSession session,
-            List<Type> mergeRowIdFieldTypes,
-            PhoenixClient phoenixClient,
-            PhoenixMergeTableHandle tableHandle,
-            List<String> mergeRowIdFieldNames,
-            ConnectorPageSinkId pageSinkId,
-            RemoteQueryModifier remoteQueryModifier,
-            QueryBuilder queryBuilder)
-    {
-        checkArgument(mergeRowIdFieldNames.size() == mergeRowIdFieldTypes.size(), "Wrong merge row column, columns and types size not match");
-        JdbcOutputTableHandle deleteOutputTableHandle = new PhoenixOutputTableHandle(
-                tableHandle.phoenixOutputTableHandle().getRemoteTableName(),
-                mergeRowIdFieldNames,
-                mergeRowIdFieldTypes,
-                Optional.empty(),
-                Optional.empty());
-
-        return new JdbcPageSink(session, deleteOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier, deleteSinkProvider(session, tableHandle, phoenixClient, queryBuilder));
-    }
-
-    private static SinkSqlProvider deleteSinkProvider(
-            ConnectorSession session,
-            PhoenixMergeTableHandle handle,
-            JdbcClient jdbcClient,
-            QueryBuilder queryBuilder)
-    {
-        try (Connection connection = jdbcClient.getConnection(session)) {
-            return (_, _, _) -> queryBuilder.prepareDeleteQuery(
-                            jdbcClient,
-                            session,
-                            connection,
-                            handle.tableHandle().getRequiredNamedRelation(),
-                            handle.primaryKeysDomain(),
-                            Optional.empty())
-                    .query();
+        @Override
+        public PreparedQuery prepareJoinQuery(JdbcClient client, ConnectorSession session, Connection connection, JoinType joinType, PreparedQuery leftSource, Map<JdbcColumnHandle, String> leftProjections, PreparedQuery rightSource, Map<JdbcColumnHandle, String> rightProjections, List<ParameterizedExpression> joinConditions)
+        {
+            throw new UnsupportedOperationException("Not supported");
         }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+
+        @Override
+        public PreparedQuery legacyPrepareJoinQuery(JdbcClient client, ConnectorSession session, Connection connection, JoinType joinType, PreparedQuery leftSource, PreparedQuery rightSource, List<JdbcJoinCondition> joinConditions, Map<JdbcColumnHandle, String> leftAssignments, Map<JdbcColumnHandle, String> rightAssignments)
+        {
+            throw new UnsupportedOperationException("Not supported");
+        }
+
+        @Override
+        public PreparedQuery prepareDeleteQuery(JdbcClient client, ConnectorSession session, Connection connection, JdbcNamedRelationHandle baseRelation, TupleDomain<ColumnHandle> tupleDomain, Optional<ParameterizedExpression> additionalPredicate)
+        {
+            return delegate.prepareDeleteQuery(client, session, connection, baseRelation, tupleDomain, additionalPredicate);
+        }
+
+        @Override
+        public PreparedQuery prepareUpdateQuery(JdbcClient client, ConnectorSession session, Connection connection, JdbcNamedRelationHandle baseRelation, TupleDomain<ColumnHandle> tupleDomain, Optional<ParameterizedExpression> additionalPredicate, List<JdbcAssignmentItem> assignments)
+        {
+            // Phoenix update is perform as insert with primary keys(upsert)
+            ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<WriteFunction> writeFunctionBuilder = ImmutableList.builder();
+            for (JdbcAssignmentItem assignmentItem : assignments) {
+                JdbcColumnHandle column = assignmentItem.column();
+                namesBuilder.add(column.getColumnName());
+                typesBuilder.add(column.getColumnType());
+                writeFunctionBuilder.add(getWriteFunction(client, session, column.getColumnType()));
+            }
+
+            // Put the primary keys domain after the update assignments
+            Map<ColumnHandle, Domain> domains = tupleDomain.getDomains()
+                    .orElseThrow(() -> new IllegalArgumentException("primary keys domain not exists"));
+            for (ColumnHandle columnHandle : domains.keySet()) {
+                JdbcColumnHandle column = (JdbcColumnHandle) columnHandle;
+                namesBuilder.add(column.getColumnName());
+                typesBuilder.add(column.getColumnType());
+                writeFunctionBuilder.add(getWriteFunction(client, session, column.getColumnType()));
+            }
+
+            String query = client.buildInsertSql(
+                    new PhoenixOutputTableHandle(
+                            baseRelation.getRemoteTableName(),
+                            namesBuilder.build(),
+                            typesBuilder.build(),
+                            Optional.empty(),
+                            Optional.empty()),
+                    writeFunctionBuilder.build());
+            return new PreparedQuery(query, ImmutableList.of());
+        }
+
+        @Override
+        public PreparedStatement prepareStatement(JdbcClient client, ConnectorSession session, Connection connection, PreparedQuery preparedQuery, Optional<Integer> columnCount)
+        {
+            throw new UnsupportedOperationException("Not supported");
+        }
+
+        @Override
+        public CallableStatement callProcedure(JdbcClient client, ConnectorSession session, Connection connection, JdbcProcedureHandle.ProcedureQuery procedureQuery)
+        {
+            throw new UnsupportedOperationException("Not supported");
+        }
+
+        private static WriteFunction getWriteFunction(JdbcClient client, ConnectorSession session, Type type)
+        {
+            return client.toWriteMapping(session, type).getWriteFunction();
         }
     }
 
     @Override
     public void storeMergedRows(Page page)
     {
-        checkArgument(page.getChannelCount() == 2 + columnCount, "The page size should be 2 + columnCount (%s), but is %s", columnCount, page.getChannelCount());
-        int positionCount = page.getPositionCount();
-        Block operationBlock = page.getBlock(columnCount);
-
-        int[] dataChannel = IntStream.range(0, columnCount).toArray();
-        Page dataPage = page.getColumns(dataChannel);
-
-        int[] insertPositions = new int[positionCount];
-        int insertPositionCount = 0;
-        int[] deletePositions = new int[positionCount];
-        int deletePositionCount = 0;
-        int[] updatePositions = new int[positionCount];
-        int updatePositionCount = 0;
-
-        for (int position = 0; position < positionCount; position++) {
-            int operation = TINYINT.getByte(operationBlock, position);
-            switch (operation) {
-                case INSERT_OPERATION_NUMBER -> {
-                    insertPositions[insertPositionCount] = position;
-                    insertPositionCount++;
-                }
-                case DELETE_OPERATION_NUMBER -> {
-                    deletePositions[deletePositionCount] = position;
-                    deletePositionCount++;
-                }
-                case UPDATE_OPERATION_NUMBER -> {
-                    updatePositions[updatePositionCount] = position;
-                    updatePositionCount++;
-                }
-                default -> throw new IllegalStateException("Unexpected value: " + operation);
-            }
-        }
-
-        if (insertPositionCount > 0) {
-            insertSink.appendPage(dataPage.getPositions(insertPositions, 0, insertPositionCount));
-        }
-
-        List<Block> rowIdFields = RowBlock.getRowFieldsFromBlock(page.getBlock(columnCount + 1));
-        if (deletePositionCount > 0) {
-            Block[] deleteBlocks = new Block[rowIdFields.size()];
-            for (int field = 0; field < rowIdFields.size(); field++) {
-                deleteBlocks[field] = rowIdFields.get(field).getPositions(deletePositions, 0, deletePositionCount);
-            }
-            deleteSink.appendPage(new Page(deletePositionCount, deleteBlocks));
-        }
-
-        if (updatePositionCount > 0) {
-            Page updatePage = dataPage.getPositions(updatePositions, 0, updatePositionCount);
-            if (hasRowKey) {
-                updatePage = updatePage.appendColumn(rowIdFields.get(0).getPositions(updatePositions, 0, updatePositionCount));
-            }
-
-            updateSink.appendPage(updatePage);
-        }
+        delegate.storeMergedRows(page);
     }
 
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        insertSink.finish();
-        deleteSink.finish();
-        updateSink.finish();
-        return completedFuture(ImmutableList.of());
+        return delegate.finish();
     }
 
     @Override
     public void abort()
     {
-        insertSink.abort();
-        deleteSink.abort();
-        updateSink.abort();
+        delegate.abort();
     }
 }

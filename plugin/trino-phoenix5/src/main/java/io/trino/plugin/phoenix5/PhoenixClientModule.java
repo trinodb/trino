@@ -43,6 +43,7 @@ import io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties;
 import io.trino.plugin.jdbc.JdbcDynamicFilteringSplitManager;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcMetadataSessionProperties;
+import io.trino.plugin.jdbc.JdbcPageSourceProvider;
 import io.trino.plugin.jdbc.JdbcWriteConfig;
 import io.trino.plugin.jdbc.JdbcWriteSessionProperties;
 import io.trino.plugin.jdbc.LazyConnectionFactory;
@@ -110,7 +111,7 @@ public class PhoenixClientModule
         binder.bind(ConnectorSplitManager.class).to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(ClassLoaderSafeConnectorPageSinkProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorPageSourceProvider.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSourceProvider.class).annotatedWith(ForClassLoaderSafe.class).to(JdbcPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSourceProvider.class).to(ClassLoaderSafeConnectorPageSourceProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(QueryBuilder.class).to(DefaultQueryBuilder.class).in(Scopes.SINGLETON);
