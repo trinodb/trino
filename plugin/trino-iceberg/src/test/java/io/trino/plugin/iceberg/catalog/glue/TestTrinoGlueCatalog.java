@@ -13,18 +13,12 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.amazonaws.services.glue.model.CreateDatabaseRequest;
-import com.amazonaws.services.glue.model.DatabaseInput;
-import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergMetadata;
@@ -41,6 +35,10 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TestingTypeManager;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.CreateDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.DatabaseInput;
+import software.amazon.awssdk.services.glue.model.DeleteDatabaseRequest;
 
 import java.io.File;
 import java.io.IOException;
@@ -77,7 +75,7 @@ public class TestTrinoGlueCatalog
 
     private TrinoCatalog createGlueTrinoCatalog(boolean useUniqueTableLocations, boolean useSystemSecurity)
     {
-        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
+        GlueClient glueClient = GlueClient.create();
         IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();
         return new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
@@ -88,11 +86,9 @@ public class TestTrinoGlueCatalog
                         TESTING_TYPE_MANAGER,
                         catalogConfig,
                         HDFS_FILE_SYSTEM_FACTORY,
-                        new GlueMetastoreStats(),
                         glueClient),
                 "test",
                 glueClient,
-                new GlueMetastoreStats(),
                 useSystemSecurity,
                 Optional.empty(),
                 useUniqueTableLocations,
@@ -109,12 +105,13 @@ public class TestTrinoGlueCatalog
         // Trino schema names are always lowercase (until https://github.com/trinodb/trino/issues/17)
         String trinoSchemaName = databaseName.toLowerCase(ENGLISH);
 
-        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
-        glueClient.createDatabase(new CreateDatabaseRequest()
-                .withDatabaseInput(new DatabaseInput()
-                        // Currently this is actually stored in lowercase
-                        .withName(databaseName)));
-        try {
+        try (GlueClient glueClient = GlueClient.create()) {
+            glueClient.createDatabase(CreateDatabaseRequest.builder()
+                    .databaseInput(DatabaseInput.builder()
+                            // Currently this is actually stored in lowercase
+                            .name(databaseName)
+                            .build())
+                    .build());
             TrinoCatalog catalog = createTrinoCatalog(false);
             assertThat(catalog.namespaceExists(SESSION, databaseName)).as("catalog.namespaceExists(databaseName)")
                     .isFalse();
@@ -144,10 +141,10 @@ public class TestTrinoGlueCatalog
             assertThat(icebergMetadata.listSchemaNames(SESSION)).as("icebergMetadata.listSchemaNames")
                     .doesNotContain(databaseName)
                     .contains(trinoSchemaName);
-        }
-        finally {
-            glueClient.deleteDatabase(new DeleteDatabaseRequest()
-                    .withName(databaseName));
+
+            glueClient.deleteDatabase(DeleteDatabaseRequest.builder()
+                    .name(databaseName)
+                    .build());
         }
     }
 
@@ -211,42 +208,41 @@ public class TestTrinoGlueCatalog
         tmpDirectory.toFile().deleteOnExit();
 
         TrinoFileSystemFactory fileSystemFactory = HDFS_FILE_SYSTEM_FACTORY;
-        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
-        IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();
-        TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
-                new CatalogName("catalog_name"),
-                fileSystemFactory,
-                new TestingTypeManager(),
-                catalogConfig.isCacheTableMetadata(),
-                new GlueIcebergTableOperationsProvider(
-                        TESTING_TYPE_MANAGER,
-                        catalogConfig,
-                        fileSystemFactory,
-                        new GlueMetastoreStats(),
-                        glueClient),
-                "test",
-                glueClient,
-                new GlueMetastoreStats(),
-                false,
-                Optional.of(tmpDirectory.toAbsolutePath().toString()),
-                false,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+        try (GlueClient glueClient = GlueClient.create()) {
+            IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();
+            TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
+                    new CatalogName("catalog_name"),
+                    fileSystemFactory,
+                    new TestingTypeManager(),
+                    catalogConfig.isCacheTableMetadata(),
+                    new GlueIcebergTableOperationsProvider(
+                            TESTING_TYPE_MANAGER,
+                            catalogConfig,
+                            fileSystemFactory,
+                            glueClient),
+                    "test",
+                    glueClient,
+                    false,
+                    Optional.of(tmpDirectory.toAbsolutePath().toString()),
+                    false,
+                    new IcebergConfig().isHideMaterializedViewStorageTable());
 
-        String namespace = "test_default_location_" + randomNameSuffix();
-        String table = "tableName";
-        SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
-        catalogWithDefaultLocation.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
-        try {
-            File expectedSchemaDirectory = new File(tmpDirectory.toFile(), namespace + ".db");
-            File expectedTableDirectory = new File(expectedSchemaDirectory, schemaTableName.getTableName());
-            assertThat(catalogWithDefaultLocation.defaultTableLocation(SESSION, schemaTableName)).isEqualTo(expectedTableDirectory.toPath().toAbsolutePath().toString());
-        }
-        finally {
+            String namespace = "test_default_location_" + randomNameSuffix();
+            String table = "tableName";
+            SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
+            catalogWithDefaultLocation.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             try {
-                catalogWithDefaultLocation.dropNamespace(SESSION, namespace);
+                File expectedSchemaDirectory = new File(tmpDirectory.toFile(), namespace + ".db");
+                File expectedTableDirectory = new File(expectedSchemaDirectory, schemaTableName.getTableName());
+                assertThat(catalogWithDefaultLocation.defaultTableLocation(SESSION, schemaTableName)).isEqualTo(expectedTableDirectory.toPath().toAbsolutePath().toString());
             }
-            catch (Exception e) {
-                LOG.warn("Failed to clean up namespace: %s", namespace);
+            finally {
+                try {
+                    catalogWithDefaultLocation.dropNamespace(SESSION, namespace);
+                }
+                catch (Exception e) {
+                    LOG.warn("Failed to clean up namespace: %s", namespace);
+                }
             }
         }
     }

@@ -13,23 +13,23 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
-import io.trino.plugin.hive.metastore.glue.v1.GlueHiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.glue.v2.GlueHiveMetastoreConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.util.Optional;
+import java.util.Set;
 
-import static io.trino.plugin.hive.metastore.glue.v1.GlueClientUtil.createAsyncGlueClient;
+import static io.trino.plugin.hive.metastore.glue.v2.GlueClientUtil.createGlueClient;
 import static java.util.Objects.requireNonNull;
 
 public class TestingGlueIcebergTableOperationsProvider
@@ -38,8 +38,7 @@ public class TestingGlueIcebergTableOperationsProvider
     private final TypeManager typeManager;
     private final boolean cacheTableMetadata;
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final AWSGlueAsync glueClient;
-    private final GlueMetastoreStats stats;
+    private final GlueClient glueClient;
 
     @Inject
     public TestingGlueIcebergTableOperationsProvider(
@@ -48,18 +47,16 @@ public class TestingGlueIcebergTableOperationsProvider
             TrinoFileSystemFactory fileSystemFactory,
             GlueMetastoreStats stats,
             GlueHiveMetastoreConfig glueConfig,
-            AWSCredentialsProvider credentialsProvider,
+            AwsCredentialsProvider credentialsProvider,
             AWSGlueAsyncAdapterProvider awsGlueAsyncAdapterProvider)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.cacheTableMetadata = catalogConfig.isCacheTableMetadata();
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.stats = requireNonNull(stats, "stats is null");
         requireNonNull(glueConfig, "glueConfig is null");
         requireNonNull(credentialsProvider, "credentialsProvider is null");
         requireNonNull(awsGlueAsyncAdapterProvider, "awsGlueAsyncAdapterProvider is null");
-        this.glueClient = awsGlueAsyncAdapterProvider.createAWSGlueAsyncAdapter(
-                createAsyncGlueClient(glueConfig, credentialsProvider, ImmutableSet.of(), stats.newRequestMetricsCollector()));
+        this.glueClient = createGlueClient(glueConfig, credentialsProvider, Set.of(), stats.newMetricsPublisher());
     }
 
     @Override
@@ -75,7 +72,6 @@ public class TestingGlueIcebergTableOperationsProvider
                 typeManager,
                 cacheTableMetadata,
                 glueClient,
-                stats,
                 ((TrinoGlueCatalog) catalog)::getTable,
                 new ForwardingFileIo(fileSystemFactory.create(session)),
                 session,

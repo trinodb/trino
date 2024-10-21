@@ -21,14 +21,13 @@ import com.amazonaws.services.glue.model.EntityNotFoundException;
 import com.amazonaws.services.glue.model.GetDatabasesRequest;
 import com.amazonaws.services.glue.model.GetDatabasesResult;
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.metastore.glue.v2.AwsSdkUtil.getPaginatedResults;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.System.currentTimeMillis;
@@ -49,8 +48,7 @@ public class TestDeltaLakeDatabricksCleanUpGlueMetastore
                 glueClient::getDatabases,
                 new GetDatabasesRequest(),
                 GetDatabasesRequest::setNextToken,
-                GetDatabasesResult::getNextToken,
-                new AwsApiCallStats())
+                GetDatabasesResult::getNextToken)
                 .map(GetDatabasesResult::getDatabaseList)
                 .flatMap(List::stream)
                 .filter(database -> isOrphanedTestDatabase(database, creationTimeMillisThreshold))

@@ -228,6 +228,11 @@
         </dependency>
 
         <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>glue</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.clickhouse</groupId>
             <artifactId>clickhouse-jdbc</artifactId>
             <classifier>all</classifier>

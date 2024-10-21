@@ -95,7 +95,9 @@ public class TestIcebergGlueCatalogAccessOperations
                 .addIcebergProperty("hive.metastore.glue.default-warehouse-dir", "local:///glue")
                 .setSchemaInitializer(SchemaInitializer.builder().withSchemaName(testSchema).build())
                 .build();
-        glueStats = ((IcebergConnector) queryRunner.getCoordinator().getConnector("iceberg")).getInjector().getInstance(GlueMetastoreStats.class);
+        glueStats = ((IcebergConnector) queryRunner.getCoordinator()
+                .getConnector("iceberg")).getInjector()
+                .getInstance(GlueMetastoreStats.class);
         return queryRunner;
     }
 
