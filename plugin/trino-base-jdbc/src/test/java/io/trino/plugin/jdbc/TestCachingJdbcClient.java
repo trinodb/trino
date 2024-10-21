@@ -64,6 +64,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.ZERO;
+import static io.trino.plugin.jdbc.DefaultJdbcMetadata.getColumns;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -204,7 +205,7 @@ public class TestCachingJdbcClient
         assertCacheStats(cachingJdbcClient)
                 // cache is not used, as the table handle has the columns list embedded
                 .afterRunning(() -> {
-                    cachingJdbcClient.getColumns(SESSION, cachedTable);
+                    getColumns(SESSION, cachingJdbcClient, cachedTable);
                 });
         assertStatisticsCacheStats(cachingJdbcClient)
                 .misses(1)
@@ -222,13 +223,13 @@ public class TestCachingJdbcClient
                 .afterRunning(() -> {
                     assertThat(cachingJdbcClient.getTableHandle(SESSION, query))
                             .isEqualTo(cachedTable);
-                    assertThat(cachingJdbcClient.getColumns(SESSION, cachedTable))
+                    assertThat(getColumns(SESSION, cachingJdbcClient, cachedTable))
                             .hasSize(0); // phantom_table has no columns
                 });
         assertCacheStats(cachingJdbcClient)
                 // cache is not used, as the table handle has the columns list embedded
                 .afterRunning(() -> {
-                    assertThat(cachingJdbcClient.getColumns(SESSION, cachedTable))
+                    assertThat(getColumns(SESSION, cachingJdbcClient, cachedTable))
                             .hasSize(0); // phantom_table has no columns
                 });
         assertStatisticsCacheStats(cachingJdbcClient)
@@ -245,13 +246,13 @@ public class TestCachingJdbcClient
                 .afterRunning(() -> {
                     assertThat(cachingJdbcClient.getTableHandle(SESSION, query))
                             .isEqualTo(cachedTable);
-                    assertThat(cachingJdbcClient.getColumns(SESSION, cachedTable))
+                    assertThat(getColumns(SESSION, cachingJdbcClient, cachedTable))
                             .hasSize(0); // phantom_table has no columns
                 });
         assertCacheStats(cachingJdbcClient)
                 // cache is not used, as the table handle has the columns list embedded
                 .afterRunning(() -> {
-                    assertThat(cachingJdbcClient.getColumns(SESSION, cachedTable))
+                    assertThat(getColumns(SESSION, cachingJdbcClient, cachedTable))
                             .hasSize(0); // phantom_table has no columns
                 });
         assertStatisticsCacheStats(cachingJdbcClient)
@@ -268,13 +269,13 @@ public class TestCachingJdbcClient
                 .afterRunning(() -> {
                     assertThat(cachingJdbcClient.getTableHandle(SESSION, query))
                             .isEqualTo(cachedTable);
-                    assertThat(cachingJdbcClient.getColumns(SESSION, cachedTable))
+                    assertThat(getColumns(SESSION, cachingJdbcClient, cachedTable))
                             .hasSize(0); // phantom_table has no columns
                 });
         assertCacheStats(cachingJdbcClient)
                 // cache is not used, as the table handle has the columns list embedded
                 .afterRunning(() -> {
-                    assertThat(cachingJdbcClient.getColumns(SESSION, cachedTable))
+                    assertThat(getColumns(SESSION, cachingJdbcClient, cachedTable))
                             .hasSize(0); // phantom_table has no columns
                 });
         assertStatisticsCacheStats(cachingJdbcClient)
@@ -430,16 +431,16 @@ public class TestCachingJdbcClient
 
         // Read column into cache
         assertColumnCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getColumns(SESSION, table)).contains(phantomColumn);
+            assertThat(getColumns(SESSION, cachingJdbcClient, table)).contains(phantomColumn);
         });
 
         jdbcClient.dropColumn(SESSION, table, phantomColumn);
 
         // Load column from cache
-        assertThat(jdbcClient.getColumns(SESSION, table)).doesNotContain(phantomColumn);
+        assertThat(getColumns(SESSION, jdbcClient, table)).doesNotContain(phantomColumn);
 
         assertColumnCacheStats(cachingJdbcClient).hits(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getColumns(SESSION, table)).contains(phantomColumn);
+            assertThat(getColumns(SESSION, cachingJdbcClient, table)).contains(phantomColumn);
         });
     }
 
@@ -454,33 +455,33 @@ public class TestCachingJdbcClient
 
         // Load columns in first session scope
         assertColumnCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getColumns(firstSession, table)).contains(phantomColumn);
+            assertThat(getColumns(firstSession, cachingJdbcClient, table)).contains(phantomColumn);
         });
 
         // Load columns in second session scope
         assertColumnCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getColumns(secondSession, table)).contains(phantomColumn);
+            assertThat(getColumns(secondSession, cachingJdbcClient, table)).contains(phantomColumn);
         });
 
         // Check that columns are cached
         assertColumnCacheStats(cachingJdbcClient).hits(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getColumns(secondSession, table)).contains(phantomColumn);
+            assertThat(getColumns(secondSession, cachingJdbcClient, table)).contains(phantomColumn);
         });
 
         // Drop first column and invalidate cache for all sessions
         cachingJdbcClient.dropColumn(firstSession, table, phantomColumn);
-        assertThat(jdbcClient.getColumns(firstSession, table)).doesNotContain(phantomColumn);
+        assertThat(getColumns(firstSession, jdbcClient, table)).doesNotContain(phantomColumn);
 
         // Load columns into cache in both sessions scope
         assertColumnCacheStats(cachingJdbcClient).loads(2).misses(2).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getColumns(firstSession, table)).doesNotContain(phantomColumn);
-            assertThat(cachingJdbcClient.getColumns(secondSession, table)).doesNotContain(phantomColumn);
+            assertThat(getColumns(firstSession, cachingJdbcClient, table)).doesNotContain(phantomColumn);
+            assertThat(getColumns(secondSession, cachingJdbcClient, table)).doesNotContain(phantomColumn);
         });
 
         // Read columns from cache
         assertColumnCacheStats(cachingJdbcClient).hits(2).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getColumns(firstSession, table)).doesNotContain(phantomColumn);
-            assertThat(cachingJdbcClient.getColumns(secondSession, table)).doesNotContain(phantomColumn);
+            assertThat(getColumns(firstSession, cachingJdbcClient, table)).doesNotContain(phantomColumn);
+            assertThat(getColumns(secondSession, cachingJdbcClient, table)).doesNotContain(phantomColumn);
         });
     }
 
@@ -498,39 +499,39 @@ public class TestCachingJdbcClient
 
         // Load columns for both tables into cache and assert cache loads (sessions x tables)
         assertColumnCacheStats(cachingJdbcClient).loads(4).misses(4).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getColumns(firstSession, firstTable)).contains(firstColumn);
-            assertThat(cachingJdbcClient.getColumns(firstSession, secondTable)).contains(secondColumn);
-            assertThat(cachingJdbcClient.getColumns(secondSession, firstTable)).contains(firstColumn);
-            assertThat(cachingJdbcClient.getColumns(secondSession, secondTable)).contains(secondColumn);
+            assertThat(getColumns(firstSession, cachingJdbcClient, firstTable)).contains(firstColumn);
+            assertThat(getColumns(firstSession, cachingJdbcClient, secondTable)).contains(secondColumn);
+            assertThat(getColumns(secondSession, cachingJdbcClient, firstTable)).contains(firstColumn);
+            assertThat(getColumns(secondSession, cachingJdbcClient, secondTable)).contains(secondColumn);
         });
 
         // Load columns from cache
         assertColumnCacheStats(cachingJdbcClient).hits(2).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getColumns(firstSession, firstTable)).contains(firstColumn);
-            assertThat(cachingJdbcClient.getColumns(secondSession, secondTable)).contains(secondColumn);
+            assertThat(getColumns(firstSession, cachingJdbcClient, firstTable)).contains(firstColumn);
+            assertThat(getColumns(secondSession, cachingJdbcClient, secondTable)).contains(secondColumn);
         });
 
         // Rename column
         cachingJdbcClient.renameColumn(firstSession, firstTable, firstColumn, "another_column");
 
         assertColumnCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getColumns(secondSession, firstTable))
+            assertThat(getColumns(secondSession, cachingJdbcClient, firstTable))
                     .doesNotContain(firstColumn)
-                    .containsAll(jdbcClient.getColumns(SESSION, firstTable));
+                    .containsAll(getColumns(SESSION, jdbcClient, firstTable));
         });
 
         // Drop columns and caches for first table
         cachingJdbcClient.dropTable(secondSession, firstTable);
 
         assertColumnCacheStats(cachingJdbcClient).loads(2).misses(2).afterRunning(() -> {
-            assertThatThrownBy(() -> cachingJdbcClient.getColumns(firstSession, firstTable)).isInstanceOf(TableNotFoundException.class);
-            assertThatThrownBy(() -> cachingJdbcClient.getColumns(secondSession, firstTable)).isInstanceOf(TableNotFoundException.class);
+            assertThatThrownBy(() -> getColumns(firstSession, cachingJdbcClient, firstTable)).isInstanceOf(TableNotFoundException.class);
+            assertThatThrownBy(() -> getColumns(secondSession, cachingJdbcClient, firstTable)).isInstanceOf(TableNotFoundException.class);
         });
 
         // Check if second table is still cached
         assertColumnCacheStats(cachingJdbcClient).hits(2).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getColumns(firstSession, secondTable)).contains(secondColumn);
-            assertThat(cachingJdbcClient.getColumns(secondSession, secondTable)).contains(secondColumn);
+            assertThat(getColumns(firstSession, cachingJdbcClient, secondTable)).contains(secondColumn);
+            assertThat(getColumns(secondSession, cachingJdbcClient, secondTable)).contains(secondColumn);
         });
 
         cachingJdbcClient.dropTable(secondSession, secondTable);
@@ -551,17 +552,17 @@ public class TestCachingJdbcClient
         JdbcColumnHandle secondColumn = addColumn(secondTable, "second_column");
 
         assertColumnCacheStats(cachingJdbcClient).loads(4).misses(4).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getColumns(firstSession, firstTable)).containsExactly(firstColumn);
-            assertThat(cachingJdbcClient.getColumns(secondSession, firstTable)).containsExactly(firstColumn);
-            assertThat(cachingJdbcClient.getColumns(firstSession, secondTable)).containsExactly(secondColumn);
-            assertThat(cachingJdbcClient.getColumns(secondSession, secondTable)).containsExactly(secondColumn);
+            assertThat(getColumns(firstSession, cachingJdbcClient, firstTable)).containsExactly(firstColumn);
+            assertThat(getColumns(secondSession, cachingJdbcClient, firstTable)).containsExactly(firstColumn);
+            assertThat(getColumns(firstSession, cachingJdbcClient, secondTable)).containsExactly(secondColumn);
+            assertThat(getColumns(secondSession, cachingJdbcClient, secondTable)).containsExactly(secondColumn);
         });
 
         assertColumnCacheStats(cachingJdbcClient).loads(4).misses(4).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getColumns(firstSession, firstTable)).containsExactly(firstColumn);
-            assertThat(cachingJdbcClient.getColumns(secondSession, firstTable)).containsExactly(firstColumn);
-            assertThat(cachingJdbcClient.getColumns(firstSession, secondTable)).containsExactly(secondColumn);
-            assertThat(cachingJdbcClient.getColumns(secondSession, secondTable)).containsExactly(secondColumn);
+            assertThat(getColumns(firstSession, cachingJdbcClient, firstTable)).containsExactly(firstColumn);
+            assertThat(getColumns(secondSession, cachingJdbcClient, firstTable)).containsExactly(firstColumn);
+            assertThat(getColumns(firstSession, cachingJdbcClient, secondTable)).containsExactly(secondColumn);
+            assertThat(getColumns(secondSession, cachingJdbcClient, secondTable)).containsExactly(secondColumn);
         });
 
         // Drop tables by not using caching jdbc client
@@ -570,8 +571,8 @@ public class TestCachingJdbcClient
 
         // Columns are loaded bypassing a cache
         assertColumnCacheStats(cachingJdbcClient).loads(2).misses(2).afterRunning(() -> {
-            assertThatThrownBy(() -> cachingJdbcClient.getColumns(firstSession, firstTable)).isInstanceOf(TableNotFoundException.class);
-            assertThatThrownBy(() -> cachingJdbcClient.getColumns(firstSession, secondTable)).isInstanceOf(TableNotFoundException.class);
+            assertThatThrownBy(() -> getColumns(firstSession, cachingJdbcClient, firstTable)).isInstanceOf(TableNotFoundException.class);
+            assertThatThrownBy(() -> getColumns(firstSession, cachingJdbcClient, secondTable)).isInstanceOf(TableNotFoundException.class);
         });
     }
 
@@ -1071,7 +1072,7 @@ public class TestCachingJdbcClient
     {
         ColumnMetadata columnMetadata = new ColumnMetadata(columnName, INTEGER);
         client.addColumn(SESSION, tableHandle, columnMetadata);
-        return client.getColumns(SESSION, tableHandle)
+        return getColumns(SESSION, client, tableHandle)
                 .stream()
                 .filter(jdbcColumnHandle -> jdbcColumnHandle.getColumnMetadata().equals(columnMetadata))
                 .collect(onlyElement());

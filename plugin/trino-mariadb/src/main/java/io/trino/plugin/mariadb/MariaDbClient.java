@@ -755,7 +755,7 @@ public class MariaDbClient
                 return tableStatistics.build();
             }
 
-            for (JdbcColumnHandle column : getColumns(session, table)) {
+            for (JdbcColumnHandle column : getColumns(session, table.getRequiredNamedRelation().getSchemaTableName(), table.getRequiredNamedRelation().getRemoteTableName())) {
                 ColumnStatistics.Builder columnStatisticsBuilder = ColumnStatistics.builder();
 
                 String columnName = column.getColumnName();
