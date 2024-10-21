@@ -31,7 +31,8 @@ public class TestOAuth2SecurityConfig
         assertRecordedDefaults(recordDefaults(OAuth2SecurityConfig.class)
                 .setCredential(null)
                 .setToken(null)
-                .setScope(null));
+                .setScope(null)
+                .setServerUri(null));
     }
 
     @Test
@@ -41,12 +42,14 @@ public class TestOAuth2SecurityConfig
                 .put("iceberg.rest-catalog.oauth2.token", "token")
                 .put("iceberg.rest-catalog.oauth2.credential", "credential")
                 .put("iceberg.rest-catalog.oauth2.scope", "scope")
+                .put("iceberg.rest-catalog.oauth2.server-uri", "http://localhost:8080/realms/iceberg/protocol/openid-connect/token")
                 .buildOrThrow();
 
         OAuth2SecurityConfig expected = new OAuth2SecurityConfig()
                 .setCredential("credential")
                 .setToken("token")
-                .setScope("scope");
+                .setScope("scope")
+                .setServerUri("http://localhost:8080/realms/iceberg/protocol/openid-connect/token");
         assertThat(expected.credentialOrTokenPresent()).isTrue();
         assertThat(expected.scopePresentOnlyWithCredential()).isFalse();
         assertFullMapping(properties, expected);

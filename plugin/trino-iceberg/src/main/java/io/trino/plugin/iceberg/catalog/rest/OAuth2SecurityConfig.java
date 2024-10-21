@@ -25,6 +25,7 @@ public class OAuth2SecurityConfig
     private String credential;
     private String scope;
     private String token;
+    private String serverUri;
 
     public Optional<String> getCredential()
     {
@@ -67,6 +68,20 @@ public class OAuth2SecurityConfig
         return this;
     }
 
+    public Optional<String> getServerUri()
+    {
+        return Optional.ofNullable(serverUri);
+    }
+
+    @Config("iceberg.rest-catalog.oauth2.server-uri")
+    @ConfigDescription("The endpoint to retrieve access token from OAuth2 Server")
+    @ConfigSecuritySensitive
+    public OAuth2SecurityConfig setServerUri(String serverUri)
+    {
+        this.serverUri = serverUri;
+        return this;
+    }
+
     @AssertTrue(message = "OAuth2 requires a credential or token")
     public boolean credentialOrTokenPresent()
     {
@@ -78,4 +93,5 @@ public class OAuth2SecurityConfig
     {
         return !(token != null && scope != null);
     }
+
 }
