@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
-import static io.airlift.testing.Assertions.assertContains;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -89,7 +88,7 @@ public class TestHiveTypeTranslator
                 .satisfies(e -> {
                     TrinoException trinoException = (TrinoException) e;
                     assertThat(trinoException.getErrorCode()).isEqualTo(errorCode);
-                    assertContains(trinoException.getMessage(), message);
+                    assertThat(trinoException).hasMessageContaining(message);
                 });
     }
 }
