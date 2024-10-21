@@ -68,11 +68,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.Iterables.transform;
+import static com.google.common.util.concurrent.Futures.withTimeout;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.BufferResult.emptyResults;
 import static io.trino.server.DisconnectionAwareAsyncResponse.bindDisconnectionAwareAsyncResponse;
+import static io.trino.server.DisconnectionAwareAsyncResponse.withFallbackAfterTimeout;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE;
@@ -222,8 +224,7 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindDisconnectionAwareAsyncResponse(asyncResponse, futureTaskInfo, responseExecutor)
-                .withTimeout(timeout);
+        bindDisconnectionAwareAsyncResponse(asyncResponse, withTimeout(futureTaskInfo, timeout.toJavaTime(), timeoutExecutor), responseExecutor);
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
@@ -266,8 +267,7 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindDisconnectionAwareAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
-                .withTimeout(timeout);
+        bindDisconnectionAwareAsyncResponse(asyncResponse, withTimeout(futureTaskStatus, timeout.toJavaTime(), timeoutExecutor), responseExecutor);
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
@@ -367,8 +367,8 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindDisconnectionAwareAsyncResponse(asyncResponse, responseFuture, responseExecutor)
-                .withTimeout(timeout, () -> createBufferResultResponse(pagesInputStreamFactory, taskWithResults, emptyBufferResults));
+        bindDisconnectionAwareAsyncResponse(asyncResponse,
+                withFallbackAfterTimeout(responseFuture, timeout, () -> createBufferResultResponse(pagesInputStreamFactory, taskWithResults, emptyBufferResults), responseExecutor, timeoutExecutor), responseExecutor);
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
     }
 

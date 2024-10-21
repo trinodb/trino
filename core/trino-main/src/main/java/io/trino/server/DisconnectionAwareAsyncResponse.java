@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.jaxrs.AsyncResponseHandler;
+import io.airlift.units.Duration;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
@@ -28,12 +29,17 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.util.concurrent.Futures.catching;
+import static com.google.common.util.concurrent.Futures.withTimeout;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static java.util.Objects.requireNonNull;
 
@@ -200,5 +206,10 @@ public class DisconnectionAwareAsyncResponse
     public static AsyncResponseHandler bindDisconnectionAwareAsyncResponse(DisconnectionAwareAsyncResponse asyncResponse, ListenableFuture<?> futureResponse, Executor httpResponseExecutor)
     {
         return bindAsyncResponse(asyncResponse.withCancellableFuture(futureResponse), futureResponse, httpResponseExecutor);
+    }
+
+    public static <V> ListenableFuture<V> withFallbackAfterTimeout(ListenableFuture<V> future, Duration timeout, Supplier<V> fallback, Executor responseExecutor, ScheduledExecutorService timeoutExecutor)
+    {
+        return catching(withTimeout(future, timeout.toJavaTime(), timeoutExecutor), TimeoutException.class, _ -> fallback.get(), responseExecutor);
     }
 }
