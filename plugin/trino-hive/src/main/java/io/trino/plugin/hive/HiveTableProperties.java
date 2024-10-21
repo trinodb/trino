@@ -72,6 +72,7 @@ public class HiveTableProperties
     public static final String REGEX_CASE_INSENSITIVE = "regex_case_insensitive";
     public static final String TRANSACTIONAL = "transactional";
     public static final String AUTO_PURGE = "auto_purge";
+    public static final String EXTERNAL_TABLE_PURGE = "external_table_purge";
     public static final String EXTRA_PROPERTIES = "extra_properties";
 
     private final List<PropertyMetadata<?>> tableProperties;
@@ -176,6 +177,11 @@ public class HiveTableProperties
                 booleanProperty(REGEX_CASE_INSENSITIVE, "REGEX pattern is case insensitive", null, false),
                 booleanProperty(TRANSACTIONAL, "Table is transactional", null, false),
                 booleanProperty(AUTO_PURGE, "Skip trash when table or partition is deleted", config.isAutoPurge(), false),
+                booleanProperty(
+                        EXTERNAL_TABLE_PURGE,
+                        "External table data deleted when the table is dropped",
+                        null,
+                        false),
                 booleanProperty(
                         PARTITION_PROJECTION_IGNORE,
                         "Disable AWS Athena partition projection in Trino only",
@@ -351,6 +357,11 @@ public class HiveTableProperties
     public static Optional<Boolean> isAutoPurge(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((Boolean) tableProperties.get(AUTO_PURGE));
+    }
+
+    public static Optional<Boolean> isExternalTablePurge(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Boolean) tableProperties.get(EXTERNAL_TABLE_PURGE));
     }
 
     public static Optional<Map<String, String>> getExtraProperties(Map<String, Object> tableProperties)
