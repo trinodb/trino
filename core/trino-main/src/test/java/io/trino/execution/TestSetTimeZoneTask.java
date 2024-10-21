@@ -266,6 +266,7 @@ public class TestSetTimeZoneTask
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
     }
 

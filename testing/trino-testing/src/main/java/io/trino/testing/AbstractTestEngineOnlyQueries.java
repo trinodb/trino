@@ -6619,6 +6619,34 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testInlineSession()
+    {
+        assertThat(query("WITH SESSION time_zone_id = 'Europe/Wonderland' SELECT current_timezone()"))
+                .failure().hasMessageContaining("Time zone not supported: Europe/Wonderland");
+
+        assertThat(query("WITH SESSION time_zone_id = 'Europe/Warsaw' SELECT current_timezone()"))
+                .matches("VALUES CAST('Europe/Warsaw' AS varchar)");
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty("time_zone_id", "America/Los_Angeles")
+                .build();
+        assertThat(query(session, "WITH SESSION time_zone_id = 'Europe/Warsaw' SELECT current_timezone()"))
+                .matches("VALUES CAST('Europe/Warsaw' AS varchar)");
+    }
+
+    @Test
+    public void testInlineSessionAndSqlFunctions()
+    {
+        assertThat(query("""
+                WITH
+                  SESSION time_zone_id = 'Europe/Warsaw'
+                  FUNCTION foo() RETURNS varchar RETURN current_timezone()
+                SELECT foo()
+                """))
+                .matches("VALUES CAST('Europe/Warsaw' AS varchar)");
+    }
+
+    @Test
     public void testInlineSqlFunctions()
     {
         assertThat(query("""
