@@ -740,18 +740,16 @@ public class TrinoHiveCatalog
                     materializedView.getParameters()));
         }
 
+        SchemaTableName storageTableName;
         if (storageTable != null) {
             String storageSchema = Optional.ofNullable(materializedView.getParameters().get(STORAGE_SCHEMA))
                     .orElse(viewName.getSchemaName());
-            SchemaTableName storageTableName = new SchemaTableName(storageSchema, storageTable);
-            return Optional.of(getMaterializedViewDefinition(
-                    materializedView.getOwner(),
-                    materializedView.getViewOriginalText()
-                            .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)),
-                    storageTableName));
+            storageTableName = new SchemaTableName(storageSchema, storageTable);
+        }
+        else {
+            storageTableName = new SchemaTableName(viewName.getSchemaName(), IcebergTableName.tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
         }
 
-        SchemaTableName storageTableName = new SchemaTableName(viewName.getSchemaName(), IcebergTableName.tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
         return Optional.of(getMaterializedViewDefinition(
                 materializedView.getOwner(),
                 materializedView.getViewOriginalText()

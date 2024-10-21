@@ -1314,22 +1314,20 @@ public class TrinoGlueCatalog
                     materializedViewParameters));
         }
 
+        SchemaTableName storageTableName;
         if (storageTable != null) {
             String storageSchema = Optional.ofNullable(materializedViewParameters.get(STORAGE_SCHEMA))
                     .orElse(viewName.getSchemaName());
-            SchemaTableName storageTableName = new SchemaTableName(storageSchema, storageTable);
+            storageTableName = new SchemaTableName(storageSchema, storageTable);
 
-            String viewOriginalText = table.getViewOriginalText();
-            if (viewOriginalText == null) {
+            if (table.getViewOriginalText() == null) {
                 throw new TrinoException(ICEBERG_BAD_DATA, "Materialized view did not have original text " + viewName);
             }
-            return getMaterializedViewDefinition(
-                    Optional.ofNullable(table.getOwner()),
-                    viewOriginalText,
-                    storageTableName);
+        }
+        else {
+            storageTableName = new SchemaTableName(viewName.getSchemaName(), tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
         }
 
-        SchemaTableName storageTableName = new SchemaTableName(viewName.getSchemaName(), tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
         return getMaterializedViewDefinition(
                 Optional.ofNullable(table.getOwner()),
                 table.getViewOriginalText(),
