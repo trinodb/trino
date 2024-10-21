@@ -25,5 +25,6 @@ public enum ClientCapabilities
     // When this capability is not set, the server returns datetime types with precision = 3
     PARAMETRIC_DATETIME,
     // Whether clients support the session authorization set/reset feature
-    SESSION_AUTHORIZATION;
+    SESSION_AUTHORIZATION,
+    USE_SESSION_TIME_ZONE,
 }
