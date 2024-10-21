@@ -14,7 +14,6 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
@@ -53,10 +52,10 @@ import jakarta.ws.rs.ServiceUnavailableException;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
-import jakarta.ws.rs.core.GenericEntity;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.core.StreamingOutput;
 import jakarta.ws.rs.core.UriInfo;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -101,6 +100,7 @@ public class TaskResource
     private final StartupStatus startupStatus;
     private final SqlTaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
+    private final PagesInputStreamFactory pagesInputStreamFactory;
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
     private final FailureInjector failureInjector;
@@ -112,6 +112,7 @@ public class TaskResource
             StartupStatus startupStatus,
             SqlTaskManager taskManager,
             SessionPropertyManager sessionPropertyManager,
+            PagesInputStreamFactory pagesInputStreamFactory,
             @ForAsyncHttp BoundedExecutor responseExecutor,
             @ForAsyncHttp ScheduledExecutorService timeoutExecutor,
             FailureInjector failureInjector)
@@ -119,6 +120,7 @@ public class TaskResource
         this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.pagesInputStreamFactory = requireNonNull(pagesInputStreamFactory, "pagesInputStreamFactory is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.failureInjector = requireNonNull(failureInjector, "failureInjector is null");
@@ -361,13 +363,12 @@ public class TaskResource
                     timeoutExecutor);
         }
 
-        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, results -> createBufferResultResponse(taskWithResults, results), directExecutor());
+        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, results -> createBufferResultResponse(pagesInputStreamFactory, taskWithResults, results), directExecutor());
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindDisconnectionAwareAsyncResponse(asyncResponse, responseFuture, responseExecutor)
-                .withTimeout(timeout, () -> createBufferResultResponse(taskWithResults, emptyBufferResults));
-
+                .withTimeout(timeout, () -> createBufferResultResponse(pagesInputStreamFactory, taskWithResults, emptyBufferResults));
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
     }
 
@@ -536,31 +537,29 @@ public class TaskResource
         return new Duration(halfWaitMillis + ThreadLocalRandom.current().nextLong(halfWaitMillis), MILLISECONDS);
     }
 
-    private static Response createBufferResultResponse(SqlTaskWithResults taskWithResults, BufferResult result)
+    private static Response createBufferResultResponse(PagesInputStreamFactory pagesInputStreamFactory, SqlTaskWithResults taskWithResults, BufferResult result)
     {
         // This response may have been created as the result of a timeout, so refresh the task heartbeat
         taskWithResults.recordHeartbeat();
 
         List<Slice> serializedPages = result.getSerializedPages();
 
-        GenericEntity<?> entity = null;
-        Status status;
-        if (serializedPages.isEmpty()) {
-            status = Status.NO_CONTENT;
-        }
-        else {
-            entity = new GenericEntity<>(serializedPages, new TypeToken<List<Slice>>() {}.getType());
-            status = Status.OK;
-        }
-
-        return Response.status(status)
-                .entity(entity)
+        Response.ResponseBuilder response = Response.status(serializedPages.isEmpty() ? Status.NO_CONTENT : Status.OK)
                 .header(TRINO_TASK_INSTANCE_ID, result.getTaskInstanceId())
                 .header(TRINO_PAGE_TOKEN, result.getToken())
                 .header(TRINO_PAGE_NEXT_TOKEN, result.getNextToken())
                 .header(TRINO_BUFFER_COMPLETE, result.isBufferComplete())
                 // check for task failure after getting the result to ensure it's consistent with isBufferComplete()
-                .header(TRINO_TASK_FAILED, taskWithResults.isTaskFailedOrFailing())
+                .header(TRINO_TASK_FAILED, taskWithResults.isTaskFailedOrFailing());
+
+        if (serializedPages.isEmpty()) {
+            return response.build();
+        }
+
+        return response
+                .type(TRINO_PAGES)
+                .entity((StreamingOutput) output ->
+                        pagesInputStreamFactory.write(output, serializedPages))
                 .build();
     }
 }

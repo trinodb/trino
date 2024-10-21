@@ -80,7 +80,7 @@ import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
-import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
+import static io.trino.server.PagesInputStreamFactory.SERIALIZED_PAGES_MAGIC;
 import static io.trino.spi.HostAddress.fromUri;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_BUFFER_CLOSE_FAILED;
