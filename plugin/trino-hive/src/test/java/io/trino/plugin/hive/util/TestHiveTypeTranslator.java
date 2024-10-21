@@ -88,14 +88,8 @@ public class TestHiveTypeTranslator
                 .isInstanceOf(TrinoException.class)
                 .satisfies(e -> {
                     TrinoException trinoException = (TrinoException) e;
-                    try {
-                        assertThat(trinoException.getErrorCode()).isEqualTo(errorCode);
-                        assertContains(trinoException.getMessage(), message);
-                    }
-                    catch (Throwable failure) {
-                        failure.addSuppressed(trinoException);
-                        throw failure;
-                    }
+                    assertThat(trinoException.getErrorCode()).isEqualTo(errorCode);
+                    assertContains(trinoException.getMessage(), message);
                 });
     }
 }
