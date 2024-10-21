@@ -36,7 +36,6 @@ import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.connector.CatalogHandle;
-import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
@@ -71,10 +70,10 @@ import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.Futures.withTimeout;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
+import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.BufferResult.emptyResults;
-import static io.trino.server.DisconnectionAwareAsyncResponse.bindDisconnectionAwareAsyncResponse;
-import static io.trino.server.DisconnectionAwareAsyncResponse.withFallbackAfterTimeout;
+import static io.trino.server.AsyncResponseUtils.withFallbackAfterTimeout;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE;
@@ -149,7 +148,7 @@ public class TaskResource
             @PathParam("taskId") TaskId taskId,
             TaskUpdateRequest taskUpdateRequest,
             @Context UriInfo uriInfo,
-            @Suspended @BeanParam DisconnectionAwareAsyncResponse asyncResponse)
+            @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
         if (failRequestIfInvalid(asyncResponse)) {
@@ -188,7 +187,7 @@ public class TaskResource
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
-            @Suspended @BeanParam DisconnectionAwareAsyncResponse asyncResponse)
+            @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         if (failRequestIfInvalid(asyncResponse)) {
@@ -224,7 +223,7 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindDisconnectionAwareAsyncResponse(asyncResponse, withTimeout(futureTaskInfo, timeout.toJavaTime(), timeoutExecutor), responseExecutor);
+        bindAsyncResponse(asyncResponse, withTimeout(futureTaskInfo, timeout.toJavaTime(), timeoutExecutor), responseExecutor);
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
@@ -235,7 +234,7 @@ public class TaskResource
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
-            @Suspended @BeanParam DisconnectionAwareAsyncResponse asyncResponse)
+            @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         if (failRequestIfInvalid(asyncResponse)) {
@@ -267,7 +266,7 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindDisconnectionAwareAsyncResponse(asyncResponse, withTimeout(futureTaskStatus, timeout.toJavaTime(), timeoutExecutor), responseExecutor);
+        bindAsyncResponse(asyncResponse, withTimeout(futureTaskStatus, timeout.toJavaTime(), timeoutExecutor), responseExecutor);
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
@@ -277,7 +276,7 @@ public class TaskResource
     public void acknowledgeAndGetNewDynamicFilterDomains(
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
-            @Suspended @BeanParam DisconnectionAwareAsyncResponse asyncResponse)
+            @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
@@ -340,7 +339,7 @@ public class TaskResource
             @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
             @PathParam("token") long token,
             @HeaderParam(TRINO_MAX_SIZE) DataSize maxSize,
-            @Suspended @BeanParam DisconnectionAwareAsyncResponse asyncResponse)
+            @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
@@ -367,7 +366,7 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindDisconnectionAwareAsyncResponse(asyncResponse,
+        bindAsyncResponse(asyncResponse,
                 withFallbackAfterTimeout(responseFuture, timeout, () -> createBufferResultResponse(pagesInputStreamFactory, taskWithResults, emptyBufferResults), responseExecutor, timeoutExecutor), responseExecutor);
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
     }
