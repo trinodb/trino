@@ -113,8 +113,8 @@ public class SpoolingConfig
         return inlineSegments;
     }
 
-    @ConfigDescription("Allow protocol to inline data")
     @Config("protocol.spooling.inline-segments")
+    @ConfigDescription("Allow protocol to inline data")
     public SpoolingConfig setInlineSegments(boolean inlineSegments)
     {
         this.inlineSegments = inlineSegments;
@@ -126,8 +126,8 @@ public class SpoolingConfig
         return sharedEncryptionKey;
     }
 
-    @ConfigDescription("256 bit, base64-encoded secret key used to secure segment identifiers")
     @Config("protocol.spooling.shared-secret-key")
+    @ConfigDescription("256 bit, base64-encoded secret key used to secure segment identifiers")
     @ConfigSecuritySensitive
     public SpoolingConfig setSharedEncryptionKey(String sharedEncryptionKey)
     {
