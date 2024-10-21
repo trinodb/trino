@@ -19,6 +19,7 @@ import jakarta.servlet.AsyncContext;
 import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.TimeoutHandler;
 import jakarta.ws.rs.core.Context;
@@ -30,9 +31,8 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static java.util.Objects.requireNonNull;
@@ -41,40 +41,39 @@ public class DisconnectionAwareAsyncResponse
         implements AsyncResponse
 {
     // Guards against calling AsyncResponse methods when client is no longer interested in consuming a response
-    private final AtomicBoolean clientDisconnected = new AtomicBoolean();
+    private final AtomicBoolean terminated = new AtomicBoolean();
 
     private final AsyncContext asyncContext;
     private final AsyncResponse delegate;
-    private final AtomicReference<ListenableFuture<?>> cancellableFuture = new AtomicReference<>(null);
+    private final HttpServletResponse response;
 
-    public DisconnectionAwareAsyncResponse(@Context HttpServletRequest request, AsyncResponse delegate)
+    public DisconnectionAwareAsyncResponse(@Context HttpServletRequest request, @Context HttpServletResponse response, AsyncResponse delegate)
     {
         requireNonNull(request, "request is null");
+        requireNonNull(response, "response is null");
         requireNonNull(delegate, "delegate is null");
         verify(request.isAsyncStarted(), "AsyncContext is not started, did you forget @Suspended?");
 
         this.delegate = delegate;
         this.asyncContext = request.getAsyncContext();
+        this.response = response;
 
-        request.getAsyncContext().addListener(new AsyncListener()
+        asyncContext.addListener(new AsyncListener()
         {
             @Override
             public void onComplete(AsyncEvent event) {}
 
             @Override
-            public void onTimeout(AsyncEvent event) {}
+            public void onTimeout(AsyncEvent event)
+            {
+                terminate();
+            }
 
             @Override
             public void onError(AsyncEvent event)
             {
                 if (wasRequestTerminated(event.getThrowable())) {
-                    if (clientDisconnected.compareAndSet(false, true)) {
-                        asyncContext.complete();
-                        ListenableFuture<?> future = cancellableFuture.getAndSet(null);
-                        if (future != null) {
-                            future.cancel(true);
-                        }
-                    }
+                    terminate();
                 }
             }
 
@@ -83,55 +82,106 @@ public class DisconnectionAwareAsyncResponse
         });
     }
 
-    public DisconnectionAwareAsyncResponse withCancellableFuture(ListenableFuture<?> future)
+    private void terminate()
     {
-        checkState(cancellableFuture.compareAndSet(null, future), "Cancellable future already set");
-        return this;
+        if (terminated.compareAndSet(false, true)) {
+            asyncContext.complete();
+        }
+    }
+
+    private boolean isCommitedOrTerminated()
+    {
+        return terminated.get() || response.isCommitted();
     }
 
     @Override
     public boolean resume(Object response)
     {
-        if (clientDisconnected.get()) {
+        if (isCommitedOrTerminated()) {
+            return false;
+        }
+
+        try {
+            return delegate.resume(response);
+        }
+        catch (RuntimeException e) {
+            if (!terminated.get()) {
+                throw e;
+            }
             return true;
         }
-        return delegate.resume(response);
     }
 
     @Override
     public boolean resume(Throwable response)
     {
-        if (clientDisconnected.get()) {
+        if (isCommitedOrTerminated()) {
+            return false;
+        }
+
+        try {
+            return delegate.resume(response);
+        }
+        catch (RuntimeException e) {
+            if (!terminated.get()) {
+                throw e;
+            }
             return true;
         }
-        return delegate.resume(response);
     }
 
     @Override
     public boolean cancel()
     {
-        if (clientDisconnected.get()) {
+        if (isCommitedOrTerminated()) {
+            return false;
+        }
+
+        try {
+            return delegate.cancel();
+        }
+        catch (RuntimeException e) {
+            if (!terminated.get()) {
+                throw e;
+            }
             return true;
         }
-        return delegate.cancel();
     }
 
     @Override
     public boolean cancel(int retryAfter)
     {
-        if (clientDisconnected.get()) {
+        if (isCommitedOrTerminated()) {
+            return false;
+        }
+
+        try {
+            return delegate.cancel(retryAfter);
+        }
+        catch (RuntimeException e) {
+            if (!terminated.get()) {
+                throw e;
+            }
             return true;
         }
-        return delegate.cancel(retryAfter);
     }
 
     @Override
     public boolean cancel(Date retryAfter)
     {
-        if (clientDisconnected.get()) {
+        if (isCommitedOrTerminated()) {
+            return false;
+        }
+
+        try {
+            return delegate.cancel(retryAfter);
+        }
+        catch (RuntimeException e) {
+            if (!terminated.get()) {
+                throw e;
+            }
             return true;
         }
-        return delegate.cancel(retryAfter);
     }
 
     @Override
@@ -149,7 +199,7 @@ public class DisconnectionAwareAsyncResponse
     @Override
     public boolean isDone()
     {
-        if (clientDisconnected.get()) {
+        if (isCommitedOrTerminated()) {
             return true;
         }
         return delegate.isDone();
@@ -194,11 +244,11 @@ public class DisconnectionAwareAsyncResponse
     private static boolean wasRequestTerminated(Throwable throwable)
     {
         // Jetty's detected that client disconnected
-        return throwable instanceof IOException ioException && ioException.getMessage().contains("cancel_stream_error");
+        return throwable instanceof IOException ioException && firstNonNull(ioException.getMessage(), "").contains("cancel_stream_error");
     }
 
     public static AsyncResponseHandler bindDisconnectionAwareAsyncResponse(DisconnectionAwareAsyncResponse asyncResponse, ListenableFuture<?> futureResponse, Executor httpResponseExecutor)
     {
-        return bindAsyncResponse(asyncResponse.withCancellableFuture(futureResponse), futureResponse, httpResponseExecutor);
+        return bindAsyncResponse(asyncResponse, futureResponse, httpResponseExecutor);
     }
 }
