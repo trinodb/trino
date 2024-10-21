@@ -423,6 +423,7 @@ import static java.util.Objects.requireNonNull;
 class StatementAnalyzer
 {
     private static final Set<String> WINDOW_VALUE_FUNCTIONS = ImmutableSet.of("lead", "lag", "first_value", "last_value", "nth_value");
+    private static final Set<String> DISALLOWED_WINDOW_FRAME_FUNCTIONS = ImmutableSet.of("lead", "lag", "ntile", "rank", "dense_rank", "percent_rank", "cume_dist", "row_number");
 
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final Analysis analysis;
@@ -4353,9 +4354,9 @@ class StatementAnalyzer
                     if (window.getOrderBy().isEmpty()) {
                         throw semanticException(MISSING_ORDER_BY, (Node) windowFunction.getWindow().orElseThrow(), "%s function requires an ORDER BY window clause", windowFunction.getName());
                     }
-                    if (window.getFrame().isPresent()) {
-                        throw semanticException(INVALID_WINDOW_FRAME, window.getFrame().get(), "Cannot specify window frame for %s function", windowFunction.getName());
-                    }
+                }
+                if (DISALLOWED_WINDOW_FRAME_FUNCTIONS.contains(name) && window.getFrame().isPresent()) {
+                    throw semanticException(INVALID_WINDOW_FRAME, window.getFrame().get(), "Cannot specify window frame for %s function", windowFunction.getName());
                 }
 
                 if (!WINDOW_VALUE_FUNCTIONS.contains(name) && windowFunction.getNullTreatment().isPresent()) {
