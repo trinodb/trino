@@ -262,46 +262,67 @@ public class IcebergSplitSource
                     finish();
                     break;
                 }
-                FileScanTask wholeFileTask = fileScanIterator.next();
-                boolean fileHasNoDeletions = wholeFileTask.deletes().isEmpty();
 
-                FileScanTaskWithDomain fileScanTaskWithDomain = createFileScanTaskWithDomain(wholeFileTask);
-                if (pruneFileScanTask(fileScanTaskWithDomain, fileHasNoDeletions, dynamicFilterPredicate)) {
+                List<FileScanTaskWithDomain> fileScanTasks = processFileScanTask(dynamicFilterPredicate);
+                if (fileScanTasks.isEmpty()) {
                     continue;
                 }
 
-                if (recordScannedFiles) {
-                    // Equality deletes can only be cleaned up if the whole table has been optimized.
-                    // Equality and position deletes may apply to many files, however position deletes are always local to a partition
-                    // https://github.com/apache/iceberg/blob/70c506ebad2dfc6d61b99c05efd59e884282bfa6/core/src/main/java/org/apache/iceberg/deletes/DeleteGranularity.java#L61
-                    // OPTIMIZE supports only enforced predicates which select whole partitions, so if there is no path or fileModifiedTime predicate, then we can clean up position deletes
-                    List<org.apache.iceberg.DeleteFile> fullyAppliedDeletes = wholeFileTask.deletes().stream()
-                            .filter(deleteFile -> switch (deleteFile.content()) {
-                                case POSITION_DELETES -> pathDomain.isAll() && fileModifiedTimeDomain.isAll();
-                                case EQUALITY_DELETES -> tableHandle.getEnforcedPredicate().isAll();
-                                case DATA -> throw new IllegalStateException("Unexpected delete file: " + deleteFile);
-                            })
-                            .collect(toImmutableList());
-                    scannedFiles.add(new DataFileWithDeleteFiles(wholeFileTask.file(), fullyAppliedDeletes));
-                }
-
-                if (fileHasNoDeletions) {
-                    // There were no deletions, so we will produce splits covering the whole file
-                    outputRowsLowerBound = saturatedAdd(outputRowsLowerBound, wholeFileTask.file().recordCount());
-                }
-
-                if (fileHasNoDeletions && noDataColumnsProjected(wholeFileTask)) {
-                    fileTasksIterator = List.of(fileScanTaskWithDomain).iterator();
-                }
-                else {
-                    fileTasksIterator = fileScanTaskWithDomain.split(targetSplitSize);
-                }
+                fileTasksIterator = prepareFileTasksIterator(fileScanTasks);
                 // In theory, .split() could produce empty iterator, so let's evaluate the outer loop condition again.
                 continue;
             }
             splits.add(toIcebergSplit(fileTasksIterator.next()));
         }
         return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
+    }
+
+    private Iterator<FileScanTaskWithDomain> prepareFileTasksIterator(List<FileScanTaskWithDomain> fileScanTasks)
+    {
+        ImmutableList.Builder<FileScanTaskWithDomain> scanTaskBuilder = ImmutableList.builder();
+        for (FileScanTaskWithDomain fileScanTaskWithDomain : fileScanTasks) {
+            FileScanTask wholeFileTask = fileScanTaskWithDomain.fileScanTask();
+            if (recordScannedFiles) {
+                // Equality deletes can only be cleaned up if the whole table has been optimized.
+                // Equality and position deletes may apply to many files, however position deletes are always local to a partition
+                // https://github.com/apache/iceberg/blob/70c506ebad2dfc6d61b99c05efd59e884282bfa6/core/src/main/java/org/apache/iceberg/deletes/DeleteGranularity.java#L61
+                // OPTIMIZE supports only enforced predicates which select whole partitions, so if there is no path or fileModifiedTime predicate, then we can clean up position deletes
+                List<org.apache.iceberg.DeleteFile> fullyAppliedDeletes = wholeFileTask.deletes().stream()
+                        .filter(deleteFile -> switch (deleteFile.content()) {
+                            case POSITION_DELETES -> pathDomain.isAll() && fileModifiedTimeDomain.isAll();
+                            case EQUALITY_DELETES -> tableHandle.getEnforcedPredicate().isAll();
+                            case DATA -> throw new IllegalStateException("Unexpected delete file: " + deleteFile);
+                        })
+                        .collect(toImmutableList());
+                scannedFiles.add(new DataFileWithDeleteFiles(wholeFileTask.file(), fullyAppliedDeletes));
+            }
+
+            boolean fileHasNoDeletions = wholeFileTask.deletes().isEmpty();
+            if (fileHasNoDeletions) {
+                // There were no deletions, so we will produce splits covering the whole file
+                outputRowsLowerBound = saturatedAdd(outputRowsLowerBound, wholeFileTask.file().recordCount());
+            }
+
+            if (fileHasNoDeletions && noDataColumnsProjected(wholeFileTask)) {
+                scanTaskBuilder.add(fileScanTaskWithDomain);
+            }
+            else {
+                scanTaskBuilder.addAll(fileScanTaskWithDomain.split(targetSplitSize));
+            }
+        }
+        return scanTaskBuilder.build().iterator();
+    }
+
+    private List<FileScanTaskWithDomain> processFileScanTask(TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
+    {
+        FileScanTask wholeFileTask = fileScanIterator.next();
+        boolean fileHasNoDeletions = wholeFileTask.deletes().isEmpty();
+        FileScanTaskWithDomain fileScanTaskWithDomain = createFileScanTaskWithDomain(wholeFileTask);
+        if (pruneFileScanTask(fileScanTaskWithDomain, fileHasNoDeletions, dynamicFilterPredicate)) {
+            return ImmutableList.of();
+        }
+
+        return ImmutableList.of(fileScanTaskWithDomain);
     }
 
     private boolean pruneFileScanTask(FileScanTaskWithDomain fileScanTaskWithDomain, boolean fileHasNoDeletions, TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
