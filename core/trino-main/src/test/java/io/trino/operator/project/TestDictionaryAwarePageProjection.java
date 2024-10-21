@@ -35,8 +35,6 @@ import java.util.Arrays;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
@@ -204,13 +202,13 @@ public class TestDictionaryAwarePageProjection
 
         assertThat(firstWork.process()).isTrue();
         Block firstOutputBlock = firstWork.getResult();
-        assertInstanceOf(firstOutputBlock, DictionaryBlock.class);
+        assertThat(firstOutputBlock).isInstanceOf(DictionaryBlock.class);
 
         Work<Block> secondWork = projection.project(null, yieldSignal, new Page(secondDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
 
         assertThat(secondWork.process()).isTrue();
         Block secondOutputBlock = secondWork.getResult();
-        assertInstanceOf(secondOutputBlock, DictionaryBlock.class);
+        assertThat(secondOutputBlock).isInstanceOf(DictionaryBlock.class);
 
         assertThat(firstOutputBlock).isNotSameAs(secondOutputBlock);
         Block firstDictionary = ((DictionaryBlock) firstOutputBlock).getDictionary();
@@ -250,7 +248,7 @@ public class TestDictionaryAwarePageProjection
             yieldSignal.setWithDelay(1, executor);
             yieldSignal.forceYieldForTesting();
             if (work.process()) {
-                assertGreaterThan(yieldCount, 0);
+                assertThat(yieldCount).isGreaterThan(0);
                 return work.getResult();
             }
             yieldCount++;
@@ -303,7 +301,7 @@ public class TestDictionaryAwarePageProjection
         }
 
         if (produceLazyBlock) {
-            assertInstanceOf(result, LazyBlock.class);
+            assertThat(result).isInstanceOf(LazyBlock.class);
             assertThat(result.isLoaded()).isFalse();
             assertThat(block.isLoaded()).isFalse();
             result = result.getLoadedBlock();
@@ -313,7 +311,7 @@ public class TestDictionaryAwarePageProjection
                 BIGINT,
                 result,
                 block.getRegion(5, 10));
-        assertInstanceOf(result, expectedResultType);
+        assertThat(result).isInstanceOf(expectedResultType);
     }
 
     private static void testProjectList(Block block, Class<? extends Block> expectedResultType, DictionaryAwarePageProjection projection, boolean forceYield, boolean produceLazyBlock)
@@ -335,7 +333,7 @@ public class TestDictionaryAwarePageProjection
         }
 
         if (produceLazyBlock) {
-            assertInstanceOf(result, LazyBlock.class);
+            assertThat(result).isInstanceOf(LazyBlock.class);
             assertThat(result.isLoaded()).isFalse();
             assertThat(block.isLoaded()).isFalse();
             result = result.getLoadedBlock();
@@ -345,7 +343,7 @@ public class TestDictionaryAwarePageProjection
                 BIGINT,
                 result,
                 block.copyPositions(positions, 0, positions.length));
-        assertInstanceOf(result, expectedResultType);
+        assertThat(result).isInstanceOf(expectedResultType);
     }
 
     private static void testProjectFastReturnIgnoreYield(Block block, DictionaryAwarePageProjection projection, boolean produceLazyBlock)
@@ -365,7 +363,7 @@ public class TestDictionaryAwarePageProjection
         yieldSignal.reset();
 
         if (produceLazyBlock) {
-            assertInstanceOf(result, LazyBlock.class);
+            assertThat(result).isInstanceOf(LazyBlock.class);
             assertThat(result.isLoaded()).isFalse();
             assertThat(block.isLoaded()).isFalse();
             result = result.getLoadedBlock();
@@ -375,7 +373,7 @@ public class TestDictionaryAwarePageProjection
                 BIGINT,
                 result,
                 block.getRegion(5, 10));
-        assertInstanceOf(result, DictionaryBlock.class);
+        assertThat(result).isInstanceOf(DictionaryBlock.class);
     }
 
     private static DictionaryAwarePageProjection createProjection(boolean produceLazyBlock)

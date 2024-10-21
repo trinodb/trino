@@ -42,7 +42,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
 import static io.trino.execution.QueryRunnerUtil.cancelQuery;
@@ -301,7 +300,7 @@ public class TestQueuesDb
                 LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, firstQuery, FAILED);
         assertThat(queryManager.getFullQueryInfo(firstQuery).getErrorCode()).isEqualTo(EXCEEDED_TIME_LIMIT.toErrorCode());
-        assertContains(queryManager.getFullQueryInfo(firstQuery).getFailureInfo().getMessage(), "Query exceeded the maximum execution time limit of 1.00ms");
+        assertThat(queryManager.getFullQueryInfo(firstQuery).getFailureInfo().getMessage()).contains("Query exceeded the maximum execution time limit of 1.00ms");
         // set max running queries to 0 for the dashboard resource group so that new queries get queued immediately
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 0, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();

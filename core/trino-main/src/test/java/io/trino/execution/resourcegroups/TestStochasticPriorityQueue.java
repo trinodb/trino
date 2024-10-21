@@ -16,8 +16,6 @@ package io.trino.execution.resourcegroups;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.junit.jupiter.api.Test;
 
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertLessThan;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStochasticPriorityQueue
@@ -65,8 +63,8 @@ public class TestStochasticPriorityQueue
         BinomialDistribution binomial = new BinomialDistribution(1000, 0.5);
         int lowerBound = binomial.inverseCumulativeProbability(0.000001);
         int upperBound = binomial.inverseCumulativeProbability(0.999999);
-        assertLessThan(foo, upperBound);
-        assertGreaterThan(foo, lowerBound);
+        assertThat(foo).isLessThan(upperBound);
+        assertThat(foo).isGreaterThan(lowerBound);
 
         // Update foo weights to 2:1 distribution
         for (int i = 0; i < 100; i++) {
@@ -86,7 +84,7 @@ public class TestStochasticPriorityQueue
         binomial = new BinomialDistribution(1000, 2.0 / 3.0);
         lowerBound = binomial.inverseCumulativeProbability(0.000001);
         upperBound = binomial.inverseCumulativeProbability(0.999999);
-        assertLessThan(foo, upperBound);
-        assertGreaterThan(foo, lowerBound);
+        assertThat(foo).isLessThan(upperBound);
+        assertThat(foo).isGreaterThan(lowerBound);
     }
 }
