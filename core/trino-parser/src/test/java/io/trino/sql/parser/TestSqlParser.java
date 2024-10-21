@@ -1602,6 +1602,16 @@ public class TestSqlParser
                                                         field(location(1, 30), "COL0", simpleType(location(1, 35), "INTEGER")),
                                                         field(location(1, 44), "COL1", simpleType(location(1, 49), "INTEGER")))),
                                         identifier("col0")))));
+        assertStatement("SELECT (ROW(11, 12)::ROW(COL0 INTEGER, COL1 INTEGER)).col0",
+                simpleQuery(
+                        selectList(
+                                new DereferenceExpression(
+                                        new Cast(
+                                                new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))),
+                                                rowType(location(1, 26),
+                                                        field(location(1, 30), "COL0", simpleType(location(1, 35), "INTEGER")),
+                                                        field(location(1, 44), "COL1", simpleType(location(1, 49), "INTEGER")))),
+                                        identifier("col0")))));
     }
 
     @Test
