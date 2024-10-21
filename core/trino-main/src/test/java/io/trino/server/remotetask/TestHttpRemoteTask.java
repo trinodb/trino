@@ -121,9 +121,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
-import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.tracing.SpanSerialization.SpanDeserializer;
 import static io.airlift.tracing.SpanSerialization.SpanSerializer;
 import static io.airlift.tracing.Tracing.noopTracer;
@@ -389,7 +386,7 @@ public class TestHttpRemoteTask
         // make sure dynamic filters are not collected for every status update
         assertEventually(
                 new Duration(15, SECONDS),
-                () -> assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 3L));
+                () -> assertThat(testingTaskResource.getStatusFetchCounter()).isGreaterThanOrEqualTo(3L));
         assertThat(testingTaskResource.getDynamicFiltersFetchCounter())
                 .describedAs(testingTaskResource.getDynamicFiltersFetchRequests().toString())
                 .isEqualTo(1L);
@@ -405,7 +402,7 @@ public class TestHttpRemoteTask
         assertThat(testingTaskResource.getDynamicFiltersFetchCounter())
                 .describedAs(testingTaskResource.getDynamicFiltersFetchRequests().toString())
                 .isEqualTo(2L);
-        assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 4L);
+        assertThat(testingTaskResource.getStatusFetchCounter()).isGreaterThanOrEqualTo(4L);
 
         httpRemoteTaskFactory.stop();
     }
@@ -567,11 +564,11 @@ public class TestHttpRemoteTask
 
         // decrease splitBatchSize
         assertThat(((HttpRemoteTask) remoteTask).adjustSplitBatchSize(ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, splits, true)), 1000000, 500)).isTrue();
-        assertLessThan(((HttpRemoteTask) remoteTask).splitBatchSize.get(), 250);
+        assertThat(((HttpRemoteTask) remoteTask).splitBatchSize.get()).isLessThan(250);
 
         // increase splitBatchSize
         assertThat(((HttpRemoteTask) remoteTask).adjustSplitBatchSize(ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, splits, true)), 1000, 100)).isFalse();
-        assertGreaterThan(((HttpRemoteTask) remoteTask).splitBatchSize.get(), 250);
+        assertThat(((HttpRemoteTask) remoteTask).splitBatchSize.get()).isGreaterThan(250);
     }
 
     private void runTest(FailureScenario failureScenario)

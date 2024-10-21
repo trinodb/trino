@@ -59,7 +59,6 @@ import java.util.stream.LongStream;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.testing.Assertions.assertContains;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BOOLEAN;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_CHAR;
@@ -366,9 +365,9 @@ public class TestDefaultJdbcQueryBuilder
             }
             assertThat(builder.build()).containsOnly("test_str_700", "test_str_701", "test_str_180", "test_str_196");
 
-            assertContains(preparedStatement.toString(), "\"col_3\" >= ?");
-            assertContains(preparedStatement.toString(), "\"col_3\" < ?");
-            assertContains(preparedStatement.toString(), "\"col_3\" IN (?,?)");
+            assertThat(preparedStatement.toString()).contains("\"col_3\" >= ?");
+            assertThat(preparedStatement.toString()).contains("\"col_3\" < ?");
+            assertThat(preparedStatement.toString()).contains("\"col_3\" IN (?,?)");
         }
     }
 
@@ -407,9 +406,9 @@ public class TestDefaultJdbcQueryBuilder
                     padEnd("test_str_701", 128, ' '),
                     padEnd("test_str_196", 128, ' '));
 
-            assertContains(preparedStatement.toString(), "\"col_11\" >= ?");
-            assertContains(preparedStatement.toString(), "\"col_11\" < ?");
-            assertContains(preparedStatement.toString(), "\"col_11\" IN (?,?)");
+            assertThat(preparedStatement.toString()).contains("\"col_11\" >= ?");
+            assertThat(preparedStatement.toString()).contains("\"col_11\" < ?");
+            assertThat(preparedStatement.toString()).contains("\"col_11\" IN (?,?)");
         }
     }
 
@@ -457,12 +456,12 @@ public class TestDefaultJdbcQueryBuilder
                     toTime(8, 23, 37),
                     toTime(20, 23, 37));
 
-            assertContains(preparedStatement.toString(), "\"col_4\" >= ?");
-            assertContains(preparedStatement.toString(), "\"col_4\" < ?");
-            assertContains(preparedStatement.toString(), "\"col_4\" IN (?,?)");
-            assertContains(preparedStatement.toString(), "\"col_5\" > ?");
-            assertContains(preparedStatement.toString(), "\"col_5\" <= ?");
-            assertContains(preparedStatement.toString(), "\"col_5\" IN (?,?)");
+            assertThat(preparedStatement.toString()).contains("\"col_4\" >= ?");
+            assertThat(preparedStatement.toString()).contains("\"col_4\" < ?");
+            assertThat(preparedStatement.toString()).contains("\"col_4\" IN (?,?)");
+            assertThat(preparedStatement.toString()).contains("\"col_5\" > ?");
+            assertThat(preparedStatement.toString()).contains("\"col_5\" <= ?");
+            assertThat(preparedStatement.toString()).contains("\"col_5\" IN (?,?)");
         }
     }
 
@@ -499,9 +498,9 @@ public class TestDefaultJdbcQueryBuilder
                     toTimestamp(2016, 6, 9, 12, 23, 37),
                     toTimestamp(2016, 10, 19, 16, 23, 37));
 
-            assertContains(preparedStatement.toString(), "\"col_6\" > ?");
-            assertContains(preparedStatement.toString(), "\"col_6\" <= ?");
-            assertContains(preparedStatement.toString(), "\"col_6\" IN (?,?)");
+            assertThat(preparedStatement.toString()).contains("\"col_6\" > ?");
+            assertThat(preparedStatement.toString()).contains("\"col_6\" <= ?");
+            assertThat(preparedStatement.toString()).contains("\"col_6\" IN (?,?)");
         }
     }
 

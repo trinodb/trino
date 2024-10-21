@@ -47,7 +47,6 @@ import java.util.concurrent.BlockingQueue;
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static io.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
 import static io.airlift.http.client.HttpStatus.OK;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.INACTIVE;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -115,7 +114,7 @@ public class TestDiscoveryNodeManager
             assertThat(connectorNodes.stream().anyMatch(InternalNode::isCoordinator)).isTrue();
 
             Set<InternalNode> activeNodes = allNodes.getActiveNodes();
-            assertEqualsIgnoreOrder(activeNodes, this.activeNodes);
+            assertThat(activeNodes).containsExactlyInAnyOrderElementsOf(this.activeNodes);
 
             for (InternalNode actual : activeNodes) {
                 for (InternalNode expected : this.activeNodes) {
@@ -123,10 +122,10 @@ public class TestDiscoveryNodeManager
                 }
             }
 
-            assertEqualsIgnoreOrder(activeNodes, manager.getNodes(ACTIVE));
+            assertThat(activeNodes).containsExactlyInAnyOrderElementsOf(manager.getNodes(ACTIVE));
 
             Set<InternalNode> inactiveNodes = allNodes.getInactiveNodes();
-            assertEqualsIgnoreOrder(inactiveNodes, this.inactiveNodes);
+            assertThat(inactiveNodes).containsExactlyInAnyOrderElementsOf(this.inactiveNodes);
 
             for (InternalNode actual : inactiveNodes) {
                 for (InternalNode expected : this.inactiveNodes) {
@@ -134,7 +133,7 @@ public class TestDiscoveryNodeManager
                 }
             }
 
-            assertEqualsIgnoreOrder(inactiveNodes, manager.getNodes(INACTIVE));
+            assertThat(inactiveNodes).containsExactlyInAnyOrderElementsOf(manager.getNodes(INACTIVE));
         }
         finally {
             manager.stop();

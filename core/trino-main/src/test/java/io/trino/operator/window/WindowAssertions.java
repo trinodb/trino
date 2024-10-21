@@ -17,8 +17,8 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class WindowAssertions
 {
@@ -104,13 +104,13 @@ public final class WindowAssertions
                 VALUES);
 
         MaterializedResult actual = queryRunner.execute(query);
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
     }
 
     public static void assertWindowQueryWithNulls(@Language("SQL") String sql, MaterializedResult expected, QueryRunner queryRunner)
     {
         MaterializedResult actual = executeWindowQueryWithNulls(sql, queryRunner);
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
     }
 
     public static MaterializedResult executeWindowQueryWithNulls(@Language("SQL") String sql, QueryRunner queryRunner)
@@ -139,7 +139,7 @@ public final class WindowAssertions
                 VALUES_WITH_NAN);
 
         MaterializedResult actual = queryRunner.execute(query);
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
     }
 
     public static void assertWindowQueryWithInfinity(@Language("SQL") String sql, MaterializedResult expected, QueryRunner queryRunner)
@@ -154,6 +154,6 @@ public final class WindowAssertions
                 VALUES_WITH_INFINITY);
 
         MaterializedResult actual = queryRunner.execute(query);
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
     }
 }

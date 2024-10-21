@@ -41,7 +41,6 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
@@ -349,7 +348,7 @@ public final class OperatorAssertion
             actualPages = dropChannel(actualPages, ImmutableList.of(hashChannel.get()));
         }
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), actualPages);
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
     }
 
     public static void assertOperatorIsBlocked(Operator operator)

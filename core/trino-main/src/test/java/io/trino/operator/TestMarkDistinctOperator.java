@@ -36,8 +36,6 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
@@ -136,9 +134,9 @@ public class TestMarkDistinctOperator
             operator.addInput(firstInput);
             Block noDistinctOutput = operator.getOutput().getBlock(maskChannel);
             // all distinct and no distinct conditions produce RLE blocks
-            assertInstanceOf(allDistinctOutput, RunLengthEncodedBlock.class);
+            assertThat(allDistinctOutput).isInstanceOf(RunLengthEncodedBlock.class);
             assertThat(BOOLEAN.getBoolean(allDistinctOutput, 0)).isTrue();
-            assertInstanceOf(noDistinctOutput, RunLengthEncodedBlock.class);
+            assertThat(noDistinctOutput).isInstanceOf(RunLengthEncodedBlock.class);
             assertThat(BOOLEAN.getBoolean(noDistinctOutput, 0)).isFalse();
 
             operator.addInput(secondInput);
@@ -186,8 +184,8 @@ public class TestMarkDistinctOperator
 
         // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((MarkDistinctOperator) operator).getCapacity(), 450_000);
-        assertGreaterThanOrEqual(result.getYieldCount(), 5);
-        assertGreaterThanOrEqual(result.getMaxReservedBytes(), 20L << 20);
+        assertThat(result.getYieldCount()).isGreaterThanOrEqualTo(5);
+        assertThat(result.getMaxReservedBytes()).isGreaterThanOrEqualTo(20L << 20);
 
         int count = 0;
         for (Page page : result.getOutput()) {

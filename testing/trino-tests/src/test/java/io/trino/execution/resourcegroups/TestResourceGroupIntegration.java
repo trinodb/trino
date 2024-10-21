@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -82,7 +81,7 @@ public class TestResourceGroupIntegration
             if (global.softMemoryLimit().toBytes() > 0) {
                 break;
             }
-            assertLessThan(nanosSince(startTime).roundTo(SECONDS), 60L);
+            assertThat(nanosSince(startTime).roundTo(SECONDS)).isLessThan(60L);
         }
     }
 
