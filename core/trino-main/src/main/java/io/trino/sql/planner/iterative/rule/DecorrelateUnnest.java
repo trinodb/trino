@@ -464,6 +464,7 @@ public class DecorrelateUnnest
             WindowNode.Function rowNumberFunction = new WindowNode.Function(
                     metadata.resolveBuiltinFunction("row_number", ImmutableList.of()),
                     ImmutableList.of(),
+                    Optional.empty(),
                     DEFAULT_FRAME,
                     false);
             WindowNode windowNode = new WindowNode(

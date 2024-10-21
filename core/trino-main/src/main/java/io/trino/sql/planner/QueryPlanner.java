@@ -314,7 +314,7 @@ class QueryPlanner
         NodeAndMappings checkConvergenceStep = copy(recursionStep, mappings);
         Symbol countSymbol = symbolAllocator.newSymbol("count", BIGINT);
         ResolvedFunction function = plannerContext.getMetadata().resolveBuiltinFunction("count", ImmutableList.of());
-        WindowNode.Function countFunction = new WindowNode.Function(function, ImmutableList.of(), DEFAULT_FRAME, false);
+        WindowNode.Function countFunction = new WindowNode.Function(function, ImmutableList.of(), Optional.empty(), DEFAULT_FRAME, false);
 
         WindowNode windowNode = new WindowNode(
                 idAllocator.getNextId(),
@@ -1457,6 +1457,9 @@ class QueryPlanner
                 inputsBuilder.addAll(windowFunction.getArguments().stream()
                                 .filter(argument -> !(argument instanceof LambdaExpression)) // lambda expression is generated at execution time
                                 .collect(Collectors.toList()));
+                inputsBuilder.addAll(getSortItemsFromOrderBy(windowFunction.getOrderBy()).stream()
+                        .map(SortItem::getSortKey)
+                        .iterator());
             }
 
             List<io.trino.sql.tree.Expression> inputs = inputsBuilder.build();
@@ -1778,6 +1781,7 @@ class QueryPlanner
                                 return coercions.get(argument).toSymbolReference();
                             })
                             .collect(toImmutableList()),
+                    windowFunction.getOrderBy().map(orderBy -> translateOrderingScheme(orderBy.getSortItems(), coercions::get)),
                     frame,
                     nullTreatment == NullTreatment.IGNORE);
 
@@ -1859,6 +1863,7 @@ class QueryPlanner
                                 return coercions.get(argument).toSymbolReference();
                             })
                             .collect(toImmutableList()),
+                    Optional.empty(),
                     baseFrame,
                     nullTreatment == NullTreatment.IGNORE);
 

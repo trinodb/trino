@@ -201,6 +201,7 @@ public class TestPushdownLimitIntoWindow
         return new WindowNode.Function(
                 resolvedFunction,
                 ImmutableList.of(symbol.toSymbolReference()),
+                Optional.empty(),
                 DEFAULT_FRAME,
                 false);
     }

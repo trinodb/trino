@@ -115,6 +115,7 @@ public class TestReplaceWindowWithRowNumber
         return new WindowNode.Function(
                 resolvedFunction,
                 ImmutableList.of(),
+                Optional.empty(),
                 DEFAULT_FRAME,
                 false);
     }

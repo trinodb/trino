@@ -14,9 +14,16 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.trino.spi.connector.SortOrder;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.toSymbolReferences;
 import static java.util.Objects.requireNonNull;
@@ -27,26 +34,43 @@ final class WindowFunctionProvider
     private final String name;
     private final WindowNode.Frame frame;
     private final List<PlanTestSymbol> args;
+    private final List<PlanMatchPattern.Ordering> orderBy;
 
-    public WindowFunctionProvider(String name, WindowNode.Frame frame, List<PlanTestSymbol> args)
+    public WindowFunctionProvider(String name, WindowNode.Frame frame, List<PlanTestSymbol> args, List<PlanMatchPattern.Ordering> orderBy)
     {
         this.name = requireNonNull(name, "name is null");
         this.frame = requireNonNull(frame, "frame is null");
         this.args = requireNonNull(args, "args is null");
+        this.orderBy = ImmutableList.copyOf(orderBy);
     }
 
     @Override
     public String toString()
     {
-        return "%s(%s) %s".formatted(
+        return "%s(%s%s) %s".formatted(
                 name,
                 Joiner.on(", ").join(args),
+                orderBy.isEmpty() ? "" : " ORDER BY " + Joiner.on(", ").join(orderBy),
                 frame);
     }
 
     @Override
     public WindowFunction getExpectedValue(SymbolAliases aliases)
     {
-        return new WindowFunction(name, frame, toSymbolReferences(args, aliases));
+        Optional<OrderingScheme> orderingScheme = Optional.empty();
+        if (!orderBy.isEmpty()) {
+            ImmutableList.Builder<Symbol> fields = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, SortOrder> orders = ImmutableMap.builder();
+
+            for (PlanMatchPattern.Ordering ordering : this.orderBy) {
+                Reference reference = aliases.get(ordering.getField());
+                Symbol symbol = new Symbol(reference.type(), reference.name());
+                fields.add(symbol);
+                orders.put(symbol, ordering.getSortOrder());
+            }
+            orderingScheme = Optional.of(new OrderingScheme(fields.build(), orders.buildOrThrow()));
+        }
+
+        return new WindowFunction(name, frame, toSymbolReferences(args, aliases), orderingScheme);
     }
 }

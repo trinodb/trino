@@ -194,6 +194,7 @@ public class SetOperationNodeTranslator
             functions.put(output, new WindowNode.Function(
                     countFunction,
                     ImmutableList.of(markers.get(i).toSymbolReference()),
+                    Optional.empty(),
                     defaultFrame,
                     false));
         }
@@ -201,6 +202,7 @@ public class SetOperationNodeTranslator
         functions.put(rowNumberSymbol, new WindowNode.Function(
                 rowNumberFunction,
                 ImmutableList.of(),
+                Optional.empty(),
                 defaultFrame,
                 false));
 

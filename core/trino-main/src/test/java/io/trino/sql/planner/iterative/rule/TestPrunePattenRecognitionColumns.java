@@ -103,7 +103,7 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("b")),
                         p.patternRecognition(builder -> builder
-                                .addWindowFunction(p.symbol("rank"), new WindowNode.Function(rank, ImmutableList.of(), DEFAULT_FRAME, false))
+                                .addWindowFunction(p.symbol("rank"), new WindowNode.Function(rank, ImmutableList.of(), Optional.empty(), DEFAULT_FRAME, false))
                                 .addMeasure(
                                         p.symbol("measure"),
                                         new Reference(BIGINT, "pointer"),
@@ -132,7 +132,7 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("measure", BIGINT)),
                         p.patternRecognition(builder -> builder
-                                .addWindowFunction(p.symbol("lag", BIGINT), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b", BIGINT).toSymbolReference()), DEFAULT_FRAME, false))
+                                .addWindowFunction(p.symbol("lag", BIGINT), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b", BIGINT).toSymbolReference()), Optional.empty(), DEFAULT_FRAME, false))
                                 .addMeasure(
                                         p.symbol("measure", BIGINT),
                                         new Reference(BIGINT, "pointer"),
@@ -191,7 +191,7 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("lag")),
                         p.patternRecognition(builder -> builder
-                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toSymbolReference()), frame, false))
+                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toSymbolReference()), Optional.empty(), frame, false))
                                 .addMeasure(
                                         p.symbol("measure"),
                                         new Reference(BIGINT, "pointer"),
