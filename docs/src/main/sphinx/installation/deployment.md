@@ -269,12 +269,15 @@ There are four levels: `DEBUG`, `INFO`, `WARN` and `ERROR`.
 (catalog-properties)=
 ### Catalog properties
 
-Trino accesses data via *connectors*, which are mounted in catalogs.
-The connector provides all of the schemas and tables inside of the catalog.
-For example, the Hive connector maps each Hive database to a schema.
-If the Hive connector is mounted as the `hive` catalog, and Hive
-contains a table `clicks` in database `web`, that table can be accessed
-in Trino as `hive.web.clicks`.
+Trino accesses data in a [data source](trino-concept-data-source) with a
+[connector](trino-concept-connector), which is configured in a
+[catalog](trino-concept-catalog). The connector provides all of the schemas and
+tables inside of the catalog.
+
+For example, the Hive connector maps each Hive database to a schema. If the Hive
+connector is configured in the `example` catalog, and Hive contains a table
+`clicks` in the database `web`, that table can be accessed in Trino as
+`example.web.clicks`.
 
 Catalogs are registered by creating a catalog properties file
 in the `etc/catalog` directory.
@@ -285,7 +288,7 @@ contents to mount the `jmx` connector as the `jmx` catalog:
 connector.name=jmx
 ```
 
-See {doc}`/connector` for more information about configuring connectors.
+See {doc}`/connector` for more information about configuring catalogs.
 
 (running-trino)=
 ## Running Trino

@@ -1,7 +1,9 @@
 # Connectors
 
-This section describes the connectors available in Trino to access data
-from different data sources.
+This section describes the connectors available in Trino to access data from
+different [data sources](trino-concept-data-source) by configuring
+[catalogs](trino-concept-catalog) with the connector-specific properties in
+[catalog properties files](catalog-properties).
 
 ```{toctree}
 :maxdepth: 1
