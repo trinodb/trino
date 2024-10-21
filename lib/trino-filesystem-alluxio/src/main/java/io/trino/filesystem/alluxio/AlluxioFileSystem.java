@@ -189,20 +189,20 @@ public class AlluxioFileSystem
         try {
             URIStatus status = alluxioClient.getStatus(convertToAlluxioURI(location, mountRoot));
             if (status == null) {
-                new AlluxioFileIterator(Collections.emptyList(), mountRoot);
+                new AlluxioFileIterator(Collections.emptyList(), location);
             }
             if (!status.isFolder()) {
                 throw new IOException("Location is not a directory: %s".formatted(location));
             }
         }
         catch (NotFoundRuntimeException | AlluxioException e) {
-            return new AlluxioFileIterator(Collections.emptyList(), mountRoot);
+            return new AlluxioFileIterator(Collections.emptyList(), location);
         }
 
         try {
             List<URIStatus> filesStatus = alluxioClient.listStatus(convertToAlluxioURI(location, mountRoot),
                     ListStatusPOptions.newBuilder().setRecursive(true).build());
-            return new AlluxioFileIterator(filesStatus.stream().filter(status -> !status.isFolder() & status.isCompleted()).toList(), mountRoot);
+            return new AlluxioFileIterator(filesStatus.stream().filter(status -> !status.isFolder() & status.isCompleted()).toList(), location);
         }
         catch (AlluxioException e) {
             throw new IOException("Error listFiles %s".formatted(location), e);
