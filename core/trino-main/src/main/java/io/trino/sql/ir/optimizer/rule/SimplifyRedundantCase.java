@@ -67,11 +67,10 @@ public class SimplifyRedundantCase
             return Optional.empty();
         }
 
-        return transformRecursive(0, caseTerm.whenClauses(), defaultValue)
-                .or(() -> Optional.<Expression>of(FALSE));
+        return Optional.of(transformRecursive(0, caseTerm.whenClauses(), defaultValue));
     }
 
-    private Optional<Expression> transformRecursive(int start, List<WhenClause> clauses, Expression defaultExpression)
+    private Expression transformRecursive(int start, List<WhenClause> clauses, Expression defaultExpression)
     {
         // An expression such as:
         // CASE
@@ -107,19 +106,17 @@ public class SimplifyRedundantCase
         if (end < clauses.size()) {
             List<Expression> terms = new ArrayList<>();
             terms.add(new Comparison(Comparison.Operator.IDENTICAL, clauses.get(end).getOperand(), TRUE));
-            transformRecursive(end + 1, clauses, defaultExpression).ifPresent(terms::add);
+            terms.add(transformRecursive(end + 1, clauses, defaultExpression));
 
-            return Optional.of(IrUtils.and(
+            return IrUtils.and(
                     ImmutableList.<Expression>builder()
                             .addAll(falseTerms)
                             .add(IrUtils.or(terms))
-                            .build()));
+                            .build());
         }
         else if (defaultExpression.equals(TRUE)) {
-            return Optional.of(IrUtils.and(falseTerms));
+            return IrUtils.and(falseTerms);
         }
-        else {
-            return Optional.empty();
-        }
+        return FALSE;
     }
 }
