@@ -20,7 +20,6 @@ import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.dispatcher.DispatchExecutor;
-import io.trino.server.DisconnectionAwareAsyncResponse;
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.security.oauth2.OAuth2TokenExchange.TokenPoll;
@@ -32,6 +31,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -44,8 +44,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.util.concurrent.Futures.transform;
-import static io.trino.server.DisconnectionAwareAsyncResponse.bindDisconnectionAwareAsyncResponse;
-import static io.trino.server.DisconnectionAwareAsyncResponse.withFallbackAfterTimeout;
+import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
+import static io.trino.server.AsyncResponseUtils.withFallbackAfterTimeout;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.security.oauth2.OAuth2TokenExchange.MAX_POLL_TIME;
@@ -87,7 +87,7 @@ public class OAuth2TokenExchangeResource
     @Path("{authId}")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public void getAuthenticationToken(@PathParam("authId") UUID authId, @Suspended @BeanParam DisconnectionAwareAsyncResponse asyncResponse, @Context HttpServletRequest request)
+    public void getAuthenticationToken(@PathParam("authId") UUID authId, @Suspended AsyncResponse asyncResponse, @Context HttpServletRequest request)
     {
         if (authId == null) {
             throw new BadRequestException();
@@ -99,7 +99,7 @@ public class OAuth2TokenExchangeResource
         ListenableFuture<Response> responseFuture = withFallbackAfterTimeout(
                 transform(tokenFuture, OAuth2TokenExchangeResource::toResponse, responseExecutor),
                 MAX_POLL_TIME, () -> pendingResponse(request), responseExecutor, timeoutExecutor);
-        bindDisconnectionAwareAsyncResponse(asyncResponse, responseFuture, responseExecutor);
+        bindAsyncResponse(asyncResponse, responseFuture, responseExecutor);
     }
 
     private static Response toResponse(TokenPoll poll)

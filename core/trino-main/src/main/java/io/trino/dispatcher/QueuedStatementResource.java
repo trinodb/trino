@@ -32,7 +32,6 @@ import io.trino.client.StatementStats;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
-import io.trino.server.DisconnectionAwareAsyncResponse;
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.GoneException;
 import io.trino.server.HttpRequestSessionContextFactory;
@@ -61,6 +60,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
@@ -84,10 +84,10 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
-import static io.trino.server.DisconnectionAwareAsyncResponse.bindDisconnectionAwareAsyncResponse;
 import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.server.ServletSecurityUtils.clearAuthenticatedIdentity;
 import static io.trino.server.protocol.QueryInfoUrlFactory.getQueryInfoUri;
@@ -201,12 +201,12 @@ public class QueuedStatementResource
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
             @BeanParam ExternalUriInfo externalUriInfo,
-            @Suspended @BeanParam DisconnectionAwareAsyncResponse asyncResponse)
+            @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
 
         ListenableFuture<Response> future = getStatus(query, token, maxWait, externalUriInfo);
-        bindDisconnectionAwareAsyncResponse(asyncResponse, future, responseExecutor);
+        bindAsyncResponse(asyncResponse, future, responseExecutor);
     }
 
     private ListenableFuture<Response> getStatus(Query query, long token, Duration maxWait, ExternalUriInfo externalUriInfo)
