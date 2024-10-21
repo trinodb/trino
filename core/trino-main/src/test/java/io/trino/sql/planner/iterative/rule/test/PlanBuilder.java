@@ -422,6 +422,7 @@ public class PlanBuilder
         private Optional<Symbol> hashSymbol = Optional.empty();
         private Optional<Symbol> groupIdSymbol = Optional.empty();
         private Optional<PlanNodeId> nodeId = Optional.empty();
+        private Optional<Boolean> exchangeInputAggregation = Optional.empty();
 
         public AggregationBuilder source(PlanNode source)
         {
@@ -501,6 +502,12 @@ public class PlanBuilder
             return this;
         }
 
+        public AggregationBuilder exchangeInputAggregation(boolean exchangeInputAggregation)
+        {
+            this.exchangeInputAggregation = Optional.of(exchangeInputAggregation);
+            return this;
+        }
+
         protected AggregationNode build()
         {
             checkState(groupingSets != null, "No grouping sets defined; use globalGrouping/groupingKeys method");
@@ -512,7 +519,8 @@ public class PlanBuilder
                     preGroupedSymbols,
                     step,
                     hashSymbol,
-                    groupIdSymbol);
+                    groupIdSymbol,
+                    exchangeInputAggregation);
         }
     }
 
@@ -1086,8 +1094,36 @@ public class PlanBuilder
             Optional<JoinNode.DistributionType> distributionType,
             Map<DynamicFilterId, Symbol> dynamicFilters)
     {
+        return join(idAllocator.getNextId(),
+                type,
+                left,
+                right,
+                criteria,
+                leftOutputSymbols,
+                rightOutputSymbols,
+                filter,
+                leftHashSymbol,
+                rightHashSymbol,
+                distributionType,
+                dynamicFilters);
+    }
+
+    public JoinNode join(
+            PlanNodeId id,
+            JoinType type,
+            PlanNode left,
+            PlanNode right,
+            List<JoinNode.EquiJoinClause> criteria,
+            List<Symbol> leftOutputSymbols,
+            List<Symbol> rightOutputSymbols,
+            Optional<Expression> filter,
+            Optional<Symbol> leftHashSymbol,
+            Optional<Symbol> rightHashSymbol,
+            Optional<JoinNode.DistributionType> distributionType,
+            Map<DynamicFilterId, Symbol> dynamicFilters)
+    {
         return new JoinNode(
-                idAllocator.getNextId(),
+                id,
                 type,
                 left,
                 right,
