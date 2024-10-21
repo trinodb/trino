@@ -29,6 +29,8 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jakarta.ws.rs.ext.ExceptionMapper;
 
+import java.util.concurrent.TimeoutException;
+
 import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN;
 
@@ -85,6 +87,9 @@ public class ThrowableMapper
                     .build();
             case GoneException goneException -> plainTextError(Response.Status.GONE)
                     .entity("Error 410 Gone: " + goneException.getMessage())
+                    .build();
+            case TimeoutException timeoutException -> plainTextError(Response.Status.REQUEST_TIMEOUT)
+                    .entity("Error 408 Timeout: " + timeoutException.getMessage())
                     .build();
             case WebApplicationException webApplicationException -> webApplicationException.getResponse();
             default -> {
