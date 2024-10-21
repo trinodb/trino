@@ -32,7 +32,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.plugin.blackhole.BlackHoleConnector.FIELD_LENGTH_PROPERTY;
 import static io.trino.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY;
 import static io.trino.plugin.blackhole.BlackHoleConnector.PAGE_PROCESSING_DELAY;
@@ -399,7 +398,7 @@ final class TestBlackHoleSmoke
         assertUpdate(session, "INSERT INTO nation SELECT CAST(null AS BIGINT), CAST(null AS VARCHAR(25)), CAST(null AS BIGINT), CAST(null AS VARCHAR(152))", 1);
 
         stopwatch.stop();
-        assertGreaterThan(stopwatch.elapsed(MILLISECONDS), pageProcessingDelay.toMillis());
+        assertThat(stopwatch.elapsed(MILLISECONDS)).isGreaterThan(pageProcessingDelay.toMillis());
 
         assertUpdate("DROP TABLE nation");
     }

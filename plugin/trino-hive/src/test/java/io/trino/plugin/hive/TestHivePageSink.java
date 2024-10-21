@@ -62,7 +62,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -127,7 +126,7 @@ public class TestHivePageSink
             config.setHiveStorageFormat(format);
             config.setHiveCompressionCodec(NONE);
             long uncompressedLength = writeTestFile(fileSystemFactory, config, sortingFileWriterConfig, metastore, makeFileName(config));
-            assertGreaterThan(uncompressedLength, 0L);
+            assertThat(uncompressedLength).isGreaterThan(0L);
 
             for (HiveCompressionOption codec : HiveCompressionOption.values()) {
                 if (codec == NONE) {

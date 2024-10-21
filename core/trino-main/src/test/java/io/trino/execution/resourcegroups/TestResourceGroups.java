@@ -37,9 +37,6 @@ import java.util.TreeMap;
 import java.util.stream.Stream;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.testing.Assertions.assertBetweenInclusive;
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.QueryState.FAILED;
@@ -955,8 +952,8 @@ public class TestResourceGroups
         BinomialDistribution binomial = new BinomialDistribution(1000, 2.0 / 3.0);
         int lowerBound = binomial.inverseCumulativeProbability(0.000001);
         int upperBound = binomial.inverseCumulativeProbability(0.999999);
-        assertLessThan(group2Ran, upperBound);
-        assertGreaterThan(group2Ran, lowerBound);
+        assertThat(group2Ran).isLessThan(upperBound);
+        assertThat(group2Ran).isGreaterThan(lowerBound);
     }
 
     @Test
@@ -1006,8 +1003,8 @@ public class TestResourceGroups
         }
 
         // group1 has a weight of 1 and group2 has a weight of 2, so group2 should account for (2 / (1 + 2)) * 3000 queries.
-        assertBetweenInclusive(group1Ran, 995, 1000);
-        assertBetweenInclusive(group2Ran, 1995, 2000);
+        assertThat(group1Ran).isBetween(995, 1000);
+        assertThat(group2Ran).isBetween(1995, 2000);
     }
 
     @Test
@@ -1072,9 +1069,9 @@ public class TestResourceGroups
         int lowerBound = binomial.inverseCumulativeProbability(0.000001);
         int upperBound = binomial.inverseCumulativeProbability(0.999999);
 
-        assertBetweenInclusive(group1Ran, lowerBound, upperBound);
-        assertBetweenInclusive(group2Ran, lowerBound, upperBound);
-        assertBetweenInclusive(group3Ran, 2 * lowerBound, 2 * upperBound);
+        assertThat(group1Ran).isBetween(lowerBound, upperBound);
+        assertThat(group2Ran).isBetween(lowerBound, upperBound);
+        assertThat(group3Ran).isBetween(2 * lowerBound, 2 * upperBound);
     }
 
     @Test

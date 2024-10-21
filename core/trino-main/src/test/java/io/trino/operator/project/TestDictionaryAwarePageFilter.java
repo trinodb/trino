@@ -29,7 +29,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -297,7 +296,7 @@ public class TestDictionaryAwarePageFilter
             // dictionary processing enabled and disabled as expected)
             // this check is performed last so that dictionary processing that fails
             // is not checked (only the fall back processing is checked)
-            assertInstanceOf(block, expectedType);
+            assertThat(block).isInstanceOf(expectedType);
 
             if (selectedPositions.isEmpty()) {
                 return SelectedPositions.positionsRange(0, 0);

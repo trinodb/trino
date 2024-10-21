@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestThriftPlugin
@@ -33,7 +32,7 @@ public class TestThriftPlugin
     {
         Plugin plugin = new ThriftPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertInstanceOf(factory, ThriftConnectorFactory.class);
+        assertThat(factory).isInstanceOf(ThriftConnectorFactory.class);
 
         Map<String, String> config = ImmutableMap.of(
                 "trino.thrift.client.addresses", "localhost:7779",
@@ -41,7 +40,7 @@ public class TestThriftPlugin
 
         Connector connector = factory.create("test", config, new TestingConnectorContext());
         assertThat(connector).isNotNull();
-        assertInstanceOf(connector, ThriftConnector.class);
+        assertThat(connector).isInstanceOf(ThriftConnector.class);
         connector.shutdown();
     }
 }

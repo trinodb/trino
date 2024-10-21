@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 
-import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBufferedOutputStreamSliceOutput
@@ -73,7 +72,7 @@ public class TestBufferedOutputStreamSliceOutput
         @Override
         public void write(byte[] source, int sourceIndex, int length)
         {
-            assertLessThanOrEqual(length, 4096);
+            assertThat(length).isLessThanOrEqualTo(4096);
             super.write(source, sourceIndex, length);
         }
     }

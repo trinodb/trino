@@ -34,7 +34,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
 
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -279,7 +278,7 @@ public class TestDictionaryAwareColumnarFilter
             // dictionary processing enabled and disabled as expected)
             // this check is performed last so that dictionary processing that fails
             // is not checked (only the fall back processing is checked)
-            assertInstanceOf(block, expectedType);
+            assertThat(block).isInstanceOf(expectedType);
             return outputPositionsCount;
         }
 
@@ -306,7 +305,7 @@ public class TestDictionaryAwareColumnarFilter
             // dictionary processing enabled and disabled as expected)
             // this check is performed last so that dictionary processing that fails
             // is not checked (only the fall back processing is checked)
-            assertInstanceOf(block, expectedType);
+            assertThat(block).isInstanceOf(expectedType);
             return outputPositionsCount;
         }
 

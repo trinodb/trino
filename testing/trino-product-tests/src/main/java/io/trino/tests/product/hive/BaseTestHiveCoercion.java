@@ -47,7 +47,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
@@ -1118,18 +1117,17 @@ public abstract class BaseTestHiveCoercion
             String column = columns.get(sqlIndex - 1);
 
             if (column.contains("row_to_row") || column.contains("map_to_map")) {
-                assertEqualsIgnoreOrder(
-                        actual.column(sqlIndex),
-                        column(expectedRows, sqlIndex),
-                        format("%s field is not equal", column));
+                assertThat(actual.column(sqlIndex))
+                        .as("%s field is not equal", column)
+                        .containsExactlyInAnyOrderElementsOf(column(expectedRows, sqlIndex));
                 continue;
             }
 
             if (column.contains("list_to_list")) {
-                assertEqualsIgnoreOrder(
-                        engine == Engine.TRINO ? extract(actual.column(sqlIndex)) : actual.column(sqlIndex),
-                        column(expectedRows, sqlIndex),
-                        "list_to_list field is not equal");
+                List<Object> listToListResult = engine == Engine.TRINO ? extract(actual.column(sqlIndex)) : actual.column(sqlIndex);
+                assertThat(listToListResult)
+                        .as("list_to_list field is not equal")
+                        .containsExactlyInAnyOrderElementsOf(column(expectedRows, sqlIndex));
                 continue;
             }
 
@@ -1538,7 +1536,7 @@ public abstract class BaseTestHiveCoercion
                 .collect(toList()); // to allow nulls
     }
 
-    private static List<List<?>> extract(List<TrinoArray> arrays)
+    private static List<Object> extract(List<TrinoArray> arrays)
     {
         return arrays.stream()
                 .map(trinoArray -> ImmutableList.copyOf((Object[]) trinoArray.getArray()))

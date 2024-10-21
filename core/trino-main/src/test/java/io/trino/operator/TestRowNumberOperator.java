@@ -39,8 +39,6 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
@@ -137,7 +135,7 @@ public class TestRowNumberOperator
 
         pages = stripRowNumberColumn(pages);
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expectedResult.getMaterializedRows());
+        assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expectedResult.getMaterializedRows());
     }
 
     @Test
@@ -160,8 +158,8 @@ public class TestRowNumberOperator
 
             // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
             GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((RowNumberOperator) operator).getCapacity(), 280_000);
-            assertGreaterThanOrEqual(result.getYieldCount(), 5);
-            assertGreaterThanOrEqual(result.getMaxReservedBytes(), 20L << 20);
+            assertThat(result.getYieldCount()).isGreaterThanOrEqualTo(5);
+            assertThat(result.getMaxReservedBytes()).isGreaterThanOrEqualTo(20L << 20);
 
             int count = 0;
             for (Page page : result.getOutput()) {

@@ -46,7 +46,6 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -138,7 +137,7 @@ public class TestProgressMonitor
                 trinoStatement.clearProgressMonitor();
 
                 List<QueryStats> queryStatsList = progressMonitor.finish();
-                assertGreaterThanOrEqual(queryStatsList.size(), 5); // duplicate stats is possible
+                assertThat(queryStatsList).hasSizeGreaterThanOrEqualTo(5); // duplicate stats is possible
                 assertThat(queryStatsList.get(0).getState()).isEqualTo("QUEUED");
                 assertThat(queryStatsList.get(queryStatsList.size() - 1).getState()).isEqualTo("FINISHED");
             }

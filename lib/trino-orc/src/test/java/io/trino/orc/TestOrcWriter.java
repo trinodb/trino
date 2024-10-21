@@ -41,7 +41,6 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcTester.READER_OPTIONS;
@@ -151,7 +150,7 @@ public class TestOrcWriter
                         }
                         dataStreamStarted = true;
                         // verify sizes in order
-                        assertGreaterThanOrEqual(stream.getLength(), size);
+                        assertThat(stream.getLength()).isGreaterThanOrEqualTo(size);
                         size = stream.getLength();
                     }
                 }

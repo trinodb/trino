@@ -31,8 +31,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.HashMap;
 
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.orc.OrcTester.Format.ORC_12;
@@ -75,12 +73,12 @@ public class TestOrcReaderMemoryUsage
                 }
 
                 // StripeReader memory should increase after reading a block.
-                assertGreaterThan(reader.getCurrentStripeRetainedSizeInBytes(), stripeReaderRetainedSize);
+                assertThat(reader.getCurrentStripeRetainedSizeInBytes()).isGreaterThan(stripeReaderRetainedSize);
                 // There may be some extra local buffers needed for dictionary data.
-                assertGreaterThanOrEqual(reader.getStreamReaderRetainedSizeInBytes(), streamReaderRetainedSize);
+                assertThat(reader.getStreamReaderRetainedSizeInBytes()).isGreaterThanOrEqualTo(streamReaderRetainedSize);
                 // The total retained size and memory usage should be greater than 0 byte because of the instance sizes.
-                assertGreaterThan(reader.getRetainedSizeInBytes() - readerRetainedSize, 0L);
-                assertGreaterThan(reader.getMemoryUsage() - readerMemoryUsage, 0L);
+                assertThat(reader.getRetainedSizeInBytes() - readerRetainedSize).isGreaterThan(0L);
+                assertThat(reader.getMemoryUsage() - readerMemoryUsage).isGreaterThan(0L);
             }
         }
         finally {
@@ -120,12 +118,12 @@ public class TestOrcReaderMemoryUsage
                 }
 
                 // StripeReader memory should increase after reading a block.
-                assertGreaterThan(reader.getCurrentStripeRetainedSizeInBytes(), stripeReaderRetainedSize);
+                assertThat(reader.getCurrentStripeRetainedSizeInBytes()).isGreaterThan(stripeReaderRetainedSize);
                 // There are no local buffers needed.
                 assertThat(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize).isEqualTo(0L);
                 // The total retained size and memory usage should be strictly larger than 0L because of the instance sizes.
-                assertGreaterThan(reader.getRetainedSizeInBytes() - readerRetainedSize, 0L);
-                assertGreaterThan(reader.getMemoryUsage() - readerMemoryUsage, 0L);
+                assertThat(reader.getRetainedSizeInBytes() - readerRetainedSize).isGreaterThan(0L);
+                assertThat(reader.getMemoryUsage() - readerMemoryUsage).isGreaterThan(0L);
             }
         }
         finally {
@@ -167,12 +165,12 @@ public class TestOrcReaderMemoryUsage
                 }
 
                 // StripeReader memory should increase after reading a block.
-                assertGreaterThan(reader.getCurrentStripeRetainedSizeInBytes(), stripeReaderRetainedSize);
+                assertThat(reader.getCurrentStripeRetainedSizeInBytes()).isGreaterThan(stripeReaderRetainedSize);
                 // There are no local buffers needed.
                 assertThat(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize).isEqualTo(0L);
                 // The total retained size and memory usage should be strictly larger than 0L because of the instance sizes.
-                assertGreaterThan(reader.getRetainedSizeInBytes() - readerRetainedSize, 0L);
-                assertGreaterThan(reader.getMemoryUsage() - readerMemoryUsage, 0L);
+                assertThat(reader.getRetainedSizeInBytes() - readerRetainedSize).isGreaterThan(0L);
+                assertThat(reader.getMemoryUsage() - readerMemoryUsage).isGreaterThan(0L);
             }
         }
         finally {
@@ -275,9 +273,9 @@ public class TestOrcReaderMemoryUsage
         assertThat(reader.getReaderPosition()).isEqualTo(0);
         assertThat(reader.getCurrentStripeRetainedSizeInBytes()).isEqualTo(0);
         // there will be object overheads
-        assertGreaterThan(reader.getStreamReaderRetainedSizeInBytes(), 0L);
+        assertThat(reader.getStreamReaderRetainedSizeInBytes()).isGreaterThan(0L);
         // there will be object overheads
-        assertGreaterThan(reader.getRetainedSizeInBytes(), 0L);
+        assertThat(reader.getRetainedSizeInBytes()).isGreaterThan(0L);
         assertThat(reader.getMemoryUsage()).isEqualTo(0);
     }
 
@@ -285,9 +283,9 @@ public class TestOrcReaderMemoryUsage
     {
         assertThat(reader.getCurrentStripeRetainedSizeInBytes()).isEqualTo(0);
         // after close() we still account for the StreamReader instance sizes.
-        assertGreaterThan(reader.getStreamReaderRetainedSizeInBytes(), 0L);
+        assertThat(reader.getStreamReaderRetainedSizeInBytes()).isGreaterThan(0L);
         // after close() we still account for the StreamReader instance sizes.
-        assertGreaterThan(reader.getRetainedSizeInBytes(), 0L);
+        assertThat(reader.getRetainedSizeInBytes()).isGreaterThan(0L);
         assertThat(reader.getMemoryUsage()).isEqualTo(0);
     }
 }

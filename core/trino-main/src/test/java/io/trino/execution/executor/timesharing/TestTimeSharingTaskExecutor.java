@@ -41,8 +41,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.execution.executor.timesharing.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
 import static io.trino.execution.executor.timesharing.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
 import static java.lang.Double.isNaN;
@@ -289,8 +287,8 @@ public class TestTimeSharingTaskExecutor
                     int higherLevelTime = higherLevelEnd - higherLevelStart;
 
                     if (higherLevelTime > 20) {
-                        assertGreaterThan(lowerLevelTime, (higherLevelTime * 2) - 10);
-                        assertLessThan(higherLevelTime, (lowerLevelTime * 2) + 10);
+                        assertThat(lowerLevelTime).isGreaterThan((higherLevelTime * 2) - 10);
+                        assertThat(higherLevelTime).isLessThan((lowerLevelTime * 2) + 10);
                     }
                 }
 

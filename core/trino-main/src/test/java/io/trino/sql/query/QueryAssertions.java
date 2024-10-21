@@ -76,7 +76,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
@@ -223,7 +222,7 @@ public class QueryAssertions
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
 
-        assertEqualsIgnoreOrder(actualRows, expectedRows, "For query: \n " + actual);
+        assertThat(actualRows).as("For query: \n " + actual).containsExactlyInAnyOrderElementsOf(expectedRows);
     }
 
     public void assertQueryReturnsEmptyResult(@Language("SQL") String actual)

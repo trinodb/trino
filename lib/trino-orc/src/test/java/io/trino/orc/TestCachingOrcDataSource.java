@@ -34,8 +34,6 @@ import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
@@ -93,28 +91,28 @@ public class TestCachingOrcDataSource
                 ImmutableList.of(),
                 maxMergeDistance,
                 tinyStripeThreshold);
-        assertInstanceOf(actual, CachingOrcDataSource.class);
+        assertThat(actual).isInstanceOf(CachingOrcDataSource.class);
 
         actual = wrapWithCacheIfTinyStripes(
                 FakeOrcDataSource.INSTANCE,
                 ImmutableList.of(new StripeInformation(123, 3, 10, 10, 10)),
                 maxMergeDistance,
                 tinyStripeThreshold);
-        assertInstanceOf(actual, CachingOrcDataSource.class);
+        assertThat(actual).isInstanceOf(CachingOrcDataSource.class);
 
         actual = wrapWithCacheIfTinyStripes(
                 FakeOrcDataSource.INSTANCE,
                 ImmutableList.of(new StripeInformation(123, 3, 10, 10, 10), new StripeInformation(123, 33, 10, 10, 10), new StripeInformation(123, 63, 10, 10, 10)),
                 maxMergeDistance,
                 tinyStripeThreshold);
-        assertInstanceOf(actual, CachingOrcDataSource.class);
+        assertThat(actual).isInstanceOf(CachingOrcDataSource.class);
 
         actual = wrapWithCacheIfTinyStripes(
                 FakeOrcDataSource.INSTANCE,
                 ImmutableList.of(new StripeInformation(123, 3, 10, 10, 10), new StripeInformation(123, 33, 10, 10, 10), new StripeInformation(123, 63, 1048576 * 8 - 20, 10, 10)),
                 maxMergeDistance,
                 tinyStripeThreshold);
-        assertInstanceOf(actual, CachingOrcDataSource.class);
+        assertThat(actual).isInstanceOf(CachingOrcDataSource.class);
 
         actual = wrapWithCacheIfTinyStripes(
                 FakeOrcDataSource.INSTANCE,
@@ -196,9 +194,9 @@ public class TestCachingOrcDataSource
         assertThat(orcDataSource.getReadCount()).isEqualTo(1);
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();
         // Sanity check number of stripes. This can be three or higher because of orc writer low memory mode.
-        assertGreaterThanOrEqual(stripes.size(), 3);
+        assertThat(stripes).hasSizeGreaterThanOrEqualTo(3);
         //verify wrapped by CachingOrcReader
-        assertInstanceOf(wrapWithCacheIfTinyStripes(orcDataSource, stripes, maxMergeDistance, tinyStripeThreshold), CachingOrcDataSource.class);
+        assertThat(wrapWithCacheIfTinyStripes(orcDataSource, stripes, maxMergeDistance, tinyStripeThreshold)).isInstanceOf(CachingOrcDataSource.class);
 
         OrcRecordReader orcRecordReader = orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
-import io.airlift.testing.Assertions;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
@@ -921,7 +920,7 @@ public class TestAccessControl
         }
         catch (AssertionError e) {
             // There is no clean exception message for authorization failure.  We simply get a 403
-            Assertions.assertContains(e.getMessage(), "statusCode=403");
+            assertThat(e).hasMessageContaining("statusCode=403");
         }
     }
 

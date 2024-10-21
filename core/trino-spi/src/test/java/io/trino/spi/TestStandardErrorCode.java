@@ -19,8 +19,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
@@ -47,7 +45,7 @@ public class TestStandardErrorCode
     public void testReserved()
     {
         for (StandardErrorCode errorCode : StandardErrorCode.values()) {
-            assertLessThan(code(errorCode), EXTERNAL_ERROR_START);
+            assertThat(code(errorCode)).isLessThan(EXTERNAL_ERROR_START);
         }
     }
 
@@ -62,7 +60,7 @@ public class TestStandardErrorCode
         while (iterator.hasNext()) {
             StandardErrorCode code = iterator.next();
             int current = code(code);
-            assertGreaterThan(current, previous, "Code is out of order: " + code);
+            assertThat(current).as("Code is out of order: " + code).isGreaterThan(previous);
             if (code != GENERIC_INTERNAL_ERROR && code != GENERIC_INSUFFICIENT_RESOURCES && code != UNSUPPORTED_TABLE_TYPE) {
                 assertThat(current)
                         .describedAs("Code is not sequential: " + code)

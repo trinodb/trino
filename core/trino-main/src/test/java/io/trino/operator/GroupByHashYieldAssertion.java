@@ -35,9 +35,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertBetweenInclusive;
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
@@ -75,7 +72,7 @@ public final class GroupByHashYieldAssertion
      */
     public static GroupByHashYieldResult finishOperatorWithYieldingGroupByHash(List<Page> input, Type hashKeyType, OperatorFactory operatorFactory, Function<Operator, Integer> getHashCapacity, long additionalMemoryInBytes)
     {
-        assertLessThan(additionalMemoryInBytes, 1L << 21, "additionalMemoryInBytes should be a relatively small number");
+        assertThat(additionalMemoryInBytes).as("additionalMemoryInBytes should be a relatively small number").isLessThan(1L << 21);
         List<Page> result = new LinkedList<>();
 
         // mock an adjustable memory pool
@@ -163,7 +160,7 @@ public final class GroupByHashYieldAssertion
                 assertThat((int) getHashCapacity.apply(operator)).isEqualTo(oldCapacity);
 
                 // We are not going to rehash; therefore, assert the memory increase only comes from the aggregator
-                assertLessThan(actualHashIncreased, additionalMemoryInBytes);
+                assertThat(actualHashIncreased).isLessThan(additionalMemoryInBytes);
 
                 // free the pool for the next iteration
                 memoryPool.free(anotherTaskId, "test", memoryPool.getTaskMemoryReservations().get(anotherTaskId));
@@ -187,7 +184,7 @@ public final class GroupByHashYieldAssertion
                     // Flat hash uses an incremental rehash, so as new memory is allocated old memory is freed
                     expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity) + oldCapacity;
                 }
-                assertBetweenInclusive(actualHashIncreased, expectedHashBytes, expectedHashBytes + additionalMemoryInBytes);
+                assertThat(actualHashIncreased).isBetween(expectedHashBytes, expectedHashBytes + additionalMemoryInBytes);
 
                 // Output should be blocked as well
                 assertThat(operator.getOutput()).isNull();
@@ -203,7 +200,7 @@ public final class GroupByHashYieldAssertion
                 assertThat(operator.needsInput()).isTrue();
 
                 // Hash table capacity has increased
-                assertGreaterThan(getHashCapacity.apply(operator), oldCapacity);
+                assertThat(getHashCapacity.apply(operator)).isGreaterThan(oldCapacity);
 
                 // Assert the estimated reserved memory after rehash is lower than the one before rehash (extra memory allocation has been released)
                 long rehashedMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
@@ -216,11 +213,12 @@ public final class GroupByHashYieldAssertion
                     // added by addNewGroup (an even that cannot be predicted as it depends on the number of unique groups
                     // in the current page being processed), the difference includes the size of the added new page.
                     // Lower bound is 1% lower than normal because "additionalMemoryInBytes" includes also aggregator state.
-                    assertBetweenInclusive(rehashedMemoryUsage * 1.0 / (expectedMemoryUsageAfterRehash + additionalMemoryInBytes), 0.97, memoryUsageErrorUpperBound,
-                            "rehashedMemoryUsage " + rehashedMemoryUsage + ", expectedMemoryUsageAfterRehash: " + expectedMemoryUsageAfterRehash);
+                    assertThat(rehashedMemoryUsage * 1.0 / (expectedMemoryUsageAfterRehash + additionalMemoryInBytes))
+                            .as("rehashedMemoryUsage " + rehashedMemoryUsage + ", expectedMemoryUsageAfterRehash: " + expectedMemoryUsageAfterRehash)
+                            .isBetween(0.97, memoryUsageErrorUpperBound);
                 }
                 else {
-                    assertBetweenInclusive(memoryUsageError, 0.99, memoryUsageErrorUpperBound);
+                    assertThat(memoryUsageError).isBetween(0.99, memoryUsageErrorUpperBound);
                 }
 
                 // unblocked

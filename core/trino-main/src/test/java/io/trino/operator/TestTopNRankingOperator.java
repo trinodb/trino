@@ -37,7 +37,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
@@ -290,8 +289,8 @@ public class TestTopNRankingOperator
                 operatorFactory,
                 operator -> ((TopNRankingOperator) operator).getGroupedTopNBuilder() == null ? 0 : ((GroupedTopNRowNumberBuilder) ((TopNRankingOperator) operator).getGroupedTopNBuilder()).getGroupByHash().getCapacity(),
                 450_000);
-        assertGreaterThan(result.getYieldCount(), 3);
-        assertGreaterThan(result.getMaxReservedBytes(), 5L << 20);
+        assertThat(result.getYieldCount()).isGreaterThan(3);
+        assertThat(result.getMaxReservedBytes()).isGreaterThan(5L << 20);
 
         int count = 0;
         for (Page page : result.getOutput()) {

@@ -47,7 +47,6 @@ import java.util.TreeMap;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockSerdeUtil.writeBlock;
 import static io.trino.operator.OperatorAssertion.toRow;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
@@ -345,7 +344,7 @@ public abstract class AbstractTestType
         Object objectValue = type.getObjectValue(SESSION, block, position);
         assertThat(objectValue).isEqualTo(expectedObjectValue);
         if (objectValue != null) {
-            assertInstanceOf(objectValue, objectValueType);
+            assertThat(objectValue).isInstanceOf(objectValueType);
         }
 
         Block expectedBlock = createBlock(type, expectedStackValue);

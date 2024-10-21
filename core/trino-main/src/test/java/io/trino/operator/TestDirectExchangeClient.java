@@ -76,7 +76,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.execution.TestSqlTaskExecution.TASK_ID;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -783,7 +782,7 @@ public class TestDirectExchangeClient
         // wait for a page to be fetched
         do {
             // there is no thread coordination here, so sleep is the best we can do
-            assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+            assertThat(Duration.nanosSince(start)).isLessThan(new Duration(5, TimeUnit.SECONDS));
             sleepUninterruptibly(100, MILLISECONDS);
         }
         while (exchangeClient.getStatus().getBufferedPages() == 0);
@@ -796,7 +795,7 @@ public class TestDirectExchangeClient
         // remove the page and wait for the client to fetch another page
         assertPageEquals(exchangeClient.pollPage(), createPage(1));
         do {
-            assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+            assertThat(Duration.nanosSince(start)).isLessThan(new Duration(5, TimeUnit.SECONDS));
             sleepUninterruptibly(100, MILLISECONDS);
         }
         while (exchangeClient.getStatus().getBufferedPages() == 0);
@@ -809,7 +808,7 @@ public class TestDirectExchangeClient
         // remove the page and wait for the client to fetch another page
         assertPageEquals(exchangeClient.pollPage(), createPage(2));
         do {
-            assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+            assertThat(Duration.nanosSince(start)).isLessThan(new Duration(5, TimeUnit.SECONDS));
             sleepUninterruptibly(100, MILLISECONDS);
         }
         while (exchangeClient.getStatus().getBufferedPages() == 0);

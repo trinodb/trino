@@ -63,7 +63,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_DELETE_DATA;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_TUPLE_TYPE;
@@ -130,13 +129,13 @@ public class TestCassandraConnector
                 new TestingConnectorContext());
 
         metadata = connector.getMetadata(SESSION, CassandraTransactionHandle.INSTANCE);
-        assertInstanceOf(metadata, CassandraMetadata.class);
+        assertThat(metadata).isInstanceOf(CassandraMetadata.class);
 
         splitManager = connector.getSplitManager();
-        assertInstanceOf(splitManager, CassandraSplitManager.class);
+        assertThat(splitManager).isInstanceOf(CassandraSplitManager.class);
 
         recordSetProvider = connector.getRecordSetProvider();
-        assertInstanceOf(recordSetProvider, CassandraRecordSetProvider.class);
+        assertThat(recordSetProvider).isInstanceOf(CassandraRecordSetProvider.class);
 
         database = keyspace;
         table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase(ENGLISH));

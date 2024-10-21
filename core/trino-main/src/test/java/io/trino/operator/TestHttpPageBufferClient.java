@@ -60,8 +60,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertContains;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
@@ -274,8 +272,8 @@ public class TestHttpPageBufferClient
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(1);
-        assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
-        assertContains(callback.getFailure().getMessage(), "Expected response code to be 200, but was 404");
+        assertThat(callback.getFailure()).isInstanceOf(PageTransportErrorException.class);
+        assertThat(callback.getFailure()).hasMessageContaining("Expected response code to be 200, but was 404");
         assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
 
         // send invalid content type response and verify response was ignored
@@ -287,8 +285,8 @@ public class TestHttpPageBufferClient
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(1);
-        assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
-        assertContains(callback.getFailure().getMessage(), "Expected application/x-trino-pages response from server but got INVALID_TYPE");
+        assertThat(callback.getFailure()).isInstanceOf(PageTransportErrorException.class);
+        assertThat(callback.getFailure()).hasMessageContaining("Expected application/x-trino-pages response from server but got INVALID_TYPE");
         assertStatus(client, location, "queued", 0, 2, 2, 2, "not scheduled");
 
         // send unexpected content type response and verify response was ignored
@@ -300,8 +298,8 @@ public class TestHttpPageBufferClient
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(1);
-        assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
-        assertContains(callback.getFailure().getMessage(), "Expected application/x-trino-pages response from server but got text/plain");
+        assertThat(callback.getFailure()).isInstanceOf(PageTransportErrorException.class);
+        assertThat(callback.getFailure()).hasMessageContaining("Expected application/x-trino-pages response from server but got text/plain");
         assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
 
         // close client and verify
@@ -430,8 +428,8 @@ public class TestHttpPageBufferClient
         assertThat(callback.getCompletedRequests()).isEqualTo(3);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(1);
-        assertInstanceOf(callback.getFailure(), PageTransportTimeoutException.class);
-        assertContains(callback.getFailure().getMessage(), WORKER_NODE_ERROR + " (http://localhost:8080/0 - 3 failures, failure duration 31.00s, total failed request time 31.00s)");
+        assertThat(callback.getFailure()).isInstanceOf(PageTransportTimeoutException.class);
+        assertThat(callback.getFailure()).hasMessageContaining(WORKER_NODE_ERROR + " (http://localhost:8080/0 - 3 failures, failure duration 31.00s, total failed request time 31.00s)");
         assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
     }
 
