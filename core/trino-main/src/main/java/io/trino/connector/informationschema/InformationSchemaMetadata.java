@@ -312,7 +312,10 @@ public class InformationSchemaMetadata
         if (tablePrefixes.size() > maxPrefetchedInformationSchemaPrefixes) {
             // in case of high number of prefixes it is better to populate all data and then filter
             // TODO this may cause re-running the above filtering upon next applyFilter
-            return defaultPrefixes(catalogName);
+            if (prefixes.size() > maxPrefetchedInformationSchemaPrefixes) {
+                return defaultPrefixes(catalogName);
+            }
+            return prefixes;
         }
         return tablePrefixes;
     }
