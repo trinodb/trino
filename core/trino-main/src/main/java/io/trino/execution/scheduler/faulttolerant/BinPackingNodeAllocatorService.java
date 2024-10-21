@@ -343,6 +343,10 @@ public class BinPackingNodeAllocatorService
 
     private Iterator<PendingAcquire> pendingAcquiresIterator(Optional<QueryId> startingQueryId)
     {
+        if (pendingAcquires.isEmpty()) {
+            return List.<PendingAcquire>of().iterator();
+        }
+
         List<QueryPendingAcquires> iterators = pendingAcquires.entrySet().stream()
                 .map(entry -> new QueryPendingAcquires(entry.getKey(), entry.getValue().iterator()))
                 .collect(toCollection(ArrayList::new));
