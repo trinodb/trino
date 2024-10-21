@@ -389,7 +389,7 @@ public class AdaptivePlanner
             }
 
             // Find the sub plans for this exchange node
-            List<PlanNodeId> sourceIds = node.getSources().stream().map(PlanNode::getId).collect(toImmutableList());
+            Set<PlanNodeId> sourceIds = node.getSources().stream().map(PlanNode::getId).collect(toImmutableSet());
             List<SubPlan> sourceSubPlans = context.stream()
                     .filter(subPlan -> sourceIds.contains(subPlan.getFragment().getRoot().getId()))
                     .collect(toImmutableList());
