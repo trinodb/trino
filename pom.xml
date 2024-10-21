@@ -87,6 +87,7 @@
         <module>plugin/trino-kafka-event-listener</module>
         <module>plugin/trino-kinesis</module>
         <module>plugin/trino-kudu</module>
+        <module>plugin/trino-lancedb</module>
         <module>plugin/trino-mariadb</module>
         <module>plugin/trino-memory</module>
         <module>plugin/trino-ml</module>
