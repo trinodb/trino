@@ -56,7 +56,7 @@ public class TestSimplifyRedundantCase
                 new Case(
                         ImmutableList.of(new WhenClause(new Reference(BOOLEAN, "x"), TRUE)),
                         FALSE)))
-                .isEqualTo(Optional.of(new Comparison(IDENTICAL, new Reference(BOOLEAN, "x"), TRUE)));
+                .isEqualTo(Optional.of(IrUtils.or(new Comparison(IDENTICAL, new Reference(BOOLEAN, "x"), TRUE), FALSE)));
 
         assertThat(optimize(
                 new Case(
@@ -82,7 +82,7 @@ public class TestSimplifyRedundantCase
                 new Case(
                         ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)), TRUE)),
                         FALSE)))
-                .isEqualTo(Optional.of(new Comparison(IDENTICAL, new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)), TRUE)));
+                .isEqualTo(Optional.of(IrUtils.or(new Comparison(IDENTICAL, new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)), TRUE), FALSE)));
 
         assertThat(optimize(
                 new Case(
@@ -102,7 +102,7 @@ public class TestSimplifyRedundantCase
                                 new Comparison(IDENTICAL, new Reference(BOOLEAN, "x"), TRUE),
                                 IrUtils.and(
                                         IrExpressions.not(PLANNER_CONTEXT.getMetadata(), new Comparison(IDENTICAL, new Reference(BOOLEAN, "y"), TRUE)),
-                                        new Comparison(IDENTICAL, new Reference(BOOLEAN, "z"), TRUE)))));
+                                        IrUtils.or(new Comparison(IDENTICAL, new Reference(BOOLEAN, "z"), TRUE), FALSE)))));
 
         assertThat(optimize(
                 new Case(
@@ -158,7 +158,7 @@ public class TestSimplifyRedundantCase
                                 new WhenClause(new Reference(BOOLEAN, "a2"), FALSE),
                                 new WhenClause(new Reference(BOOLEAN, "a3"), FALSE)),
                         FALSE)))
-                .isEqualTo(Optional.of(new Comparison(IDENTICAL, new Reference(BOOLEAN, "a1"), TRUE)));
+                .isEqualTo(Optional.of(IrUtils.or(new Comparison(IDENTICAL, new Reference(BOOLEAN, "a1"), TRUE), FALSE)));
     }
 
     @Test
