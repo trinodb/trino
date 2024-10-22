@@ -77,7 +77,7 @@ public class PageProcessor
         this.projections = projections.stream()
                 .map(projection -> {
                     if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
-                        return new DictionaryAwarePageProjection(projection, dictionarySourceIdFunction, projection instanceof InputPageProjection);
+                        return new DictionaryAwarePageProjection(projection, dictionarySourceIdFunction);
                     }
                     return projection;
                 })
