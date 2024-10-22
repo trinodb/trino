@@ -53,7 +53,7 @@ public class ImpersonationRule
         Pattern replacedNewUserPattern = newUserPattern;
         if (originalUserPattern.isPresent()) {
             Matcher matcher = originalUserPattern.get().matcher(originalUser);
-            if (matcher.matches()) {
+            if (matcher.matches() && matcher.groupCount() > 0) {
                 StringBuilder stringBuilder = new StringBuilder();
                 try {
                     matcher.appendReplacement(stringBuilder, newUserPattern.pattern());
