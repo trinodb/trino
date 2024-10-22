@@ -528,7 +528,7 @@ public final class HttpPageBufferClient
             {
                 assertNotHoldsLock(HttpPageBufferClient.this);
 
-                if (result.getStatusCode() != NO_CONTENT.code()) {
+                if (result != null && result.getStatusCode() != NO_CONTENT.code()) {
                     onFailure(new TrinoTransportException(
                             REMOTE_BUFFER_CLOSE_FAILED,
                             fromUri(location),
