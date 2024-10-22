@@ -753,9 +753,11 @@ property.
 These rules control the ability of how owner of schema, table or view can
 be altered. These rules are applicable to commands like:
 
-> ALTER SCHEMA name SET AUTHORIZATION ( user | USER user | ROLE role )
-> ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )
-> ALTER VIEW name SET AUTHORIZATION ( user | USER user | ROLE role )
+```sql
+ALTER SCHEMA name SET AUTHORIZATION ( user | USER user | ROLE role )
+ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )
+ALTER VIEW name SET AUTHORIZATION ( user | USER user | ROLE role )
+```
 
 When these rules are present, the authorization is based on the first matching
 rule, processed from top to bottom. If no rules match, the authorization is
