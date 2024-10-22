@@ -75,7 +75,6 @@ public class OAuth2SecurityConfig
 
     @Config("iceberg.rest-catalog.oauth2.server-uri")
     @ConfigDescription("The endpoint to retrieve access token from OAuth2 Server")
-    @ConfigSecuritySensitive
     public OAuth2SecurityConfig setServerUri(String serverUri)
     {
         this.serverUri = serverUri;
@@ -93,5 +92,4 @@ public class OAuth2SecurityConfig
     {
         return !(token != null && scope != null);
     }
-
 }
