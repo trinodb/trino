@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -49,7 +50,7 @@ public class TestOAuth2SecurityConfig
                 .setCredential("credential")
                 .setToken("token")
                 .setScope("scope")
-                .setServerUri("http://localhost:8080/realms/iceberg/protocol/openid-connect/token");
+                .setServerUri(URI.create("http://localhost:8080/realms/iceberg/protocol/openid-connect/token"));
         assertThat(expected.credentialOrTokenPresent()).isTrue();
         assertThat(expected.scopePresentOnlyWithCredential()).isFalse();
         assertFullMapping(properties, expected);
