@@ -143,6 +143,8 @@ public final class DeltaLakeSchemaSupport
             .add(CHANGE_DATA_FEED_FEATURE_NAME)
             .add(COLUMN_MAPPING_FEATURE_NAME)
             .add(TIMESTAMP_NTZ_FEATURE_NAME)
+            .add(TYPE_WIDENING_FEATURE_NAME)
+            .add(TYPE_WIDENING_PREVIEW_FEATURE_NAME)
             .add(VACUUM_PROTOCOL_CHECK_FEATURE_NAME)
             .build();
 
@@ -282,6 +284,7 @@ public final class DeltaLakeSchemaSupport
                 .map(column -> serializeStructField(
                         column.name(),
                         column.type(),
+                        column.typeChange(),
                         column.comment(),
                         column.nullable(),
                         column.metadata()))
@@ -290,7 +293,13 @@ public final class DeltaLakeSchemaSupport
         return schema.buildOrThrow();
     }
 
-    private static Map<String, Object> serializeStructField(String name, Object type, @Nullable String comment, boolean nullable, @Nullable Map<String, Object> metadata)
+    private static Map<String, Object> serializeStructField(
+            String name,
+            Object type,
+            @Nullable TypeChange typeChange,
+            @Nullable String comment,
+            boolean nullable,
+            @Nullable Map<String, Object> metadata)
     {
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#struct-field
         ImmutableMap.Builder<String, Object> fieldContents = ImmutableMap.builder();
@@ -303,9 +312,17 @@ public final class DeltaLakeSchemaSupport
         if (comment != null) {
             columnMetadata.put("comment", comment);
         }
+        if (typeChange != null) {
+            ImmutableList.Builder<Object> typeChanges = ImmutableList.builder();
+            if (metadata != null && metadata.containsKey("delta.typeChanges")) {
+                typeChanges.addAll((List<?>) metadata.get("delta.typeChanges"));
+            }
+            typeChanges.add(typeChange);
+            columnMetadata.put("delta.typeChanges", typeChanges.build());
+        }
         if (metadata != null) {
             metadata.entrySet().stream()
-                    .filter(entry -> !entry.getKey().equals("comment"))
+                    .filter(entry -> !entry.getKey().equals("comment") && !entry.getKey().equals("delta.typeChanges"))
                     .forEach(entry -> columnMetadata.put(entry.getKey(), entry.getValue()));
         }
         fieldContents.put("metadata", columnMetadata.buildOrThrow());
@@ -367,7 +384,7 @@ public final class DeltaLakeSchemaSupport
                     }
                     Object fieldType = serializeColumnType(columnMappingMode, maxColumnId, field.getType());
                     Map<String, Object> metadata = generateColumnMetadata(columnMappingMode, maxColumnId);
-                    return serializeStructField(name, fieldType, null, true, metadata);
+                    return serializeStructField(name, fieldType, null, null, true, metadata);
                 })
                 .collect(toImmutableList()));
 
@@ -392,7 +409,7 @@ public final class DeltaLakeSchemaSupport
         };
     }
 
-    private static String serializePrimitiveType(Type type)
+    public static String serializePrimitiveType(Type type)
     {
         return serializeSupportedPrimitiveType(type)
                 .orElseThrow(() -> new TypeNotFoundException(type.getTypeSignature()));

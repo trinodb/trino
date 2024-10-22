@@ -360,4 +360,51 @@ public class TestDeltaLakeAlterTableCompatibility
             onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testSetColumnTypeInteger()
+    {
+        String tableName = "test_dl_set_column_type_integer_" + randomNameSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName + "" +
+                "(a byte, b byte) " +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                "TBLPROPERTIES ('delta.enableTypeWidening'=true)");
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (127, -128)");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(127, -128));
+
+            // tinyint -> smallint
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ALTER COLUMN a SET DATA TYPE smallint");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(127, -128));
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " (a) VALUES 32767");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(127, -128), row(32767, null));
+
+            // tinyint -> integer
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ALTER COLUMN b SET DATA TYPE integer");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(127, -128), row(32767, null));
+            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET b = -32768 WHERE b IS NULL");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(127, -128), row(32767, -32768));
+
+            // smallint -> integer
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ALTER COLUMN a SET DATA TYPE integer");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(127, -128), row(32767, -32768));
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " (a) VALUES 2147483647");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(127, -128), row(32767, -32768), row(2147483647, null));
+
+            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ALTER COLUMN a SET DATA TYPE bigint"))
+                    .hasMessageContaining("Cannot change type from integer to bigint");
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE default." + tableName);
+        }
+    }
 }

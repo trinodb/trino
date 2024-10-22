@@ -2003,6 +2003,66 @@ public class DeltaLakeMetadata
     }
 
     @Override
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Type type)
+    {
+        DeltaLakeTableHandle table = (DeltaLakeTableHandle) tableHandle;
+        DeltaLakeColumnHandle column = (DeltaLakeColumnHandle) columnHandle;
+        verify(column.isBaseColumn(), "Unexpected dereference: %s", column);
+        String columnName = column.baseColumnName();
+        MetadataEntry metadataEntry = table.getMetadataEntry();
+        ProtocolEntry protocolEntry = table.getProtocolEntry();
+        ColumnMappingMode columnMappingMode = getColumnMappingMode(metadataEntry, protocolEntry);
+        AtomicInteger maxColumnId = switch (columnMappingMode) {
+            case NONE -> new AtomicInteger();
+            case ID, NAME -> new AtomicInteger(getMaxColumnId(metadataEntry));
+            default -> throw new IllegalArgumentException("Unexpected column mapping mode: " + columnMappingMode);
+        };
+
+        checkUnsupportedWriterFeatures(protocolEntry);
+        checkSupportedWriterVersion(table);
+
+        if (!isTypeWideningAllowed(column.type(), type)) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot change type from %s to %s".formatted(column.type(), type));
+        }
+
+        long commitVersion = table.getReadVersion() + 1;
+        DeltaLakeTable deltaTable = DeltaLakeTable.builder(metadataEntry, protocolEntry)
+                .setColumnType(columnName, serializeColumnType(columnMappingMode, maxColumnId, type), commitVersion)
+                .build();
+        String schemaString = serializeSchemaAsJson(deltaTable);
+        try {
+            TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, table.getLocation());
+            appendTableEntries(
+                    commitVersion,
+                    transactionLogWriter,
+                    CHANGE_COLUMN_OPERATION,
+                    session,
+                    protocolEntry,
+                    MetadataEntry.builder(metadataEntry)
+                            .setSchemaString(schemaString));
+            transactionLogWriter.flush();
+            enqueueUpdateInfo(session, table.getSchemaName(), table.getTableName(), commitVersion, schemaString, Optional.ofNullable(metadataEntry.getDescription()));
+        }
+        catch (Exception e) {
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to change type of '%s' column in: %s", columnName, table.getSchemaTableName()), e);
+        }
+    }
+
+    private static boolean isTypeWideningAllowed(Type oldType, Type newType)
+    {
+        if (oldType.equals(newType)) {
+            return true;
+        }
+        if (oldType == TINYINT && (newType == SMALLINT || newType == INTEGER)) {
+            return true;
+        }
+        if (oldType == SMALLINT && newType == INTEGER) {
+            return true;
+        }
+        return false;
+    }
+
+    @Override
     public void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         DeltaLakeTableHandle table = (DeltaLakeTableHandle) tableHandle;

@@ -440,13 +440,12 @@ public class TestDeltaLakeMetastoreAccessOperations
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
 
         // Use 'name' column mapping mode to allow renaming columns
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int NOT NULL) WITH (column_mapping_mode = 'name')")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col tinyint NOT NULL) WITH (column_mapping_mode = 'name')")) {
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP NOT NULL", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " ADD COLUMN new_col int COMMENT 'test comment'", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " RENAME COLUMN new_col TO renamed_col", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " DROP COLUMN renamed_col", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
-            // Update the following test once the connector supports changing column types
-            assertQueryFails(session, "ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint", "This connector does not support setting column types");
+            assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE int", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
         }
     }
 

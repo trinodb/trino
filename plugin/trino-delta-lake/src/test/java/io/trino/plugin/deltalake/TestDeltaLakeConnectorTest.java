@@ -77,6 +77,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilege
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -178,7 +179,7 @@ public class TestDeltaLakeConnectorTest
                  SUPPORTS_PREDICATE_PUSHDOWN,
                  SUPPORTS_RENAME_FIELD,
                  SUPPORTS_RENAME_SCHEMA,
-                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_SET_FIELD_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
@@ -566,6 +567,55 @@ public class TestDeltaLakeConnectorTest
             assertThatThrownBy(() -> testRenameColumnName(columnName, requiresDelimiting(columnName)))
                     .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
         }
+    }
+
+    @Test
+    @Override
+    public void testSetColumnType()
+    {
+        assertThatThrownBy(super::testSetColumnType)
+                .hasMessageContaining("Cannot change type from integer to bigint");
+    }
+
+    @Test
+    @Override // Override because the connector doesn't support changing the column type from int to bigint
+    public void testSetColumnTypeWithComment()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_comment_", "(col tinyint COMMENT 'test comment')")) {
+            assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test comment");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE integer");
+            assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test comment");
+        }
+    }
+
+    @Test
+    @Override // Override because the connector doesn't support changing the column type from int to bigint
+    public void testSetColumnTypeWithNotNull()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_null_", "(col tinyint NOT NULL)")) {
+            assertThat(columnIsNullable(table.getName(), "col")).isFalse();
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE integer");
+            assertThat(columnIsNullable(table.getName(), "col")).isFalse();
+        }
+    }
+
+    @Override
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "tinyint -> smallint",
+                 "tinyint -> integer",
+                 "smallint -> integer" -> Optional.of(setup);
+            default -> Optional.of(setup.asUnsupported());
+        };
+    }
+
+    @Override
+    protected void verifySetColumnTypeFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("Cannot change type from .* to .*");
     }
 
     @Test
@@ -4871,7 +4921,7 @@ public class TestDeltaLakeConnectorTest
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col row(\"X\" int)");
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col.x int", "line 1:1: Field 'x' already exists");
 
-            assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE row(x int, \"X\" int)", "This connector does not support setting column types");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE row(x int, \"X\" int)", "Cannot change type from .* to .*");
         }
     }
 
@@ -4981,14 +5031,14 @@ public class TestDeltaLakeConnectorTest
     public void testMetastoreAfterAlterColumn()
     {
         // Use 'name' column mapping mode to allow renaming columns
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int NOT NULL) WITH (column_mapping_mode = 'name')")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col tinyint NOT NULL) WITH (column_mapping_mode = 'name')")) {
             Map<String, String> initialParameters = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters();
             assertThat(initialParameters)
                     .doesNotContainKey("comment")
                     .contains(entry("trino_last_transaction_version", "0"));
             List<DeltaLakeColumnMetadata> initialColumns = getColumnMetadata(initialParameters.get("trino_metadata_schema_string"), TESTING_TYPE_MANAGER, ColumnMappingMode.NAME, ImmutableList.of());
             assertThat(initialColumns).extracting(DeltaLakeColumnMetadata::columnMetadata)
-                    .containsExactly(ColumnMetadata.builder().setName("col").setType(INTEGER).setNullable(false).build());
+                    .containsExactly(ColumnMetadata.builder().setName("col").setType(TINYINT).setNullable(false).build());
 
             // Drop not null constraints
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP NOT NULL");
@@ -4998,7 +5048,7 @@ public class TestDeltaLakeConnectorTest
             Map<String, String> dropNotNullParameters = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters();
             List<DeltaLakeColumnMetadata> dropNotNullColumns = getColumnMetadata(dropNotNullParameters.get("trino_metadata_schema_string"), TESTING_TYPE_MANAGER, ColumnMappingMode.NAME, ImmutableList.of());
             assertThat(dropNotNullColumns).extracting(DeltaLakeColumnMetadata::columnMetadata)
-                    .containsExactly(ColumnMetadata.builder().setName("col").setType(INTEGER).build());
+                    .containsExactly(ColumnMetadata.builder().setName("col").setType(TINYINT).build());
 
             // Add a new column
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN new_col int COMMENT 'test comment'");
@@ -5009,7 +5059,7 @@ public class TestDeltaLakeConnectorTest
             List<DeltaLakeColumnMetadata> columnsAfterAddColumn = getColumnMetadata(addColumnParameters.get("trino_metadata_schema_string"), TESTING_TYPE_MANAGER, ColumnMappingMode.NAME, ImmutableList.of());
             assertThat(columnsAfterAddColumn).extracting(DeltaLakeColumnMetadata::columnMetadata)
                     .containsExactly(
-                            ColumnMetadata.builder().setName("col").setType(INTEGER).build(),
+                            ColumnMetadata.builder().setName("col").setType(TINYINT).build(),
                             ColumnMetadata.builder().setName("new_col").setType(INTEGER).setComment(Optional.of("test comment")).build());
 
             // Rename a column
@@ -5021,7 +5071,7 @@ public class TestDeltaLakeConnectorTest
             List<DeltaLakeColumnMetadata> columnsAfterRenameColumn = getColumnMetadata(renameColumnParameters.get("trino_metadata_schema_string"), TESTING_TYPE_MANAGER, ColumnMappingMode.NAME, ImmutableList.of());
             assertThat(columnsAfterRenameColumn).extracting(DeltaLakeColumnMetadata::columnMetadata)
                     .containsExactly(
-                            ColumnMetadata.builder().setName("col").setType(INTEGER).build(),
+                            ColumnMetadata.builder().setName("col").setType(TINYINT).build(),
                             ColumnMetadata.builder().setName("renamed_col").setType(INTEGER).setComment(Optional.of("test comment")).build());
 
             // Drop a column
@@ -5032,10 +5082,16 @@ public class TestDeltaLakeConnectorTest
             Map<String, String> dropColumnParameters = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters();
             List<DeltaLakeColumnMetadata> columnsAfterDropColumn = getColumnMetadata(dropColumnParameters.get("trino_metadata_schema_string"), TESTING_TYPE_MANAGER, ColumnMappingMode.NAME, ImmutableList.of());
             assertThat(columnsAfterDropColumn).extracting(DeltaLakeColumnMetadata::columnMetadata)
-                    .containsExactly(ColumnMetadata.builder().setName("col").setType(INTEGER).build());
+                    .containsExactly(ColumnMetadata.builder().setName("col").setType(TINYINT).build());
 
-            // Update the following test once the connector supports changing column types
-            assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint", "This connector does not support setting column types");
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE integer");
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .doesNotContainKey("comment")
+                    .contains(entry("trino_last_transaction_version", "5")));
+            Map<String, String> setColumnTypeParameters = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters();
+            List<DeltaLakeColumnMetadata> columnsAfterSetColumnType = getColumnMetadata(setColumnTypeParameters.get("trino_metadata_schema_string"), TESTING_TYPE_MANAGER, ColumnMappingMode.NAME, ImmutableList.of());
+            assertThat(columnsAfterSetColumnType).extracting(DeltaLakeColumnMetadata::columnMetadata)
+                    .containsExactly(ColumnMetadata.builder().setName("col").setType(INTEGER).build());
         }
     }
 

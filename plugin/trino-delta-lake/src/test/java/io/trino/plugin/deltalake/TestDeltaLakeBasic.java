@@ -67,6 +67,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -1834,6 +1835,42 @@ public class TestDeltaLakeBasic
     }
 
     @Test
+    public void testSetColumnType()
+            throws Exception
+    {
+        String tableName = "test_set_column_type_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/type_widening_enabled").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+        assertThat(getColumnTypes(tableName)).containsExactly(entry("col", "tinyint"));
+        assertThat(loadMetadataEntry(0, tableLocation).getSchemaString())
+                .doesNotContain("delta.typeChanges");
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN col SET DATA TYPE smallint");
+        assertThat(getColumnTypes(tableName)).containsExactly(entry("col", "smallint"));
+        assertThat(loadMetadataEntry(1, tableLocation).getSchemaString())
+                .contains("\"metadata\":{\"delta.typeChanges\":[{\"fromType\":\"byte\",\"toType\":\"short\",\"tableVersion\":1}]}");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 32767", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES 32767");
+
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN col SET DATA TYPE integer");
+        assertThat(getColumnTypes(tableName)).containsExactly(entry("col", "integer"));
+        assertThat(loadMetadataEntry(3, tableLocation).getSchemaString())
+                .contains("\"metadata\":{\"delta.typeChanges\":[{\"fromType\":\"byte\",\"toType\":\"short\",\"tableVersion\":1},{\"fromType\":\"short\",\"toType\":\"integer\",\"tableVersion\":3}]}");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2147483647", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES 32767, 2147483647");
+    }
+
+    private Map<String, String> getColumnTypes(String tableName)
+    {
+        return computeActual("DESCRIBE " + tableName).project("Column", "Type")
+                .getMaterializedRows().stream()
+                .collect(toImmutableMap(e -> (String) e.getField(0), e -> (String) e.getField(1)));
+    }
+
+    @Test
     public void testTypeWidening()
             throws Exception
     {
@@ -2069,7 +2106,7 @@ public class TestDeltaLakeBasic
                 "\\QUnsupported writer features: [generatedColumns]");
         assertQueryFails(
                 "ALTER TABLE unsupported_writer_feature ALTER COLUMN b SET DATA TYPE bigint",
-                "This connector does not support setting column types");
+                "\\QUnsupported writer features: [generatedColumns]");
         assertQueryFails(
                 "COMMENT ON TABLE unsupported_writer_feature IS 'test comment'",
                 "\\QUnsupported writer features: [generatedColumns]");

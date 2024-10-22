@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
+import io.trino.plugin.deltalake.transactionlog.TypeChange;
 import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
@@ -85,6 +86,7 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
             for (String columnName : getExactColumnNames(metadataEntry)) {
                 columns.add(new DeltaLakeColumn(columnName,
                         columnTypes.get(columnName),
+                        null,
                         columnsNullability.getOrDefault(columnName, true),
                         columnComments.get(columnName),
                         columnsMetadata.get(columnName),
@@ -99,7 +101,7 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
 
         public Builder addColumn(String name, Object type, boolean nullable, @Nullable String comment, @Nullable Map<String, Object> metadata)
         {
-            columns.add(new DeltaLakeColumn(name, type, nullable, comment, metadata, Optional.empty()));
+            columns.add(new DeltaLakeColumn(name, type, null, nullable, comment, metadata, Optional.empty()));
             return this;
         }
 
@@ -111,7 +113,7 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
             int index = columns.indexOf(column);
             verify(index >= 0, "Unexpected column index");
 
-            DeltaLakeColumn newColumn = new DeltaLakeColumn(target, column.type, column.nullable, column.comment, column.metadata, column.generationExpression);
+            DeltaLakeColumn newColumn = new DeltaLakeColumn(target, column.type, null, column.nullable, column.comment, column.metadata, column.generationExpression);
             columns.set(index, newColumn);
             return this;
         }
@@ -127,7 +129,17 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
         public Builder setColumnComment(String name, @Nullable String comment)
         {
             DeltaLakeColumn oldColumn = findColumn(name);
-            DeltaLakeColumn newColumn = new DeltaLakeColumn(oldColumn.name, oldColumn.type, oldColumn.nullable, comment, oldColumn.metadata, oldColumn.generationExpression);
+            DeltaLakeColumn newColumn = new DeltaLakeColumn(oldColumn.name, oldColumn.type, null, oldColumn.nullable, comment, oldColumn.metadata, oldColumn.generationExpression);
+            columns.set(columns.indexOf(oldColumn), newColumn);
+            return this;
+        }
+
+        public Builder setColumnType(String name, Object type, long tableVersion)
+        {
+            DeltaLakeColumn oldColumn = findColumn(name);
+            checkArgument(oldColumn.type instanceof String, "Old column type must be primitive: %s", oldColumn.type);
+            checkArgument(type instanceof String, "New column type must be primitive: %s", type);
+            DeltaLakeColumn newColumn = new DeltaLakeColumn(oldColumn.name, type, new TypeChange((String) oldColumn.type, (String) type, tableVersion), oldColumn.nullable, oldColumn.comment, oldColumn.metadata, oldColumn.generationExpression);
             columns.set(columns.indexOf(oldColumn), newColumn);
             return this;
         }
@@ -136,7 +148,7 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
         {
             DeltaLakeColumn oldColumn = findColumn(name);
             verify(!oldColumn.nullable, "Column '%s' is already nullable", name);
-            DeltaLakeColumn newColumn = new DeltaLakeColumn(oldColumn.name, oldColumn.type, true, oldColumn.comment, oldColumn.metadata, oldColumn.generationExpression);
+            DeltaLakeColumn newColumn = new DeltaLakeColumn(oldColumn.name, oldColumn.type, null, true, oldColumn.comment, oldColumn.metadata, oldColumn.generationExpression);
             columns.set(columns.indexOf(oldColumn), newColumn);
             return this;
         }
@@ -153,7 +165,14 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
         }
     }
 
-    public record DeltaLakeColumn(String name, Object type, boolean nullable, @Nullable String comment, @Nullable Map<String, Object> metadata, Optional<String> generationExpression)
+    public record DeltaLakeColumn(
+            String name,
+            Object type,
+            @Nullable TypeChange typeChange,
+            boolean nullable,
+            @Nullable String comment,
+            @Nullable Map<String, Object> metadata,
+            Optional<String> generationExpression)
     {
         public DeltaLakeColumn
         {
