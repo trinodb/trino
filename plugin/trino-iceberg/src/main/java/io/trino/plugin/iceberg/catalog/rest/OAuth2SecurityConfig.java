@@ -18,6 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import jakarta.validation.constraints.AssertTrue;
 
+import java.net.URI;
 import java.util.Optional;
 
 public class OAuth2SecurityConfig
@@ -25,7 +26,7 @@ public class OAuth2SecurityConfig
     private String credential;
     private String scope;
     private String token;
-    private String serverUri;
+    private URI serverUri;
 
     public Optional<String> getCredential()
     {
@@ -68,16 +69,18 @@ public class OAuth2SecurityConfig
         return this;
     }
 
-    public Optional<String> getServerUri()
+    public Optional<URI> getServerUri()
     {
         return Optional.ofNullable(serverUri);
     }
 
     @Config("iceberg.rest-catalog.oauth2.server-uri")
     @ConfigDescription("The endpoint to retrieve access token from OAuth2 Server")
-    public OAuth2SecurityConfig setServerUri(String serverUri)
+    public OAuth2SecurityConfig setServerUri(String uri)
     {
-        this.serverUri = serverUri;
+        if (uri != null) {
+            this.serverUri = URI.create(uri);
+        }
         return this;
     }
 
