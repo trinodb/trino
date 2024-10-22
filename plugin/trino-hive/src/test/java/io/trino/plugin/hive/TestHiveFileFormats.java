@@ -221,7 +221,7 @@ import static org.joda.time.DateTimeZone.UTC;
 @Test(singleThreaded = true)
 public final class TestHiveFileFormats
 {
-    private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("Mexico/BajaSur");
     private static final float EPSILON = 0.001f;
 
     private static final FileFormatDataSourceStats STATS = new FileFormatDataSourceStats();

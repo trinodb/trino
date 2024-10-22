@@ -26,7 +26,7 @@ public class TestVerifyTrinoTestsTestSetup
     public void testJvmZone()
     {
         // Ensure that the zone defined in the POM is correctly set in the test JVM
-        assertThat(ZoneId.systemDefault().getId()).isEqualTo("America/Bahia_Banderas");
+        assertThat(ZoneId.systemDefault().getId()).isEqualTo("Mexico/BajaSur");
     }
 
     @Test

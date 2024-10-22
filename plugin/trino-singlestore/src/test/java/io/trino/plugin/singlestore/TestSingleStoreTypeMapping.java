@@ -106,7 +106,7 @@ public class TestSingleStoreTypeMapping
     @BeforeAll
     public void setUp()
     {
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        checkState(jvmZone.getId().equals("Mexico/BajaSur"), "This test assumes certain JVM time zone");
         LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
         checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
         LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);

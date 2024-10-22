@@ -104,7 +104,7 @@ public class TestTpcds
     @Test
     public void testDateColumnValuesCorrectness()
     {
-        // make sure date values are correct regardless of the system timezone selected (test are executed with the system timezone set to America/Bahia_Banderas)
+        // make sure date values are correct regardless of the system timezone selected (test are executed with the system timezone set to Mexico/BajaSur)
         assertQuery("SELECT d_date FROM date_dim WHERE d_date_id = 'AAAAAAAAOKJNECAA'", "SELECT DATE '1900-01-02'");
     }
 

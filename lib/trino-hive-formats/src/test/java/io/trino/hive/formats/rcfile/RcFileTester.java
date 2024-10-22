@@ -115,7 +115,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class RcFileTester
 {
-    public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("Mexico/BajaSur");
 
     static {
         HadoopNative.requireHadoopNative();

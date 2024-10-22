@@ -622,7 +622,7 @@ public class TestDeltaLakeConnectorTest
     {
         testTimestampPredicatePushdown("1965-10-31 01:00:08.123 UTC");
         testTimestampPredicatePushdown("1965-10-31 01:00:08.999 UTC");
-        testTimestampPredicatePushdown("1970-01-01 01:13:42.000 America/Bahia_Banderas"); // There is a gap in JVM zone
+        testTimestampPredicatePushdown("1970-01-01 01:13:42.000 Mexico/BajaSur"); // There is a gap in JVM zone
         testTimestampPredicatePushdown("1970-01-01 00:00:00.000 Asia/Kathmandu");
         testTimestampPredicatePushdown("2018-10-28 01:33:17.456 Europe/Vilnius");
         testTimestampPredicatePushdown("9999-12-31 23:59:59.999 UTC");

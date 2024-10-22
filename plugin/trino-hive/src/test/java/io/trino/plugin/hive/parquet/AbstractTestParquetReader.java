@@ -133,7 +133,7 @@ public abstract class AbstractTestParquetReader
     protected AbstractTestParquetReader(ParquetTester tester)
     {
         this.tester = tester;
-        assertThat(DateTimeZone.getDefault()).isEqualTo(DateTimeZone.forID("America/Bahia_Banderas"));
+        assertThat(DateTimeZone.getDefault()).isEqualTo(DateTimeZone.forID("Mexico/BajaSur"));
 
         // Parquet has excessive logging at INFO level
         Logger.getLogger("org.apache.parquet.hadoop").setLevel(Level.WARNING);

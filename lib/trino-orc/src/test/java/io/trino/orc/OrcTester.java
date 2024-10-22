@@ -207,7 +207,7 @@ public class OrcTester
             .withMaxBufferSize(DataSize.of(1, MEGABYTE))
             .withStreamBufferSize(DataSize.of(1, MEGABYTE))
             .withTinyStripeThreshold(DataSize.of(1, MEGABYTE));
-    public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("Mexico/BajaSur");
 
     public enum Format
     {

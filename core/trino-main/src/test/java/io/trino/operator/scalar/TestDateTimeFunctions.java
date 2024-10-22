@@ -92,7 +92,7 @@ public class TestDateTimeFunctions
     public void testCurrentDateTimezone()
     {
         TimeZoneKey kievTimeZoneKey = getTimeZoneKey("Europe/Kiev");
-        TimeZoneKey bahiaBanderasTimeZoneKey = getTimeZoneKey("America/Bahia_Banderas"); // The zone has 'gap' on 1970-01-01
+        TimeZoneKey bajaSurTimeZoneKey = getTimeZoneKey("Mexico/BajaSur"); // The zone has 'gap' on 1970-01-01
         TimeZoneKey montrealTimeZoneKey = getTimeZoneKey("America/Montreal");
         long timeIncrement = TimeUnit.MINUTES.toMillis(53);
         // We expect UTC millis later on so we have to use UTC chronology
@@ -101,7 +101,7 @@ public class TestDateTimeFunctions
                 millis += timeIncrement) {
             Instant instant = Instant.ofEpochMilli(millis);
             assertCurrentDateAtInstant(kievTimeZoneKey, instant);
-            assertCurrentDateAtInstant(bahiaBanderasTimeZoneKey, instant);
+            assertCurrentDateAtInstant(bajaSurTimeZoneKey, instant);
             assertCurrentDateAtInstant(montrealTimeZoneKey, instant);
             assertCurrentDateAtInstant(TestingSession.DEFAULT_TIME_ZONE_KEY, instant);
         }
@@ -397,7 +397,7 @@ public class TestDateTimeFunctions
         assertThat(assertions.function("last_day_of_month", "TIMESTAMP '2001-08-22 03:04:05.321 +07:09'"))
                 .matches("DATE '2001-08-31'");
 
-        ImmutableList.of("+05:45", "+00:00", "-05:45", "Asia/Tokyo", "Europe/London", "America/Los_Angeles", "America/Bahia_Banderas").forEach(timeZone -> {
+        ImmutableList.of("+05:45", "+00:00", "-05:45", "Asia/Tokyo", "Europe/London", "America/Los_Angeles", "Mexico/BajaSur").forEach(timeZone -> {
             assertThat(assertions.function("last_day_of_month", "TIMESTAMP '2018-12-31 17:00:00.000 " + timeZone + "'"))
                     .matches("DATE '2018-12-31'");
 

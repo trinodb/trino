@@ -465,12 +465,12 @@ public abstract class BaseTestJdbcResultSet
                         Time.valueOf(
                                 LocalTime.of(15, 39, 7)).getTime() /* 15:39:07 = 00:39:07 - +01:00 shift + Bahia_Banderas's shift (-8) (modulo 24h which we "un-modulo" below) */
                                 - DAYS.toMillis(1) /* because we use currently 'shifted' representation, not possible to create just using LocalTime */
-                                + HOURS.toMillis(1) /* because there was offset shift on 1970-01-01 in America/Bahia_Banderas */);
+                                + HOURS.toMillis(1) /* because there was offset shift on 1970-01-01 in Mexico/BajaSur */);
                 assertThat(rs.getObject(column)).isEqualTo(someBogusValue); // TODO this should represent TIME '00:39:07 +01:00'
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage("Expected value to be a date but is: 00:39:07+01:00");
-                assertThat(rs.getTime(column)).isEqualTo(someBogusValue); // TODO this should fail, as there no java.sql.Time representation for TIME '00:39:07' in America/Bahia_Banderas
+                assertThat(rs.getTime(column)).isEqualTo(someBogusValue); // TODO this should fail, as there no java.sql.Time representation for TIME '00:39:07' in Mexico/BajaSur
                 assertThatThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                         .hasMessage("Expected column to be a timestamp type but is time(0) with time zone");
@@ -684,7 +684,7 @@ public abstract class BaseTestJdbcResultSet
                         assertThat(rs.getObject(column, ZonedDateTime.class)).isEqualTo(zonedDateTime);
                         assertThatThrownBy(() -> rs.getDate(column))
                                 .isInstanceOf(SQLException.class)
-                                .hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999 America/Bahia_Banderas");
+                                .hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999 Mexico/BajaSur");
                         assertThatThrownBy(() -> rs.getTime(column))
                                 .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
                                 .hasMessage("Expected column to be a time type but is timestamp(12) with time zone");

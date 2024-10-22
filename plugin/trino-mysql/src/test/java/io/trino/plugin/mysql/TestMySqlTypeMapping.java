@@ -92,7 +92,7 @@ public class TestMySqlTypeMapping
     @BeforeAll
     public void setUp()
     {
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        checkState(jvmZone.getId().equals("Mexico/BajaSur"), "This test assumes certain JVM time zone");
         LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
         verify(jvmZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay()).isEmpty());
 
@@ -1113,7 +1113,7 @@ public class TestMySqlTypeMapping
                     "Failed to insert data: Data truncation: Incorrect datetime value: '1969-12-31 16:00:00' for column 'data' at row 1");
             assertQueryFails(
                     "INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '2038-01-19 03:14:08 UTC')", // max + 1
-                    "Failed to insert data: Data truncation: Incorrect datetime value: '2038-01-18 21:14:08' for column 'data' at row 1");
+                    "Failed to insert data: Data truncation: Incorrect datetime value: '2038-01-18 20:14:08' for column 'data' at row 1");
         }
     }
 

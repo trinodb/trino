@@ -171,7 +171,7 @@ public class TestIcebergMigrateProcedure
     @Test
     public void testMigrateTimestampHiveTableInComplexType()
     {
-        String inputValue = "2021-01-01 10:11:12.123"; // Tests are run with America/Bahia_Banderas timezone
+        String inputValue = "2021-01-01 10:11:12.123"; // Tests are run with Mexico/BajaSur timezone
         String expectedValue = "2021-01-01 16:11:12.123000 UTC";
 
         String tableName = "test_migrate_timestamp_complex_type_" + randomNameSuffix();

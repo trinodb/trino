@@ -152,7 +152,7 @@ public class TestPostgreSqlTypeMapping
     @BeforeAll
     public void setUp()
     {
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        checkState(jvmZone.getId().equals("Mexico/BajaSur"), "This test assumes certain JVM time zone");
         checkIsGap(jvmZone, timeGapInJvmZone1);
         checkIsGap(jvmZone, timeGapInJvmZone2);
         checkIsDoubled(jvmZone, timeDoubledInJvmZone);

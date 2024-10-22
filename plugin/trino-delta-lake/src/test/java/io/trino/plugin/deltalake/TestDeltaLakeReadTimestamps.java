@@ -55,7 +55,7 @@ public class TestDeltaLakeReadTimestamps
     private static final Logger log = Logger.get(TestDeltaLakeReadTimestamps.class);
 
     private static final ZoneId UTC = ZoneId.of("UTC");
-    private static final ZoneId TEST_TIME_ZONE = ZoneId.of("America/Bahia_Banderas");
+    private static final ZoneId TEST_TIME_ZONE = ZoneId.of("Mexico/BajaSur");
     private static final DateTimeFormatter EXPECTED_VALUES_FORMATTER = new DateTimeFormatterBuilder()
             // This is equivalent to appendInstant(3) (yyyy-MM-ddTHH:mm:ss.SSS with 3-9 fractional digits),
             // but without a plus sign for years greater than 9999.
