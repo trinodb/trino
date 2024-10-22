@@ -607,11 +607,7 @@ public final class HttpPageBufferClient
 
         HttpPageBufferClient that = (HttpPageBufferClient) o;
 
-        if (!location.equals(that.location)) {
-            return false;
-        }
-
-        return true;
+        return location.equals(that.location);
     }
 
     @Override
