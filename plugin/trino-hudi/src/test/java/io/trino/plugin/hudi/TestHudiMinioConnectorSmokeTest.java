@@ -21,7 +21,7 @@ import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static io.trino.plugin.hudi.testing.HudiTestUtils.COLUMNS_TO_HIDE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
-public class TestHudiCopyOnWriteMinioConnectorSmokeTest
+public class TestHudiMinioConnectorSmokeTest
         extends BaseHudiConnectorSmokeTest
 {
     @Override
