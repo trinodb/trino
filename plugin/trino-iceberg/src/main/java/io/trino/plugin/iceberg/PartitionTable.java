@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -49,10 +47,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -262,10 +258,10 @@ public class PartitionTable
                         io.trino.spi.type.Type trinoType = partitionColumnType.rowType.getFields().get(i).getType();
                         Object value = null;
                         Integer fieldId = partitionColumnType.fieldIds.get(i);
-                        if (partitionStruct.fieldIdToIndex.containsKey(fieldId)) {
+                        if (partitionStruct.getFieldIdToIndex().containsKey(fieldId)) {
                             value = convertIcebergValueToTrino(
                                     partitionTypes.get(i),
-                                    partitionStruct.structLikeWrapper.get().get(partitionStruct.fieldIdToIndex.get(fieldId), partitionColumnClass.get(i)));
+                                    partitionStruct.getStructLikeWrapper().get().get(partitionStruct.getFieldIdToIndex().get(fieldId), partitionColumnClass.get(i)));
                         }
                         writeNativeValue(trinoType, fields.get(i), value);
                     }
@@ -331,43 +327,6 @@ public class PartitionTable
             writeNativeValue(fields.get(2).getType(), fieldBuilders.get(2), nullCount);
             writeNativeValue(fields.get(3).getType(), fieldBuilders.get(3), nanCount);
         });
-    }
-
-    @VisibleForTesting
-    static class StructLikeWrapperWithFieldIdToIndex
-    {
-        private final StructLikeWrapper structLikeWrapper;
-        private final Map<Integer, Integer> fieldIdToIndex;
-
-        public StructLikeWrapperWithFieldIdToIndex(StructLikeWrapper structLikeWrapper, Types.StructType structType)
-        {
-            this.structLikeWrapper = structLikeWrapper;
-            ImmutableMap.Builder<Integer, Integer> fieldIdToIndex = ImmutableMap.builder();
-            List<NestedField> fields = structType.fields();
-            IntStream.range(0, fields.size())
-                    .forEach(i -> fieldIdToIndex.put(fields.get(i).fieldId(), i));
-            this.fieldIdToIndex = fieldIdToIndex.buildOrThrow();
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            StructLikeWrapperWithFieldIdToIndex that = (StructLikeWrapperWithFieldIdToIndex) o;
-            // Due to bogus implementation of equals in StructLikeWrapper https://github.com/apache/iceberg/issues/5064 order here matters.
-            return Objects.equals(fieldIdToIndex, that.fieldIdToIndex) && Objects.equals(structLikeWrapper, that.structLikeWrapper);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(fieldIdToIndex, structLikeWrapper);
-        }
     }
 
     private record IcebergPartitionColumn(RowType rowType, List<Integer> fieldIds) {}
