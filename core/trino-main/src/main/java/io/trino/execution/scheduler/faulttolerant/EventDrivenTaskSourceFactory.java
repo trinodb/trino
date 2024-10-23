@@ -227,8 +227,7 @@ public class EventDrivenTaskSourceFactory
                     standardSplitSizeInBytes,
                     maxArbitraryDistributionTaskSplitCount);
         }
-        if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
-                (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {
+        if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
             return HashDistributionSplitAssigner.create(
                     partitioning.getCatalogHandle(),
                     partitionedSources,
@@ -240,7 +239,9 @@ public class EventDrivenTaskSourceFactory
                     toIntExact(round(getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(session) * nodeManager.getAllNodes().getActiveNodes().size())),
                     Integer.MAX_VALUE); // compute tasks are bounded by the number of partitions anyways
         }
-        if (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
+        if (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION)
+                || partitioning.getCatalogHandle().isPresent()
+                || (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {
             return HashDistributionSplitAssigner.create(
                     partitioning.getCatalogHandle(),
                     partitionedSources,
