@@ -22,6 +22,7 @@ import software.amazon.awssdk.core.internal.async.InputStreamResponseTransformer
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.EOFException;
 import java.io.FileNotFoundException;
@@ -115,6 +116,12 @@ final class S3Input
         }
         catch (NoSuchKeyException _) {
             throw new FileNotFoundException(location.toString());
+        }
+        catch (S3Exception e) {
+            if (e.statusCode() == 404) {
+                throw new FileNotFoundException(location.toString());
+            }
+            throw e;
         }
         catch (SdkException e) {
             throw new IOException("Failed to open S3 file: " + location, e);

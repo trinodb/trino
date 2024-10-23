@@ -165,11 +165,6 @@
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
-            <artifactId>netty-nio-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
             <artifactId>regions</artifactId>
         </dependency>
 
@@ -186,6 +181,12 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -201,6 +202,13 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>utils</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk.crt</groupId>
+            <artifactId>aws-crt</artifactId>
+            <version>0.31.3</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>

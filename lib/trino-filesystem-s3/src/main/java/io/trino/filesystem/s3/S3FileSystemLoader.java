@@ -14,6 +14,7 @@
 package io.trino.filesystem.s3;
 
 import com.google.inject.Inject;
+import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.filesystem.Location;
@@ -27,15 +28,14 @@ import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
-import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
-import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
-import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.S3CrtAsyncClientBuilder;
+import software.amazon.awssdk.services.s3.crt.S3CrtRetryConfiguration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
@@ -59,7 +59,6 @@ final class S3FileSystemLoader
         implements Function<Location, TrinoFileSystemFactory>
 {
     private final Optional<S3SecurityMappingProvider> mappingProvider;
-    private final SdkAsyncHttpClient asyncHttpClient;
     private final SdkHttpClient httpClient;
     private final S3AsyncClientFactory clientFactory;
     private final S3Presigner preSigner;
@@ -81,13 +80,12 @@ final class S3FileSystemLoader
     private S3FileSystemLoader(Optional<S3SecurityMappingProvider> mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
     {
         this.mappingProvider = requireNonNull(mappingProvider, "mappingProvider is null");
-        this.asyncHttpClient = createAsyncHttpClient(config);
         this.httpClient = createHttpClient(config);
 
         requireNonNull(stats, "stats is null");
 
         MetricPublisher metricPublisher = stats.newMetricPublisher();
-        this.clientFactory = s3AsyncClientFactory(asyncHttpClient, openTelemetry, config, metricPublisher);
+        this.clientFactory = s3AsyncClientFactory(config);
 
         this.preSigner = s3PreSigner(httpClient, openTelemetry, config, metricPublisher);
 
@@ -121,7 +119,7 @@ final class S3FileSystemLoader
     @PreDestroy
     public void destroy()
     {
-        try (asyncHttpClient; httpClient) {
+        try (httpClient) {
             uploadExecutor.shutdownNow();
         }
     }
@@ -146,10 +144,8 @@ final class S3FileSystemLoader
         return uploadExecutor;
     }
 
-    private static S3AsyncClientFactory s3AsyncClientFactory(SdkAsyncHttpClient httpClient, OpenTelemetry openTelemetry, S3FileSystemConfig config, MetricPublisher metricPublisher)
+    private static S3AsyncClientFactory s3AsyncClientFactory(S3FileSystemConfig config)
     {
-        ClientOverrideConfiguration overrideConfiguration = createOverrideConfiguration(openTelemetry, config, metricPublisher);
-
         Optional<AwsCredentialsProvider> staticCredentialsProvider = createStaticCredentialsProvider(config);
         Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
         Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
@@ -170,9 +166,25 @@ final class S3FileSystemLoader
             Optional<String> iamRole = mapping.flatMap(S3SecurityMappingResult::iamRole).or(() -> staticIamRole);
             String roleSessionName = mapping.flatMap(S3SecurityMappingResult::roleSessionName).orElse(staticRoleSessionName);
 
-            S3AsyncClientBuilder s3 = S3AsyncClient.builder();
-            s3.overrideConfiguration(overrideConfiguration);
-            s3.httpClient(httpClient);
+            S3CrtAsyncClientBuilder s3 = S3AsyncClient.crtBuilder();
+            s3.retryConfiguration(S3CrtRetryConfiguration.builder()
+                    .numRetries(config.getMaxErrorRetries())
+                    .build());
+            s3.httpConfiguration(httpBuilder -> {
+                httpBuilder.proxyConfiguration(proxyBuilder -> {
+                    if (config.getHttpProxy() != null) {
+                        proxyBuilder
+                                .host(config.getHttpProxy().getHost())
+                                .port(config.getHttpProxy().getPort())
+                                .scheme(config.isHttpProxySecure() ? "https" : "http")
+                                .username(config.getHttpProxyUsername())
+                                .password(config.getHttpProxyPassword());
+                    }
+                });
+                config.getSocketConnectTimeout()
+                        .map(Duration::toJavaTime)
+                        .ifPresent(httpBuilder::connectionTimeout);
+            });
 
             region.map(Region::of).ifPresent(s3::region);
             endpoint.map(URI::create).ifPresent(s3::endpointOverride);
@@ -353,31 +365,6 @@ final class S3FileSystemLoader
                     .password(config.getHttpProxyPassword())
                     .nonProxyHosts(config.getNonProxyHosts())
                     .preemptiveBasicAuthenticationEnabled(config.getHttpProxyPreemptiveBasicProxyAuth())
-                    .build());
-        }
-
-        return client.build();
-    }
-
-    private static SdkAsyncHttpClient createAsyncHttpClient(S3FileSystemConfig config)
-    {
-        NettyNioAsyncHttpClient.Builder client = NettyNioAsyncHttpClient.builder()
-                .maxConcurrency(config.getMaxConnections())
-                .tcpKeepAlive(config.getTcpKeepAlive());
-
-        config.getConnectionTtl().ifPresent(ttl -> client.connectionTimeToLive(ttl.toJavaTime()));
-        config.getConnectionMaxIdleTime().ifPresent(time -> client.connectionMaxIdleTime(time.toJavaTime()));
-        config.getSocketConnectTimeout().ifPresent(timeout -> client.connectionTimeout(timeout.toJavaTime()));
-        config.getSocketReadTimeout().ifPresent(timeout -> client.readTimeout(timeout.toJavaTime()));
-
-        if (config.getHttpProxy() != null) {
-            client.proxyConfiguration(software.amazon.awssdk.http.nio.netty.ProxyConfiguration.builder()
-                            .host(config.getHttpProxy().getHost())
-                            .port(config.getHttpProxy().getPort())
-                            .scheme(config.isHttpProxySecure() ? "https" : "http")
-                    .username(config.getHttpProxyUsername())
-                    .password(config.getHttpProxyPassword())
-                    .nonProxyHosts(config.getNonProxyHosts())
                     .build());
         }
 

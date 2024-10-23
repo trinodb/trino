@@ -24,6 +24,7 @@ import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.EOFException;
 import java.io.FileNotFoundException;
@@ -233,6 +234,12 @@ final class S3InputStream
             var ex = new FileNotFoundException(location.toString());
             ex.initCause(e);
             throw ex;
+        }
+        catch (S3Exception e) {
+            if (e.statusCode() == 404) {
+                throw new FileNotFoundException(location.toString());
+            }
+            throw new TrinoFileSystemException("Failed to open S3 file: " + location, e);
         }
         catch (SdkException e) {
             throw new TrinoFileSystemException("Failed to open S3 file: " + location, e);
