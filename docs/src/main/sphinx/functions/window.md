@@ -45,12 +45,14 @@ Returns the cumulative distribution of a value in a group of values.
 The result is the number of rows preceding or peer with the row in the
 window ordering of the window partition divided by the total number of
 rows in the window partition. Thus, any tie values in the ordering will
-evaluate to the same distribution value.
+evaluate to the same distribution value. Cannot specify window frame 
+for this function.
 :::
 
 :::{function} dense_rank() -> bigint
 Returns the rank of a value in a group of values. This is similar to
 {func}`rank`, except that tie values do not produce gaps in the sequence.
+Cannot specify window frame for this function.
 :::
 
 :::{function} ntile(n) -> bigint
@@ -58,7 +60,8 @@ Divides the rows for each window partition into `n` buckets ranging
 from `1` to at most `n`. Bucket values will differ by at most `1`.
 If the number of rows in the partition does not divide evenly into the
 number of buckets, then the remainder values are distributed one per
-bucket, starting with the first bucket.
+bucket, starting with the first bucket. Cannot specify window frame 
+for this function.
 
 For example, with `6` rows and `4` buckets, the bucket values would
 be as follows: `1` `1` `2` `2` `3` `4`
@@ -67,19 +70,22 @@ be as follows: `1` `1` `2` `2` `3` `4`
 :::{function} percent_rank() -> double
 Returns the percentage ranking of a value in group of values. The result
 is `(r - 1) / (n - 1)` where `r` is the {func}`rank` of the row and
-`n` is the total number of rows in the window partition.
+`n` is the total number of rows in the window partition. Cannot specify
+window frame for this function.
 :::
 
 :::{function} rank() -> bigint
 Returns the rank of a value in a group of values. The rank is one plus
 the number of rows preceding the row that are not peer with the row.
 Thus, tie values in the ordering will produce gaps in the sequence.
-The ranking is performed for each window partition.
+The ranking is performed for each window partition. Cannot specify 
+window frame for this function.
 :::
 
 :::{function} row_number() -> bigint
 Returns a unique, sequential number for each row, starting with one,
 according to the ordering of rows within the window partition.
+Cannot specify window frame for this function.
 :::
 
 ## Value functions

@@ -1642,13 +1642,46 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testWindowAttributesForLagLeadFunctions()
+    public void testAllWindowAttributes()
     {
         assertFails("SELECT lag(x, 2) OVER() FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
                 .hasErrorCode(MISSING_ORDER_BY);
         assertFails("SELECT lag(x, 2) OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
-                .hasErrorCode(INVALID_WINDOW_FRAME);
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:34: Cannot specify window frame for lag function");
+
+        assertFails("SELECT lead(x, 2) OVER() FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(MISSING_ORDER_BY);
+        assertFails("SELECT lead(x, 2) OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:35: Cannot specify window frame for lead function");
+
+        assertFails("SELECT row_number() OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:37: Cannot specify window frame for row_number function");
+
+        assertFails("SELECT rank() OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:31: Cannot specify window frame for rank function");
+
+        assertFails("SELECT percent_rank() OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:39: Cannot specify window frame for percent_rank function");
+
+        assertFails("SELECT dense_rank() OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:37: Cannot specify window frame for dense_rank function");
+
+        assertFails("SELECT cume_dist() OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:36: Cannot specify window frame for cume_dist function");
+
+        assertFails("SELECT ntile(4) OVER(ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1, 2, 3, 4, 5) t(x) ")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:33: Cannot specify window frame for ntile function");
+
     }
+
 
     @Test
     public void testWindowFunctionWithoutOverClause()
