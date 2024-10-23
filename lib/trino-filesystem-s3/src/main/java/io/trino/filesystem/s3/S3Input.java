@@ -18,7 +18,8 @@ import io.trino.filesystem.TrinoInput;
 import software.amazon.awssdk.core.exception.AbortedException;
 import software.amazon.awssdk.core.exception.RetryableException;
 import software.amazon.awssdk.core.exception.SdkException;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.core.internal.async.InputStreamResponseTransformer;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
@@ -27,6 +28,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 
+import static io.trino.filesystem.s3.S3AsyncUtils.joinAndRethrow;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
@@ -34,11 +36,11 @@ final class S3Input
         implements TrinoInput
 {
     private final Location location;
-    private final S3Client client;
+    private final S3AsyncClient client;
     private final GetObjectRequest request;
     private boolean closed;
 
-    public S3Input(Location location, S3Client client, GetObjectRequest request)
+    public S3Input(Location location, S3AsyncClient client, GetObjectRequest request)
     {
         this.location = requireNonNull(location, "location is null");
         this.client = requireNonNull(client, "client is null");
@@ -101,17 +103,15 @@ final class S3Input
             throws IOException
     {
         try {
-            return client.getObject(rangeRequest, (_, inputStream) -> {
-                try {
-                    return inputStream.readNBytes(buffer, offset, length);
-                }
-                catch (AbortedException _) {
-                    throw new InterruptedIOException();
-                }
-                catch (IOException e) {
-                    throw RetryableException.create("Error reading getObject response", e);
-                }
-            });
+            try {
+                return joinAndRethrow(client.getObject(rangeRequest, new InputStreamResponseTransformer<>())).readNBytes(buffer, offset, length);
+            }
+            catch (AbortedException _) {
+                throw new InterruptedIOException();
+            }
+            catch (IOException e) {
+                throw RetryableException.create("Error reading getObject response", e);
+            }
         }
         catch (NoSuchKeyException _) {
             throw new FileNotFoundException(location.toString());

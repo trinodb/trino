@@ -17,7 +17,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.memory.context.AggregatedMemoryContext;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -31,12 +31,12 @@ final class S3OutputFile
         implements TrinoOutputFile
 {
     private final Executor uploadExecutor;
-    private final S3Client client;
+    private final S3AsyncClient client;
     private final S3Context context;
     private final S3Location location;
     private final Optional<EncryptionKey> key;
 
-    public S3OutputFile(Executor uploadExecutor, S3Client client, S3Context context, S3Location location, Optional<EncryptionKey> key)
+    public S3OutputFile(Executor uploadExecutor, S3AsyncClient client, S3Context context, S3Location location, Optional<EncryptionKey> key)
     {
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.client = requireNonNull(client, "client is null");

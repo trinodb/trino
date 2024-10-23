@@ -76,6 +76,10 @@
             <groupId>io.opentelemetry.instrumentation</groupId>
             <artifactId>opentelemetry-aws-sdk-2.2</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
@@ -111,6 +115,11 @@
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.reactivestreams</groupId>
+            <artifactId>reactive-streams</artifactId>
         </dependency>
 
         <dependency>
@@ -156,6 +165,11 @@
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
+            <artifactId>netty-nio-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
             <artifactId>regions</artifactId>
         </dependency>
 
@@ -172,12 +186,6 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>software.amazon.awssdk</groupId>
-                    <artifactId>netty-nio-client</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>

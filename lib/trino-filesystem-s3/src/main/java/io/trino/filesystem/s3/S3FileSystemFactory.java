@@ -19,7 +19,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.util.concurrent.Executor;
@@ -28,7 +28,7 @@ public final class S3FileSystemFactory
         implements TrinoFileSystemFactory
 {
     private final S3FileSystemLoader loader;
-    private final S3Client client;
+    private final S3AsyncClient client;
     private final S3Context context;
     private final Executor uploadExecutor;
     private final S3Presigner preSigner;

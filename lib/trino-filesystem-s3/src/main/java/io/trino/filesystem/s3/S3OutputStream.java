@@ -17,9 +17,9 @@ import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.exception.SdkException;
-import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
@@ -45,6 +45,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.filesystem.s3.S3AsyncUtils.joinAndRethrow;
 import static io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl.getCannedAcl;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
@@ -64,7 +65,7 @@ final class S3OutputStream
     private final List<CompletedPart> parts = new ArrayList<>();
     private final LocalMemoryContext memoryContext;
     private final Executor uploadExecutor;
-    private final S3Client client;
+    private final S3AsyncClient client;
     private final S3Location location;
     private final S3Context context;
     private final int partSize;
@@ -90,7 +91,7 @@ final class S3OutputStream
     // Visibility is ensured by calling get() on inProgressUploadFuture.
     private Optional<String> uploadId = Optional.empty();
 
-    public S3OutputStream(AggregatedMemoryContext memoryContext, Executor uploadExecutor, S3Client client, S3Context context, S3Location location, boolean exclusiveCreate, Optional<EncryptionKey> key)
+    public S3OutputStream(AggregatedMemoryContext memoryContext, Executor uploadExecutor, S3AsyncClient client, S3Context context, S3Location location, boolean exclusiveCreate, Optional<EncryptionKey> key)
     {
         this.memoryContext = memoryContext.newLocalMemoryContext(S3OutputStream.class.getSimpleName());
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
@@ -240,7 +241,7 @@ final class S3OutputStream
             ByteBuffer bytes = ByteBuffer.wrap(buffer, 0, bufferSize);
 
             try {
-                client.putObject(request, RequestBody.fromByteBuffer(bytes));
+                joinAndRethrow(client.putObject(request, AsyncRequestBody.fromByteBuffer(bytes)));
                 return;
             }
             catch (S3Exception e) {
@@ -327,7 +328,7 @@ final class S3OutputStream
                     })
                     .build();
 
-            uploadId = Optional.of(client.createMultipartUpload(request).uploadId());
+            uploadId = Optional.of(joinAndRethrow(client.createMultipartUpload(request)).uploadId());
         }
 
         currentPartNumber++;
@@ -348,7 +349,7 @@ final class S3OutputStream
 
         ByteBuffer bytes = ByteBuffer.wrap(data, 0, length);
 
-        UploadPartResponse response = client.uploadPart(request, RequestBody.fromByteBuffer(bytes));
+        UploadPartResponse response = joinAndRethrow(client.uploadPart(request, AsyncRequestBody.fromByteBuffer(bytes)));
 
         CompletedPart part = CompletedPart.builder()
                 .partNumber(currentPartNumber)
@@ -380,7 +381,7 @@ final class S3OutputStream
                 })
                 .build();
 
-        client.completeMultipartUpload(request);
+        joinAndRethrow(client.completeMultipartUpload(request));
     }
 
     private void abortUpload()
@@ -392,7 +393,7 @@ final class S3OutputStream
                         .key(location.key())
                         .uploadId(id)
                         .build())
-                .ifPresent(client::abortMultipartUpload);
+                .ifPresent(id -> joinAndRethrow(client.abortMultipartUpload(id)));
     }
 
     @SuppressWarnings("ObjectEquality")

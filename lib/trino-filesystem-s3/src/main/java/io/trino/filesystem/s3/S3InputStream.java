@@ -19,7 +19,8 @@ import io.trino.filesystem.TrinoInputStream;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.AbortedException;
 import software.amazon.awssdk.core.exception.SdkException;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.core.internal.async.InputStreamResponseTransformer;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -29,6 +30,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 
+import static io.trino.filesystem.s3.S3AsyncUtils.joinAndRethrow;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -38,7 +40,7 @@ final class S3InputStream
     private static final int MAX_SKIP_BYTES = 1024 * 1024;
 
     private final Location location;
-    private final S3Client client;
+    private final S3AsyncClient client;
     private final GetObjectRequest request;
     private final Long length;
 
@@ -47,7 +49,7 @@ final class S3InputStream
     private long streamPosition;
     private long nextReadPosition;
 
-    public S3InputStream(Location location, S3Client client, GetObjectRequest request, Long length)
+    public S3InputStream(Location location, S3AsyncClient client, GetObjectRequest request, Long length)
     {
         this.location = requireNonNull(location, "location is null");
         this.client = requireNonNull(client, "client is null");
@@ -109,6 +111,9 @@ final class S3InputStream
             throws IOException
     {
         ensureOpen();
+        if (offset < 0 || length < 0) {
+            throw new IndexOutOfBoundsException();
+        }
         seekStream(false);
 
         return reconnectStreamIfNecessary(() -> {
@@ -221,11 +226,7 @@ final class S3InputStream
                 String range = "bytes=%s-".formatted(nextReadPosition);
                 rangeRequest = request.toBuilder().range(range).build();
             }
-            in = client.getObject(rangeRequest);
-            // a workaround for https://github.com/aws/aws-sdk-java-v2/issues/3538
-            if (in.response().contentLength() != null && in.response().contentLength() == 0) {
-                in = new ResponseInputStream<>(in.response(), nullInputStream());
-            }
+            in = joinAndRethrow(client.getObject(rangeRequest, new InputStreamResponseTransformer<>()));
             streamPosition = nextReadPosition;
         }
         catch (NoSuchKeyException e) {
