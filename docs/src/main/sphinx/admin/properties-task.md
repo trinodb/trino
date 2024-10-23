@@ -4,7 +4,9 @@
 
 - **Type:** {ref}`prop-type-integer`
 - **Restrictions:** Must be a power of two
-- **Default value:** The number of physical CPUs of the node, with a minimum value of 2 and a maximum of 32
+- **Default value:** The number of physical CPUs of the node, with a minimum
+  value of 2 and a maximum of 32. Defaults to 8 in
+  [](/admin/fault-tolerant-execution) mode.
 - **Session property:** `task_concurrency`
 
 Default local concurrency for parallel operators, such as joins and aggregations.
