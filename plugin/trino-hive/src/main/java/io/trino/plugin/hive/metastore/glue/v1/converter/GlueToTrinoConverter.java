@@ -68,6 +68,12 @@ public final class GlueToTrinoConverter
 
     private GlueToTrinoConverter() {}
 
+    @SuppressModernizer // Usage of `Table.getStorageDescriptor` is not allowed. Only this method can call that.
+    public static Optional<StorageDescriptor> getStorageDescriptor(com.amazonaws.services.glue.model.Table glueTable)
+    {
+        return Optional.ofNullable(glueTable.getStorageDescriptor());
+    }
+
     @SuppressModernizer // Usage of `Column.getParameters` is not allowed. Only this method can call that.
     public static Map<String, String> getColumnParameters(com.amazonaws.services.glue.model.Column glueColumn)
     {
@@ -144,11 +150,11 @@ public final class GlueToTrinoConverter
                 .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))
                 .setViewExpandedText(Optional.ofNullable(glueTable.getViewExpandedText()));
 
-        StorageDescriptor sd = glueTable.getStorageDescriptor();
+        Optional<StorageDescriptor> storageDescriptor = getStorageDescriptor(glueTable);
 
         if (isIcebergTable(tableParameters) ||
-                (sd == null && isDeltaLakeTable(tableParameters)) ||
-                (sd == null && isTrinoMaterializedView(tableType, tableParameters))) {
+                (storageDescriptor.isEmpty() && isDeltaLakeTable(tableParameters)) ||
+                (storageDescriptor.isEmpty() && isTrinoMaterializedView(tableType, tableParameters))) {
             // Iceberg tables do not need to read the StorageDescriptor field, but we still need to return dummy properties for compatibility
             // Delta Lake tables only need to provide a dummy properties if a StorageDescriptor was not explicitly configured.
             // Materialized views do not need to read the StorageDescriptor, but we still need to return dummy properties for compatibility
@@ -156,9 +162,10 @@ public final class GlueToTrinoConverter
             tableBuilder.getStorageBuilder().setStorageFormat(HiveStorageFormat.PARQUET.toStorageFormat());
         }
         else {
-            if (sd == null) {
+            if (storageDescriptor.isEmpty()) {
                 throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Table StorageDescriptor is null for table '%s' %s".formatted(table, glueTable));
             }
+            StorageDescriptor sd = storageDescriptor.get();
             if (sd.getSerdeInfo() == null) {
                 throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Table SerdeInfo is null for table '%s' %s".formatted(table, glueTable));
             }

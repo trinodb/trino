@@ -55,6 +55,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getStorageDescriptor;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
@@ -155,25 +156,25 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     void testGlueTableLocation()
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_table_location", "AS SELECT 1 x")) {
-            String initialLocation = getGlueTable(table.getName()).getStorageDescriptor().getLocation();
-            assertThat(getGlueTable(table.getName()).getStorageDescriptor().getLocation())
+            String initialLocation = getStorageDescriptor(getGlueTable(table.getName())).orElseThrow().getLocation();
+            assertThat(getStorageDescriptor(getGlueTable(table.getName())).orElseThrow().getLocation())
                     // Using startsWith because the location has UUID suffix
                     .startsWith("%s/%s.db/%s".formatted(schemaPath(), schemaName, table.getName()));
 
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
             Table glueTable = getGlueTable(table.getName());
-            assertThat(glueTable.getStorageDescriptor().getLocation())
+            assertThat(getStorageDescriptor(glueTable).orElseThrow().getLocation())
                     .isEqualTo(initialLocation);
 
             String newTableLocation = initialLocation + "_new";
             updateTableLocation(glueTable, newTableLocation);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 3", 1);
-            assertThat(getGlueTable(table.getName()).getStorageDescriptor().getLocation())
+            assertThat(getStorageDescriptor(getGlueTable(table.getName())).orElseThrow().getLocation())
                     .isEqualTo(newTableLocation);
 
             assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '" + table.getName() + "')");
             assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '" + table.getName() + "', '" + initialLocation + "')");
-            assertThat(getGlueTable(table.getName()).getStorageDescriptor().getLocation())
+            assertThat(getStorageDescriptor(getGlueTable(table.getName())).orElseThrow().getLocation())
                     .isEqualTo(initialLocation);
         }
     }
@@ -189,7 +190,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         TableInput tableInput = new TableInput()
                 .withName(table.getName())
                 .withTableType(getTableType(table))
-                .withStorageDescriptor(table.getStorageDescriptor().withLocation(newLocation))
+                .withStorageDescriptor(getStorageDescriptor(table).orElseThrow().withLocation(newLocation))
                 .withParameters(getTableParameters(table));
         UpdateTableRequest updateTableRequest = new UpdateTableRequest()
                 .withDatabaseName(schemaName)

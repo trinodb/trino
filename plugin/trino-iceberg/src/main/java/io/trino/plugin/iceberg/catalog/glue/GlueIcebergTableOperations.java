@@ -21,6 +21,7 @@ import com.amazonaws.services.glue.model.CreateTableRequest;
 import com.amazonaws.services.glue.model.EntityNotFoundException;
 import com.amazonaws.services.glue.model.InvalidInputException;
 import com.amazonaws.services.glue.model.ResourceNumberLimitExceededException;
+import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.Table;
 import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
@@ -47,6 +48,7 @@ import java.util.function.BiFunction;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getStorageDescriptor;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
@@ -166,7 +168,7 @@ public class GlueIcebergTableOperations
                                 tableName,
                                 owner,
                                 metadata,
-                                table.getStorageDescriptor().getLocation(),
+                                getStorageDescriptor(table).map(StorageDescriptor::getLocation).orElse(null),
                                 newMetadataLocation,
                                 ImmutableMap.of(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation),
                                 cacheTableMetadata));
