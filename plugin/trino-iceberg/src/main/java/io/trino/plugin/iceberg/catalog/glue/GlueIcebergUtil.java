@@ -69,7 +69,7 @@ public final class GlueIcebergUtil
             String tableName,
             Optional<String> owner,
             TableMetadata metadata,
-            String tableLocation,
+            @Nullable String tableLocation,
             String newMetadataLocation,
             Map<String, String> parameters,
             boolean cacheTableMetadata)

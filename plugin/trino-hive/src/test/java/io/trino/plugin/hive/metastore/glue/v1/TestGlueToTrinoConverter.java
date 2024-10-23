@@ -45,6 +45,7 @@ import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.get
 import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getGlueTestTable;
 import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getGlueTestTrinoMaterializedView;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getPartitionParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getStorageDescriptor;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
@@ -97,9 +98,9 @@ public class TestGlueToTrinoConverter
         assertThat(trinoTable.getTableType()).isEqualTo(getTableTypeNullable(testTable));
         assertThat(trinoTable.getOwner().orElse(null)).isEqualTo(testTable.getOwner());
         assertThat(trinoTable.getParameters()).isEqualTo(getTableParameters(testTable));
-        assertColumnList(trinoTable.getDataColumns(), testTable.getStorageDescriptor().getColumns());
+        assertColumnList(trinoTable.getDataColumns(), getStorageDescriptor(testTable).orElseThrow().getColumns());
         assertColumnList(trinoTable.getPartitionColumns(), testTable.getPartitionKeys());
-        assertStorage(trinoTable.getStorage(), testTable.getStorageDescriptor());
+        assertStorage(trinoTable.getStorage(), getStorageDescriptor(testTable).orElseThrow());
         assertThat(trinoTable.getViewOriginalText().get()).isEqualTo(testTable.getViewOriginalText());
         assertThat(trinoTable.getViewExpandedText().get()).isEqualTo(testTable.getViewExpandedText());
     }
@@ -122,7 +123,7 @@ public class TestGlueToTrinoConverter
         assertThat(trinoTable.getDataColumns().get(0).getType()).isEqualTo(HIVE_STRING);
 
         assertColumnList(trinoTable.getPartitionColumns(), glueTable.getPartitionKeys());
-        assertStorage(trinoTable.getStorage(), glueTable.getStorageDescriptor());
+        assertStorage(trinoTable.getStorage(), getStorageDescriptor(glueTable).orElseThrow());
         assertThat(trinoTable.getViewOriginalText().get()).isEqualTo(glueTable.getViewOriginalText());
         assertThat(trinoTable.getViewExpandedText().get()).isEqualTo(glueTable.getViewExpandedText());
     }
@@ -148,7 +149,7 @@ public class TestGlueToTrinoConverter
     public void testConvertTableUppercaseColumnType()
     {
         com.amazonaws.services.glue.model.Column uppercaseColumn = getGlueTestColumn().withType("String");
-        testTable.getStorageDescriptor().setColumns(ImmutableList.of(uppercaseColumn));
+        getStorageDescriptor(testTable).orElseThrow().setColumns(ImmutableList.of(uppercaseColumn));
         GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
     }
 
@@ -211,7 +212,7 @@ public class TestGlueToTrinoConverter
     public void testTableNullParameters()
     {
         testTable.setParameters(null);
-        testTable.getStorageDescriptor().getSerdeInfo().setParameters(null);
+        getStorageDescriptor(testTable).orElseThrow().getSerdeInfo().setParameters(null);
         io.trino.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
         assertThat(trinoTable.getParameters()).isNotNull();
         assertThat(trinoTable.getStorage().getSerdeParameters()).isNotNull();
@@ -230,7 +231,7 @@ public class TestGlueToTrinoConverter
     public void testIcebergTableNonNullStorageDescriptor()
     {
         testTable.setParameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE));
-        assertThat(testTable.getStorageDescriptor()).isNotNull();
+        assertThat(getStorageDescriptor(testTable)).isPresent();
         io.trino.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
         assertThat(trinoTable.getDataColumns().size()).isEqualTo(1);
     }
@@ -248,11 +249,11 @@ public class TestGlueToTrinoConverter
     public void testDeltaTableNonNullStorageDescriptor()
     {
         testTable.setParameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER));
-        assertThat(testTable.getStorageDescriptor()).isNotNull();
+        assertThat(getStorageDescriptor(testTable)).isPresent();
         io.trino.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
         assertThat(trinoTable.getDataColumns().stream()
                 .map(Column::getName)
-                .collect(toImmutableSet())).isEqualTo(testTable.getStorageDescriptor().getColumns().stream()
+                .collect(toImmutableSet())).isEqualTo(getStorageDescriptor(testTable).orElseThrow().getColumns().stream()
                 .map(com.amazonaws.services.glue.model.Column::getName)
                 .collect(toImmutableSet()));
     }
@@ -261,7 +262,7 @@ public class TestGlueToTrinoConverter
     public void testIcebergMaterializedViewNullStorageDescriptor()
     {
         Table testMaterializedView = getGlueTestTrinoMaterializedView(testDatabase.getName());
-        assertThat(testMaterializedView.getStorageDescriptor()).isNull();
+        assertThat(getStorageDescriptor(testMaterializedView)).isEmpty();
         io.trino.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testMaterializedView, testDatabase.getName());
         assertThat(trinoTable.getDataColumns().size()).isEqualTo(1);
     }
