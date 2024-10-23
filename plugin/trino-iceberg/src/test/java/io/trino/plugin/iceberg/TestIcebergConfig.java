@@ -101,7 +101,7 @@ public class TestIcebergConfig
                 .put("iceberg.materialized-views.hide-storage-table", "false")
                 .put("iceberg.materialized-views.storage-schema", "mv_storage_schema")
                 .put("iceberg.register-table-procedure.enabled", "true")
-                .put("iceberg.add_files-procedure.enabled", "true")
+                .put("iceberg.add-files-procedure.enabled", "true")
                 .put("iceberg.sorted-writing-enabled", "false")
                 .put("iceberg.query-partition-filter-required", "true")
                 .put("iceberg.query-partition-filter-required-schemas", "bronze,silver")

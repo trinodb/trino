@@ -39,7 +39,7 @@ final class TestIcebergAddFilesProcedure
         dataDirectory = Files.createTempDirectory("_test_hidden");
         QueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setMetastoreDirectory(dataDirectory.toFile())
-                .addIcebergProperty("iceberg.add_files-procedure.enabled", "true")
+                .addIcebergProperty("iceberg.add-files-procedure.enabled", "true")
                 .build();
 
         queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));

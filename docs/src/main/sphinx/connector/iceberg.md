@@ -168,7 +168,7 @@ implementation is used:
 * - `iceberg.register-table-procedure.enabled`
   - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
   - `false`
-* - `iceberg.add_files-procedure.enabled`
+* - `iceberg.add-files-procedure.enabled`
   - Enable to allow user to call [`add_files` procedure](iceberg-add-files).
   - `false`
 * - `iceberg.query-partition-filter-required`
@@ -590,7 +590,7 @@ nested directories, or `false` to ignore them.
 #### Add files
 
 The connector can add files from tables or locations to an existing table if
-`iceberg.add_files-procedure.enabled` is set to `true` for the catalog.
+`iceberg.add-files-procedure.enabled` is set to `true` for the catalog.
 
 Use the procedure `system.add_files_from_table` to add existing files from a
 Hive table or `system.add_files` to add existing files from a specified location
