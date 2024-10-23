@@ -72,6 +72,7 @@ public final class Standard
     public static final String CONTAINER_CONF_ROOT = "/docker/trino-product-tests/";
     public static final String CONTAINER_TRINO_ETC = CONTAINER_CONF_ROOT + "conf/trino/etc";
     public static final String CONTAINER_TRINO_JVM_CONFIG = CONTAINER_TRINO_ETC + "/jvm.config";
+    public static final String CONTAINER_TRINO_LOGGING_CONFIG = CONTAINER_TRINO_ETC + "/log.properties";
     public static final String CONTAINER_TRINO_SECRETS_CONFIG = CONTAINER_TRINO_ETC + "/secrets.toml";
     public static final String CONTAINER_TRINO_ACCESS_CONTROL_PROPERTIES = CONTAINER_TRINO_ETC + "/access-control.properties";
     public static final String CONTAINER_TRINO_CONFIG_PROPERTIES = CONTAINER_TRINO_ETC + "/config.properties";
@@ -195,6 +196,7 @@ public final class Standard
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/trino-product-tests")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/trino/etc/jvm.config")), CONTAINER_TRINO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/trino/etc/secrets.toml")), CONTAINER_TRINO_SECRETS_CONFIG)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/trino/etc/log.properties")), CONTAINER_TRINO_LOGGING_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/trino-health-check.sh")), CONTAINER_HEALTH_D + "trino-health-check.sh")
                 // the server package is hundreds MB and file system bind is much more efficient
                 .withFileSystemBind(serverPackage.getPath(), "/docker/trino-server.tar.gz", READ_ONLY)
