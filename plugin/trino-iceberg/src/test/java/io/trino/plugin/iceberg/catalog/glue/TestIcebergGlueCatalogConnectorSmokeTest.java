@@ -18,6 +18,9 @@ import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.DeleteTableRequest;
 import com.amazonaws.services.glue.model.EntityNotFoundException;
 import com.amazonaws.services.glue.model.GetTableRequest;
+import com.amazonaws.services.glue.model.Table;
+import com.amazonaws.services.glue.model.TableInput;
+import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
@@ -42,6 +45,7 @@ import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -52,6 +56,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -144,6 +149,52 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     {
         assertThatThrownBy(super::testRenameSchema)
                 .hasStackTraceContaining("renameNamespace is not supported for Iceberg Glue catalogs");
+    }
+
+    @Test
+    void testGlueTableLocation()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_table_location", "AS SELECT 1 x")) {
+            String initialLocation = getGlueTable(table.getName()).getStorageDescriptor().getLocation();
+            assertThat(getGlueTable(table.getName()).getStorageDescriptor().getLocation())
+                    // Using startsWith because the location has UUID suffix
+                    .startsWith("%s/%s.db/%s".formatted(schemaPath(), schemaName, table.getName()));
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            Table glueTable = getGlueTable(table.getName());
+            assertThat(glueTable.getStorageDescriptor().getLocation())
+                    .isEqualTo(initialLocation);
+
+            String newTableLocation = initialLocation + "_new";
+            updateTableLocation(glueTable, newTableLocation);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 3", 1);
+            assertThat(getGlueTable(table.getName()).getStorageDescriptor().getLocation())
+                    .isEqualTo(newTableLocation);
+
+            assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '" + table.getName() + "')");
+            assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '" + table.getName() + "', '" + initialLocation + "')");
+            assertThat(getGlueTable(table.getName()).getStorageDescriptor().getLocation())
+                    .isEqualTo(initialLocation);
+        }
+    }
+
+    private Table getGlueTable(String tableName)
+    {
+        GetTableRequest request = new GetTableRequest().withDatabaseName(schemaName).withName(tableName);
+        return glueClient.getTable(request).getTable();
+    }
+
+    private void updateTableLocation(Table table, String newLocation)
+    {
+        TableInput tableInput = new TableInput()
+                .withName(table.getName())
+                .withTableType(getTableType(table))
+                .withStorageDescriptor(table.getStorageDescriptor().withLocation(newLocation))
+                .withParameters(getTableParameters(table));
+        UpdateTableRequest updateTableRequest = new UpdateTableRequest()
+                .withDatabaseName(schemaName)
+                .withTableInput(tableInput);
+        glueClient.updateTable(updateTableRequest);
     }
 
     @Override

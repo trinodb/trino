@@ -131,7 +131,7 @@ public class GlueIcebergTableOperations
     {
         verify(version.isEmpty(), "commitNewTable called on a table which already exists");
         String newMetadataLocation = writeNewMetadata(metadata, 0);
-        TableInput tableInput = getTableInput(typeManager, tableName, owner, metadata, newMetadataLocation, ImmutableMap.of(), cacheTableMetadata);
+        TableInput tableInput = getTableInput(typeManager, tableName, owner, metadata, metadata.location(), newMetadataLocation, ImmutableMap.of(), cacheTableMetadata);
 
         CreateTableRequest createTableRequest = new CreateTableRequest()
                 .withDatabaseName(database)
@@ -160,12 +160,13 @@ public class GlueIcebergTableOperations
         commitTableUpdate(
                 getTable(database, tableName, false),
                 metadata,
-                (_, newMetadataLocation) ->
+                (table, newMetadataLocation) ->
                         getTableInput(
                                 typeManager,
                                 tableName,
                                 owner,
                                 metadata,
+                                table.getStorageDescriptor().getLocation(),
                                 newMetadataLocation,
                                 ImmutableMap.of(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation),
                                 cacheTableMetadata));
