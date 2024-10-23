@@ -58,7 +58,7 @@ public class TestMemoryManagerConfig
                 .put("fault-tolerant-execution-task-memory-estimation-quantile", "0.7")
                 .put("fault-tolerant-execution-task-runtime-memory-estimation-overhead", "300MB")
                 .put("fault-tolerant-execution-memory-requirement-increase-on-worker-crash-enabled", "false")
-                .put("fault-tolerant-execution-eager-speculative-tasks-node_memory-overcommit", "21GB")
+                .put("fault-tolerant-execution-eager-speculative-tasks-node-memory-overcommit", "21GB")
                 .put("query.low-memory-killer.policy", "none")
                 .put("task.low-memory-killer.policy", "none")
                 .buildOrThrow();

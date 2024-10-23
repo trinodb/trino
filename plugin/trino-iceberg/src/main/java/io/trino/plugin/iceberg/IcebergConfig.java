@@ -52,8 +52,8 @@ public class IcebergConfig
     public static final String EXTENDED_STATISTICS_CONFIG = "iceberg.extended-statistics.enabled";
     public static final String EXTENDED_STATISTICS_DESCRIPTION = "Enable collection (ANALYZE) and use of extended statistics.";
     public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION = "Collect extended statistics during writes";
-    public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire_snapshots.min-retention";
-    public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove_orphan_files.min-retention";
+    public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire-snapshots.min-retention";
+    public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove-orphan-files.min-retention";
 
     private IcebergFileFormat fileFormat = PARQUET;
     private HiveCompressionCodec compressionCodec = ZSTD;
@@ -305,6 +305,7 @@ public class IcebergConfig
     }
 
     @Config(EXPIRE_SNAPSHOTS_MIN_RETENTION)
+    @LegacyConfig("iceberg.expire_snapshots.min-retention")
     @ConfigDescription("Minimal retention period for expire_snapshot procedure")
     public IcebergConfig setExpireSnapshotsMinRetention(Duration expireSnapshotsMinRetention)
     {
@@ -319,6 +320,7 @@ public class IcebergConfig
     }
 
     @Config(REMOVE_ORPHAN_FILES_MIN_RETENTION)
+    @LegacyConfig("iceberg.remove_orphan_files.min-retention")
     @ConfigDescription("Minimal retention period for remove_orphan_files procedure")
     public IcebergConfig setRemoveOrphanFilesMinRetention(Duration removeOrphanFilesMinRetention)
     {
