@@ -367,34 +367,37 @@ public final class HiveQueryRunner
         log.info("Imported %s rows from %s in %s", rows, tableName, nanosSince(start));
     }
 
-    public static void main(String[] args)
-            throws Exception
+    public static final class DefaultHiveQueryRunnerMain
     {
-        Optional<Path> baseDataDir = Optional.empty();
-        if (args.length > 0) {
-            if (args.length != 1) {
-                System.err.println("usage: HiveQueryRunner [baseDataDir]");
-                System.exit(1);
+        public static void main(String[] args)
+                throws Exception
+        {
+            Optional<Path> baseDataDir = Optional.empty();
+            if (args.length > 0) {
+                if (args.length != 1) {
+                    System.err.println("usage: HiveQueryRunner [baseDataDir]");
+                    System.exit(1);
+                }
+
+                Path path = Paths.get(args[0]);
+                createDirectories(path);
+                baseDataDir = Optional.of(path);
             }
 
-            Path path = Paths.get(args[0]);
-            createDirectories(path);
-            baseDataDir = Optional.of(path);
+            QueryRunner queryRunner = builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
+                    .setSkipTimezoneSetup(true)
+                    .setInitialTables(TpchTable.getTables())
+                    .setBaseDataDir(baseDataDir)
+                    .setTpcdsCatalogEnabled(true)
+                    // Uncomment to enable standard column naming (column names to be prefixed with the first letter of the table name, e.g.: o_orderkey vs orderkey)
+                    // and standard column types (decimals vs double for some columns). This will allow running unmodified tpch queries on the cluster.
+                    //.setTpchColumnNaming(ColumnNaming.STANDARD)
+                    //.setTpchDecimalTypeMapping(DecimalTypeMapping.DECIMAL)
+                    .build();
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
-
-        QueryRunner queryRunner = builder()
-                .addCoordinatorProperty("http-server.http.port", "8080")
-                .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
-                .setSkipTimezoneSetup(true)
-                .setInitialTables(TpchTable.getTables())
-                .setBaseDataDir(baseDataDir)
-                .setTpcdsCatalogEnabled(true)
-                // Uncomment to enable standard column naming (column names to be prefixed with the first letter of the table name, e.g.: o_orderkey vs orderkey)
-                // and standard column types (decimals vs double for some columns). This will allow running unmodified tpch queries on the cluster.
-                //.setTpchColumnNaming(ColumnNaming.STANDARD)
-                //.setTpchDecimalTypeMapping(DecimalTypeMapping.DECIMAL)
-                .build();
-        log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
