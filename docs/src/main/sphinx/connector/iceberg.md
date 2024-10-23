@@ -197,12 +197,12 @@ implementation is used:
   - Set to `false` to disable in-memory caching of metadata files on the 
     coordinator. This cache is not used when `fs.cache.enabled` is set to true.
   - `true`
-* - `iceberg.expire_snapshots.min-retention`
+* - `iceberg.expire-snapshots.min-retention`
   -  Minimal retention period for the
      [`expire_snapshot` command](iceberg-expire-snapshots).
      Equivalent session property is `expire_snapshots_min_retention`.
   -  `7d` 
-* - `iceberg.remove_orphan_files.min-retention`
+* - `iceberg.remove-orphan-files.min-retention`
   -  Minimal retention period for the 
      [`remove_orphan_files` command](iceberg-remove-orphan-files).
      Equivalent session property is `remove_orphan_files_min_retention`.
@@ -744,7 +744,7 @@ ALTER TABLE test_table EXECUTE expire_snapshots(retention_threshold => '7d')
 ```
 
 The value for `retention_threshold` must be higher than or equal to
-`iceberg.expire_snapshots.min-retention` in the catalog, otherwise the
+`iceberg.expire-snapshots.min-retention` in the catalog, otherwise the
 procedure fails with a similar message: `Retention specified (1.00d) is shorter
 than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
@@ -764,7 +764,7 @@ ALTER TABLE test_table EXECUTE remove_orphan_files(retention_threshold => '7d')
 ```
 
 The value for `retention_threshold` must be higher than or equal to
-`iceberg.remove_orphan_files.min-retention` in the catalog otherwise the
+`iceberg.remove-orphan-files.min-retention` in the catalog otherwise the
 procedure fails with a similar message: `Retention specified (1.00d) is shorter
 than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
