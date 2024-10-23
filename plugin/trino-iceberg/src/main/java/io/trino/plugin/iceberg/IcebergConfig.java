@@ -261,7 +261,8 @@ public class IcebergConfig
         return addFilesProcedureEnabled;
     }
 
-    @Config("iceberg.add_files-procedure.enabled")
+    @Config("iceberg.add-files-procedure.enabled")
+    @LegacyConfig("iceberg.add_files-procedure.enabled")
     @ConfigDescription("Allow users to call the add_files procedure")
     public IcebergConfig setAddFilesProcedureEnabled(boolean addFilesProcedureEnabled)
     {
