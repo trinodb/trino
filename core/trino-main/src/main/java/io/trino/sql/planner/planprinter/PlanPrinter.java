@@ -24,6 +24,7 @@ import com.google.common.collect.Streams;
 import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.TDigest;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
@@ -35,6 +36,7 @@ import io.trino.execution.QueryStats;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StageStats;
 import io.trino.execution.TableInfo;
+import io.trino.execution.TaskInfo;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -481,9 +483,11 @@ public class PlanPrinter
         if (stageInfo.isPresent()) {
             StageStats stageStats = stageInfo.get().getStageStats();
 
-            double avgPositionsPerTask = stageInfo.get().getTasks().stream().mapToLong(task -> task.stats().getProcessedInputPositions()).average().orElse(Double.NaN);
-            double squaredDifferences = stageInfo.get().getTasks().stream().mapToDouble(task -> Math.pow(task.stats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
-            double sdAmongTasks = Math.sqrt(squaredDifferences / stageInfo.get().getTasks().size());
+            List<TaskInfo> tasks = stageInfo.get().getTasks();
+            double avgPositionsPerTask = tasks.stream().mapToLong(task -> task.stats().getProcessedInputPositions()).average().orElse(Double.NaN);
+            double squaredDifferences = tasks.stream().mapToDouble(task -> Math.pow(task.stats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
+            double sdAmongTasks = Math.sqrt(squaredDifferences / tasks.size());
+            DataSize maxPeakTaskMemoryUsage = tasks.stream().map(task -> task.stats().getPeakUserMemoryReservation()).max(DataSize::compareTo).orElse(DataSize.ofBytes(0));
 
             builder.append(indentString(1))
                     .append(format("CPU: %s, Scheduled: %s, Blocked %s (Input: %s, Output: %s), Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
@@ -498,6 +502,11 @@ public class PlanPrinter
                             formatDouble(sdAmongTasks),
                             formatPositions(stageStats.getOutputPositions()),
                             stageStats.getOutputDataSize()));
+            builder.append(indentString(1))
+                    .append(format("Peak Memory: %s, Tasks count: %d; per task: max: %s\n",
+                            stageStats.getPeakUserMemoryReservation().succinct(),
+                            tasks.size(),
+                            maxPeakTaskMemoryUsage.succinct()));
             Optional<TDigestHistogram> outputBufferUtilization = stageInfo.get().getStageStats().getOutputBufferUtilization();
             if (verbose && outputBufferUtilization.isPresent()) {
                 builder.append(indentString(1))
