@@ -66,20 +66,56 @@ public class TestIntervalYearMonth
         assertThat(assertions.expression("INTERVAL '32767-32767' YEAR TO MONTH"))
                 .isEqualTo(interval(32767, 32767));
 
+        // Invalid literals
         assertThatThrownBy(assertions.expression("INTERVAL '124X' YEAR")::evaluate)
-                .hasMessage("line 1:12: '124X' is not a valid INTERVAL literal");
+                .hasMessage("line 1:12: Invalid INTERVAL YEAR value: 124X");
 
         assertThatThrownBy(assertions.expression("INTERVAL '124-30' YEAR")::evaluate)
-                .hasMessage("line 1:12: '124-30' is not a valid INTERVAL literal");
+                .hasMessage("line 1:12: Invalid INTERVAL YEAR value: 124-30");
 
         assertThatThrownBy(assertions.expression("INTERVAL '124-X' YEAR TO MONTH")::evaluate)
-                .hasMessage("line 1:12: '124-X' is not a valid INTERVAL literal");
+                .hasMessage("line 1:12: Invalid INTERVAL YEAR TO MONTH value: 124-X");
 
         assertThatThrownBy(assertions.expression("INTERVAL '124--30' YEAR TO MONTH")::evaluate)
-                .hasMessage("line 1:12: '124--30' is not a valid INTERVAL literal");
+                .hasMessage("line 1:12: Invalid INTERVAL YEAR TO MONTH value: 124--30");
 
         assertThatThrownBy(assertions.expression("INTERVAL '--124--30' YEAR TO MONTH")::evaluate)
-                .hasMessage("line 1:12: '--124--30' is not a valid INTERVAL literal");
+                .hasMessage("line 1:12: Invalid INTERVAL YEAR TO MONTH value: --124--30");
+
+        // Invalid qualifiers (YEAR TO xxx)
+        assertThatThrownBy(assertions.expression("INTERVAL '32767' YEAR TO YEAR")::evaluate)
+                .hasMessage("line 1:12: Invalid interval qualifier: YEAR to YEAR");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '124-30' YEAR TO DAY")::evaluate)
+                .hasMessage("line 1:12: Invalid interval qualifier: YEAR to DAY");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '124-30' YEAR TO HOUR")::evaluate)
+                .hasMessage("line 1:12: Invalid interval qualifier: YEAR to HOUR");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '124-30' YEAR TO MINUTE")::evaluate)
+                .hasMessage("line 1:12: Invalid interval qualifier: YEAR to MINUTE");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '124-30' YEAR TO SECOND")::evaluate)
+                .hasMessage("line 1:12: Invalid interval qualifier: YEAR to SECOND");
+
+        // Invalid qualifiers (MONTH TO xxx)
+        assertThatThrownBy(assertions.expression("INTERVAL '30' MONTH TO MONTH")::evaluate)
+                .hasMessage("line 1:12: Invalid interval qualifier: MONTH to MONTH");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '124-30' MONTH TO YEAR")::evaluate)
+                .hasMessage("line 1:12: Invalid interval qualifier: MONTH to YEAR");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '124-30' MONTH TO DAY")::evaluate)
+                .hasMessage("line 1:12: Invalid interval qualifier: MONTH to DAY");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '124-30' MONTH TO HOUR")::evaluate)
+                .hasMessage("line 1:12: Invalid interval qualifier: MONTH to HOUR");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '124-30' MONTH TO MINUTE")::evaluate)
+                .hasMessage("line 1:12: Invalid interval qualifier: MONTH to MINUTE");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '124-30' MONTH TO SECOND")::evaluate)
+                .hasMessage("line 1:12: Invalid interval qualifier: MONTH to SECOND");
     }
 
     private static SqlIntervalYearMonth interval(int year, int month)
