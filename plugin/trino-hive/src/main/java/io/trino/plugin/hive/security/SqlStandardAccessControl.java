@@ -317,7 +317,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
     {
-        if (!isAdmin(context)) {
+        if (!isTableOwner(context, tableName)) {
             denySetTableAuthorization(tableName.toString(), principal);
         }
     }
@@ -382,7 +382,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
     {
-        if (!isAdmin(context)) {
+        if (!isTableOwner(context, viewName)) {
             denySetViewAuthorization(viewName.toString(), principal);
         }
     }
