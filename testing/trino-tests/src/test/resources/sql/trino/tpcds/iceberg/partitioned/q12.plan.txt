@@ -7,14 +7,15 @@ local exchange (GATHER, SINGLE, [])
                         final aggregation over (i_category, i_class, i_current_price, i_item_desc, i_item_id)
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, [i_category, i_class, i_current_price, i_item_desc, i_item_id])
-                                    partial aggregation over (i_category, i_class, i_current_price, i_item_desc, i_item_id)
+                                    intermediate aggregation over (i_category, i_class, i_current_price, i_item_desc, i_item_id)
                                         join (INNER, REPLICATED):
-                                            join (INNER, REPLICATED):
-                                                dynamic filter (ws_item_sk::EQUAL, ws_sold_date_sk::EQUAL)
-                                                    scan web_sales
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan date_dim
+                                            partial aggregation over (ws_item_sk)
+                                                join (INNER, REPLICATED):
+                                                    dynamic filter (ws_item_sk::EQUAL, ws_sold_date_sk::EQUAL)
+                                                        scan web_sales
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan item
