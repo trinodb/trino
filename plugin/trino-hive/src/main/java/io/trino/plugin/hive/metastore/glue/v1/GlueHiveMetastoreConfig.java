@@ -48,6 +48,7 @@ public class GlueHiveMetastoreConfig
     private int readStatisticsThreads = 5;
     private int writeStatisticsThreads = 20;
     private boolean assumeCanonicalPartitionKeys;
+    private boolean skipArchive;
 
     public Optional<String> getGlueRegion()
     {
@@ -276,19 +277,6 @@ public class GlueHiveMetastoreConfig
         return this;
     }
 
-    public boolean isAssumeCanonicalPartitionKeys()
-    {
-        return assumeCanonicalPartitionKeys;
-    }
-
-    @Config("hive.metastore.glue.assume-canonical-partition-keys")
-    @ConfigDescription("Allow conversion of non-char types (eg BIGINT, timestamp) to canonical string formats")
-    public GlueHiveMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
-    {
-        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
-        return this;
-    }
-
     @Min(1)
     public int getReadStatisticsThreads()
     {
@@ -314,6 +302,32 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setWriteStatisticsThreads(int writeStatisticsThreads)
     {
         this.writeStatisticsThreads = writeStatisticsThreads;
+        return this;
+    }
+
+    public boolean isAssumeCanonicalPartitionKeys()
+    {
+        return assumeCanonicalPartitionKeys;
+    }
+
+    @Config("hive.metastore.glue.assume-canonical-partition-keys")
+    @ConfigDescription("Allow conversion of non-char types (eg BIGINT, timestamp) to canonical string formats")
+    public GlueHiveMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
+    {
+        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
+    }
+
+    public boolean isSkipArchive()
+    {
+        return skipArchive;
+    }
+
+    @Config("hive.metastore.glue.skip-archive")
+    @ConfigDescription("Skip archiving an old table version when creating a new version in a commit")
+    public GlueHiveMetastoreConfig setSkipArchive(boolean skipArchive)
+    {
+        this.skipArchive = skipArchive;
         return this;
     }
 
