@@ -43,23 +43,14 @@ public class ThriftMetastoreApiStats
             catch (Exception e) {
                 if (e instanceof MetaException) {
                     metastoreExceptions.update(1);
-                    // Need to throw here instead of falling through due to JDK-8059299
-                    totalFailures.update(1);
-                    throw e;
                 }
-
-                if (e instanceof TException) {
+                else if (e instanceof TException) {
                     if (e instanceof TBase) {
                         // This exception is an API response and not a server error
                         throw e;
                     }
-
                     thriftExceptions.update(1);
-                    // Need to throw here instead of falling through due to JDK-8059299
-                    totalFailures.update(1);
-                    throw e;
                 }
-
                 totalFailures.update(1);
                 throw e;
             }
