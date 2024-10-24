@@ -23,46 +23,39 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.json.JsonCodec;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.cassandra.v4_4.CassandraTelemetry;
 import io.trino.plugin.cassandra.ptf.Query;
-import io.trino.spi.TrinoException;
+import io.trino.plugin.cassandra.tls.CassandraTlsModule;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 
-import javax.net.ssl.SSLContext;
-
-import java.io.File;
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
-import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
-import static io.trino.plugin.cassandra.CassandraErrorCode.CASSANDRA_SSL_INITIALIZATION_FAILURE;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraClientModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     private final TypeManager typeManager;
 
@@ -72,7 +65,7 @@ public class CassandraClientModule
     }
 
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         binder.bind(TypeManager.class).toInstance(typeManager);
 
@@ -89,6 +82,11 @@ public class CassandraClientModule
         binder.bind(CassandraTypeManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(CassandraClientConfig.class);
+
+        install(conditionalModule(
+                CassandraClientConfig.class,
+                CassandraClientConfig::isTlsEnabled,
+                new CassandraTlsModule()));
 
         jsonCodecBinder(binder).bindListJsonCodec(ExtraColumnMetadata.class);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
@@ -162,10 +160,6 @@ public class CassandraClientModule
         if (config.getClientSoLinger() != null) {
             driverConfigLoaderBuilder.withInt(DefaultDriverOption.SOCKET_LINGER_INTERVAL, config.getClientSoLinger());
         }
-        if (config.isTlsEnabled()) {
-            buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTruststorePath(), config.getTruststorePassword())
-                    .ifPresent(cqlSessionBuilder::withSslContext);
-        }
 
         if (config.getUsername() != null && config.getPassword() != null) {
             cqlSessionBuilder.withAuthCredentials(config.getUsername(), config.getPassword());
@@ -198,24 +192,6 @@ public class CassandraClientModule
                     return cassandraTelemetry.wrap(cqlSessionBuilder.build());
                 },
                 config.getNoHostAvailableRetryTimeout());
-    }
-
-    private static Optional<SSLContext> buildSslContext(
-            Optional<File> keystorePath,
-            Optional<String> keystorePassword,
-            Optional<File> truststorePath,
-            Optional<String> truststorePassword)
-    {
-        if (keystorePath.isEmpty() && truststorePath.isEmpty()) {
-            return Optional.empty();
-        }
-
-        try {
-            return Optional.of(createSSLContext(keystorePath, keystorePassword, truststorePath, truststorePassword));
-        }
-        catch (GeneralSecurityException | IOException e) {
-            throw new TrinoException(CASSANDRA_SSL_INITIALIZATION_FAILURE, e);
-        }
     }
 
     private static InetSocketAddress createInetSocketAddress(String contactPoint, int port)
