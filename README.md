@@ -117,6 +117,13 @@ IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 If `VM options` doesn't exist in the dialog, you need to select `Modify options`
 and enable `Add VM options`.
 
+To adjust which internal plugins are enabled for the development server, adjust the value of
+`plugin.bundles` in `config.properties`. External plugins can also be added to the server
+by copying them into the `testing/trino-server-dev/etc/plugin` directory.
+Each plugin must be added as its own subdirectory containing all necessary dependencies.
+If you want to expose a custom plugin as a catalog, you'll need to also add a corresponding
+`<catalog_name>.properties` file to `testing/trino-server-dev/etc/catalog`.
+
 ### Running the CLI
 
 Start the CLI to connect to the server and run SQL queries:
