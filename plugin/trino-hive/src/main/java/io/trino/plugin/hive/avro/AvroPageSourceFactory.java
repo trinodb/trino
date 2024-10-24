@@ -122,13 +122,13 @@ public class AvroPageSourceFactory
         }
 
         try {
-            length = min(inputFile.length() - start, length);
             if (estimatedFileSize < BUFFER_SIZE.toBytes()) {
                 try (TrinoInputStream input = inputFile.newStream()) {
                     byte[] data = input.readAllBytes();
                     inputFile = new MemoryInputFile(path, Slices.wrappedBuffer(data));
                 }
             }
+            length = min(inputFile.length() - start, length);
         }
         catch (TrinoException e) {
             throw e;
