@@ -43,10 +43,10 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -246,11 +246,9 @@ public final class ViewReaderUtil
                 RelToTrinoConverter relToTrino = new RelToTrinoConverter(metastoreClient);
                 String trinoSql = relToTrino.convert(rel);
                 RelDataType rowType = rel.getRowType();
-                Map<String, String> columnComments = table.getDataColumns().stream()
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toMap(Column::getName,
-                                column -> column.getComment().orElse(""),
-                                (existing, replacement) -> existing));
+                Map<String, String> columnComments = Stream.concat(table.getDataColumns().stream(), table.getPartitionColumns().stream())
+                        .filter(column -> column.getComment().isPresent())
+                        .collect(Collectors.toMap(Column::getName, column -> column.getComment().get()));
 
                 List<ViewColumn> columns = rowType.getFieldList().stream()
                         .map(field -> new ViewColumn(
