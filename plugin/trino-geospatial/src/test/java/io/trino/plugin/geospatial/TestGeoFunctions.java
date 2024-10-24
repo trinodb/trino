@@ -2163,8 +2163,7 @@ public class TestGeoFunctions
         assertThat(assertions.expression("ST_AsText(ST_GeomFromBinary(wkb))")
                 .binding("wkb", "x'0101000020E6100000000000000000F03F000000000000F03F'"))
                 .hasType(VARCHAR)
-                .isEqualTo("POINT (1 1)"
-                );
+                .isEqualTo("POINT (1 1)");
 
         // array of geometries
         assertThat(assertions.expression("transform(a, wkb -> ST_AsText(ST_GeomFromBinary(wkb)))")
