@@ -276,19 +276,6 @@ public class GlueHiveMetastoreConfig
         return this;
     }
 
-    public boolean isAssumeCanonicalPartitionKeys()
-    {
-        return assumeCanonicalPartitionKeys;
-    }
-
-    @Config("hive.metastore.glue.assume-canonical-partition-keys")
-    @ConfigDescription("Allow conversion of non-char types (eg BIGINT, timestamp) to canonical string formats")
-    public GlueHiveMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
-    {
-        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
-        return this;
-    }
-
     @Min(1)
     public int getReadStatisticsThreads()
     {
@@ -314,6 +301,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setWriteStatisticsThreads(int writeStatisticsThreads)
     {
         this.writeStatisticsThreads = writeStatisticsThreads;
+        return this;
+    }
+
+    public boolean isAssumeCanonicalPartitionKeys()
+    {
+        return assumeCanonicalPartitionKeys;
+    }
+
+    @Config("hive.metastore.glue.assume-canonical-partition-keys")
+    @ConfigDescription("Allow conversion of non-char types (eg BIGINT, timestamp) to canonical string formats")
+    public GlueHiveMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
+    {
+        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         return this;
     }
 
