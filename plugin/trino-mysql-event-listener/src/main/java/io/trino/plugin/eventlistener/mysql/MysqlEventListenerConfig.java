@@ -13,9 +13,13 @@
  */
 package io.trino.plugin.eventlistener.mysql;
 
+import com.mysql.cj.jdbc.Driver;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
+
+import java.sql.SQLException;
 
 public class MysqlEventListenerConfig
 {
@@ -33,5 +37,16 @@ public class MysqlEventListenerConfig
     {
         this.url = url;
         return this;
+    }
+
+    @AssertTrue(message = "Invalid JDBC URL for MySQL event listener")
+    public boolean isValidUrl()
+    {
+        try {
+            return new Driver().acceptsURL(getUrl());
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
