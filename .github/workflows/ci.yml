@@ -370,6 +370,7 @@ jobs:
             !:trino-phoenix5,
             !:trino-pinot,
             !:trino-postgresql,
+            !:trino-pulsar,
             !:trino-redis,
             !:trino-redshift,
             !:trino-resource-group-managers,
@@ -475,6 +476,7 @@ jobs:
             - { modules: plugin/trino-phoenix5 }
             - { modules: plugin/trino-pinot }
             - { modules: plugin/trino-postgresql }
+            - { modules: plugin/trino-pulsar }
             - { modules: plugin/trino-redis }
             - { modules: plugin/trino-redshift }
             - { modules: plugin/trino-redshift, profile: cloud-tests }
@@ -902,6 +904,7 @@ jobs:
             - suite-snowflake
             - suite-hudi
             - suite-ignite
+            - suite-pulsar
           exclude:
             - suite: suite-azure
               ignore exclusion if: >-
