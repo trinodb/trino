@@ -24,8 +24,9 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
 import io.trino.filesystem.encryption.EncryptionKey;
+import reactor.core.publisher.Flux;
 import software.amazon.awssdk.core.exception.SdkException;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
@@ -57,6 +58,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
+import static io.trino.filesystem.s3.S3AsyncUtils.joinAndRethrow;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
 import static java.util.Objects.requireNonNull;
@@ -66,12 +68,12 @@ final class S3FileSystem
         implements TrinoFileSystem
 {
     private final Executor uploadExecutor;
-    private final S3Client client;
+    private final S3AsyncClient client;
     private final S3Presigner preSigner;
     private final S3Context context;
     private final RequestPayer requestPayer;
 
-    public S3FileSystem(Executor uploadExecutor, S3Client client, S3Presigner preSigner, S3Context context)
+    public S3FileSystem(Executor uploadExecutor, S3AsyncClient client, S3Presigner preSigner, S3Context context)
     {
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.client = requireNonNull(client, "client is null");
@@ -142,7 +144,7 @@ final class S3FileSystem
                 .build();
 
         try {
-            client.deleteObject(request);
+            joinAndRethrow(client.deleteObject(request));
         }
         catch (SdkException e) {
             throw new TrinoFileSystemException("Failed to delete file: " + location, e);
@@ -197,7 +199,7 @@ final class S3FileSystem
                         .build();
 
                 try {
-                    DeleteObjectsResponse response = client.deleteObjects(request);
+                    DeleteObjectsResponse response = joinAndRethrow(client.deleteObjects(request));
                     for (S3Error error : response.errors()) {
                         failures.put("s3://%s/%s".formatted(bucket, error.key()), error.code());
                     }
@@ -244,7 +246,7 @@ final class S3FileSystem
                 .build();
 
         try {
-            Stream<S3Object> s3ObjectStream = client.listObjectsV2Paginator(request).contents().stream();
+            Stream<S3Object> s3ObjectStream = Flux.from(client.listObjectsV2Paginator(request).contents()).toStream();
             if (!includeDirectoryObjects) {
                 s3ObjectStream = s3ObjectStream.filter(object -> !object.key().endsWith("/"));
             }
@@ -300,8 +302,8 @@ final class S3FileSystem
                 .build();
 
         try {
-            return client.listObjectsV2Paginator(request)
-                    .commonPrefixes().stream()
+            return Flux.from(client.listObjectsV2Paginator(request).commonPrefixes())
+                    .toStream()
                     .map(CommonPrefix::prefix)
                     .map(baseLocation::appendPath)
                     .collect(toImmutableSet());

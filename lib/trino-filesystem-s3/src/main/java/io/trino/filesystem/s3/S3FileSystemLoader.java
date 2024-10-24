@@ -14,6 +14,7 @@
 package io.trino.filesystem.s3;
 
 import com.google.inject.Inject;
+import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.filesystem.Location;
@@ -29,9 +30,12 @@ import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.S3CrtAsyncClientBuilder;
+import software.amazon.awssdk.services.s3.crt.S3CrtRetryConfiguration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
@@ -56,11 +60,11 @@ final class S3FileSystemLoader
 {
     private final Optional<S3SecurityMappingProvider> mappingProvider;
     private final SdkHttpClient httpClient;
-    private final S3ClientFactory clientFactory;
+    private final S3AsyncClientFactory clientFactory;
     private final S3Presigner preSigner;
     private final S3Context context;
     private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("s3-upload-%s"));
-    private final Map<Optional<S3SecurityMappingResult>, S3Client> clients = new ConcurrentHashMap<>();
+    private final Map<Optional<S3SecurityMappingResult>, S3AsyncClient> clients = new ConcurrentHashMap<>();
 
     @Inject
     public S3FileSystemLoader(S3SecurityMappingProvider mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
@@ -81,7 +85,7 @@ final class S3FileSystemLoader
         requireNonNull(stats, "stats is null");
 
         MetricPublisher metricPublisher = stats.newMetricPublisher();
-        this.clientFactory = s3ClientFactory(httpClient, openTelemetry, config, metricPublisher);
+        this.clientFactory = s3AsyncClientFactory(config);
 
         this.preSigner = s3PreSigner(httpClient, openTelemetry, config, metricPublisher);
 
@@ -101,7 +105,7 @@ final class S3FileSystemLoader
         return identity -> {
             Optional<S3SecurityMappingResult> mapping = mappingProvider.orElseThrow().getMapping(identity, location);
 
-            S3Client client = clients.computeIfAbsent(mapping, _ -> clientFactory.create(mapping));
+            S3AsyncClient client = clients.computeIfAbsent(mapping, _ -> clientFactory.create(mapping));
             S3Context context = this.context.withCredentials(identity);
 
             if (mapping.isPresent() && mapping.get().kmsKeyId().isPresent()) {
@@ -120,7 +124,7 @@ final class S3FileSystemLoader
         }
     }
 
-    S3Client createClient()
+    S3AsyncClient createClient()
     {
         return clientFactory.create(Optional.empty());
     }
@@ -138,6 +142,75 @@ final class S3FileSystemLoader
     Executor uploadExecutor()
     {
         return uploadExecutor;
+    }
+
+    private static S3AsyncClientFactory s3AsyncClientFactory(S3FileSystemConfig config)
+    {
+        Optional<AwsCredentialsProvider> staticCredentialsProvider = createStaticCredentialsProvider(config);
+        Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
+        Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
+        boolean pathStyleAccess = config.isPathStyleAccess();
+        boolean useWebIdentityTokenCredentialsProvider = config.isUseWebIdentityTokenCredentialsProvider();
+        Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
+        String staticRoleSessionName = config.getRoleSessionName();
+        String externalId = config.getExternalId();
+
+        return mapping -> {
+            Optional<AwsCredentialsProvider> credentialsProvider = mapping
+                    .flatMap(S3SecurityMappingResult::credentialsProvider)
+                    .or(() -> staticCredentialsProvider);
+
+            Optional<String> region = mapping.flatMap(S3SecurityMappingResult::region).or(() -> staticRegion);
+            Optional<String> endpoint = mapping.flatMap(S3SecurityMappingResult::endpoint).or(() -> staticEndpoint);
+
+            Optional<String> iamRole = mapping.flatMap(S3SecurityMappingResult::iamRole).or(() -> staticIamRole);
+            String roleSessionName = mapping.flatMap(S3SecurityMappingResult::roleSessionName).orElse(staticRoleSessionName);
+
+            S3CrtAsyncClientBuilder s3 = S3AsyncClient.crtBuilder();
+            s3.retryConfiguration(S3CrtRetryConfiguration.builder()
+                    .numRetries(config.getMaxErrorRetries())
+                    .build());
+            s3.httpConfiguration(httpBuilder -> {
+                httpBuilder.proxyConfiguration(proxyBuilder -> {
+                    if (config.getHttpProxy() != null) {
+                        proxyBuilder
+                                .host(config.getHttpProxy().getHost())
+                                .port(config.getHttpProxy().getPort())
+                                .scheme(config.isHttpProxySecure() ? "https" : "http")
+                                .username(config.getHttpProxyUsername())
+                                .password(config.getHttpProxyPassword());
+                    }
+                });
+                config.getSocketConnectTimeout()
+                        .map(Duration::toJavaTime)
+                        .ifPresent(httpBuilder::connectionTimeout);
+            });
+
+            region.map(Region::of).ifPresent(s3::region);
+            endpoint.map(URI::create).ifPresent(s3::endpointOverride);
+            s3.forcePathStyle(pathStyleAccess);
+
+            if (useWebIdentityTokenCredentialsProvider) {
+                s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
+                        .asyncCredentialUpdateEnabled(true)
+                        .build());
+            }
+            else if (iamRole.isPresent()) {
+                s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
+                        .refreshRequest(request -> request
+                                .roleArn(iamRole.get())
+                                .roleSessionName(roleSessionName)
+                                .externalId(externalId))
+                        .stsClient(createStsClient(config, credentialsProvider))
+                        .asyncCredentialUpdateEnabled(true)
+                        .build());
+            }
+            else {
+                credentialsProvider.ifPresent(s3::credentialsProvider);
+            }
+
+            return s3.build();
+        };
     }
 
     private static S3ClientFactory s3ClientFactory(SdkHttpClient httpClient, OpenTelemetry openTelemetry, S3FileSystemConfig config, MetricPublisher metricPublisher)
@@ -296,6 +369,11 @@ final class S3FileSystemLoader
         }
 
         return client.build();
+    }
+
+    interface S3AsyncClientFactory
+    {
+        S3AsyncClient create(Optional<S3SecurityMappingResult> mapping);
     }
 
     interface S3ClientFactory

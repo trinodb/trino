@@ -29,7 +29,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
 import java.io.IOException;
@@ -46,7 +46,7 @@ public class TestS3Retries
     private static final int MINIO_PROXY_PORT = 1234;
     private static final int TEST_DATA_SIZE = 1024;
 
-    private S3Client s3client;
+    private S3AsyncClient s3client;
 
     private final Closer closer = Closer.create();
 
@@ -77,7 +77,7 @@ public class TestS3Retries
         proxy.toxics()
                 .limitData("broken connection", ToxicDirection.DOWNSTREAM, 700);
 
-        s3client = S3Client.builder()
+        s3client = S3AsyncClient.builder()
                 .endpointOverride(URI.create("http://" + toxiproxy.getHost() + ":" + toxiproxy.getMappedPort(MINIO_PROXY_PORT)))
                 .region(Region.of(Minio.MINIO_REGION))
                 .forcePathStyle(true)
