@@ -16,7 +16,10 @@ package io.trino.plugin.redshift;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.s3.FileSystemS3;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.JdbcTransactionManager;
 import io.trino.plugin.jdbc.TablePropertiesProvider;
@@ -44,7 +47,7 @@ import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static java.util.Objects.requireNonNull;
 
-public class RedshiftConnector
+public class RedshiftUnloadConnector
         implements Connector
 {
     private final LifeCycleManager lifeCycleManager;
@@ -59,7 +62,7 @@ public class RedshiftConnector
     private final RedshiftPageSourceProvider pageSourceProvider;
 
     @Inject
-    public RedshiftConnector(
+    public RedshiftUnloadConnector(
             LifeCycleManager lifeCycleManager,
             ConnectorSplitManager jdbcSplitManager,
             ConnectorRecordSetProvider jdbcRecordSetProvider,
@@ -69,7 +72,9 @@ public class RedshiftConnector
             Set<ConnectorTableFunction> connectorTableFunctions,
             Set<SessionPropertiesProvider> sessionProperties,
             Set<TablePropertiesProvider> tableProperties,
-            JdbcTransactionManager transactionManager)
+            JdbcTransactionManager transactionManager,
+            @FileSystemS3 TrinoFileSystemFactory fileSystemFactory,
+            FileFormatDataSourceStats fileFormatDataSourceStats)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.jdbcSplitManager = requireNonNull(jdbcSplitManager, "jdbcSplitManager is null");
@@ -84,7 +89,7 @@ public class RedshiftConnector
                 .flatMap(tablePropertiesProvider -> tablePropertiesProvider.getTableProperties().stream())
                 .collect(toImmutableList());
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.pageSourceProvider = new RedshiftPageSourceProvider(jdbcRecordSetProvider);
+        this.pageSourceProvider = new RedshiftPageSourceProvider(jdbcRecordSetProvider, fileSystemFactory, fileFormatDataSourceStats);
     }
 
     @Override
