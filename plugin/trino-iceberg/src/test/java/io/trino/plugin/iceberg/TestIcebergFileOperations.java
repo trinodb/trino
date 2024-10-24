@@ -32,7 +32,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.util.ThreadPools;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
@@ -69,6 +68,8 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
+import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Execution(ExecutionMode.SAME_THREAD)
@@ -76,7 +77,7 @@ public class TestIcebergFileOperations
         extends AbstractTestQueryFramework
 {
     private static final int MAX_PREFIXES_COUNT = 10;
-    private static final int METADATA_PREVIOUS_VERSIONS_MAX = 5;
+    private static final int METADATA_PREVIOUS_VERSIONS_COUNT = 5;
 
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
@@ -923,8 +924,8 @@ public class TestIcebergFileOperations
         assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT, _varchar VARCHAR)");
         Table icebergTable = IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, "iceberg", "test_schema");
         icebergTable.updateProperties()
-                .set(TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED, "true")
-                .set(TableProperties.METADATA_PREVIOUS_VERSIONS_MAX, String.valueOf(METADATA_PREVIOUS_VERSIONS_MAX))
+                .set(METADATA_DELETE_AFTER_COMMIT_ENABLED, "true")
+                .set(METADATA_PREVIOUS_VERSIONS_MAX, String.valueOf(METADATA_PREVIOUS_VERSIONS_COUNT))
                 .commit();
 
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
@@ -951,7 +952,7 @@ public class TestIcebergFileOperations
             }
         }
         assertThat(oldMetadataFiles).isNotIn(currentMetadataFiles);
-        assertThat(count).isEqualTo(1 + METADATA_PREVIOUS_VERSIONS_MAX);
+        assertThat(count).isEqualTo(1 + METADATA_PREVIOUS_VERSIONS_COUNT);
     }
 
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<FileOperation> expectedAccesses)
