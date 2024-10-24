@@ -4,6 +4,7 @@
 
 * Enable HTTP/2 for internal communication by default. The previous behavior can
   be restored by setting `internal-communication.http2.enabled` to `false`. ({issue}`21793`)
+* Support connecting over HTTP/2 for client drivers and client applications. ({issue}`21793`)
 * Add {func}`timezone` functions to extract the timezone identifier from from a
   `timestamp(p) with time zone` or `time(p) with time zone`. ({issue}`20893`)
 * Include table functions with `SHOW FUNCTIONS` output. ({issue}`12550`)
@@ -11,6 +12,14 @@
 * Disallow the window framing clause for {func}`ntile`, {func}`rank`,
   {func}`dense_rank`, {func}`percent_rank`,  {func}`cume_dist`, and
   {func}`row_number`. ({issue}`23742`)
+
+## JDBC driver
+
+* Support connecting over HTTP/2. ({issue}`21793`)
+
+## CLI
+
+* Support connecting over HTTP/2. ({issue}`21793`)
 
 ## ClickHouse connector
 
