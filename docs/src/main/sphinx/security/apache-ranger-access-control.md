@@ -125,7 +125,7 @@ The following table lists the configuration properties for the Ranger access con
   <property>
     <name>xasecure.policymgr.clientssl.keystore</name>
     <value></value>
-    <description>Path to keystore file</description>
+    <description>Path to keystore file. Only required for two-way SSL. This property should not be included for one-way SSL</description>
   </property>
 
   <property>
@@ -137,7 +137,7 @@ The following table lists the configuration properties for the Ranger access con
   <property>
     <name>xasecure.policymgr.clientssl.keystore.credential.file</name>
     <value></value>
-    <description>Path to credential file for the keystore; the credential should be in alias sslKeyStore</description>
+    <description>Path to credential file for the keystore; the credential should be in alias sslKeyStore. Only required for two-way SSL. This property should not be included for one-way SSL</description>
   </property>
 
   <property>
