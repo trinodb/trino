@@ -575,7 +575,7 @@ public class TestLogicalPlanner
     @Test
     public void testLeftConvertedToInnerInequalityJoinNoEquiJoinConjuncts()
     {
-        assertPlan("SELECT 1 FROM orders o LEFT JOIN lineitem l ON o.orderkey < l.orderkey WHERE l.orderkey IS NOT NULL",
+        assertPlan("SELECT 1 FROM orders o LEFT JOIN lineitem l ON o.orderkey < l.orderkey WHERE l.orderkey != 123",
                 anyTree(
                         filter(
                                 new Comparison(LESS_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
@@ -587,7 +587,7 @@ public class TestLogicalPlanner
                                         .right(
                                                 any(
                                                         filter(
-                                                                not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "L_ORDERKEY"))),
+                                                                new Comparison(NOT_EQUAL, new Reference(BIGINT, "L_ORDERKEY"), new Constant(BIGINT, 123L)),
                                                                 tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))))));
     }
 
@@ -1681,18 +1681,15 @@ public class TestLogicalPlanner
                                                                 .left(
                                                                         assignUniqueId(
                                                                                 "unique",
-                                                                                filter(
-                                                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "region_regionkey"))),
+                                                                                any(
                                                                                         tableScan("region", ImmutableMap.of(
                                                                                                 "region_regionkey", "regionkey",
                                                                                                 "region_name", "name")))))
                                                                 .right(
                                                                         any(
-                                                                                filter(
-                                                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "nation_regionkey"))),
-                                                                                        tableScan("nation", ImmutableMap.of(
+                                                                                tableScan("nation", ImmutableMap.of(
                                                                                                 "nation_name", "name",
-                                                                                                "nation_regionkey", "regionkey"))))))))))));
+                                                                                                "nation_regionkey", "regionkey")))))))))));
     }
 
     @Test
