@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```text
-[ WITH FUNCTION sql_routines ]
+[ WITH [ SESSION name = expression [, ...] ] [ FUNCTION sql_routines ] ]
 [ WITH [ RECURSIVE ] with_query [, ...] ]
 SELECT [ ALL | DISTINCT ] select_expression [, ...]
 [ FROM from_item [, ...] ]

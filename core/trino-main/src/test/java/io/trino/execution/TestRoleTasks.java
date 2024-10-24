@@ -176,6 +176,7 @@ public class TestRoleTasks
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
         task.execute((T) parser.createStatement(statement), stateMachine, ImmutableList.of(), WarningCollector.NOOP);
         return stateMachine;

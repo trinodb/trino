@@ -178,7 +178,7 @@ statement
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSession
     | SET SESSION AUTHORIZATION authorizationUser                      #setSessionAuthorization
     | RESET SESSION AUTHORIZATION                                      #resetSessionAuthorization
-    | SET SESSION qualifiedName EQ expression                          #setSession
+    | SET SESSION sessionProperty                                      #setSession
     | RESET SESSION qualifiedName                                      #resetSession
     | START TRANSACTION (transactionMode (',' transactionMode)*)?      #startTransaction
     | COMMIT WORK?                                                     #commit
@@ -199,11 +199,19 @@ statement
     ;
 
 rootQuery
-    : withFunction? query
+    : queryScoped? query
+    ;
+
+queryScoped
+    : WITH (SESSION sessionProperty (',' sessionProperty)*)? withFunction?
     ;
 
 withFunction
-    : WITH functionSpecification (',' functionSpecification)*
+    : functionSpecification (',' functionSpecification)*
+    ;
+
+sessionProperty
+    : qualifiedName EQ expression
     ;
 
 query
