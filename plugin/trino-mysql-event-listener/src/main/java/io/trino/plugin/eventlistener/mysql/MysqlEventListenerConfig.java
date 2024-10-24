@@ -14,6 +14,7 @@
 package io.trino.plugin.eventlistener.mysql;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import jakarta.validation.constraints.NotNull;
 
 public class MysqlEventListenerConfig
@@ -26,6 +27,7 @@ public class MysqlEventListenerConfig
         return url;
     }
 
+    @ConfigSecuritySensitive
     @Config("mysql-event-listener.db.url")
     public MysqlEventListenerConfig setUrl(String url)
     {
