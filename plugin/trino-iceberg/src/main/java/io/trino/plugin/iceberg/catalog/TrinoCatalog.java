@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog;
 
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
+import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
@@ -196,4 +197,9 @@ public interface TrinoCatalog
     void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment);
 
     Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName, String hiveCatalogName);
+
+    default Set<String> getUpdatableTableProperties()
+    {
+        return IcebergMetadata.UPDATABLE_TABLE_PROPERTIES;
+    }
 }
