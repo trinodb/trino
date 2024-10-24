@@ -1003,6 +1003,12 @@ public abstract class BaseClickHouseTypeMapping
             Session session = Session.builder(getSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                     .build();
+            SqlDataTypeTest.create()
+                    .addRoundTrip("DateTime('Asia/Kathmandu')", "timestamp '2024-01-01 12:34:56'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2024-01-01 05:19:56 +05:45'")
+                    .addRoundTrip("DateTime('Asia/Kathmandu')", "timestamp '2024-01-01 12:34:56 Asia/Kathmandu'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2024-01-01 12:34:56 +05:45'")
+                    .addRoundTrip("DateTime('Asia/Kathmandu')", "timestamp '2024-01-01 12:34:56 +00:00'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2024-01-01 18:19:56 +05:45'")
+                    .addRoundTrip("DateTime('Asia/Kathmandu')", "timestamp '2024-01-01 12:34:56 -01:00'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2024-01-01 19:19:56 +05:45'")
+                    .execute(getQueryRunner(), session, clickhouseCreateAndTrinoInsert("tpch.test_timestamp_with_time_zone"));
 
             dateTimeWithTimeZoneTest(clickhouseDateTimeInputTypeFactory("datetime"))
                     .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.datetime_tz"));
