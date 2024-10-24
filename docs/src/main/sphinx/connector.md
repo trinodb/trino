@@ -15,6 +15,7 @@ Cassandra       <connector/cassandra>
 ClickHouse      <connector/clickhouse>
 Delta Lake      <connector/delta-lake>
 Druid           <connector/druid>
+DuckDB          <connector/duckdb>
 Elasticsearch   <connector/elasticsearch>
 Exasol          <connector/exasol>
 Google Sheets   <connector/googlesheets>
