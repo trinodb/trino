@@ -399,7 +399,7 @@ public class OutputSpoolingOperatorFactory
         public OutputSpoolingInfo
         {
             requireNonNull(spoolingWallTime, "spoolingWallTime is null");
-            requireNonNull(spoolingWallTime, "spoolingWallTime is null");
+            requireNonNull(spoolingCpuTime, "spoolingCpuTime is null");
         }
 
         @Override
