@@ -45,6 +45,7 @@ import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_PREVIEW_AUTH_INFO;
 import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.util.Objects.requireNonNull;
 
@@ -60,6 +61,7 @@ public class OAuth2WebUiAuthenticationFilter
     private final Optional<Duration> tokenExpiration;
     private final UserMapping userMapping;
     private final Optional<String> groupsField;
+    private Identity authenticatedIdentity;
 
     @Inject
     public OAuth2WebUiAuthenticationFilter(OAuth2Service service, OAuth2Client client, TokenPairSerializer tokenPairSerializer, @ForRefreshTokens Optional<Duration> tokenExpiration, OAuth2Config oauth2Config)
@@ -92,6 +94,11 @@ public class OAuth2WebUiAuthenticationFilter
             request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(DISABLED_LOCATION)).build());
             return;
         }
+
+        if (path.equals(UI_PREVIEW_AUTH_INFO)) {
+            return;
+        }
+
         Optional<TokenPair> tokenPair = getTokenPair(request);
         Optional<Map<String, Object>> claims = tokenPair
                 .filter(this::tokenNotExpired)
@@ -113,7 +120,8 @@ public class OAuth2WebUiAuthenticationFilter
             builder.withPrincipal(new BasicPrincipal(principalName));
             groupsField.flatMap(field -> Optional.ofNullable((List<String>) claims.get().get(field)))
                     .ifPresent(groups -> builder.withGroups(ImmutableSet.copyOf(groups)));
-            setAuthenticatedIdentity(request, builder.build());
+            authenticatedIdentity = builder.build();
+            setAuthenticatedIdentity(request, authenticatedIdentity);
         }
         catch (UserMappingException e) {
             sendErrorMessage(request, UNAUTHORIZED, firstNonNull(e.getMessage(), "Unauthorized"));
@@ -193,5 +201,18 @@ public class OAuth2WebUiAuthenticationFilter
     private static boolean isValidPrincipal(Object principal)
     {
         return principal instanceof String && !((String) principal).isEmpty();
+    }
+
+    public Optional<String> getAuthenticatedUsername()
+    {
+        if (authenticatedIdentity != null) {
+            return Optional.of(authenticatedIdentity.getUser());
+        }
+        return Optional.empty();
+    }
+
+    public void clearAuthenticatedIdentity()
+    {
+        authenticatedIdentity = null;
     }
 }

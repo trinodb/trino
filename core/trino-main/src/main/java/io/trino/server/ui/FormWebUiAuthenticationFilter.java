@@ -63,6 +63,10 @@ public class FormWebUiAuthenticationFilter
     public static final String UI_LOCATION = "/ui/";
     static final String UI_LOGIN = "/ui/login";
     static final String UI_LOGOUT = "/ui/logout";
+    static final String UI_PREVIEW_LOCATION = "/ui/preview/";
+    static final String UI_PREVIEW_AUTH_INFO = "/ui/preview/auth/info";
+    static final String UI_PREVIEW_LOGIN = "/ui/preview/auth/login";
+    static final String UI_PREVIEW_LOGOUT = "/ui/preview/auth/logout";
 
     private final JwtParser jwtParser;
     private final Function<String, String> jwtGenerator;
@@ -116,7 +120,8 @@ public class FormWebUiAuthenticationFilter
         }
 
         // login and logout resource is not visible to protocol authenticators
-        if ((path.equals(UI_LOGIN) && request.getMethod().equals("POST")) || path.equals(UI_LOGOUT)) {
+        if (((path.equals(UI_LOGIN) && request.getMethod().equals("POST")) || path.equals(UI_LOGOUT)) ||
+                ((path.equals(UI_PREVIEW_LOGIN) && request.getMethod().equals("POST")) || path.equals(UI_PREVIEW_LOGOUT) || path.equals(UI_PREVIEW_AUTH_INFO))) {
             return;
         }
 
@@ -143,7 +148,7 @@ public class FormWebUiAuthenticationFilter
             return;
         }
 
-        if (path.equals(LOGIN_FORM)) {
+        if (path.equals(LOGIN_FORM) || path.equals(UI_PREVIEW_LOCATION)) {
             return;
         }
 
@@ -227,12 +232,16 @@ public class FormWebUiAuthenticationFilter
                 .map(user -> createAuthenticationCookie(user, secure));
     }
 
-    private Optional<String> getAuthenticatedUsername(ContainerRequestContext request)
+    public Optional<String> getAuthenticatedUsername(ContainerRequestContext request)
     {
         try {
-            return MULTIPART_COOKIE.read(request.getCookies()).map(this::parseJwt);
+            Optional<String> authenticatedUsername = MULTIPART_COOKIE.read(request.getCookies()).map(this::parseJwt);
+            if (authenticatedUsername.isEmpty() && authenticator.isPresent()) {
+                authenticatedUsername = Optional.of(authenticator.get().authenticate(request).getUser());
+            }
+            return authenticatedUsername;
         }
-        catch (JwtException e) {
+        catch (AuthenticationException | JwtException e) {
             return Optional.empty();
         }
         catch (RuntimeException e) {

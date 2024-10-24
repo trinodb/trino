@@ -18,14 +18,25 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 
 public class FixedUiAuthenticatorModule
         implements Module
 {
+    private final boolean isPreviewEnabled;
+
+    public FixedUiAuthenticatorModule(boolean isPreviewEnabled)
+    {
+        this.isPreviewEnabled = isPreviewEnabled;
+    }
+
     @Override
     public void configure(Binder binder)
     {
         binder.bind(WebUiAuthenticationFilter.class).to(FixedUserWebUiAuthenticationFilter.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(FixedUserWebUiConfig.class);
+        if (isPreviewEnabled) {
+            jaxrsBinder(binder).bind(FixedUserPreviewResource.class);
+        }
     }
 }
