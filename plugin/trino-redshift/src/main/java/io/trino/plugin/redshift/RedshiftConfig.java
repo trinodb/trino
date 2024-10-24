@@ -28,6 +28,10 @@ public class RedshiftConfig
 {
     private Integer fetchSize;
 
+    private String unloadLocation;
+    private String unloadOptions;
+    private String iamRole;
+
     public Optional<@Min(0) Integer> getFetchSize()
     {
         return Optional.ofNullable(fetchSize);
@@ -38,6 +42,45 @@ public class RedshiftConfig
     public RedshiftConfig setFetchSize(Integer fetchSize)
     {
         this.fetchSize = fetchSize;
+        return this;
+    }
+
+    public Optional<String> getUnloadLocation()
+    {
+        return Optional.ofNullable(unloadLocation);
+    }
+
+    @Config("redshift.unload-location")
+    @ConfigDescription("A writeable location in Amazon S3, to be used for unloaded data when reading")
+    public RedshiftConfig setUnloadLocation(String unloadLocation)
+    {
+        this.unloadLocation = unloadLocation;
+        return this;
+    }
+
+    public Optional<String> getUnloadOptions()
+    {
+        return Optional.ofNullable(unloadOptions);
+    }
+
+    @Config("redshift.unload-options")
+    @ConfigDescription("Extra options to append to the Redshift UNLOAD command")
+    public RedshiftConfig setUnloadOptions(String unloadOptions)
+    {
+        this.unloadOptions = unloadOptions;
+        return this;
+    }
+
+    public Optional<String> getIamRole()
+    {
+        return Optional.ofNullable(iamRole);
+    }
+
+    @Config("redshift.iam-role")
+    @ConfigDescription("Fully specified ARN of the IAM Role attached to the Redshift cluster")
+    public RedshiftConfig setIamRole(String iamRole)
+    {
+        this.iamRole = iamRole;
         return this;
     }
 }
