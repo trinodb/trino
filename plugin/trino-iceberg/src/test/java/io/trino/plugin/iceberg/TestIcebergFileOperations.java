@@ -942,17 +942,15 @@ public class TestIcebergFileOperations
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
         }
         Set<String> currentMetadataFiles = new HashSet<>();
-        int count = 0;
         FileIterator fileIteratorNew = trinoFileSystem.listFiles(Location.of(icebergTable.location()));
         while (fileIteratorNew.hasNext()) {
             FileEntry entry = fileIteratorNew.next();
             if (entry.location().path().endsWith("metadata.json")) {
                 currentMetadataFiles.add(entry.location().path());
-                count++;
             }
         }
         assertThat(oldMetadataFiles).isNotIn(currentMetadataFiles);
-        assertThat(count).isEqualTo(1 + METADATA_PREVIOUS_VERSIONS_COUNT);
+        assertThat(currentMetadataFiles.size()).isEqualTo(1 + METADATA_PREVIOUS_VERSIONS_COUNT);
     }
 
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<FileOperation> expectedAccesses)
