@@ -56,7 +56,7 @@ public final class RedshiftQueryRunner
     private static final Logger log = Logger.get(RedshiftQueryRunner.class);
 
     private static final String S3_TPCH_TABLES_ROOT = requiredNonEmptySystemProperty("test.redshift.s3.tpch.tables.root");
-    private static final String IAM_ROLE = requiredNonEmptySystemProperty("test.redshift.iam.role");
+    public static final String IAM_ROLE = requiredNonEmptySystemProperty("test.redshift.iam.role");
 
     private static final String TEST_CATALOG = "redshift";
     private static final String CONNECTOR_NAME = "redshift";
