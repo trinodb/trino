@@ -49,6 +49,7 @@ import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -91,6 +92,7 @@ public class CassandraClientModule
 
         jsonCodecBinder(binder).bindListJsonCodec(ExtraColumnMetadata.class);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+        newSetBinder(binder, CassandraSessionConfigurator.class);
 
         closingBinder(binder).registerCloseable(CassandraSession.class);
     }
@@ -119,6 +121,7 @@ public class CassandraClientModule
     public static CassandraSession createCassandraSession(
             CassandraTypeManager cassandraTypeManager,
             CassandraClientConfig config,
+            Set<CassandraSessionConfigurator> sessionConfigurators,
             JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
             OpenTelemetry openTelemetry)
     {
@@ -180,6 +183,10 @@ public class CassandraClientModule
         }
 
         cqlSessionBuilder.withConfigLoader(driverConfigLoaderBuilder.build());
+
+        for (CassandraSessionConfigurator sessionConfigurator : sessionConfigurators) {
+            sessionConfigurator.configure(cqlSessionBuilder);
+        }
 
         return new CassandraSession(
                 cassandraTypeManager,
