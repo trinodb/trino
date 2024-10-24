@@ -25,3 +25,7 @@ The Trino project maintains the following other client libraries:
 
 In addition, other communities and vendors provide [numerous other client
 libraries, drivers, and applications](https://trino.io/ecosystem/client)
+
+Configure support for the [spooling protocol on the cluster](prop-protocol-spooling)
+and your client to improve performance for client interactions with higher data
+transfer demands.
