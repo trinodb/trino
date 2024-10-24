@@ -40,6 +40,8 @@ public class OAuth2SecurityProperties
                 });
         securityConfig.getToken().ifPresent(
                 value -> propertiesBuilder.put(OAuth2Properties.TOKEN, value));
+        securityConfig.getServerUri().ifPresent(
+                value -> propertiesBuilder.put(OAuth2Properties.OAUTH2_SERVER_URI, value.toString()));
 
         this.securityProperties = propertiesBuilder.buildOrThrow();
     }
