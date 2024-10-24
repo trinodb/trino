@@ -366,5 +366,8 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetEntityAuthorization(SystemSecurityContext context, String ownedKind, List<String> name, TrinoPrincipal principal) {}
+
+    @Override
     public void shutdown() {}
 }
