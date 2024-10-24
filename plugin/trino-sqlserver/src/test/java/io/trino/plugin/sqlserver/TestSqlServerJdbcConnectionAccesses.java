@@ -92,9 +92,9 @@ public class TestSqlServerJdbcConnectionAccesses
         assertJdbcConnections("SELECT * FROM nation LIMIT 1", 5, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation ORDER BY nationkey LIMIT 1", 5, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 5, Optional.empty());
-        assertJdbcConnections("SELECT avg(nationkey) FROM nation", 4, Optional.empty());
+        assertJdbcConnections("SELECT avg(nationkey) FROM nation", 5, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation, region", 6, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation n, region r WHERE n.regionkey = r.regionkey", 9, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation n, region r WHERE n.regionkey = r.regionkey", 11, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation JOIN region USING(regionkey)", 10, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.schemata", 1, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.tables", 1, Optional.empty());
@@ -103,9 +103,9 @@ public class TestSqlServerJdbcConnectionAccesses
         assertJdbcConnections("SELECT * FROM TABLE (system.query(query => 'SELECT * FROM dbo.nation'))", 2, Optional.empty());
         assertJdbcConnections("CREATE TABLE copy_of_nation AS SELECT * FROM nation", 15, Optional.empty());
         assertJdbcConnections("INSERT INTO copy_of_nation SELECT * FROM nation", 14, Optional.empty());
-        assertJdbcConnections("DELETE FROM copy_of_nation WHERE nationkey = 3", 6, Optional.empty());
-        assertJdbcConnections("UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 5, Optional.empty());
-        assertJdbcConnections("MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 6, Optional.of(MODIFYING_ROWS_MESSAGE));
+        assertJdbcConnections("DELETE FROM copy_of_nation WHERE nationkey = 3", 7, Optional.empty());
+        assertJdbcConnections("UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 6, Optional.empty());
+        assertJdbcConnections("MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 7, Optional.of(MODIFYING_ROWS_MESSAGE));
         assertJdbcConnections("DROP TABLE copy_of_nation", 2, Optional.empty());
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 2, Optional.empty());

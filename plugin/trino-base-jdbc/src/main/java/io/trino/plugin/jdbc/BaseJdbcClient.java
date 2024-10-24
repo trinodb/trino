@@ -305,19 +305,11 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        if (tableHandle.getColumns().isPresent()) {
-            return tableHandle.getColumns().get();
-        }
-        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
-        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
-        SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
-        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
-
         try (Connection connection = connectionFactory.openConnection(session);
-                ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
-            Map<String, CaseSensitivity> caseSensitivityMapping = getCaseSensitivityForColumns(session, connection, tableHandle);
+                ResultSet resultSet = getColumns(remoteTableName, connection.getMetaData())) {
+            Map<String, CaseSensitivity> caseSensitivityMapping = getCaseSensitivityForColumns(session, connection, schemaTableName, remoteTableName);
             int allColumns = 0;
             List<JdbcColumnHandle> columns = new ArrayList<>();
             while (resultSet.next()) {
@@ -544,7 +536,7 @@ public abstract class BaseJdbcClient
         }
     }
 
-    protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, JdbcTableHandle tableHandle)
+    protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
         return ImmutableMap.of();
     }
@@ -559,10 +551,9 @@ public abstract class BaseJdbcClient
         return Optional.of(value);
     }
 
-    protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
+    protected ResultSet getColumns(RemoteTableName remoteTableName, DatabaseMetaData metadata)
             throws SQLException
     {
-        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
         return metadata.getColumns(
                 remoteTableName.getCatalogName().orElse(null),
                 escapeObjectNameForMetadataQuery(remoteTableName.getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
