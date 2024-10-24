@@ -30,7 +30,7 @@ import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SEC
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
 import static java.util.Objects.requireNonNull;
 
-record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String sseKmsKeyId, Optional<AwsCredentialsProvider> credentialsProviderOverride, ObjectCannedAcl cannedAcl, boolean exclusiveWriteSupported)
+record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String sseKmsKeyId, Optional<AwsCredentialsProvider> credentialsProviderOverride, ObjectCannedAcl cannedAcl, boolean exclusiveWriteSupported, boolean enableSetContentMd5)
 {
     private static final int MIN_PART_SIZE = 5 * 1024 * 1024; // S3 requirement
 
@@ -49,7 +49,7 @@ record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String 
 
     public S3Context withKmsKeyId(String kmsKeyId)
     {
-        return new S3Context(partSize, requesterPays, S3SseType.KMS, kmsKeyId, credentialsProviderOverride, cannedAcl, exclusiveWriteSupported);
+        return new S3Context(partSize, requesterPays, S3SseType.KMS, kmsKeyId, credentialsProviderOverride, cannedAcl, exclusiveWriteSupported, enableSetContentMd5);
     }
 
     public S3Context withCredentials(ConnectorIdentity identity)
@@ -73,7 +73,8 @@ record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String 
                 sseKmsKeyId,
                 Optional.of(credentialsProviderOverride),
                 cannedAcl,
-                exclusiveWriteSupported);
+                exclusiveWriteSupported,
+                enableSetContentMd5);
     }
 
     public void applyCredentialProviderOverride(AwsRequestOverrideConfiguration.Builder builder)
