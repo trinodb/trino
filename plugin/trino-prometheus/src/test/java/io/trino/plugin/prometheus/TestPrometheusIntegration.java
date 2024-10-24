@@ -14,6 +14,7 @@
 package io.trino.plugin.prometheus;
 
 import io.airlift.units.Duration;
+import io.trino.Session;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
@@ -110,6 +111,41 @@ public class TestPrometheusIntegration
                         "('labels', 'map(varchar, varchar)', '', '')," +
                         "('timestamp', 'timestamp(3) with time zone', '', '')," +
                         "('value', 'double', '', '')");
+    }
+
+    @Test
+    public void testSessionPropertyMatchString()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("prometheus", "query_match_filter", "{instance=\"bla\"}")
+                .build();
+
+        assertQuery(session,
+                "SHOW SESSION like 'prometheus.query_match_filter'",
+                "VALUES ('prometheus.query_match_filter', '{instance=\"bla\"}', '', 'varchar', 'query match filter for Prometheus HTTP API')");
+        // as there is no record with instance="bla" in the test data, the query should return no rows
+        assertQuery(session,
+                "SELECT count(*) FROM default.up",
+                "VALUES(0)");
+    }
+
+    @Test
+    public void testSessionPropertyQueryFunctions()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("prometheus", "query_functions", "[\"max_over_time\",\"min_over_time\",\"count_over_time\",\"sum_over_time\"]")
+                .build();
+
+        assertQuery(session,
+                "SHOW SESSION like 'prometheus.query_functions'",
+                "VALUES ('prometheus.query_functions', '[\"max_over_time\",\"min_over_time\",\"count_over_time\",\"sum_over_time\"]', '[]', 'array(varchar)', 'List of functions that can be used in Prometheus queries')");
+        assertQuery(session,
+                "SELECT count(*) FROM default.up",
+                "VALUES(4)");
+
+        MaterializedResult results = computeActual(session, "SELECT * FROM default.up");
+        assertThat(results).hasSize(4);
+        results.getMaterializedRows().forEach(row -> assertThat(row.getField(2)).isEqualTo(1.0));
     }
 
     // TODO rewrite this test based on query.

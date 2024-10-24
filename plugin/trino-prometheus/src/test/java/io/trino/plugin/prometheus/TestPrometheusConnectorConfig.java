@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.prometheus;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
 import com.google.inject.ConfigurationException;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -46,7 +48,9 @@ public class TestPrometheusConnectorConfig
                 .setPassword(null)
                 .setReadTimeout(new Duration(10, SECONDS))
                 .setCaseInsensitiveNameMatching(false)
-                .setAdditionalHeaders(null));
+                .setAdditionalHeaders(null)
+                .setMatchString(null)
+                .setQueryFunctions(ImmutableList.of()));
     }
 
     @Test
@@ -64,6 +68,8 @@ public class TestPrometheusConnectorConfig
                 .put("prometheus.read-timeout", "30s")
                 .put("prometheus.case-insensitive-name-matching", "true")
                 .put("prometheus.http.additional-headers", "key\\:1:value\\,1, key\\,2:value\\:2")
+                .put("prometheus.query.match.string", "{}")
+                .put("prometheus.query.functions", "max_over_time,min_over_time,count_over_time,sum_over_time")
                 .buildOrThrow();
 
         URI uri = URI.create("file://test.json");
@@ -79,6 +85,8 @@ public class TestPrometheusConnectorConfig
         expected.setReadTimeout(new Duration(30, SECONDS));
         expected.setCaseInsensitiveNameMatching(true);
         expected.setAdditionalHeaders("key\\:1:value\\,1, key\\,2:value\\:2");
+        expected.setMatchString("{}");
+        expected.setQueryFunctions(List.of("max_over_time", "min_over_time", "count_over_time", "sum_over_time"));
 
         assertFullMapping(properties, expected);
     }
