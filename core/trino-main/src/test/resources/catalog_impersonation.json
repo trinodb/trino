@@ -41,6 +41,11 @@
             "original_user": "incorrect_number_of_replacements_groups_(.*)",
             "new_user": "$2_$1_prod",
             "allow": true
+        },
+        {
+            "original_user": "admin-other-test",
+            "new_user": "^(?i)(?!svc.*)[a-z0-9-_]+$",
+            "allow": true
         }
     ]
 }

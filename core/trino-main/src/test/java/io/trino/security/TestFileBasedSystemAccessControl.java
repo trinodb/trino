@@ -134,6 +134,7 @@ public class TestFileBasedSystemAccessControl
 
         AccessControlManager accessControlManagerWithPrincipal = newAccessControlManager(transactionManager, "catalog_principal.json");
         accessControlManagerWithPrincipal.checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-other-test"), "regular-user");
     }
 
     @Test
