@@ -26,6 +26,7 @@ import com.google.inject.Inject;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.json.JsonCodec;
 import io.opentelemetry.api.OpenTelemetry;
@@ -126,57 +127,13 @@ public class CassandraClientModule
         requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
 
         CqlSessionBuilder cqlSessionBuilder = CqlSession.builder();
-        ProgrammaticDriverConfigLoaderBuilder driverConfigLoaderBuilder = DriverConfigLoader.programmaticBuilder();
-        // allow the retrieval of metadata for the system keyspaces
-        driverConfigLoaderBuilder.withStringList(DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES, List.of());
-
-        if (config.getProtocolVersion() != null) {
-            driverConfigLoaderBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, config.getProtocolVersion().name());
-        }
 
         List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
         checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
 
-        driverConfigLoaderBuilder.withString(DefaultDriverOption.RECONNECTION_POLICY_CLASS, com.datastax.oss.driver.internal.core.connection.ExponentialReconnectionPolicy.class.getName());
-        driverConfigLoaderBuilder.withDuration(DefaultDriverOption.RECONNECTION_BASE_DELAY, Duration.ofMillis(500));
-        driverConfigLoaderBuilder.withDuration(DefaultDriverOption.RECONNECTION_MAX_DELAY, Duration.ofSeconds(10));
-        driverConfigLoaderBuilder.withString(DefaultDriverOption.RETRY_POLICY_CLASS, config.getRetryPolicy().getPolicyClass().getName());
-
-        driverConfigLoaderBuilder.withString(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS, DefaultLoadBalancingPolicy.class.getName());
-        if (config.isUseDCAware()) {
-            requireNonNull(config.getDcAwareLocalDC(), "DCAwarePolicy localDC is null");
-            driverConfigLoaderBuilder.withString(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER, config.getDcAwareLocalDC());
-
-            if (config.getDcAwareUsedHostsPerRemoteDc() > 0) {
-                driverConfigLoaderBuilder.withInt(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_MAX_NODES_PER_REMOTE_DC, config.getDcAwareUsedHostsPerRemoteDc());
-                if (config.isDcAwareAllowRemoteDCsForLocal()) {
-                    driverConfigLoaderBuilder.withBoolean(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_ALLOW_FOR_LOCAL_CONSISTENCY_LEVELS, true);
-                }
-            }
-        }
-
-        driverConfigLoaderBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, config.getClientReadTimeout().toJavaTime());
-        driverConfigLoaderBuilder.withDuration(DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT, config.getClientConnectTimeout().toJavaTime());
-        if (config.getClientSoLinger() != null) {
-            driverConfigLoaderBuilder.withInt(DefaultDriverOption.SOCKET_LINGER_INTERVAL, config.getClientSoLinger());
-        }
-
         if (config.getUsername() != null && config.getPassword() != null) {
             cqlSessionBuilder.withAuthCredentials(config.getUsername(), config.getPassword());
         }
-
-        driverConfigLoaderBuilder.withInt(DefaultDriverOption.REQUEST_PAGE_SIZE, config.getFetchSize());
-        driverConfigLoaderBuilder.withString(DefaultDriverOption.REQUEST_CONSISTENCY, config.getConsistencyLevel().name());
-
-        if (config.getSpeculativeExecutionLimit().isPresent()) {
-            driverConfigLoaderBuilder.withString(DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS, com.datastax.oss.driver.internal.core.specex.ConstantSpeculativeExecutionPolicy.class.getName());
-            // maximum number of executions
-            driverConfigLoaderBuilder.withInt(DefaultDriverOption.SPECULATIVE_EXECUTION_MAX, config.getSpeculativeExecutionLimit().get());
-            // delay before a new execution is launched
-            driverConfigLoaderBuilder.withDuration(DefaultDriverOption.SPECULATIVE_EXECUTION_DELAY, Duration.ofMillis(config.getSpeculativeExecutionDelay().toMillis()));
-        }
-
-        cqlSessionBuilder.withConfigLoader(driverConfigLoaderBuilder.build());
 
         for (CassandraSessionConfigurator sessionConfigurator : sessionConfigurators) {
             sessionConfigurator.configure(cqlSessionBuilder);
@@ -192,6 +149,58 @@ public class CassandraClientModule
                     return cassandraTelemetry.wrap(cqlSessionBuilder.build());
                 },
                 config.getNoHostAvailableRetryTimeout());
+    }
+
+    @ProvidesIntoSet
+    @Singleton
+    public CassandraSessionConfigurator configurationLoaderConfigurator(CassandraClientConfig config)
+    {
+        return builder -> {
+            ProgrammaticDriverConfigLoaderBuilder driverConfigLoaderBuilder = DriverConfigLoader.programmaticBuilder();
+            // allow the retrieval of metadata for the system keyspaces
+            driverConfigLoaderBuilder.withStringList(DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES, List.of());
+
+            if (config.getProtocolVersion() != null) {
+                driverConfigLoaderBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, config.getProtocolVersion().name());
+            }
+
+            driverConfigLoaderBuilder.withString(DefaultDriverOption.RECONNECTION_POLICY_CLASS, com.datastax.oss.driver.internal.core.connection.ExponentialReconnectionPolicy.class.getName());
+            driverConfigLoaderBuilder.withDuration(DefaultDriverOption.RECONNECTION_BASE_DELAY, Duration.ofMillis(500));
+            driverConfigLoaderBuilder.withDuration(DefaultDriverOption.RECONNECTION_MAX_DELAY, Duration.ofSeconds(10));
+            driverConfigLoaderBuilder.withString(DefaultDriverOption.RETRY_POLICY_CLASS, config.getRetryPolicy().getPolicyClass().getName());
+
+            driverConfigLoaderBuilder.withString(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS, DefaultLoadBalancingPolicy.class.getName());
+            if (config.isUseDCAware()) {
+                requireNonNull(config.getDcAwareLocalDC(), "DCAwarePolicy localDC is null");
+                driverConfigLoaderBuilder.withString(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER, config.getDcAwareLocalDC());
+
+                if (config.getDcAwareUsedHostsPerRemoteDc() > 0) {
+                    driverConfigLoaderBuilder.withInt(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_MAX_NODES_PER_REMOTE_DC, config.getDcAwareUsedHostsPerRemoteDc());
+                    if (config.isDcAwareAllowRemoteDCsForLocal()) {
+                        driverConfigLoaderBuilder.withBoolean(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_ALLOW_FOR_LOCAL_CONSISTENCY_LEVELS, true);
+                    }
+                }
+            }
+
+            driverConfigLoaderBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, config.getClientReadTimeout().toJavaTime());
+            driverConfigLoaderBuilder.withDuration(DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT, config.getClientConnectTimeout().toJavaTime());
+            if (config.getClientSoLinger() != null) {
+                driverConfigLoaderBuilder.withInt(DefaultDriverOption.SOCKET_LINGER_INTERVAL, config.getClientSoLinger());
+            }
+
+            driverConfigLoaderBuilder.withInt(DefaultDriverOption.REQUEST_PAGE_SIZE, config.getFetchSize());
+            driverConfigLoaderBuilder.withString(DefaultDriverOption.REQUEST_CONSISTENCY, config.getConsistencyLevel().name());
+
+            if (config.getSpeculativeExecutionLimit().isPresent()) {
+                driverConfigLoaderBuilder.withString(DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS, com.datastax.oss.driver.internal.core.specex.ConstantSpeculativeExecutionPolicy.class.getName());
+                // maximum number of executions
+                driverConfigLoaderBuilder.withInt(DefaultDriverOption.SPECULATIVE_EXECUTION_MAX, config.getSpeculativeExecutionLimit().get());
+                // delay before a new execution is launched
+                driverConfigLoaderBuilder.withDuration(DefaultDriverOption.SPECULATIVE_EXECUTION_DELAY, Duration.ofMillis(config.getSpeculativeExecutionDelay().toMillis()));
+            }
+
+            builder.withConfigLoader(driverConfigLoaderBuilder.build());
+        };
     }
 
     private static InetSocketAddress createInetSocketAddress(String contactPoint, int port)
