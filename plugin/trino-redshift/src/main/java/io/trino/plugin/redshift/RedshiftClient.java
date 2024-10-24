@@ -17,6 +17,7 @@ import com.amazon.redshift.jdbc.RedshiftPreparedStatement;
 import com.amazon.redshift.util.RedshiftObject;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
@@ -30,6 +31,7 @@ import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.ForRecordCursor;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
@@ -68,7 +70,9 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
@@ -108,6 +112,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -138,6 +144,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_INVALID_TYPE;
+import static io.trino.plugin.redshift.RedshiftSessionProperties.useUnload;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -231,6 +238,10 @@ public class RedshiftClient
     private final RedshiftTableStatisticsReader statisticsReader;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final Optional<Integer> fetchSize;
+    private final String unloadLocation;
+    private final String unloadOptions;
+    private final String unloadAuthorization;
+    private final ExecutorService executor;
 
     @Inject
     public RedshiftClient(
@@ -240,7 +251,8 @@ public class RedshiftClient
             JdbcStatisticsConfig statisticsConfig,
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping,
-            RemoteQueryModifier queryModifier)
+            RemoteQueryModifier queryModifier,
+            @ForRecordCursor ExecutorService executor)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
         connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
@@ -280,6 +292,17 @@ public class RedshiftClient
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.statisticsReader = new RedshiftTableStatisticsReader(connectionFactory);
         this.fetchSize = redshiftConfig.getFetchSize();
+        this.unloadLocation = redshiftConfig.getUnloadLocation()
+                .map(location -> location.replaceAll("/$", "") + "/")
+                .orElse(null);
+        this.unloadOptions = redshiftConfig.getUnloadOptions().orElse("");
+        if (redshiftConfig.getIamRole().isPresent()) {
+            this.unloadAuthorization = "IAM_ROLE '%s'".formatted(redshiftConfig.getIamRole().get());
+        }
+        else {
+            this.unloadAuthorization = "";
+        }
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
@@ -311,6 +334,44 @@ public class RedshiftClient
             throw e;
         }
         return connection;
+    }
+
+    @Override
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        if (!useUnload(session)) {
+            return new FixedSplitSource(new JdbcSplit(Optional.empty()));
+        }
+        List<JdbcColumnHandle> columns = tableHandle.getColumns().orElseGet(() -> getColumns(session, tableHandle));
+        Connection connection;
+        PreparedStatement statement;
+        try {
+            connection = getConnection(session);
+            statement = buildUnloadSql(session, connection, tableHandle, columns);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return new RedshiftUnloadSplitSource(executor, connection, statement);
+    }
+
+    private PreparedStatement buildUnloadSql(ConnectorSession session, Connection connection, JdbcTableHandle table, List<JdbcColumnHandle> columns)
+            throws SQLException
+    {
+        PreparedQuery preparedQuery = prepareQuery(session, connection, table, Optional.empty(), columns, ImmutableMap.of(), Optional.empty());
+        // TODO create a unique location - it should probably come in the table handle
+        // TODO specify region through a separate config option or unloadOptions?
+        String sql = "UNLOAD ('%s') TO '%s' %s FORMAT PARQUET %s".formatted(
+                formatStringLiteral(preparedQuery.query()),
+                unloadLocation + session.getQueryId() + "/",
+                unloadAuthorization,
+                unloadOptions);
+        return queryBuilder.prepareStatement(this, session, connection, new PreparedQuery(sql, preparedQuery.parameters()), Optional.of(columns.size()));
+    }
+
+    private static String formatStringLiteral(String x)
+    {
+        return x.replace("'", "''");
     }
 
     @Override

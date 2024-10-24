@@ -23,6 +23,8 @@ public enum RedshiftErrorCode
         implements ErrorCodeSupplier
 {
     REDSHIFT_INVALID_TYPE(0, EXTERNAL),
+    REDSHIFT_PARQUET_BAD_DATA(1, EXTERNAL),
+    REDSHIFT_PARQUET_CURSOR_ERROR(2, EXTERNAL),
     /**/;
 
     private final ErrorCode errorCode;

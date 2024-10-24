@@ -17,7 +17,6 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
-import io.trino.plugin.jdbc.JdbcConnector;
 import io.trino.plugin.jdbc.JdbcModule;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.spi.NodeManager;
@@ -30,7 +29,6 @@ import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 
-import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
