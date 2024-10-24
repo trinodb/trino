@@ -64,6 +64,31 @@ documentation](https://docs.aws.amazon.com/redshift/latest/mgmt/jdbc20-configura
 ```{include} jdbc-authentication.fragment
 ```
 
+### UNLOAD configuration
+
+The connector brings parallelism by converting Trino query to corresponding 
+Redshift `UNLOAD` command to unload query results on to the S3 bucket in the 
+form of Parquet files and reading these Parquet files from S3 bucket. Parquet 
+files will be removed as Trino query finishes. However, it's advisable to 
+define a custom life cycle policy on the S3 bucket used for unloading the 
+Redshift query results.
+This feature intends to bring query results faster compared to the default JDBC 
+approach when fetching large query result set from Redshift.
+One of the limitation is that Redshift cluster and S3 must be in the same AWS 
+region.
+
+The following table describes configuration properties for using 
+`UNLOAD` command in Redshift connector. `redshift.unload-location` and
+`redshift.unload-iam-role` must be set to use `UNLOAD`.
+
+| Property name              | Required | Description                                                                                                                                                                                        |
+|----------------------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `redshift.unload-location` | optional | A writeable location in Amazon S3, to be used for temporarily unloading Redshift query results.                                                                                                    |
+| `redshift.unload-iam-role` | optional | Fully specified ARN of the IAM Role attached to the Redshift cluster. Provided role will be used in `UNLOAD` command. IAM role must have access to Redshift cluster and write access to S3 bucket. |
+
+Additionally, define appropriate [S3 configurations](/object-storage/file-system-s3)
+except `fs.native-s3.enabled`, required to read Parquet files from S3 bucket. 
+
 ### Multiple Redshift databases or clusters
 
 The Redshift connector can only access a single database within
