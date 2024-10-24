@@ -14,6 +14,10 @@
 package io.trino.plugin.postgresql;
 
 import io.trino.operator.RetryPolicy;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestPostgresQueryFailureRecoveryTest
         extends BasePostgresFailureRecoveryTest
@@ -21,5 +25,23 @@ public class TestPostgresQueryFailureRecoveryTest
     public TestPostgresQueryFailureRecoveryTest()
     {
         super(RetryPolicy.QUERY);
+    }
+
+    @Test
+    @Override
+    protected void testDeleteWithSubquery()
+    {
+        // TODO: support merge with fte https://github.com/trinodb/trino/issues/23345
+        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("expected: OptionalLong[527]\n but was: OptionalLong[0]");
+        abort("skipped");
+    }
+
+    @Test
+    @Override
+    protected void testMerge()
+    {
+        // TODO: support merge with fte https://github.com/trinodb/trino/issues/23345
+        assertThatThrownBy(super::testMerge).hasMessageContaining("expected: OptionalLong[15000]\n but was: OptionalLong[14745]");
+        abort("skipped");
     }
 }

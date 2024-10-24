@@ -14,6 +14,9 @@
 package io.trino.plugin.postgresql;
 
 import io.trino.operator.RetryPolicy;
+import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
 
 public class TestPostgresTaskFailureRecoveryTest
         extends BasePostgresFailureRecoveryTest
@@ -21,5 +24,33 @@ public class TestPostgresTaskFailureRecoveryTest
     public TestPostgresTaskFailureRecoveryTest()
     {
         super(RetryPolicy.TASK);
+    }
+
+    @Test
+    @Override
+    protected void testDeleteWithSubquery()
+    {
+        testTableModification(
+                Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
+                "DELETE FROM <table> WHERE custkey IN (SELECT custkey FROM customer WHERE nationkey = 1)",
+                Optional.of("DROP TABLE <table>"));
+    }
+
+    @Test
+    @Override
+    protected void testMerge()
+    {
+        testTableModification(
+                Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
+                """
+                        MERGE INTO <table> t
+                        USING (SELECT orderkey, 'X' clerk FROM <table>) s
+                        ON t.orderkey = s.orderkey
+                        WHEN MATCHED AND s.orderkey > 1000
+                            THEN UPDATE SET clerk = t.clerk || s.clerk
+                        WHEN MATCHED AND s.orderkey <= 1000
+                            THEN DELETE
+                        """,
+                Optional.of("DROP TABLE <table>"));
     }
 }
