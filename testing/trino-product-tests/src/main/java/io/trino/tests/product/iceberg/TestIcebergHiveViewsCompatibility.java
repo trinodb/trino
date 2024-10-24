@@ -25,6 +25,7 @@ import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -93,6 +94,14 @@ public class TestIcebergHiveViewsCompatibility
                             .addAll(icebergPreexistingTables)
                             .addAll(newlyCreated)
                             .build());
+
+            //Create view on hive to test iceberg view redirection
+            onHive().executeQuery("CREATE VIEW default.hive_view_HQL AS SELECT * FROM default.hive_table");
+            //check if hive created view accessible from iceberg catalog
+            onTrino().executeQuery("SHOW CREATE VIEW iceberg.default.hive_view_HQL");
+            assertThat(onTrino().executeQuery("SELECT * FROM iceberg.default.hive_view_HQL")).containsOnly(row(1));
+            onTrino().executeQuery("ALTER VIEW system_security_invoker_view SET AUTHORIZATION user");
+            onTrino().executeQuery("DROP VIEW iceberg.default.hive_view_HQL");
 
             // try to access all views via hive catalog
             assertThat(onTrino().executeQuery("SELECT * FROM hive.default.hive_view_qualified_hive")).containsOnly(row(1));
