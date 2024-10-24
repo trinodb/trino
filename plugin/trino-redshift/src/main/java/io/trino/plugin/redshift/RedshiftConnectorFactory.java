@@ -63,6 +63,6 @@ public class RedshiftConnectorFactory
                 .setRequiredConfigurationProperties(requiredConfig)
                 .initialize();
 
-        return injector.getInstance(RedshiftConnector.class);
+        return injector.getInstance(Connector.class);
     }
 }
