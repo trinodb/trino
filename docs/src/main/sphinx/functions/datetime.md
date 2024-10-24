@@ -120,19 +120,15 @@ SELECT from_iso8601_date('2020-123');
 ```
 :::
 
-:::{function} at_timezone(timestamp(p), zone) -> timestamp(p) with time zone
-Returns the timestamp specified in `timestamp` with the time zone
-converted from the session time zone to the time zone specified in `zone`
-with precision `p`. In the following example, the session time zone is set
-to `America/New_York`, which is three hours ahead of
-`America/Los_Angeles`:
+:::{function} at_timezone(timestamp(p) with time zone, zone) -> timestamp(p) with time zone
+Converts a `timestamp(p) with time zone` to a time zone specified in `zone`.
 
-```
-SELECT current_timezone()
--- America/New_York
+In the following example, the input timezone is `GMT`, which is seven hours
+ahead of `America/Los_Angeles` in November 2022:
 
-SELECT at_timezone(TIMESTAMP '2022-11-01 09:08:07.321', 'America/Los_Angeles')
--- 2022-11-01 06:08:07.321 America/Los_Angeles
+```sql
+SELECT at_timezone(TIMESTAMP '2022-11-01 09:08:07.321 GMT', 'America/Los_Angeles')
+-- 2022-11-01 02:08:07.321 America/Los_Angeles
 ```
 :::
 
