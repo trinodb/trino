@@ -27,6 +27,21 @@ documentation](/connector).
 (admin-event-listeners)=
 ## Event listeners
 
+Event listeners are plugins that allow streaming of query events, such query
+started or query finished to an external system. 
+
+By default, query events are only reflected as internal state changes and as
+change of the displayed query information in the [](/admin/web-interface). The
+number of queries is controlled by `query.max-history`, see
+[](/admin/properties-query-management). 
+
+Using an event listener you can process and store the query events in a separate
+system for more queries and therefore longer periods of time. Some of these
+external systems can potentially be queried with Trino for further analysis or
+reporting.
+
+The following event listeners are available:
+
 ```{toctree}
 :titlesonly: true
 
