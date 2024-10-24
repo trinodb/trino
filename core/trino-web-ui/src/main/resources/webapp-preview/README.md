@@ -28,7 +28,18 @@ $ cd core/trino-web-ui/src/main/resources/webapp-preview
 $ npm install
 ```
 
-3. Run the frontend in development mode. This will enable Hot Module Replacement,
+3. Run dependencies audit:
+
+```  
+$ npm run secure  
+```  
+
+Optionally generate audit report in JUnit XML format:
+```  
+$ npm run secure:report  
+```
+
+4. Run the frontend in development mode. This will enable Hot Module Replacement,
    providing instant and accurate updates without reloading the page or losing the
    application state.
 
