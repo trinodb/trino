@@ -28,6 +28,7 @@ import io.trino.spi.protocol.SpoolingManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.trino.server.protocol.spooling.QueryDataEncoder.EncoderSelector.noEncoder;
 import static java.util.Objects.requireNonNull;
 
 public class SpoolingServerModule
@@ -42,7 +43,7 @@ public class SpoolingServerModule
         OptionalBinder<SpoolingManager> spoolingManagerBinder = newOptionalBinder(binder, new TypeLiteral<>() {});
         SpoolingEnabledConfig spoolingEnabledConfig = buildConfigObject(SpoolingEnabledConfig.class);
         if (!spoolingEnabledConfig.isEnabled()) {
-            binder.bind(QueryDataEncoder.EncoderSelector.class).toInstance(QueryDataEncoder.EncoderSelector.noEncoder());
+            binder.bind(QueryDataEncoder.EncoderSelector.class).toInstance(noEncoder());
             return;
         }
 
