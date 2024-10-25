@@ -163,10 +163,6 @@ public class TestPage
         lazyBlock = lazyWrapper(block);
         page = new Page(lazyBlock);
         assertThat(page.getRetainedSizeInBytes()).isEqualTo(lazyPageRetainedSize);
-        loadedPage = page.getLoadedPage(new int[] {0}, new int[] {0});
-        // Retained size of page is updated based on loaded block
-        assertThat(page.getRetainedSizeInBytes()).isEqualTo(loadedPageRetainedSize);
-        assertThat(loadedPage.getRetainedSizeInBytes()).isEqualTo(loadedPageRetainedSize);
     }
 
     private static LazyBlock lazyWrapper(Block block)
