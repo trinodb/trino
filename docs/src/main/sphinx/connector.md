@@ -46,3 +46,9 @@ Thrift          <connector/thrift>
 TPCDS           <connector/tpcds>
 TPCH            <connector/tpch>
 ```
+
+```{toctree}
+:hidden:
+
+connector/removed
+```
