@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.faker;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 
 import java.util.Set;
@@ -24,6 +25,6 @@ public record FakerOutputTableHandle(long table, Set<Long> activeTableIds)
 {
     public FakerOutputTableHandle
     {
-        requireNonNull(activeTableIds, "activeTableIds is null");
+        activeTableIds = ImmutableSet.copyOf(requireNonNull(activeTableIds, "activeTableIds is null"));
     }
 }

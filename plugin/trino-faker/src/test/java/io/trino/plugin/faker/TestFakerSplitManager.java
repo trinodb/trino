@@ -34,10 +34,10 @@ import java.util.concurrent.ExecutionException;
 import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestFakerSplitManager
+final class TestFakerSplitManager
 {
     @Test
-    public void testSplits()
+    void testSplits()
             throws ExecutionException, InterruptedException
     {
         URI uriA = URI.create("http://a");

@@ -26,80 +26,42 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class TableInfo
+public record TableInfo(long id, String schemaName, String tableName, List<ColumnInfo> columns, Map<String, Object> properties, Optional<String> comment)
 {
-    private final long id;
-    private final String schemaName;
-    private final String tableName;
-    private List<ColumnInfo> columns;
-    private Map<String, Object> properties;
-    private Optional<String> comment;
-
     public static final String NULL_PROBABILITY_PROPERTY = "null_probability";
     public static final String DEFAULT_LIMIT_PROPERTY = "default_limit";
 
-    public TableInfo(long id, String schemaName, String tableName, List<ColumnInfo> columns, Map<String, Object> properties, Optional<String> comment)
+    public TableInfo
     {
-        this.id = id;
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.columns = ImmutableList.copyOf(columns);
-        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
-        this.comment = requireNonNull(comment, "comment is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(tableName, "tableName is null");
+        columns = ImmutableList.copyOf(columns);
+        properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        requireNonNull(comment, "comment is null");
     }
 
-    public long getId()
-    {
-        return id;
-    }
-
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    public SchemaTableName getSchemaTableName()
+    public SchemaTableName schemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
     }
 
-    public ConnectorTableMetadata getMetadata()
+    public ConnectorTableMetadata metadata()
     {
         return new ConnectorTableMetadata(
                 new SchemaTableName(schemaName, tableName),
                 columns.stream()
-                        .map(ColumnInfo::getMetadata)
+                        .map(ColumnInfo::metadata)
                         .collect(toImmutableList()),
                 properties,
                 comment);
     }
 
-    public List<ColumnInfo> getColumns()
-    {
-        return columns;
-    }
-
-    public ColumnInfo getColumn(ColumnHandle handle)
+    public ColumnInfo column(ColumnHandle handle)
     {
         return columns.stream()
-                .filter(column -> column.getHandle().equals(handle))
+                .filter(column -> column.handle().equals(handle))
                 .findFirst()
                 .get();
-    }
-
-    public Map<String, Object> getProperties()
-    {
-        return properties;
-    }
-
-    public Optional<String> getComment()
-    {
-        return comment;
     }
 
     public TableInfo withColumns(List<ColumnInfo> columns)

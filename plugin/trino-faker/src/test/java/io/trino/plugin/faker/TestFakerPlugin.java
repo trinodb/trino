@@ -14,19 +14,24 @@
 package io.trino.plugin.faker;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.testing.TestingConnectorContext;
+import org.junit.jupiter.api.Test;
 
-import java.util.Map;
+import static com.google.common.collect.Iterables.getOnlyElement;
 
-import static java.util.Objects.requireNonNull;
-
-public record SchemaInfo(String name, Map<String, Object> properties)
+final class TestFakerPlugin
 {
-    public static final String NULL_PROBABILITY_PROPERTY = "null_probability";
-    public static final String DEFAULT_LIMIT_PROPERTY = "default_limit";
-
-    public SchemaInfo
+    @Test
+    void testCreateConnector()
     {
-        requireNonNull(name, "name is null");
-        properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        FakerPlugin plugin = new FakerPlugin();
+
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        factory.create(
+                        "test",
+                        ImmutableMap.of("bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown();
     }
 }
