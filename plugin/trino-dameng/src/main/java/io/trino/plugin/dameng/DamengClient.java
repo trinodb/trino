@@ -323,6 +323,9 @@ public class DamengClient
                 if (precision > Decimals.MAX_PRECISION) {
                     break;
                 }
+                if (precision <= 0) {
+                    precision = 20;
+                }
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
 
             case Types.CHAR:
