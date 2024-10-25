@@ -28,12 +28,18 @@ public class QueryDataEncodingModule
     protected void setup(Binder binder)
     {
         Multibinder<QueryDataEncoder.Factory> encoderFactories = newSetBinder(binder, QueryDataEncoder.Factory.class);
+        QueryDataEncodingConfig config = buildConfigObject(QueryDataEncodingConfig.class);
 
         // json + compressed variants
-        encoderFactories.addBinding().to(JsonQueryDataEncoder.Factory.class).in(Scopes.SINGLETON);
-        encoderFactories.addBinding().to(JsonQueryDataEncoder.ZstdFactory.class).in(Scopes.SINGLETON);
-        encoderFactories.addBinding().to(JsonQueryDataEncoder.Lz4Factory.class).in(Scopes.SINGLETON);
-
+        if (config.isJsonEnabled()) {
+            encoderFactories.addBinding().to(JsonQueryDataEncoder.Factory.class).in(Scopes.SINGLETON);
+        }
+        if (config.isJsonZstdEnabled()) {
+            encoderFactories.addBinding().to(JsonQueryDataEncoder.ZstdFactory.class).in(Scopes.SINGLETON);
+        }
+        if (config.isJsonLz4Enabled()) {
+            encoderFactories.addBinding().to(JsonQueryDataEncoder.Lz4Factory.class).in(Scopes.SINGLETON);
+        }
         binder.bind(QueryDataEncoders.class).in(Scopes.SINGLETON);
     }
 }
