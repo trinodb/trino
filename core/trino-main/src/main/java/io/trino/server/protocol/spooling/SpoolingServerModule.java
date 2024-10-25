@@ -23,7 +23,6 @@ import com.google.inject.multibindings.OptionalBinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.server.ServerConfig;
-import io.trino.server.protocol.spooling.encoding.QueryDataEncodingModule;
 import io.trino.spi.protocol.SpoolingManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
