@@ -14,6 +14,7 @@
 package io.trino.cost;
 
 import io.airlift.log.Logger;
+import io.trino.NotInTransactionException;
 import io.trino.Session;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
@@ -89,12 +90,27 @@ public final class CachingStatsProvider
             return stats;
         }
         catch (RuntimeException e) {
+            if (shouldIgnoreStatsCalculatorFailure(e)) {
+                // some failures are okay to ignore
+                return PlanNodeStatsEstimate.unknown();
+            }
+
             if (isIgnoreStatsCalculatorFailures(session)) {
+                // log or fail for others, depending on the session setting
                 log.error(e, "Error occurred when computing stats for query %s", session.getQueryId());
                 return PlanNodeStatsEstimate.unknown();
             }
             throw e;
         }
+    }
+
+    boolean shouldIgnoreStatsCalculatorFailure(RuntimeException e)
+    {
+        if (e instanceof NotInTransactionException) {
+            // it is common to get NotInTransactionException if query gets cancelled during planning
+            return true;
+        }
+        return false;
     }
 
     private PlanNodeStatsEstimate getGroupStats(GroupReference groupReference)
