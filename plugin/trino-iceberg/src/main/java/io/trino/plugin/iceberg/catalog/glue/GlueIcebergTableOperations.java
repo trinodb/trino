@@ -161,6 +161,7 @@ public class GlueIcebergTableOperations
     {
         commitTableUpdate(
                 getTable(database, tableName, false),
+                base,
                 metadata,
                 (table, newMetadataLocation) ->
                         getTableInput(
@@ -179,6 +180,7 @@ public class GlueIcebergTableOperations
     {
         commitTableUpdate(
                 getTable(database, tableNameFrom(tableName), false),
+                base,
                 metadata,
                 (table, newMetadataLocation) -> {
                     Map<String, String> parameters = new HashMap<>(getTableParameters(table));
@@ -193,7 +195,7 @@ public class GlueIcebergTableOperations
                 });
     }
 
-    private void commitTableUpdate(Table table, TableMetadata metadata, BiFunction<Table, String, TableInput> tableUpdateFunction)
+    private void commitTableUpdate(Table table, TableMetadata base, TableMetadata metadata, BiFunction<Table, String, TableInput> tableUpdateFunction)
     {
         String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
         TableInput tableInput = tableUpdateFunction.apply(table, newMetadataLocation);
@@ -218,6 +220,7 @@ public class GlueIcebergTableOperations
             // regardless of the exception thrown (e.g. : timeout exception) or it actually failed
             throw new CommitStateUnknownException(e);
         }
+        deleteRemovedMetadataFiles(base, metadata);
         shouldRefresh = true;
     }
 
