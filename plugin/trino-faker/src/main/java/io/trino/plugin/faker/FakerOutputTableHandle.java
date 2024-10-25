@@ -13,18 +13,9 @@
  */
 package io.trino.plugin.faker;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 
-import java.util.Set;
-
-import static java.util.Objects.requireNonNull;
-
-public record FakerOutputTableHandle(long table, Set<Long> activeTableIds)
+public record FakerOutputTableHandle(long table)
         implements ConnectorOutputTableHandle
 {
-    public FakerOutputTableHandle
-    {
-        activeTableIds = ImmutableSet.copyOf(requireNonNull(activeTableIds, "activeTableIds is null"));
-    }
 }

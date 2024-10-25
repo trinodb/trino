@@ -15,7 +15,6 @@
 package io.trino.plugin.faker;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
@@ -325,7 +324,7 @@ public class FakerMetadata
                 tableMetadata.getProperties(),
                 tableMetadata.getComment()));
 
-        return new FakerOutputTableHandle(tableId, ImmutableSet.copyOf(tableIds.values()));
+        return new FakerOutputTableHandle(tableId);
     }
 
     private boolean isCharacterColumn(ColumnMetadata column)
