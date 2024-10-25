@@ -59,10 +59,16 @@ public class TestFakerSplitManager
         assertThat(splitSource.isFinished()).withFailMessage("split source is not finished").isTrue();
         assertThat(splits)
                 .hasSize(6)
-                .containsOnly(
-                        new FakerSplit(List.of(hostA), MAX_ROWS_PER_SPLIT),
-                        new FakerSplit(List.of(hostB), MAX_ROWS_PER_SPLIT),
-                        new FakerSplit(List.of(hostA), 123));
+                .map(split -> (FakerSplit) split)
+                .satisfies(splitsList -> assertThat(splitsList)
+                        .filteredOn(split -> split.limit() == MAX_ROWS_PER_SPLIT)
+                        .hasSize(5)
+                        .extracting(ConnectorSplit::getAddresses)
+                        .containsOnly(List.of(hostA), List.of(hostB)))
+                .satisfies(splitsList -> assertThat(splitsList)
+                        .filteredOn(split -> split.limit() == 123)
+                        .hasSize(1));
+
         long actualRows = splits.stream().mapToLong(split -> ((FakerSplit) split).limit()).sum();
         assertThat(actualRows).isEqualTo(expectedRows);
     }
