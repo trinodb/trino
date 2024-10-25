@@ -37,10 +37,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -285,6 +287,23 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery(
                 "SELECT name, fields.fielda, fields.fieldb FROM data",
                 "VALUES ('nestfield', 32, 'valueb')");
+    }
+
+    @Test
+    public void testFieldNameWithSpecialCharacters()
+            throws IOException
+    {
+        String index = "field_name_with_special_characters_" + randomNameSuffix();
+        index(index, ImmutableMap.<String, Object>builder()
+                .put("with$sign", 55)
+                .put("nested", ImmutableMap.<String, Object>builder()
+                        .put("with$sign", "few bucks")
+                        .buildOrThrow())
+                .buildOrThrow());
+
+        assertThat(query("SELECT \"with$sign\", nested.\"with$sign\" FROM " + index))
+                .skippingTypesCheck()
+                .matches("VALUES (CAST(55 AS BIGINT), 'few bucks')");
     }
 
     @Test
@@ -980,7 +999,23 @@ public abstract class BaseElasticsearchConnectorTest
             throws IOException
     {
         String indexName = "nested_variants";
+        @Language("JSON")
+        String properties =
+                """
+                {
+                    "properties": {
+                        "a": {
+                            "properties": {
+                                "b.c": {
+                                    "type": "text"
+                                }
+                            }
+                        }
+                    }
+                }
+                """;
 
+        createIndex(indexName, properties);
         index(indexName,
                 ImmutableMap.of("a",
                         ImmutableMap.of("b",
@@ -1003,6 +1038,10 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery(
                 "SELECT a.b.c FROM nested_variants",
                 "VALUES 'value1', 'value2', 'value3', 'value4'");
+
+        assertTrinoExceptionThrownBy(() -> computeActual("SELECT a.\"b.c\" FROM nested_variants"))
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessageContaining("Column reference 'a.b.c' is invalid");
     }
 
     @Test
