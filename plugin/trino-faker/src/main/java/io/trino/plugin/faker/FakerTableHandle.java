@@ -21,7 +21,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import static java.util.Objects.requireNonNull;
 
-public record FakerTableHandle(long id, SchemaTableName schemaTableName, TupleDomain<ColumnHandle> constraint, long limit)
+public record FakerTableHandle(SchemaTableName schemaTableName, TupleDomain<ColumnHandle> constraint, long limit)
         implements ConnectorTableHandle
 {
     public FakerTableHandle
@@ -32,11 +32,11 @@ public record FakerTableHandle(long id, SchemaTableName schemaTableName, TupleDo
 
     public FakerTableHandle withConstraint(TupleDomain<ColumnHandle> constraint)
     {
-        return new FakerTableHandle(id, schemaTableName, constraint, limit);
+        return new FakerTableHandle(schemaTableName, constraint, limit);
     }
 
     public FakerTableHandle withLimit(long limit)
     {
-        return new FakerTableHandle(id, schemaTableName, constraint, limit);
+        return new FakerTableHandle(schemaTableName, constraint, limit);
     }
 }
