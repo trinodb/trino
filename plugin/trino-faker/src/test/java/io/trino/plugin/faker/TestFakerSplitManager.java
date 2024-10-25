@@ -51,7 +51,7 @@ final class TestFakerSplitManager
         ConnectorSplitSource splitSource = new FakerSplitManager(nodeManager).getSplits(
                 TestingTransactionHandle.create(),
                 TestingConnectorSession.SESSION,
-                new FakerTableHandle(1L, new SchemaTableName("schema", "table"), TupleDomain.all(), expectedRows),
+                new FakerTableHandle(new SchemaTableName("schema", "table"), TupleDomain.all(), expectedRows),
                 DynamicFilter.EMPTY,
                 Constraint.alwaysTrue());
         List<ConnectorSplit> splits = splitSource.getNextBatch(1_000_000).get().getSplits();
