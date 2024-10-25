@@ -38,7 +38,7 @@ public class QueryDataDecoders
     public static Factory get(String encoding)
     {
         if (!encodingMap.containsKey(encoding)) {
-            throw new IllegalArgumentException("Unknown encoding: " + encoding);
+            throw new IllegalArgumentException("Unknown spooled protocol encoding: " + encoding);
         }
 
         Factory factory = encodingMap.get(encoding);

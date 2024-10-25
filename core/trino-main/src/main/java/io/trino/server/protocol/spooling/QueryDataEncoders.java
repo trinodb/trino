@@ -47,7 +47,7 @@ public class QueryDataEncoders
     public QueryDataEncoder.Factory get(String encoding)
     {
         if (!exists(encoding)) {
-            throw new IllegalArgumentException("Unknown encoding: " + encoding);
+            throw new IllegalArgumentException("Unknown spooled protocol encoding: " + encoding);
         }
 
         return factories.get(encoding);
