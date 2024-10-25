@@ -28,8 +28,8 @@ import static java.util.stream.Collectors.joining;
 public class QueryDataDecoders
 {
     private static final List<Factory> decoders = ImmutableList.of(
-            new JsonQueryDataDecoder.Factory(),
             new JsonQueryDataDecoder.ZstdFactory(),
+            new JsonQueryDataDecoder.Factory(),
             new JsonQueryDataDecoder.Lz4Factory());
 
     private static final Map<String, Factory> encodingMap = factoriesMap();
