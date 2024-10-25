@@ -21,6 +21,7 @@ import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.parser.SqlParser;
+import io.trino.testing.NotImplementedQueryManager;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
 
@@ -107,7 +108,8 @@ public final class TestMetadataManager
                     globalFunctionCatalog,
                     languageFunctionManager,
                     tableFunctionRegistry,
-                    typeManager);
+                    typeManager,
+                    new NotImplementedQueryManager());
         }
     }
 }
