@@ -131,9 +131,10 @@ public class TestQueryDataSerialization
     public void testSpooledQueryDataSerialization()
     {
         EncodedQueryData queryData = EncodedQueryData.builder("json")
-                .withSegment(Segment.inlined("super".getBytes(UTF_8), dataAttributes(0, 100, 5)))
-                .withSegment(Segment.spooled(URI.create("http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/1"), dataAttributes(100, 100, 1024), Map.of("x-amz-server-side-encryption", List.of("AES256"))))
-                .withSegment(Segment.spooled(URI.create("http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/2"), dataAttributes(200, 100, 1024), Map.of("x-amz-server-side-encryption", List.of("AES256"))))
+                .withSegments(List.of(
+                        Segment.inlined("super".getBytes(UTF_8), dataAttributes(0, 100, 5)),
+                        Segment.spooled(URI.create("http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/1"), dataAttributes(100, 100, 1024), Map.of("x-amz-server-side-encryption", List.of("AES256"))),
+                        Segment.spooled(URI.create("http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/2"), dataAttributes(200, 100, 1024), Map.of("x-amz-server-side-encryption", List.of("AES256")))))
                 .withAttributes(DataAttributes.builder()
                         .set(SCHEMA, "serializedSchema")
                         .build())

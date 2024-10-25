@@ -112,6 +112,12 @@ public class EncodedQueryData
             return this;
         }
 
+        public Builder withSegments(List<Segment> segments)
+        {
+            this.segments.addAll(segments);
+            return this;
+        }
+
         public Builder withAttributes(DataAttributes attributes)
         {
             this.metadata = requireNonNull(attributes, "attributes is null");
