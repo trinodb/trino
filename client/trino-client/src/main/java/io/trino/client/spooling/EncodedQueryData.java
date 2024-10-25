@@ -84,9 +84,9 @@ public class EncodedQueryData
                 .toString();
     }
 
-    public static Builder builder(String format)
+    public static Builder builder(String encoding)
     {
-        return new Builder(format);
+        return new Builder(encoding);
     }
 
     @Override
