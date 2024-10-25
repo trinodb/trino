@@ -585,6 +585,7 @@ primaryExpression
     | CASE operand=expression whenClause+ (ELSE elseExpression=expression)? END           #simpleCase
     | CASE whenClause+ (ELSE elseExpression=expression)? END                              #searchedCase
     | CAST '(' expression AS type ')'                                                     #cast
+    | primaryExpression DOUBLE_COLON type                                                 #typeCast
     | TRY_CAST '(' expression AS type ')'                                                 #cast
     | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
     | value=primaryExpression '[' index=valueExpression ']'                               #subscript
@@ -1323,6 +1324,7 @@ PERCENT: '%';
 CONCAT: '||';
 QUESTION_MARK: '?';
 SEMICOLON: ';';
+DOUBLE_COLON: '::';
 
 STRING
     : '\'' ( ~'\'' | '\'\'' )* '\''

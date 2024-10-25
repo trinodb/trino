@@ -1602,6 +1602,24 @@ public class TestSqlParser
                                                         field(location(1, 30), "COL0", simpleType(location(1, 35), "INTEGER")),
                                                         field(location(1, 44), "COL1", simpleType(location(1, 49), "INTEGER")))),
                                         identifier("col0")))));
+
+        assertStatement("SELECT '11' || 22::VARCHAR",
+                simpleQuery(
+                        selectList(
+                                new FunctionCall(
+                                        QualifiedName.of("concat"),
+                                        ImmutableList.of(
+                                                new StringLiteral("11"),
+                                                new Cast(new LongLiteral("22"), simpleType(location(1, 20), "VARCHAR")))))));
+
+        assertStatement("SELECT col.f1.f2::VARCHAR",
+                simpleQuery(
+                        selectList(
+                                new Cast(
+                                        new DereferenceExpression(
+                                                new DereferenceExpression(identifier("col"), identifier("f1")),
+                                                identifier("f2")),
+                                        simpleType(location(1, 19), "VARCHAR")))));
     }
 
     @Test
