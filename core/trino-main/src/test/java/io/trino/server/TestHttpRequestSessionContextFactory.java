@@ -197,3 +197,4 @@ public class TestHttpRequestSessionContextFactory
                 QueryDataEncoder.EncoderSelector.noEncoder());
     }
 }
+>>>>>>> dc363b5358 (Move testing metadata manager to test classpath)

@@ -585,3 +585,4 @@ public class TestConnectorExpressionTranslator
         assertThat(translation).isEqualTo(expected);
     }
 }
+>>>>>>> dc363b5358 (Move testing metadata manager to test classpath)

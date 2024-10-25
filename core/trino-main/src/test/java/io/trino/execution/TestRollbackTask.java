@@ -147,3 +147,4 @@ public class TestRollbackTask
                 .setSchema(TINY_SCHEMA_NAME);
     }
 }
+>>>>>>> dc363b5358 (Move testing metadata manager to test classpath)

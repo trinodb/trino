@@ -122,3 +122,4 @@ public class TestDeallocateTask
         return stateMachine.getDeallocatedPreparedStatements();
     }
 }
+>>>>>>> dc363b5358 (Move testing metadata manager to test classpath)

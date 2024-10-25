@@ -750,3 +750,4 @@ public class TestMergePatternRecognitionNodes
                                 values("a")));
     }
 }
+>>>>>>> dc363b5358 (Move testing metadata manager to test classpath)

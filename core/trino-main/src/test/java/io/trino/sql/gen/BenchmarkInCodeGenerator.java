@@ -229,3 +229,4 @@ public class BenchmarkInCodeGenerator
         Benchmarks.benchmark(BenchmarkInCodeGenerator.class).run();
     }
 }
+>>>>>>> dc363b5358 (Move testing metadata manager to test classpath)
