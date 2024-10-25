@@ -14,6 +14,7 @@
 package io.trino.server.protocol.spooling;
 
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 
 import java.util.Map;
 import java.util.Set;
@@ -23,6 +24,8 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryDataEncoders
 {
+    private static final Logger LOG = Logger.get(QueryDataEncoders.class);
+
     private final Map<String, QueryDataEncoder.Factory> factories;
 
     @Inject
@@ -32,6 +35,8 @@ public class QueryDataEncoders
                 .stream()
                 .map(factory -> Map.entry(factory.encoding(), factory))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        LOG.info("Spooled client protocol is enabled with encodings: " + getAvailableEncodings());
     }
 
     public boolean exists(String encoding)
