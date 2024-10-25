@@ -62,7 +62,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
-import static io.trino.spi.StandardErrorCode.INVALID_TABLE_FUNCTION_INVOCATION;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
@@ -151,9 +150,6 @@ public class FakerMetadata
             ConnectorTableHandle connectorTableHandle)
     {
         FakerTableHandle tableHandle = (FakerTableHandle) connectorTableHandle;
-        if (tableHandle.id() == null) {
-            throw new TrinoException(INVALID_TABLE_FUNCTION_INVOCATION, "Table functions are not supported");
-        }
         return tables.get(tableHandle.id()).metadata();
     }
 
@@ -184,9 +180,6 @@ public class FakerMetadata
             ColumnHandle columnHandle)
     {
         FakerTableHandle tableHandle = (FakerTableHandle) connectorTableHandle;
-        if (tableHandle.id() == null) {
-            throw new TrinoException(INVALID_TABLE_FUNCTION_INVOCATION, "Table functions are not supported");
-        }
         return tables.get(tableHandle.id())
                 .column(columnHandle)
                 .metadata();
