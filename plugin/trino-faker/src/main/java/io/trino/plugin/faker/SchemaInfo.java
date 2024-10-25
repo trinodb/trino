@@ -19,32 +19,14 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class SchemaInfo
+public record SchemaInfo(String name, Map<String, Object> properties)
 {
-    private final String name;
-    private final Map<String, Object> properties;
-
     public static final String NULL_PROBABILITY_PROPERTY = "null_probability";
     public static final String DEFAULT_LIMIT_PROPERTY = "default_limit";
 
-    public SchemaInfo(String name)
+    public SchemaInfo
     {
-        this(name, Map.of());
-    }
-
-    public SchemaInfo(String name, Map<String, Object> properties)
-    {
-        this.name = requireNonNull(name, "name is null");
-        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
-    }
-
-    public String getName()
-    {
-        return name;
-    }
-
-    public Map<String, Object> getProperties()
-    {
-        return properties;
+        requireNonNull(name, "name is null");
+        properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
     }
 }
