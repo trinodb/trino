@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
-import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -62,10 +61,12 @@ import java.util.stream.Stream;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_FUNCTION_INVOCATION;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -106,7 +107,7 @@ public class FakerMetadata
     public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         if (schemas.stream().anyMatch(schema -> schema.name().equals(schemaName))) {
-            throw new TrinoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
+            throw new TrinoException(SCHEMA_ALREADY_EXISTS, format("Schema '%s' already exists", schemaName));
         }
         schemas.add(new SchemaInfo(schemaName, properties));
     }
@@ -123,7 +124,7 @@ public class FakerMetadata
                 .filter(schemaInfo -> schemaInfo.name().equals(name))
                 .findAny();
         if (schema.isEmpty()) {
-            throw new TrinoException(NOT_FOUND, format("Schema [%s] does not exist", name));
+            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", name));
         }
         return schema.get();
     }
@@ -132,7 +133,7 @@ public class FakerMetadata
     public synchronized ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
         if (startVersion.isPresent() || endVersion.isPresent()) {
-            throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "This connector does not support versioned tables");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
         }
         SchemaInfo schema = getSchema(tableName.getSchemaName());
         Long id = tableIds.get(tableName);
@@ -282,7 +283,7 @@ public class FakerMetadata
     public synchronized void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
         if (saveMode == SaveMode.REPLACE) {
-            throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "This connector does not support replacing tables");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
         ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES, false);
         finishCreateTable(session, outputTableHandle, ImmutableList.of(), ImmutableList.of());
@@ -292,7 +293,7 @@ public class FakerMetadata
     public synchronized FakerOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode, boolean replace)
     {
         if (replace) {
-            throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "This connector does not support replacing tables");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
         SchemaInfo schema = getSchema(tableMetadata.getTable().getSchemaName());
         checkTableNotExists(tableMetadata.getTable());
@@ -349,7 +350,7 @@ public class FakerMetadata
     private synchronized void checkTableNotExists(SchemaTableName tableName)
     {
         if (tableIds.containsKey(tableName)) {
-            throw new TrinoException(ALREADY_EXISTS, format("Table [%s] already exists", tableName));
+            throw new TrinoException(TABLE_ALREADY_EXISTS, format("Table '%s' already exists", tableName));
         }
     }
 
@@ -377,7 +378,7 @@ public class FakerMetadata
                 .filter(s -> s.name().equals(schemaName))
                 .findAny();
         if (schema.isEmpty()) {
-            throw new TrinoException(NOT_FOUND, format("Schema [%s] does not exist", schemaName));
+            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
         }
 
         return schema.get().properties();
