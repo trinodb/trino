@@ -21,12 +21,11 @@ import io.trino.spi.predicate.TupleDomain;
 
 import static java.util.Objects.requireNonNull;
 
-public record FakerTableHandle(Long id, SchemaTableName schemaTableName, TupleDomain<ColumnHandle> constraint, long limit)
+public record FakerTableHandle(long id, SchemaTableName schemaTableName, TupleDomain<ColumnHandle> constraint, long limit)
         implements ConnectorTableHandle
 {
     public FakerTableHandle
     {
-        requireNonNull(id, "id is null");
         requireNonNull(schemaTableName, "schemaTableName is null");
         requireNonNull(constraint, "constraint is null");
     }
