@@ -30,18 +30,18 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
-public class MongoSslModule
+public class MongoTlsModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfig(MongoSslConfig.class);
+        configBinder(binder).bindConfig(MongoTlsConfig.class);
     }
 
     @ProvidesIntoSet
     @Singleton
-    public MongoClientSettingConfigurator sslSpecificConfigurator(MongoSslConfig config)
+    public MongoClientSettingConfigurator sslSpecificConfigurator(MongoTlsConfig config)
     {
         return options -> options.applyToSslSettings(
                 builder -> {

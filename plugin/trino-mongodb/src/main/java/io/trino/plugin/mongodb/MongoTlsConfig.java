@@ -20,7 +20,7 @@ import io.airlift.configuration.validation.FileExists;
 import java.io.File;
 import java.util.Optional;
 
-public class MongoSslConfig
+public class MongoTlsConfig
 {
     private File keystorePath;
     private String keystorePassword;
@@ -33,7 +33,7 @@ public class MongoSslConfig
     }
 
     @Config("mongodb.tls.keystore-path")
-    public MongoSslConfig setKeystorePath(File keystorePath)
+    public MongoTlsConfig setKeystorePath(File keystorePath)
     {
         this.keystorePath = keystorePath;
         return this;
@@ -46,7 +46,7 @@ public class MongoSslConfig
 
     @Config("mongodb.tls.keystore-password")
     @ConfigSecuritySensitive
-    public MongoSslConfig setKeystorePassword(String keystorePassword)
+    public MongoTlsConfig setKeystorePassword(String keystorePassword)
     {
         this.keystorePassword = keystorePassword;
         return this;
@@ -58,7 +58,7 @@ public class MongoSslConfig
     }
 
     @Config("mongodb.tls.truststore-path")
-    public MongoSslConfig setTruststorePath(File truststorePath)
+    public MongoTlsConfig setTruststorePath(File truststorePath)
     {
         this.truststorePath = truststorePath;
         return this;
@@ -71,7 +71,7 @@ public class MongoSslConfig
 
     @Config("mongodb.tls.truststore-password")
     @ConfigSecuritySensitive
-    public MongoSslConfig setTruststorePassword(String truststorePassword)
+    public MongoTlsConfig setTruststorePassword(String truststorePassword)
     {
         this.truststorePassword = truststorePassword;
         return this;

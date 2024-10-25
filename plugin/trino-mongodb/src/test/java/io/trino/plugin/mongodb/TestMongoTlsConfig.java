@@ -24,12 +24,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestMongoSslConfig
+public class TestMongoTlsConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(MongoSslConfig.class)
+        assertRecordedDefaults(recordDefaults(MongoTlsConfig.class)
                 .setKeystorePath(null)
                 .setKeystorePassword(null)
                 .setTruststorePath(null)
@@ -50,7 +50,7 @@ public class TestMongoSslConfig
                 .put("mongodb.tls.truststore-password", "truststore-password")
                 .buildOrThrow();
 
-        MongoSslConfig expected = new MongoSslConfig()
+        MongoTlsConfig expected = new MongoTlsConfig()
                 .setKeystorePath(keystoreFile.toFile())
                 .setKeystorePassword("keystore-password")
                 .setTruststorePath(truststoreFile.toFile())
