@@ -18,7 +18,7 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-public class TestFakerQueries
+final class TestFakerQueries
         extends AbstractTestQueryFramework
 {
     @Override
@@ -29,7 +29,7 @@ public class TestFakerQueries
     }
 
     @Test
-    public void showTables()
+    void testShowTables()
     {
         assertQuery("SHOW SCHEMAS FROM faker", "VALUES 'default', 'information_schema'");
         assertUpdate("CREATE TABLE faker.default.test (id INTEGER, name VARCHAR)");
@@ -37,7 +37,7 @@ public class TestFakerQueries
     }
 
     @Test
-    public void selectFromTable()
+    void testSelectFromTable()
     {
         @Language("SQL")
         String tableQuery = """
@@ -180,7 +180,7 @@ public class TestFakerQueries
     }
 
     @Test
-    public void selectLimit()
+    void testSelectLimit()
     {
         @Language("SQL")
         String tableQuery = "CREATE TABLE faker.default.single_column (rnd_bigint bigint NOT NULL)";
@@ -196,7 +196,7 @@ public class TestFakerQueries
     }
 
     @Test
-    public void selectDefaultTableLimit()
+    void testSelectDefaultTableLimit()
     {
         @Language("SQL")
         String tableQuery = "CREATE TABLE faker.default.default_table_limit (rnd_bigint bigint NOT NULL) WITH (default_limit = 100)";
@@ -229,7 +229,7 @@ public class TestFakerQueries
     }
 
     @Test
-    public void selectGenerator()
+    void testSelectGenerator()
     {
         @Language("SQL")
         String tableQuery = "CREATE TABLE faker.default.generators (" +
@@ -246,7 +246,7 @@ public class TestFakerQueries
     }
 
     @Test
-    public void selectFunctions()
+    void testSelectFunctions()
     {
         @Language("SQL")
         String testQuery = "SELECT random_string('#{options.option ''a'', ''b''}') IN ('a', 'b')";
@@ -254,7 +254,7 @@ public class TestFakerQueries
     }
 
     @Test
-    public void selectRange()
+    void testSelectRange()
     {
         @Language("SQL")
         String tableQuery = """
