@@ -15,60 +15,31 @@ package io.trino.plugin.faker;
 
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.type.Type;
 
-import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class ColumnInfo
+public record ColumnInfo(ColumnHandle handle, ColumnMetadata metadata)
 {
     public static final String NULL_PROBABILITY_PROPERTY = "null_probability";
     public static final String GENERATOR_PROPERTY = "generator";
 
-    private final ColumnHandle handle;
-    private final String name;
-    private final Type type;
-    private ColumnMetadata metadata;
-
-    public ColumnInfo(ColumnHandle handle, String name, Type type, Map<String, Object> properties, Optional<String> comment)
+    public ColumnInfo
     {
-        this(handle, ColumnMetadata.builder()
-                .setName(name)
-                .setType(type)
-                .setProperties(properties)
-                .setComment(comment)
-                .build());
+        requireNonNull(handle, "handle is null");
+        requireNonNull(metadata, "metadata is null");
     }
 
-    public ColumnInfo(ColumnHandle handle, ColumnMetadata metadata)
+    public String name()
     {
-        this.handle = requireNonNull(handle, "handle is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.name = metadata.getName();
-        this.type = metadata.getType();
-    }
-
-    public ColumnHandle getHandle()
-    {
-        return handle;
-    }
-
-    public String getName()
-    {
-        return name;
-    }
-
-    public ColumnMetadata getMetadata()
-    {
-        return metadata;
+        return metadata.getName();
     }
 
     @Override
     public String toString()
     {
-        return name + "::" + type;
+        return metadata.getName() + "::" + metadata.getType();
     }
 
     public ColumnInfo withComment(Optional<String> comment)
