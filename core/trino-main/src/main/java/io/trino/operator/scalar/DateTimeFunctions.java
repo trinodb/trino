@@ -242,21 +242,47 @@ public final class DateTimeFunctions
         return utf8Slice(formatter.print(DAYS.toMillis(date)));
     }
 
-    @ScalarFunction("from_iso8601_timestamp")
-    @LiteralParameters("x")
-    @SqlType("timestamp(3) with time zone")
-    public static long fromISO8601Timestamp(ConnectorSession session, @SqlType("varchar(x)") Slice iso8601DateTime)
-    {
-        DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()
-                .withChronology(getChronology(session.getTimeZoneKey()))
-                .withOffsetParsed();
+@ScalarFunction("from_iso8601_timestamp")
+@LiteralParameters("x")
+@SqlType("timestamp(3) with time zone")
+public static long fromISO8601Timestamp(ConnectorSession session, @SqlType("varchar(x)") Slice iso8601DateTime)
+{
+    DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()
+            .withChronology(getChronology(session.getTimeZoneKey()))
+            .withOffsetParsed();
+    DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder()
+            .appendYear(4, 4)
+            .appendMonthOfYear(2)
+            .appendDayOfMonth(2)
+            .appendLiteral('T')
+            .appendHourOfDay(2)
+            .appendMinuteOfHour(2)
+            .appendSecondOfMinute(2);
+    if (iso8601DateTime.toStringUtf8().contains(".")) {
+        builder.appendLiteral('.')
+                .appendFractionOfSecond(1, 9);
+    }
+
+    builder.appendTimeZoneOffset("Z", true, 2, 4);
+
+    DateTimeFormatter basicFormatter = builder
+            .toFormatter()
+            .withChronology(getChronology(session.getTimeZoneKey()))
+            .withOffsetParsed();
+
+    try {
+        return packDateTimeWithZone(parseDateTimeHelper(formatter, iso8601DateTime.toStringUtf8()));
+    }
+    catch (IllegalArgumentException e) {
         try {
-            return packDateTimeWithZone(parseDateTimeHelper(formatter, iso8601DateTime.toStringUtf8()));
+            return packDateTimeWithZone(parseDateTimeHelper(basicFormatter, iso8601DateTime.toStringUtf8()));
         }
-        catch (IllegalArgumentException e) {
+        catch (IllegalArgumentException innerException) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
+
+}
 
     @ScalarFunction("from_iso8601_timestamp_nanos")
     @LiteralParameters("x")
