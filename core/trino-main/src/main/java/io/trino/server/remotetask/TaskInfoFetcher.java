@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -238,6 +239,7 @@ public class TaskInfoFetcher
         ListenableFuture<Void> errorRateLimit = errorTracker.acquireRequestPermit();
         if (!errorRateLimit.isDone()) {
             errorRateLimit.addListener(this::sendNextRequest, executor);
+            log.debug("Rate limit active, delaying next request");
             return;
         }
 
@@ -249,6 +251,7 @@ public class TaskInfoFetcher
                 .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 
+        log.info("Fetching task info from: {}", request.getUri());
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
         Futures.addCallback(future, new SimpleHttpResponseHandler<>(new TaskInfoResponseCallback(), request.getUri(), stats), executor);
@@ -335,6 +338,8 @@ public class TaskInfoFetcher
             try (SetThreadName _ = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
                 lastUpdateNanos.set(System.nanoTime());
 
+                long duration = nanosSince(requestStartNanos).toMillis();
+                log.error("Failed to fetch task info after {} ms", duration, cause);
                 // if task not already done, record error
                 if (!isDone(getTaskInfo())) {
                     errorTracker.requestFailed(cause);
@@ -364,6 +369,7 @@ public class TaskInfoFetcher
         }
     }
 
+
     private synchronized void cleanupRequest()
     {
         if (future != null && future.isDone()) {
@@ -371,6 +377,7 @@ public class TaskInfoFetcher
             future = null;
         }
     }
+
 
     private void updateStats(long currentRequestStartNanos)
     {

@@ -67,6 +67,10 @@ class ContinuousTaskStatusFetcher
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
 
+    private static final int MAX_RETRIES = 3;
+    @GuardedBy("this")
+    private int retryCount = 0;
+
     @GuardedBy("this")
     private boolean running;
 
@@ -137,6 +141,10 @@ class ContinuousTaskStatusFetcher
             log.error("Cannot reschedule update because an update is already running");
             return;
         }
+        if (!retryIfNeeded()) {
+            initiateStatusFetch();
+        }
+
 
         // if throttled due to error, asynchronously wait for timeout and try again
         ListenableFuture<Void> errorRateLimit = errorTracker.acquireRequestPermit();
@@ -153,6 +161,38 @@ class ContinuousTaskStatusFetcher
                 .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 
+        errorTracker.startRequest();
+        future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskStatusCodec));
+        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new TaskStatusResponseCallback(), request.getUri(), stats), executor);
+    }
+    private boolean retryIfNeeded() {
+        if (retryCount >= MAX_RETRIES) {
+            log.warn("Max retries reached, will not fetch task status");
+            stop();
+            return true;
+        }
+
+        ListenableFuture<Void> errorRateLimit = errorTracker.acquireRequestPermit();
+        if (!errorRateLimit.isDone()) {
+            log.info("Waiting due to error rate limit");
+            errorRateLimit.addListener(this::scheduleNextRequest, executor);
+            retryCount++;
+            return true;
+        }
+
+        retryCount = 0;
+        return false;
+    }
+    private void initiateStatusFetch() {
+        Request request = prepareGet()
+                .setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())
+                .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
+                .setHeader(TRINO_CURRENT_VERSION, Long.toString(taskStatus.getVersion()))
+                .setHeader(TRINO_MAX_WAIT, refreshMaxWait.toString())
+                .setSpanBuilder(spanBuilderFactory.get())
+                .build();
+
+        log.debug("Fetching task status from: {}", request.getUri());
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskStatusCodec));
         Futures.addCallback(future, new SimpleHttpResponseHandler<>(new TaskStatusResponseCallback(), request.getUri(), stats), executor);

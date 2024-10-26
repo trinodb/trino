@@ -22,6 +22,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.trino.spi.TrinoException;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -48,6 +49,17 @@ public class StateMachine<T>
     private final Executor executor;
     private final Object lock = new Object();
     private final Set<T> terminalStates;
+
+    private URI selfUri;
+    private long version;
+
+    public URI getSelf() {
+        return selfUri;
+    }
+
+    public long getVersion() {
+        return version;
+    }
 
     @GuardedBy("lock")
     private volatile T state;

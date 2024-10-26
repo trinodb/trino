@@ -19,7 +19,11 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
+
 import io.airlift.http.client.Request;
+import io.airlift.log.Logger;
+
+import java.net.URI;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.SpanBuilder;
@@ -28,7 +32,6 @@ import io.trino.execution.TaskId;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.TrinoException;
 
-import java.net.URI;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
@@ -40,6 +43,7 @@ import static com.google.common.util.concurrent.Futures.addCallback;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
+
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
@@ -61,6 +65,8 @@ class DynamicFiltersFetcher
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
     private final DynamicFilterService dynamicFilterService;
+
+    private static final Logger log = Logger.get(DynamicFiltersFetcher.class);
 
     @GuardedBy("this")
     private long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
@@ -153,6 +159,7 @@ class DynamicFiltersFetcher
         ListenableFuture<Void> errorRateLimit = errorTracker.acquireRequestPermit();
         if (!errorRateLimit.isDone()) {
             errorRateLimit.addListener(this::fetchDynamicFiltersIfNecessary, executor);
+            log.debug("Waiting for error rate limit before making another request");
             return;
         }
 
@@ -164,6 +171,7 @@ class DynamicFiltersFetcher
                 .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 
+        log.info("Sending request for dynamic filters: " + request.getUri());
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, createFullJsonResponseHandler(dynamicFilterDomainsCodec));
         addCallback(future, new SimpleHttpResponseHandler<>(new DynamicFiltersResponseCallback(dynamicFiltersVersion), request.getUri(), stats), executor);
@@ -208,6 +216,7 @@ class DynamicFiltersFetcher
         @Override
         public void failed(Throwable cause)
         {
+            log.error("Failed to fetch dynamic filters: " + cause.getMessage(), cause);
             try (SetThreadName _ = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
                 updateStats(requestStartNanos);
                 errorTracker.requestFailed(cause);
@@ -230,6 +239,7 @@ class DynamicFiltersFetcher
         @Override
         public void fatal(Throwable cause)
         {
+            log.error("Fatal error fetching dynamic filters: " + cause.getMessage(), cause);
             try (SetThreadName _ = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
                 updateStats(requestStartNanos);
                 stop();
@@ -272,4 +282,7 @@ class DynamicFiltersFetcher
     {
         stats.statusRoundTripMillis(nanosSince(currentRequestStartNanos).toMillis());
     }
+
+
+
 }

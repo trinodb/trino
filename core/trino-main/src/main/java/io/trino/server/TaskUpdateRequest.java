@@ -23,10 +23,13 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
+import io.airlift.log.Logger;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -45,6 +48,7 @@ public record TaskUpdateRequest(
         Optional<Slice> exchangeEncryptionKey,
         boolean speculative)
 {
+    private static final Logger log = Logger.get(TaskUpdateRequest.class);
     public TaskUpdateRequest
     {
         requireNonNull(session, "session is null");
@@ -55,6 +59,16 @@ public record TaskUpdateRequest(
         requireNonNull(outputIds, "outputIds is null");
         dynamicFilterDomains = ImmutableMap.copyOf(dynamicFilterDomains);
         requireNonNull(exchangeEncryptionKey, "exchangeEncryptionKey is null");
+
+        if (splitAssignments.isEmpty()) {
+            throw new IllegalArgumentException("splitAssignments cannot be empty");
+        }
+        if (dynamicFilterDomains.isEmpty()) {
+            throw new IllegalArgumentException("dynamicFilterDomains cannot be empty");
+        }
+        log.debug("Creating TaskUpdateRequest with session: {}, fragment: {}, speculative: {}", session, fragment, speculative);
+
+
     }
 
     @Override
