@@ -39,7 +39,7 @@ import jakarta.ws.rs.core.UriInfo;
 import java.io.IOException;
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -53,7 +53,6 @@ public class SegmentResource
 {
     private final SpoolingManager spoolingManager;
     private final InternalNodeManager nodeManager;
-    private final AtomicInteger nextWorkerIndex = new AtomicInteger();
     private final SegmentRetrievalMode retrievalMode;
     private final boolean isCoordinator;
 
@@ -124,7 +123,7 @@ public class SegmentResource
     {
         List<InternalNode> internalNodes = ImmutableList.copyOf(nodeManager.getActiveNodesSnapshot().getAllNodes());
         verify(!internalNodes.isEmpty(), "No active nodes available");
-        return internalNodes.get(nextWorkerIndex.incrementAndGet() % internalNodes.size())
+        return internalNodes.get(ThreadLocalRandom.current().nextInt(internalNodes.size()))
                 .getHostAndPort();
     }
 
