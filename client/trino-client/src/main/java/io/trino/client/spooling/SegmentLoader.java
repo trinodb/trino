@@ -75,15 +75,15 @@ public class SegmentLoader
         throw new IOException(format("Could not open segment for streaming, got error '%s' with code %d", response.message(), response.code()));
     }
 
-    private void delete(URI segmentUri, Headers headers)
+    private void acknowledge(URI ackUri, Headers headers)
     {
-        Request deleteRequest = new Request.Builder()
-                .delete()
-                .url(segmentUri.toString())
+        Request ackRequest = new Request.Builder()
+                .get()
+                .url(ackUri.toString())
                 .headers(headers)
                 .build();
 
-        callFactory.newCall(deleteRequest).enqueue(new Callback()
+        callFactory.newCall(ackRequest).enqueue(new Callback()
         {
             @Override
             public void onFailure(Call call, IOException cause)
@@ -108,7 +108,7 @@ public class SegmentLoader
                     throws IOException
             {
                 try (Response ignored = response; InputStream ignored2 = delegate) {
-                    delete(ackUri, headers);
+                    acknowledge(ackUri, headers);
                 }
             }
         };

@@ -77,11 +77,9 @@ public class SpooledQueryDataProducer
                     DataAttributes attributes = metadata.attributes().toBuilder()
                             .set(ROW_OFFSET, currentOffset)
                             .build();
-
-                    URI segmentUri = buildSegmentURI(uriBuilder, metadata.identifier());
                     builder.withSegment(spooled(
-                            metadata.directUri().orElse(segmentUri),
-                            segmentUri,
+                            metadata.directUri().orElseGet(() -> buildSegmentDownloadURI(uriBuilder, metadata.identifier())),
+                            buildSegmentAckURI(uriBuilder, metadata.identifier()),
                             attributes,
                             metadata.headers()));
                     currentOffset += attributes.get(ROWS_COUNT, Long.class);
@@ -108,9 +106,14 @@ public class SpooledQueryDataProducer
         return builder.build();
     }
 
-    private URI buildSegmentURI(UriBuilder builder, Slice identifier)
+    private URI buildSegmentDownloadURI(UriBuilder builder, Slice identifier)
     {
-        return builder.clone().build(identifier.toStringUtf8());
+        return builder.clone().path("download/{identifier}").build(identifier.toStringUtf8());
+    }
+
+    private URI buildSegmentAckURI(UriBuilder builder, Slice identifier)
+    {
+        return builder.clone().path("ack/{identifier}").build(identifier.toStringUtf8());
     }
 
     private boolean hasSpoolingMetadata(Page page, List<OutputColumn> outputColumns)
