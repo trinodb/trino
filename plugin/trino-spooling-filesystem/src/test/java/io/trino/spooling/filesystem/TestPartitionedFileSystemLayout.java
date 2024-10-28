@@ -15,7 +15,6 @@ package io.trino.spooling.filesystem;
 
 import io.azam.ulidj.ULID;
 import io.trino.filesystem.Location;
-import io.trino.spi.QueryId;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -33,7 +32,7 @@ class TestPartitionedFileSystemLayout
     @Test
     public void testStorageLocation()
     {
-        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", QueryId.valueOf("query_id"), ULID.generateBinary(213700331, STATIC_ENTROPY), Optional.empty());
+        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", ULID.generateBinary(213700331, STATIC_ENTROPY), Optional.empty());
 
         assertThat(handle.identifier()).isEqualTo("00006BSKQBDSQQ8WVFE9GPWS3F");
 
@@ -41,9 +40,9 @@ class TestPartitionedFileSystemLayout
 
         assertThat(segmentLocation).isEqualTo(ROOT_LOCATION
                 .appendPath("600-spooled")
-                .appendPath("00006BSKQBDSQQ8WVFE9GPWS3F.segment.query_id.json"));
+                .appendPath("00006BSKQBDSQQ8WVFE9GPWS3F.json"));
 
-        assertThat(segmentLocation.fileName()).isEqualTo("00006BSKQBDSQQ8WVFE9GPWS3F.segment.query_id.json");
+        assertThat(segmentLocation.fileName()).isEqualTo("00006BSKQBDSQQ8WVFE9GPWS3F.json");
         assertThat(LAYOUT.getExpiration(segmentLocation)).hasValue(Instant.ofEpochMilli(213700331));
     }
 

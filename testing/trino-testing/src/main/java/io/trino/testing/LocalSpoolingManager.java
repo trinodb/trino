@@ -21,7 +21,6 @@ import com.google.errorprone.annotations.DoNotCall;
 import io.airlift.slice.Slice;
 import io.trino.client.JsonCodec;
 import io.trino.spi.Plugin;
-import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledLocation;
 import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
@@ -73,10 +72,7 @@ public class LocalSpoolingManager
     @Override
     public SpooledSegmentHandle create(SpoolingContext context)
     {
-        return new LocalSpooledSegmentHandle(
-                context.encoding(),
-                context.queryId(),
-                rootPath.resolve(context.queryId().getId() + "-" + segmentId.incrementAndGet() + "-" + UUID.randomUUID() + "." + context.encoding()));
+        return new LocalSpooledSegmentHandle(context.encoding(), rootPath.resolve(segmentId.incrementAndGet() + "-" + UUID.randomUUID() + "." + context.encoding()));
     }
 
     @Override
@@ -175,13 +171,11 @@ public class LocalSpoolingManager
             implements SpooledSegmentHandle
     {
         private final String encoding;
-        private final QueryId queryId;
         private final Path path;
 
-        public LocalSpooledSegmentHandle(String encoding, QueryId queryId, Path path)
+        public LocalSpooledSegmentHandle(String encoding, Path path)
         {
             this.encoding = requireNonNull(encoding, "encoding is null");
-            this.queryId = requireNonNull(queryId, "queryId is null");
             this.path = requireNonNull(path, "path is null");
         }
 
@@ -190,13 +184,6 @@ public class LocalSpoolingManager
         public Instant expirationTime()
         {
             return Instant.MAX;
-        }
-
-        @JsonProperty
-        @Override
-        public QueryId queryId()
-        {
-            return queryId;
         }
 
         @JsonIgnore
@@ -230,7 +217,6 @@ public class LocalSpoolingManager
         {
             return toStringHelper(this)
                     .add("encoding", encoding)
-                    .add("queryId", queryId)
                     .add("path", path)
                     .toString();
         }
@@ -239,10 +225,9 @@ public class LocalSpoolingManager
         @JsonCreator
         public static LocalSpooledSegmentHandle create(
                 @JsonProperty("encoding") String encoding,
-                @JsonProperty("queryId") String queryId,
                 @JsonProperty("path") String path)
         {
-            return new LocalSpooledSegmentHandle(encoding, QueryId.valueOf(queryId), Paths.get(path));
+            return new LocalSpooledSegmentHandle(encoding, Paths.get(path));
         }
     }
 }

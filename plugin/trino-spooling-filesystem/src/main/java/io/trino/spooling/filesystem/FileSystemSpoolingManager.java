@@ -25,7 +25,6 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.encryption.EncryptionKey;
-import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledLocation;
 import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
@@ -159,7 +158,7 @@ public class FileSystemSpoolingManager
         }
 
         if (directLocation.isEmpty()) {
-            throw new IOException("Failed to generate pre-signed URI for query %s and segment %s".formatted(fileHandle.queryId(), fileHandle.identifier()));
+            throw new IOException("Failed to generate pre-signed URI for segment %s".formatted(fileHandle.identifier()));
         }
         return directLocation;
     }
@@ -176,16 +175,12 @@ public class FileSystemSpoolingManager
         // Identifier layout:
         //
         // ulid: byte[16]
-        // queryIdLength: byte
         // encodingLength: byte
-        // queryId: string
         // encoding: string
         // isEncrypted: boolean
         DynamicSliceOutput output = new DynamicSliceOutput(64);
         output.writeBytes(fileHandle.uuid());
-        output.writeShort(fileHandle.queryId().toString().length());
         output.writeShort(fileHandle.encoding().length());
-        output.writeBytes(fileHandle.queryId().toString().getBytes(UTF_8));
         output.writeBytes(fileHandle.encoding().getBytes(UTF_8));
         output.writeBoolean(fileHandle.encryptionKey().isPresent());
         return output.slice();
@@ -204,15 +199,13 @@ public class FileSystemSpoolingManager
         BasicSliceInput input = identifier.getInput();
         byte[] uuid = new byte[16];
         input.readBytes(uuid);
-        short queryLength = input.readShort();
         short encodingLength = input.readShort();
 
-        QueryId queryId = QueryId.valueOf(input.readSlice(queryLength).toStringUtf8());
         String encoding = input.readSlice(encodingLength).toStringUtf8();
         if (!input.readBoolean()) {
-            return new FileSystemSpooledSegmentHandle(encoding, queryId, uuid, Optional.empty());
+            return new FileSystemSpooledSegmentHandle(encoding, uuid, Optional.empty());
         }
-        return new FileSystemSpooledSegmentHandle(encoding, queryId, uuid, Optional.of(encryptionHeadersTranslator.extractKey(headers)));
+        return new FileSystemSpooledSegmentHandle(encoding, uuid, Optional.of(encryptionHeadersTranslator.extractKey(headers)));
     }
 
     private Duration remainingTtl(Instant expiresAt, OptionalInt ttlSeconds)

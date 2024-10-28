@@ -124,7 +124,6 @@ public class TracingSpoolingManager
         return tracer
                 .spanBuilder("SpoolingManager." + name)
                 .setAttribute(SEGMENT_ID, handle.identifier())
-                .setAttribute(SEGMENT_QUERY_ID, handle.queryId().toString())
                 .setAttribute(SEGMENT_ENCODING, handle.encoding())
                 .setAttribute(SEGMENT_EXPIRATION, handle.expirationTime().toString())
                 .startSpan();

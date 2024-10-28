@@ -23,12 +23,10 @@ import java.util.Optional;
 public class SimpleFileSystemLayout
         implements FileSystemLayout
 {
-    private static final String SEGMENT_SEPARATOR = ".segment.";
-
     @Override
     public Location location(Location rootLocation, FileSystemSpooledSegmentHandle segmentHandle)
     {
-        return rootLocation.appendPath(segmentHandle.identifier() + SEGMENT_SEPARATOR + segmentHandle.queryId() + "." + segmentHandle.encoding());
+        return rootLocation.appendPath(segmentHandle.identifier() + "." + segmentHandle.encoding());
     }
 
     @Override
@@ -41,7 +39,7 @@ public class SimpleFileSystemLayout
     public Optional<Instant> getExpiration(Location location)
     {
         String filename = location.fileName();
-        int index = filename.indexOf(SEGMENT_SEPARATOR);
+        int index = filename.indexOf(".");
         if (index == -1) {
             return Optional.empty(); // Not a segment
         }
