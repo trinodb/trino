@@ -43,6 +43,7 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @Isolated // TODO remove
@@ -225,5 +226,13 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     {
         assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
                 .hasMessageMatching(".* Table '.*' does not exist");
+    }
+
+    @Test
+    @Override
+    public void testDeleteRowsConcurrently()
+    {
+        //TODO: Fix https://github.com/trinodb/trino/issues/23941
+        abort("Skipped for now due to #23941");
     }
 }
