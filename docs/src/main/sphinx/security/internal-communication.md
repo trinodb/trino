@@ -99,16 +99,6 @@ configuration identical on all cluster nodes.
 Certificates are automatically created and used to ensure all communication
 inside the cluster is secured with TLS.
 
-:::{warning}
-Older versions of Trino required you to manually manage all the certificates
-on the nodes. If you upgrade from this setup, you must remove the following
-configuration properties:
-
-- `internal-communication.https.keystore.path`
-- `internal-communication.https.truststore.path`
-- `node.internal-address-source`
-:::
-
 ### Performance with SSL/TLS enabled
 
 Enabling encryption impacts performance. The performance degradation can vary

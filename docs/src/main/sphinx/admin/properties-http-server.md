@@ -181,7 +181,7 @@ cluster share and use to authenticate within the cluster. See
 - **Default value:** `true`
 
 Enable use of the HTTP/2 protocol for internal communication for enhanced
-scalability compared to HTTP/1.1. Only turn this feature off, if you encounter
+scalability compared to HTTP/1.1. Only turn this feature off if you encounter
 issues with HTTP/2 usage within the cluster in your deployment.
 
 ### `internal-communication.https.required`
