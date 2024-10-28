@@ -33,7 +33,7 @@ import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
-@Path("/v1/spooled/segments/{identifier}")
+@Path("/v1/spooled/download/{identifier}")
 @ResourceSecurity(PUBLIC)
 public class WorkerSegmentResource
 {
