@@ -77,7 +77,8 @@ public final class EnvMultinodeAllConnectors
                         "snowflake",
                         "sqlserver",
                         "trino_thrift",
-                        "tpcds")
+                        "tpcds",
+                        "vertica")
                 .forEach(connector -> builder.addConnector(
                         connector,
                         forHostPath(configDir.getPath(connector + ".properties"))));
