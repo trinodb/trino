@@ -49,20 +49,18 @@ import static java.util.Objects.requireNonNull;
 
 @Path("/v1/spooled/segments/{identifier}")
 @ResourceSecurity(PUBLIC)
-public class SegmentResource
+public class CoordinatorSegmentResource
 {
     private final SpoolingManager spoolingManager;
-    private final InternalNodeManager nodeManager;
     private final SegmentRetrievalMode retrievalMode;
-    private final boolean isCoordinator;
+    private final InternalNodeManager nodeManager;
 
     @Inject
-    public SegmentResource(SpoolingManager spoolingManager, SpoolingConfig config, InternalNodeManager nodeManager)
+    public CoordinatorSegmentResource(SpoolingManager spoolingManager, SpoolingConfig config, InternalNodeManager nodeManager)
     {
         this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.retrievalMode = requireNonNull(config, "config is null").getRetrievalMode();
-        this.isCoordinator = nodeManager.getCurrentNode().isCoordinator();
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @GET
@@ -77,10 +75,6 @@ public class SegmentResource
             case STORAGE -> throw new ServiceUnavailableException("Retrieval mode is STORAGE but segment resource was called");
             case COORDINATOR_PROXY -> Response.ok(spoolingManager.openInputStream(handle)).build();
             case WORKER_PROXY -> {
-                if (!isCoordinator) {
-                    // We are already on the worker
-                    yield Response.ok(spoolingManager.openInputStream(handle)).build();
-                }
                 HostAddress hostAddress = nextActiveNode();
                 yield Response.seeOther(uriInfo
                                 .getRequestUriBuilder()
@@ -116,7 +110,7 @@ public class SegmentResource
     public static UriBuilder spooledSegmentUriBuilder(ExternalUriInfo info)
     {
         return UriBuilder.fromUri(info.baseUriBuilder().build())
-                .path(SegmentResource.class);
+                .path(CoordinatorSegmentResource.class);
     }
 
     public HostAddress nextActiveNode()

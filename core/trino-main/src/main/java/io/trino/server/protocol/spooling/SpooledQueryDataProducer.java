@@ -36,7 +36,7 @@ import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.ROW_OFFSET;
 import static io.trino.client.spooling.Segment.inlined;
 import static io.trino.client.spooling.Segment.spooled;
-import static io.trino.server.protocol.spooling.SegmentResource.spooledSegmentUriBuilder;
+import static io.trino.server.protocol.spooling.CoordinatorSegmentResource.spooledSegmentUriBuilder;
 import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static java.util.Objects.requireNonNull;
 
