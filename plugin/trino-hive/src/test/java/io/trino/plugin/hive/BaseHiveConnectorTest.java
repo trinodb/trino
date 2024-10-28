@@ -945,11 +945,7 @@ public abstract class BaseHiveConnectorTest
                 "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice",
                 "Cannot set authorization for table test_table_authorization.foo to USER alice");
         assertUpdate(admin, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice");
-        // only admin can change the owner
-        assertAccessDenied(
-                alice,
-                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice",
-                "Cannot set authorization for table test_table_authorization.foo to USER alice");
+        assertUpdate(alice, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice");
         // alice as new owner can now drop table
         assertUpdate(alice, "DROP TABLE test_table_authorization.foo");
 
@@ -982,11 +978,10 @@ public abstract class BaseHiveConnectorTest
                 "DROP TABLE test_table_authorization_role.foo",
                 "Cannot drop table test_table_authorization_role.foo");
         assertUpdate(admin, "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION alice");
-        // Only admin can change the owner
-        assertAccessDenied(
+        assertQueryFails(
                 alice,
                 "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION ROLE admin",
-                "Cannot set authorization for table test_table_authorization_role.foo to ROLE admin");
+                "Setting table owner type as a role is not supported");
         // new owner can drop table
         assertUpdate(alice, "DROP TABLE test_table_authorization_role.foo");
         assertUpdate(admin, "DROP SCHEMA test_table_authorization_role");
