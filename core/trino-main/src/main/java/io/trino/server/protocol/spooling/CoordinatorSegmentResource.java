@@ -13,7 +13,6 @@
  */
 package io.trino.server.protocol.spooling;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
@@ -42,6 +41,7 @@ import java.util.OptionalInt;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -75,7 +75,7 @@ public class CoordinatorSegmentResource
             case STORAGE -> throw new ServiceUnavailableException("Retrieval mode is STORAGE but segment resource was called");
             case COORDINATOR_PROXY -> Response.ok(spoolingManager.openInputStream(handle)).build();
             case WORKER_PROXY -> {
-                HostAddress hostAddress = nextActiveNode();
+                HostAddress hostAddress = randomActiveWorkerNode();
                 yield Response.seeOther(uriInfo
                                 .getRequestUriBuilder()
                                 .host(hostAddress.getHostText())
@@ -113,10 +113,14 @@ public class CoordinatorSegmentResource
                 .path(CoordinatorSegmentResource.class);
     }
 
-    public HostAddress nextActiveNode()
+    public HostAddress randomActiveWorkerNode()
     {
-        List<InternalNode> internalNodes = ImmutableList.copyOf(nodeManager.getActiveNodesSnapshot().getAllNodes());
-        verify(!internalNodes.isEmpty(), "No active nodes available");
+        List<InternalNode> internalNodes = nodeManager.getActiveNodesSnapshot().getAllNodes()
+                .stream()
+                .filter(node -> !node.isCoordinator())
+                .collect(toImmutableList());
+
+        verify(!internalNodes.isEmpty(), "No active worker nodes available");
         return internalNodes.get(ThreadLocalRandom.current().nextInt(internalNodes.size()))
                 .getHostAndPort();
     }
