@@ -22,6 +22,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -81,6 +84,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static com.google.common.math.LongMath.saturatedAdd;
+import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
@@ -104,8 +108,6 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Math.clamp;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
@@ -130,7 +132,12 @@ public class IcebergSplitSource
     private final Stopwatch dynamicFilterWaitStopwatch;
     private final PartitionConstraintMatcher partitionConstraintMatcher;
     private final TypeManager typeManager;
+    @GuardedBy("closer")
     private final Closer closer = Closer.create();
+    @GuardedBy("closer")
+    private boolean closed;
+    @GuardedBy("closer")
+    private ListenableFuture<ConnectorSplitBatch> currentBatchFuture;
     private final double minimumAssignedSplitWeight;
     private final Set<Integer> projectedBaseColumns;
     private final TupleDomain<IcebergColumnHandle> dataColumnPredicate;
@@ -138,20 +145,30 @@ public class IcebergSplitSource
     private final Domain fileModifiedTimeDomain;
     private final OptionalLong limit;
     private final Set<Integer> predicatedColumnIds;
+    private final ListeningExecutorService executor;
 
+    @GuardedBy("this")
     private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
+    @GuardedBy("this")
     private CloseableIterable<FileScanTask> fileScanIterable;
+    @GuardedBy("this")
     private long targetSplitSize;
+    @GuardedBy("this")
     private CloseableIterator<FileScanTask> fileScanIterator;
+    @GuardedBy("this")
     private Iterator<FileScanTaskWithDomain> fileTasksIterator = emptyIterator();
 
     private final boolean recordScannedFiles;
     private final int currentSpecId;
+    @GuardedBy("this")
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
+    @GuardedBy("this")
     @Nullable
     private Map<StructLikeWrapperWithFieldIdToIndex, Optional<FileScanTaskWithDomain>> scannedFilesByPartition = new HashMap<>();
+    @GuardedBy("this")
     private long outputRowsLowerBound;
     private final CachingHostAddressProvider cachingHostAddressProvider;
+    private volatile boolean finished;
 
     public IcebergSplitSource(
             IcebergFileSystemFactory fileSystemFactory,
@@ -166,7 +183,8 @@ public class IcebergSplitSource
             TypeManager typeManager,
             boolean recordScannedFiles,
             double minimumAssignedSplitWeight,
-            CachingHostAddressProvider cachingHostAddressProvider)
+            CachingHostAddressProvider cachingHostAddressProvider,
+            ListeningExecutorService executor)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.session = requireNonNull(session, "session is null");
@@ -202,20 +220,11 @@ public class IcebergSplitSource
                 .collect(toImmutableSet());
         this.fileModifiedTimeDomain = getFileModifiedTimePathDomain(tableHandle.getEnforcedPredicate());
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
-    {
-        try {
-            return getNextBatchInternal(maxSize);
-        }
-        catch (Throwable e) {
-            return failedFuture(translateMetadataException(e, tableHandle.getSchemaTableName().toString()));
-        }
-    }
-
-    private CompletableFuture<ConnectorSplitBatch> getNextBatchInternal(int maxSize)
     {
         long timeLeft = dynamicFilteringWaitTimeoutMillis - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
         if (dynamicFilter.isAwaitable() && timeLeft > 0) {
@@ -224,6 +233,24 @@ public class IcebergSplitSource
                     .completeOnTimeout(EMPTY_BATCH, timeLeft, MILLISECONDS);
         }
 
+        ListenableFuture<ConnectorSplitBatch> nextBatchFuture;
+        synchronized (closer) {
+            checkState(!closed, "already closed");
+            checkState(currentBatchFuture == null || currentBatchFuture.isDone(), "previous batch future is not done");
+
+            // Avoids blocking the calling (scheduler) thread when producing splits, allowing other split sources to
+            // start loading splits in parallel to each other
+            nextBatchFuture = executor.submit(() -> getNextBatchInternal(maxSize));
+            currentBatchFuture = nextBatchFuture;
+        }
+
+        return toCompletableFuture(nextBatchFuture).exceptionally(t -> {
+            throw translateMetadataException(t, tableHandle.getSchemaTableName().toString());
+        });
+    }
+
+    private synchronized ConnectorSplitBatch getNextBatchInternal(int maxSize)
+    {
         if (fileScanIterable == null) {
             this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
                     .transformKeys(IcebergColumnHandle.class::cast)
@@ -234,7 +261,7 @@ public class IcebergSplitSource
 
             if (effectivePredicate.isNone()) {
                 finish();
-                return completedFuture(NO_MORE_SPLITS_BATCH);
+                return NO_MORE_SPLITS_BATCH;
             }
 
             Expression filterExpression = toIcebergExpression(effectivePredicate);
@@ -249,19 +276,23 @@ public class IcebergSplitSource
                                 .filter(Objects::nonNull)
                                 .collect(toImmutableList()));
             }
-            this.fileScanIterable = closer.register(scan.planFiles());
-            this.targetSplitSize = getSplitSize(session)
-                    .map(DataSize::toBytes)
-                    .orElseGet(tableScan::targetSplitSize);
-            this.fileScanIterator = closer.register(fileScanIterable.iterator());
-            this.fileTasksIterator = emptyIterator();
+
+            synchronized (closer) {
+                checkState(!closed, "split source is closed");
+                this.fileScanIterable = closer.register(scan.planFiles());
+                this.targetSplitSize = getSplitSize(session)
+                        .map(DataSize::toBytes)
+                        .orElseGet(tableScan::targetSplitSize);
+                this.fileScanIterator = closer.register(fileScanIterable.iterator());
+                this.fileTasksIterator = emptyIterator();
+            }
         }
 
         TupleDomain<IcebergColumnHandle> dynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
                 .transformKeys(IcebergColumnHandle.class::cast);
         if (dynamicFilterPredicate.isNone()) {
             finish();
-            return completedFuture(NO_MORE_SPLITS_BATCH);
+            return NO_MORE_SPLITS_BATCH;
         }
 
         List<ConnectorSplit> splits = new ArrayList<>(maxSize);
@@ -283,10 +314,13 @@ public class IcebergSplitSource
             }
             splits.add(toIcebergSplit(fileTasksIterator.next()));
         }
-        return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
+        if (!fileScanIterator.hasNext() && !fileTasksIterator.hasNext()) {
+            finish();
+        }
+        return new ConnectorSplitBatch(splits, isFinished());
     }
 
-    private Iterator<FileScanTaskWithDomain> prepareFileTasksIterator(List<FileScanTaskWithDomain> fileScanTasks)
+    private synchronized Iterator<FileScanTaskWithDomain> prepareFileTasksIterator(List<FileScanTaskWithDomain> fileScanTasks)
     {
         ImmutableList.Builder<FileScanTaskWithDomain> scanTaskBuilder = ImmutableList.builder();
         for (FileScanTaskWithDomain fileScanTaskWithDomain : fileScanTasks) {
@@ -322,7 +356,7 @@ public class IcebergSplitSource
         return scanTaskBuilder.build().iterator();
     }
 
-    private List<FileScanTaskWithDomain> processFileScanTask(TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
+    private synchronized List<FileScanTaskWithDomain> processFileScanTask(TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
     {
         FileScanTask wholeFileTask = fileScanIterator.next();
         boolean fileHasNoDeletions = wholeFileTask.deletes().isEmpty();
@@ -365,7 +399,7 @@ public class IcebergSplitSource
         return ImmutableList.of(fileScanTaskWithDomain);
     }
 
-    private boolean pruneFileScanTask(FileScanTaskWithDomain fileScanTaskWithDomain, boolean fileHasNoDeletions, TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
+    private synchronized boolean pruneFileScanTask(FileScanTaskWithDomain fileScanTaskWithDomain, boolean fileHasNoDeletions, TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
     {
         FileScanTask fileScanTask = fileScanTaskWithDomain.fileScanTask();
         if (fileHasNoDeletions &&
@@ -417,9 +451,10 @@ public class IcebergSplitSource
                 .containsAll(projectedBaseColumns);
     }
 
-    private void finish()
+    private synchronized void finish()
     {
-        close();
+        closeInternal(false);
+        this.finished = true;
         this.fileScanIterable = CloseableIterable.empty();
         this.fileScanIterator = CloseableIterator.empty();
         this.fileTasksIterator = emptyIterator();
@@ -428,7 +463,7 @@ public class IcebergSplitSource
     @Override
     public boolean isFinished()
     {
-        return fileScanIterator != null && !fileScanIterator.hasNext() && !fileTasksIterator.hasNext();
+        return finished;
     }
 
     @Override
@@ -439,13 +474,16 @@ public class IcebergSplitSource
             return Optional.empty();
         }
         long filesSkipped = 0;
-        if (scannedFilesByPartition != null) {
-            filesSkipped = scannedFilesByPartition.values().stream()
-                    .filter(Optional::isPresent)
-                    .count();
-            scannedFilesByPartition = null;
+        List<Object> splitsInfo;
+        synchronized (this) {
+            if (scannedFilesByPartition != null) {
+                filesSkipped = scannedFilesByPartition.values().stream()
+                        .filter(Optional::isPresent)
+                        .count();
+                scannedFilesByPartition = null;
+            }
+            splitsInfo = ImmutableList.copyOf(scannedFiles.build());
         }
-        List<Object> splitsInfo = ImmutableList.copyOf(scannedFiles.build());
         log.info("Generated %d splits, skipped %d files for OPTIMIZE", splitsInfo.size(), filesSkipped);
         return Optional.of(splitsInfo);
     }
@@ -453,11 +491,27 @@ public class IcebergSplitSource
     @Override
     public void close()
     {
-        try {
-            closer.close();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
+        closeInternal(true);
+    }
+
+    private void closeInternal(boolean interruptIfRunning)
+    {
+        synchronized (closer) {
+            if (!closed) {
+                closed = true;
+                // don't cancel the current batch future during normal finishing cleanup
+                if (interruptIfRunning && currentBatchFuture != null) {
+                    currentBatchFuture.cancel(true);
+                }
+                // release the reference to the current future unconditionally to avoid OOMs
+                currentBatchFuture = null;
+                try {
+                    closer.close();
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
         }
     }
 
