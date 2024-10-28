@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
@@ -32,6 +33,7 @@ import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -58,6 +60,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.data.GenericRecord;
@@ -75,8 +78,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -113,6 +119,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
+import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1424,6 +1432,55 @@ public class TestIcebergV2
                 "ARRAY['hour(\"grandparent.parent.ts\")']",
                 ".*?(grandparent\\.parent\\.ts_hour=.*/).*",
                 ImmutableSet.of("grandparent.parent.ts_hour=2021-01-01-01/", "grandparent.parent.ts_hour=2022-02-02-02/", "grandparent.parent.ts_hour=2023-03-03-03/"));
+    }
+
+    @Test
+    public void testInsertWithAutoCleanMetadataFile()
+            throws IOException
+    {
+        int metadataPreviousVersionCount = 5;
+        String tableName = "table_to_metadata_count" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT, _varchar VARCHAR)");
+        BaseTable icebergTable = loadTable(tableName);
+        icebergTable.updateProperties()
+                .set(METADATA_DELETE_AFTER_COMMIT_ENABLED, "true")
+                .set(METADATA_PREVIOUS_VERSIONS_MAX, String.valueOf(metadataPreviousVersionCount))
+                .commit();
+
+        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
+        FileIterator fileIteratorOld = trinoFileSystem.listFiles(Location.of(icebergTable.location()));
+        Map<String, Long> historyMetadataFiles = new HashMap<>();
+        while (fileIteratorOld.hasNext()) {
+            FileEntry entry = fileIteratorOld.next();
+            if (entry.location().path().endsWith(".metadata.json")) {
+                TableMetadata tableMetadata = TableMetadataParser.read(icebergTable.io(), new ForwardingInputFile(trinoFileSystem.newInputFile(entry.location())));
+                historyMetadataFiles.put(entry.location().path(), tableMetadata.lastUpdatedMillis());
+            }
+        }
+
+        for (int i = 0; i < 10; i++) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+            Set<String> currentMetadataFiles = new HashSet<>();
+            FileIterator fileIteratorNew = trinoFileSystem.listFiles(Location.of(icebergTable.location()));
+            while (fileIteratorNew.hasNext()) {
+                FileEntry entry = fileIteratorNew.next();
+                if (entry.location().path().endsWith(".metadata.json")) {
+                    TableMetadata tableMetadata = TableMetadataParser.read(icebergTable.io(), new ForwardingInputFile(trinoFileSystem.newInputFile(entry.location())));
+                    historyMetadataFiles.put(entry.location().path(), tableMetadata.lastUpdatedMillis());
+                    currentMetadataFiles.add(entry.location().path());
+                }
+            }
+            assertThat(currentMetadataFiles).hasSizeLessThanOrEqualTo(1 + metadataPreviousVersionCount);
+            Set<String> expectMetadataFiles = historyMetadataFiles
+                    .entrySet()
+                    .stream()
+                    .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                    .limit(metadataPreviousVersionCount + 1)
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toSet());
+            assertThat(expectMetadataFiles).containsAll(currentMetadataFiles);
+        }
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private void testHighlyNestedFieldPartitioningWithTimestampTransform(String partitioning, String partitionDirectoryRegex, Set<String> expectedPartitionDirectories)

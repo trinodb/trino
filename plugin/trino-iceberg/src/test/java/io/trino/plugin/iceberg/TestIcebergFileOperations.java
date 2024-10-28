@@ -19,10 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.filesystem.FileEntry;
-import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -41,11 +37,8 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.io.IOException;
 import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
@@ -63,13 +56,10 @@ import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.STATS;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.Scope.ALL_FILES;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.Scope.METADATA_FILES;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
-import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Execution(ExecutionMode.SAME_THREAD)
@@ -77,7 +67,6 @@ public class TestIcebergFileOperations
         extends AbstractTestQueryFramework
 {
     private static final int MAX_PREFIXES_COUNT = 10;
-    private static final int METADATA_PREVIOUS_VERSIONS_COUNT = 5;
 
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
@@ -914,43 +903,6 @@ public class TestIcebergFileOperations
     public void testShowTables()
     {
         assertFileSystemAccesses("SHOW TABLES", ImmutableMultiset.of());
-    }
-
-    @Test
-    public void testInsertWithAutoCleanMetadataFile()
-            throws IOException
-    {
-        String tableName = "table_to_metadata_count" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT, _varchar VARCHAR)");
-        Table icebergTable = IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, "iceberg", "test_schema");
-        icebergTable.updateProperties()
-                .set(METADATA_DELETE_AFTER_COMMIT_ENABLED, "true")
-                .set(METADATA_PREVIOUS_VERSIONS_MAX, String.valueOf(METADATA_PREVIOUS_VERSIONS_COUNT))
-                .commit();
-
-        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
-        FileIterator fileIteratorOld = trinoFileSystem.listFiles(Location.of(icebergTable.location()));
-        Set<String> oldMetadataFiles = new HashSet<>();
-        while (fileIteratorOld.hasNext()) {
-            FileEntry entry = fileIteratorOld.next();
-            if (entry.location().path().endsWith("metadata.json")) {
-                oldMetadataFiles.add(entry.location().path());
-            }
-        }
-
-        for (int i = 0; i < 10; i++) {
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
-        }
-        Set<String> currentMetadataFiles = new HashSet<>();
-        FileIterator fileIteratorNew = trinoFileSystem.listFiles(Location.of(icebergTable.location()));
-        while (fileIteratorNew.hasNext()) {
-            FileEntry entry = fileIteratorNew.next();
-            if (entry.location().path().endsWith("metadata.json")) {
-                currentMetadataFiles.add(entry.location().path());
-            }
-        }
-        assertThat(oldMetadataFiles).isNotIn(currentMetadataFiles);
-        assertThat(currentMetadataFiles.size()).isEqualTo(1 + METADATA_PREVIOUS_VERSIONS_COUNT);
     }
 
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<FileOperation> expectedAccesses)
