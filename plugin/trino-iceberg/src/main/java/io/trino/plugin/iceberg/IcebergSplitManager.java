@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
@@ -53,7 +54,8 @@ public class IcebergSplitManager
     private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
     private final IcebergFileSystemFactory fileSystemFactory;
-    private final ExecutorService executor;
+    private final ListeningExecutorService splitSourceExecutor;
+    private final ExecutorService icebergPlanningExecutor;
     private final CachingHostAddressProvider cachingHostAddressProvider;
 
     @Inject
@@ -61,13 +63,15 @@ public class IcebergSplitManager
             IcebergTransactionManager transactionManager,
             TypeManager typeManager,
             IcebergFileSystemFactory fileSystemFactory,
-            @ForIcebergSplitManager ExecutorService executor,
+            @ForIcebergSplitManager ListeningExecutorService splitSourceExecutor,
+            @ForIcebergScanPlanning ExecutorService icebergPlanningExecutor,
             CachingHostAddressProvider cachingHostAddressProvider)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.splitSourceExecutor = requireNonNull(splitSourceExecutor, "splitSourceExecutor is null");
+        this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
     }
 
@@ -92,7 +96,7 @@ public class IcebergSplitManager
         Table icebergTable = icebergMetadata.getIcebergTable(session, table.getSchemaTableName());
         Duration dynamicFilteringWaitTimeout = getDynamicFilteringWaitTimeout(session);
 
-        Scan scan = getScan(icebergMetadata, icebergTable, table, executor);
+        Scan scan = getScan(icebergMetadata, icebergTable, table, icebergPlanningExecutor);
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 fileSystemFactory,
@@ -107,7 +111,8 @@ public class IcebergSplitManager
                 typeManager,
                 table.isRecordScannedFiles(),
                 getMinimumAssignedSplitWeight(session),
-                cachingHostAddressProvider);
+                cachingHostAddressProvider,
+                splitSourceExecutor);
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, IcebergSplitManager.class.getClassLoader());
     }
