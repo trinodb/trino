@@ -67,6 +67,7 @@ public class MaterializedResult
     private final List<MaterializedRow> rows;
     private final List<Type> types;
     private final List<String> columnNames;
+    private final Optional<String> queryDataEncoding;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
     private final Optional<String> updateType;
@@ -76,18 +77,19 @@ public class MaterializedResult
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this(rows, types, Optional.empty());
+        this(rows, types, Optional.empty(), Optional.empty());
     }
 
-    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types, Optional<List<String>> columnNames)
+    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types, Optional<List<String>> columnNames, Optional<String> queryDataEncoding)
     {
-        this(rows, types, columnNames.orElse(ImmutableList.of()), ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
+        this(rows, types, columnNames.orElse(ImmutableList.of()), queryDataEncoding, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public MaterializedResult(
             List<MaterializedRow> rows,
             List<? extends Type> types,
             List<String> columnNames,
+            Optional<String> queryDataEncoding,
             Map<String, String> setSessionProperties,
             Set<String> resetSessionProperties,
             Optional<String> updateType,
@@ -98,6 +100,7 @@ public class MaterializedResult
         this.rows = ImmutableList.copyOf(requireNonNull(rows, "rows is null"));
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
+        this.queryDataEncoding = requireNonNull(queryDataEncoding, "queryDataEncoding is null");
         this.setSessionProperties = ImmutableMap.copyOf(requireNonNull(setSessionProperties, "setSessionProperties is null"));
         this.resetSessionProperties = ImmutableSet.copyOf(requireNonNull(resetSessionProperties, "resetSessionProperties is null"));
         this.updateType = requireNonNull(updateType, "updateType is null");
@@ -131,6 +134,11 @@ public class MaterializedResult
     {
         checkState(!columnNames.isEmpty(), "Column names are unknown");
         return columnNames;
+    }
+
+    public Optional<String> getQueryDataEncoding()
+    {
+        return queryDataEncoding;
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -280,6 +288,7 @@ public class MaterializedResult
                         .collect(toImmutableList()),
                 types,
                 columnNames,
+                queryDataEncoding,
                 setSessionProperties,
                 resetSessionProperties,
                 updateType,
@@ -360,6 +369,7 @@ public class MaterializedResult
         private final ConnectorSession session;
         private final List<Type> types;
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
+        private Optional<String> queryDataEncoding = Optional.empty();
         private Optional<List<String>> columnNames = Optional.empty();
 
         Builder(ConnectorSession session, List<Type> types)
@@ -422,9 +432,15 @@ public class MaterializedResult
             return this;
         }
 
+        public synchronized Builder queryDataEncoding(String encoding)
+        {
+            this.queryDataEncoding = Optional.of(requireNonNull(encoding, "encoding is null"));
+            return this;
+        }
+
         public synchronized MaterializedResult build()
         {
-            return new MaterializedResult(rows.build(), types, columnNames);
+            return new MaterializedResult(rows.build(), types, columnNames, queryDataEncoding);
         }
     }
 }

@@ -29,6 +29,7 @@ import io.trino.testing.TestingStatementClientFactory;
 import io.trino.testing.TestingTrinoClient;
 import io.trino.tpch.TpchTable;
 import okhttp3.OkHttpClient;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.containers.localstack.LocalStackContainer.Service;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -45,6 +46,7 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static java.util.Base64.getEncoder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractSpooledQueryDataDistributedQueries
         extends AbstractTestEngineOnlyQueries
@@ -108,6 +110,30 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
             throw closeAllSuppress(e, queryRunner);
         }
         return queryRunner;
+    }
+
+    @Test
+    public void testSpoolingDisabledForNonSelectQueries()
+    {
+        // Ensure that spooling is enabled for SELECT queries
+        assertThat(computeActual("SELECT * FROM nation").getQueryDataEncoding())
+                .hasValue(encoding());
+
+        // The rest of the cases are not meant to cover all possible query shapes
+        assertThat(computeActual("EXPLAIN SELECT * FROM nation").getQueryDataEncoding())
+                .isEmpty();
+
+        assertThat(computeActual("CREATE TABLE spooling_test (col INT)").getQueryDataEncoding())
+                .isEmpty();
+
+        assertThat(computeActual("INSERT INTO spooling_test (col) VALUES (2137)").getQueryDataEncoding())
+                .isEmpty();
+
+        assertThat(computeActual("SHOW SESSION").getQueryDataEncoding())
+                .isEmpty();
+
+        assertThat(computeActual("DROP TABLE spooling_test").getQueryDataEncoding())
+                .isEmpty();
     }
 
     private static TestingTrinoClient createClient(TestingTrinoServer testingTrinoServer, Session session, String encoding)
