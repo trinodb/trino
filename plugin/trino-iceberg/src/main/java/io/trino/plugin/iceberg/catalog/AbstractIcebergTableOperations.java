@@ -341,11 +341,11 @@ public abstract class AbstractIcebergTableOperations
                         file -> {
                             try {
                                 io().deleteFile(file.file());
-                            } catch (RuntimeException e) {
+                            }
+                            catch (RuntimeException e) {
                                 log.warn(e, "Delete failed for previous metadata file: %s", file);
                             }
-                        }
-                );
+                        });
             }
         }
     }
