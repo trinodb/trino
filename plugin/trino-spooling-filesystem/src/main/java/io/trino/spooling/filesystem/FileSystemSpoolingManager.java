@@ -167,6 +167,12 @@ public class FileSystemSpoolingManager
     @Override
     public SpooledLocation location(SpooledSegmentHandle handle)
     {
+        FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
+        return coordinatorLocation(serialize(fileHandle), headers(fileHandle));
+    }
+
+    private static Slice serialize(FileSystemSpooledSegmentHandle fileHandle)
+    {
         // Identifier layout:
         //
         // ulid: byte[16]
@@ -175,12 +181,6 @@ public class FileSystemSpoolingManager
         // queryId: string
         // encoding: string
         // isEncrypted: boolean
-        FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
-        return coordinatorLocation(serialize(fileHandle), headers(fileHandle));
-    }
-
-    private static Slice serialize(FileSystemSpooledSegmentHandle fileHandle)
-    {
         DynamicSliceOutput output = new DynamicSliceOutput(64);
         output.writeBytes(fileHandle.uuid());
         output.writeShort(fileHandle.queryId().toString().length());
