@@ -16,8 +16,9 @@ package io.trino.spooling.filesystem;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -45,6 +46,8 @@ import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
 import static io.trino.spi.protocol.SpooledLocation.coordinatorLocation;
@@ -175,13 +178,17 @@ public class FileSystemSpoolingManager
         // Identifier layout:
         //
         // ulid: byte[16]
-        // encodingLength: byte
-        // encoding: string
+        // encodingLength: short
+        // encoding: byte[encodingLength]
         // isEncrypted: boolean
-        DynamicSliceOutput output = new DynamicSliceOutput(64);
+
+        byte[] encoding = fileHandle.encoding().getBytes(UTF_8);
+        Slice slice = Slices.allocate(16 + SIZE_OF_SHORT + encoding.length + SIZE_OF_BYTE);
+
+        SliceOutput output = slice.getOutput();
         output.writeBytes(fileHandle.uuid());
         output.writeShort(fileHandle.encoding().length());
-        output.writeBytes(fileHandle.encoding().getBytes(UTF_8));
+        output.writeBytes(encoding);
         output.writeBoolean(fileHandle.encryptionKey().isPresent());
         return output.slice();
     }
