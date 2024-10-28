@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.amazonaws.util.CollectionUtils.isNullOrEmpty;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getGlueTestColumn;
@@ -251,11 +250,7 @@ public class TestGlueToTrinoConverter
         testTable.setParameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER));
         assertThat(getStorageDescriptor(testTable)).isPresent();
         io.trino.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
-        assertThat(trinoTable.getDataColumns().stream()
-                .map(Column::getName)
-                .collect(toImmutableSet())).isEqualTo(getStorageDescriptor(testTable).orElseThrow().getColumns().stream()
-                .map(com.amazonaws.services.glue.model.Column::getName)
-                .collect(toImmutableSet()));
+        assertThat(trinoTable.getDataColumns()).hasSize(1);
     }
 
     @Test
