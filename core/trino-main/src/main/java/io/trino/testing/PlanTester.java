@@ -747,6 +747,7 @@ public class PlanTester
                 new GenericSpillerFactory(unsupportedSingleStreamSpillerFactory()),
                 new QueryDataEncoders(Set.of()),
                 Optional.empty(),
+                Optional.empty(),
                 unsupportedSingleStreamSpillerFactory(),
                 unsupportedPartitioningSpillerFactory(),
                 new PagesIndex.TestingFactory(false),
