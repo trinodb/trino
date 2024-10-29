@@ -21,6 +21,7 @@ import io.trino.client.ClientCapabilities;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -111,12 +112,13 @@ public class JsonArrayResultsIterator
     {
         // types are present if data is present
         List<Object> row = new ArrayList<>(columns.size());
+        ConnectorSession connectorSession = session.toConnectorSession();
         for (OutputColumn outputColumn : columns) {
             Type type = outputColumn.type();
 
             try {
                 Block block = currentPage.getBlock(outputColumn.sourcePageChannel());
-                Object value = type.getObjectValue(session.toConnectorSession(), block, inPageIndex);
+                Object value = type.getObjectValue(connectorSession, block, inPageIndex);
                 if (!supportsParametricDateTime) {
                     value = getLegacyValue(value, type);
                 }

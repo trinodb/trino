@@ -24,6 +24,7 @@ import io.trino.client.spooling.DataAttributes;
 import io.trino.server.protocol.OutputColumn;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.spi.Page;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTime;
@@ -64,6 +65,7 @@ public class JsonQueryDataEncoder
             throws IOException
     {
         JsonFactory jsonFactory = jsonFactory();
+        ConnectorSession connectorSession = session.toConnectorSession();
         try (CountingOutputStream wrapper = new CountingOutputStream(output); JsonGenerator generator = jsonFactory.createGenerator(wrapper)) {
             generator.writeStartArray();
             for (Page page : pages) {
@@ -72,7 +74,7 @@ public class JsonQueryDataEncoder
                     for (OutputColumn column : columns) {
                         Object value = column
                                 .type()
-                                .getObjectValue(session.toConnectorSession(), page.getBlock(column.sourcePageChannel()), position);
+                                .getObjectValue(connectorSession, page.getBlock(column.sourcePageChannel()), position);
                         writeValue(mapper, generator, value);
                     }
                     generator.writeEndArray();
