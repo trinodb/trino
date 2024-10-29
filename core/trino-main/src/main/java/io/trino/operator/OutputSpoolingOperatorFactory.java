@@ -275,7 +275,7 @@ public class OutputSpoolingOperatorFactory
                 controller.recordEncoded(attributes.get(SEGMENT_SIZE, Integer.class));
 
                 // This page is small (hundreds of bytes) so there is no point in tracking its memory usage
-                return emptySingleRowPage(layout, SpooledBlock.forLocation(spoolingManager.location(segmentHandle), attributes).serialize());
+                return emptySingleRowPage(SpooledBlock.forLocation(spoolingManager.location(segmentHandle), attributes).serialize());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -285,7 +285,7 @@ public class OutputSpoolingOperatorFactory
             }
         }
 
-        private Page emptySingleRowPage(Map<Symbol, Integer> layout, Block block)
+        private Page emptySingleRowPage(Block block)
         {
             Block[] blocks = emptyBlocks;
             blocks[layout.get(SPOOLING_METADATA_SYMBOL)] = block;
