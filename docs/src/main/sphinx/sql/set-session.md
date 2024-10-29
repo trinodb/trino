@@ -45,7 +45,7 @@ SET SESSION optimize_hash_generation = true;
 ```
 
 The following example sets the `optimize_locality_enabled` catalog session
-property for an {doc}`Accumulo catalog </connector/accumulo>` named `acc01`:
+property for an Accumulo catalog named `acc01`:
 
 ```
 SET SESSION acc01.optimize_locality_enabled = false;

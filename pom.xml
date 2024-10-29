@@ -59,8 +59,6 @@
         <module>lib/trino-parquet</module>
         <module>lib/trino-plugin-toolkit</module>
         <module>lib/trino-record-decoder</module>
-        <module>plugin/trino-accumulo</module>
-        <module>plugin/trino-accumulo-iterators</module>
         <module>plugin/trino-base-jdbc</module>
         <module>plugin/trino-bigquery</module>
         <module>plugin/trino-blackhole</module>
@@ -183,8 +181,6 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
-        <dep.accumulo.version>3.0.0</dep.accumulo.version>
         <dep.airlift.version>278</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
