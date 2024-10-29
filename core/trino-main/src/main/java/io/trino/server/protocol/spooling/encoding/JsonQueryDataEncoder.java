@@ -19,12 +19,15 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.CountingOutputStream;
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.server.protocol.OutputColumn;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTime;
@@ -32,6 +35,7 @@ import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.VarcharType;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 
@@ -44,6 +48,7 @@ import java.util.Map;
 
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
+import static io.trino.spi.type.Chars.padSpaces;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -74,10 +79,16 @@ public class JsonQueryDataEncoder
                 for (int position = 0; position < page.getPositionCount(); position++) {
                     generator.writeStartArray();
                     for (OutputColumn column : columns) {
-                        Object value = column
-                                .type()
-                                .getObjectValue(connectorSession, page.getBlock(column.sourcePageChannel()), position);
-                        writeValue(mapper, generator, value);
+                        Block block = page.getBlock(column.sourcePageChannel());
+                        if (block.isNull(position)) {
+                            generator.writeNull();
+                            continue;
+                        }
+                        switch (column.type()) {
+                            case VarcharType varcharType -> writeSliceToRawUtf8(generator, varcharType.getSlice(block, position));
+                            case CharType charType -> writeSliceToRawUtf8(generator, padSpaces(charType.getSlice(block, position), charType.getLength()));
+                            default -> writeValue(mapper, generator, column.type().getObjectValue(connectorSession, block, position));
+                        }
                     }
                     generator.writeEndArray();
                 }
@@ -141,6 +152,13 @@ public class JsonQueryDataEncoder
             }
             default -> mapper.writeValue(generator, value);
         }
+    }
+
+    private static void writeSliceToRawUtf8(JsonGenerator generator, Slice slice)
+            throws IOException
+    {
+        // Optimization: avoid conversion from Slice to String and String to bytes when writing UTF-8 strings
+        generator.writeUTF8String(slice.byteArray(), slice.byteArrayOffset(), slice.length());
     }
 
     @Override
