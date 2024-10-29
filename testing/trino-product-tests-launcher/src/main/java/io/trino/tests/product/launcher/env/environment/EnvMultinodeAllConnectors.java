@@ -46,8 +46,6 @@ public final class EnvMultinodeAllConnectors
     {
         // blackhole, jmx, tpch are already configured in Standard base env
         List.of(
-                        // TODO accumulo needs to connect to ZooKeeper, it won't start otherwise
-                        //"accumulo",
                         "bigquery",
                         "cassandra",
                         "clickhouse",
