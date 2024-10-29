@@ -338,8 +338,8 @@ public final class IcebergUtil
     public static Optional<String> getOrcBloomFilterColumns(Map<String, String> properties)
     {
         Optional<String> orcBloomFilterColumns = Stream.of(
-                    properties.get(ORC_BLOOM_FILTER_COLUMNS),
-                    properties.get(BROKEN_ORC_BLOOM_FILTER_COLUMNS_KEY))
+                        properties.get(ORC_BLOOM_FILTER_COLUMNS),
+                        properties.get(BROKEN_ORC_BLOOM_FILTER_COLUMNS_KEY))
                 .filter(Objects::nonNull)
                 .findFirst();
         return orcBloomFilterColumns;
@@ -356,8 +356,8 @@ public final class IcebergUtil
     public static Optional<String> getOrcBloomFilterFpp(Map<String, String> properties)
     {
         return Stream.of(
-                    properties.get(ORC_BLOOM_FILTER_FPP),
-                    properties.get(BROKEN_ORC_BLOOM_FILTER_FPP_KEY))
+                        properties.get(ORC_BLOOM_FILTER_FPP),
+                        properties.get(BROKEN_ORC_BLOOM_FILTER_FPP_KEY))
                 .filter(Objects::nonNull)
                 .findFirst();
     }

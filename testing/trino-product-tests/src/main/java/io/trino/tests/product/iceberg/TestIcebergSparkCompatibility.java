@@ -1460,35 +1460,35 @@ public class TestIcebergSparkCompatibility
             QueryExecutor onTrino = onTrino();
             QueryExecutor onSpark = onSpark();
             List<Row> allInserted = executor.invokeAll(
-                    Stream.of(Engine.TRINO, Engine.SPARK)
-                            .map(engine -> (Callable<List<Row>>) () -> {
-                                List<Row> inserted = new ArrayList<>();
-                                for (int i = 0; i < insertsPerEngine; i++) {
-                                    barrier.await(20, SECONDS);
-                                    String engineName = engine.name().toLowerCase(ENGLISH);
-                                    long value = i;
-                                    switch (engine) {
-                                        case TRINO:
-                                            try {
-                                                onTrino.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", trinoTableName, engineName, value));
+                            Stream.of(Engine.TRINO, Engine.SPARK)
+                                    .map(engine -> (Callable<List<Row>>) () -> {
+                                        List<Row> inserted = new ArrayList<>();
+                                        for (int i = 0; i < insertsPerEngine; i++) {
+                                            barrier.await(20, SECONDS);
+                                            String engineName = engine.name().toLowerCase(ENGLISH);
+                                            long value = i;
+                                            switch (engine) {
+                                                case TRINO:
+                                                    try {
+                                                        onTrino.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", trinoTableName, engineName, value));
+                                                    }
+                                                    catch (QueryExecutionException queryExecutionException) {
+                                                        // failed to insert
+                                                        continue; // next loop iteration
+                                                    }
+                                                    break;
+                                                case SPARK:
+                                                    onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
+                                                    break;
+                                                default:
+                                                    throw new UnsupportedOperationException("Unexpected engine: " + engine);
                                             }
-                                            catch (QueryExecutionException queryExecutionException) {
-                                                // failed to insert
-                                                continue; // next loop iteration
-                                            }
-                                            break;
-                                        case SPARK:
-                                            onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
-                                            break;
-                                        default:
-                                            throw new UnsupportedOperationException("Unexpected engine: " + engine);
-                                    }
 
-                                    inserted.add(row(engineName, value));
-                                }
-                                return inserted;
-                            })
-                            .collect(toImmutableList())).stream()
+                                            inserted.add(row(engineName, value));
+                                        }
+                                        return inserted;
+                                    })
+                                    .collect(toImmutableList())).stream()
                     .map(MoreFutures::getDone)
                     .flatMap(List::stream)
                     .collect(toImmutableList());
@@ -2609,9 +2609,9 @@ public class TestIcebergSparkCompatibility
     private void validatePartitioning(String baseTableName, String sparkTableName, List<Map<String, String>> expectedValues)
     {
         List<String> trinoResult = expectedValues.stream().map(m ->
-                m.entrySet().stream()
-                        .map(entry -> format("%s=%s", entry.getKey(), entry.getValue()))
-                        .collect(Collectors.joining(", ", "{", "}")))
+                        m.entrySet().stream()
+                                .map(entry -> format("%s=%s", entry.getKey(), entry.getValue()))
+                                .collect(Collectors.joining(", ", "{", "}")))
                 .collect(toImmutableList());
         List<Object> partitioning = onTrino().executeQuery(format("SELECT partition, record_count FROM iceberg.default.\"%s$partitions\"", baseTableName))
                 .column(1);
@@ -2619,9 +2619,9 @@ public class TestIcebergSparkCompatibility
         assertThat(partitions.size()).isEqualTo(expectedValues.size());
         assertThat(partitions).containsAll(trinoResult);
         List<String> sparkResult = expectedValues.stream().map(m ->
-                m.entrySet().stream()
-                        .map(entry -> format("\"%s\":%s", entry.getKey(), entry.getValue()))
-                        .collect(Collectors.joining(",", "{", "}")))
+                        m.entrySet().stream()
+                                .map(entry -> format("\"%s\":%s", entry.getKey(), entry.getValue()))
+                                .collect(Collectors.joining(",", "{", "}")))
                 .collect(toImmutableList());
         partitioning = onSpark().executeQuery(format("SELECT partition from %s.files", sparkTableName)).column(1);
         partitions = partitioning.stream().map(String::valueOf).collect(toUnmodifiableSet());
