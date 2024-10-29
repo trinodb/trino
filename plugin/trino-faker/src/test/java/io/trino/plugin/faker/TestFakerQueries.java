@@ -54,8 +54,7 @@ final class TestFakerQueries
         assertQuery("SHOW TABLES FROM faker.default LIKE 'test_table'", "SELECT '' WHERE false");
         assertUpdate("CREATE TABLE faker.default.test_table (id INTEGER, name VARCHAR)");
         assertUpdate("ALTER TABLE faker.default.test_table SET PROPERTIES default_limit = 100");
-        assertQuery("SELECT table_property_name, table_property_value FROM information_schema.tables WHERE table_name = 'test_table' AND table_property_name = 'default_limit'",
-        "VALUES ('default_limit', '100')");
+        assertQuery("SELECT table_property_name, table_property_value FROM information_schema.tables WHERE table_name = 'test_table' AND table_property_name = 'default_limit'","VALUES ('default_limit', '100')");
         assertUpdate("DROP TABLE faker.default.test_table");
     }
 
