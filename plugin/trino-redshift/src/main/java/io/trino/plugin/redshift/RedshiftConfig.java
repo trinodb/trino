@@ -51,7 +51,7 @@ public class RedshiftConfig
     }
 
     @Config("redshift.unload-location")
-    @ConfigDescription("A writeable location in Amazon S3, to be used for unloaded data when reading")
+    @ConfigDescription("A writeable location in Amazon S3, to be used for unloading Redshift query results")
     public RedshiftConfig setUnloadLocation(String unloadLocation)
     {
         this.unloadLocation = unloadLocation;

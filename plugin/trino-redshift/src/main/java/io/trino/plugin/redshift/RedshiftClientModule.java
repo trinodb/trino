@@ -15,6 +15,7 @@ package io.trino.plugin.redshift;
 
 import com.amazon.redshift.Driver;
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -26,13 +27,16 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcSplitManager;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.RemoteQueryCancellationModule;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.util.Properties;
@@ -66,7 +70,12 @@ public class RedshiftClientModule
         install(conditionalModule(
                 RedshiftConfig.class,
                 config -> config.getUnloadLocation().isPresent(),
-                new S3FileSystemModule()));
+                unloadBinder -> {
+                    install(new S3FileSystemModule());
+                    unloadBinder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
+                    newOptionalBinder(unloadBinder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class))
+                            .setBinding().to(RedshiftUnloadSplitManager.class).in(SINGLETON);
+                }));
     }
 
     @Singleton
