@@ -764,46 +764,6 @@ public abstract class BaseJdbcClient
         }
     }
 
-    @Deprecated
-    @Override
-    public Optional<PreparedQuery> legacyImplementJoin(
-            ConnectorSession session,
-            JoinType joinType,
-            PreparedQuery leftSource,
-            PreparedQuery rightSource,
-            List<JdbcJoinCondition> joinConditions,
-            Map<JdbcColumnHandle, String> rightAssignments,
-            Map<JdbcColumnHandle, String> leftAssignments,
-            JoinStatistics statistics)
-    {
-        for (JdbcJoinCondition joinCondition : joinConditions) {
-            if (!isSupportedJoinCondition(session, joinCondition)) {
-                return Optional.empty();
-            }
-        }
-
-        try (Connection connection = this.connectionFactory.openConnection(session)) {
-            return Optional.of(queryBuilder.legacyPrepareJoinQuery(
-                    this,
-                    session,
-                    connection,
-                    joinType,
-                    leftSource,
-                    rightSource,
-                    joinConditions,
-                    leftAssignments,
-                    rightAssignments));
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
-    }
-
-    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
-    {
-        return false;
-    }
-
     protected PreparedQuery applyQueryTransformations(JdbcTableHandle tableHandle, PreparedQuery query)
     {
         PreparedQuery preparedQuery = query;

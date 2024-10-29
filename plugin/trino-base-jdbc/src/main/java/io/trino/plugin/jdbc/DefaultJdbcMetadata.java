@@ -43,7 +43,6 @@ import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinApplicationResult;
-import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
@@ -696,101 +695,6 @@ public class DefaultJdbcMetadata
                 newRightColumns.entrySet().stream()
                         .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().getColumnName())),
                 joinConditions.build(),
-                statistics);
-
-        if (joinQuery.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(new JoinApplicationResult<>(
-                new JdbcTableHandle(
-                        new JdbcQueryRelationHandle(joinQuery.get()),
-                        TupleDomain.all(),
-                        ImmutableList.of(),
-                        Optional.empty(),
-                        OptionalLong.empty(),
-                        Optional.of(
-                                ImmutableList.<JdbcColumnHandle>builder()
-                                        .addAll(newLeftColumns.values())
-                                        .addAll(newRightColumns.values())
-                                        .build()),
-                        leftHandle.getAllReferencedTables().flatMap(leftReferencedTables ->
-                                rightHandle.getAllReferencedTables().map(rightReferencedTables ->
-                                        ImmutableSet.<SchemaTableName>builder()
-                                                .addAll(leftReferencedTables)
-                                                .addAll(rightReferencedTables)
-                                                .build())),
-                        nextSyntheticColumnId,
-                        leftHandle.getAuthorization(),
-                        leftHandle.getUpdateAssignments()),
-                ImmutableMap.copyOf(newLeftColumns),
-                ImmutableMap.copyOf(newRightColumns),
-                precalculateStatisticsForPushdown));
-    }
-
-    @Deprecated
-    @Override
-    public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
-            ConnectorSession session,
-            JoinType joinType,
-            ConnectorTableHandle left,
-            ConnectorTableHandle right,
-            List<JoinCondition> joinConditions,
-            Map<String, ColumnHandle> leftAssignments,
-            Map<String, ColumnHandle> rightAssignments,
-            JoinStatistics statistics)
-    {
-        if (isTableHandleForProcedure(left) || isTableHandleForProcedure(right)) {
-            return Optional.empty();
-        }
-
-        if (!isJoinPushdownEnabled(session)) {
-            return Optional.empty();
-        }
-
-        JdbcTableHandle leftHandle = flushAttributesAsQuery(session, (JdbcTableHandle) left);
-        JdbcTableHandle rightHandle = flushAttributesAsQuery(session, (JdbcTableHandle) right);
-
-        if (!leftHandle.getAuthorization().equals(rightHandle.getAuthorization())) {
-            return Optional.empty();
-        }
-        int nextSyntheticColumnId = max(leftHandle.getNextSyntheticColumnId(), rightHandle.getNextSyntheticColumnId());
-
-        ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newLeftColumnsBuilder = ImmutableMap.builder();
-        OptionalInt maxColumnNameLength = jdbcClient.getMaxColumnNameLength(session);
-        for (JdbcColumnHandle column : jdbcClient.getColumns(session, leftHandle)) {
-            newLeftColumnsBuilder.put(column, createSyntheticJoinProjectionColumn(column, nextSyntheticColumnId, maxColumnNameLength));
-            nextSyntheticColumnId++;
-        }
-        Map<JdbcColumnHandle, JdbcColumnHandle> newLeftColumns = newLeftColumnsBuilder.buildOrThrow();
-
-        ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newRightColumnsBuilder = ImmutableMap.builder();
-        for (JdbcColumnHandle column : jdbcClient.getColumns(session, rightHandle)) {
-            newRightColumnsBuilder.put(column, createSyntheticJoinProjectionColumn(column, nextSyntheticColumnId, maxColumnNameLength));
-            nextSyntheticColumnId++;
-        }
-        Map<JdbcColumnHandle, JdbcColumnHandle> newRightColumns = newRightColumnsBuilder.buildOrThrow();
-
-        ImmutableList.Builder<JdbcJoinCondition> jdbcJoinConditions = ImmutableList.builder();
-        for (JoinCondition joinCondition : joinConditions) {
-            Optional<JdbcColumnHandle> leftColumn = getVariableColumnHandle(leftAssignments, joinCondition.getLeftExpression());
-            Optional<JdbcColumnHandle> rightColumn = getVariableColumnHandle(rightAssignments, joinCondition.getRightExpression());
-            if (leftColumn.isEmpty() || rightColumn.isEmpty()) {
-                return Optional.empty();
-            }
-            jdbcJoinConditions.add(new JdbcJoinCondition(leftColumn.get(), joinCondition.getOperator(), rightColumn.get()));
-        }
-
-        Optional<PreparedQuery> joinQuery = jdbcClient.legacyImplementJoin(
-                session,
-                joinType,
-                asPreparedQuery(leftHandle),
-                asPreparedQuery(rightHandle),
-                jdbcJoinConditions.build(),
-                newRightColumns.entrySet().stream()
-                        .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().getColumnName())),
-                newLeftColumns.entrySet().stream()
-                        .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().getColumnName())),
                 statistics);
 
         if (joinQuery.isEmpty()) {
