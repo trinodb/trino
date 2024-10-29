@@ -37,6 +37,8 @@ import io.trino.type.SqlIntervalYearMonth;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 
@@ -102,7 +104,13 @@ public class JsonQueryDataEncoder
             case Double doubleValue when doubleValue.isNaN() -> generator.writeString("NaN");
             case Float floatValue when floatValue.isInfinite() -> generator.writeString(floatValue.toString());
             case Float floatValue when floatValue.isNaN() -> generator.writeString("NaN");
-            case Number numberValue -> generator.writeNumber(numberValue.toString());
+            case Float floatValue -> generator.writeNumber(floatValue);
+            case Double doubleValue -> generator.writeNumber(doubleValue);
+            case Integer integerValue -> generator.writeNumber(integerValue);
+            case Long longValue -> generator.writeNumber(longValue);
+            case BigInteger bigIntegerValue -> generator.writeNumber(bigIntegerValue);
+            case Byte byteValue -> generator.writeNumber(byteValue);
+            case BigDecimal bigDecimalValue -> generator.writeNumber(bigDecimalValue);
             case SqlDate dateValue -> generator.writeString(dateValue.toString());
             case SqlDecimal decimalValue -> generator.writeString(decimalValue.toString());
             case SqlIntervalDayTime intervalValue -> generator.writeString(intervalValue.toString());
