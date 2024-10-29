@@ -1923,12 +1923,12 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = '%s', location = '%s', partitioning = ARRAY['aDate'])", format, tempDirPath));
         assertThat(getTablePropertiesString("test_create_table_like_original")).isEqualTo(format(
                 """
-                WITH (
-                   format = '%s',
-                   format_version = 2,
-                   location = '%s',
-                   partitioning = ARRAY['adate']
-                )""",
+                        WITH (
+                           format = '%s',
+                           format_version = 2,
+                           location = '%s',
+                           partitioning = ARRAY['adate']
+                        )""",
                 format,
                 tempDirPath));
 
@@ -1939,22 +1939,22 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertThat(getTablePropertiesString("test_create_table_like_copy1")).isEqualTo(format(
                 """
-                WITH (
-                   format = '%s',
-                   format_version = 2,
-                   location = '%s'
-                )""",
+                        WITH (
+                           format = '%s',
+                           format_version = 2,
+                           location = '%s'
+                        )""",
                 format,
                 getTableLocation("test_create_table_like_copy1")));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertThat(getTablePropertiesString("test_create_table_like_copy2")).isEqualTo(format(
                 """
-                WITH (
-                   format = '%s',
-                   format_version = 2,
-                   location = '%s'
-                )""",
+                        WITH (
+                           format = '%s',
+                           format_version = 2,
+                           location = '%s'
+                        )""",
                 format,
                 getTableLocation("test_create_table_like_copy2")));
         assertUpdate("DROP TABLE test_create_table_like_copy2");
