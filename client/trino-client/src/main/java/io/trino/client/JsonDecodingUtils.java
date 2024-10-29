@@ -129,8 +129,6 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
                 case VALUE_NUMBER_INT:
                     return parser.getLongValue();
                 case VALUE_STRING:
@@ -149,8 +147,6 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
                 case VALUE_NUMBER_INT:
                     return parser.getIntValue();
                 case VALUE_STRING:
@@ -169,8 +165,6 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
                 case VALUE_NUMBER_INT:
                     return parser.getShortValue();
                 case VALUE_STRING:
@@ -189,8 +183,6 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
                 case VALUE_NUMBER_INT:
                     return parser.getByteValue();
                 case VALUE_STRING:
@@ -209,8 +201,6 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
                 case VALUE_NUMBER_FLOAT:
                     return parser.getDoubleValue();
                 case VALUE_STRING:
@@ -229,8 +219,6 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
                 case VALUE_NUMBER_FLOAT:
                     return parser.getFloatValue();
                 case VALUE_STRING:
@@ -248,18 +236,7 @@ public final class JsonDecodingUtils
         public Object decode(JsonParser parser)
                 throws IOException
         {
-            switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
-                case VALUE_FALSE:
-                    return false;
-                case VALUE_TRUE:
-                    return true;
-                case VALUE_STRING:
-                    return Boolean.parseBoolean(parser.getValueAsString());
-                default:
-                    throw illegalToken(parser);
-            }
+            return parser.getBooleanValue();
         }
     }
 
@@ -270,14 +247,10 @@ public final class JsonDecodingUtils
         public Object decode(JsonParser parser)
                 throws IOException
         {
-            switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
-                case VALUE_STRING:
-                    return parser.getValueAsString();
-                default:
-                    throw illegalToken(parser);
+            if (requireNonNull(parser.currentToken()) != JsonToken.VALUE_STRING) {
+                throw illegalToken(parser);
             }
+            return parser.getValueAsString();
         }
     }
 
@@ -288,14 +261,7 @@ public final class JsonDecodingUtils
         public Object decode(JsonParser parser)
                 throws IOException
         {
-            switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
-                case VALUE_STRING:
-                    return Base64.getDecoder().decode(parser.getValueAsString());
-                default:
-                    throw illegalToken(parser);
-            }
+            return Base64.getDecoder().decode(parser.getValueAsString());
         }
     }
 
@@ -315,14 +281,10 @@ public final class JsonDecodingUtils
         public Object decode(JsonParser parser)
                 throws IOException
         {
-            switch (parser.currentToken()) {
-                case START_ARRAY:
-                    break;
-                case VALUE_NULL:
-                    return null;
-                default:
-                    throw illegalToken(parser);
+            if (requireNonNull(parser.currentToken()) != JsonToken.START_ARRAY) {
+                throw illegalToken(parser);
             }
+
             List<Object> values = new LinkedList<>(); // nulls allowed
             while (true) {
                 switch (parser.nextToken()) {
