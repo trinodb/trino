@@ -63,7 +63,7 @@ final class AggregationFunctionProvider
     {
         List<Expression> symbolReferences = toSymbolReferences(args, aliases);
 
-        Optional<OrderingScheme> orderByClause = Optional.empty();
+        Optional<OrderingScheme> orderingScheme = Optional.empty();
         if (!orderBy.isEmpty()) {
             ImmutableList.Builder<Symbol> fields = ImmutableList.builder();
             ImmutableMap.Builder<Symbol, SortOrder> orders = ImmutableMap.builder();
@@ -74,9 +74,9 @@ final class AggregationFunctionProvider
                 fields.add(symbol);
                 orders.put(symbol, ordering.getSortOrder());
             }
-            orderByClause = Optional.of(new OrderingScheme(fields.build(), orders.buildOrThrow()));
+            orderingScheme = Optional.of(new OrderingScheme(fields.build(), orders.buildOrThrow()));
         }
 
-        return new AggregationFunction(name, filter.map(symbol -> symbol.toSymbol(aliases)), orderByClause, distinct, symbolReferences);
+        return new AggregationFunction(name, filter.map(symbol -> symbol.toSymbol(aliases)), orderingScheme, distinct, symbolReferences);
     }
 }
