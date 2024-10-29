@@ -46,14 +46,14 @@ public class OutputSpoolingController
 
     private Mode mode;
 
-    public OutputSpoolingController(boolean inlineFirstRows, long maximumInlinedPositions, long maximumInlinedSize, long initialSpooledSegmentTarget, long maximumSpooledSegmentTarget)
+    public OutputSpoolingController(boolean inlineInitialRows, long maximumInlinedPositions, long maximumInlinedSize, long initialSpooledSegmentTarget, long maximumSpooledSegmentTarget)
     {
         this.currentSpooledSegmentTarget = initialSpooledSegmentTarget;
         this.maximumSpooledSegmentTarget = maximumSpooledSegmentTarget;
         this.maximumInlinedPositions = maximumInlinedPositions;
         this.maximumInlinedSize = maximumInlinedSize;
 
-        mode = inlineFirstRows ? Mode.INLINE : Mode.SPOOL;
+        mode = inlineInitialRows ? Mode.INLINE : Mode.SPOOL;
     }
 
     public Mode getNextMode(Page page)
