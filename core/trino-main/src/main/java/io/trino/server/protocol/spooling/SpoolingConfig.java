@@ -33,7 +33,7 @@ import static java.util.Base64.getDecoder;
 
 public class SpoolingConfig
 {
-    private Optional<SecretKey> sharedEncryptionKey = Optional.empty();
+    private Optional<SecretKey> sharedSecretKey = Optional.empty();
     private SegmentRetrievalMode retrievalMode = SegmentRetrievalMode.STORAGE;
     private Optional<Duration> storageRedirectTtl = Optional.empty();
 
@@ -43,17 +43,17 @@ public class SpoolingConfig
     private DataSize initialSegmentSize = DataSize.of(8, MEGABYTE);
     private DataSize maximumSegmentSize = DataSize.of(16, MEGABYTE);
 
-    public Optional<SecretKey> getSharedEncryptionKey()
+    public Optional<SecretKey> getSharedSecretKey()
     {
-        return sharedEncryptionKey;
+        return sharedSecretKey;
     }
 
     @ConfigDescription("256 bit, base64-encoded secret key used to secure segment identifiers")
     @Config("protocol.spooling.shared-secret-key")
     @ConfigSecuritySensitive
-    public SpoolingConfig setSharedEncryptionKey(String sharedEncryptionKey)
+    public SpoolingConfig setSharedSecretKey(String sharedEncryptionKey)
     {
-        this.sharedEncryptionKey = Optional.ofNullable(sharedEncryptionKey)
+        this.sharedSecretKey = Optional.ofNullable(sharedEncryptionKey)
                 .map(value -> new SecretKeySpec(getDecoder().decode(value), "AES"));
         return this;
     }
@@ -152,7 +152,7 @@ public class SpoolingConfig
     @AssertTrue(message = "protocol.spooling.shared-secret-key must be 256 bits long")
     public boolean isSharedEncryptionKeyAes256()
     {
-        return sharedEncryptionKey
+        return sharedSecretKey
                 .map(Ciphers::is256BitSecretKeySpec)
                 .orElse(true);
     }
@@ -160,7 +160,7 @@ public class SpoolingConfig
     @AssertTrue(message = "protocol.spooling.shared-secret-key must be set")
     public boolean isSharedEncryptionKeySet()
     {
-        return sharedEncryptionKey.isPresent();
+        return sharedSecretKey.isPresent();
     }
 
     @AssertTrue(message = "protocol.spooling.coordinator-storage-redirect-ttl can be set when protocol.spooling.retrieval-mode is COORDINATOR_STORAGE_REDIRECT")

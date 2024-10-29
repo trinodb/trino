@@ -63,7 +63,7 @@ public class SpoolingManagerBridge
         this.registry = requireNonNull(registry, "registry is null");
         requireNonNull(spoolingConfig, "spoolingConfig is null");
         this.retrievalMode = spoolingConfig.getRetrievalMode();
-        this.secretKey = spoolingConfig.getSharedEncryptionKey()
+        this.secretKey = spoolingConfig.getSharedSecretKey()
                 .orElseThrow(() -> new IllegalArgumentException("protocol.spooling.shared-secret-key is not set"));
         this.maxDirectPassThroughTtl = fromDuration(spoolingConfig.getStorageRedirectTtl());
     }
