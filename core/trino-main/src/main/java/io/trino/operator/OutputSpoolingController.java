@@ -71,12 +71,6 @@ public class OutputSpoolingController
                     yield getNextMode(positionCount, sizeInBytes); // and now decide whether to buffer or spool this page
                 }
 
-                // We don't want to many inlined segments
-                if (inlinedPages > 3) { // or better bound
-                    mode = Mode.SPOOL; // switch to spooling mode
-                    yield getNextMode(positionCount, sizeInBytes); // and now decide whether to buffer or spool this page
-                }
-
                 // If we still didn't inline maximum number of bytes
                 if (inlinedRawBytes + sizeInBytes >= maximumInlinedSize) {
                     mode = Mode.SPOOL; // switch to spooling mode
