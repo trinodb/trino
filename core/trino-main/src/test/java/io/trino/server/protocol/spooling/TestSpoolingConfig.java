@@ -37,7 +37,7 @@ class TestSpoolingConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SpoolingConfig.class)
-                .setSharedEncryptionKey(null)
+                .setSharedSecretKey(null)
                 .setRetrievalMode(STORAGE)
                 .setStorageRedirectTtl(Optional.empty())
                 .setInitialSegmentSize(DataSize.of(8, MEGABYTE))
@@ -66,7 +66,7 @@ class TestSpoolingConfig
         SpoolingConfig expected = new SpoolingConfig()
                 .setRetrievalMode(COORDINATOR_STORAGE_REDIRECT)
                 .setStorageRedirectTtl(Optional.of(Duration.valueOf("60s")))
-                .setSharedEncryptionKey(randomAesEncryptionKey)
+                .setSharedSecretKey(randomAesEncryptionKey)
                 .setInitialSegmentSize(DataSize.of(1, KILOBYTE))
                 .setMaximumSegmentSize(DataSize.of(8, KILOBYTE))
                 .setMaximumInlinedRows(1024)
