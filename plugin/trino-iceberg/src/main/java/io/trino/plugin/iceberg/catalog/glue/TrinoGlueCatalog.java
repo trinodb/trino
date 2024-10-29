@@ -1376,9 +1376,12 @@ public class TrinoGlueCatalog
             operations.initializeFromMetadata(metadata);
             return Optional.of(new BaseTable(operations, quotedTableName(storageTableName), TRINO_METRICS_REPORTER));
         }
-        catch (NotFoundException e) {
+        catch (UncheckedExecutionException e) {
             // Removed during reading
-            return Optional.empty();
+            if (e.getCause() instanceof NotFoundException) {
+                return Optional.empty();
+            }
+            throw e;
         }
     }
 
