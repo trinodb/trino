@@ -216,6 +216,10 @@ implementation is used:
   -  Enable [sorted writing](iceberg-sorted-files) to tables with a specified sort order. Equivalent
      session property is `sorted_writing_enabled`.
   -  `true` 
+* - `iceberg.allowed-extra-properties`
+  -  List of extra properties that are allowed to be set on Iceberg tables.
+     Use `*` to allow all properties.
+  - `[]`
 * - `iceberg.split-manager-threads`
   -  Number of threads to use for generating splits.
   -  Double the number of processors on the coordinator node.

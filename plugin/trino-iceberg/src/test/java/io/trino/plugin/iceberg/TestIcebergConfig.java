@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -71,6 +72,7 @@ public class TestIcebergConfig
                 .setQueryPartitionFilterRequired(false)
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of())
                 .setSplitManagerThreads(Runtime.getRuntime().availableProcessors() * 2)
+                .setAllowedExtraProperties(ImmutableList.of())
                 .setIncrementalRefreshEnabled(true)
                 .setMetadataCacheEnabled(true));
     }
@@ -106,6 +108,7 @@ public class TestIcebergConfig
                 .put("iceberg.query-partition-filter-required", "true")
                 .put("iceberg.query-partition-filter-required-schemas", "bronze,silver")
                 .put("iceberg.split-manager-threads", "42")
+                .put("iceberg.allowed-extra-properties", "propX,propY")
                 .put("iceberg.incremental-refresh-enabled", "false")
                 .put("iceberg.metadata-cache.enabled", "false")
                 .buildOrThrow();
@@ -138,6 +141,7 @@ public class TestIcebergConfig
                 .setQueryPartitionFilterRequired(true)
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of("bronze", "silver"))
                 .setSplitManagerThreads(42)
+                .setAllowedExtraProperties(ImmutableList.of("propX", "propY"))
                 .setIncrementalRefreshEnabled(false)
                 .setMetadataCacheEnabled(false);
 

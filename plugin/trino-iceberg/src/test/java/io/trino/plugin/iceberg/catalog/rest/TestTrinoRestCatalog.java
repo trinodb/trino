@@ -122,7 +122,8 @@ public class TestTrinoRestCatalog
                     },
                     new TableStatisticsWriter(new NodeVersion("test-version")),
                     Optional.empty(),
-                    false);
+                    false,
+                    _ -> false);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

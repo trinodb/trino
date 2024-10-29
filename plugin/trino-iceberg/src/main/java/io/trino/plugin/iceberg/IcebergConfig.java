@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -28,9 +29,11 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -85,6 +88,7 @@ public class IcebergConfig
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;
     private boolean metadataCacheEnabled = true;
 
@@ -466,6 +470,21 @@ public class IcebergConfig
     public IcebergConfig setSplitManagerThreads(int splitManagerThreads)
     {
         this.splitManagerThreads = splitManagerThreads;
+        return this;
+    }
+
+    public List<String> getAllowedExtraProperties()
+    {
+        return allowedExtraProperties;
+    }
+
+    @Config("iceberg.allowed-extra-properties")
+    @ConfigDescription("List of extra properties that are allowed to be set on Iceberg tables")
+    public IcebergConfig setAllowedExtraProperties(List<String> allowedExtraProperties)
+    {
+        this.allowedExtraProperties = ImmutableList.copyOf(allowedExtraProperties);
+        checkArgument(!allowedExtraProperties.contains("*") || allowedExtraProperties.size() == 1,
+                "Wildcard * should be the only element in the list");
         return this;
     }
 

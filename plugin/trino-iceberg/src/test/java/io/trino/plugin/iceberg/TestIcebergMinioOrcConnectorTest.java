@@ -74,6 +74,7 @@ public class TestIcebergMinioOrcConnectorTest
                                 .put("s3.streaming.part-size", "5MB") // minimize memory usage
                                 .put("s3.max-connections", "8") // verify no leaks
                                 .put("iceberg.register-table-procedure.enabled", "true")
+                                .put("iceberg.allowed-extra-properties", "extra.property.one,extra.property.two,extra.property.three")
                                 // Allows testing the sorting writer flushing to the file system with smaller tables
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .buildOrThrow())
