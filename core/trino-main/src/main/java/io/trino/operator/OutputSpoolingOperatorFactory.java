@@ -267,15 +267,15 @@ public class OutputSpoolingOperatorFactory
 
             OperationTimer overallTimer = new OperationTimer(false);
             try (OutputStream output = spoolingManager.createOutputStream(segmentHandle)) {
-                DataAttributes attributes = queryDataEncoder.encodeTo(output, pages);
-                DataAttributes finalAttributes = attributes.toBuilder()
+                DataAttributes attributes = queryDataEncoder.encodeTo(output, pages)
+                        .toBuilder()
                         .set(ROWS_COUNT, rows)
                         .build();
 
                 controller.recordEncoded(attributes.get(SEGMENT_SIZE, Integer.class));
 
                 // This page is small (hundreds of bytes) so there is no point in tracking its memory usage
-                return emptySingleRowPage(layout, SpooledBlock.forLocation(spoolingManager.location(segmentHandle), finalAttributes).serialize());
+                return emptySingleRowPage(layout, SpooledBlock.forLocation(spoolingManager.location(segmentHandle), attributes).serialize());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
