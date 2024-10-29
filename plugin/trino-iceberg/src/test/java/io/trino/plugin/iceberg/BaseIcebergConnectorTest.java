@@ -191,6 +191,8 @@ public abstract class BaseIcebergConnectorTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
+                        // Only allow some extra properties. Add "sorted_by" so that we can test that the property is disallowed by the connector explicitly.
+                        .put("iceberg.allowed-extra-properties", "extra.property.one,extra.property.two,extra.property.three,sorted_by")
                         // Allows testing the sorting writer flushing to the file system with smaller tables
                         .put("iceberg.writer-sort-buffer-size", "1MB")
                         .buildOrThrow())
@@ -8505,6 +8507,10 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails(
                 "CREATE TABLE test_create_table_with_as_illegal_extra_properties WITH (extra_properties = MAP(ARRAY['comment'], ARRAY['some comment'])) AS SELECT 1 as c1",
                 "\\QIllegal keys in extra_properties: [comment]");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_as_illegal_extra_properties WITH (extra_properties = MAP(ARRAY['not_allowed_property'], ARRAY['foo'])) AS SELECT 1 as c1",
+                "\\QIllegal keys in extra_properties: [not_allowed_property]");
     }
 
     @Override
