@@ -1231,7 +1231,8 @@ public abstract class BaseConnectorTest
 
         String viewName = "test_mv_all_types_" + randomNameSuffix();
 
-        String values = """
+        String values =
+                """
                 SELECT
                     true a_boolean,
                     TINYINT '67' a_tinyint,
@@ -2017,19 +2018,22 @@ public abstract class BaseConnectorTest
         String schema = getSession().getSchema().orElseThrow();
         assertThat(computeScalar("SHOW CREATE TABLE orders"))
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
-                .isEqualTo(format("""
-                                CREATE TABLE %s.%s.orders (
-                                   orderkey bigint,
-                                   custkey bigint,
-                                   orderstatus varchar(1),
-                                   totalprice double,
-                                   orderdate date,
-                                   orderpriority varchar(15),
-                                   clerk varchar(15),
-                                   shippriority integer,
-                                   comment varchar(79)
-                                )""",
-                        catalog, schema));
+                .isEqualTo(format(
+                        """
+                        CREATE TABLE %s.%s.orders (
+                           orderkey bigint,
+                           custkey bigint,
+                           orderstatus varchar(1),
+                           totalprice double,
+                           orderdate date,
+                           orderpriority varchar(15),
+                           clerk varchar(15),
+                           shippriority integer,
+                           comment varchar(79)
+                        )\
+                        """,
+                        catalog,
+                        schema));
     }
 
     @Test
@@ -2104,18 +2108,19 @@ public abstract class BaseConnectorTest
 
     protected @Language("SQL") String getOrdersTableWithColumns()
     {
-        return """
-                VALUES
-                ('orders', 'orderkey'),
-                ('orders', 'custkey'),
-                ('orders', 'orderstatus'),
-                ('orders', 'totalprice'),
-                ('orders', 'orderdate'),
-                ('orders', 'orderpriority'),
-                ('orders', 'clerk'),
-                ('orders', 'shippriority'),
-                ('orders', 'comment')
-                """;
+        return
+               """
+               VALUES
+               ('orders', 'orderkey'),
+               ('orders', 'custkey'),
+               ('orders', 'orderstatus'),
+               ('orders', 'totalprice'),
+               ('orders', 'orderdate'),
+               ('orders', 'orderpriority'),
+               ('orders', 'clerk'),
+               ('orders', 'shippriority'),
+               ('orders', 'comment')
+               """;
     }
 
     @Test
@@ -2692,6 +2697,7 @@ public abstract class BaseConnectorTest
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[array[row(1, row(10), array[row(40)])]] AS array(array(row(a integer, c row(x integer), d array(row(w integer))))))");
         }
     }
+
     @Test
     public void testDropRowFieldWhenDuplicates()
     {
@@ -2740,9 +2746,9 @@ public abstract class BaseConnectorTest
         try (TestTable table = new TestTable(getQueryRunner()::execute,
                 "test_drop_row_field_case_sensitivity_",
                 """
-                        AS SELECT CAST(row(1, 2, 3, 4, 5) AS
-                        row("sOME_FIELd" integer, "some_field" integer, "SomE_Field" integer, "SOME_FIELD" integer, "sOME_FieLd" integer)) AS col
-                        """)) {
+                AS SELECT CAST(row(1, 2, 3, 4, 5) AS
+                row("sOME_FIELd" integer, "some_field" integer, "SomE_Field" integer, "SOME_FIELD" integer, "sOME_FieLd" integer)) AS col
+                """)) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(sOME_FIELd integer, some_field integer, SomE_Field integer, SOME_FIELD integer, sOME_FieLd integer)");
 
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.some_field");
@@ -5956,10 +5962,11 @@ public abstract class BaseConnectorTest
                     "timestamptz_to_date",
                     // These to timestamps are same local time, but different point in times and also different date at UTC time zone
                     """
-                            (i, t) AS VALUES
-                                ('UTC', TIMESTAMP '2005-09-10 00:12:34.000 UTC'),
-                                ('Warsaw', TIMESTAMP '2005-09-10 00:12:34.000 Europe/Warsaw'),
-                                ('Los Angeles', TIMESTAMP '2005-09-10 00:12:34.000 America/Los_Angeles')""");
+                    (i, t) AS VALUES
+                        ('UTC', TIMESTAMP '2005-09-10 00:12:34.000 UTC'),
+                        ('Warsaw', TIMESTAMP '2005-09-10 00:12:34.000 Europe/Warsaw'),
+                        ('Los Angeles', TIMESTAMP '2005-09-10 00:12:34.000 America/Los_Angeles')
+                    """);
         }
         catch (QueryFailedException e) {
             verifyUnsupportedTypeException(e, "timestamp(3) with time zone");
@@ -5986,10 +5993,11 @@ public abstract class BaseConnectorTest
                     "timestamptz_to_ts",
                     // These to timestamps are same local time, but different point in times
                     """
-                            (i, t) AS VALUES
-                                ('UTC', TIMESTAMP '2005-09-10 13:00:00.000 UTC'),
-                                ('Warsaw', TIMESTAMP '2005-09-10 13:00:00.000 Europe/Warsaw'),
-                                ('Los Angeles', TIMESTAMP '2005-09-10 13:00:00.000 America/Los_Angeles')""");
+                    (i, t) AS VALUES
+                        ('UTC', TIMESTAMP '2005-09-10 13:00:00.000 UTC'),
+                        ('Warsaw', TIMESTAMP '2005-09-10 13:00:00.000 Europe/Warsaw'),
+                        ('Los Angeles', TIMESTAMP '2005-09-10 13:00:00.000 America/Los_Angeles')
+                    """);
         }
         catch (QueryFailedException e) {
             verifyUnsupportedTypeException(e, "timestamp(3) with time zone");
@@ -6065,7 +6073,8 @@ public abstract class BaseConnectorTest
 
         String target = "merge_target_with_ctas_" + randomNameSuffix();
         String source = "merge_source_with_ctas_" + randomNameSuffix();
-        @Language("SQL") String createTableSql = """
+        @Language("SQL") String createTableSql =
+                """
                 CREATE TABLE %s AS
                 SELECT * FROM (
                         VALUES
@@ -6300,32 +6309,35 @@ public abstract class BaseConnectorTest
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena')", targetTable), 2);
 
         // Test a literal false
-        assertUpdate("""
-                        MERGE INTO %s t USING (VALUES ('Carol', 9, 'Centreville')) AS s(customer, purchases, address)
-                          ON (FALSE)
-                            WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
-                        """.formatted(targetTable),
+        assertUpdate(
+                """
+                MERGE INTO %s t USING (VALUES ('Carol', 9, 'Centreville')) AS s(customer, purchases, address)
+                  ON (FALSE)
+                    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
+                """.formatted(targetTable),
                 1);
 
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville')");
 
         // Test a constant-folded false expression
-        assertUpdate("""
-                        MERGE INTO %s t USING (VALUES ('Dave', 22, 'Darbyshire')) AS s(customer, purchases, address)
-                          ON (t.customer != t.customer)
-                            WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
-                        """.formatted(targetTable),
+        assertUpdate(
+                """
+                MERGE INTO %s t USING (VALUES ('Dave', 22, 'Darbyshire')) AS s(customer, purchases, address)
+                  ON (t.customer != t.customer)
+                    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
+                """.formatted(targetTable),
                 1);
 
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire')");
 
         // Test a more complicated constant-folded false expression
-        assertUpdate("""
-                        MERGE INTO %s t USING (VALUES ('Ed', 7, 'Etherville')) AS s(customer, purchases, address)
-                          ON (23 - (12 + 10) > 1)
-                            WHEN MATCHED THEN UPDATE SET customer = concat(s.customer, '_fooled_you')
-                            WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
-                        """.formatted(targetTable),
+        assertUpdate(
+                """
+                MERGE INTO %s t USING (VALUES ('Ed', 7, 'Etherville')) AS s(customer, purchases, address)
+                  ON (23 - (12 + 10) > 1)
+                    WHEN MATCHED THEN UPDATE SET customer = concat(s.customer, '_fooled_you')
+                    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
+                """.formatted(targetTable),
                 1);
 
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire'), ('Ed', 7, 'Etherville')");
@@ -6648,11 +6660,12 @@ public abstract class BaseConnectorTest
 
         String targetTable = "merge_update_columns_reversed_" + randomNameSuffix();
         assertUpdate(createTableForWrites("CREATE TABLE " + targetTable + " (a, b, c) AS VALUES (1, 2, 3)"), 1);
-        assertUpdate("""
-                        MERGE INTO %s t USING (VALUES(1)) AS s(a) ON (t.a = s.a)
-                            WHEN MATCHED THEN UPDATE
-                                SET c = 100, b = 42, a = 0
-                        """.formatted(targetTable),
+        assertUpdate(
+                """
+                MERGE INTO %s t USING (VALUES(1)) AS s(a) ON (t.a = s.a)
+                    WHEN MATCHED THEN UPDATE
+                        SET c = 100, b = 42, a = 0
+                """.formatted(targetTable),
                 1);
         assertQuery("SELECT * FROM " + targetTable, "VALUES (0, 42, 100)");
 
@@ -6736,13 +6749,15 @@ public abstract class BaseConnectorTest
                         .row(name, "double", "double", "scalar", true, "t88")
                         .build());
 
-        String integerFunctionSql = """
+        String integerFunctionSql =
+                """
                 CREATE FUNCTION %s(x integer)
                 RETURNS bigint
                 COMMENT 't42'
                 RETURN (x * 42)
                 """.strip().formatted(name);
-        String doubleFunctionSql = """
+        String doubleFunctionSql =
+                """
                 CREATE FUNCTION %s(x double)
                 RETURNS double
                 COMMENT 't88'
@@ -6772,7 +6787,8 @@ public abstract class BaseConnectorTest
                         .row(name2, "varchar", "varchar", "scalar", true, "")
                         .build());
 
-        String bigintFunctionSql = """
+        String bigintFunctionSql =
+                """
                 CREATE FUNCTION %s(x bigint)
                 RETURNS bigint
                 RETURN (x * 23)
@@ -6808,7 +6824,8 @@ public abstract class BaseConnectorTest
                         .build());
 
         assertThat(computeActual("SHOW CREATE FUNCTION " + name3).getOnlyValue())
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE FUNCTION %s()
                         RETURNS double
                         NOT DETERMINISTIC

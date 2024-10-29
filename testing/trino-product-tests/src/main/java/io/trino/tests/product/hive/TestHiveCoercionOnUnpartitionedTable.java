@@ -54,7 +54,8 @@ public class TestHiveCoercionOnUnpartitionedTable
         String tableName = format("%s_hive_coercion_unpartitioned", fileFormat.toLowerCase(ENGLISH));
         return HiveTableDefinition.builder(tableName)
                 // all nested primitive coercions and adding/removing trailing nested fields are covered across row_to_row, list_to_list, and map_to_map
-                .setCreateTableDDLTemplate("""
+                .setCreateTableDDLTemplate(
+                        """
                         CREATE TABLE %NAME%(
                             row_to_row                         STRUCT<keep: STRING, ti2si: TINYINT, si2int: SMALLINT, int2bi: INT, bi2vc: BIGINT, lower2uppercase: BIGINT>,
                             list_to_list                       ARRAY<STRUCT<ti2int: TINYINT, si2bi: SMALLINT, bi2vc: BIGINT, remove: STRING>>,
@@ -161,23 +162,26 @@ public class TestHiveCoercionOnUnpartitionedTable
                             binary_to_string                   BINARY,
                             binary_to_smaller_varchar          BINARY,
                             id                                 BIGINT)
-                       STORED AS\s""" + fileFormat);
+                        STORED AS\s\
+                        """ + fileFormat);
     }
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionForTimestampCoercionBuilder(String fileFormat)
     {
         String tableName = format("%s_hive_timestamp_coercion_unpartitioned", fileFormat.toLowerCase(ENGLISH));
         return HiveTableDefinition.builder(tableName)
-                .setCreateTableDDLTemplate("""
-                         CREATE TABLE %NAME%(
-                             timestamp_row_to_row       STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING, timestamp2date: TIMESTAMP>,
-                             timestamp_list_to_list     ARRAY<STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING, timestamp2date: TIMESTAMP>>,
-                             timestamp_map_to_map       MAP<SMALLINT, STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING, timestamp2date: TIMESTAMP>>,
-                             timestamp_to_string        TIMESTAMP,
-                             string_to_timestamp        STRING,
-                             timestamp_to_date          TIMESTAMP,
-                             id                         BIGINT)
-                        STORED AS\s""" + fileFormat);
+                .setCreateTableDDLTemplate(
+                        """
+                        CREATE TABLE %NAME%(
+                            timestamp_row_to_row       STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING, timestamp2date: TIMESTAMP>,
+                            timestamp_list_to_list     ARRAY<STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING, timestamp2date: TIMESTAMP>>,
+                            timestamp_map_to_map       MAP<SMALLINT, STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING, timestamp2date: TIMESTAMP>>,
+                            timestamp_to_string        TIMESTAMP,
+                            string_to_timestamp        STRING,
+                            timestamp_to_date          TIMESTAMP,
+                            id                         BIGINT)
+                        STORED AS\s\
+                        """ + fileFormat);
     }
 
     public static final class OrcRequirements

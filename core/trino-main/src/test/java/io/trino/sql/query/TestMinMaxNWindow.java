@@ -37,10 +37,12 @@ public class TestMinMaxNWindow
     @Test
     public void testMax()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT max(x, 3) OVER () FROM (VALUES 1, 2, 3, 4, 5) t(x)
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                             (ARRAY[5, 4, 3]),
                             (ARRAY[5, 4, 3]),
@@ -53,10 +55,12 @@ public class TestMinMaxNWindow
     @Test
     public void testMin()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT min(x, 3) OVER () FROM (VALUES 1, 2, 3, 4, 5) t(x)
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES
                             (ARRAY[1, 2, 3]),
                             (ARRAY[1, 2, 3]),

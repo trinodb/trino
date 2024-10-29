@@ -47,11 +47,13 @@ final class ExasolTpchTables
         String createTableStatement = format("CREATE TABLE %s.%s (%s)", TEST_SCHEMA, tableName, String.join(",", columnDefinitions.build()));
         log.info("Creating table %s using definition '%s'", tableName, createTableStatement);
         server.execute(createTableStatement);
-        String importStatement = format("""
+        String importStatement = format(
+                """
                 IMPORT INTO %s.%s
                 FROM LOCAL CSV FILE '%s'
                 ROW SEPARATOR = 'LF'
-                COLUMN SEPARATOR = ','""", TEST_SCHEMA, tableName, tempFile.toAbsolutePath());
+                COLUMN SEPARATOR = ','
+                """, TEST_SCHEMA, tableName, tempFile.toAbsolutePath());
         server.execute(importStatement);
     }
 

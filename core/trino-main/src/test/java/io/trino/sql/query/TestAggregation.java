@@ -73,20 +73,20 @@ public class TestAggregation
         assertThat(assertions.query(
                 session,
                 """
-                        WITH t(x) AS (VALUES 1)
-                        SELECT max(x), current_timestamp, current_date, current_time, localtimestamp, localtime
-                        FROM t
-                        """))
+                WITH t(x) AS (VALUES 1)
+                SELECT max(x), current_timestamp, current_date, current_time, localtimestamp, localtime
+                FROM t
+                """))
                 .matches(
                         """
-                                VALUES (
-                                    1,
-                                    TIMESTAMP '2024-03-12 12:24:0.000 Pacific/Apia',
-                                    DATE '2024-03-12',
-                                    TIME '12:24:0.000+13:00',
-                                    TIMESTAMP '2024-03-12 12:24:0.000',
-                                    TIME '12:24:0.000')
-                                """);
+                        VALUES (
+                            1,
+                            TIMESTAMP '2024-03-12 12:24:0.000 Pacific/Apia',
+                            DATE '2024-03-12',
+                            TIME '12:24:0.000+13:00',
+                            TIMESTAMP '2024-03-12 12:24:0.000',
+                            TIME '12:24:0.000')
+                        """);
     }
 
     /**
@@ -97,16 +97,16 @@ public class TestAggregation
     {
         assertThat(assertions.query(
                 """
-                        SELECT
-                            max(update_ts) FILTER (WHERE step_type = 'Rest')
-                        FROM (VALUES
-                                ('cell_id', 'Rest', TIMESTAMP '2005-09-10 13:31:00.123 Europe/Warsaw'),
-                                ('cell_id', 'Rest', TIMESTAMP '2005-09-10 13:31:00.123 Europe/Warsaw')
-                            ) AS t(cell_id, step_type, update_ts)
-                        -- UNNEST to produce DictionaryBlock
-                        CROSS JOIN UNNEST (sequence(1, 1000)) AS a(e)
-                        GROUP BY cell_id
-                        """))
+                SELECT
+                    max(update_ts) FILTER (WHERE step_type = 'Rest')
+                FROM (VALUES
+                        ('cell_id', 'Rest', TIMESTAMP '2005-09-10 13:31:00.123 Europe/Warsaw'),
+                        ('cell_id', 'Rest', TIMESTAMP '2005-09-10 13:31:00.123 Europe/Warsaw')
+                    ) AS t(cell_id, step_type, update_ts)
+                -- UNNEST to produce DictionaryBlock
+                CROSS JOIN UNNEST (sequence(1, 1000)) AS a(e)
+                GROUP BY cell_id
+                """))
                 .matches("VALUES TIMESTAMP '2005-09-10 13:31:00.123 Europe/Warsaw'");
     }
 
@@ -119,7 +119,8 @@ public class TestAggregation
         Session session = Session.builder(assertions.getDefaultSession())
                 .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
                 .build();
-        assertThat(assertions.query(session, """
+        assertThat(assertions.query(session,
+                """
                 -- sum and avg likely use different aggregation state classes
                 SELECT l.i, sum(v), avg(v)
                 FROM (VALUES 1, 2, 2, 3, 3, 3) l(i)
@@ -132,7 +133,8 @@ public class TestAggregation
                     (7, DECIMAL '77777777777777777777.1234567890')) r(i, v) ON l.i = r.i
                 GROUP BY l.i
                 """))
-                .matches("""
+                .matches(
+                        """
                         SELECT i, CAST(s AS decimal(38, 10)), v
                         FROM (VALUES
                             (1, DECIMAL '23456790012345679001.2469135780', DECIMAL '11728395006172839500.6234567890'),

@@ -40,7 +40,8 @@ final class TestFakerQueries
     void testSelectFromTable()
     {
         @Language("SQL")
-        String tableQuery = """
+        String tableQuery =
+                """
                 CREATE TABLE faker.default.all_types (
                 rnd_bigint bigint NOT NULL,
                 rnd_integer integer NOT NULL,
@@ -84,7 +85,8 @@ final class TestFakerQueries
         assertUpdate(tableQuery);
 
         @Language("SQL")
-        String testQuery = """
+        String testQuery =
+                """
                 SELECT
                 count(distinct rnd_bigint),
                 count(distinct rnd_integer),
@@ -127,55 +129,55 @@ final class TestFakerQueries
                 FROM all_types""";
         assertQuery(testQuery,
                 """
-                        VALUES (
-                        1000,
-                        1000,
-                        1000,
-                        1000,
-                        -- boolean, date
-                        2,
-                        1000,
-                        -- decimal
-                        1000,
-                        1000,
-                        1000,
-                        1000,
-                        1000,
-                        -- real, double
-                        1000,
-                        1000,
-                        -- intervals
-                        1000,
-                        1000,
-                        -- timestamps
-                        1000,
-                        1000,
-                        1000,
-                        1000,
-                        -- timestamps with time zone
-                        1000,
-                        1000,
-                        1000,
-                        1000,
-                        -- time
-                        1000,
-                        1000,
-                        1000,
-                        1000,
-                        -- time with time zone
-                        1000,
-                        1000,
-                        1000,
-                        1000,
-                        -- varbinary, varchar, nvarchar, char, nchar
-                        1000,
-                        1000,
-                        1000,
-                        19,
-                        1000,
-                        -- ip address, uuid
-                        1000,
-                        1000)""");
+                VALUES (
+                1000,
+                1000,
+                1000,
+                1000,
+                -- boolean, date
+                2,
+                1000,
+                -- decimal
+                1000,
+                1000,
+                1000,
+                1000,
+                1000,
+                -- real, double
+                1000,
+                1000,
+                -- intervals
+                1000,
+                1000,
+                -- timestamps
+                1000,
+                1000,
+                1000,
+                1000,
+                -- timestamps with time zone
+                1000,
+                1000,
+                1000,
+                1000,
+                -- time
+                1000,
+                1000,
+                1000,
+                1000,
+                -- time with time zone
+                1000,
+                1000,
+                1000,
+                1000,
+                -- varbinary, varchar, nvarchar, char, nchar
+                1000,
+                1000,
+                1000,
+                19,
+                1000,
+                -- ip address, uuid
+                1000,
+                1000)""");
         assertUpdate("DROP TABLE faker.default.all_types");
     }
 
@@ -257,7 +259,8 @@ final class TestFakerQueries
     void testSelectRange()
     {
         @Language("SQL")
-        String tableQuery = """
+        String tableQuery =
+                """
                 CREATE TABLE faker.default.all_types_range (
                 rnd_bigint bigint NOT NULL,
                 rnd_integer integer NOT NULL,
@@ -305,7 +308,8 @@ final class TestFakerQueries
 
         // inclusive ranges (BETWEEN) that produce only 2 values
         // obtained using `Math.nextUp((float) 0.0)`
-        testQuery = """
+        testQuery =
+                """
                 SELECT
                 count(distinct rnd_bigint),
                 count(distinct rnd_integer),
@@ -369,49 +373,52 @@ final class TestFakerQueries
                 AND rnd_timetz0 BETWEEN TIME '01:02:03 +01:00' AND  TIME '01:02:04 +01:00'
                 AND rnd_timetz6 BETWEEN TIME '01:02:03.000456 +01:00' AND  TIME '01:02:03.000457 +01:00'
                 AND rnd_timetz9 BETWEEN TIME '01:02:03.000000456 +01:00' AND  TIME '01:02:03.000000457 +01:00'\s""";
-        assertQuery(testQuery, """
-                        VALUES (2,
-                        2,
-                        2,
-                        2,
-                        -- date
-                        2,
-                        -- decimal
-                        2,
-                        2,
-                        2,
-                        2,
-                        2,
-                        -- real, double
-                        2,
-                        2,
-                        -- intervals
-                        2,
-                        2,
-                        -- timestamps
-                        2,
-                        2,
-                        2,
-                        2,
-                        -- timestamps with time zone
-                        2,
-                        2,
-                        2,
-                        2,
-                        -- time
-                        2,
-                        2,
-                        2,
-                        2,
-                        -- time with time zone
-                        2,
-                        2,
-                        2,
-                        2)""");
+        assertQuery(testQuery,
+                """
+                VALUES (2,
+                2,
+                2,
+                2,
+                -- date
+                2,
+                -- decimal
+                2,
+                2,
+                2,
+                2,
+                2,
+                -- real, double
+                2,
+                2,
+                -- intervals
+                2,
+                2,
+                -- timestamps
+                2,
+                2,
+                2,
+                2,
+                -- timestamps with time zone
+                2,
+                2,
+                2,
+                2,
+                -- time
+                2,
+                2,
+                2,
+                2,
+                -- time with time zone
+                2,
+                2,
+                2,
+                2)
+                """);
 
         // exclusive ranges that produce only 1 value
         // obtained using `Math.nextUp((float) 0.0)`
-        testQuery = """
+        testQuery =
+                """
                 SELECT
                 count(distinct rnd_bigint),
                 count(distinct rnd_integer),
@@ -475,48 +482,51 @@ final class TestFakerQueries
                 AND rnd_timetz0 > TIME '01:02:03 +01:00' AND rnd_timetz0 < TIME '01:02:05 +01:00'
                 AND rnd_timetz6 > TIME '01:02:03.000456 +01:00' AND rnd_timetz6 < TIME '01:02:03.000458 +01:00'
                 AND rnd_timetz9 > TIME '01:02:03.000000456 +01:00' AND rnd_timetz9 < TIME '01:02:03.000000458 +01:00'\s""";
-        assertQuery(testQuery, """
-                        VALUES (1,
-                        1,
-                        1,
-                        1,
-                        -- date
-                        1,
-                        -- decimal
-                        1,
-                        1,
-                        1,
-                        1,
-                        1,
-                        -- real, double
-                        1,
-                        1,
-                        -- intervals
-                        1,
-                        1,
-                        -- timestamps
-                        1,
-                        1,
-                        1,
-                        1,
-                        -- timestamps with time zone
-                        1,
-                        1,
-                        1,
-                        1,
-                        -- time
-                        1,
-                        1,
-                        1,
-                        1,
-                        -- time with time zone
-                        1,
-                        1,
-                        1,
-                        1)""");
+        assertQuery(testQuery,
+                """
+                VALUES (1,
+                1,
+                1,
+                1,
+                -- date
+                1,
+                -- decimal
+                1,
+                1,
+                1,
+                1,
+                1,
+                -- real, double
+                1,
+                1,
+                -- intervals
+                1,
+                1,
+                -- timestamps
+                1,
+                1,
+                1,
+                1,
+                -- timestamps with time zone
+                1,
+                1,
+                1,
+                1,
+                -- time
+                1,
+                1,
+                1,
+                1,
+                -- time with time zone
+                1,
+                1,
+                1,
+                1)
+                """);
 
         // inclusive range to get the min low bound
-        testQuery = """
+        testQuery =
+                """
                 SELECT
                 count(distinct rnd_bigint),
                 count(distinct rnd_integer),
@@ -568,36 +578,39 @@ final class TestFakerQueries
                 AND rnd_timetz <= TIME '00:00:00.000 +01:00'
                 AND rnd_timetz0 <= TIME '00:00:00 +01:00'
                 AND rnd_timetz6 <= TIME '00:00:00.000000 +01:00'
-                AND rnd_timetz9 <= TIME '00:00:00.000000000 +01:00'""";
-        assertQuery(testQuery, """
-                        VALUES (1,
-                        1,
-                        1,
-                        1,
-                        -- date
-                        1,
-                        -- decimal
-                        1,
-                        1,
-                        1,
-                        1,
-                        1,
-                        -- real, double
-                        1,
-                        1,
-                        -- intervals
-                        --1,
-                        --1,
-                        -- time
-                        1,
-                        1,
-                        1,
-                        1,
-                        -- time with time zone
-                        1,
-                        1,
-                        1,
-                        1)""");
+                AND rnd_timetz9 <= TIME '00:00:00.000000000 +01:00'
+                """;
+        assertQuery(testQuery,
+                """
+                VALUES (1,
+                1,
+                1,
+                1,
+                -- date
+                1,
+                -- decimal
+                1,
+                1,
+                1,
+                1,
+                1,
+                -- real, double
+                1,
+                1,
+                -- intervals
+                --1,
+                --1,
+                -- time
+                1,
+                1,
+                1,
+                1,
+                -- time with time zone
+                1,
+                1,
+                1,
+                1)
+                """);
 
         // exclusive range to get the max high bound
 

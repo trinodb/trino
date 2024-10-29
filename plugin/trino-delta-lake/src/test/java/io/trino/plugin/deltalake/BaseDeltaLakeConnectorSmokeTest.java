@@ -924,7 +924,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertUpdate("CREATE TABLE " + tableName + " (id int, data array(timestamp with time zone)) " +
                 "WITH (location = '" + getLocationForTable(bucketName, tableName) + "') ");
 
-        String values = """
+        String values =
+                """
                 (1, ARRAY[timestamp '2012-01-01 01:02:03.123 UTC']),
                 (2, ARRAY[NULL]),
                 (3, NULL)
@@ -946,7 +947,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertUpdate("CREATE TABLE " + tableName + " (id int, data map(timestamp with time zone, timestamp with time zone)) " +
                 "WITH (location = '" + getLocationForTable(bucketName, tableName) + "') ");
 
-        String values = """
+        String values =
+                """
                 (1, MAP(ARRAY[timestamp '2012-01-01 01:02:03.123 UTC'], ARRAY[timestamp '2012-02-01 01:02:03.123 UTC'])),
                 (2, MAP(ARRAY[timestamp '2023-12-31 03:02:01.321 UTC'], ARRAY[NULL])),
                 (3, MAP(NULL, NULL)),
@@ -969,7 +971,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertUpdate("CREATE TABLE " + tableName + " (id int, data row(ts_tz timestamp with time zone)) " +
                 "WITH (location = '" + getLocationForTable(bucketName, tableName) + "') ");
 
-        String values = """
+        String values =
+                """
                 (1, CAST(ROW(timestamp '2012-01-01 01:02:03.123 UTC') AS ROW(ts_tz timestamp with time zone))),
                 (2, CAST(ROW(NULL) AS ROW(ts_tz timestamp with time zone))),
                 (3, CAST(NULL AS ROW(ts_tz timestamp with time zone)))
@@ -991,7 +994,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertUpdate("CREATE TABLE " + tableName + " (id int, parent row(child row(grandchild timestamp with time zone))) " +
                 "WITH (location = '" + getLocationForTable(bucketName, tableName) + "') ");
 
-        String values = """
+        String values =
+                """
                 (1, CAST(ROW(ROW(timestamp '2012-01-01 01:02:03.123 UTC')) AS ROW(child ROW(grandchild timestamp with time zone)))),
                 (2, CAST(ROW(ROW(NULL)) AS ROW(child ROW(grandchild timestamp with time zone)))),
                 (3, CAST(NULL AS ROW(child ROW(grandchild timestamp with time zone))))
@@ -2508,12 +2512,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (21, 30)");
             assertQuery("SELECT version, operation, isolation_level, read_version FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                (0, 'CREATE TABLE', 'WriteSerializable', 0),
-                                (1, 'WRITE', 'WriteSerializable', 0),
-                                (2, 'WRITE', 'WriteSerializable', 1),
-                                (3, 'WRITE', 'WriteSerializable', 2)
-                            """);
+                    VALUES
+                        (0, 'CREATE TABLE', 'WriteSerializable', 0),
+                        (1, 'WRITE', 'WriteSerializable', 0),
+                        (2, 'WRITE', 'WriteSerializable', 1),
+                        (3, 'WRITE', 'WriteSerializable', 2)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -2639,12 +2643,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertQuery(
                     "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                ('WRITE', 'WriteSerializable', false),
-                                ('WRITE', 'WriteSerializable', false),
-                                ('WRITE', 'WriteSerializable', true)
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        ('WRITE', 'WriteSerializable', false),
+                        ('WRITE', 'WriteSerializable', false),
+                        ('WRITE', 'WriteSerializable', true)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -2686,14 +2690,15 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                     .forEach(MoreFutures::getDone);
 
             assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (31, 40)");
-            assertQuery("SELECT version, operation, isolation_level FROM \"" + tableName + "$history\"",
+            assertQuery(
+                    "SELECT version, operation, isolation_level FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                (0, 'CREATE TABLE AS SELECT', 'WriteSerializable'),
-                                (1, 'DELETE', 'WriteSerializable'),
-                                (2, 'DELETE', 'WriteSerializable'),
-                                (3, 'DELETE', 'WriteSerializable')
-                            """);
+                    VALUES
+                        (0, 'CREATE TABLE AS SELECT', 'WriteSerializable'),
+                        (1, 'DELETE', 'WriteSerializable'),
+                        (2, 'DELETE', 'WriteSerializable'),
+                        (3, 'DELETE', 'WriteSerializable')
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -2715,14 +2720,14 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         // Add more files in the partition 30
         assertUpdate("INSERT INTO " + tableName + " VALUES (22, 30)", 1);
 
-
         try {
             // merge data concurrently by using non-overlapping partition predicate
             executor.invokeAll(ImmutableList.<Callable<Void>>builder()
                             .add(() -> {
                                 barrier.await(10, SECONDS);
                                 // No source table handles are employed for this MERGE statement, which causes a blind insert
-                                getQueryRunner().execute("""
+                                getQueryRunner().execute(
+                                        """
                                         MERGE INTO %s t USING (VALUES (12, 20)) AS s(a, part)
                                           ON (FALSE)
                                             WHEN NOT MATCHED THEN INSERT (a, part) VALUES(s.a, s.part)
@@ -2731,7 +2736,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("""
+                                getQueryRunner().execute(
+                                        """
                                         MERGE INTO %s t USING (VALUES (21, 30)) AS s(a, part)
                                           ON (t.part = s.part)
                                             WHEN MATCHED THEN DELETE
@@ -2740,7 +2746,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("""
+                                getQueryRunner().execute(
+                                        """
                                         MERGE INTO %s t USING (VALUES (32, 40)) AS s(a, part)
                                           ON (t.part = s.part)
                                             WHEN MATCHED THEN UPDATE SET a = s.a
@@ -2751,15 +2758,16 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                     .forEach(MoreFutures::getDone);
 
             assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (12, 20), (32, 40)");
-            assertQuery("SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+            assertQuery(
+                    "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                ('WRITE', 'WriteSerializable', true),
-                                ('MERGE', 'WriteSerializable', true),
-                                ('MERGE', 'WriteSerializable', false),
-                                ('MERGE', 'WriteSerializable', false)
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        ('WRITE', 'WriteSerializable', true),
+                        ('MERGE', 'WriteSerializable', true),
+                        ('MERGE', 'WriteSerializable', false),
+                        ('MERGE', 'WriteSerializable', false)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);

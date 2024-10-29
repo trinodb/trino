@@ -165,7 +165,8 @@ public class BenchmarkPlanner
                         .collect(joining(", ", "(", ")")))),
         // 86k columns present in the query with 500 group bys
         MULTIPLE_GROUP_BY(() -> ImmutableList.of("WITH " + IntStream.rangeClosed(0, 500)
-                .mapToObj("""
+                .mapToObj(
+                        """
                         t%s AS (
                         SELECT * FROM lineitem a
                         JOIN tiny.lineitem b ON a.l_orderkey = b.l_orderkey

@@ -87,7 +87,8 @@ public class TestQueryDataSerialization
     public void testEncodedQueryDataSerialization()
     {
         EncodedQueryData queryData = new EncodedQueryData("json", ImmutableMap.of(), ImmutableList.of(inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
-        testRoundTrip(queryData, """
+        testRoundTrip(queryData,
+                """
                 {
                   "encoding": "json",
                   "segments": [
@@ -108,7 +109,8 @@ public class TestQueryDataSerialization
     public void testEncodedQueryDataSerializationWithExtraMetadata()
     {
         EncodedQueryData queryData = new EncodedQueryData("json", ImmutableMap.of("decryptionKey", "secret"), ImmutableList.of(inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
-        testRoundTrip(queryData, """
+        testRoundTrip(queryData,
+                """
                 {
                   "encoding": "json",
                   "metadata": {
@@ -146,7 +148,8 @@ public class TestQueryDataSerialization
                         .set(SCHEMA, "serializedSchema")
                         .build())
                 .build();
-        testSerializationRoundTrip(queryData, """
+        testSerializationRoundTrip(queryData,
+                """
                 {
                   "encoding": "json",
                   "metadata": {
@@ -215,7 +218,8 @@ public class TestQueryDataSerialization
 
     private String queryResultsJson(String expectedDataField)
     {
-        return format("""
+        return format(
+                """
                 {
                   "id": "20160128_214710_00012_rk68b",
                   "infoUri": "http://coordinator/query.html?20160128_214710_00012_rk68b",

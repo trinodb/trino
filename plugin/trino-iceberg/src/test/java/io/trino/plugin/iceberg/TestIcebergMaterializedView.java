@@ -98,9 +98,10 @@ public class TestIcebergMaterializedView
         assertUpdate(secondIceberg, createTable, 1); // this one will be used by MV
         assertUpdate(defaultIceberg, createTable, 1); // this one exists so that it can be mistakenly treated as the base table
 
-        assertUpdate(defaultIceberg, """
-                            CREATE MATERIALIZED VIEW iceberg.tpch.mv_on_iceberg2
-                            AS SELECT sum(value) AS s FROM iceberg2.tpch.common_base_table
+        assertUpdate(defaultIceberg,
+                """
+                CREATE MATERIALIZED VIEW iceberg.tpch.mv_on_iceberg2
+                AS SELECT sum(value) AS s FROM iceberg2.tpch.common_base_table
                 """);
 
         // The MV is initially stale

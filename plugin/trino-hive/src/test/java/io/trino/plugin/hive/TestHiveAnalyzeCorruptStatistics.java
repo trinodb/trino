@@ -72,7 +72,8 @@ public class TestHiveAnalyzeCorruptStatistics
 
         // Insert duplicated row to simulate broken column statistics status https://github.com/trinodb/trino/issues/13787
         assertThat(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'")).isEqualTo("1");
-        onMetastore("""
+        onMetastore(
+                """
                 INSERT INTO TAB_COL_STATS
                 SELECT
                   cs_id + 1,
@@ -127,7 +128,8 @@ public class TestHiveAnalyzeCorruptStatistics
 
         // Insert duplicated row to simulate broken partition statistics status https://github.com/trinodb/trino/issues/13787
         assertThat(onMetastore("SELECT COUNT(1) FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'")).isEqualTo("1");
-        onMetastore("""
+        onMetastore(
+                """
                 INSERT INTO PART_COL_STATS
                 SELECT
                   cs_id + 1,

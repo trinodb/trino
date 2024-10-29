@@ -140,7 +140,8 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
                 .matches("SELECT * FROM nation");
 
         assertThat((String) computeScalar("SHOW CREATE VIEW " + viewName))
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE VIEW iceberg."level_1.level_2".%s SECURITY DEFINER AS
                         SELECT *
                         FROM

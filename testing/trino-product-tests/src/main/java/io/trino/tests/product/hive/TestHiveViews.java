@@ -481,7 +481,8 @@ public class TestHiveViews
         onHive().executeQuery("INSERT INTO union_char_varchar VALUES ('a', 'Trino')");
         onHive().executeQuery("INSERT INTO union_char_varchar VALUES (NULL, NULL)");
         onHive().executeQuery("DROP VIEW IF EXISTS union_char_varchar_view");
-        onHive().executeQuery("""
+        onHive().executeQuery(
+                """
                 CREATE VIEW union_char_varchar_view AS
                 SELECT a_char AS col FROM union_char_varchar
                 UNION ALL

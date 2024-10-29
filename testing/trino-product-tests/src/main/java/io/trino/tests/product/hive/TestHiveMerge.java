@@ -704,7 +704,8 @@ public class TestHiveMerge
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena')", targetTable));
 
             // Test a literal false
-            onTrino().executeQuery("""
+            onTrino().executeQuery(
+                    """
                     MERGE INTO %s t USING (VALUES ('Carol', 9, 'Centreville')) AS s(customer, purchases, address)
                       ON (FALSE)
                         WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
@@ -712,14 +713,16 @@ public class TestHiveMerge
             verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Aaron", 11, "Antioch"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"));
 
             // Test a constant-folded false expression
-            onTrino().executeQuery("""
+            onTrino().executeQuery(
+                    """
                     MERGE INTO %s t USING (VALUES ('Dave', 22, 'Darbyshire')) AS s(customer, purchases, address)
                       ON (t.customer != t.customer)
                         WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
                     """.formatted(targetTable));
             verifySelectForTrinoAndHive("SELECT * FROM " + targetTable, row("Aaron", 11, "Antioch"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"), row("Dave", 22, "Darbyshire"));
 
-            onTrino().executeQuery("""
+            onTrino().executeQuery(
+                    """
                     MERGE INTO %s t USING (VALUES ('Ed', 7, 'Etherville')) AS s(customer, purchases, address)
                       ON (23 - (12 + 10) > 1)
                         WHEN MATCHED THEN UPDATE SET customer = concat(s.customer, '_fooled_you')

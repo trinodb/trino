@@ -46,7 +46,8 @@ public class TestOpaAccessControlDataFilteringSystem
     private static final String OPA_ROW_LEVEL_FILTERING_POLICY_NAME = "rowFilters";
     private static final String OPA_COLUMN_MASKING_POLICY_NAME = "columnMask";
     private static final String OPA_BATCH_COLUMN_MASKING_POLICY_NAME = "batchColumnMasks";
-    private static final String SAMPLE_ROW_LEVEL_FILTERING_POLICY = """
+    private static final String SAMPLE_ROW_LEVEL_FILTERING_POLICY =
+            """
             package trino
             import future.keywords.in
             import future.keywords.if
@@ -64,8 +65,10 @@ public class TestOpaAccessControlDataFilteringSystem
                 table_resource.catalogName == "sample_catalog"
                 table_resource.schemaName == "sample_schema"
                 table_resource.tableName == "restricted_table"
-            }""";
-    private static final String SAMPLE_COLUMN_MASKING_POLICY = """
+            }\
+            """;
+    private static final String SAMPLE_COLUMN_MASKING_POLICY =
+            """
             package trino
             import future.keywords.in
             import future.keywords.if
@@ -159,13 +162,13 @@ public class TestOpaAccessControlDataFilteringSystem
     {
         testColumnMasking(
                 new OpaConfig()
-                    .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME))
-                    .setOpaColumnMaskingUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_COLUMN_MASKING_POLICY_NAME)));
+                        .setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME))
+                        .setOpaColumnMaskingUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_COLUMN_MASKING_POLICY_NAME)));
     }
 
     @Test
     public void testBatchColumnMasking()
-        throws Exception
+            throws Exception
     {
         testColumnMasking(
                 new OpaConfig()
@@ -263,7 +266,8 @@ public class TestOpaAccessControlDataFilteringSystem
         // Admin has no restrictions
         // Any other user can only see rows where "user_type" is not "customer"
         // And cannot see any data for field "user_name"
-        String policy = """
+        String policy =
+                """
                 package trino
                 import future.keywords.in
                 import future.keywords.if
@@ -284,7 +288,8 @@ public class TestOpaAccessControlDataFilteringSystem
                 columnMask := {"expression": "NULL"} if {
                     not is_admin
                     column_resource.columnName == "user_name"
-                }""";
+                }\
+                """;
         OPA_CONTAINER.submitPolicy(policy);
 
         @Language("SQL") String selectUserNameData = "SELECT user_name FROM sample_catalog.sample_schema.restricted_table";

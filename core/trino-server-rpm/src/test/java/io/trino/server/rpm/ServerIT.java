@@ -82,7 +82,8 @@ public class ServerIT
     private void testInstall(String temurinReleaseName, String javaHome, String expectedJavaVersion)
     {
         String rpm = "/" + new File(rpmHostPath).getName();
-        String command = """
+        String command =
+                """
                 microdnf install -y tar gzip python sudo shadow-utils
                 %s
                 rpm -i %s
@@ -122,7 +123,8 @@ public class ServerIT
             throws Exception
     {
         String rpm = "/" + new File(rpmHostPath).getName();
-        String installAndStartTrino = """
+        String installAndStartTrino =
+                """
                 microdnf install -y tar gzip python sudo shadow-utils
                 %s
                 rpm -i %s
@@ -135,7 +137,8 @@ public class ServerIT
                     .withCommand("sh", "-xeuc", installAndStartTrino)
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
                     .start();
-            String uninstallTrino = """
+            String uninstallTrino =
+                    """
                     /etc/init.d/trino stop
                     rpm -e trino-server-rpm
                     """;
@@ -236,10 +239,10 @@ public class ServerIT
     private static String installJavaCommand(String temurinReleaseName, String javaHome)
     {
         return """
-                echo "Downloading JDK from %1$s"
-                mkdir -p "%2$s"
-                curl -#LfS "%1$s" | tar -zx --strip 1 -C "%2$s"
-                """.formatted(temurinDownloadLink(temurinReleaseName), javaHome);
+               echo "Downloading JDK from %1$s"
+               mkdir -p "%2$s"
+               curl -#LfS "%1$s" | tar -zx --strip 1 -C "%2$s"
+               """.formatted(temurinDownloadLink(temurinReleaseName), javaHome);
     }
 
     private static void assertPathDeleted(GenericContainer<?> container, String path)
@@ -320,9 +323,8 @@ public class ServerIT
         public Set<List<String>> execute(String sql)
         {
             try (Connection connection = getConnection(format("jdbc:trino://%s:%s", host, port), "test", null);
-                 Statement statement = connection.createStatement();
-                 ResultSet resultSet = statement.executeQuery(sql))
-            {
+                    Statement statement = connection.createStatement();
+                    ResultSet resultSet = statement.executeQuery(sql)) {
                 ImmutableSet.Builder<List<String>> rows = ImmutableSet.builder();
                 int columnCount = resultSet.getMetaData().getColumnCount();
                 while (resultSet.next()) {
@@ -340,7 +342,7 @@ public class ServerIT
         }
     }
 
-    record PathInfo(String path, Set<PosixFilePermission> permissions, String owner, String group, Optional<String> link) {}
+    record PathInfo(String path, Set<PosixFilePermission> permissions, String owner, String group, Optional<String> link) { }
 
     static class PathInfoAssert
             extends AbstractAssert<PathInfoAssert, PathInfo>

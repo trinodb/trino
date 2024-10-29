@@ -145,7 +145,8 @@ public class TestIcebergConnectorSmokeTest
         assertUpdate("INSERT INTO " + table.getName() + " " + columns + " " + selectQuery, 1);
         TestTable mergeTable = new TestTable(getQueryRunner()::execute, "test_table_", tableDefinition);
         assertUpdate("INSERT INTO " + mergeTable.getName() + " " + columns + " " + selectQuery, 1);
-        assertUpdate("""
+        assertUpdate(
+                """
                 MERGE INTO %s t
                 USING (select * from %s ) s
                 ON (t.orderkey = s.orderkey)

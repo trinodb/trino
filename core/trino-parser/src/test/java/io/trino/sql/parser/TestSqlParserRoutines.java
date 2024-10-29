@@ -80,7 +80,8 @@ class TestSqlParserRoutines
     @Test
     void testInlineFunction()
     {
-        assertThat(statement("""
+        assertThat(statement(
+                """
                 WITH
                   FUNCTION answer()
                   RETURNS BIGINT
@@ -102,7 +103,8 @@ class TestSqlParserRoutines
     @Test
     void testSimpleFunction()
     {
-        assertThat(statement("""
+        assertThat(statement(
+                """
                 CREATE FUNCTION hello(s VARCHAR)
                 RETURNS varchar
                 LANGUAGE SQL
@@ -137,7 +139,8 @@ class TestSqlParserRoutines
     @Test
     void testEmptyFunction()
     {
-        assertThat(statement("""
+        assertThat(statement(
+                """
                 CREATE OR REPLACE FUNCTION answer()
                 RETURNS bigint
                 RETURN 42
@@ -158,7 +161,8 @@ class TestSqlParserRoutines
     @Test
     void testFibFunction()
     {
-        assertThat(statement("""
+        assertThat(statement(
+                """
                 CREATE FUNCTION fib(n bigint)
                 RETURNS bigint
                 BEGIN
@@ -213,7 +217,8 @@ class TestSqlParserRoutines
     @Test
     void testFunctionWithIfElseIf()
     {
-        assertThat(statement("""
+        assertThat(statement(
+                """
                 CREATE FUNCTION CustomerLevel(p_creditLimit DOUBLE)
                 RETURNS varchar
                 RETURNS NULL ON NULL INPUT

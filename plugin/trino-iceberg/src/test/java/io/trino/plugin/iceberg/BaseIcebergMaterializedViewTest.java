@@ -434,7 +434,8 @@ public abstract class BaseIcebergMaterializedViewTest
                 .build();
 
         assertUpdate("CREATE TABLE mv_on_expired_base_table AS SELECT 10 a", 1);
-        assertUpdate("""
+        assertUpdate(
+                """
                 CREATE MATERIALIZED VIEW mv_on_expired_the_mv
                 GRACE PERIOD INTERVAL '0' SECOND
                 AS SELECT sum(a) s FROM mv_on_expired_base_table""");
@@ -468,7 +469,8 @@ public abstract class BaseIcebergMaterializedViewTest
     public void testMaterializedViewOnTableRolledBack()
     {
         assertUpdate("CREATE TABLE mv_on_rolled_back_base_table(a integer)");
-        assertUpdate("""
+        assertUpdate(
+                """
                 CREATE MATERIALIZED VIEW mv_on_rolled_back_the_mv
                 GRACE PERIOD INTERVAL '0' SECOND
                 AS SELECT sum(a) s FROM mv_on_rolled_back_base_table""");
@@ -777,7 +779,8 @@ public abstract class BaseIcebergMaterializedViewTest
         String materializedViewName = "test_materialized_view_storage_type_coercion" + randomNameSuffix();
         String sourceTableName = "test_materialized_view_storage" + randomNameSuffix();
 
-        assertUpdate(format("""
+        assertUpdate(format(
+                """
                 CREATE TABLE %s (
                     t_3 time(3),
                     t_9 time(9),
@@ -988,7 +991,8 @@ public abstract class BaseIcebergMaterializedViewTest
 
         Session defaultSession = getSession();
 
-        String matViewDef = """
+        String matViewDef =
+                """
                 SELECT a, b FROM %s a WHERE a.a < 3 UNION ALL
                 SELECT * FROM %s b WHERE b.a > 5""".formatted(sourceTableName, sourceTableName);
 

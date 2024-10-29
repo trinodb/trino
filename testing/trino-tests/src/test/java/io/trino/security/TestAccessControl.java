@@ -884,7 +884,8 @@ public class TestAccessControl
         // Show that without UPDATE on the target table, the MERGE fails
         assertAccessDenied(baseMergeSql + updateCase, "Cannot update columns \\[nation_name] in table " + targetName, privilege(targetTable, UPDATE_TABLE));
 
-        assertAccessAllowed("""
+        assertAccessAllowed(
+                """
                 MERGE INTO orders o USING region r ON (o.orderkey = r.regionkey)
                 WHEN MATCHED AND o.orderkey % 2 = 0 THEN DELETE
                 WHEN MATCHED AND o.orderkey % 2 = 1 THEN UPDATE SET orderkey = null

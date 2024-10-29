@@ -426,7 +426,8 @@ public class TestSnowflakeTypeMapping
                 "tpch.test_unsupported_data_type",
                 "AS SELECT TRUE x, TO_GEOMETRY('POINT(1820.12 890.56)') y")) {
             assertQuery(unsupportedTypeHandling(IGNORE), "SELECT * FROM " + table.getName(), "VALUES TRUE");
-            assertQuery(unsupportedTypeHandling(CONVERT_TO_VARCHAR), "SELECT * FROM " + table.getName(), """
+            assertQuery(unsupportedTypeHandling(CONVERT_TO_VARCHAR), "SELECT * FROM " + table.getName(),
+                    """
                     VALUES (TRUE, '{
                       "coordinates": [
                         1.820120000000000e+03,

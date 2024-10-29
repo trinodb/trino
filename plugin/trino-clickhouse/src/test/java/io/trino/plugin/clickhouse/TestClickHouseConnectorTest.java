@@ -830,15 +830,16 @@ public class TestClickHouseConnectorTest
                 getQueryRunner()::execute,
                 "test_float_predicate_pushdown",
                 """
-                        (
-                        c_real real,
-                        c_real_neg_infinity real,
-                        c_real_pos_infinity real,
-                        c_real_nan real,
-                        c_double double,
-                        c_double_neg_infinity double,
-                        c_double_pos_infinity double,
-                        c_double_nan double)""",
+                (
+                c_real real,
+                c_real_neg_infinity real,
+                c_real_pos_infinity real,
+                c_real_nan real,
+                c_double double,
+                c_double_neg_infinity double,
+                c_double_pos_infinity double,
+                c_double_nan double)
+                """,
                 List.of("3.14, -infinity(), +infinity(), nan(), 3.14, -infinity(), +infinity(), nan()"))) {
             assertThat(query("SELECT c_real FROM %s WHERE c_real = real '3.14'".formatted(table.getName())))
                     // because of https://github.com/trinodb/trino/issues/9998
@@ -951,21 +952,22 @@ public class TestClickHouseConnectorTest
                 onRemoteDatabase(),
                 "tpch.test_textual_predicate_pushdown",
                 """
-                        (
-                        unsupported_1 Point,
-                        unsupported_2 Point,
-                        some_column String,
-                        a_string String,
-                        a_string_alias Text,
-                        a_fixed_string FixedString(1),
-                        a_nullable_string Nullable(String),
-                        a_nullable_string_alias Nullable(Text),
-                        a_nullable_fixed_string Nullable(FixedString(1)),
-                        a_lowcardinality_nullable_string LowCardinality(Nullable(String)),
-                        a_lowcardinality_nullable_fixed_string LowCardinality(Nullable(FixedString(1))),
-                        a_enum_1 Enum('hello', 'world', 'a', 'b', 'c', '%', '_'),
-                        a_enum_2 Enum('hello', 'world', 'a', 'b', 'c', '%', '_'))
-                        ENGINE=Log""",
+                (
+                unsupported_1 Point,
+                unsupported_2 Point,
+                some_column String,
+                a_string String,
+                a_string_alias Text,
+                a_fixed_string FixedString(1),
+                a_nullable_string Nullable(String),
+                a_nullable_string_alias Nullable(Text),
+                a_nullable_fixed_string Nullable(FixedString(1)),
+                a_lowcardinality_nullable_string LowCardinality(Nullable(String)),
+                a_lowcardinality_nullable_fixed_string LowCardinality(Nullable(FixedString(1))),
+                a_enum_1 Enum('hello', 'world', 'a', 'b', 'c', '%', '_'),
+                a_enum_2 Enum('hello', 'world', 'a', 'b', 'c', '%', '_'))
+                ENGINE=Log
+                """,
                 List.of(
                         "(10, 10), (10, 10), 'z', '\\\\', '\\\\', '\\\\', '\\\\', '\\\\', '\\\\', '\\\\', '\\\\', 'hello', 'world'",
                         "(10, 10), (10, 10), 'z', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_'",

@@ -71,7 +71,8 @@ public class UnityCatalogContainer
         postgreSql.start();
         closer.register(postgreSql);
 
-        String hibernate = """
+        String hibernate =
+                """
                 hibernate.connection.driver_class=org.postgresql.Driver
                 hibernate.connection.url=jdbc:postgresql://postgres:5432/test
                 hibernate.connection.username=test
@@ -165,7 +166,6 @@ public class UnityCatalogContainer
         execute("UPDATE uc_tables " +
                 "SET uniform_iceberg_metadata_location = '" + metadataFilePath + "'" +
                 "WHERE name = '" + tableName + "'");
-
     }
 
     public void execute(@Language("SQL") String sql)
