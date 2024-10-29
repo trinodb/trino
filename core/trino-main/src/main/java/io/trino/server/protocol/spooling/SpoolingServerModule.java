@@ -42,6 +42,7 @@ public class SpoolingServerModule
 
         binder.bind(SpoolingManagerRegistry.class).in(Scopes.SINGLETON);
         OptionalBinder<SpoolingManager> spoolingManagerBinder = newOptionalBinder(binder, new TypeLiteral<>() {});
+        newOptionalBinder(binder, SpoolingConfig.class);
         SpoolingEnabledConfig spoolingEnabledConfig = buildConfigObject(SpoolingEnabledConfig.class);
         if (!spoolingEnabledConfig.isEnabled()) {
             binder.bind(QueryDataEncoder.EncoderSelector.class).toInstance(noEncoder());

@@ -53,19 +53,4 @@ public interface SpoolingManager
 
     // Converts spooled location back to the handle
     SpooledSegmentHandle handle(Slice identifier, Map<String, List<String>> headers);
-
-    default boolean allowSegmentInlining()
-    {
-        return true;
-    }
-
-    default long initialSegmentSize()
-    {
-        return 4 * 1024 * 1024;
-    }
-
-    default long maximumSegmentSize()
-    {
-        return 32 * 1024 * 1024;
-    }
 }

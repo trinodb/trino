@@ -154,6 +154,7 @@ import io.trino.operator.window.pattern.SetEvaluator.SetEvaluatorSupplier;
 import io.trino.plugin.base.MappedRecordSet;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoders;
+import io.trino.server.protocol.spooling.SpoolingConfig;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -426,6 +427,7 @@ public class LocalExecutionPlanner
     private final SpillerFactory spillerFactory;
     private final QueryDataEncoders encoders;
     private final Optional<SpoolingManager> spoolingManager;
+    private final Optional<SpoolingConfig> spoolingConfig;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
     private final PagesIndex.Factory pagesIndexFactory;
@@ -480,6 +482,7 @@ public class LocalExecutionPlanner
             SpillerFactory spillerFactory,
             QueryDataEncoders encoders,
             Optional<SpoolingManager> spoolingManager,
+            Optional<SpoolingConfig> spoolingConfig,
             SingleStreamSpillerFactory singleStreamSpillerFactory,
             PartitioningSpillerFactory partitioningSpillerFactory,
             PagesIndex.Factory pagesIndexFactory,
@@ -510,6 +513,7 @@ public class LocalExecutionPlanner
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
         this.encoders = requireNonNull(encoders, "encoders is null");
         this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
+        this.spoolingConfig = requireNonNull(spoolingConfig, "spoolingConfig is null");
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
         this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
@@ -975,21 +979,26 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitOutput(OutputNode node, LocalExecutionPlanContext context)
         {
             Session session = context.taskContext.getSession();
-            Optional<QueryDataEncoder.Factory> encoderFactory = session
-                    .getQueryDataEncoding()
-                    .map(encoders::get);
             PhysicalOperation operation = node.getSource().accept(this, context);
 
-            if (encoderFactory.isEmpty()) {
+            if (session.getQueryDataEncoding().isEmpty()) {
                 return operation;
             }
 
-            SpoolingManager spoolingManagerBridge = spoolingManager.orElseThrow(() ->
-                    new IllegalStateException("Query data encoding was requested but spooling manager is not available"));
+            QueryDataEncoder.Factory encoderFactory = session
+                    .getQueryDataEncoding()
+                    .map(encoders::get)
+                    .orElseThrow(() -> new IllegalStateException("Spooled query encoding was not found"));
 
             Map<Symbol, Integer> spooledLayout = layoutUnionWithSpooledMetadata(operation.layout);
-            QueryDataEncoder queryDataEncoder = encoderFactory.orElseThrow().create(session, spooledOutputLayout(node, operation.layout));
-            OutputSpoolingOperatorFactory outputSpoolingOperatorFactory = new OutputSpoolingOperatorFactory(context.getNextOperatorId(), node.getId(), spooledLayout, queryDataEncoder, spoolingManagerBridge);
+            QueryDataEncoder queryDataEncoder = encoderFactory.create(session, spooledOutputLayout(node, operation.layout));
+            OutputSpoolingOperatorFactory outputSpoolingOperatorFactory = new OutputSpoolingOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    spooledLayout,
+                    queryDataEncoder,
+                    spoolingManager.orElseThrow(),
+                    spoolingConfig.orElseThrow());
 
             return new PhysicalOperation(outputSpoolingOperatorFactory, spooledLayout, operation);
         }
