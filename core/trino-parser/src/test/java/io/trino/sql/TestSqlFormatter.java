@@ -291,10 +291,12 @@ public class TestSqlFormatter
                         FAIL,
                         ImmutableList.of(),
                         Optional.empty())))
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE TABLE test (
                            col VARCHAR NOT NULL WITH (abc = 'test', xyz = DEFAULT)
-                        )""");
+                        )\
+                        """);
     }
 
     @Test
@@ -375,7 +377,8 @@ public class TestSqlFormatter
                         ImmutableList.of(
                                 new Property(new Identifier("property_1"), new StringLiteral("property_value")),
                                 new Property(new Identifier("property_2"), new StringLiteral("another_value"))))))
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE VIEW test
                         WITH (
                            property_1 = 'property_value',
@@ -396,7 +399,8 @@ public class TestSqlFormatter
                         Optional.of("攻殻機動隊"),
                         Optional.of(DEFINER),
                         ImmutableList.of(new Property(new Identifier("property"), new StringLiteral("property_value"))))))
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE VIEW test COMMENT '攻殻機動隊' SECURITY DEFINER
                         WITH (
                            property = 'property_value'

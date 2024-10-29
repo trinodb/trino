@@ -521,12 +521,14 @@ public class TestDefaultJdbcQueryBuilder
                 ImmutableMap.of(columns.get(3), "name2", columns.get(8), "rcol8"),
                 List.of(new ParameterizedExpression("\"lcol7\" = \"rcol8\"", List.of())));
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.empty())) {
-            assertThat(preparedQuery.query()).isEqualTo("""
+            assertThat(preparedQuery.query()).isEqualTo(
+                    """
                     SELECT "name1", "lcol7", "name2", "rcol8" FROM \
                     (SELECT "col_2" AS "name1", "col_7" AS "lcol7" FROM (SELECT * FROM "test_table") l) l \
                     INNER JOIN \
                     (SELECT "col_3" AS "name2", "col_8" AS "rcol8" FROM (SELECT * FROM "test_table") r) r \
-                    ON ("lcol7" = "rcol8")""");
+                    ON ("lcol7" = "rcol8")\
+                    """);
             long count = 0;
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {

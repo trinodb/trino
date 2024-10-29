@@ -1354,7 +1354,8 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testDescribeInputWithClause()
     {
         Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", """
+                .addPreparedStatement("my_query",
+                        """
                         WITH t2 AS (
                             SELECT * FROM (VALUES 1) AS t2(b)
                             WHERE b = ?)
@@ -2128,7 +2129,8 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testMergeQuantileDigest()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 WITH
                     a(field_a, field_b) AS (
                         VALUES (DOUBLE '10.3', 'group1'), (DOUBLE '11.3', 'group2')),
@@ -2136,16 +2138,18 @@ public abstract class AbstractTestEngineOnlyQueries
                         SELECT CAST(qdigest_agg(field_a) AS varbinary) AS qdigest_binary
                         FROM a GROUP BY field_b)
                 SELECT CAST(merge(CAST(qdigest_binary AS qdigest(double))) AS varbinary)
-                FROM b"""))
-                .matches("""
-                    VALUES X'
-                        00 7b 14 ae 47 e1 7a 84 3f 00 00 00 00 00 00 00
-                        00 00 00 00 00 00 00 00 00 9a 99 99 99 99 99 24
-                        40 9a 99 99 99 99 99 26 40 03 00 00 00 00 00 00
-                        00 00 00 00 f0 3f 9a 99 99 99 99 99 24 c0 00 00
-                        00 00 00 00 00 f0 3f 9a 99 99 99 99 99 26 c0 c7
-                        00 00 00 00 00 00 00 00 9a 99 99 99 99 99 24 c0'
-                    """);
+                FROM b
+                """))
+                .matches(
+                        """
+                        VALUES X'
+                            00 7b 14 ae 47 e1 7a 84 3f 00 00 00 00 00 00 00
+                            00 00 00 00 00 00 00 00 00 9a 99 99 99 99 99 24
+                            40 9a 99 99 99 99 99 26 40 03 00 00 00 00 00 00
+                            00 00 00 00 f0 3f 9a 99 99 99 99 99 24 c0 00 00
+                            00 00 00 00 00 f0 3f 9a 99 99 99 99 99 26 c0 c7
+                            00 00 00 00 00 00 00 00 9a 99 99 99 99 99 24 c0'
+                        """);
     }
 
     @Test
@@ -3452,16 +3456,16 @@ public abstract class AbstractTestEngineOnlyQueries
 
         assertQuery(
                 """
-                        WITH array_construct AS (
-                            SELECT ARRAY[1, 2, 3] AS array_actual, '[1,2,3]' AS expected
-                            UNION ALL
-                            SELECT NULL AS array_actual, '[]' AS expected)
-                        SELECT
-                            array_actual,
-                            '[' || (SELECT listagg(CAST(element AS varchar), ',') WITHIN GROUP(ORDER BY element) FROM UNNEST(array_actual) t(element)) || ']' AS actual,
-                            expected
-                        FROM array_construct
-                        """,
+                WITH array_construct AS (
+                    SELECT ARRAY[1, 2, 3] AS array_actual, '[1,2,3]' AS expected
+                    UNION ALL
+                    SELECT NULL AS array_actual, '[]' AS expected)
+                SELECT
+                    array_actual,
+                    '[' || (SELECT listagg(CAST(element AS varchar), ',') WITHIN GROUP(ORDER BY element) FROM UNNEST(array_actual) t(element)) || ']' AS actual,
+                    expected
+                FROM array_construct
+                """,
                 "VALUES (ARRAY[1, 2, 3], CAST('[1,2,3]' AS varchar), '[1,2,3]'), (null, null, '[]')");
     }
 
@@ -6621,18 +6625,21 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testInlineSqlFunctions()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 WITH FUNCTION abc(x integer) RETURNS integer RETURN x * 2
                 SELECT abc(21)
                 """))
                 .matches("VALUES 42");
-        assertThat(query("""
+        assertThat(query(
+                """
                 WITH FUNCTION abc(x integer) RETURNS integer RETURN abs(x)
                 SELECT abc(-21)
                 """))
                 .matches("VALUES 21");
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 WITH
                   FUNCTION abc(x integer) RETURNS integer RETURN x * 2,
                   FUNCTION xyz(x integer) RETURNS integer RETURN abc(x) + 1
@@ -6640,7 +6647,8 @@ public abstract class AbstractTestEngineOnlyQueries
                 """))
                 .matches("VALUES 43");
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 WITH
                   FUNCTION my_pow(n int, p int)
                   RETURNS int
@@ -6660,7 +6668,8 @@ public abstract class AbstractTestEngineOnlyQueries
                 .matches("VALUES 256");
 
         // invoke function on data from connector to prevent constant folding on the coordinator
-        assertThat(query("""
+        assertThat(query(
+                """
                 WITH
                   FUNCTION my_pow(n int, p int)
                   RETURNS int
@@ -6680,7 +6689,8 @@ public abstract class AbstractTestEngineOnlyQueries
                 .matches("VALUES 1, 2, 3, 5, 64");
 
         // function with dereference
-        assertThat(query("""
+        assertThat(query(
+                """
                 WITH FUNCTION get(input row(varchar))
                     RETURNS varchar
                     RETURN input[1]
@@ -6705,12 +6715,14 @@ public abstract class AbstractTestEngineOnlyQueries
         // Verify the current restrictions on inline functions are enforced
 
         // inline function can mask a global function
-        assertThat(query("""
+        assertThat(query(
+                """
                 WITH FUNCTION abs(x integer) RETURNS integer RETURN x * 2
                 SELECT abs(-10)
                 """))
                 .matches("VALUES -20");
-        assertThat(query("""
+        assertThat(query(
+                """
                 WITH
                   FUNCTION abs(x integer) RETURNS integer RETURN x * 2,
                   FUNCTION wrap_abs(x integer) RETURNS integer RETURN abs(x)
@@ -6719,7 +6731,8 @@ public abstract class AbstractTestEngineOnlyQueries
                 .matches("VALUES -20");
 
         // inline function can have the same name as a global function with a different signature
-        assertThat(query("""
+        assertThat(query(
+                """
                 WITH FUNCTION abs(x varchar) RETURNS varchar RETURN reverse(x)
                 SELECT abs('abc')
                 """))
@@ -6727,7 +6740,8 @@ public abstract class AbstractTestEngineOnlyQueries
                 .matches("VALUES 'cba'");
 
         // inline functions must be declared before they are used
-        assertThat(query("""
+        assertThat(query(
+                """
                 WITH
                   FUNCTION a(x integer) RETURNS integer RETURN b(x),
                   FUNCTION b(x integer) RETURNS integer RETURN x * 2
@@ -6737,7 +6751,8 @@ public abstract class AbstractTestEngineOnlyQueries
 
         // inline function cannot be recursive
         // note: mutual recursion is not supported either, but it is not tested due to the forward declaration limitation above
-        assertThat(query("""
+        assertThat(query(
+                """
                 WITH FUNCTION a(x integer) RETURNS integer RETURN a(x)
                 SELECT a(10)
                 """))

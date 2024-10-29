@@ -835,25 +835,25 @@ public class QueryAssertions
             //  1. Avoid constant folding -> exercises the compiler and evaluation engine
             //  2. Force constant folding -> exercises the interpreter
 
-            Result full = run("""
+            Result full = run(
+                    """
                     SELECT %s
                     FROM (
                         VALUES ROW(%s)
                     ) t(%s)
                     WHERE rand() >= 0
-                    """
-                    .formatted(
+                    """.formatted(
                             expression,
                             Joiner.on(",").join(values),
                             Joiner.on(",").join(columns)));
 
-            Result withConstantFolding = run("""
+            Result withConstantFolding = run(
+                    """
                     SELECT %s
                     FROM (
                         VALUES ROW(%s)
                     ) t(%s)
-                    """
-                    .formatted(
+                    """.formatted(
                             expression,
                             Joiner.on(",").join(values),
                             Joiner.on(",").join(columns)));

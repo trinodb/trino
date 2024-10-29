@@ -478,7 +478,9 @@ public class TestArrayOperators
                 .isEqualTo(asList(asList(1L, 2L), asList(3L, null), emptyList(), asList(null, null), null));
 
         assertThat(assertions.expression("CAST(a AS ARRAY(MAP(VARCHAR, BIGINT)))")
-                .binding("a", """
+                .binding(
+                        "a",
+                        """
                         JSON '[
                             {"a": 1, "b": 2},
                             {"none": null, "three": 3},
@@ -496,7 +498,9 @@ public class TestArrayOperators
                         null));
 
         assertThat(assertions.expression("CAST(a AS ARRAY(ROW(k1 BIGINT, k2 VARCHAR)))")
-                .binding("a", """
+                .binding(
+                        "a",
+                        """
                         JSON '[
                             [1, "two"],
                             [3, null],
@@ -2175,107 +2179,136 @@ public class TestArrayOperators
                 .isEqualTo(ImmutableList.of(ImmutableList.of(1), ImmutableList.of(2)));
 
         // with lambda function
-        assertThat(assertions.expression("array_sort(a, (x, y) -> CASE " +
-                                         "WHEN x IS NULL THEN -1 " +
-                                         "WHEN y IS NULL THEN 1 " +
-                                         "WHEN x < y THEN 1 " +
-                                         "WHEN x = y THEN 0 " +
-                                         "ELSE -1 END)")
+        assertThat(assertions.expression(
+                        """
+                        array_sort(a, (x, y) -> CASE WHEN x IS NULL THEN -1
+                        WHEN y IS NULL THEN 1
+                        WHEN x < y THEN 1
+                        WHEN x = y THEN 0
+                        ELSE -1 END)
+                        """)
                 .binding("a", "ARRAY[2, 3, 2, null, null, 4, 1]"))
                 .hasType(new ArrayType(INTEGER))
                 .isEqualTo(asList(null, null, 4, 3, 2, 2, 1));
 
-        assertThat(assertions.expression("array_sort(a, (x, y) -> CASE " +
-                                         "WHEN x IS NULL THEN 1 " +
-                                         "WHEN y IS NULL THEN -1 " +
-                                         "WHEN x < y THEN 1 " +
-                                         "WHEN x = y THEN 0 " +
-                                         "ELSE -1 END)")
+        assertThat(assertions.expression(
+                        """
+                        array_sort(a, (x, y) -> CASE
+                        WHEN x IS NULL THEN 1
+                        WHEN y IS NULL THEN -1
+                        WHEN x < y THEN 1
+                        WHEN x = y THEN 0
+                        ELSE -1 END)
+                        """)
                 .binding("a", "ARRAY[2, 3, 2, null, null, 4, 1]"))
                 .hasType(new ArrayType(INTEGER))
                 .isEqualTo(asList(4, 3, 2, 2, 1, null, null));
 
-        assertThat(assertions.expression("array_sort(a, (x, y) -> CASE " +
-                                         "WHEN x IS NULL THEN -1 " +
-                                         "WHEN y IS NULL THEN 1 " +
-                                         "WHEN x < y THEN 1 " +
-                                         "WHEN x = y THEN 0 " +
-                                         "ELSE -1 END)")
+        assertThat(assertions.expression(
+                        """
+                        array_sort(a, (x, y) -> CASE
+                        WHEN x IS NULL THEN -1
+                        WHEN y IS NULL THEN 1
+                        WHEN x < y THEN 1
+                        WHEN x = y THEN 0
+                        ELSE -1 END)
+                        """)
                 .binding("a", "ARRAY[2, null, BIGINT '3', 4, null, 1]"))
                 .hasType(new ArrayType(BIGINT))
                 .isEqualTo(asList(null, null, 4L, 3L, 2L, 1L));
 
-        assertThat(assertions.expression("array_sort(a, (x, y) -> CASE " +
-                                         "WHEN x IS NULL THEN -1 " +
-                                         "WHEN y IS NULL THEN 1 " +
-                                         "WHEN x < y THEN 1 " +
-                                         "WHEN x = y THEN 0 " +
-                                         "ELSE -1 END)")
+        assertThat(assertions.expression(
+                        """
+                        array_sort(a, (x, y) -> CASE
+                        WHEN x IS NULL THEN -1
+                        WHEN y IS NULL THEN 1
+                        WHEN x < y THEN 1
+                        WHEN x = y THEN 0
+                        ELSE -1 END)
+                        """)
                 .binding("a", "ARRAY['bc', null, 'ab', 'dc', null]"))
                 .hasType(new ArrayType(createVarcharType(2)))
                 .isEqualTo(asList(null, null, "dc", "bc", "ab"));
 
-        assertThat(assertions.expression("array_sort(a, (x, y) -> CASE " +
-                                         "WHEN x IS NULL THEN -1 " +
-                                         "WHEN y IS NULL THEN 1 " +
-                                         "WHEN length(x) < length(y) THEN 1 " +
-                                         "WHEN length(x) = length(y) THEN 0 " +
-                                         "ELSE -1 END)")
+        assertThat(assertions.expression(
+                        """
+                        array_sort(a, (x, y) -> CASE
+                        WHEN x IS NULL THEN -1
+                        WHEN y IS NULL THEN 1
+                        WHEN length(x) < length(y) THEN 1
+                        WHEN length(x) = length(y) THEN 0
+                        ELSE -1 END)
+                        """)
                 .binding("a", "ARRAY['a', null, 'abcd', null, 'abc', 'zx']"))
                 .hasType(new ArrayType(createVarcharType(4)))
                 .isEqualTo(asList(null, null, "abcd", "abc", "zx", "a"));
 
-        assertThat(assertions.expression("array_sort(a, (x, y) -> CASE " +
-                                         "WHEN x IS NULL THEN -1 " +
-                                         "WHEN y IS NULL THEN 1 " +
-                                         "WHEN x = y THEN 0 " +
-                                         "WHEN x THEN -1 " +
-                                         "ELSE 1 END)")
+        assertThat(assertions.expression(
+                        """
+                        array_sort(a, (x, y) -> CASE
+                        WHEN x IS NULL THEN -1
+                        WHEN y IS NULL THEN 1
+                        WHEN x = y THEN 0
+                        WHEN x THEN -1
+                        ELSE 1 END)
+                        """)
                 .binding("a", "ARRAY[TRUE, null, FALSE, TRUE, null, FALSE, TRUE]"))
                 .hasType(new ArrayType(BOOLEAN))
                 .isEqualTo(asList(null, null, true, true, true, false, false));
 
-        assertThat(assertions.expression("array_sort(a, (x, y) -> CASE " +
-                                         "WHEN x IS NULL THEN -1 " +
-                                         "WHEN y IS NULL THEN 1 " +
-                                         "WHEN x < y THEN 1 " +
-                                         "WHEN x = y THEN 0 " +
-                                         "ELSE -1 END)")
+        assertThat(assertions.expression(
+                        """
+                        array_sort(a, (x, y) -> CASE
+                        WHEN x IS NULL THEN -1
+                        WHEN y IS NULL THEN 1
+                        WHEN x < y THEN 1
+                        WHEN x = y THEN 0
+                        ELSE -1 END)
+                        """)
                 .binding("a", "ARRAY[22.1E0, null, null, 11.1E0, 1.1E0, 44.1E0]"))
                 .hasType(new ArrayType(DOUBLE))
                 .isEqualTo(asList(null, null, 44.1, 22.1, 11.1, 1.1));
 
-        assertThat(assertions.expression("array_sort(a, (x, y) -> CASE " +
-                                         "WHEN x IS NULL THEN -1 " +
-                                         "WHEN y IS NULL THEN 1 " +
-                                         "WHEN date_diff('millisecond', y, x) < 0 THEN 1 " +
-                                         "WHEN date_diff('millisecond', y, x) = 0 THEN 0 " +
-                                         "ELSE -1 END)")
+        assertThat(assertions.expression(
+                        """
+                        array_sort(a, (x, y) -> CASE
+                        WHEN x IS NULL THEN -1
+                        WHEN y IS NULL THEN 1
+                        WHEN date_diff('millisecond', y, x) < 0 THEN 1
+                        WHEN date_diff('millisecond', y, x) = 0 THEN 0
+                        ELSE -1 END)
+                        """)
                 .binding("a", "ARRAY[TIMESTAMP '1973-07-08 22:00:01', NULL, TIMESTAMP '1970-01-01 00:00:01', NULL, TIMESTAMP '1989-02-06 12:00:00']"))
                 .matches("ARRAY[null, null, TIMESTAMP '1989-02-06 12:00:00', TIMESTAMP '1973-07-08 22:00:01', TIMESTAMP '1970-01-01 00:00:01']");
 
-        assertThat(assertions.expression("array_sort(a, (x, y) -> CASE " +
-                                         "WHEN x IS NULL THEN -1 " +
-                                         "WHEN y IS NULL THEN 1 " +
-                                         "WHEN cardinality(x) < cardinality(y) THEN 1 " +
-                                         "WHEN cardinality(x) = cardinality(y) THEN 0 " +
-                                         "ELSE -1 END)")
+        assertThat(assertions.expression(
+                        """
+                        array_sort(a, (x, y) -> CASE
+                        WHEN x IS NULL THEN -1
+                        WHEN y IS NULL THEN 1
+                        WHEN cardinality(x) < cardinality(y) THEN 1
+                        WHEN cardinality(x) = cardinality(y) THEN 0
+                        ELSE -1 END)
+                        """)
                 .binding("a", "ARRAY[ARRAY[2, 3, 1], null, ARRAY[4, null, 2, 1, 4], ARRAY[1, 2], null]"))
                 .hasType(new ArrayType(new ArrayType(INTEGER)))
                 .isEqualTo(asList(null, null, asList(4, null, 2, 1, 4), asList(2, 3, 1), asList(1, 2)));
 
-        assertThat(assertions.expression("array_sort(a, (x, y) -> CASE " +
-                                         "WHEN x IS NULL THEN -1 " +
-                                         "WHEN y IS NULL THEN 1 " +
-                                         "WHEN x < y THEN 1 " +
-                                         "WHEN x = y THEN 0 " +
-                                         "ELSE -1 END)")
+        assertThat(assertions.expression(
+                        """
+                        array_sort(a, (x, y) -> CASE
+                        WHEN x IS NULL THEN -1
+                        WHEN y IS NULL THEN 1
+                        WHEN x < y THEN 1
+                        WHEN x = y THEN 0
+                        ELSE -1 END)
+                        """)
                 .binding("a", "ARRAY[2.3, null, 2.1, null, 2.2]"))
                 .matches("ARRAY[null, null, 2.3, 2.2, 2.1]");
 
         assertThat(assertions.expression("array_sort(a, (x, y) -> CASE " +
-                                         "WHEN month(x) > month(y) THEN 1 " +
-                                         "ELSE -1 END)")
+                        "WHEN month(x) > month(y) THEN 1 " +
+                        "ELSE -1 END)")
                 .binding("a", "ARRAY[TIMESTAMP '1111-06-10 12:34:56.123456789', TIMESTAMP '2020-05-10 12:34:56.123456789']"))
                 .matches("ARRAY[TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-06-10 12:34:56.123456789']");
 

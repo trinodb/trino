@@ -40,7 +40,8 @@ public class TestExcludeColumnsFunction
     {
         assertThat(query("SELECT * FROM tpch.tiny.nation")).matches("SELECT nationkey, name, regionkey, comment FROM tpch.tiny.nation");
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(exclude_columns(
                                     input => TABLE(tpch.tiny.nation),
@@ -48,7 +49,8 @@ public class TestExcludeColumnsFunction
                 """))
                 .matches("SELECT nationkey, name, regionkey FROM tpch.tiny.nation");
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(exclude_columns(
                                     input => TABLE(tpch.tiny.nation),
@@ -60,7 +62,8 @@ public class TestExcludeColumnsFunction
     @Test
     public void testInvalidArgument()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(exclude_columns(
                                     input => TABLE(tpch.tiny.nation),
@@ -68,7 +71,8 @@ public class TestExcludeColumnsFunction
                 """))
                 .failure().hasMessage("COLUMNS descriptor is null");
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(exclude_columns(
                                     input => TABLE(tpch.tiny.nation),
@@ -76,7 +80,8 @@ public class TestExcludeColumnsFunction
                 """))
                 .failure().hasMessage("line 4:21: Invalid descriptor argument COLUMNS. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'");
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(exclude_columns(
                                     input => TABLE(tpch.tiny.nation),
@@ -84,7 +89,8 @@ public class TestExcludeColumnsFunction
                 """))
                 .failure().hasMessage("Excluded columns: [foo, bar] not present in the table");
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(exclude_columns(
                                     input => TABLE(tpch.tiny.nation),
@@ -92,7 +98,8 @@ public class TestExcludeColumnsFunction
                 """))
                 .failure().hasMessage("COLUMNS descriptor contains types");
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(exclude_columns(
                                     input => TABLE(tpch.tiny.nation),
@@ -105,7 +112,8 @@ public class TestExcludeColumnsFunction
     public void testColumnResolution()
     {
         // excluded column names are matched case-insensitive
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(exclude_columns(
                                     input => TABLE(SELECT 1, 2, 3, 4, 5) t(a, B, "c", "D", e),
@@ -118,7 +126,8 @@ public class TestExcludeColumnsFunction
     public void testReturnedColumnNames()
     {
         // the function preserves the incoming column names. (However, due to how the analyzer handles identifiers, these are not the canonical names according to the SQL identifier semantics.)
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT a, b, c, d
                 FROM TABLE(exclude_columns(
                                     input => TABLE(SELECT 1, 2, 3, 4, 5) t(a, B, "c", "D", e),
@@ -133,7 +142,8 @@ public class TestExcludeColumnsFunction
         assertThat(query("SELECT row_number FROM tpch.tiny.region")).matches("SELECT * FROM UNNEST(sequence(0, 4))");
 
         // the hidden column is not provided to the function
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT row_number
                 FROM TABLE(exclude_columns(
                                     input => TABLE(tpch.tiny.nation),
@@ -141,7 +151,8 @@ public class TestExcludeColumnsFunction
                 """))
                 .failure().hasMessage("line 1:8: Column 'row_number' cannot be resolved");
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(exclude_columns(
                                     input => TABLE(tpch.tiny.nation),
@@ -154,7 +165,8 @@ public class TestExcludeColumnsFunction
     public void testAnonymousColumn()
     {
         // cannot exclude an unnamed columns. the unnamed columns are passed on unnamed.
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(exclude_columns(
                                     input => TABLE(SELECT 1 a, 2, 3 c, 4),
@@ -167,7 +179,8 @@ public class TestExcludeColumnsFunction
     public void testDuplicateExcludedColumn()
     {
         // duplicates in excluded column names are allowed
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(exclude_columns(
                                     input => TABLE(tpch.tiny.nation),
@@ -180,7 +193,8 @@ public class TestExcludeColumnsFunction
     public void testDuplicateInputColumn()
     {
         // all input columns with given name are excluded
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(exclude_columns(
                                     input => TABLE(SELECT 1, 2, 3, 4, 5) t(a, b, c, a, b),
@@ -192,13 +206,15 @@ public class TestExcludeColumnsFunction
     @Test
     public void testFunctionResolution()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(system.builtin.exclude_columns(
                                     input => TABLE(tpch.tiny.nation),
                                     columns => DESCRIPTOR(comment)))
                 """))
-                .matches("""
+                .matches(
+                        """
                         SELECT *
                         FROM TABLE(exclude_columns(
                                             input => TABLE(tpch.tiny.nation),
@@ -209,7 +225,8 @@ public class TestExcludeColumnsFunction
     @Test
     public void testBigInput()
     {
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT *
                 FROM TABLE(exclude_columns(
                                     input => TABLE(tpch.tiny.orders),

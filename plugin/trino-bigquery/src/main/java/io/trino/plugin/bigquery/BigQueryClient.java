@@ -346,14 +346,16 @@ public class BigQueryClient
     public Iterable<TableId> findTableIdsIgnoreCase(ConnectorSession session, DatasetId remoteDatasetId, String tableName)
     {
         try {
-            TableResult tableNamesMatchingResults = executeQuery(session, """
+            TableResult tableNamesMatchingResults = executeQuery(session,
+                    """
                     SELECT table_name
                     FROM %s.%s.INFORMATION_SCHEMA.TABLES
-                    WHERE LOWER(table_name) = '%s' AND table_type IN (%s)""".formatted(
-                    quote(remoteDatasetId.getProject()),
-                    quote(remoteDatasetId.getDataset()),
-                    tableName.toLowerCase(ENGLISH),
-                    TABLE_TYPES.values().stream().map(value -> "'" + value + "'").collect(Collectors.joining(","))));
+                    WHERE LOWER(table_name) = '%s' AND table_type IN (%s)\
+                    """.formatted(
+                            quote(remoteDatasetId.getProject()),
+                            quote(remoteDatasetId.getDataset()),
+                            tableName.toLowerCase(ENGLISH),
+                            TABLE_TYPES.values().stream().map(value -> "'" + value + "'").collect(Collectors.joining(","))));
 
             return tableNamesMatchingResults.streamAll()
                     .map(row -> TableId.of(remoteDatasetId.getProject(), remoteDatasetId.getDataset(), row.getFirst().getStringValue()))
@@ -531,7 +533,8 @@ public class BigQueryClient
 
     public Stream<RelationCommentMetadata> listRelationCommentMetadata(ConnectorSession session, BigQueryClient client, String schemaName)
     {
-        TableResult result = client.executeQuery(session, """
+        TableResult result = client.executeQuery(session,
+                """
                 SELECT tbls.table_name, options.option_value
                 FROM %1$s.`INFORMATION_SCHEMA`.`TABLES` tbls
                 LEFT JOIN %1$s.`INFORMATION_SCHEMA`.`TABLE_OPTIONS` options

@@ -1442,7 +1442,8 @@ public abstract class BaseIcebergConnectorTest
                 .matches("VALUES " + values + ", " + highValues + ", " + lowValues);
 
         // Insert "large" number of rows, supposedly topping over iceberg.writer-sort-buffer-size so that temporary files are utilized by the sorting writer.
-        assertUpdate("""
+        assertUpdate(
+                """
                 INSERT INTO %s
                 SELECT v.*
                 FROM (VALUES %s, %s, %s) v
@@ -8097,13 +8098,15 @@ public abstract class BaseIcebergConnectorTest
         String catalog = getSession().getCatalog().orElseThrow();
         try (TestTable salesTable = new TestTable(getQueryRunner()::execute, "sales_table", "(date date, receipt_id varchar, amount decimal(10,2)) with (partitioning=array['date'])");
                 TestTable dimensionTable = new TestTable(getQueryRunner()::execute, "dimension_table", "(date date, following_holiday boolean, year int)")) {
-            assertUpdate("""
+            assertUpdate(
+                    """
                     INSERT INTO %s
                     VALUES
                         (DATE '2023-01-01' , false, 2023),
                         (DATE '2023-01-02' , true, 2023),
                         (DATE '2023-01-03' , false, 2023)""".formatted(dimensionTable.getName()), 3);
-            assertUpdate("""
+            assertUpdate(
+                    """
                     INSERT INTO %s
                     VALUES
                         (DATE '2023-01-02' , '#2023#1', DECIMAL '122.12'),
@@ -8117,7 +8120,8 @@ public abstract class BaseIcebergConnectorTest
                         (DATE '2023-01-05' , '#2023#9', DECIMAL '70.75'),
                         (DATE '2023-01-05' , '#2023#10', DECIMAL '80.12')""".formatted(salesTable.getName()), 10);
 
-            String selectQuery = """
+            String selectQuery =
+                    """
                     SELECT receipt_id
                     FROM %s s
                     JOIN %s d

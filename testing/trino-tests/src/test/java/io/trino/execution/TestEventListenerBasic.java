@@ -171,43 +171,43 @@ public class TestEventListenerBasic
                             return Optional.empty();
                         })
                         .withGetViews((connectorSession, prefix) ->
-                            ImmutableMap.of(
-                                    new SchemaTableName("default", "test_view"), new ConnectorViewDefinition(
-                                            "SELECT nationkey AS test_column FROM tpch.tiny.nation",
-                                            Optional.empty(),
-                                            Optional.empty(),
-                                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
-                                            Optional.empty(),
-                                            Optional.empty(),
-                                            true,
-                                            ImmutableList.of()),
-                                    new SchemaTableName("default", "test_view_nesting"), new ConnectorViewDefinition(
-                                            "SELECT test_column FROM mock.default.test_view",
-                                            Optional.empty(),
-                                            Optional.empty(),
-                                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
-                                            Optional.empty(),
-                                            Optional.empty(),
-                                            true,
-                                            ImmutableList.of()),
-                                    new SchemaTableName("default", "test_view_with_row_filter"), new ConnectorViewDefinition(
-                                            "SELECT test_varchar AS test_column FROM mock.default.test_table_with_row_filter",
-                                            Optional.empty(),
-                                            Optional.empty(),
-                                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", createVarcharType(15).getTypeId(), Optional.empty())),
-                                            Optional.empty(),
-                                            Optional.empty(),
-                                            true,
-                                            ImmutableList.of()),
-                                    new SchemaTableName("default", "test_view_with_redirect"), new ConnectorViewDefinition(
-                                            "SELECT nationkey AS test_column FROM mock.default.nation_redirect",
-                                            Optional.empty(),
-                                            Optional.empty(),
-                                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
-                                            Optional.empty(),
-                                            Optional.empty(),
-                                            true,
-                                            ImmutableList.of())))
+                                ImmutableMap.of(
+                                        new SchemaTableName("default", "test_view"), new ConnectorViewDefinition(
+                                                "SELECT nationkey AS test_column FROM tpch.tiny.nation",
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                true,
+                                                ImmutableList.of()),
+                                        new SchemaTableName("default", "test_view_nesting"), new ConnectorViewDefinition(
+                                                "SELECT test_column FROM mock.default.test_view",
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                true,
+                                                ImmutableList.of()),
+                                        new SchemaTableName("default", "test_view_with_row_filter"), new ConnectorViewDefinition(
+                                                "SELECT test_varchar AS test_column FROM mock.default.test_table_with_row_filter",
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", createVarcharType(15).getTypeId(), Optional.empty())),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                true,
+                                                ImmutableList.of()),
+                                        new SchemaTableName("default", "test_view_with_redirect"), new ConnectorViewDefinition(
+                                                "SELECT nationkey AS test_column FROM mock.default.nation_redirect",
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                true,
+                                                ImmutableList.of())))
                         .withGetMaterializedViews((connectorSession, prefix) -> {
                             ConnectorMaterializedViewDefinition definitionStale = new ConnectorMaterializedViewDefinition(
                                     "SELECT nationkey AS test_column FROM tpch.tiny.nation",
@@ -1307,7 +1307,8 @@ public class TestEventListenerBasic
     public void testOutputColumnsForUpdatingColumnsWithSelectQueries()
             throws Exception
     {
-        QueryEvents queryEvents = runQueryAndWaitForEvents("""
+        QueryEvents queryEvents = runQueryAndWaitForEvents(
+                """
                 UPDATE mock.default.table_for_output SET test_varchar = (SELECT name AS aliased_name from nation LIMIT 1), test_bigint = (SELECT nationkey FROM nation LIMIT 1)
                 """).getQueryEvents();
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
@@ -1321,7 +1322,8 @@ public class TestEventListenerBasic
     public void testOutputColumnsForUpdatingColumnsWithSelectQueryAndRawValue()
             throws Exception
     {
-        QueryEvents queryEvents = runQueryAndWaitForEvents("""
+        QueryEvents queryEvents = runQueryAndWaitForEvents(
+                """
                 UPDATE mock.default.table_for_output SET test_varchar = (SELECT name AS aliased_name from nation LIMIT 1), test_bigint = 1
                 """).getQueryEvents();
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
@@ -1335,8 +1337,10 @@ public class TestEventListenerBasic
     public void testOutputColumnsForUpdatingColumnWithSelectQueryAndWhereClauseWithOuterColumn()
             throws Exception
     {
-        QueryEvents queryEvents = runQueryAndWaitForEvents("""
-                UPDATE mock.default.table_for_output SET test_varchar = (SELECT name from nation WHERE test_bigint = nationkey)""").getQueryEvents();
+        QueryEvents queryEvents = runQueryAndWaitForEvents(
+                """
+                UPDATE mock.default.table_for_output SET test_varchar = (SELECT name from nation WHERE test_bigint = nationkey)
+                """).getQueryEvents();
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))));

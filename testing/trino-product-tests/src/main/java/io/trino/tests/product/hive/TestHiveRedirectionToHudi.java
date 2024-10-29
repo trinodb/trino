@@ -412,17 +412,18 @@ public class TestHiveRedirectionToHudi
     {
         onHudi().executeQuery(format(
                 """
-                        CREATE TABLE %s (
-                          id bigint,
-                          name string,
-                          price int,
-                          ts bigint)
-                        USING hudi
-                        TBLPROPERTIES (
-                          type = '%s',
-                          primaryKey = 'id',
-                          preCombineField = 'ts')
-                        LOCATION 's3://%s/%s'""",
+                CREATE TABLE %s (
+                  id bigint,
+                  name string,
+                  price int,
+                  ts bigint)
+                USING hudi
+                TBLPROPERTIES (
+                  type = '%s',
+                  primaryKey = 'id',
+                  preCombineField = 'ts')
+                LOCATION 's3://%s/%s'
+                """,
                 tableName,
                 tableType,
                 bucketName,
@@ -435,19 +436,20 @@ public class TestHiveRedirectionToHudi
     {
         onHudi().executeQuery(format(
                 """
-                        CREATE TABLE %s (
-                          id bigint,
-                          name string,
-                          ts bigint,
-                          dt string,
-                          hh string)
-                        USING hudi
-                        TBLPROPERTIES (
-                          type = '%s',
-                          primaryKey = 'id',
-                          preCombineField = 'ts')
-                        PARTITIONED BY (dt, hh)
-                        LOCATION 's3://%s/%s'""",
+                CREATE TABLE %s (
+                  id bigint,
+                  name string,
+                  ts bigint,
+                  dt string,
+                  hh string)
+                USING hudi
+                TBLPROPERTIES (
+                  type = '%s',
+                  primaryKey = 'id',
+                  preCombineField = 'ts')
+                PARTITIONED BY (dt, hh)
+                LOCATION 's3://%s/%s'
+                """,
                 tableName,
                 tableType,
                 bucketName,

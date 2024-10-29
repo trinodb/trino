@@ -55,41 +55,42 @@ public class TestQueryResultsSerialization
     public void testNullDataSerialization()
     {
         // data field should not be serialized
-        assertThat(serialize(null)).isEqualToIgnoringWhitespace("""
-            {
-            "id" : "20160128_214710_00012_rk68b",
-            "infoUri" : "http://coordinator/query.html?20160128_214710_00012_rk68b",
-            "columns" : [ {
-              "name" : "_col0",
-              "type" : "bigint",
-              "typeSignature" : {
-                "rawType" : "bigint",
-                "arguments" : [ ]
-              }
-            } ],
-            "stats" : {
-              "state" : "FINISHED",
-              "queued" : false,
-              "scheduled" : false,
-              "nodes" : 0,
-              "totalSplits" : 0,
-              "queuedSplits" : 0,
-              "runningSplits" : 0,
-              "completedSplits" : 0,
-              "cpuTimeMillis" : 0,
-              "wallTimeMillis" : 0,
-              "queuedTimeMillis" : 0,
-              "elapsedTimeMillis" : 0,
-              "processedRows" : 0,
-              "processedBytes" : 0,
-              "physicalInputBytes" : 0,
-              "physicalWrittenBytes" : 0,
-              "peakMemoryBytes" : 0,
-              "spilledBytes" : 0
-            },
-            "warnings" : [ ]
-          }
-          """);
+        assertThat(serialize(null)).isEqualToIgnoringWhitespace(
+                """
+                  {
+                  "id" : "20160128_214710_00012_rk68b",
+                  "infoUri" : "http://coordinator/query.html?20160128_214710_00012_rk68b",
+                  "columns" : [ {
+                    "name" : "_col0",
+                    "type" : "bigint",
+                    "typeSignature" : {
+                      "rawType" : "bigint",
+                      "arguments" : [ ]
+                    }
+                  } ],
+                  "stats" : {
+                    "state" : "FINISHED",
+                    "queued" : false,
+                    "scheduled" : false,
+                    "nodes" : 0,
+                    "totalSplits" : 0,
+                    "queuedSplits" : 0,
+                    "runningSplits" : 0,
+                    "completedSplits" : 0,
+                    "cpuTimeMillis" : 0,
+                    "wallTimeMillis" : 0,
+                    "queuedTimeMillis" : 0,
+                    "elapsedTimeMillis" : 0,
+                    "processedRows" : 0,
+                    "processedBytes" : 0,
+                    "physicalInputBytes" : 0,
+                    "physicalWrittenBytes" : 0,
+                    "peakMemoryBytes" : 0,
+                    "spilledBytes" : 0
+                  },
+                  "warnings" : [ ]
+                }
+                """);
     }
 
     @Test
@@ -129,7 +130,8 @@ public class TestQueryResultsSerialization
 
     private String queryResultsJson(String expectedDataField)
     {
-        return format("""
+        return format(
+                """
                 {
                     "id" : "20160128_214710_00012_rk68b",
                     "infoUri" : "http://coordinator/query.html?20160128_214710_00012_rk68b",

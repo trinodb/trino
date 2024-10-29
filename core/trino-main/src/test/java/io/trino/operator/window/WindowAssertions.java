@@ -22,7 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public final class WindowAssertions
 {
-    private static final String VALUES = """
+    private static final String VALUES =
+            """
             SELECT *
             FROM (
               VALUES
@@ -39,7 +40,8 @@ public final class WindowAssertions
             ) AS orders (orderkey, orderstatus, orderdate)
             """;
 
-    private static final String VALUES_WITH_NULLS = """
+    private static final String VALUES_WITH_NULLS =
+            """
             SELECT *
             FROM (
               VALUES
@@ -56,7 +58,8 @@ public final class WindowAssertions
             ) AS orders (orderkey, orderstatus, orderdate)
             """;
 
-    private static final String VALUES_WITH_NAN = """
+    private static final String VALUES_WITH_NAN =
+            """
             SELECT *
             FROM (
               VALUES
@@ -73,7 +76,8 @@ public final class WindowAssertions
             ) AS orders (orderkey, orderstatus, orderdate)
             """;
 
-    private static final String VALUES_WITH_INFINITY = """
+    private static final String VALUES_WITH_INFINITY =
+            """
             SELECT *
             FROM (
               VALUES
@@ -90,7 +94,7 @@ public final class WindowAssertions
             ) AS orders (orderkey, orderstatus, orderdate)
             """;
 
-    private WindowAssertions() {}
+    private WindowAssertions() { }
 
     public static void assertWindowQuery(@Language("SQL") String sql, MaterializedResult expected, QueryRunner queryRunner)
     {

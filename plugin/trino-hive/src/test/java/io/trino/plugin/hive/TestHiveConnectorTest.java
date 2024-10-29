@@ -33,19 +33,21 @@ public class TestHiveConnectorTest
     {
         String table = "test_predicate_pushdown_" + randomNameSuffix();
 
-        assertUpdate("""
-            CREATE TABLE %s (v, k)
-            WITH (partitioned_by = ARRAY['k'])
-            AS (VALUES ('value', 'key'))
-            """.formatted(table),
+        assertUpdate(
+                """
+                CREATE TABLE %s (v, k)
+                WITH (partitioned_by = ARRAY['k'])
+                AS (VALUES ('value', 'key'))
+                """.formatted(table),
                 1);
 
         try {
-            assertQuery("""
-                            SELECT *
-                            FROM %s
-                            WHERE k = 'key' AND regexp_replace(v, '(.*)', x -> x[1]) IS NOT NULL
-                            """.formatted(table),
+            assertQuery(
+                    """
+                    SELECT *
+                    FROM %s
+                    WHERE k = 'key' AND regexp_replace(v, '(.*)', x -> x[1]) IS NOT NULL
+                    """.formatted(table),
                     "VALUES ('value', 'key')");
         }
         finally {
