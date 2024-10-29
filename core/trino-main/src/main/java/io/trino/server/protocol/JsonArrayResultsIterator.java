@@ -113,9 +113,9 @@ public class JsonArrayResultsIterator
         List<Object> row = new ArrayList<>(columns.size());
         for (OutputColumn outputColumn : columns) {
             Type type = outputColumn.type();
-            Block block = currentPage.getBlock(outputColumn.sourcePageChannel());
 
             try {
+                Block block = currentPage.getBlock(outputColumn.sourcePageChannel());
                 Object value = type.getObjectValue(session.toConnectorSession(), block, inPageIndex);
                 if (!supportsParametricDateTime) {
                     value = getLegacyValue(value, type);
