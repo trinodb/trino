@@ -21,7 +21,6 @@ import io.trino.spi.connector.SchemaTableName;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryNamedRelationHandle
@@ -105,11 +104,6 @@ public class BigQueryNamedRelationHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("remoteTableName", remoteTableName)
-                .add("schemaTableName", schemaTableName)
-                .add("type", type)
-                .add("comment", comment)
-                .toString();
+        return "%s:%s".formatted(remoteTableName, type);
     }
 }

@@ -125,15 +125,6 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
-    @Override // Override because the regexp is different from the base test
-    public void testPredicateReflectedInExplain()
-    {
-        assertExplain(
-                "EXPLAIN SELECT name FROM nation WHERE nationkey = 42",
-                "nationkey", "bigint", "42");
-    }
-
-    @Test
     public void testPredicatePushdown()
     {
         testPredicatePushdown("true", "true", true);
