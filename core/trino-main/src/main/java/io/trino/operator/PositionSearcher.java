@@ -19,9 +19,7 @@ import static java.lang.Math.toIntExact;
 
 public class PositionSearcher
 {
-    private PositionSearcher()
-    {
-    }
+    private PositionSearcher() {}
 
     /**
      * @param startPosition - inclusive

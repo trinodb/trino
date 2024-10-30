@@ -25,13 +25,9 @@ public interface TaskLifecycleListener
     TaskLifecycleListener NO_OP = new TaskLifecycleListener()
     {
         @Override
-        public void taskCreated(PlanFragmentId fragmentId, RemoteTask task)
-        {
-        }
+        public void taskCreated(PlanFragmentId fragmentId, RemoteTask task) {}
 
         @Override
-        public void noMoreTasks(PlanFragmentId fragmentId)
-        {
-        }
+        public void noMoreTasks(PlanFragmentId fragmentId) {}
     };
 }

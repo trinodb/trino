@@ -40,9 +40,7 @@ public interface ResultsSession<T>
 
     void addResults(QueryStatusInfo statusInfo, ResultRows access);
 
-    default void setQueryDataEncoding(String encoding)
-    {
-    }
+    default void setQueryDataEncoding(String encoding) {}
 
     T build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties);
 }

@@ -163,9 +163,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanShowSchemas(ConnectorSecurityContext context)
-    {
-    }
+    public void checkCanShowSchemas(ConnectorSecurityContext context) {}
 
     @Override
     public Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
@@ -247,9 +245,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
-    {
-    }
+    public void checkCanShowTables(ConnectorSecurityContext context, String schemaName) {}
 
     @Override
     public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
@@ -571,19 +567,13 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanShowCurrentRoles(ConnectorSecurityContext context)
-    {
-    }
+    public void checkCanShowCurrentRoles(ConnectorSecurityContext context) {}
 
     @Override
-    public void checkCanShowRoleGrants(ConnectorSecurityContext context)
-    {
-    }
+    public void checkCanShowRoleGrants(ConnectorSecurityContext context) {}
 
     @Override
-    public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
-    {
-    }
+    public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure) {}
 
     @Override
     public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
@@ -606,9 +596,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanShowFunctions(ConnectorSecurityContext context, String schemaName)
-    {
-    }
+    public void checkCanShowFunctions(ConnectorSecurityContext context, String schemaName) {}
 
     @Override
     public Set<SchemaFunctionName> filterFunctions(ConnectorSecurityContext context, Set<SchemaFunctionName> functionNames)

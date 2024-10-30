@@ -19,12 +19,8 @@ public class NullPrinter
         implements OutputPrinter
 {
     @Override
-    public void printRows(List<List<?>> rows, boolean complete)
-    {
-    }
+    public void printRows(List<List<?>> rows, boolean complete) {}
 
     @Override
-    public void finish()
-    {
-    }
+    public void finish() {}
 }

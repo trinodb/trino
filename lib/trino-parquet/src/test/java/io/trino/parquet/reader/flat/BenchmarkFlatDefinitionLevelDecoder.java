@@ -158,9 +158,7 @@ public class BenchmarkFlatDefinitionLevelDecoder
             return encoder.toBytes().toByteArray();
         }
 
-        DataGenerator()
-        {
-        }
+        DataGenerator() {}
     }
 
     public static void main(String[] args)

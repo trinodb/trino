@@ -131,9 +131,7 @@ public class LocalFileSystemExchangeStorage
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 
     @ThreadSafe
     private static class LocalExchangeStorageReader

@@ -37,9 +37,7 @@ public final class TypeUtils
 {
     public static final int NULL_HASH_CODE = 0;
 
-    private TypeUtils()
-    {
-    }
+    private TypeUtils() {}
 
     public static int expectedValueSize(Type type, int defaultSize)
     {

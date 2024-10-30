@@ -102,7 +102,5 @@ public class TestLongTimestampType
                 .isEmpty();
     }
 
-    record MaxPrecision(int precision, LongTimestamp expectedMax)
-    {
-    }
+    record MaxPrecision(int precision, LongTimestamp expectedMax) {}
 }

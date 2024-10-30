@@ -363,8 +363,7 @@ public class PhoenixMetadata
             List<ConnectorTableHandle> sourceTableHandles,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics)
-    {
-    }
+    {}
 
     @Override
     public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)

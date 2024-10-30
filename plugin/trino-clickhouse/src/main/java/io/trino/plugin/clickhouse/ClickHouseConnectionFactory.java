@@ -49,19 +49,13 @@ public class ClickHouseConnectionFactory
 
             // Since https://github.com/ClickHouse/clickhouse-jdbc/commit/259682eaa8d5af741e4df57ca745f21ae3ae574c setAutoCommit(false) will fail
             @Override
-            public void setAutoCommit(boolean autoCommit)
-            {
-            }
+            public void setAutoCommit(boolean autoCommit) {}
 
             @Override
-            public void commit()
-            {
-            }
+            public void commit() {}
 
             @Override
-            public void rollback()
-            {
-            }
+            public void rollback() {}
         };
     }
 

@@ -289,14 +289,10 @@ public class TestHiveSplitSource
             implements HiveSplitLoader
     {
         @Override
-        public void start(HiveSplitSource splitSource)
-        {
-        }
+        public void start(HiveSplitSource splitSource) {}
 
         @Override
-        public void stop()
-        {
-        }
+        public void stop() {}
     }
 
     private static class TestSplit

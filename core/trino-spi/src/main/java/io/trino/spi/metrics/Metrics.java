@@ -89,9 +89,7 @@ public class Metrics
     {
         private final Map<String, List<Metric<?>>> groupedMetrics = new HashMap<>();
 
-        private Accumulator()
-        {
-        }
+        private Accumulator() {}
 
         public Accumulator add(Metrics metrics)
         {

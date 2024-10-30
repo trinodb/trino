@@ -171,9 +171,7 @@ public class HudiCompactionOperation
         private Map<String, Double> metrics;
         private String bootstrapFilePath;
 
-        private Builder()
-        {
-        }
+        private Builder() {}
 
         public HudiCompactionOperation.Builder setBaseInstantTime(String baseInstantTime)
         {

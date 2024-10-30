@@ -28,9 +28,7 @@ import static java.lang.String.format;
 
 public final class DoubleToVarcharCoercers
 {
-    private DoubleToVarcharCoercers()
-    {
-    }
+    private DoubleToVarcharCoercers() {}
 
     public static TypeCoercer<DoubleType, VarcharType> createDoubleToVarcharCoercer(VarcharType toType, boolean isOrcFile)
     {

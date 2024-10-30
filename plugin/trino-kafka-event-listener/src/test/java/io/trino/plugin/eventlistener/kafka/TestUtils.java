@@ -60,9 +60,7 @@ public final class TestUtils
     static final QueryCreatedEvent queryCreatedEvent;
     static final QueryCompletedEvent queryCompletedEvent;
 
-    private TestUtils()
-    {
-    }
+    private TestUtils() {}
 
     static {
         queryIOMetadata = new QueryIOMetadata(Collections.emptyList(), Optional.empty());

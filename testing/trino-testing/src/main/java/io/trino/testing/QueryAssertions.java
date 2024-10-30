@@ -52,9 +52,7 @@ public final class QueryAssertions
 {
     private static final Logger log = Logger.get(QueryAssertions.class);
 
-    private QueryAssertions()
-    {
-    }
+    private QueryAssertions() {}
 
     public static void assertUpdate(QueryRunner queryRunner, Session session, @Language("SQL") String sql, OptionalLong count, Optional<Consumer<Plan>> planAssertion)
     {

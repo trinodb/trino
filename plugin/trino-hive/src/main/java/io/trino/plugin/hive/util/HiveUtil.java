@@ -184,9 +184,7 @@ public final class HiveUtil
         HIVE_DATE_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
     }
 
-    private HiveUtil()
-    {
-    }
+    private HiveUtil() {}
 
     public static Optional<String> getInputFormatName(Map<String, String> schema)
     {

@@ -99,9 +99,7 @@ public final class AggregateFunctionPatterns
             }
 
             @Override
-            public void accept(PatternVisitor patternVisitor)
-            {
-            }
+            public void accept(PatternVisitor patternVisitor) {}
         };
     }
 }

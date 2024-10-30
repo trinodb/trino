@@ -25,9 +25,7 @@ import static io.trino.plugin.hudi.model.HudiFileFormat.HOODIE_LOG;
 
 public final class FSUtils
 {
-    private FSUtils()
-    {
-    }
+    private FSUtils() {}
 
     public static final Pattern LOG_FILE_PATTERN =
             Pattern.compile("\\.(.*)_(.*)\\.(.*)\\.([0-9]*)(_(([0-9]*)-([0-9]*)-([0-9]*)))?");

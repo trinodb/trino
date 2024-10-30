@@ -863,9 +863,7 @@ public class TestResourceSecurity
                     .cookieJar(new CookieJar()
                     {
                         @Override
-                        public void saveFromResponse(HttpUrl url, List<Cookie> cookies)
-                        {
-                        }
+                        public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {}
 
                         @Override
                         public List<Cookie> loadForRequest(HttpUrl url)
@@ -1092,9 +1090,7 @@ public class TestResourceSecurity
             return new OAuth2Client()
             {
                 @Override
-                public void load()
-                {
-                }
+                public void load() {}
 
                 @Override
                 public Request createAuthorizationRequest(String state, URI callbackUri)

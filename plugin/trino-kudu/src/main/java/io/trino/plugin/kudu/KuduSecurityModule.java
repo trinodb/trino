@@ -57,9 +57,7 @@ public class KuduSecurityModule
             extends AbstractConfigurationAwareModule
     {
         @Override
-        public void setup(Binder binder)
-        {
-        }
+        public void setup(Binder binder) {}
 
         @Provides
         @Singleton

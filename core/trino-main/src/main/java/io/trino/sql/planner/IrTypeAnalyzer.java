@@ -20,7 +20,5 @@ package io.trino.sql.planner;
  */
 public class IrTypeAnalyzer
 {
-    public IrTypeAnalyzer()
-    {
-    }
+    public IrTypeAnalyzer() {}
 }

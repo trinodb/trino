@@ -907,14 +907,10 @@ public class TestPagePartitioner
         }
 
         @Override
-        public void addStateChangeListener(StateMachine.StateChangeListener<BufferState> stateChangeListener)
-        {
-        }
+        public void addStateChangeListener(StateMachine.StateChangeListener<BufferState> stateChangeListener) {}
 
         @Override
-        public void setOutputBuffers(OutputBuffers newOutputBuffers)
-        {
-        }
+        public void setOutputBuffers(OutputBuffers newOutputBuffers) {}
 
         @Override
         public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
@@ -923,14 +919,10 @@ public class TestPagePartitioner
         }
 
         @Override
-        public void acknowledge(OutputBufferId bufferId, long token)
-        {
-        }
+        public void acknowledge(OutputBufferId bufferId, long token) {}
 
         @Override
-        public void destroy(OutputBufferId bufferId)
-        {
-        }
+        public void destroy(OutputBufferId bufferId) {}
 
         @Override
         public ListenableFuture<Void> isFull()
@@ -939,24 +931,16 @@ public class TestPagePartitioner
         }
 
         @Override
-        public void enqueue(List<Slice> pages)
-        {
-        }
+        public void enqueue(List<Slice> pages) {}
 
         @Override
-        public void setNoMorePages()
-        {
-        }
+        public void setNoMorePages() {}
 
         @Override
-        public void destroy()
-        {
-        }
+        public void destroy() {}
 
         @Override
-        public void abort()
-        {
-        }
+        public void abort() {}
 
         @Override
         public long getPeakMemoryUsage()

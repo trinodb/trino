@@ -817,7 +817,5 @@ public class LongLong2LongOpenCustomBigHashMap
         this.value = newValue;
     }
 
-    private void checkTable()
-    {
-    }
+    private void checkTable() {}
 }

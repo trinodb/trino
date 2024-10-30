@@ -163,9 +163,7 @@ public class TestFuzzAlluxioCacheFileSystem
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
     }
 
     private static class TestAlluxioFileSystem

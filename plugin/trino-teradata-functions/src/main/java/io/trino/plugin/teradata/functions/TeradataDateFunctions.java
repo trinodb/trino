@@ -57,9 +57,7 @@ public final class TeradataDateFunctions
         }
     }
 
-    private TeradataDateFunctions()
-    {
-    }
+    private TeradataDateFunctions() {}
 
     @Description("Converts a string to a DATE data type")
     @ScalarFunction("to_date")

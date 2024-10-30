@@ -272,7 +272,5 @@ public class KuduPageSink
     }
 
     @Override
-    public void abort()
-    {
-    }
+    public void abort() {}
 }

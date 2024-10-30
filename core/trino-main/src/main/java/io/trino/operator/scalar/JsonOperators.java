@@ -62,9 +62,7 @@ public final class JsonOperators
 {
     private static final JsonFactory JSON_FACTORY = createJsonFactory();
 
-    private JsonOperators()
-    {
-    }
+    private JsonOperators() {}
 
     @ScalarOperator(CAST)
     @SqlNullable
