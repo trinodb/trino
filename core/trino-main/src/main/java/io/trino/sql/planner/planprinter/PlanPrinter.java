@@ -2071,7 +2071,7 @@ public class PlanPrinter
 
         private String formatOrderingScheme(OrderingScheme orderingScheme)
         {
-            return formatCollection(orderingScheme.orderBy(), input -> anonymizer.anonymize(input) + " " + orderingScheme.ordering(input));
+            return PlanPrinter.formatOrderingScheme(anonymizer, orderingScheme);
         }
 
         @SafeVarargs
@@ -2177,6 +2177,11 @@ public class PlanPrinter
         }
     }
 
+    private static String formatOrderingScheme(Anonymizer anonymizer, OrderingScheme orderingScheme)
+    {
+        return formatCollection(orderingScheme.orderBy(), input -> anonymizer.anonymize(input) + " " + orderingScheme.ordering(input));
+    }
+
     private static <T> String formatCollection(Collection<T> collection, Function<T, String> formatter)
     {
         return collection.stream()
@@ -2201,9 +2206,9 @@ public class PlanPrinter
         builder.append(formatFunctionName(aggregation.getResolvedFunction()))
                 .append('(').append(arguments);
 
-        aggregation.getOrderingScheme().ifPresent(orderingScheme -> builder.append(' ').append(orderingScheme.orderBy().stream()
-                .map(input -> anonymizer.anonymize(input) + " " + orderingScheme.ordering(input))
-                .collect(joining(", "))));
+        aggregation.getOrderingScheme()
+                .map(orderingScheme -> formatOrderingScheme(anonymizer, orderingScheme))
+                .ifPresent(ordering -> builder.append(' ').append(ordering));
 
         builder.append(')');
 
