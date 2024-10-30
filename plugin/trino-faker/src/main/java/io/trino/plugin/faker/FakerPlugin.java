@@ -15,11 +15,8 @@
 package io.trino.plugin.faker;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
-
-import java.util.Set;
 
 public class FakerPlugin
         implements Plugin
@@ -28,13 +25,5 @@ public class FakerPlugin
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
         return ImmutableList.of(new FakerConnectorFactory("faker"));
-    }
-
-    @Override
-    public Set<Class<?>> getFunctions()
-    {
-        return ImmutableSet.<Class<?>>builder()
-                .add(FakerFunctions.class)
-                .build();
     }
 }
