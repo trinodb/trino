@@ -265,7 +265,7 @@ public class SqlQueryManager
             queryTracker.expireQuery(queryExecution.getQueryId());
         });
 
-        try (SetThreadName _ = new SetThreadName("Query-%s", queryExecution.getQueryId())) {
+        try (SetThreadName _ = new SetThreadName("Query-" + queryExecution.getQueryId())) {
             try (var ignoredStartScope = scopedSpan(tracer.spanBuilder("query-start")
                     .setParent(Context.current().with(queryExecution.getSession().getQuerySpan()))
                     .startSpan())) {
