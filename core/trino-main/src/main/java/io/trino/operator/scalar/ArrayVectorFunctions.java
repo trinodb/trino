@@ -56,10 +56,10 @@ public final class ArrayVectorFunctions
         return dotProduct;
     }
 
-    @Description("Calculates the cosine distance between two vectors")
+    @Description("Calculates the cosine similarity between two vectors")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double cosineDistance(@SqlType("array(double)") Block first, @SqlType("array(double)") Block second)
+    public static double cosineSimilarity(@SqlType("array(double)") Block first, @SqlType("array(double)") Block second)
     {
         checkCondition(first.getPositionCount() == second.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "The arguments must have the same length");
 
@@ -75,7 +75,14 @@ public final class ArrayVectorFunctions
         }
 
         checkCondition(firstMagnitude != 0 && secondMagnitude != 0, INVALID_FUNCTION_ARGUMENT, "Vector magnitude cannot be zero");
-        double cosineSimilarity = dotProduct / Math.sqrt(firstMagnitude * secondMagnitude);
-        return 1.0 - cosineSimilarity;
+        return dotProduct / Math.sqrt(firstMagnitude * secondMagnitude);
+    }
+
+    @Description("Calculates the cosine distance between two vectors")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double cosineDistance(@SqlType("array(double)") Block first, @SqlType("array(double)") Block second)
+    {
+        return 1.0 - cosineSimilarity(first, second);
     }
 }
