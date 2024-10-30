@@ -29,7 +29,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
@@ -44,7 +43,7 @@ public class SpooledQueryDataProducer
         implements QueryDataProducer
 {
     private final QueryDataEncoder.Factory encoderFactory;
-    private final AtomicBoolean metadataWritten = new AtomicBoolean(false);
+    private QueryDataEncoder encoder;
 
     private long currentOffset;
 
@@ -60,19 +59,18 @@ public class SpooledQueryDataProducer
             return null;
         }
 
+        EncodedQueryData.Builder builder = EncodedQueryData.builder(encoderFactory.encoding());
         UriBuilder uriBuilder = spooledSegmentUriBuilder(uriInfo);
-        QueryDataEncoder encoder = encoderFactory.create(session, rows.getOutputColumns().orElseThrow());
-        EncodedQueryData.Builder builder = EncodedQueryData.builder(encoder.encoding());
-        List<OutputColumn> outputColumns = rows.getOutputColumns().orElseThrow();
-
-        if (metadataWritten.compareAndSet(false, true)) {
-            // Attributes are emitted only once for the first segment
+        if (encoder == null) {
+            encoder = encoderFactory.create(session, rows.getOutputColumns().orElseThrow());
             builder.withAttributes(encoder.attributes());
         }
 
+        List<OutputColumn> outputColumns = rows.getOutputColumns().orElseThrow();
+
         try {
             for (Page page : rows.getPages()) {
-                if (hasSpoolingMetadata(page, outputColumns)) {
+                if (hasSpoolingMetadata(page, outputColumns.size())) {
                     SpooledBlock metadata = SpooledBlock.deserialize(page);
                     DataAttributes attributes = metadata.attributes().toBuilder()
                             .set(ROW_OFFSET, currentOffset)
@@ -116,9 +114,9 @@ public class SpooledQueryDataProducer
         return builder.clone().path("ack/{identifier}").build(identifier.toStringUtf8());
     }
 
-    private boolean hasSpoolingMetadata(Page page, List<OutputColumn> outputColumns)
+    private boolean hasSpoolingMetadata(Page page, int outputColumnsSize)
     {
-        return page.getChannelCount() == outputColumns.size() + 1 && page.getPositionCount() == 1 && !page.getBlock(outputColumns.size()).isNull(0);
+        return page.getChannelCount() == outputColumnsSize + 1 && page.getPositionCount() == 1 && !page.getBlock(outputColumnsSize).isNull(0);
     }
 
     public static QueryDataProducer createSpooledQueryDataProducer(QueryDataEncoder.Factory encoder)

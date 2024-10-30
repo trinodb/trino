@@ -15,7 +15,6 @@ package io.trino.server.protocol.spooling;
 
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
 import io.trino.spi.TrinoException;
@@ -54,9 +53,6 @@ public class SpoolingManagerBridge
         implements SpoolingManager
 {
     private final SpoolingManagerRegistry registry;
-    private final DataSize initialSegmentSize;
-    private final DataSize maximumSegmentSize;
-    private final boolean inlineSegments;
     private final SecretKey secretKey;
     private final SegmentRetrievalMode retrievalMode;
     private final OptionalInt maxDirectPassThroughTtl;
@@ -66,31 +62,10 @@ public class SpoolingManagerBridge
     {
         this.registry = requireNonNull(registry, "registry is null");
         requireNonNull(spoolingConfig, "spoolingConfig is null");
-        this.initialSegmentSize = spoolingConfig.getInitialSegmentSize();
-        this.maximumSegmentSize = spoolingConfig.getMaximumSegmentSize();
-        this.inlineSegments = spoolingConfig.isInlineSegments();
         this.retrievalMode = spoolingConfig.getRetrievalMode();
-        this.secretKey = spoolingConfig.getSharedEncryptionKey()
+        this.secretKey = spoolingConfig.getSharedSecretKey()
                 .orElseThrow(() -> new IllegalArgumentException("protocol.spooling.shared-secret-key is not set"));
         this.maxDirectPassThroughTtl = fromDuration(spoolingConfig.getStorageRedirectTtl());
-    }
-
-    @Override
-    public long maximumSegmentSize()
-    {
-        return maximumSegmentSize.toBytes();
-    }
-
-    @Override
-    public long initialSegmentSize()
-    {
-        return initialSegmentSize.toBytes();
-    }
-
-    @Override
-    public boolean allowSegmentInlining()
-    {
-        return inlineSegments && delegate().allowSegmentInlining();
     }
 
     @Override

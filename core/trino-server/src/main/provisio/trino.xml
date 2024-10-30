@@ -33,12 +33,6 @@
     </artifactSet>
 
     <!-- Plugins -->
-    <artifactSet to="plugin/accumulo">
-        <artifact id="${project.groupId}:trino-accumulo:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/bigquery">
         <artifact id="${project.groupId}:trino-bigquery:zip:${project.version}">
             <unpack />
@@ -237,6 +231,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/opa">
+        <artifact id="${project.groupId}:trino-opa:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/openlineage">
         <artifact id="${project.groupId}:trino-openlineage:zip:${project.version}">
             <unpack />
@@ -357,8 +357,8 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/opa">
-        <artifact id="${project.groupId}:trino-opa:zip:${project.version}">
+    <artifactSet to="plugin/vertica">
+        <artifact id="${project.groupId}:trino-vertica:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

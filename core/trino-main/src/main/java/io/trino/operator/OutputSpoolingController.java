@@ -44,16 +44,16 @@ public class OutputSpoolingController
     private long bufferedRawSize;
     private long bufferedPositions;
 
-    private Mode mode;
+    private Mode currentMode;
 
-    public OutputSpoolingController(boolean inlineFirstRows, long maximumInlinedPositions, long maximumInlinedSize, long initialSpooledSegmentTarget, long maximumSpooledSegmentTarget)
+    public OutputSpoolingController(boolean inlineInitialRows, long maximumInlinedPositions, long maximumInlinedSize, long initialSpooledSegmentTarget, long maximumSpooledSegmentTarget)
     {
         this.currentSpooledSegmentTarget = initialSpooledSegmentTarget;
         this.maximumSpooledSegmentTarget = maximumSpooledSegmentTarget;
         this.maximumInlinedPositions = maximumInlinedPositions;
         this.maximumInlinedSize = maximumInlinedSize;
 
-        mode = inlineFirstRows ? Mode.INLINE : Mode.SPOOL;
+        currentMode = inlineInitialRows ? Mode.INLINE : Mode.SPOOL;
     }
 
     public Mode getNextMode(Page page)
@@ -63,23 +63,17 @@ public class OutputSpoolingController
 
     public Mode getNextMode(int positionCount, long sizeInBytes)
     {
-        return switch (mode) {
+        return switch (currentMode) {
             case INLINE -> {
                 // If we still didn't inline maximum number of positions
                 if (inlinedPositions + positionCount >= maximumInlinedPositions) {
-                    mode = Mode.SPOOL; // switch to spooling mode
-                    yield getNextMode(positionCount, sizeInBytes); // and now decide whether to buffer or spool this page
-                }
-
-                // We don't want to many inlined segments
-                if (inlinedPages > 3) { // or better bound
-                    mode = Mode.SPOOL; // switch to spooling mode
+                    currentMode = Mode.SPOOL; // switch to spooling mode
                     yield getNextMode(positionCount, sizeInBytes); // and now decide whether to buffer or spool this page
                 }
 
                 // If we still didn't inline maximum number of bytes
                 if (inlinedRawBytes + sizeInBytes >= maximumInlinedSize) {
-                    mode = Mode.SPOOL; // switch to spooling mode
+                    currentMode = Mode.SPOOL; // switch to spooling mode
                     yield getNextMode(positionCount, sizeInBytes); // and now decide whether to buffer or spool this page
                 }
 
