@@ -24,7 +24,7 @@ import java.util.function.Consumer;
 
 import static io.trino.server.protocol.JsonArrayResultsIterator.toIterableList;
 
-public class RawQueryDataProducer
+public class JsonPagesQueryDataProducer
         implements QueryDataProducer
 {
     @Override
