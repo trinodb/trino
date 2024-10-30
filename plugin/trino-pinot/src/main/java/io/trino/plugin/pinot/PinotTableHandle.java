@@ -30,7 +30,8 @@ public record PinotTableHandle(
         boolean enableNullHandling,
         TupleDomain<ColumnHandle> constraint,
         OptionalLong limit,
-        Optional<DynamicTable> query)
+        Optional<DynamicTable> query,
+        Optional<String> constraintPql)
         implements ConnectorTableHandle
 {
     public PinotTableHandle
@@ -40,6 +41,7 @@ public record PinotTableHandle(
         requireNonNull(constraint, "constraint is null");
         requireNonNull(limit, "limit is null");
         requireNonNull(query, "query is null");
+        requireNonNull(constraintPql, "constraintPql is null");
     }
 
     @Override

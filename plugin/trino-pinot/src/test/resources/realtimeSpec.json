@@ -20,6 +20,7 @@
     "invertedIndexColumns": ["vendor","city"],
     "noDictionaryColumns": [],
     "aggregateMetrics": "false",
+    "jsonIndexColumns": ["json"],
     "streamConfigs": {
       "streamType": "kafka",
       "stream.kafka.consumer.type": "LowLevel",

@@ -94,11 +94,15 @@ public final class PinotQueryBuilder
 
     private static void generateFilterPql(StringBuilder pqlBuilder, PinotTableHandle tableHandle, Optional<String> timePredicate)
     {
-        getFilterClause(tableHandle.constraint(), timePredicate, false)
+        getFilterClause(
+                tableHandle.constraint(),
+                timePredicate,
+                false,
+                tableHandle.constraintPql())
                 .ifPresent(filterClause -> pqlBuilder.append(" WHERE ").append(filterClause));
     }
 
-    public static Optional<String> getFilterClause(TupleDomain<ColumnHandle> tupleDomain, Optional<String> timePredicate, boolean forHavingClause)
+    public static Optional<String> getFilterClause(TupleDomain<ColumnHandle> tupleDomain, Optional<String> timePredicate, boolean forHavingClause, Optional<String> constraintPql)
     {
         checkState(!tupleDomain.isNone(), "Pinot does not support 1 = 0 syntax, as a workaround use <column> != <column>");
         ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
@@ -114,6 +118,8 @@ public final class PinotQueryBuilder
                 toPredicate(pinotColumnHandle, entry.getValue()).ifPresent(conjunctsBuilder::add);
             }
         }
+        constraintPql.ifPresent(conjunctsBuilder::add);
+
         List<String> conjuncts = conjunctsBuilder.build();
         if (!conjuncts.isEmpty()) {
             return Optional.of(Joiner.on(" AND ").join(conjuncts));

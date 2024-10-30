@@ -11,7 +11,7 @@ The Pinot connector allows Trino to query data stored in
 
 To connect to Pinot, you need:
 
-- Pinot 1.1.0 or higher.
+- Pinot 1.2.0 or higher.
 - Network access from the Trino coordinator and workers to the Pinot controller
   nodes. Port 8098 is the default port.
 
@@ -33,9 +33,9 @@ This can be the ip or the FDQN, the url scheme (`http://`) is optional.
 ### General configuration properties
 
 | Property name                                          | Required | Description                                                                                                                                                                                                                                                               |
-|--------------------------------------------------------|----------| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|--------------------------------------------------------|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `pinot.controller-urls`                                | Yes      | A comma separated list of controller hosts. If Pinot is deployed via [Kubernetes](https://kubernetes.io/) this needs to point to the controller service endpoint. The Pinot broker and server must be accessible via DNS as Pinot returns hostnames and not IP addresses. |
-| `pinot.broker-url`                                     | No       | A host and port of broker. If broker URL exposed by Pinot controller API is not accessible, this property can be used to specify the broker endpoint. Enabling this property will disable broker discovery. |
+| `pinot.broker-url`                                     | No       | A host and port of broker. If broker URL exposed by Pinot controller API is not accessible, this property can be used to specify the broker endpoint. Enabling this property will disable broker discovery.                                                               |
 | `pinot.connection-timeout`                             | No       | Pinot connection timeout, default is `15s`.                                                                                                                                                                                                                               |
 | `pinot.metadata-expiry`                                | No       | Pinot metadata expiration time, default is `2m`.                                                                                                                                                                                                                          |
 | `pinot.controller.authentication.type`                 | No       | Pinot authentication method for controller requests. Allowed values are `NONE` and `PASSWORD` - defaults to `NONE` which is no authentication.                                                                                                                            |
@@ -44,7 +44,7 @@ This can be the ip or the FDQN, the url scheme (`http://`) is optional.
 | `pinot.broker.authentication.type`                     | No       | Pinot authentication method for broker requests. Allowed values are `NONE` and `PASSWORD` - defaults to `NONE` which is no authentication.                                                                                                                                |
 | `pinot.broker.authentication.user`                     | No       | Broker username for basic authentication method.                                                                                                                                                                                                                          |
 | `pinot.broker.authentication.password`                 | No       | Broker password for basic authentication method.                                                                                                                                                                                                                          |
-| `pinot.max-rows-per-split-for-segment-queries`         | No       | Fail query if Pinot server split returns more rows than configured, default to `2,147,483,647`.                                                                                                                     |
+| `pinot.max-rows-per-split-for-segment-queries`         | No       | Fail query if Pinot server split returns more rows than configured, default to `2,147,483,647`.                                                                                                                                                                           |
 | `pinot.prefer-broker-queries`                          | No       | Pinot query plan prefers to query Pinot broker, default is `true`.                                                                                                                                                                                                        |
 | `pinot.forbid-segment-queries`                         | No       | Forbid parallel querying and force all querying to happen via the broker, default is `false`.                                                                                                                                                                             |
 | `pinot.segments-per-split`                             | No       | The number of segments processed in a split. Setting this higher reduces the number of requests made to Pinot. This is useful for smaller Pinot clusters, default is `1`.                                                                                                 |
@@ -53,6 +53,7 @@ This can be the ip or the FDQN, the url scheme (`http://`) is optional.
 | `pinot.max-rows-for-broker-queries`                    | No       | Max rows for a broker query can return, default is `50,000`.                                                                                                                                                                                                              |
 | `pinot.aggregation-pushdown.enabled`                   | No       | Push down aggregation queries, default is `true`.                                                                                                                                                                                                                         |
 | `pinot.count-distinct-pushdown.enabled`                | No       | Push down count distinct queries to Pinot, default is `true`.                                                                                                                                                                                                             |
+| `pinot.json-predicate-pushdown.enabled`                | No       | Push down JSON predicates to Pinot. The default is `false` because Pinot's `JSON_MATCH()` generates an error when a JSON index is missing.                                                                                                                                |
 | `pinot.target-segment-page-size`                       | No       | Max allowed page size for segment query, default is `1MB`.                                                                                                                                                                                                                |
 | `pinot.proxy.enabled`                                  | No       | Use Pinot Proxy for controller and broker requests, default is `false`.                                                                                                                                                                                                   |
 
@@ -206,8 +207,11 @@ The connector provides {ref}`globally available <sql-globally-available>` and
 {ref}`read operation <sql-read-operations>` statements to access data and
 metadata in Pinot.
 
+
+## Performance
+
 (pinot-pushdown)=
-## Pushdown
+### Pushdown
 
 The connector supports pushdown for a number of operations:
 
@@ -230,6 +234,18 @@ A `count(distint)` pushdown may cause Pinot to run a full table scan with
 significant performance impact. If you encounter this problem, you can disable
 it with the catalog property `pinot.count-distinct-pushdown.enabled` or the
 catalog session property `count_distinct_pushdown_enabled`.
+
+JSON predicate pushdown for the following expressions:
+
+- `json_extract_scalar(json, '$.selector') IS NULL'`
+- `contains(ARRAY['string'], json_extract_scalar(json, '$.selector'))`
+- `contains(ARRAY[5], cast(json_extract_scalar(json, '$.selector') AS INTEGER))"))`
+- `json_array_contains(json_extract(json, '$.selector'), 'string')`
+- `json_array_contains(json_extract(json, '$.selector'), 5)`
+- `json_array_contains(json_extract(json, '$.selector'), 'string') =/!= true/false`
+- `not(json_array_contains(json_extract(json, '$.selector'), 'string'))`
+- `contains(ARRAY['string'], json_extract_scalar(json, '$.selector')) =/!= true/false`
+- `not(contains(ARRAY['string'], json_extract_scalar(json, '$.selector')))`
 
 ```{include} pushdown-correctness-behavior.fragment
 ```

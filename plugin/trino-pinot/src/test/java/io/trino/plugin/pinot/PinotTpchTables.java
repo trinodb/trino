@@ -128,11 +128,14 @@ public final class PinotTpchTables
                 .name("clerk").type().stringType().noDefault()
                 .name("shippriority").type().intType().noDefault()
                 .name("comment").type().stringType().noDefault()
+                .name("json").type().stringType().noDefault()
                 .name("updated_at").type().longType().noDefault()
                 .endRecord();
         ImmutableList.Builder<ProducerRecord<String, GenericRecord>> ordersRowsBuilder = ImmutableList.builder();
         MaterializedResult ordersRows = queryRunner.execute("SELECT * FROM tpch.tiny.orders");
         for (MaterializedRow row : ordersRows.getMaterializedRows()) {
+            String json = """
+                    { "orderstatus": "%s", "shippriority": %s, "stringArray": ["%s"], "intArray": [%s]}""".formatted(row.getField(2), row.getField(7), row.getField(2), row.getField(7));
             ordersRowsBuilder.add(new ProducerRecord<>(ordersTableName, "key" + row.getField(0), new GenericRecordBuilder(ordersSchema)
                     .set("orderkey", row.getField(0))
                     .set("custkey", row.getField(1))
@@ -143,6 +146,7 @@ public final class PinotTpchTables
                     .set("clerk", row.getField(6))
                     .set("shippriority", row.getField(7))
                     .set("comment", row.getField(8))
+                    .set("json", json)
                     .set("updated_at", INITIAL_UPDATED_AT.plusMillis(1000).toEpochMilli())
                     .build()));
         }
