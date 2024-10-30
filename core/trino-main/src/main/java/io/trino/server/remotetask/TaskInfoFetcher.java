@@ -317,7 +317,7 @@ public class TaskInfoFetcher
         @Override
         public void success(TaskInfo newValue)
         {
-            try (SetThreadName _ = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("TaskInfoFetcher-" + taskId)) {
                 lastUpdateNanos.set(System.nanoTime());
 
                 updateStats(requestStartNanos);
@@ -332,7 +332,7 @@ public class TaskInfoFetcher
         @Override
         public void failed(Throwable cause)
         {
-            try (SetThreadName _ = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("TaskInfoFetcher-" + taskId)) {
                 lastUpdateNanos.set(System.nanoTime());
 
                 // if task not already done, record error
@@ -355,7 +355,7 @@ public class TaskInfoFetcher
         @Override
         public void fatal(Throwable cause)
         {
-            try (SetThreadName _ = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("TaskInfoFetcher-" + taskId)) {
                 onFail.accept(cause);
             }
             finally {
