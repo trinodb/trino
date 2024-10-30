@@ -221,10 +221,8 @@ The connector supports pushdown for a number of operations:
 
 ### Table statistics
 
-You can use [](/sql/analyze) statements in Trino to populate the table
-statistics in Vertica. The [cost-based
-optimizer](/optimizer/cost-based-optimizations) then uses these statistics to
-improve query performance.
+The [cost-based optimizer](/optimizer/cost-based-optimizations) can use table
+statistics from the Vertica database to improve query performance.
 
 Support for table statistics is disabled by default. You can enable it with the
 catalog property `statistics.enabled` set to `true`. In addition, the
