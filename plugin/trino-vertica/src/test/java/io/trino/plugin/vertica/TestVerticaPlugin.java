@@ -28,6 +28,6 @@ public class TestVerticaPlugin
     {
         Plugin plugin = new VerticaPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        var _ = factory.create("test", ImmutableMap.of("connection-url", "jdbc:vertica://test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", "jdbc:vertica://test"), new TestingConnectorContext()).shutdown();
     }
 }
