@@ -83,16 +83,16 @@ public class JsonEncodingUtils
     {
         verify(!columns.isEmpty(), "Columns must not be empty");
 
-        boolean useLegacyValue = !requireNonNull(session, "session is null")
+        boolean supportsParametricDateTime = requireNonNull(session, "session is null")
                 .getClientCapabilities()
                 .contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
 
         return columns.stream()
-                .map(column -> createTypeEncoder(column.type(), useLegacyValue))
+                .map(column -> createTypeEncoder(column.type(), supportsParametricDateTime))
                 .toArray(TypeEncoder[]::new);
     }
 
-    public static TypeEncoder createTypeEncoder(Type type, boolean useLegacyValue)
+    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime)
     {
         return switch (type) {
             case BigintType _ -> BIGINT_ENCODER;
@@ -106,13 +106,13 @@ public class JsonEncodingUtils
             case VarbinaryType _ -> VARBINARY_ENCODER;
             case CharType charType -> new CharEncoder(charType.getLength());
             // TODO: add specialized Short/Long decimal encoders
-            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), useLegacyValue));
-            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), useLegacyValue));
+            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime));
+            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime));
             case RowType rowType -> new RowEncoder(rowType, rowType.getTypeParameters()
                     .stream()
-                    .map(elementType -> createTypeEncoder(elementType, useLegacyValue))
+                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime))
                     .toArray(TypeEncoder[]::new));
-            case Type _ -> new TypeObjectValueEncoder(type, useLegacyValue);
+            case Type _ -> new TypeObjectValueEncoder(type, supportsParametricDateTime);
         };
     }
 
@@ -410,12 +410,12 @@ public class JsonEncodingUtils
             implements TypeEncoder
     {
         private final Type type;
-        private final boolean useLegacyValue;
+        private final boolean supportsParametricDateTime;
 
-        public TypeObjectValueEncoder(Type type, boolean useLegacyValue)
+        public TypeObjectValueEncoder(Type type, boolean supportsParametricDateTime)
         {
             this.type = requireNonNull(type, "type is null");
-            this.useLegacyValue = useLegacyValue;
+            this.supportsParametricDateTime = supportsParametricDateTime;
         }
 
         @Override
@@ -446,7 +446,7 @@ public class JsonEncodingUtils
 
         private Object roundParametricTypes(Object value)
         {
-            if (!useLegacyValue) {
+            if (supportsParametricDateTime) {
                 return value;
             }
 
