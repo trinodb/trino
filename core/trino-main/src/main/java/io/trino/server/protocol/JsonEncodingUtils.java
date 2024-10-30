@@ -15,7 +15,10 @@ package io.trino.server.protocol;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import io.airlift.slice.Slice;
+import io.trino.Session;
+import io.trino.client.ClientCapabilities;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
@@ -49,6 +52,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
@@ -75,16 +79,20 @@ public class JsonEncodingUtils
     private static final VarcharEncoder VARCHAR_ENCODER = new VarcharEncoder();
     private static final VarbinaryEncoder VARBINARY_ENCODER = new VarbinaryEncoder();
 
-    public static TypeEncoder[] createTypeEncoders(ConnectorSession session, List<OutputColumn> columns)
+    public static TypeEncoder[] createTypeEncoders(Session session, List<OutputColumn> columns)
     {
         verify(!columns.isEmpty(), "Columns must not be empty");
 
+        boolean useLegacyValue = !requireNonNull(session, "session is null")
+                .getClientCapabilities()
+                .contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+
         return columns.stream()
-                .map(column -> createTypeEncoder(column.type()))
+                .map(column -> createTypeEncoder(column.type(), useLegacyValue))
                 .toArray(TypeEncoder[]::new);
     }
 
-    public static TypeEncoder createTypeEncoder(Type type)
+    public static TypeEncoder createTypeEncoder(Type type, boolean useLegacyValue)
     {
         return switch (type) {
             case BigintType _ -> BIGINT_ENCODER;
@@ -98,32 +106,37 @@ public class JsonEncodingUtils
             case VarbinaryType _ -> VARBINARY_ENCODER;
             case CharType charType -> new CharEncoder(charType.getLength());
             // TODO: add specialized Short/Long decimal encoders
-            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType()));
-            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType()));
+            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), useLegacyValue));
+            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), useLegacyValue));
             case RowType rowType -> new RowEncoder(rowType, rowType.getTypeParameters()
                     .stream()
-                    .map(JsonEncodingUtils::createTypeEncoder)
+                    .map(elementType -> createTypeEncoder(elementType, useLegacyValue))
                     .toArray(TypeEncoder[]::new));
-            case Type _ -> new TypeObjectValueEncoder(type);
+            case Type _ -> new TypeObjectValueEncoder(type, useLegacyValue);
         };
     }
 
     public static void writePagesToJsonGenerator(ConnectorSession connectorSession, JsonGenerator generator, TypeEncoder[] typeEncoders, int[] sourcePageChannels, List<Page> pages)
-            throws IOException
     {
         verify(typeEncoders.length == sourcePageChannels.length, "Source page channels and type encoders must have the same length");
-        generator.writeStartArray();
-        for (Page page : pages) {
-            for (int position = 0; position < page.getPositionCount(); position++) {
-                generator.writeStartArray();
-                for (int column = 0; column < typeEncoders.length; column++) {
-                    typeEncoders[column].encode(generator, connectorSession, page.getBlock(sourcePageChannels[column]), position);
+        try {
+            generator.writeStartArray();
+
+            for (Page page : pages) {
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    generator.writeStartArray();
+                    for (int column = 0; column < typeEncoders.length; column++) {
+                        typeEncoders[column].encode(generator, connectorSession, page.getBlock(sourcePageChannels[column]), position);
+                    }
+                    generator.writeEndArray();
                 }
-                generator.writeEndArray();
             }
+            generator.writeEndArray();
+            generator.flush(); // final flush to have the data written to the output stream
         }
-        generator.writeEndArray();
-        generator.flush(); // final flush to have the data written to the output stream
+        catch (Exception e) {
+            throw new TrinoException(SERIALIZATION_ERROR, "Could not serialize data to JSON", e);
+        }
     }
 
     public interface TypeEncoder
@@ -397,10 +410,12 @@ public class JsonEncodingUtils
             implements TypeEncoder
     {
         private final Type type;
+        private final boolean useLegacyValue;
 
-        public TypeObjectValueEncoder(Type type)
+        public TypeObjectValueEncoder(Type type, boolean useLegacyValue)
         {
             this.type = requireNonNull(type, "type is null");
+            this.useLegacyValue = useLegacyValue;
         }
 
         @Override
@@ -412,7 +427,8 @@ public class JsonEncodingUtils
                 return;
             }
 
-            Object value = type.getObjectValue(session, block, position);
+            Object value = roundParametricTypes(type.getObjectValue(session, block, position));
+
             switch (value) {
                 case BigDecimal bigDecimalValue -> generator.writeNumber(bigDecimalValue);
                 case SqlDate dateValue -> generator.writeString(dateValue.toString());
@@ -426,6 +442,21 @@ public class JsonEncodingUtils
                 case SqlVarbinary sqlVarbinary -> generator.writeBinary(sqlVarbinary.getBytes());
                 default -> generator.writePOJO(value);
             }
+        }
+
+        private Object roundParametricTypes(Object value)
+        {
+            if (!useLegacyValue) {
+                return value;
+            }
+
+            return switch (value) {
+                case SqlTimestamp sqlTimestamp -> sqlTimestamp.roundTo(3);
+                case SqlTimestampWithTimeZone sqlTimestampWithTimeZone -> sqlTimestampWithTimeZone.roundTo(3);
+                case SqlTime sqlTime -> sqlTime.roundTo(3);
+                case SqlTimeWithTimeZone sqlTimeWithTimeZone -> sqlTimeWithTimeZone.roundTo(3);
+                default -> value;
+            };
         }
     }
 }

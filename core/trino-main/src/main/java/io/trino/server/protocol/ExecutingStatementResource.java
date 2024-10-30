@@ -29,7 +29,6 @@ import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.ForStatementResource;
 import io.trino.server.ServerConfig;
-import io.trino.server.protocol.spooling.JsonPagesQueryDataProducer;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoders;
 import io.trino.server.protocol.spooling.SpooledQueryDataProducer;
@@ -207,7 +206,7 @@ public class ExecutingStatementResource
                 queryManager,
                 encoderFactory
                         .map(SpooledQueryDataProducer::createSpooledQueryDataProducer)
-                        .orElseGet(JsonPagesQueryDataProducer::new),
+                        .orElseGet(JsonBytesQueryDataProducer::new),
                 queryInfoUrlFactory.getQueryInfoUrl(queryId),
                 directExchangeClientSupplier,
                 exchangeManagerRegistry,

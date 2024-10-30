@@ -83,8 +83,8 @@ public class ResultRowsDecoder
         }
 
         verify(columns != null && !columns.isEmpty(), "Columns must be set when decoding data");
-        if (data instanceof RawQueryData) {
-            RawQueryData rawData = (RawQueryData) data;
+        if (data instanceof TypedQueryData) {
+            TypedQueryData rawData = (TypedQueryData) data;
             if (rawData.isNull()) {
                 return NULL_ROWS; // for backward compatibility instead of null
             }

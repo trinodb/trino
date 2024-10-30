@@ -21,8 +21,8 @@ import io.airlift.json.ObjectMapperProvider;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
 import io.trino.client.QueryResults;
-import io.trino.client.RawQueryData;
 import io.trino.client.StatementStats;
+import io.trino.client.TypedQueryData;
 import io.trino.server.protocol.spooling.QueryDataJacksonModule;
 import io.trino.spi.type.StandardTypes;
 import okhttp3.mockwebserver.MockResponse;
@@ -98,7 +98,7 @@ public class TestProgressMonitor
                 partialCancelId == null ? null : server.url(format("/v1/statement/partialCancel/%s.%s", queryId, partialCancelId)).uri(),
                 nextUriId == null ? null : server.url(format("/v1/statement/%s/%s", queryId, nextUriId)).uri(),
                 responseColumns,
-                RawQueryData.of(data),
+                TypedQueryData.of(data),
                 new StatementStats(state, state.equals("QUEUED"), true, OptionalDouble.of(0), OptionalDouble.of(0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 ImmutableList.of(),
