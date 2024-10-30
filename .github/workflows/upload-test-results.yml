@@ -6,6 +6,9 @@ on:
     types:
       - completed
 
+permissions:
+  actions: read
+
 defaults:
   run:
     shell: bash --noprofile --norc -euo pipefail {0}
@@ -52,6 +55,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ vars.TEST_RESULTS_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TEST_RESULTS_AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2
+          BRANCH_NAME: ${{ github.event.workflow_run.head_branch }}
         if: env.S3_BUCKET != '' && env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != ''
         shell: bash --noprofile --norc -euo pipefail {0}
         run: |
@@ -92,9 +96,10 @@ jobs:
               continue;
             fi
             jq -c \
-              --argjson addObj '{"branch":"${{ github.event.workflow_run.head_branch }}","git_sha":"${{ github.event.workflow_run.head_sha }}","workflow_name":"${{ github.event.workflow.name }}","workflow_run":"${{ github.event.workflow_run.id }}","workflow_conclusion":"${{ github.event.workflow_run.conclusion }}","workflow_job":"","workflow_run_attempt":"${{ github.event.workflow_run.run_attempt }}","timestamp":""}' \
+              --argjson addObj '{"branch":"","git_sha":"${{ github.event.workflow_run.head_sha }}","workflow_name":"${{ github.event.workflow.name }}","workflow_run":"${{ github.event.workflow_run.id }}","workflow_conclusion":"${{ github.event.workflow_run.conclusion }}","workflow_job":"","workflow_run_attempt":"${{ github.event.workflow_run.run_attempt }}","timestamp":""}' \
               --arg timestamp "$(date -u '+%F %T.%3NZ')" \
-              '. + $addObj | .timestamp=$timestamp' "$filename" | gzip -c > "$artifact_id"
+              --arg branch "$BRANCH_NAME" \
+              '. + $addObj | .branch=$branch | .timestamp=$timestamp' "$filename" | gzip -c > "$artifact_id"
 
             aws s3 cp --no-progress "$artifact_id" "s3://$S3_BUCKET/tests/results/type=$(basename "$filename" .ndjson)/repo=$(basename "${{ github.repository }}")/date_created=$(date -u '+%Y-%m-%d')/$artifact_id"
           done
