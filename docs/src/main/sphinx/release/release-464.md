@@ -15,6 +15,11 @@
 
 * {{breaking}} Remove the Accumulo connector. ({issue}`23792`)  
 
+## BigQuery connector
+
+* Fix incorrect results when reading array columns and
+  `bigquery.arrow-serialization.enabled` is set to true. ({issue}`23982`)
+
 ## Delta Lake connector
 
 * Fix failure of S3 file listing of buckets that enforce [requester
