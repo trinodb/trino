@@ -57,19 +57,13 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
-    {
-    }
+    public void checkCanSetUser(Optional<Principal> principal, String userName) {}
 
     @Override
-    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
-    {
-    }
+    public void checkCanExecuteQuery(Identity identity, QueryId queryId) {}
 
     @Override
-    public void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner)
-    {
-    }
+    public void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner) {}
 
     @Override
     public Collection<Identity> filterViewQueryOwnedBy(Identity identity, Collection<Identity> queryOwners)
@@ -78,14 +72,10 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
-    {
-    }
+    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName) {}
 
     @Override
-    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
-    {
-    }
+    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns) {}
 
     @Override
     public boolean canAccessCatalog(SystemSecurityContext context, String catalogName)
@@ -94,14 +84,10 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
-    {
-    }
+    public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName) {}
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
-    {
-    }
+    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns) {}
 
     @Override
     public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
@@ -122,9 +108,7 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanShowColumns(SystemSecurityContext context, CatalogSchemaTableName table)
-    {
-    }
+    public void checkCanShowColumns(SystemSecurityContext context, CatalogSchemaTableName table) {}
 
     @Override
     public Set<String> filterColumns(SystemSecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
@@ -139,24 +123,16 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanShowSchemas(SystemSecurityContext context, String catalogName)
-    {
-    }
+    public void checkCanShowSchemas(SystemSecurityContext context, String catalogName) {}
 
     @Override
-    public void checkCanShowTables(SystemSecurityContext context, CatalogSchemaName schema)
-    {
-    }
+    public void checkCanShowTables(SystemSecurityContext context, CatalogSchemaName schema) {}
 
     @Override
-    public void checkCanShowRoles(SystemSecurityContext context)
-    {
-    }
+    public void checkCanShowRoles(SystemSecurityContext context) {}
 
     @Override
-    public void checkCanShowCurrentRoles(SystemSecurityContext context)
-    {
-    }
+    public void checkCanShowCurrentRoles(SystemSecurityContext context) {}
 
     @Override
     public boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
@@ -176,9 +152,7 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanShowFunctions(SystemSecurityContext context, CatalogSchemaName schema)
-    {
-    }
+    public void checkCanShowFunctions(SystemSecurityContext context, CatalogSchemaName schema) {}
 
     @Override
     public Set<SchemaFunctionName> filterFunctions(SystemSecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)

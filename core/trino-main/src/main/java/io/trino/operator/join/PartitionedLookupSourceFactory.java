@@ -571,9 +571,7 @@ public final class PartitionedLookupSourceFactory
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
     }
 
     @Immutable

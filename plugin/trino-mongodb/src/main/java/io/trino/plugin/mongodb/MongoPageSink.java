@@ -283,7 +283,5 @@ public class MongoPageSink
     }
 
     @Override
-    public void abort()
-    {
-    }
+    public void abort() {}
 }

@@ -1167,18 +1167,12 @@ public class TestDirectExchangeClient
         }
 
         @Override
-        public void requestComplete(HttpPageBufferClient client)
-        {
-        }
+        public void requestComplete(HttpPageBufferClient client) {}
 
         @Override
-        public void clientFinished(HttpPageBufferClient client)
-        {
-        }
+        public void clientFinished(HttpPageBufferClient client) {}
 
         @Override
-        public void clientFailed(HttpPageBufferClient client, Throwable cause)
-        {
-        }
+        public void clientFailed(HttpPageBufferClient client, Throwable cause) {}
     }
 }

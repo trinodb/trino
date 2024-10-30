@@ -986,9 +986,7 @@ public class TestHashAggregationOperator
                 }
 
                 @Override
-                public void close()
-                {
-                }
+                public void close() {}
             };
         }
     }

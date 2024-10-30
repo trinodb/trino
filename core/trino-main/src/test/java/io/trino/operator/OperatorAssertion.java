@@ -54,9 +54,7 @@ public final class OperatorAssertion
     private static final Duration BLOCKED_DEFAULT_TIMEOUT = new Duration(10, MILLISECONDS);
     private static final Duration UNBLOCKED_DEFAULT_TIMEOUT = new Duration(1, SECONDS);
 
-    private OperatorAssertion()
-    {
-    }
+    private OperatorAssertion() {}
 
     public static List<Page> toPages(Operator operator, Iterator<Page> input)
     {

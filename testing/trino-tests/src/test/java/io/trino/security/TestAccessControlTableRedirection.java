@@ -95,14 +95,10 @@ public class TestAccessControlTableRedirection
                             .toInstance(new DisabledSystemSecurityMetadata()
                             {
                                 @Override
-                                public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
-                                {
-                                }
+                                public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption) {}
 
                                 @Override
-                                public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
-                                {
-                                }
+                                public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption) {}
 
                                 @Override
                                 public boolean roleExists(Session session, String role)
@@ -111,14 +107,10 @@ public class TestAccessControlTableRedirection
                                 }
 
                                 @Override
-                                public void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
-                                {
-                                }
+                                public void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal) {}
 
                                 @Override
-                                public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee)
-                                {
-                                }
+                                public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee) {}
                             });
                 })
                 .build();

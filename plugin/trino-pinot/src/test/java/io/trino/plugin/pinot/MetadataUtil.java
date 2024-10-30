@@ -45,9 +45,7 @@ public class MetadataUtil
     public static final JsonCodec<BrokerResponseNative> BROKER_RESPONSE_NATIVE_JSON_CODEC;
     public static final String TEST_TABLE = "airlineStats";
 
-    private MetadataUtil()
-    {
-    }
+    private MetadataUtil() {}
 
     public static final class TestingTypeDeserializer
             extends FromStringDeserializer<Type>

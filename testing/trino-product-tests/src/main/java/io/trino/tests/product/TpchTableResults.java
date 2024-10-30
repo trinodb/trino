@@ -21,7 +21,5 @@ public final class TpchTableResults
 {
     public static final SqlResultDescriptor TRINO_NATION_RESULT = sqlResultDescriptorForResource("table-results/trino-nation.result");
 
-    private TpchTableResults()
-    {
-    }
+    private TpchTableResults() {}
 }

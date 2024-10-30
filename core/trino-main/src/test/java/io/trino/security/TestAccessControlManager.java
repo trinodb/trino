@@ -427,9 +427,7 @@ public class TestAccessControlManager
                 return new SystemAccessControl()
                 {
                     @Override
-                    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
-                    {
-                    }
+                    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName) {}
 
                     @Override
                     public Iterable<EventListener> getEventListeners()

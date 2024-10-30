@@ -90,9 +90,7 @@ public final class HiveWriteUtils
             .optionalStart().appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true).optionalEnd()
             .toFormatter();
 
-    private HiveWriteUtils()
-    {
-    }
+    private HiveWriteUtils() {}
 
     public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)
     {

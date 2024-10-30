@@ -57,9 +57,7 @@ public final class IntBitUnpackers
         return UNPACKERS[bitWidth];
     }
 
-    private IntBitUnpackers()
-    {
-    }
+    private IntBitUnpackers() {}
 
     private static final class Unpacker0
             implements IntBitUnpacker

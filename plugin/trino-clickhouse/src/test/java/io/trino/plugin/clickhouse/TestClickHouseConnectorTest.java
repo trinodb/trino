@@ -168,9 +168,7 @@ public class TestClickHouseConnectorTest
     @Test
     @Disabled
     @Override
-    public void testRenameColumnName()
-    {
-    }
+    public void testRenameColumnName() {}
 
     @Override
     protected Optional<String> filterColumnNameTestData(String columnName)

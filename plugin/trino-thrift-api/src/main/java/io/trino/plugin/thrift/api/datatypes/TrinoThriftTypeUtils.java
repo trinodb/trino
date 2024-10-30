@@ -25,9 +25,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 final class TrinoThriftTypeUtils
 {
-    private TrinoThriftTypeUtils()
-    {
-    }
+    private TrinoThriftTypeUtils() {}
 
     public static TrinoThriftBlock fromLongBasedBlock(Block block, Type type, BiFunction<boolean[], long[], TrinoThriftBlock> result)
     {

@@ -40,9 +40,7 @@ public final class MockTokenPoller
             }
 
             @Override
-            public void tokenReceived(URI tokenUri)
-            {
-            }
+            public void tokenReceived(URI tokenUri) {}
         };
     }
 

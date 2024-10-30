@@ -71,9 +71,7 @@ public final class TpcTestUtils
             "orders",
             "lineitem"};
 
-    private TpcTestUtils()
-    {
-    }
+    private TpcTestUtils() {}
 
     public static void createTpchDataset(String catalog)
     {

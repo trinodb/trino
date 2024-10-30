@@ -799,9 +799,7 @@ public class TestTrinoS3FileSystem
         }
 
         @Override
-        public void refresh()
-        {
-        }
+        public void refresh() {}
 
         @Override
         public EncryptionMaterials getEncryptionMaterials(Map<String, String> materialsDescription)

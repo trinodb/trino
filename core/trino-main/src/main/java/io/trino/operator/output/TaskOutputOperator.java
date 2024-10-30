@@ -83,9 +83,7 @@ public class TaskOutputOperator
         }
 
         @Override
-        public void noMoreOperators()
-        {
-        }
+        public void noMoreOperators() {}
 
         @Override
         public OperatorFactory duplicate()
