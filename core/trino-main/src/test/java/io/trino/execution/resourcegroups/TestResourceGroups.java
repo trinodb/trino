@@ -1292,6 +1292,48 @@ public class TestResourceGroups
     }
 
     @Test
+    public void testStartedQueries()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor())
+        {
+            @Override
+            public void triggerProcessQueuedQueries()
+            {
+                // No op to allow the test fine-grained control about when to trigger the next query.
+            }
+        };
+        var rootA = root.getOrCreateSubGroup("a");
+        var rootA1 = rootA.getOrCreateSubGroup("1");
+        var rootB = root.getOrCreateSubGroup("b");
+
+        var allGroups = List.of(root, rootB, rootA, rootA1);
+        allGroups.forEach(group -> {
+            group.setHardConcurrencyLimit(2);
+            group.setMaxQueuedQueries(100);
+        });
+
+        var queries = Stream.generate(() -> new MockManagedQueryExecutionBuilder().build()).limit(4).toArray(MockManagedQueryExecution[]::new);
+
+        rootB.run(queries[0]);
+        // no values yet since there is no previous start time to compare against
+        assertThat(allGroups).extracting(group -> group.getStartedQueries().getTotalCount()).containsExactly(1L, 1L, 0L, 0L);
+
+        rootA1.run(queries[1]);
+        assertThat(allGroups).extracting(group -> group.getStartedQueries().getTotalCount()).containsExactly(2L, 1L, 1L, 1L);
+
+        // these should queue
+        rootA1.run(queries[2]);
+        rootA1.run(queries[3]);
+        assertThat(allGroups).extracting(group -> group.getStartedQueries().getTotalCount()).containsExactly(2L, 1L, 1L, 1L);
+
+        // let q3/q4 run by draining q1/q2
+        queries[0].complete();
+        queries[1].complete();
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(allGroups).extracting(group -> group.getStartedQueries().getTotalCount()).containsExactly(4L, 1L, 3L, 3L);
+    }
+
+    @Test
     public void testGetWaitingQueuedQueries()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
