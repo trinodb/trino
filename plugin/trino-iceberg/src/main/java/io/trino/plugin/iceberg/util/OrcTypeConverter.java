@@ -19,6 +19,7 @@ import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.OrcType;
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
+import io.trino.spi.TrinoException;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types.DecimalType;
@@ -32,6 +33,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public final class OrcTypeConverter
 {
@@ -67,6 +70,8 @@ public final class OrcTypeConverter
                 OrcTypeKind timestampKind = ((TimestampType) type).shouldAdjustToUTC() ? OrcTypeKind.TIMESTAMP_INSTANT : OrcTypeKind.TIMESTAMP;
                 yield ImmutableList.of(new OrcType(timestampKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             }
+            // TODO https://github.com/trinodb/trino/issues/19753 Support Iceberg timestamp types with nanosecond precision
+            case TIMESTAMP_NANO -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: TIMESTAMP_NANO");
             case STRING -> ImmutableList.of(new OrcType(OrcTypeKind.STRING, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case FIXED, BINARY -> ImmutableList.of(new OrcType(OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case DECIMAL -> {

@@ -85,6 +85,9 @@ public final class TypeConverter
                 return TIME_MICROS;
             case TIMESTAMP:
                 return ((Types.TimestampType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_MICROS : TIMESTAMP_MICROS;
+            case TIMESTAMP_NANO:
+                // TODO https://github.com/trinodb/trino/issues/19753 Support Iceberg timestamp types with nanosecond precision
+                break;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
             case UUID:

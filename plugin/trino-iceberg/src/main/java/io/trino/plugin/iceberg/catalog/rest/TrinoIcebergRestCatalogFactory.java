@@ -98,6 +98,7 @@ public class TrinoIcebergRestCatalogFactory
             properties.put(CatalogProperties.URI, serverUri.toString());
             warehouse.ifPresent(location -> properties.put(CatalogProperties.WAREHOUSE_LOCATION, location));
             prefix.ifPresent(prefix -> properties.put("prefix", prefix));
+            properties.put("view-endpoints-supported", "true");
             properties.put("trino-version", trinoVersion);
             properties.putAll(securityProperties.get());
 
