@@ -22,12 +22,10 @@ public abstract class BaseVerticaConnectorSmokeTest
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
-                return false;
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 }
