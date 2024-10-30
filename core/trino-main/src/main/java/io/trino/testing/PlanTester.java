@@ -745,7 +745,7 @@ public class PlanTester
                 new IndexJoinLookupStats(),
                 this.taskManagerConfig,
                 new GenericSpillerFactory(unsupportedSingleStreamSpillerFactory()),
-                new QueryDataEncoders(Set.of()),
+                new QueryDataEncoders(new SpoolingEnabledConfig(), Set.of()),
                 Optional.empty(),
                 Optional.empty(),
                 unsupportedSingleStreamSpillerFactory(),
