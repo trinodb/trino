@@ -23,10 +23,9 @@ system support:
   - Activate the native implementation for Azure Storage support. Defaults to
     `false`. Set to `true` to use Azure Storage and enable all other properties.
 * - `azure.auth-type`
-  - Authentication type to use for Azure Storage access. Defaults no
-    authentication used with `NONE`. Use `ACCESS_KEY` for
-    [](azure-access-key-authentication) or and `OAUTH` for
-    [](azure-oauth-authentication).
+  - Authentication type to use for Azure Storage access. Defaults to `DEFAULT` which
+    uses system level credentials. Use `ACCESS_KEY` for [](azure-access-key-authentication) 
+    or and `OAUTH` for [](azure-oauth-authentication).
 * - `azure.endpoint`
   - Hostname suffix of the Azure storage endpoint.
     Defaults to `core.windows.net` for the global Azure cloud.
