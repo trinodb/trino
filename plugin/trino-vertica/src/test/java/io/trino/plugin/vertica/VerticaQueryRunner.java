@@ -14,7 +14,7 @@
 package io.trino.plugin.vertica;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -22,9 +22,10 @@ import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -41,54 +42,86 @@ public final class VerticaQueryRunner
     public static final String NON_GRANTED_USER = "bob";
     public static final String TPCH_SCHEMA = "tpch";
 
-    private static DistributedQueryRunner createVerticaQueryRunner(
-            TestingVerticaServer server,
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static Builder builder(TestingVerticaServer server)
     {
-        DistributedQueryRunner queryRunner = null;
-        try {
-            DistributedQueryRunner.Builder<?> builder = DistributedQueryRunner.builder(createSession(GRANTED_USER, "vertica"));
-            extraProperties.forEach(builder::addExtraProperty);
-            queryRunner = builder.build();
+        return new Builder(server)
+                .addConnectorProperty("connection-url", requireNonNull(server.getJdbcUrl(), "jdbcUrl is null"))
+                .addConnectorProperty("connection-user", requireNonNull(server.getUsername(), "user is null"))
+                .addConnectorProperty("connection-password", requireNonNull(server.getPassword(), "password is null"));
+    }
 
-            queryRunner.installPlugin(new JmxPlugin());
-            queryRunner.createCatalog("jmx", "jmx");
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
+    {
+        private final TestingVerticaServer server;
+        private List<TpchTable<?>> tables = ImmutableList.of();
+        private final Map<String, String> connectorProperties = new HashMap<>();
 
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog(TPCH_SCHEMA, TPCH_SCHEMA);
-
-            // Create two users, one of which will have access to the TPCH database/schema
-            executeAsAdmin(server, "CREATE SCHEMA IF NOT EXISTS tpch");
-            executeAsAdmin(server, "CREATE ROLE " + GRANTED_USER);
-            executeAsAdmin(server, "CREATE ROLE " + NON_GRANTED_USER);
-            executeAsAdmin(server, "GRANT ALL PRIVILEGES ON DATABASE tpch TO " + GRANTED_USER);
-            executeAsAdmin(server, "GRANT ALL PRIVILEGES ON SCHEMA tpch TO " + GRANTED_USER);
-
-            // Allow the user to set the roles
-            executeAsAdmin(server, "GRANT " + GRANTED_USER + " TO " + server.getUsername());
-            executeAsAdmin(server, "GRANT " + NON_GRANTED_USER + " TO " + server.getUsername());
-
-            queryRunner.installPlugin(new VerticaPlugin());
-            queryRunner.createCatalog("vertica", "vertica", connectorProperties);
-
-            copyTpchTables(queryRunner, TPCH_SCHEMA, TINY_SCHEMA_NAME, createSession(GRANTED_USER, "vertica"), tables);
-
-            // Revoke all access to the database for the server's user if impersonation is enabled
-            // This will allow the impersonation to work as intended for testing as Vertica roles add to the user's existing permissions
-            // Running queries with the NON_GRANTED_USER user/role will succeed because the user in the JDBC connection has access to the tables
-            if (Boolean.parseBoolean(connectorProperties.getOrDefault("vertica.impersonation.enabled", "false"))) {
-                executeAsAdmin(server, "REVOKE ALL ON SCHEMA tpch FROM " + server.getUsername());
-                executeAsAdmin(server, "REVOKE ALL ON DATABASE tpch FROM " + server.getUsername());
-            }
-
-            return queryRunner;
+        private Builder(TestingVerticaServer server)
+        {
+            super(testSessionBuilder()
+                    .setCatalog("vertica")
+                    .setSchema(TPCH_SCHEMA)
+                    .build());
+            this.server = requireNonNull(server, "server is null");
         }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
+
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperty(String key, String value)
+        {
+            connectorProperties.put(key, value);
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder setTables(Iterable<TpchTable<?>> tables)
+        {
+            this.tables = ImmutableList.copyOf(requireNonNull(tables, "tables is null"));
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new JmxPlugin());
+                queryRunner.createCatalog("jmx", "jmx");
+
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog(TPCH_SCHEMA, TPCH_SCHEMA);
+
+                // Create two users, one of which will have access to the TPCH database/schema
+                executeAsAdmin(server, "CREATE SCHEMA IF NOT EXISTS tpch");
+                executeAsAdmin(server, "CREATE ROLE " + GRANTED_USER);
+                executeAsAdmin(server, "CREATE ROLE " + NON_GRANTED_USER);
+                executeAsAdmin(server, "GRANT ALL PRIVILEGES ON DATABASE tpch TO " + GRANTED_USER);
+                executeAsAdmin(server, "GRANT ALL PRIVILEGES ON SCHEMA tpch TO " + GRANTED_USER);
+
+                // Allow the user to set the roles
+                executeAsAdmin(server, "GRANT " + GRANTED_USER + " TO " + server.getUsername());
+                executeAsAdmin(server, "GRANT " + NON_GRANTED_USER + " TO " + server.getUsername());
+
+                queryRunner.installPlugin(new VerticaPlugin());
+                queryRunner.createCatalog("vertica", "vertica", connectorProperties);
+
+                copyTpchTables(queryRunner, TPCH_SCHEMA, TINY_SCHEMA_NAME, createSession(GRANTED_USER, "vertica"), tables);
+
+                // Revoke all access to the database for the server's user if impersonation is enabled
+                // This will allow the impersonation to work as intended for testing as Vertica roles add to the user's existing permissions
+                // Running queries with the NON_GRANTED_USER user/role will succeed because the user in the JDBC connection has access to the tables
+                if (Boolean.parseBoolean(connectorProperties.getOrDefault("vertica.impersonation.enabled", "false"))) {
+                    executeAsAdmin(server, "REVOKE ALL ON SCHEMA tpch FROM " + server.getUsername());
+                    executeAsAdmin(server, "REVOKE ALL ON DATABASE tpch FROM " + server.getUsername());
+                }
+
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
         }
     }
 
@@ -101,66 +134,6 @@ public final class VerticaQueryRunner
                 .build();
     }
 
-    public static Builder builder(TestingVerticaServer server)
-    {
-        return new Builder(server);
-    }
-
-    public static class Builder
-    {
-        private final TestingVerticaServer server;
-        private Iterable<TpchTable<?>> tables = ImmutableList.of();
-        private Map<String, String> connectorProperties;
-        private Map<String, String> extraProperties;
-
-        public Builder(TestingVerticaServer server)
-        {
-            this.server = requireNonNull(server, "server is null");
-            connectorProperties = ImmutableMap.<String, String>builder()
-                    .put("connection-url", requireNonNull(server.getJdbcUrl(), "jdbcUrl is null"))
-                    .put("connection-user", requireNonNull(server.getUsername(), "user is null"))
-                    .put("connection-password", requireNonNull(server.getPassword(), "password is null"))
-                    .buildOrThrow();
-            extraProperties = ImmutableMap.of();
-        }
-
-        public Builder addConnectorProperties(Map<String, String> properties)
-        {
-            connectorProperties = updateProperties(connectorProperties, properties);
-            return this;
-        }
-
-        public Builder addExtraProperties(Map<String, String> properties)
-        {
-            extraProperties = updateProperties(extraProperties, properties);
-            return this;
-        }
-
-        public Builder setTables(Iterable<TpchTable<?>> tables)
-        {
-            this.tables = ImmutableList.copyOf(requireNonNull(tables, "tables is null"));
-            return this;
-        }
-
-        public QueryRunner build()
-                throws Exception
-        {
-            return createVerticaQueryRunner(
-                    server,
-                    extraProperties,
-                    connectorProperties,
-                    tables);
-        }
-    }
-
-    private static Map<String, String> updateProperties(Map<String, String> properties, Map<String, String> update)
-    {
-        return ImmutableMap.<String, String>builder()
-                .putAll(requireNonNull(properties, "properties is null"))
-                .putAll(requireNonNull(update, "update is null"))
-                .buildOrThrow();
-    }
-
     private static void executeAsAdmin(TestingVerticaServer server, String sql)
     {
         server.execute(sql, "dbadmin", null);
@@ -171,8 +144,8 @@ public final class VerticaQueryRunner
     {
         Logging.initialize();
 
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) builder(new TestingVerticaServer())
-                .addExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+        DistributedQueryRunner queryRunner = builder(new TestingVerticaServer())
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .setTables(TpchTable.getTables())
                 .build();
 
