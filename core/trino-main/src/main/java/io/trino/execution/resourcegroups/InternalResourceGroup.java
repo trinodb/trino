@@ -134,6 +134,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private long lastStartMillis;
     private final CounterStat timeBetweenStartsSec = new CounterStat();
+    private final CounterStat startedQueries = new CounterStat();
 
     public InternalResourceGroup(String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
     {
@@ -514,6 +515,13 @@ public class InternalResourceGroup
     }
 
     @Managed
+    @Nested
+    public CounterStat getStartedQueries()
+    {
+        return startedQueries;
+    }
+
+    @Managed
     @Override
     public int getSchedulingWeight()
     {
@@ -732,6 +740,10 @@ public class InternalResourceGroup
             }
             updateEligibility();
             executor.execute(query::startWaitingForResources);
+        }
+        // mark the time when the query was started for this group and all ancestors
+        for (InternalResourceGroup group = this; group != null; group = group.parent.orElse(null)) {
+            group.getStartedQueries().update(1);
         }
     }
 
