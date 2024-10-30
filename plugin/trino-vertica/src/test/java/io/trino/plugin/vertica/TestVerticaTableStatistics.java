@@ -56,7 +56,7 @@ public class TestVerticaTableStatistics
         // Use the latest image to avoid "Must be superuser to run export_statistics"
         verticaServer = closeAfterClass(new TestingVerticaServer(LATEST_IMAGE));
         return VerticaQueryRunner.builder(verticaServer)
-                .addConnectorProperties(ImmutableMap.of("statistics.enabled", "true"))
+                .addConnectorProperty("statistics.enabled", "true")
                 .setTables(ImmutableList.of(TpchTable.ORDERS, TpchTable.REGION, TpchTable.NATION))
                 .build();
     }
