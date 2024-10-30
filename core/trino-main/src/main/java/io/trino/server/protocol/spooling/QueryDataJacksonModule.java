@@ -24,11 +24,12 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import io.trino.client.QueryData;
-import io.trino.client.RawQueryData;
+import io.trino.client.TypedQueryData;
 import io.trino.client.spooling.EncodedQueryData;
 import io.trino.client.spooling.InlineSegment;
 import io.trino.client.spooling.Segment;
 import io.trino.client.spooling.SpooledSegment;
+import io.trino.server.protocol.JsonBytesQueryData;
 
 import java.io.IOException;
 
@@ -37,6 +38,7 @@ import java.io.IOException;
  * <p></p>
  *
  * If the passed QueryData is raw - serialize its' data as a materialized array of array of objects.
+ * If the passed QueryData is bytes - just write them directly
  * Otherwise, this is a protocol extension and serialize it directly as an object.
  */
 public class QueryDataJacksonModule
@@ -65,7 +67,8 @@ public class QueryDataJacksonModule
         {
             switch (value) {
                 case null -> provider.defaultSerializeNull(generator);
-                case RawQueryData rawQueryData -> provider.defaultSerializeValue(rawQueryData.getIterable(), generator); // serialize as list of lists of objects
+                case JsonBytesQueryData jsonBytes -> jsonBytes.writeTo(generator);
+                case TypedQueryData typedQueryData -> provider.defaultSerializeValue(typedQueryData.getIterable(), generator); // serialize as list of lists of objects
                 case EncodedQueryData encoded -> createSerializer(provider, provider.constructType(EncodedQueryData.class)).serialize(encoded, generator, provider);
                 default -> throw new IllegalArgumentException("Unsupported QueryData implementation: " + value.getClass().getSimpleName());
             }

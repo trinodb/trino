@@ -15,7 +15,6 @@ package io.trino.server.protocol.spooling.encoding;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.io.CountingOutputStream;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -24,12 +23,14 @@ import io.trino.server.protocol.JsonEncodingUtils.TypeEncoder;
 import io.trino.server.protocol.OutputColumn;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.server.protocol.JsonEncodingUtils.createTypeEncoders;
@@ -48,7 +49,7 @@ public class JsonQueryDataEncoder
     public JsonQueryDataEncoder(Session session, List<OutputColumn> columns)
     {
         this.session = requireNonNull(session, "session is null");
-        this.typeEncoders = createTypeEncoders(session.toConnectorSession(), requireNonNull(columns, "columns is null"));
+        this.typeEncoders = createTypeEncoders(session, requireNonNull(columns, "columns is null"));
         this.sourcePageChannels = requireNonNull(columns, "columns is null").stream()
                 .mapToInt(OutputColumn::sourcePageChannel)
                 .toArray();
@@ -66,7 +67,8 @@ public class JsonQueryDataEncoder
                     .set(SEGMENT_SIZE, toIntExact(wrapper.getCount()))
                     .build();
         }
-        catch (JsonProcessingException e) {
+        catch (Exception e) {
+            throwIfInstanceOf(e, TrinoException.class);
             throw new IOException("Could not serialize to JSON", e);
         }
     }

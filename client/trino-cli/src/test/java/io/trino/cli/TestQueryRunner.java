@@ -20,8 +20,8 @@ import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
 import io.trino.client.JsonCodec;
 import io.trino.client.QueryResults;
-import io.trino.client.RawQueryData;
 import io.trino.client.StatementStats;
+import io.trino.client.TypedQueryData;
 import io.trino.client.uri.PropertyName;
 import io.trino.client.uri.TrinoUri;
 import okhttp3.mockwebserver.MockResponse;
@@ -136,7 +136,7 @@ public class TestQueryRunner
                 null,
                 null,
                 ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature(BIGINT))),
-                RawQueryData.of(ImmutableList.of(ImmutableList.of(123))),
+                TypedQueryData.of(ImmutableList.of(ImmutableList.of(123))),
                 StatementStats.builder()
                         .setState("FINISHED")
                         .setProgressPercentage(OptionalDouble.empty())

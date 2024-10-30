@@ -24,12 +24,12 @@ import static com.google.common.collect.Iterables.unmodifiableIterable;
  * Class represents QueryData of already typed values
  *
  */
-public class RawQueryData
+public class TypedQueryData
         implements QueryData
 {
     private final Iterable<List<Object>> iterable;
 
-    private RawQueryData(Iterable<List<Object>> values)
+    private TypedQueryData(Iterable<List<Object>> values)
     {
         this.iterable = values == null ? null : unmodifiableIterable(values);
     }
@@ -42,7 +42,7 @@ public class RawQueryData
 
     public static QueryData of(@Nullable Iterable<List<Object>> values)
     {
-        return new RawQueryData(values);
+        return new TypedQueryData(values);
     }
 
     @Override

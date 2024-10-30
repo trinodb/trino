@@ -22,9 +22,9 @@ import io.trino.client.Column;
 import io.trino.client.JsonCodec;
 import io.trino.client.QueryData;
 import io.trino.client.QueryResults;
-import io.trino.client.RawQueryData;
 import io.trino.client.ResultRowsDecoder;
 import io.trino.client.StatementStats;
+import io.trino.client.TypedQueryData;
 import io.trino.server.protocol.spooling.QueryDataJacksonModule;
 import org.junit.jupiter.api.Test;
 
@@ -96,9 +96,9 @@ public class TestQueryResultsSerialization
     public void testEmptyArraySerialization()
             throws Exception
     {
-        testRoundTrip(RawQueryData.of(ImmutableList.of()), "[]");
+        testRoundTrip(TypedQueryData.of(ImmutableList.of()), "[]");
 
-        assertThatThrownBy(() -> testRoundTrip(RawQueryData.of(ImmutableList.of(ImmutableList.of())), "[[]]"))
+        assertThatThrownBy(() -> testRoundTrip(TypedQueryData.of(ImmutableList.of(ImmutableList.of())), "[[]]"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Unexpected token END_ARRAY");
     }
@@ -107,7 +107,7 @@ public class TestQueryResultsSerialization
     public void testSerialization()
             throws Exception
     {
-        QueryData values = RawQueryData.of(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L)));
+        QueryData values = TypedQueryData.of(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L)));
         testRoundTrip(values, "[[1],[5]]");
     }
 
