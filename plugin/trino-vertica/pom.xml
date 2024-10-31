@@ -48,7 +48,7 @@
         <dependency>
             <groupId>com.vertica.jdbc</groupId>
             <artifactId>vertica-jdbc</artifactId>
-            <version>24.1.0-2</version>
+            <version>24.4.0-0</version>
         </dependency>
 
         <dependency>
