@@ -210,7 +210,7 @@
         <dep.snowflake.version>3.19.1</dep.snowflake.version>
         <dep.swagger.version>2.2.25</dep.swagger.version>
         <dep.takari.version>2.2.0</dep.takari.version>
-        <dep.tcnative.version>2.0.66.Final</dep.tcnative.version>
+        <dep.tcnative.version>2.0.67.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>4.9.9</dep.wire.version>
         <dep.zookeeper.version>3.9.3</dep.zookeeper.version>
