@@ -18,9 +18,11 @@ import com.google.common.collect.ImmutableList;
 import io.trino.client.QueryData;
 import io.trino.server.protocol.JsonEncodingUtils.TypeEncoder;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 import static io.trino.server.protocol.JsonEncodingUtils.writePagesToJsonGenerator;
 import static java.util.Objects.requireNonNull;
@@ -32,10 +34,12 @@ public class JsonBytesQueryData
     private final TypeEncoder[] typeEncoders;
     private final int[] sourcePageChannels;
     private final List<Page> pages;
+    private final Consumer<TrinoException> exceptionHandler;
 
-    public JsonBytesQueryData(ConnectorSession connectorSession, TypeEncoder[] typeEncoders, int[] sourcePageChannels, List<Page> pages)
+    public JsonBytesQueryData(ConnectorSession connectorSession, Consumer<TrinoException> exceptionHandler, TypeEncoder[] typeEncoders, int[] sourcePageChannels, List<Page> pages)
     {
         this.connectorSession = requireNonNull(connectorSession, "connectorSession");
+        this.exceptionHandler = requireNonNull(exceptionHandler, "exceptionHandler is null");
         this.typeEncoders = requireNonNull(typeEncoders, "typeEncoders is null");
         this.sourcePageChannels = requireNonNull(sourcePageChannels, "sourcePageChannels is null");
         this.pages = ImmutableList.copyOf(pages);
@@ -43,7 +47,7 @@ public class JsonBytesQueryData
 
     public void writeTo(JsonGenerator generator)
     {
-        writePagesToJsonGenerator(connectorSession, generator, typeEncoders, sourcePageChannels, pages);
+        writePagesToJsonGenerator(connectorSession, exceptionHandler, generator, typeEncoders, sourcePageChannels, pages);
     }
 
     @Override
