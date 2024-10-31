@@ -76,9 +76,11 @@ public final class JsonDecodingUtils
     public static TypeDecoder[] createTypeDecoders(List<Column> columns)
     {
         verify(!columns.isEmpty(), "Columns must not be empty");
-        return columns.stream()
-                .map(column -> createTypeDecoder(column.getTypeSignature()))
-                .toArray(TypeDecoder[]::new);
+        TypeDecoder[] decoders = new TypeDecoder[columns.size()];
+        for (int i = 0; i < columns.size(); i++) {
+            decoders[i] = createTypeDecoder(columns.get(i).getTypeSignature());
+        }
+        return decoders;
     }
 
     public interface TypeDecoder
