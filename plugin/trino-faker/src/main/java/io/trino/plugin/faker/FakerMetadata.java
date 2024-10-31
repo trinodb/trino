@@ -37,6 +37,11 @@ import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableColumnsMetadata;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
@@ -72,6 +77,7 @@ public class FakerMetadata
         implements ConnectorMetadata
 {
     public static final String SCHEMA_NAME = "default";
+    public static final String RANDOM_STRING_FUNCTION = "random_string";
 
     @GuardedBy("this")
     private final List<SchemaInfo> schemas = new ArrayList<>();
@@ -81,12 +87,15 @@ public class FakerMetadata
     @GuardedBy("this")
     private final Map<SchemaTableName, TableInfo> tables = new HashMap<>();
 
+    private final FakerFunctionProvider functionsProvider;
+
     @Inject
-    public FakerMetadata(FakerConfig config)
+    public FakerMetadata(FakerConfig config, FakerFunctionProvider functionProvider)
     {
         this.schemas.add(new SchemaInfo(SCHEMA_NAME, Map.of()));
         this.nullProbability = config.getNullProbability();
         this.defaultLimit = config.getDefaultLimit();
+        this.functionsProvider = requireNonNull(functionProvider, "functionProvider is null");
     }
 
     @Override
@@ -431,5 +440,34 @@ public class FakerMetadata
                 TupleDomain.all(),
                 constraint.getExpression(),
                 true));
+    }
+
+    @Override
+    public Collection<FunctionMetadata> listFunctions(ConnectorSession session, String schemaName)
+    {
+        return functionsProvider.functionsMetadata();
+    }
+
+    @Override
+    public Collection<FunctionMetadata> getFunctions(ConnectorSession session, SchemaFunctionName name)
+    {
+        return functionsProvider.functionsMetadata().stream()
+                .filter(function -> function.getCanonicalName().equals(name.getFunctionName()))
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public FunctionMetadata getFunctionMetadata(ConnectorSession session, FunctionId functionId)
+    {
+        return functionsProvider.functionsMetadata().stream()
+                .filter(function -> function.getFunctionId().equals(functionId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown function " + functionId));
+    }
+
+    @Override
+    public FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session, FunctionId functionId, BoundSignature boundSignature)
+    {
+        return FunctionDependencyDeclaration.NO_DEPENDENCIES;
     }
 }

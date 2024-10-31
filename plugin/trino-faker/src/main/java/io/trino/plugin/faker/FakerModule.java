@@ -48,6 +48,7 @@ public class FakerModule
         binder.bind(FakerSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(FakerPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(FakerPageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(FakerFunctionProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(FakerConfig.class);
     }
 }
