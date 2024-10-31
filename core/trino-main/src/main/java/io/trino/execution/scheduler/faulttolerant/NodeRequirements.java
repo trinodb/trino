@@ -13,6 +13,8 @@
  */
 package io.trino.execution.scheduler.faulttolerant;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.CatalogHandle;
 
@@ -33,7 +35,11 @@ public class NodeRequirements
     private final Optional<HostAddress> address;
     private final boolean remotelyAccessible;
 
-    public NodeRequirements(Optional<CatalogHandle> catalogHandle, Optional<HostAddress> address, boolean remotelyAccessible)
+    @JsonCreator
+    public NodeRequirements(
+            @JsonProperty("catalogHandle") Optional<CatalogHandle> catalogHandle,
+            @JsonProperty("address") Optional<HostAddress> address,
+            @JsonProperty("remotelyAccessible") boolean remotelyAccessible)
     {
         checkArgument(remotelyAccessible || address.isPresent(), "addresses is empty and node is not remotely accessible");
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
@@ -44,6 +50,7 @@ public class NodeRequirements
     /*
      * If present constraint execution to nodes with the specified catalog installed
      */
+    @JsonProperty
     public Optional<CatalogHandle> getCatalogHandle()
     {
         return catalogHandle;
@@ -52,11 +59,13 @@ public class NodeRequirements
     /*
      * Constrain execution to these nodes, if any
      */
+    @JsonProperty
     public Optional<HostAddress> getAddress()
     {
         return address;
     }
 
+    @JsonProperty
     public boolean isRemotelyAccessible()
     {
         return remotelyAccessible;
