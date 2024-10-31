@@ -50,6 +50,6 @@ public class JsonBytesQueryDataProducer
         }
 
         // Write to a buffer so we can capture and propagate the exception
-        return new JsonBytesQueryData(session.toConnectorSession(), typeEncoders, sourcePageChannels, rows.getPages());
+        return new JsonBytesQueryData(session.toConnectorSession(), throwableConsumer, typeEncoders, sourcePageChannels, rows.getPages());
     }
 }

@@ -62,7 +62,7 @@ public class JsonQueryDataEncoder
         JsonFactory jsonFactory = jsonFactory();
         ConnectorSession connectorSession = session.toConnectorSession();
         try (CountingOutputStream wrapper = new CountingOutputStream(output); JsonGenerator generator = jsonFactory.createGenerator(wrapper)) {
-            writePagesToJsonGenerator(connectorSession, generator, typeEncoders, sourcePageChannels, pages);
+            writePagesToJsonGenerator(connectorSession, e -> { throw e; }, generator, typeEncoders, sourcePageChannels, pages);
             return DataAttributes.builder()
                     .set(SEGMENT_SIZE, toIntExact(wrapper.getCount()))
                     .build();
