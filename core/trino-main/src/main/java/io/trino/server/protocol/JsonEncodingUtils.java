@@ -263,8 +263,7 @@ public class JsonEncodingUtils
                 return;
             }
             Slice slice = VARCHAR.getSlice(block, position);
-            // Optimization: avoid conversion from Slice to String and String to bytes when writing UTF-8 strings
-            generator.writeUTF8String(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+            generator.writeString(slice.toStringUtf8());
         }
     }
 
@@ -287,8 +286,7 @@ public class JsonEncodingUtils
                 return;
             }
             Slice slice = padSpaces(VARCHAR.getSlice(block, position), length);
-            // Optimization: avoid conversion from Slice to String and String to bytes when writing UTF-8 strings
-            generator.writeUTF8String(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+            generator.writeString(slice.toStringUtf8());
         }
     }
 
