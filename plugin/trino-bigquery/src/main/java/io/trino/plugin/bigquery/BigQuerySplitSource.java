@@ -135,21 +135,20 @@ public class BigQuerySplitSource
         TupleDomain<ColumnHandle> tableConstraint = bigQueryTableHandle.constraint();
         Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
 
+        TableId remoteTableId;
+        TableDefinition.Type tableType;
+        boolean useStorageApi;
+
         if (bigQueryTableHandle.isQueryRelation()) {
             BigQueryQueryRelationHandle bigQueryQueryRelationHandle = bigQueryTableHandle.getRequiredQueryRelation();
             List<BigQueryColumnHandle> columns = bigQueryTableHandle.projectedColumns().orElse(ImmutableList.of());
-            boolean useStorageApi = bigQueryQueryRelationHandle.isUseStorageApi();
+            useStorageApi = bigQueryQueryRelationHandle.isUseStorageApi();
 
             // projectedColumnsNames can not be used for generating select sql because the query fails if it does not
             // include a column name. eg: query => 'SELECT 1'
             String query = filter
                     .map(whereClause -> "SELECT * FROM (" + bigQueryQueryRelationHandle.getQuery() + " ) WHERE " + whereClause)
                     .orElseGet(bigQueryQueryRelationHandle::getQuery);
-
-            if (emptyProjectionIsRequired(bigQueryTableHandle.projectedColumns())) {
-                String sql = "SELECT COUNT(*) FROM (" + query + ")";
-                return createEmptyProjection(session, sql);
-            }
 
             if (!useStorageApi) {
                 log.debug("Using Rest API for running query: %s", query);
@@ -160,19 +159,19 @@ public class BigQuerySplitSource
             TableInfo tableInfo = new ViewMaterializationCache.DestinationTableBuilder(bigQueryClientFactory.create(session), viewExpiration, query, destinationTable).get();
 
             log.debug("Using Storage API for running query: %s", query);
-            // filter is already used while constructing the select query
-            ReadSession readSession = createReadSession(session, tableInfo.getTableId(), ImmutableList.copyOf(columns), Optional.empty());
-            return readSession.getStreamsList().stream()
-                    .map(stream -> BigQuerySplit.forStream(stream.getName(), getSchemaAsString(readSession), columns, OptionalInt.of(stream.getSerializedSize())))
-                    .collect(toImmutableList());
+            remoteTableId = tableInfo.getTableId();
+            tableType = tableInfo.getDefinition().getType();
+        }
+        else {
+            BigQueryNamedRelationHandle namedRelation = bigQueryTableHandle.getRequiredNamedRelation();
+            remoteTableId = namedRelation.getRemoteTableName().toTableId();
+            tableType = TableDefinition.Type.valueOf(namedRelation.getType());
+            useStorageApi = namedRelation.isUseStorageApi();
         }
 
-        BigQueryNamedRelationHandle namedRelation = bigQueryTableHandle.getRequiredNamedRelation();
-        TableId remoteTableId = namedRelation.getRemoteTableName().toTableId();
-        TableDefinition.Type tableType = TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType());
         return emptyProjectionIsRequired(bigQueryTableHandle.projectedColumns())
                 ? createEmptyProjection(session, tableType, remoteTableId, filter)
-                : readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), tableConstraint, namedRelation.isUseStorageApi());
+                : readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), tableConstraint, useStorageApi);
     }
 
     private static boolean emptyProjectionIsRequired(Optional<List<BigQueryColumnHandle>> projectedColumns)
