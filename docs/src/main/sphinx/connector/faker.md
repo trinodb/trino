@@ -126,6 +126,13 @@ See the Datafaker's documentation for more information about
 [the expression](https://www.datafaker.net/documentation/expressions/) syntax
 and [available providers](https://www.datafaker.net/documentation/providers/).
 
+To test a generator expression, without having to recreate the table, use the
+`random_string` function from the `default` schema:
+
+```sql
+SELECT default.random_string('#{Name.first_name}')
+```
+
 ### Non-character types
 
 Faker supports the following non-character types:
