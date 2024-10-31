@@ -23,6 +23,7 @@ import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -161,7 +162,7 @@ public class VerticaClient
             return TableStatistics.empty();
         }
         try (Connection connection = connectionFactory.openConnection(session)) {
-            return readTableStatistics(connection, handle, () -> this.getColumns(session, handle));
+            return readTableStatistics(connection, handle, () -> JdbcMetadata.getColumns(session, this, handle));
         }
         catch (SQLException | RuntimeException e) {
             throwIfInstanceOf(e, TrinoException.class);
