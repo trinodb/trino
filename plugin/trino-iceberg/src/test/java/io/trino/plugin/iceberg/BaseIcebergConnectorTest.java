@@ -8429,7 +8429,7 @@ public abstract class BaseIcebergConnectorTest
     public void testExtraProperties()
     {
         String tableName = "test_create_table_with_multiple_extra_properties_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))");
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.TWO'], ARRAY['one', 'two']))");
 
         assertThat(query("SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two')"))
                 .skippingTypesCheck()
