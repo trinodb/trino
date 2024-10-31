@@ -9,6 +9,8 @@ syntax of Trino without configuring access to an external data
 source. When you query a TPCH schema, the connector generates the
 data on the fly using a deterministic algorithm.
 
+Use the [](/connector/faker) to create and query arbitrary data.
+
 ## Configuration
 
 To configure the TPCH connector, create a catalog properties file
