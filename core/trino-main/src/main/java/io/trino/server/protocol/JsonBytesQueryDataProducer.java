@@ -13,7 +13,6 @@
  */
 package io.trino.server.protocol;
 
-import com.fasterxml.jackson.core.JsonGenerator;
 import io.trino.Session;
 import io.trino.client.QueryData;
 import io.trino.server.ExternalUriInfo;
@@ -21,15 +20,10 @@ import io.trino.server.protocol.JsonEncodingUtils.TypeEncoder;
 import io.trino.server.protocol.spooling.QueryDataProducer;
 import io.trino.spi.TrinoException;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.server.protocol.JsonEncodingUtils.createTypeEncoders;
-import static io.trino.server.protocol.JsonEncodingUtils.writePagesToJsonGenerator;
 import static java.util.Objects.requireNonNull;
 
 public class JsonBytesQueryDataProducer
@@ -56,15 +50,6 @@ public class JsonBytesQueryDataProducer
         }
 
         // Write to a buffer so we can capture and propagate the exception
-        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); JsonGenerator generator = jsonFactory().createGenerator(outputStream)) {
-            writePagesToJsonGenerator(session.toConnectorSession(), generator, typeEncoders, sourcePageChannels, rows.getPages());
-            return new JsonBytesQueryData(outputStream.toByteArray());
-        }
-        catch (TrinoException e) {
-            return null;
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return new JsonBytesQueryData(session.toConnectorSession(), typeEncoders, sourcePageChannels, rows.getPages());
     }
 }
