@@ -39,7 +39,6 @@ public class TestStochasticPriorityQueue
             assertThat(queue.remove("test" + i)).isTrue();
         }
         assertThat(queue).isEmpty();
-        assertThat(queue).hasSize(0);
     }
 
     @Test
