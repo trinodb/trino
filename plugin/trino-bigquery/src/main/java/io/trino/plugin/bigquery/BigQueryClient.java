@@ -565,10 +565,10 @@ public class BigQueryClient
 
         TableInfo tableInfo = getTable(tableHandle.asPlainTable().getRemoteTableName().toTableId())
                 .orElseThrow(() -> new TableNotFoundException(tableHandle.asPlainTable().getSchemaTableName()));
-        return buildColumnHandles(tableInfo);
+        return buildColumnHandles(tableInfo, tableHandle.relationHandle().isUseStorageApi());
     }
 
-    public List<BigQueryColumnHandle> buildColumnHandles(TableInfo tableInfo)
+    public List<BigQueryColumnHandle> buildColumnHandles(TableInfo tableInfo, boolean useStorageApi)
     {
         Schema schema = tableInfo.getDefinition().getSchema();
         if (schema == null) {
@@ -577,8 +577,8 @@ public class BigQueryClient
         }
         return schema.getFields()
                 .stream()
-                .filter(typeManager::isSupportedType)
-                .map(typeManager::toColumnHandle)
+                .filter(field -> typeManager.isSupportedType(field, useStorageApi))
+                .map(field -> typeManager.toColumnHandle(field, useStorageApi))
                 .collect(toImmutableList());
     }
 

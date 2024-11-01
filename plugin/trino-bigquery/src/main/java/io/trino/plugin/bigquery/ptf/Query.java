@@ -122,11 +122,11 @@ public class Query
 
             ImmutableList.Builder<BigQueryColumnHandle> columnsBuilder = ImmutableList.builderWithExpectedSize(schema.getFields().size());
             for (com.google.cloud.bigquery.Field field : schema.getFields()) {
-                if (!typeManager.isSupportedType(field)) {
+                if (!typeManager.isSupportedType(field, useStorageApi)) {
                     // TODO: Skip unsupported type instead of throwing an exception
                     throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + field.getType());
                 }
-                columnsBuilder.add(typeManager.toColumnHandle(field));
+                columnsBuilder.add(typeManager.toColumnHandle(field, useStorageApi));
             }
 
             Descriptor returnedType = new Descriptor(columnsBuilder.build().stream()

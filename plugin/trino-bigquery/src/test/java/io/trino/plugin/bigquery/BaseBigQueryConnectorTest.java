@@ -26,6 +26,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -638,6 +639,26 @@ public abstract class BaseBigQueryConnectorTest
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 2)");
             assertThat((String) computeActual("SHOW CREATE TABLE " + table.getName()).getOnlyValue())
                     .isEqualTo("CREATE TABLE bigquery." + table.getName() + " (\n" +
+                            "   a bigint,\n" +
+                            "   b bigint\n" +
+                            ")");
+        }
+    }
+
+    @Test
+    public void testSkipUnsupportedTimestampType()
+    {
+        Session skipViewMaterialization = Session.builder(getSession())
+                .setCatalogSessionProperty("bigquery", "skip_view_materialization", "true")
+                .build();
+
+        try (TestView view = new TestView(
+                bigQuerySqlExecutor,
+                "test.test_skip_unsupported_type",
+                "SELECT 1 a, TIMESTAMP '1970-01-01 00:00:00 UTC' unsupported, 2 b")) {
+            assertQuery(skipViewMaterialization, "SELECT * FROM " + view.getName(), "VALUES (1, 2)");
+            assertThat((String) computeActual(skipViewMaterialization, "SHOW CREATE TABLE " + view.getName()).getOnlyValue())
+                    .isEqualTo("CREATE TABLE bigquery." + view.getName() + " (\n" +
                             "   a bigint,\n" +
                             "   b bigint\n" +
                             ")");
