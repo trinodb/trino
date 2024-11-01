@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -90,10 +91,12 @@ public class PageSourceOperator
     @Override
     public Page getOutput()
     {
-        Page page = pageSource.getNextPage();
-        if (page == null) {
+        SourcePage sourcePage = pageSource.getNextSourcePage();
+        if (sourcePage == null) {
             return null;
         }
+
+        Page page = sourcePage.getPage();
 
         // update operator stats
         long endCompletedBytes = pageSource.getCompletedBytes();
@@ -102,9 +105,6 @@ public class PageSourceOperator
         operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
         completedBytes = endCompletedBytes;
         readTimeNanos = endReadTimeNanos;
-
-        // assure the page is in memory before handing to another operator
-        page = page.getLoadedPage();
 
         return page;
     }

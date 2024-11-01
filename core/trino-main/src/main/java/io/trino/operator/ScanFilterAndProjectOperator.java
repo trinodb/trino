@@ -39,6 +39,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
@@ -364,15 +365,15 @@ public class ScanFilterAndProjectOperator
     static class ProcessedBytesMonitor
             implements Consumer<ProcessState<Page>>
     {
-        private final Page page;
+        private final SourcePage page;
         private final LongConsumer processedBytesConsumer;
         private long localProcessedBytes;
 
-        public ProcessedBytesMonitor(Page page, LongConsumer processedBytesConsumer)
+        public ProcessedBytesMonitor(SourcePage page, LongConsumer processedBytesConsumer)
         {
             this.page = requireNonNull(page, "page is null");
             this.processedBytesConsumer = requireNonNull(processedBytesConsumer, "processedBytesConsumer is null");
-            localProcessedBytes = getSizeInBytes(page);
+            localProcessedBytes = page.getSizeInBytes();
             processedBytesConsumer.accept(localProcessedBytes);
         }
 
@@ -384,23 +385,14 @@ public class ScanFilterAndProjectOperator
 
         void update()
         {
-            long newProcessedBytes = getSizeInBytes(page);
+            long newProcessedBytes = page.getSizeInBytes();
             processedBytesConsumer.accept(newProcessedBytes - localProcessedBytes);
             localProcessedBytes = newProcessedBytes;
-        }
-
-        private static long getSizeInBytes(Page page)
-        {
-            long sizeInBytes = 0;
-            for (int i = 0; i < page.getChannelCount(); i++) {
-                sizeInBytes += page.getBlock(i).getSizeInBytes();
-            }
-            return sizeInBytes;
         }
     }
 
     private class ConnectorPageSourceToPages
-            implements WorkProcessor.Process<Page>
+            implements WorkProcessor.Process<SourcePage>
     {
         final LocalMemoryContext pageSourceMemoryContext;
 
@@ -410,7 +402,7 @@ public class ScanFilterAndProjectOperator
         }
 
         @Override
-        public ProcessState<Page> process()
+        public ProcessState<SourcePage> process()
         {
             if (pageSource.isFinished()) {
                 return ProcessState.finished();
@@ -421,7 +413,7 @@ public class ScanFilterAndProjectOperator
                 return ProcessState.blocked(asVoid(toListenableFuture(isBlocked)));
             }
 
-            Page page = pageSource.getNextPage();
+            SourcePage page = pageSource.getNextSourcePage();
             pageSourceMemoryContext.setBytes(pageSource.getMemoryUsage());
 
             if (page == null) {

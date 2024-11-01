@@ -30,6 +30,7 @@ import io.trino.parquet.reader.TestingParquetDataSource;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.spi.Page;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
@@ -248,7 +249,7 @@ public class BenchmarkColumnarFilterParquetData
                     new DriverYieldSignal(),
                     context,
                     new PageProcessorMetrics(),
-                    inputPage);
+                    SourcePage.create(inputPage));
             if (workProcessor.process() && !workProcessor.isFinished()) {
                 outputRows += workProcessor.getResult().getPositionCount();
             }
