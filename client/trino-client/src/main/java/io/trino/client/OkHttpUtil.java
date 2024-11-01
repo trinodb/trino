@@ -15,7 +15,6 @@ package io.trino.client;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.StandardSystemProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.trino.client.auth.kerberos.DelegatedConstrainedContextProvider;
 import io.trino.client.auth.kerberos.DelegatedUnconstrainedContextProvider;
@@ -27,7 +26,6 @@ import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
-import okhttp3.Protocol;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
 import okhttp3.logging.HttpLoggingInterceptor;
 import okhttp3.logging.HttpLoggingInterceptor.Level;
@@ -121,12 +119,6 @@ public final class OkHttpUtil
     public static void setupCookieJar(OkHttpClient.Builder clientBuilder)
     {
         clientBuilder.cookieJar(new JavaNetCookieJar(new CookieManager()));
-    }
-
-    public static void disableHttp2(OkHttpClient.Builder clientBuilder)
-    {
-        // Disable HTTP/2 as it's not tested nor supported
-        clientBuilder.protocols(ImmutableList.of(Protocol.HTTP_1_1, Protocol.HTTP_1_1));
     }
 
     public static void setupSocksProxy(OkHttpClient.Builder clientBuilder, Optional<HostAndPort> socksProxy)

@@ -27,7 +27,7 @@ import java.time.Duration;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_LOGGING_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -64,7 +64,7 @@ public class Kafka
             if (isTrinoContainer(container.getLogicalName())) {
                 MountableFile logConfigFile = forHostPath(configDir.getPath("log.properties"));
                 container
-                        .withCopyFileToContainer(logConfigFile, CONTAINER_TRINO_ETC + "/log.properties");
+                        .withCopyFileToContainer(logConfigFile, CONTAINER_TRINO_LOGGING_CONFIG);
             }
         });
 

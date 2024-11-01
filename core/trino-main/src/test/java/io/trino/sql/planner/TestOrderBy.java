@@ -109,25 +109,27 @@ public class TestOrderBy
     @Test
     public void testRedundantOrderByInWith()
     {
-        assertPlan("""
-                        WITH t(a) AS (
-                            SELECT * FROM (VALUES 2, 1) t(a)
-                            ORDER BY a)
-                        SELECT * FROM t
-                        """,
+        assertPlan(
+                """
+                WITH t(a) AS (
+                    SELECT * FROM (VALUES 2, 1) t(a)
+                    ORDER BY a)
+                SELECT * FROM t
+                """,
                 output(node(ValuesNode.class)));
     }
 
     @Test
     public void testOrderByInWithLimit()
     {
-        assertPlan("""
-                        WITH t(a) AS (
-                            SELECT * FROM (VALUES 2, 1) t(a)
-                            ORDER BY a
-                            LIMIT 1)
-                        SELECT * FROM t
-                        """,
+        assertPlan(
+                """
+                WITH t(a) AS (
+                    SELECT * FROM (VALUES 2, 1) t(a)
+                    ORDER BY a
+                    LIMIT 1)
+                SELECT * FROM t
+                """,
                 output(
                         topN(1, ImmutableList.of(sort("c", ASCENDING, LAST)), TopNNode.Step.FINAL,
                                 topN(1, ImmutableList.of(sort("c", ASCENDING, LAST)), TopNNode.Step.PARTIAL,
@@ -137,13 +139,14 @@ public class TestOrderBy
     @Test
     public void testOrderByInWithOffset()
     {
-        assertPlan("""
-                        WITH t(a) AS (
-                            SELECT * FROM (VALUES (2),(1)) t(a)
-                            ORDER BY a
-                            OFFSET 1)
-                        SELECT * FROM t
-                        """,
+        assertPlan(
+                """
+                WITH t(a) AS (
+                    SELECT * FROM (VALUES (2),(1)) t(a)
+                    ORDER BY a
+                    OFFSET 1)
+                SELECT * FROM t
+                """,
                 output(
                         node(ProjectNode.class,
                                 node(FilterNode.class,

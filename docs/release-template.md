@@ -14,8 +14,6 @@
 
 ## CLI
 
-## Accumulo connector
-
 ## BigQuery connector
 
 ## Blackhole connector

@@ -109,7 +109,7 @@ public class TestPolymorphicScalarFunction
                 shortDecimalBoundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
 
-        assertThat(specializedFunction.getChoices().size()).isEqualTo(2);
+        assertThat(specializedFunction.getChoices()).hasSize(2);
         assertThat(specializedFunction.getChoices().get(0).getInvocationConvention()).isEqualTo(new InvocationConvention(ImmutableList.of(NULL_FLAG, NULL_FLAG), FAIL_ON_NULL, false, false));
         assertThat(specializedFunction.getChoices().get(1).getInvocationConvention()).isEqualTo(new InvocationConvention(ImmutableList.of(BLOCK_POSITION, BLOCK_POSITION), FAIL_ON_NULL, false, false));
         Block block1 = new LongArrayBlock(0, Optional.empty(), new long[0]);

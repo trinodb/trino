@@ -97,9 +97,7 @@ public class SkipAggregationBuilder
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 
     @Override
     public ListenableFuture<Void> startMemoryRevoke()

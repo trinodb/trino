@@ -414,6 +414,12 @@ properties:
 * - `hive.metastore.glue.partitions-segments`
   - Number of segments for partitioned Glue tables.
   - `5`
+* - `hive.metastore.glue.skip-archive`
+  - AWS Glue has the ability to archive older table versions and a user can
+    roll back the table to any historical version if needed. By default, the
+    Hive Connector backed by Glue will not skip the archival of older table
+    versions.
+  - `false`
 :::
 
 (iceberg-glue-catalog)=
@@ -430,16 +436,11 @@ described with the following additional property:
 * - Property name
   - Description
   - Default
-* - `iceberg.glue.skip-archive`
-  - Skip archiving an old table version when creating a new version in a commit.
-    See [AWS Glue Skip
-    Archive](https://iceberg.apache.org/docs/latest/aws/#skip-archive).
-  - `true`
 * - `iceberg.glue.cache-table-metadata`
   - While updating the table in AWS Glue, store the table metadata with the
     purpose of accelerating `information_schema.columns` and
     `system.metadata.table_comments` queries.
-  - `true` 
+  - `true`
   :::
 
 ## Iceberg-specific metastores

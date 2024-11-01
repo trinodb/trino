@@ -151,7 +151,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testIfConditionType()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   IF random() THEN
@@ -167,7 +168,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testElseIfConditionType()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   IF false THEN
@@ -185,7 +187,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testCaseWhenClauseValueType()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test(x int) RETURNS int
                 BEGIN
                   CASE x
@@ -202,7 +205,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testCaseWhenClauseConditionType()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   CASE
@@ -223,7 +227,8 @@ class TestSqlRoutineAnalyzer
                 .hasErrorCode(MISSING_RETURN)
                 .hasMessage("line 1:29: Function must end in a RETURN statement");
 
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   IF false THEN
@@ -238,7 +243,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testBadVariableDefault()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   DECLARE x int DEFAULT 'abc';
@@ -252,7 +258,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testVariableAlreadyDeclared()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   DECLARE x int;
@@ -263,7 +270,8 @@ class TestSqlRoutineAnalyzer
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("line 4:11: Variable already declared in this scope: x");
 
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   DECLARE x int;
@@ -274,7 +282,8 @@ class TestSqlRoutineAnalyzer
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("line 4:14: Variable already declared in this scope: x");
 
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   DECLARE x, y, x int;
@@ -284,7 +293,8 @@ class TestSqlRoutineAnalyzer
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("line 3:17: Variable already declared in this scope: x");
 
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   DECLARE x int;
@@ -297,7 +307,8 @@ class TestSqlRoutineAnalyzer
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("line 5:13: Variable already declared in this scope: x");
 
-        analyze("""
+        analyze(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   BEGIN
@@ -314,7 +325,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testAssignmentUnknownTarget()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   SET x = 13;
@@ -328,7 +340,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testAssignmentType()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   DECLARE x int;
@@ -343,7 +356,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testWhileConditionType()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   WHILE 13 DO
@@ -359,7 +373,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testUntilConditionType()
     {
-         assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   REPEAT
@@ -369,13 +384,14 @@ class TestSqlRoutineAnalyzer
                 END
                 """)
                 .hasErrorCode(TYPE_MISMATCH)
-                 .hasMessage("line 5:9: Condition of REPEAT statement must evaluate to boolean (actual: integer)");
+                .hasMessage("line 5:9: Condition of REPEAT statement must evaluate to boolean (actual: integer)");
     }
 
     @Test
     void testIterateUnknownLabel()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   WHILE true DO
@@ -391,7 +407,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testLeaveUnknownLabel()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   LEAVE abc;
@@ -405,7 +422,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testDuplicateWhileLabel()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   abc: WHILE true DO
@@ -420,7 +438,8 @@ class TestSqlRoutineAnalyzer
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("line 5:5: Label already declared in this scope: abc");
 
-        analyze("""
+        analyze(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   abc: WHILE true DO
@@ -437,7 +456,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testDuplicateRepeatLabel()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   abc: REPEAT
@@ -452,7 +472,8 @@ class TestSqlRoutineAnalyzer
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("line 5:5: Label already declared in this scope: abc");
 
-        analyze("""
+        analyze(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   abc: REPEAT
@@ -469,7 +490,8 @@ class TestSqlRoutineAnalyzer
     @Test
     void testDuplicateLoopLabel()
     {
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   abc: LOOP
@@ -484,7 +506,8 @@ class TestSqlRoutineAnalyzer
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("line 5:5: Label already declared in this scope: abc");
 
-        analyze("""
+        analyze(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   abc: LOOP
@@ -505,7 +528,8 @@ class TestSqlRoutineAnalyzer
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:36: Queries are not allowed in functions");
 
-        assertFails("""
+        assertFails(
+                """
                 FUNCTION test() RETURNS int
                 BEGIN
                   RETURN (SELECT 123);

@@ -61,6 +61,7 @@ public class TestIcebergMigrateProcedure
         String icebergTableName = "iceberg.tpch." + tableName;
 
         assertUpdate("CREATE TABLE " + hiveTableName + " WITH (format='" + fileFormat + "') AS SELECT 1 x", 1);
+        assertUpdate("INSERT INTO " + hiveTableName + " VALUES NULL", 1);
         assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
 
         assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
@@ -68,11 +69,15 @@ public class TestIcebergMigrateProcedure
         assertThat((String) computeScalar("SHOW CREATE TABLE " + icebergTableName))
                 .contains("format = '%s'".formatted(fileFormat));
 
-        assertQuery("SELECT * FROM " + icebergTableName, "VALUES 1");
-        assertQuery("SELECT count(*) FROM " + icebergTableName, "VALUES 1");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES 1, NULL");
+        assertQuery("SELECT count(*) FROM " + icebergTableName, "VALUES 2");
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES 1, NULL");
+        assertQuery("SELECT count(*) FROM " + icebergTableName, "VALUES 2");
 
-        assertUpdate("INSERT INTO " + icebergTableName + " VALUES (2)", 1);
-        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1), (2)");
+        assertUpdate("INSERT INTO " + icebergTableName + " VALUES 2, NULL", 2);
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES 1, NULL, 2, NULL");
+        assertQuery("SELECT count(*) FROM " + icebergTableName, "VALUES 4");
 
         assertUpdate("DROP TABLE " + tableName);
     }

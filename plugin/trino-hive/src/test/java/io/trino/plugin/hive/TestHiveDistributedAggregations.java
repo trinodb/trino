@@ -36,7 +36,8 @@ public class TestHiveDistributedAggregations
     public void testDistinctAggregationWithSystemTable()
     {
         String tableName = "test_dist_aggr_" + randomNameSuffix();
-        @Language("SQL") String createTable = """
+        @Language("SQL") String createTable =
+                """
                 CREATE TABLE %s
                 WITH (
                 partitioned_by = ARRAY[ 'regionkey', 'nationkey' ]

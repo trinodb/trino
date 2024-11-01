@@ -334,7 +334,8 @@ public class TestHive3OnDataLake
                             ('Trino', 'rocks', 'colons', 'with:colon'),
                             ('Trino', 'rocks', 'slashes', 'with/slash'),
                             ('Trino', 'rocks', 'backslashes', 'with\\backslash'),
-                            ('Trino', 'rocks', 'percents', 'with%percent')""");
+                            ('Trino', 'rocks', 'percents', 'with%percent')
+                    """);
 
         assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
     }

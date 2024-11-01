@@ -101,12 +101,12 @@ public class QueryResultRows
 
         List<OutputColumn> columns = this.columns.get();
 
-        if (columns.size() != 1 || !columns.get(0).type().equals(BIGINT)) {
+        if (columns.size() != 1 || !columns.getFirst().type().equals(BIGINT)) {
             return Optional.empty();
         }
 
         checkState(!pages.isEmpty(), "no data pages available");
-        Number value = (Number) columns.get(0).type().getObjectValue(session.toConnectorSession(), pages.getFirst().getBlock(0), 0);
+        Number value = (Number) columns.getFirst().type().getObjectValue(session.toConnectorSession(), pages.getFirst().getBlock(0), 0);
 
         return Optional.ofNullable(value).map(Number::longValue);
     }

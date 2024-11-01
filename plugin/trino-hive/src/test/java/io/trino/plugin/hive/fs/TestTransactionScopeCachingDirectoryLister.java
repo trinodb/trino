@@ -186,14 +186,10 @@ public class TestTransactionScopeCachingDirectoryLister
         }
 
         @Override
-        public void invalidate(Partition partition)
-        {
-        }
+        public void invalidate(Partition partition) {}
 
         @Override
-        public void invalidate(Table table)
-        {
-        }
+        public void invalidate(Table table) {}
     }
 
     static RemoteIterator<TrinoFileStatus> throwingRemoteIterator(List<TrinoFileStatus> files, boolean throwException)

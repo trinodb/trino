@@ -217,9 +217,7 @@ public class S3FileSystemStats
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
 
         private AwsSdkV2ApiCallStats getApiCallStats(String operationName)
         {

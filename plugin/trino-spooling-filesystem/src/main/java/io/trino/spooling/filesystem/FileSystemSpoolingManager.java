@@ -16,7 +16,9 @@ package io.trino.spooling.filesystem;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -24,7 +26,6 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.encryption.EncryptionKey;
-import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledLocation;
 import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
@@ -41,9 +42,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
 import static io.trino.spi.protocol.SpooledLocation.coordinatorLocation;
 import static io.trino.spooling.filesystem.encryption.EncryptionHeadersTranslator.encryptionHeadersTranslator;
@@ -51,6 +56,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Duration.between;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class FileSystemSpoolingManager
         implements SpoolingManager
@@ -136,26 +142,26 @@ public class FileSystemSpoolingManager
     }
 
     @Override
-    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
+    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle, OptionalInt ttlSeconds)
             throws IOException
     {
         FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
         Location storageLocation = fileSystemLayout.location(location, fileHandle);
-        Duration ttl = remainingTtl(fileHandle.expirationTime());
+        Duration ttl = remainingTtl(fileHandle.expirationTime(), ttlSeconds);
         Optional<EncryptionKey> key = fileHandle.encryptionKey();
 
         Optional<DirectLocation> directLocation;
         if (encryptionEnabled) {
             directLocation = fileSystem.encryptedPreSignedUri(storageLocation, ttl, key.orElseThrow())
-                    .map(uri -> new DirectLocation(uri.uri(), uri.headers()));
+                    .map(uri -> new DirectLocation(serialize(fileHandle), uri.uri(), uri.headers()));
         }
         else {
             directLocation = fileSystem.preSignedUri(storageLocation, ttl)
-                    .map(uri -> new DirectLocation(uri.uri(), uri.headers()));
+                    .map(uri -> new DirectLocation(serialize(fileHandle), uri.uri(), uri.headers()));
         }
 
         if (directLocation.isEmpty()) {
-            throw new IOException("Failed to generate pre-signed URI for query %s and segment %s".formatted(fileHandle.queryId(), fileHandle.identifier()));
+            throw new IOException("Failed to generate pre-signed URI for segment %s".formatted(fileHandle.identifier()));
         }
         return directLocation;
     }
@@ -163,23 +169,28 @@ public class FileSystemSpoolingManager
     @Override
     public SpooledLocation location(SpooledSegmentHandle handle)
     {
+        FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
+        return coordinatorLocation(serialize(fileHandle), headers(fileHandle));
+    }
+
+    private static Slice serialize(FileSystemSpooledSegmentHandle fileHandle)
+    {
         // Identifier layout:
         //
         // ulid: byte[16]
-        // queryIdLength: byte
-        // encodingLength: byte
-        // queryId: string
-        // encoding: string
+        // encodingLength: short
+        // encoding: byte[encodingLength]
         // isEncrypted: boolean
-        FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
-        DynamicSliceOutput output = new DynamicSliceOutput(64);
+
+        byte[] encoding = fileHandle.encoding().getBytes(UTF_8);
+        Slice slice = Slices.allocate(16 + SIZE_OF_SHORT + encoding.length + SIZE_OF_BYTE);
+
+        SliceOutput output = slice.getOutput();
         output.writeBytes(fileHandle.uuid());
-        output.writeShort(fileHandle.queryId().toString().length());
         output.writeShort(fileHandle.encoding().length());
-        output.writeBytes(fileHandle.queryId().toString().getBytes(UTF_8));
-        output.writeBytes(fileHandle.encoding().getBytes(UTF_8));
+        output.writeBytes(encoding);
         output.writeBoolean(fileHandle.encryptionKey().isPresent());
-        return coordinatorLocation(output.slice(), headers(fileHandle));
+        return output.slice();
     }
 
     private Map<String, List<String>> headers(FileSystemSpooledSegmentHandle fileHandle)
@@ -190,30 +201,31 @@ public class FileSystemSpoolingManager
     }
 
     @Override
-    public SpooledSegmentHandle handle(SpooledLocation location)
+    public SpooledSegmentHandle handle(Slice identifier, Map<String, List<String>> headers)
     {
-        if (!(location instanceof SpooledLocation.CoordinatorLocation coordinatorLocation)) {
-            throw new IllegalArgumentException("Cannot convert direct location to handle");
-        }
-
-        BasicSliceInput input = coordinatorLocation.identifier().getInput();
+        BasicSliceInput input = identifier.getInput();
         byte[] uuid = new byte[16];
         input.readBytes(uuid);
-        short queryLength = input.readShort();
         short encodingLength = input.readShort();
 
-        QueryId queryId = QueryId.valueOf(input.readSlice(queryLength).toStringUtf8());
         String encoding = input.readSlice(encodingLength).toStringUtf8();
         if (!input.readBoolean()) {
-            return new FileSystemSpooledSegmentHandle(encoding, queryId, uuid, Optional.empty());
+            return new FileSystemSpooledSegmentHandle(encoding, uuid, Optional.empty());
         }
-        return new FileSystemSpooledSegmentHandle(encoding, queryId, uuid, Optional.of(encryptionHeadersTranslator.extractKey(location.headers())));
+        return new FileSystemSpooledSegmentHandle(encoding, uuid, Optional.of(encryptionHeadersTranslator.extractKey(headers)));
     }
 
-    private Duration remainingTtl(Instant expiresAt)
-
+    private Duration remainingTtl(Instant expiresAt, OptionalInt ttlSeconds)
     {
-        return new Duration(between(Instant.now(), expiresAt).toMillis(), MILLISECONDS);
+        Duration maxTtl = new Duration(between(Instant.now(), expiresAt).toMillis(), MILLISECONDS);
+        if (ttlSeconds.isPresent()) {
+            Duration ttl = succinctDuration(ttlSeconds.getAsInt(), SECONDS);
+            if (ttl.compareTo(maxTtl) > 0) {
+                return maxTtl;
+            }
+            return ttl;
+        }
+        return maxTtl;
     }
 
     private void checkExpiration(FileSystemSpooledSegmentHandle handle)

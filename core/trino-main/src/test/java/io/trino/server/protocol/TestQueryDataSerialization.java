@@ -23,12 +23,11 @@ import io.trino.client.Column;
 import io.trino.client.JsonCodec;
 import io.trino.client.QueryData;
 import io.trino.client.QueryResults;
-import io.trino.client.RawQueryData;
 import io.trino.client.ResultRowsDecoder;
 import io.trino.client.StatementStats;
+import io.trino.client.TypedQueryData;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
-import io.trino.client.spooling.Segment;
 import io.trino.server.protocol.spooling.QueryDataJacksonModule;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +43,8 @@ import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.ROW_OFFSET;
 import static io.trino.client.spooling.DataAttribute.SCHEMA;
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
+import static io.trino.client.spooling.Segment.inlined;
+import static io.trino.client.spooling.Segment.spooled;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,15 +63,15 @@ public class TestQueryDataSerialization
     public void testNullDataSerialization()
     {
         assertThat(serialize(null)).doesNotContain("data");
-        assertThat(serialize(RawQueryData.of(null))).doesNotContain("data");
+        assertThat(serialize(TypedQueryData.of(null))).doesNotContain("data");
     }
 
     @Test
     public void testEmptyArraySerialization()
     {
-        testRoundTrip(RawQueryData.of(ImmutableList.of()), "[]");
+        testRoundTrip(TypedQueryData.of(ImmutableList.of()), "[]");
 
-        assertThatThrownBy(() -> testRoundTrip(RawQueryData.of(ImmutableList.of(ImmutableList.of())), "[[]]"))
+        assertThatThrownBy(() -> testRoundTrip(TypedQueryData.of(ImmutableList.of(ImmutableList.of())), "[[]]"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Unexpected token END_ARRAY");
     }
@@ -79,14 +80,15 @@ public class TestQueryDataSerialization
     public void testQueryDataSerialization()
     {
         Iterable<List<Object>> values = ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L));
-        testRoundTrip(RawQueryData.of(values), "[[1],[5]]");
+        testRoundTrip(TypedQueryData.of(values), "[[1],[5]]");
     }
 
     @Test
     public void testEncodedQueryDataSerialization()
     {
-        EncodedQueryData queryData = new EncodedQueryData("json", ImmutableMap.of(), ImmutableList.of(Segment.inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
-        testRoundTrip(queryData, """
+        EncodedQueryData queryData = new EncodedQueryData("json", ImmutableMap.of(), ImmutableList.of(inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
+        testRoundTrip(queryData,
+                """
                 {
                   "encoding": "json",
                   "segments": [
@@ -106,8 +108,9 @@ public class TestQueryDataSerialization
     @Test
     public void testEncodedQueryDataSerializationWithExtraMetadata()
     {
-        EncodedQueryData queryData = new EncodedQueryData("json", ImmutableMap.of("decryptionKey", "secret"), ImmutableList.of(Segment.inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
-        testRoundTrip(queryData, """
+        EncodedQueryData queryData = new EncodedQueryData("json", ImmutableMap.of("decryptionKey", "secret"), ImmutableList.of(inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
+        testRoundTrip(queryData,
+                """
                 {
                   "encoding": "json",
                   "metadata": {
@@ -131,14 +134,22 @@ public class TestQueryDataSerialization
     public void testSpooledQueryDataSerialization()
     {
         EncodedQueryData queryData = EncodedQueryData.builder("json")
-                .withSegment(Segment.inlined("super".getBytes(UTF_8), dataAttributes(0, 100, 5)))
-                .withSegment(Segment.spooled(URI.create("http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/1"), dataAttributes(100, 100, 1024), Map.of("x-amz-server-side-encryption", List.of("AES256"))))
-                .withSegment(Segment.spooled(URI.create("http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/2"), dataAttributes(200, 100, 1024), Map.of("x-amz-server-side-encryption", List.of("AES256"))))
+                .withSegments(List.of(
+                        inlined("super".getBytes(UTF_8), dataAttributes(0, 100, 5)),
+                        spooled(
+                                URI.create("http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/1"),
+                                URI.create("http://localhost:8080/v1/ack/20160128_214710_00012_rk68b/segments/1"),
+                                dataAttributes(100, 100, 1024), Map.of("x-amz-server-side-encryption", List.of("AES256"))),
+                        spooled(
+                                URI.create("http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/2"),
+                                URI.create("http://localhost:8080/v1/ack/20160128_214710_00012_rk68b/segments/2"),
+                                dataAttributes(200, 100, 1024), Map.of("x-amz-server-side-encryption", List.of("AES256")))))
                 .withAttributes(DataAttributes.builder()
                         .set(SCHEMA, "serializedSchema")
                         .build())
                 .build();
-        testSerializationRoundTrip(queryData, """
+        testSerializationRoundTrip(queryData,
+                """
                 {
                   "encoding": "json",
                   "metadata": {
@@ -157,6 +168,7 @@ public class TestQueryDataSerialization
                     {
                       "type": "spooled",
                       "uri": "http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/1",
+                      "ackUri": "http://localhost:8080/v1/ack/20160128_214710_00012_rk68b/segments/1",
                       "metadata": {
                         "rowOffset": 100,
                         "rowsCount": 100,
@@ -167,6 +179,7 @@ public class TestQueryDataSerialization
                     {
                       "type": "spooled",
                       "uri": "http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/2",
+                      "ackUri": "http://localhost:8080/v1/ack/20160128_214710_00012_rk68b/segments/2",
                       "metadata": {
                         "rowOffset": 200,
                         "rowsCount": 100,
@@ -181,10 +194,13 @@ public class TestQueryDataSerialization
     @Test
     public void testEncodedQueryDataToString()
     {
-        EncodedQueryData inlineQueryData = new EncodedQueryData("json", ImmutableMap.of("decryption_key", "secret"), ImmutableList.of(Segment.inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
+        EncodedQueryData inlineQueryData = new EncodedQueryData("json", ImmutableMap.of("decryption_key", "secret"), ImmutableList.of(inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
         assertThat(inlineQueryData.toString()).isEqualTo("EncodedQueryData{encoding=json, segments=[InlineSegment{offset=10, rows=2, size=12}], metadata=[decryption_key]}");
 
-        EncodedQueryData spooledQueryData = new EncodedQueryData("json+zstd", ImmutableMap.of("decryption_key", "secret"), ImmutableList.of(Segment.spooled(URI.create("http://coordinator:8080/v1/segments/uuid"), dataAttributes(10, 2, 1256), headers())));
+        EncodedQueryData spooledQueryData = new EncodedQueryData("json+zstd", ImmutableMap.of("decryption_key", "secret"), ImmutableList.of(spooled(
+                URI.create("http://coordinator:8080/v1/segments/uuid"),
+                URI.create("http://coordinator:8080/v1/segments/uuid"),
+                dataAttributes(10, 2, 1256), headers())));
         assertThat(spooledQueryData.toString()).isEqualTo("EncodedQueryData{encoding=json+zstd, segments=[SpooledSegment{offset=10, rows=2, size=1256, headers=[x-amz-server-side-encryption]}], metadata=[decryption_key]}");
     }
 
@@ -202,7 +218,8 @@ public class TestQueryDataSerialization
 
     private String queryResultsJson(String expectedDataField)
     {
-        return format("""
+        return format(
+                """
                 {
                   "id": "20160128_214710_00012_rk68b",
                   "infoUri": "http://coordinator/query.html?20160128_214710_00012_rk68b",

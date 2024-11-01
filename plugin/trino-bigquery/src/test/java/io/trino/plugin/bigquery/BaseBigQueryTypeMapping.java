@@ -48,6 +48,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -732,6 +733,18 @@ public abstract class BaseBigQueryTypeMapping
                 .addRoundTrip("ARRAY<BOOLEAN>", "NULL", new ArrayType(BOOLEAN), "CAST(ARRAY[] AS ARRAY<BOOLEAN>)")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.array"))
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.array"));
+    }
+
+    @Test
+    public void testArrayType()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_array_", "(a BIGINT, b ARRAY<DOUBLE>, c ARRAY<BIGINT>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b, c) VALUES (5, ARRAY[1.23E1], ARRAY[15]), (6, ARRAY[1.24E1, 1.27E1, 2.23E1], ARRAY[25, 26, 36])", 2);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES " +
+                            "(BIGINT '5', ARRAY[DOUBLE '12.3'], ARRAY[BIGINT '15']), " +
+                            "(BIGINT '6', ARRAY[DOUBLE '12.4', DOUBLE '12.7', DOUBLE '22.3'], ARRAY[BIGINT '25', BIGINT '26', BIGINT '36'])");
+        }
     }
 
     @Test

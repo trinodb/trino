@@ -24,18 +24,16 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.execution.QueryManager;
 import io.trino.metadata.LanguageFunctionManager.RunAsIdentityLoader;
 import io.trino.security.AccessControl;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.security.InjectedConnectorAccessControl;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
@@ -115,12 +113,9 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.transaction.TransactionManager;
-import io.trino.type.BlockTypeOperators;
 import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
@@ -132,6 +127,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -152,7 +148,6 @@ import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
-import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
@@ -175,8 +170,6 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Locale.ENGLISH;
@@ -199,6 +192,7 @@ public final class MetadataManager
     private final TableFunctionRegistry tableFunctionRegistry;
     private final TypeManager typeManager;
     private final TypeCoercion typeCoercion;
+    private final QueryManager queryManager;
 
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
@@ -210,13 +204,15 @@ public final class MetadataManager
             GlobalFunctionCatalog globalFunctionCatalog,
             LanguageFunctionManager languageFunctionManager,
             TableFunctionRegistry tableFunctionRegistry,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            QueryManager queryManager)
     {
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
         functionResolver = new BuiltinFunctionResolver(this, typeManager, globalFunctionCatalog);
         this.typeCoercion = new TypeCoercion(typeManager::getType);
+        this.queryManager = requireNonNull(queryManager, "queryManager is null");
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -482,11 +478,33 @@ public final class MetadataManager
     @Override
     public TableStatistics getTableStatistics(Session session, TableHandle tableHandle)
     {
-        CatalogHandle catalogHandle = tableHandle.catalogHandle();
-        ConnectorMetadata metadata = getMetadata(session, catalogHandle);
-        TableStatistics tableStatistics = metadata.getTableStatistics(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle());
-        verifyNotNull(tableStatistics, "%s returned null tableStatistics for %s", metadata, tableHandle);
-        return tableStatistics;
+        try {
+            CatalogHandle catalogHandle = tableHandle.catalogHandle();
+            ConnectorMetadata metadata = getMetadata(session, catalogHandle);
+            TableStatistics tableStatistics = metadata.getTableStatistics(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle());
+            verifyNotNull(tableStatistics, "%s returned null tableStatistics for %s", metadata, tableHandle);
+            return tableStatistics;
+        }
+        catch (RuntimeException e) {
+            if (isQueryDone(session)) {
+                // getting statistics for finished query may result in many different execeptions being thrown.
+                // As we do not care about the result anyway mask it by returning empty statistics.
+                return TableStatistics.empty();
+            }
+            throw e;
+        }
+    }
+
+    private boolean isQueryDone(Session session)
+    {
+        boolean done;
+        try {
+            done = queryManager.getQueryState(session.getQueryId()).isDone();
+        }
+        catch (NoSuchElementException ex) {
+            done = true;
+        }
+        return done;
     }
 
     @Override
@@ -2863,83 +2881,5 @@ public final class MetadataManager
     private static boolean cannotExist(QualifiedObjectName name)
     {
         return name.catalogName().isEmpty() || name.schemaName().isEmpty() || name.objectName().isEmpty();
-    }
-
-    public static MetadataManager createTestMetadataManager()
-    {
-        return testMetadataManagerBuilder().build();
-    }
-
-    public static TestMetadataManagerBuilder testMetadataManagerBuilder()
-    {
-        return new TestMetadataManagerBuilder();
-    }
-
-    public static class TestMetadataManagerBuilder
-    {
-        private TransactionManager transactionManager;
-        private TypeManager typeManager = TESTING_TYPE_MANAGER;
-        private GlobalFunctionCatalog globalFunctionCatalog;
-        private LanguageFunctionManager languageFunctionManager;
-
-        private TestMetadataManagerBuilder() {}
-
-        public TestMetadataManagerBuilder withTransactionManager(TransactionManager transactionManager)
-        {
-            this.transactionManager = transactionManager;
-            return this;
-        }
-
-        public TestMetadataManagerBuilder withTypeManager(TypeManager typeManager)
-        {
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
-            return this;
-        }
-
-        public TestMetadataManagerBuilder withGlobalFunctionCatalog(GlobalFunctionCatalog globalFunctionCatalog)
-        {
-            this.globalFunctionCatalog = globalFunctionCatalog;
-            return this;
-        }
-
-        public TestMetadataManagerBuilder withLanguageFunctionManager(LanguageFunctionManager languageFunctionManager)
-        {
-            this.languageFunctionManager = languageFunctionManager;
-            return this;
-        }
-
-        public MetadataManager build()
-        {
-            TransactionManager transactionManager = this.transactionManager;
-            if (transactionManager == null) {
-                transactionManager = createTestTransactionManager();
-            }
-
-            GlobalFunctionCatalog globalFunctionCatalog = this.globalFunctionCatalog;
-            if (globalFunctionCatalog == null) {
-                globalFunctionCatalog = new GlobalFunctionCatalog(
-                        () -> { throw new UnsupportedOperationException(); },
-                        () -> { throw new UnsupportedOperationException(); },
-                        () -> { throw new UnsupportedOperationException(); });
-                TypeOperators typeOperators = new TypeOperators();
-                globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
-            }
-
-            if (languageFunctionManager == null) {
-                BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager);
-                languageFunctionManager = new LanguageFunctionManager(new SqlParser(), typeManager, user -> ImmutableSet.of(), blockEncodingSerde);
-            }
-
-            TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(_ -> new CatalogTableFunctions(ImmutableList.of()));
-
-            return new MetadataManager(
-                    new AllowAllAccessControl(),
-                    new DisabledSystemSecurityMetadata(),
-                    transactionManager,
-                    globalFunctionCatalog,
-                    languageFunctionManager,
-                    tableFunctionRegistry,
-                    typeManager);
-        }
     }
 }

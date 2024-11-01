@@ -244,8 +244,6 @@ public class TestLookupJoinPageBuilder
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
     }
 }

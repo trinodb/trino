@@ -122,7 +122,8 @@ public class TestTrinoRestCatalog
                     },
                     new TableStatisticsWriter(new NodeVersion("test-version")),
                     Optional.empty(),
-                    false);
+                    false,
+                    _ -> false);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -168,14 +169,14 @@ public class TestTrinoRestCatalog
             assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream()).contains(new TableInfo(schemaTableName, OTHER_VIEW));
 
             Map<SchemaTableName, ConnectorViewDefinition> views = catalog.getViews(SESSION, Optional.of(schemaTableName.getSchemaName()));
-            assertThat(views.size()).isEqualTo(1);
+            assertThat(views).hasSize(1);
             assertViewDefinition(views.get(schemaTableName), viewDefinition);
             assertViewDefinition(catalog.getView(SESSION, schemaTableName).orElseThrow(), viewDefinition);
 
             catalog.renameView(SESSION, schemaTableName, renamedSchemaTableName);
             assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream().map(TableInfo::tableName).toList()).doesNotContain(schemaTableName);
             views = catalog.getViews(SESSION, Optional.of(schemaTableName.getSchemaName()));
-            assertThat(views.size()).isEqualTo(1);
+            assertThat(views).hasSize(1);
             assertViewDefinition(views.get(renamedSchemaTableName), viewDefinition);
             assertViewDefinition(catalog.getView(SESSION, renamedSchemaTableName).orElseThrow(), viewDefinition);
             assertThat(catalog.getView(SESSION, schemaTableName)).isEmpty();

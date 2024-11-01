@@ -245,6 +245,7 @@ public class BinPackingNodeAllocatorService
     @VisibleForTesting
     synchronized void processPendingAcquires()
     {
+        // synchronized only for sake manual triggering in test code. In production code it should only be called by single thread
         processCalls.update(1);
         // Process EAGER_SPECULATIVE first; it increases the chance that tasks which have potential to end query early get scheduled to worker nodes.
         // Even though EAGER_SPECULATIVE tasks depend on upstream STANDARD tasks this logic will not lead to deadlock.
@@ -259,7 +260,6 @@ public class BinPackingNodeAllocatorService
 
     private void processPendingAcquires(TaskExecutionClass executionClass)
     {
-        // synchronized only for sake manual triggering in test code. In production code it should only be called by single thread
         Iterator<PendingAcquire> iterator = pendingAcquiresIterator(startingQueryId);
 
         BinPackingSimulation simulation = new BinPackingSimulation(
@@ -343,6 +343,10 @@ public class BinPackingNodeAllocatorService
 
     private Iterator<PendingAcquire> pendingAcquiresIterator(Optional<QueryId> startingQueryId)
     {
+        if (pendingAcquires.isEmpty()) {
+            return List.<PendingAcquire>of().iterator();
+        }
+
         List<QueryPendingAcquires> iterators = pendingAcquires.entrySet().stream()
                 .map(entry -> new QueryPendingAcquires(entry.getKey(), entry.getValue().iterator()))
                 .collect(toCollection(ArrayList::new));

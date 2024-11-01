@@ -141,7 +141,7 @@ public class TestPartitionFields
 
     private static void assertParse(String value, PartitionSpec expected, String canonicalRepresentation)
     {
-        assertThat(expected.fields().size()).isEqualTo(1);
+        assertThat(expected.fields()).hasSize(1);
         assertThat(parseField(value)).isEqualTo(expected);
         assertThat(getOnlyElement(toPartitionFields(expected))).isEqualTo(canonicalRepresentation);
     }

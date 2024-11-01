@@ -42,7 +42,8 @@ public class TestDeltaLakeParquetSchemas
     public void testStringFieldColumnMappingNoneUnpartitioned()
     {
         @Language("JSON")
-        String jsonSchema = """
+        String jsonSchema =
+                """
                 {
                     "type": "struct",
                     "fields": [
@@ -73,7 +74,8 @@ public class TestDeltaLakeParquetSchemas
     public void testStringFieldColumnMappingNonePartitioned()
     {
         @Language("JSON")
-        String jsonSchema = """
+        String jsonSchema =
+                """
                 {
                      "type": "struct",
                      "fields": [
@@ -110,7 +112,8 @@ public class TestDeltaLakeParquetSchemas
     public void testStringFieldColumnMappingIdUnpartitioned()
     {
         @Language("JSON")
-        String jsonSchema = """
+        String jsonSchema =
+                """
                 {
                     "type": "struct",
                     "fields": [
@@ -143,7 +146,8 @@ public class TestDeltaLakeParquetSchemas
     public void testStringFieldColumnMappingIdPartitioned()
     {
         @Language("JSON")
-        String jsonSchema = """
+        String jsonSchema =
+                """
                 {
                     "type": "struct",
                     "fields": [
@@ -185,7 +189,8 @@ public class TestDeltaLakeParquetSchemas
     public void testStringFieldColumnMappingNameUnpartitioned()
     {
         @Language("JSON")
-        String jsonSchema = """
+        String jsonSchema =
+                """
                 {
                     "type": "struct",
                     "fields": [
@@ -219,7 +224,8 @@ public class TestDeltaLakeParquetSchemas
     {
         // Corresponds to Databricks Delta type `a_complex_struct STRUCT<nested_struct: STRUCT<a_string: STRING>, a_string_array ARRAY<STRING>, a_complex_map MAP<STRING, STRUCT<a_string: STRING>>>`
         @Language("JSON")
-        String jsonSchema = """
+        String jsonSchema =
+                """
                 {
                     "type": "struct",
                     "fields": [

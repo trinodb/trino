@@ -323,7 +323,7 @@ public class TestEqualityInference
                     equals(new Reference(candidate.type(), "a"), candidate));
 
             List<Expression> equalities = inference.generateEqualitiesPartitionedBy(symbols("b")).getScopeStraddlingEqualities();
-            assertThat(equalities.size()).isEqualTo(1);
+            assertThat(equalities).hasSize(1);
             assertThat(equalities.get(0).equals(equals(new Reference(BIGINT, "x"), new Reference(BIGINT, "b"))) || equalities.get(0).equals(equals(new Reference(BIGINT, "b"), new Reference(BIGINT, "x")))).isTrue();
         }
     }

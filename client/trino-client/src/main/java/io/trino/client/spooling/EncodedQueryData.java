@@ -84,9 +84,9 @@ public class EncodedQueryData
                 .toString();
     }
 
-    public static Builder builder(String format)
+    public static Builder builder(String encoding)
     {
-        return new Builder(format);
+        return new Builder(encoding);
     }
 
     @Override
@@ -109,6 +109,12 @@ public class EncodedQueryData
         public Builder withSegment(Segment segment)
         {
             this.segments.add(segment);
+            return this;
+        }
+
+        public Builder withSegments(List<Segment> segments)
+        {
+            this.segments.addAll(segments);
             return this;
         }
 

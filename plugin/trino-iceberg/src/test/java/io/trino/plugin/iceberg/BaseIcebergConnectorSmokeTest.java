@@ -34,6 +34,8 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -124,6 +126,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
     @RepeatedTest(4)
     @Timeout(120)
+    @Execution(ExecutionMode.SAME_THREAD)
     public void testDeleteRowsConcurrently()
             throws Exception
     {

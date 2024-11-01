@@ -18,6 +18,7 @@ import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.memory.MemoryFileSystem;
 import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpoolingContext;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -147,7 +149,7 @@ abstract class AbstractFileSystemSegmentPrunerTest
         FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(ThreadLocalRandom.current(), context, ttl);
         Location location = layout().location(TEST_LOCATION, handle);
         try (OutputStream stream = fileSystem.newOutputFile(location).create()) {
-            stream.write("dummy".getBytes(UTF_8));
+            stream.write(queryId.toString().getBytes(UTF_8));
             return location;
         }
         catch (IOException e) {
@@ -163,8 +165,10 @@ abstract class AbstractFileSystemSegmentPrunerTest
             FileIterator iterator = fileSystem.listFiles(TEST_LOCATION);
             while (iterator.hasNext()) {
                 FileEntry entry = iterator.next();
-                if (entry.location().fileName().contains(queryId.toString())) {
-                    files.add(entry.location());
+                try (TrinoInputStream stream = fileSystem.newInputFile(entry.location()).newStream()) {
+                    if (Arrays.equals(stream.readAllBytes(), queryId.toString().getBytes(UTF_8))) {
+                        files.add(entry.location());
+                    }
                 }
             }
             return files.build();

@@ -52,10 +52,10 @@ public class SegmentLoader
     public InputStream load(SpooledSegment segment)
             throws IOException
     {
-        return loadFromURI(segment.getDataUri(), segment.getHeaders());
+        return loadFromURI(segment.getDataUri(), segment.getAckUri(), segment.getHeaders());
     }
 
-    public InputStream loadFromURI(URI segmentUri, Map<String, List<String>> headers)
+    public InputStream loadFromURI(URI segmentUri, URI ackUri, Map<String, List<String>> headers)
             throws IOException
     {
         Headers requestHeaders = toHeaders(headers);
@@ -70,20 +70,20 @@ public class SegmentLoader
         }
 
         if (response.isSuccessful()) {
-            return delegatingInputStream(response, response.body().byteStream(), segmentUri, requestHeaders);
+            return delegatingInputStream(response, response.body().byteStream(), ackUri, requestHeaders);
         }
         throw new IOException(format("Could not open segment for streaming, got error '%s' with code %d", response.message(), response.code()));
     }
 
-    private void delete(URI segmentUri, Headers headers)
+    private void acknowledge(URI ackUri, Headers headers)
     {
-        Request deleteRequest = new Request.Builder()
-                .delete()
-                .url(segmentUri.toString())
+        Request ackRequest = new Request.Builder()
+                .get()
+                .url(ackUri.toString())
                 .headers(headers)
                 .build();
 
-        callFactory.newCall(deleteRequest).enqueue(new Callback()
+        callFactory.newCall(ackRequest).enqueue(new Callback()
         {
             @Override
             public void onFailure(Call call, IOException cause)
@@ -99,7 +99,7 @@ public class SegmentLoader
         });
     }
 
-    private InputStream delegatingInputStream(Response response, InputStream delegate, URI segmentUri, Headers headers)
+    private InputStream delegatingInputStream(Response response, InputStream delegate, URI ackUri, Headers headers)
     {
         return new FilterInputStream(delegate)
         {
@@ -108,7 +108,7 @@ public class SegmentLoader
                     throws IOException
             {
                 try (Response ignored = response; InputStream ignored2 = delegate) {
-                    delete(segmentUri, headers);
+                    acknowledge(ackUri, headers);
                 }
             }
         };

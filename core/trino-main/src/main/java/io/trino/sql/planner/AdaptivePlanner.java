@@ -389,13 +389,19 @@ public class AdaptivePlanner
             }
 
             // Find the sub plans for this exchange node
-            List<PlanNodeId> sourceIds = node.getSources().stream().map(PlanNode::getId).collect(toImmutableList());
+            Set<PlanNodeId> sourceIds = node.getSources().stream().map(PlanNode::getId).collect(toImmutableSet());
             List<SubPlan> sourceSubPlans = context.stream()
                     .filter(subPlan -> sourceIds.contains(subPlan.getFragment().getRoot().getId()))
                     .collect(toImmutableList());
-            verify(
-                    sourceSubPlans.size() == sourceIds.size(),
-                    "Source subPlans not found for exchange node");
+
+            if (sourceSubPlans.size() != sourceIds.size()) {
+                throw new IllegalStateException(
+                        String.format("Source subPlans not found for exchange node %s; sourceIds: %s; filteredSubPlans: %s; allSubPlans: %s",
+                                node.getId(),
+                                sourceIds,
+                                sourceSubPlans.stream().map(subPlan -> subPlan.getFragment().getId() + "->" + subPlan.getFragment().getRoot().getId()).collect(toImmutableList()),
+                                context.stream().map(subPlan -> subPlan.getFragment().getId() + "->" + subPlan.getFragment().getRoot().getId()).collect(toImmutableList())));
+            }
 
             for (SubPlan sourceSubPlan : sourceSubPlans) {
                 PlanNodeId sourceId = sourceSubPlan.getFragment().getRoot().getId();

@@ -29,15 +29,15 @@ class AnnotationEngineAssertions
 
     public static void assertImplementationCount(ParametricImplementationsGroup<?> implementations, int exact, int specialized, int generic)
     {
-        assertThat(implementations.getExactImplementations().size()).isEqualTo(exact);
-        assertThat(implementations.getSpecializedImplementations().size()).isEqualTo(specialized);
-        assertThat(implementations.getGenericImplementations().size()).isEqualTo(generic);
+        assertThat(implementations.getExactImplementations()).hasSize(exact);
+        assertThat(implementations.getSpecializedImplementations()).hasSize(specialized);
+        assertThat(implementations.getGenericImplementations()).hasSize(generic);
     }
 
     public static void assertDependencyCount(ParametricAggregationImplementation implementation, int input, int combine, int output)
     {
-        assertThat(implementation.getInputDependencies().size()).isEqualTo(input);
-        assertThat(implementation.getCombineDependencies().size()).isEqualTo(combine);
-        assertThat(implementation.getOutputDependencies().size()).isEqualTo(output);
+        assertThat(implementation.getInputDependencies()).hasSize(input);
+        assertThat(implementation.getCombineDependencies()).hasSize(combine);
+        assertThat(implementation.getOutputDependencies()).hasSize(output);
     }
 }

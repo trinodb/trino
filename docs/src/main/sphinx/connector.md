@@ -1,12 +1,13 @@
 # Connectors
 
-This section describes the connectors available in Trino to access data
-from different data sources.
+This section describes the connectors available in Trino to access data from
+different [data sources](trino-concept-data-source) by configuring
+[catalogs](trino-concept-catalog) with the connector-specific properties in
+[catalog properties files](catalog-properties).
 
 ```{toctree}
 :maxdepth: 1
 
-Accumulo        <connector/accumulo>
 BigQuery        <connector/bigquery>
 Black Hole      <connector/blackhole>
 Cassandra       <connector/cassandra>
@@ -15,6 +16,7 @@ Delta Lake      <connector/delta-lake>
 Druid           <connector/druid>
 Elasticsearch   <connector/elasticsearch>
 Exasol          <connector/exasol>
+Faker           <connector/faker>
 Google Sheets   <connector/googlesheets>
 Hive            <connector/hive>
 Hudi            <connector/hudi>
@@ -43,4 +45,11 @@ System          <connector/system>
 Thrift          <connector/thrift>
 TPCDS           <connector/tpcds>
 TPCH            <connector/tpch>
+Vertica         <connector/vertica>
+```
+
+```{toctree}
+:hidden:
+
+connector/removed
 ```

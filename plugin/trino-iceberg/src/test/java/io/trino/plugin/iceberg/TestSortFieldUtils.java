@@ -102,7 +102,7 @@ public class TestSortFieldUtils
 
     private static void assertParse(@Language("SQL") String value, SortOrder expected)
     {
-        assertThat(expected.fields().size()).isEqualTo(1);
+        assertThat(expected.fields()).hasSize(1);
         assertThat(parseField(value)).isEqualTo(expected);
     }
 

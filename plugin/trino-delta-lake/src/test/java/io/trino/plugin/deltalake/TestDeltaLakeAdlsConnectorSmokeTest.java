@@ -128,7 +128,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         if (adlsDirectory != null) {
             hiveHadoop.executeInContainerFailOnError("hadoop", "fs", "-rm", "-f", "-r", adlsDirectory);
         }
-        assertThat(azureContainerClient.listBlobsByHierarchy(bucketName + "/").stream()).hasSize(0);
+        assertThat(azureContainerClient.listBlobsByHierarchy(bucketName + "/")).isEmpty();
     }
 
     @Override

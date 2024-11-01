@@ -330,7 +330,7 @@ public abstract class TestAvroBase
                 testRecordsActual.add(genericRecordDataFileReader.next());
             }
         }
-        assertThat(testRecordsExpected.build().size()).isEqualTo(testRecordsActual.build().size());
+        assertThat(testRecordsExpected.build()).hasSize(testRecordsActual.build().size());
         List<GenericRecord> expected = testRecordsExpected.build();
         List<GenericRecord> actual = testRecordsActual.build();
         for (int i = 0; i < expected.size(); i++) {

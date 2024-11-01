@@ -22,6 +22,7 @@ import io.trino.client.ClientSession;
 import io.trino.client.Column;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
+import io.trino.client.spooling.EncodedQueryData;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
@@ -107,6 +108,9 @@ public abstract class AbstractTestingTrinoClient<T>
         try (StatementClient client = statementClientFactory.create(httpClient, session, clientSession, sql)) {
             while (client.isRunning()) {
                 resultsSession.addResults(client.currentStatusInfo(), client.currentRows());
+                if (client.currentData() instanceof EncodedQueryData encodedQueryData) {
+                    resultsSession.setQueryDataEncoding(encodedQueryData.getEncoding());
+                }
                 client.advance();
             }
 

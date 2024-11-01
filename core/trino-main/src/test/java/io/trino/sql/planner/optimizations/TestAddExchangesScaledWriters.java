@@ -183,7 +183,8 @@ public class TestAddExchangesScaledWriters
     @Test
     public void testScaleWritersDisabledForMerge()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 MERGE INTO target_table t USING source_table s
                     ON t.customer = s.customer
                     WHEN MATCHED
@@ -256,7 +257,8 @@ public class TestAddExchangesScaledWriters
     }
 
     @Test
-    public void testScaleWritersEnabledForOptimizeOnUnPartitionedTable() {
+    public void testScaleWritersEnabledForOptimizeOnUnPartitionedTable()
+    {
         assertDistributedPlan(
                 "ALTER TABLE source_table EXECUTE OPTIMIZE(file_size_threshold => '10MB')",
                 Session.builder(getPlanTester().getDefaultSession())

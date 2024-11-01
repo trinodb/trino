@@ -83,6 +83,7 @@ class StatementClientV1
     private final Call.Factory httpCallFactory;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
+    private final AtomicReference<ResultRows> currentRows = new AtomicReference<>();
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
     private final AtomicReference<String> setSchema = new AtomicReference<>();
     private final AtomicReference<List<String>> setPath = new AtomicReference<>();
@@ -257,7 +258,7 @@ class StatementClientV1
     public ResultRows currentRows()
     {
         checkState(isRunning(), "current position is not valid (cursor past end)");
-        return resultRowsDecoder.toRows(currentResults.get());
+        return currentRows.get();
     }
 
     @Override
@@ -511,6 +512,7 @@ class StatementClientV1
         }
 
         currentResults.set(results);
+        currentRows.set(resultRowsDecoder.toRows(results));
     }
 
     private List<String> safeSplitToList(String value)

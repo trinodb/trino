@@ -68,7 +68,7 @@ public class TestJwkDecoder
                 "    }\n" +
                 "  ]\n" +
                 "}");
-        assertThat(keys.size()).isEqualTo(2);
+        assertThat(keys).hasSize(2);
         assertThat(keys.get("example-rsa")).isInstanceOf(JwkRsaPublicKey.class);
         assertThat(keys.get("example-ec")).isInstanceOf(JwkEcPublicKey.class);
     }
@@ -96,7 +96,7 @@ public class TestJwkDecoder
                 "    }\n" +
                 "  ]\n" +
                 "}");
-        assertThat(keys.size()).isEqualTo(0);
+        assertThat(keys).isEmpty();
     }
 
     @Test
@@ -114,7 +114,7 @@ public class TestJwkDecoder
                 "    }\n" +
                 "  ]\n" +
                 "}");
-        assertThat(keys.size()).isEqualTo(0);
+        assertThat(keys).isEmpty();
     }
 
     @Test
@@ -132,7 +132,7 @@ public class TestJwkDecoder
                 "    }\n" +
                 "  ]\n" +
                 "}");
-        assertThat(keys.size()).isEqualTo(0);
+        assertThat(keys).isEmpty();
     }
 
     @Test
@@ -151,7 +151,7 @@ public class TestJwkDecoder
                 "    }\n" +
                 "  ]\n" +
                 "}");
-        assertThat(keys.size()).isEqualTo(0);
+        assertThat(keys).isEmpty();
     }
 
     @Test
@@ -170,7 +170,7 @@ public class TestJwkDecoder
                 "    }\n" +
                 "  ]\n" +
                 "}");
-        assertThat(keys.size()).isEqualTo(0);
+        assertThat(keys).isEmpty();
     }
 
     @Test
@@ -227,7 +227,7 @@ public class TestJwkDecoder
                 "    }\n" +
                 "  ]\n" +
                 "}");
-        assertThat(keys.size()).isEqualTo(1);
+        assertThat(keys).hasSize(1);
         assertThat(keys.get("test-ec")).isInstanceOf(JwkEcPublicKey.class);
     }
 
@@ -246,7 +246,7 @@ public class TestJwkDecoder
                 "    }\n" +
                 "  ]\n" +
                 "}");
-        assertThat(keys.size()).isEqualTo(0);
+        assertThat(keys).isEmpty();
     }
 
     @Test
@@ -264,7 +264,7 @@ public class TestJwkDecoder
                 "    }\n" +
                 "  ]\n" +
                 "}");
-        assertThat(keys.size()).isEqualTo(0);
+        assertThat(keys).isEmpty();
     }
 
     @Test
@@ -282,7 +282,7 @@ public class TestJwkDecoder
                 "    }\n" +
                 "  ]\n" +
                 "}");
-        assertThat(keys.size()).isEqualTo(0);
+        assertThat(keys).isEmpty();
     }
 
     @Test

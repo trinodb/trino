@@ -14,6 +14,7 @@
 package io.trino.server.protocol.spooling;
 
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 
 import java.util.Map;
 import java.util.Set;
@@ -23,26 +24,40 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryDataEncoders
 {
+    private static final Logger LOG = Logger.get(QueryDataEncoders.class);
+
     private final Map<String, QueryDataEncoder.Factory> factories;
+    private final boolean enabled;
 
     @Inject
-    public QueryDataEncoders(Set<QueryDataEncoder.Factory> factories)
+    public QueryDataEncoders(SpoolingEnabledConfig enabledConfig, Set<QueryDataEncoder.Factory> factories)
     {
+        this.enabled = enabledConfig.isEnabled();
         this.factories = requireNonNull(factories, "factories is null")
                 .stream()
                 .map(factory -> Map.entry(factory.encoding(), factory))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        if (enabled) {
+            LOG.info("Spooled client protocol is enabled with encodings: " + getAvailableEncodings());
+        }
     }
 
     public boolean exists(String encoding)
     {
+        if (!enabled) {
+            throw new IllegalStateException("Spooled client protocol is not enabled");
+        }
         return factories.containsKey(encoding);
     }
 
     public QueryDataEncoder.Factory get(String encoding)
     {
+        if (!enabled) {
+            throw new IllegalStateException("Spooled client protocol is not enabled");
+        }
         if (!exists(encoding)) {
-            throw new IllegalArgumentException("Unknown encoding: " + encoding);
+            throw new IllegalArgumentException("Unknown spooled protocol encoding: " + encoding);
         }
 
         return factories.get(encoding);
@@ -50,6 +65,9 @@ public class QueryDataEncoders
 
     public Set<String> getAvailableEncodings()
     {
+        if (!enabled) {
+            throw new IllegalStateException("Spooled client protocol is not enabled");
+        }
         return factories.keySet();
     }
 }

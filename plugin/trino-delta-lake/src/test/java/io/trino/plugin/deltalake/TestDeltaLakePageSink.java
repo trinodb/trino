@@ -121,11 +121,11 @@ public class TestDeltaLakePageSink
                     .map(dataFileInfoCodec::fromJson)
                     .collect(toImmutableList());
 
-            assertThat(dataFileInfos.size()).isEqualTo(1);
+            assertThat(dataFileInfos).hasSize(1);
             DataFileInfo dataFileInfo = dataFileInfos.get(0);
 
             List<File> files = ImmutableList.copyOf(new File(tablePath).listFiles((dir, name) -> !name.endsWith(".crc")));
-            assertThat(files.size()).isEqualTo(1);
+            assertThat(files).hasSize(1);
             File outputFile = files.get(0);
 
             assertThat(round(stats.getInputPageSizeInBytes().getAllTime().getMax())).isEqualTo(page.getRetainedSizeInBytes());

@@ -293,7 +293,7 @@ public class TimeSharingTaskExecutor
     public void removeTask(TaskHandle taskHandle)
     {
         TimeSharingTaskHandle handle = (TimeSharingTaskHandle) taskHandle;
-        try (SetThreadName _ = new SetThreadName("Task-%s", handle.getTaskId())) {
+        try (SetThreadName _ = new SetThreadName("Task-" + handle.getTaskId())) {
             // Skip additional scheduling if the task was already destroyed
             if (!doRemoveTask(handle)) {
                 return;
@@ -542,7 +542,7 @@ public class TimeSharingTaskExecutor
         @Override
         public void run()
         {
-            try (SetThreadName runnerName = new SetThreadName("SplitRunner-%s", runnerId)) {
+            try (SetThreadName runnerName = new SetThreadName("SplitRunner-" + runnerId)) {
                 while (!closed && !Thread.currentThread().isInterrupted()) {
                     // select next worker
                     PrioritizedSplitRunner split;
@@ -555,7 +555,7 @@ public class TimeSharingTaskExecutor
                     }
 
                     String threadId = split.getTaskHandle().getTaskId() + "-" + split.getSplitId();
-                    try (SetThreadName splitName = new SetThreadName(threadId)) {
+                    try (SetThreadName _ = new SetThreadName(threadId)) {
                         RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread(), split.getTaskHandle().getTaskId(), split::getInfo);
                         runningSplitInfos.add(splitInfo);
                         runningSplits.add(split);

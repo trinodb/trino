@@ -80,13 +80,13 @@ public abstract class AbstractFileSystemSpoolingManagerTest
 
     @Test
     public void testHandleRoundTrip()
+            throws IOException
     {
         EncryptionKey key = randomAes256();
-        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", QueryId.valueOf("a"), ULID.randomBinary(), Optional.of(key));
+        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", ULID.randomBinary(), Optional.of(key));
         SpooledLocation location = getSpoolingManager().location(handle);
-        FileSystemSpooledSegmentHandle handle2 = (FileSystemSpooledSegmentHandle) getSpoolingManager().handle(location);
+        FileSystemSpooledSegmentHandle handle2 = (FileSystemSpooledSegmentHandle) getSpoolingManager().handle(location.identifier(), location.headers());
 
-        assertThat(handle.queryId()).isEqualTo(handle2.queryId());
         assertThat(handle.identifier()).isEqualTo(handle2.identifier());
         assertThat(handle.uuid()).isEqualTo(handle2.uuid());
         assertThat(handle.expirationTime()).isEqualTo(handle2.expirationTime());

@@ -130,7 +130,7 @@ public class TestIcebergGlueCatalogSkipArchive
             FileIO io = new ForwardingFileIo(getFileSystemFactory(getDistributedQueryRunner()).create(SESSION));
             TableMetadata metadata = TableMetadataParser.read(io, io.newInputFile(metadataLocation));
             boolean cacheTableMetadata = new IcebergGlueCatalogConfig().isCacheTableMetadata();
-            TableInput tableInput = getTableInput(TESTING_TYPE_MANAGER, table.getName(), Optional.empty(), metadata, metadataLocation, tableParameters, cacheTableMetadata);
+            TableInput tableInput = getTableInput(TESTING_TYPE_MANAGER, table.getName(), Optional.empty(), metadata, metadata.location(), metadataLocation, tableParameters, cacheTableMetadata);
             glueClient.updateTable(new UpdateTableRequest().withDatabaseName(schemaName).withTableInput(tableInput));
             assertThat(getTableVersions(schemaName, table.getName())).hasSize(2);
 

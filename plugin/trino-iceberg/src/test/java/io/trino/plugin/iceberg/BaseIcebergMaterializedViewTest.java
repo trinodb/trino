@@ -434,7 +434,8 @@ public abstract class BaseIcebergMaterializedViewTest
                 .build();
 
         assertUpdate("CREATE TABLE mv_on_expired_base_table AS SELECT 10 a", 1);
-        assertUpdate("""
+        assertUpdate(
+                """
                 CREATE MATERIALIZED VIEW mv_on_expired_the_mv
                 GRACE PERIOD INTERVAL '0' SECOND
                 AS SELECT sum(a) s FROM mv_on_expired_base_table""");
@@ -468,7 +469,8 @@ public abstract class BaseIcebergMaterializedViewTest
     public void testMaterializedViewOnTableRolledBack()
     {
         assertUpdate("CREATE TABLE mv_on_rolled_back_base_table(a integer)");
-        assertUpdate("""
+        assertUpdate(
+                """
                 CREATE MATERIALIZED VIEW mv_on_rolled_back_the_mv
                 GRACE PERIOD INTERVAL '0' SECOND
                 AS SELECT sum(a) s FROM mv_on_rolled_back_base_table""");
@@ -777,7 +779,8 @@ public abstract class BaseIcebergMaterializedViewTest
         String materializedViewName = "test_materialized_view_storage_type_coercion" + randomNameSuffix();
         String sourceTableName = "test_materialized_view_storage" + randomNameSuffix();
 
-        assertUpdate(format("""
+        assertUpdate(format(
+                """
                 CREATE TABLE %s (
                     t_3 time(3),
                     t_9 time(9),
@@ -886,14 +889,14 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM TABLE(mock.system.sequence_function()) CROSS JOIN " + sourceTableName);
 
         List<MaterializedRow> materializedRows = computeActual("SELECT * FROM " + viewName).getMaterializedRows();
-        assertThat(materializedRows.size()).isEqualTo(1);
+        assertThat(materializedRows).hasSize(1);
         assertThat(materializedRows.get(0).getField(1)).isEqualTo(2);
         int valueFromPtf1 = (int) materializedRows.get(0).getField(0);
         assertFreshness(viewName, "STALE");
         assertThat(computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'").getOnlyValue()).isNull();
 
         materializedRows = computeActual("SELECT * FROM " + viewName).getMaterializedRows();
-        assertThat(materializedRows.size()).isEqualTo(1);
+        assertThat(materializedRows).hasSize(1);
         assertThat(materializedRows.get(0).getField(1)).isEqualTo(2);
         int valueFromPtf2 = (int) materializedRows.get(0).getField(0);
         assertThat(valueFromPtf2).isNotEqualTo(valueFromPtf1); // differs because PTF sequence_function is called directly as mv is considered stale
@@ -905,14 +908,14 @@ public abstract class BaseIcebergMaterializedViewTest
         ZonedDateTime lastFreshTime = (ZonedDateTime) computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'").getOnlyValue();
         assertThat(lastFreshTime).isNotNull();
         materializedRows = computeActual("SELECT * FROM " + viewName).getMaterializedRows();
-        assertThat(materializedRows.size()).isEqualTo(1);
+        assertThat(materializedRows).hasSize(1);
         assertThat(materializedRows.get(0).getField(1)).isEqualTo(2);
         int valueFromPtf3 = (int) materializedRows.get(0).getField(0);
         assertThat(valueFromPtf3).isNotEqualTo(valueFromPtf1);
         assertThat(valueFromPtf3).isNotEqualTo(valueFromPtf2);
 
         materializedRows = computeActual("SELECT * FROM " + viewName).getMaterializedRows();
-        assertThat(materializedRows.size()).isEqualTo(1);
+        assertThat(materializedRows).hasSize(1);
         assertThat(materializedRows.get(0).getField(1)).isEqualTo(2);
         int valueFromPtf4 = (int) materializedRows.get(0).getField(0);
         assertThat(valueFromPtf4).isNotEqualTo(valueFromPtf1);
@@ -988,7 +991,8 @@ public abstract class BaseIcebergMaterializedViewTest
 
         Session defaultSession = getSession();
 
-        String matViewDef = """
+        String matViewDef =
+                """
                 SELECT a, b FROM %s a WHERE a.a < 3 UNION ALL
                 SELECT * FROM %s b WHERE b.a > 5""".formatted(sourceTableName, sourceTableName);
 

@@ -210,13 +210,13 @@ public class TestRecordAccess
         assertThat(result.getRowCount()).isEqualTo(uncompressedMessages + compressedMessages);
 
         List<Type> types = result.getTypes();
-        assertThat(types.size()).isEqualTo(5);
+        assertThat(types).hasSize(5);
         assertThat(types.get(0).toString()).isEqualTo("bigint");
         assertThat(types.get(1).toString()).isEqualTo("varchar");
         log.info("Types : %s", types);
 
         List<MaterializedRow> rows = result.getMaterializedRows();
-        assertThat(rows.size()).isEqualTo(uncompressedMessages + compressedMessages);
+        assertThat(rows).hasSize(uncompressedMessages + compressedMessages);
         for (MaterializedRow row : rows) {
             assertThat(row.getFieldCount()).isEqualTo(5);
             assertThat((long) row.getFields().get(0) >= 100).isTrue();

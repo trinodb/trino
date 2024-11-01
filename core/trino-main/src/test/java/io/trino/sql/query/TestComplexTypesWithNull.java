@@ -40,7 +40,8 @@ public class TestComplexTypesWithNull
     @Test
     public void testRowTypeWithNull()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT r.a, r.b, c
                 FROM (VALUES ROW(CAST(ROW(1, NULL) AS ROW(a INTEGER, b INTEGER)))) t(r)
                 JOIN (VALUES 1) u(c) ON c = r.a
@@ -51,7 +52,8 @@ public class TestComplexTypesWithNull
     @Test
     public void testArrayTypeWithNull()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT t.a, t.b, c
                 FROM UNNEST(ARRAY[CAST(ROW(1, NULL) as ROW(a INTEGER, b INTEGER)) ]) t
                 JOIN (VALUES 1) u(c) ON c = t.a
@@ -62,7 +64,8 @@ public class TestComplexTypesWithNull
     @Test
     public void testNestedRowTypeWithNull()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT r.a, r[2].b, r[2].c, c FROM
                 (VALUES ROW(CAST(ROW(1, ROW(1, NULL)) AS ROW(a INTEGER, ROW(b INTEGER, c INTEGER))))) t(r)
                 JOIN (VALUES 1) u(c) ON c = r.a
@@ -73,7 +76,8 @@ public class TestComplexTypesWithNull
     @Test
     public void testNestedArrayTypeWithNull()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT r.a, r.b, c FROM
                 (VALUES CAST(ROW(ROW(1, ARRAY[NULL])) AS ROW(ROW(a INTEGER, b ARRAY(INTEGER))))) t(r)
                 JOIN (VALUES 1) u(c) ON c = r.a

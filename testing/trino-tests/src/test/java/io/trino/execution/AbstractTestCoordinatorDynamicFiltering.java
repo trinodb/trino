@@ -587,9 +587,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         }
 
                         @Override
-                        public void close()
-                        {
-                        }
+                        public void close() {}
 
                         @Override
                         public boolean isFinished()

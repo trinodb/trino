@@ -153,16 +153,12 @@ public class TestKuduConnectorTest
     @Test
     @Disabled
     @Override
-    public void testAddAndDropColumnName()
-    {
-    }
+    public void testAddAndDropColumnName() {}
 
     @Test
     @Disabled
     @Override
-    public void testRenameColumnName()
-    {
-    }
+    public void testRenameColumnName() {}
 
     @Override
     protected MaterializedResult getDescribeOrdersResult()

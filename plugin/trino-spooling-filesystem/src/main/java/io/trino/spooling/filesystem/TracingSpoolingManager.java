@@ -13,6 +13,7 @@
  */
 package io.trino.spooling.filesystem;
 
+import io.airlift.slice.Slice;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
@@ -28,7 +29,10 @@ import io.trino.spi.protocol.SpoolingManager;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.opentelemetry.api.common.AttributeKey.longKey;
 import static io.opentelemetry.api.common.AttributeKey.stringKey;
@@ -87,23 +91,23 @@ public class TracingSpoolingManager
     }
 
     @Override
-    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
+    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle, OptionalInt ttlSeconds)
             throws IOException
     {
-        return withTracing(span(tracer, handle, "directLocation"), () -> delegate.directLocation(handle));
+        return withTracing(span(tracer, handle, "directLocation"), () -> delegate.directLocation(handle, ttlSeconds));
     }
 
-    // Methods below do not need to be traced as they are not doing any I/O
     @Override
     public SpooledLocation location(SpooledSegmentHandle handle)
+            throws IOException
     {
-        return delegate.location(handle);
+        return withTracing(span(tracer, handle, "location"), () -> delegate.location(handle));
     }
 
     @Override
-    public SpooledSegmentHandle handle(SpooledLocation location)
+    public SpooledSegmentHandle handle(Slice identifier, Map<String, List<String>> headers)
     {
-        return delegate.handle(location);
+        return delegate.handle(identifier, headers);
     }
 
     public static <E extends Exception> void withTracing(Span span, CheckedRunnable<E> runnable)
@@ -120,7 +124,6 @@ public class TracingSpoolingManager
         return tracer
                 .spanBuilder("SpoolingManager." + name)
                 .setAttribute(SEGMENT_ID, handle.identifier())
-                .setAttribute(SEGMENT_QUERY_ID, handle.queryId().toString())
                 .setAttribute(SEGMENT_ENCODING, handle.encoding())
                 .setAttribute(SEGMENT_EXPIRATION, handle.expirationTime().toString())
                 .startSpan();

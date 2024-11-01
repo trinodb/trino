@@ -187,9 +187,7 @@ public class UuidColumnReader
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 
     @Override
     public long getRetainedSizeInBytes()

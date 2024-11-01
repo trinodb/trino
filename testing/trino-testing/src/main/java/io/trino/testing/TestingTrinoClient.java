@@ -129,7 +129,7 @@ public class TestingTrinoClient
 
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
         private final AtomicReference<List<String>> columnNames = new AtomicReference<>();
-
+        private final AtomicReference<String> queryDataEncoding = new AtomicReference<>();
         private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
         private final AtomicReference<List<Warning>> warnings = new AtomicReference<>(ImmutableList.of());
@@ -176,6 +176,12 @@ public class TestingTrinoClient
         }
 
         @Override
+        public void setQueryDataEncoding(String encoding)
+        {
+            queryDataEncoding.set(encoding);
+        }
+
+        @Override
         public MaterializedResult build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties)
         {
             checkState(types.get() != null, "never received types for the query");
@@ -183,6 +189,7 @@ public class TestingTrinoClient
                     rows.build(),
                     types.get(),
                     columnNames.get(),
+                    Optional.ofNullable(queryDataEncoding.get()),
                     setSessionProperties,
                     resetSessionProperties,
                     updateType.get(),

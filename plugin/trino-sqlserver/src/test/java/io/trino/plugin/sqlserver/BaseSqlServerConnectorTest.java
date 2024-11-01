@@ -809,7 +809,8 @@ public abstract class BaseSqlServerConnectorTest
     {
         try (TestTable sourceTable = new TestTable(onRemoteDatabase(), "source_table", "(id BIGINT)", ImmutableList.of("1", "2", "3"));
                 TestTable targetTable = new TestTable(onRemoteDatabase(), "destination_table", "(id BIGINT)", ImmutableList.of("3", "4", "5"))) {
-            String mergeQuery = """
+            String mergeQuery =
+                    """
                     MERGE %s AS TARGET USING %s AS SOURCE
                     ON (TARGET.id = SOURCE.id)
                     WHEN NOT MATCHED BY TARGET

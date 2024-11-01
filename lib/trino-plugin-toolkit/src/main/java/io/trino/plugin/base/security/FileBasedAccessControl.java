@@ -189,9 +189,7 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanShowSchemas(ConnectorSecurityContext context)
-    {
-    }
+    public void checkCanShowSchemas(ConnectorSecurityContext context) {}
 
     @Override
     public Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
@@ -650,9 +648,7 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
-    {
-    }
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure) {}
 
     @Override
     public boolean canExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)

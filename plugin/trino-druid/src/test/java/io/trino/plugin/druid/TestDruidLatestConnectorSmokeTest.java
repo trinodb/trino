@@ -73,7 +73,8 @@ public class TestDruidLatestConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE region").getOnlyValue())
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE TABLE druid.druid.region (
                            __time timestamp(3) NOT NULL,
                            comment varchar,

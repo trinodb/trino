@@ -29,21 +29,24 @@ public final class TestConstants
 {
     private TestConstants() {}
 
-    public static final HttpClientUtils.MockResponse OK_RESPONSE = new HttpClientUtils.MockResponse("""
+    public static final HttpClientUtils.MockResponse OK_RESPONSE = new HttpClientUtils.MockResponse(
+            """
             {
                 "decision_id": "",
                 "result": true
             }
             """,
             200);
-    public static final HttpClientUtils.MockResponse NO_ACCESS_RESPONSE = new HttpClientUtils.MockResponse("""
+    public static final HttpClientUtils.MockResponse NO_ACCESS_RESPONSE = new HttpClientUtils.MockResponse(
+            """
             {
                 "decision_id": "",
                 "result": false
             }
             """,
             200);
-    public static final HttpClientUtils.MockResponse MALFORMED_RESPONSE = new HttpClientUtils.MockResponse("""
+    public static final HttpClientUtils.MockResponse MALFORMED_RESPONSE = new HttpClientUtils.MockResponse(
+            """
             { "this"": is broken_json; }
             """,
             200);

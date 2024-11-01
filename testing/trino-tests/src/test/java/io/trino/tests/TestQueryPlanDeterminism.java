@@ -182,29 +182,19 @@ public class TestQueryPlanDeterminism
     }
 
     @Override
-    protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
-    {
-    }
+    protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges) {}
 
     @Override
-    protected void assertAccessAllowed(Session session, @Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
-    {
-    }
+    protected void assertAccessAllowed(Session session, @Language("SQL") String sql, TestingPrivilege... deniedPrivileges) {}
 
     @Override
-    protected void assertAccessDenied(@Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilege... deniedPrivileges)
-    {
-    }
+    protected void assertAccessDenied(@Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilege... deniedPrivileges) {}
 
     @Override
-    protected void assertAccessDenied(Session session, @Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilege... deniedPrivileges)
-    {
-    }
+    protected void assertAccessDenied(Session session, @Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilege... deniedPrivileges) {}
 
     @Override
-    protected void assertTableColumnNames(String tableName, String... columnNames)
-    {
-    }
+    protected void assertTableColumnNames(String tableName, String... columnNames) {}
 
     @Override
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)

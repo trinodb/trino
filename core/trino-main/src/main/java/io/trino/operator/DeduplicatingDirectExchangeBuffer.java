@@ -803,9 +803,7 @@ public class DeduplicatingDirectExchangeBuffer
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
     }
 
     @NotThreadSafe

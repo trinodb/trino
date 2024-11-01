@@ -539,7 +539,8 @@ public class TestConditions
     @Test
     public void testSearchCase()
     {
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when value then 33
                         end
@@ -547,7 +548,8 @@ public class TestConditions
                 .binding("value", "true"))
                 .matches("33");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when value then BIGINT '33'
                         end
@@ -555,7 +557,8 @@ public class TestConditions
                 .binding("value", "true"))
                 .matches("BIGINT '33'");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when value then 1
                             else 33
@@ -564,7 +567,8 @@ public class TestConditions
                 .binding("value", "false"))
                 .matches("33");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when value then 10000000000
                             else 33
@@ -573,7 +577,8 @@ public class TestConditions
                 .binding("value", "false"))
                 .matches("BIGINT '33'");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when condition1 then 1
                             when condition2 then 1
@@ -586,7 +591,8 @@ public class TestConditions
                 .binding("condition3", "true"))
                 .matches("33");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when condition1 then BIGINT '1'
                             when condition2 then 1
@@ -599,7 +605,8 @@ public class TestConditions
                 .binding("condition3", "true"))
                 .matches("BIGINT '33'");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when condition1 then 10000000000
                             when condition2 then 1
@@ -612,7 +619,8 @@ public class TestConditions
                 .binding("condition3", "true"))
                 .matches("BIGINT '33'");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when value then 1
                         end
@@ -620,7 +628,8 @@ public class TestConditions
                 .binding("value", "false"))
                 .matches("CAST(null AS integer)");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when value then null
                             else 'foo'
@@ -629,7 +638,8 @@ public class TestConditions
                 .binding("value", "true"))
                 .isNull(createVarcharType(3));
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when condition1 then 1
                             when condition2 then 33
@@ -639,7 +649,8 @@ public class TestConditions
                 .binding("condition2", "true"))
                 .matches("33");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when condition1 then 10000000000
                             when condition2 then 33
@@ -649,7 +660,8 @@ public class TestConditions
                 .binding("condition2", "true"))
                 .matches("BIGINT '33'");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when condition1 then 1.0E0
                             when condition2 then 33
@@ -659,7 +671,8 @@ public class TestConditions
                 .binding("condition2", "true"))
                 .matches("33E0");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when condition1 then 2.2
                             when condition2 then 2.2
@@ -670,7 +683,8 @@ public class TestConditions
                 .hasType(createDecimalType(2, 1))
                 .matches("2.2");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when condition1 then 1234567890.0987654321
                             when condition2 then 3.3
@@ -680,7 +694,8 @@ public class TestConditions
                 .binding("condition2", "true"))
                 .matches("CAST(3.3 AS decimal(20, 10))");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when condition1 then 1
                             when condition2 then 2.2
@@ -690,7 +705,8 @@ public class TestConditions
                 .binding("condition2", "true"))
                 .matches("CAST(2.2 AS decimal(11, 1))");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case
                             when condition1 then 1.1
                             when condition2 then 33E0
@@ -704,7 +720,8 @@ public class TestConditions
     @Test
     public void testSimpleCase()
     {
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition then CAST(null AS varchar)
                             else 'foo'
@@ -714,7 +731,8 @@ public class TestConditions
                 .binding("condition", "true"))
                 .matches("CAST(null AS varchar)");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition then 33
                         end
@@ -723,7 +741,8 @@ public class TestConditions
                 .binding("condition", "true"))
                 .matches("33");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition then BIGINT '33'
                         end
@@ -732,7 +751,8 @@ public class TestConditions
                 .binding("condition", "true"))
                 .matches("BIGINT '33'");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition then 1
                             else 33
@@ -742,7 +762,8 @@ public class TestConditions
                 .binding("condition", "false"))
                 .matches("33");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition then 10000000000
                             else 33
@@ -752,7 +773,8 @@ public class TestConditions
                 .binding("condition", "false"))
                 .matches("BIGINT '33'");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition1 then 1
                             when condition2 then 1
@@ -766,7 +788,8 @@ public class TestConditions
                 .binding("condition3", "true"))
                 .matches("33");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition then 1
                         end
@@ -775,7 +798,8 @@ public class TestConditions
                 .binding("condition", "false"))
                 .isNull(INTEGER);
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition then null
                             else 'foo'
@@ -785,7 +809,8 @@ public class TestConditions
                 .binding("condition", "true"))
                 .isNull(createVarcharType(3));
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition1 then 10000000000
                             when condition2 then 33
@@ -796,7 +821,8 @@ public class TestConditions
                 .binding("condition2", "true"))
                 .matches("BIGINT '33'");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition1 then 1
                             when condition2 then 33
@@ -807,7 +833,8 @@ public class TestConditions
                 .binding("condition2", "true"))
                 .matches("33");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition then 1
                             else 33
@@ -817,7 +844,8 @@ public class TestConditions
                 .binding("condition", "true"))
                 .matches("33");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition1 then 1E0
                             when condition2 then 33
@@ -828,7 +856,8 @@ public class TestConditions
                 .binding("condition2", "true"))
                 .matches("33E0");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition1 then 2.2
                             when condition2 then 2.2
@@ -839,7 +868,8 @@ public class TestConditions
                 .binding("condition2", "true"))
                 .matches("2.2");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition1 then 1234567890.0987654321
                             when condition2 then 3.3
@@ -850,7 +880,8 @@ public class TestConditions
                 .binding("condition2", "true"))
                 .matches("CAST(3.3 AS decimal(20, 10))");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition1 then 1
                             when condition2 then 2.2
@@ -861,7 +892,8 @@ public class TestConditions
                 .binding("condition2", "true"))
                 .matches("CAST(2.2 AS decimal(11, 1))");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition1 then 1.1
                             when condition2 then 33E0
@@ -872,7 +904,8 @@ public class TestConditions
                 .binding("condition2", "true"))
                 .matches("33E0");
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition1 then result1
                             when condition2 then result2
@@ -889,7 +922,8 @@ public class TestConditions
     @Test
     public void testSimpleCaseWithCoercions()
     {
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition1 then 1
                             when condition2 then 2
@@ -900,7 +934,8 @@ public class TestConditions
                 .binding("condition2", "real '8.1'"))
                 .isNull(INTEGER);
 
-        assertThat(assertions.expression("""
+        assertThat(assertions.expression(
+                        """
                         case value
                             when condition1 then 1
                             when condition2 then 2

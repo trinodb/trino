@@ -69,7 +69,7 @@ public class TestTransactionManager
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
-            assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
+            assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
             TransactionInfo transactionInfo = transactionManager.getTransactionInfo(transactionId);
             assertThat(transactionInfo.isAutoCommitContext()).isFalse();
             assertThat(transactionInfo.getCatalogNames()).isEmpty();
@@ -98,7 +98,7 @@ public class TestTransactionManager
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
-            assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
+            assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
             TransactionInfo transactionInfo = transactionManager.getTransactionInfo(transactionId);
             assertThat(transactionInfo.isAutoCommitContext()).isFalse();
             assertThat(transactionInfo.getCatalogNames()).isEmpty();
@@ -127,7 +127,7 @@ public class TestTransactionManager
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
-            assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
+            assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
             TransactionInfo transactionInfo = transactionManager.getTransactionInfo(transactionId);
             assertThat(transactionInfo.isAutoCommitContext()).isFalse();
             assertThat(transactionInfo.getCatalogNames()).isEmpty();
@@ -140,12 +140,12 @@ public class TestTransactionManager
             assertThat(transactionInfo.getWrittenCatalogName()).isEmpty();
 
             transactionManager.fail(transactionId);
-            assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
+            assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
 
             assertTrinoExceptionThrownBy(() -> transactionManager.getCatalogMetadata(transactionId, TEST_CATALOG_HANDLE))
                     .hasErrorCode(TRANSACTION_ALREADY_ABORTED);
 
-            assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
+            assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
 
             getFutureValue(transactionManager.asyncAbort(transactionId));
 
@@ -167,7 +167,7 @@ public class TestTransactionManager
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
-            assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
+            assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
             TransactionInfo transactionInfo = transactionManager.getTransactionInfo(transactionId);
             assertThat(transactionInfo.isAutoCommitContext()).isFalse();
             assertThat(transactionInfo.getCatalogNames()).isEmpty();

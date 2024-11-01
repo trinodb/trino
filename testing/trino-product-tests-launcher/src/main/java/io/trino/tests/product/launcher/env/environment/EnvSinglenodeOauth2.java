@@ -27,7 +27,7 @@ import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_LOGGING_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -60,7 +60,7 @@ public class EnvSinglenodeOauth2
                             CONTAINER_TRINO_CONFIG_PROPERTIES)
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("log.properties")),
-                            CONTAINER_TRINO_ETC + "/log.properties");
+                            CONTAINER_TRINO_LOGGING_CONFIG);
 
             binder.exposePort(dockerContainer, 7778);
         });

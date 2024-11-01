@@ -34,9 +34,7 @@ public class FinishedOperator
     }
 
     @Override
-    public void finish()
-    {
-    }
+    public void finish() {}
 
     @Override
     public boolean isFinished()

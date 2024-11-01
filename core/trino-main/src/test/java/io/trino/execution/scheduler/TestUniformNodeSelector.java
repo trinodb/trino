@@ -158,7 +158,7 @@ public class TestUniformNodeSelector
             taskMap.put(node, remoteTask);
         }
         Set<Split> unassignedSplits = Sets.difference(splits, new HashSet<>(assignments1.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(18);
+        assertThat(unassignedSplits).hasSize(18);
         // It's possible to add new assignments because split queue was upscaled
         Multimap<InternalNode, Split> assignments2 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         assertThat(assignments2.size()).isEqualTo(2);
@@ -206,7 +206,7 @@ public class TestUniformNodeSelector
             taskMap.put(node, remoteTask);
         }
         Set<Split> unassignedSplits = Sets.difference(splits, new HashSet<>(assignments1.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(140);
+        assertThat(unassignedSplits).hasSize(140);
 
         // assign splits, mark all splits running to trigger adjustment
         Multimap<InternalNode, Split> assignments2 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
@@ -218,7 +218,7 @@ public class TestUniformNodeSelector
             remoteTask.startSplits(remoteTask.getPartitionedSplitsInfo().getCount()); // mark all task running
         }
         unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments2.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(100); // 140 (unassigned splits) - (2 (queue size adjustment) * 10 (minPendingSplitsPerTask)) * 2 (nodes)
+        assertThat(unassignedSplits).hasSize(100); // 140 (unassigned splits) - (2 (queue size adjustment) * 10 (minPendingSplitsPerTask)) * 2 (nodes)
 
         // assign splits without setting all splits running
         Multimap<InternalNode, Split> assignments3 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
@@ -229,12 +229,12 @@ public class TestUniformNodeSelector
                     .build());
         }
         unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments3.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(20); // 100 (unassigned splits) - (4 (queue size adjustment) * 10 (minPendingSplitsPerTask)) * 2 (nodes)
+        assertThat(unassignedSplits).hasSize(20); // 100 (unassigned splits) - (4 (queue size adjustment) * 10 (minPendingSplitsPerTask)) * 2 (nodes)
 
         // compute assignments with exhausted nodes
         Multimap<InternalNode, Split> assignments4 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments4.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(20); // no new split assignments, queued are more than 0
+        assertThat(unassignedSplits).hasSize(20); // no new split assignments, queued are more than 0
     }
 
     @Test
@@ -260,7 +260,7 @@ public class TestUniformNodeSelector
             taskMap.put(node, remoteTask);
         }
         Set<Split> unassignedSplits = Sets.difference(splits, new HashSet<>(assignments1.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(140);
+        assertThat(unassignedSplits).hasSize(140);
 
         // assign splits, mark all splits for node1 running to trigger adjustment
         Multimap<InternalNode, Split> assignments2 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
@@ -274,8 +274,8 @@ public class TestUniformNodeSelector
             }
         }
         unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments2.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(120);
-        assertThat(assignments2.get(node1).size()).isEqualTo(20); // 2x max pending
+        assertThat(unassignedSplits).hasSize(120);
+        assertThat(assignments2.get(node1)).hasSize(20); // 2x max pending
         assertThat(assignments2.containsKey(node2)).isFalse();
 
         // assign splits, mark all splits for node1 running to trigger adjustment
@@ -290,8 +290,8 @@ public class TestUniformNodeSelector
             }
         }
         unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments3.values()));
-        assertThat(unassignedSplits.size()).isEqualTo(80);
-        assertThat(assignments3.get(node1).size()).isEqualTo(40); // 4x max pending
+        assertThat(unassignedSplits).hasSize(80);
+        assertThat(assignments3.get(node1)).hasSize(40); // 4x max pending
         assertThat(assignments2.containsKey(node2)).isFalse();
     }
 

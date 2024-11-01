@@ -41,7 +41,6 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
@@ -55,9 +54,7 @@ public final class OperatorAssertion
     private static final Duration BLOCKED_DEFAULT_TIMEOUT = new Duration(10, MILLISECONDS);
     private static final Duration UNBLOCKED_DEFAULT_TIMEOUT = new Duration(1, SECONDS);
 
-    private OperatorAssertion()
-    {
-    }
+    private OperatorAssertion() {}
 
     public static List<Page> toPages(Operator operator, Iterator<Page> input)
     {
@@ -214,7 +211,7 @@ public final class OperatorAssertion
     public static void assertOperatorEquals(OperatorFactory operatorFactory, List<Type> types, DriverContext driverContext, List<Page> input, List<Page> expected)
     {
         List<Page> actual = toPages(operatorFactory, driverContext, input);
-        assertThat(actual.size()).isEqualTo(expected.size());
+        assertThat(actual).hasSize(expected.size());
         for (int i = 0; i < actual.size(); i++) {
             assertPageEquals(types, actual.get(i), expected.get(i));
         }
@@ -349,7 +346,7 @@ public final class OperatorAssertion
             actualPages = dropChannel(actualPages, ImmutableList.of(hashChannel.get()));
         }
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), actualPages);
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
     }
 
     public static void assertOperatorIsBlocked(Operator operator)

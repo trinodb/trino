@@ -105,18 +105,18 @@ public class TestPinotConnectorTest
     protected @Language("SQL") String getOrdersTableWithColumns()
     {
         return """
-                VALUES
-                    ('orders', 'orderkey'),
-                    ('orders', 'custkey'),
-                    ('orders', 'orderstatus'),
-                    ('orders', 'totalprice'),
-                    ('orders', 'orderdate'),
-                    ('orders', 'updated_at_seconds'),
-                    ('orders', 'orderpriority'),
-                    ('orders', 'clerk'),
-                    ('orders', 'shippriority'),
-                    ('orders', 'comment')
-                """;
+               VALUES
+                   ('orders', 'orderkey'),
+                   ('orders', 'custkey'),
+                   ('orders', 'orderstatus'),
+                   ('orders', 'totalprice'),
+                   ('orders', 'orderdate'),
+                   ('orders', 'updated_at_seconds'),
+                   ('orders', 'orderpriority'),
+                   ('orders', 'clerk'),
+                   ('orders', 'shippriority'),
+                   ('orders', 'comment')
+               """;
     }
 
     @Test
@@ -124,7 +124,8 @@ public class TestPinotConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE TABLE pinot.default.orders (
                            clerk varchar,
                            comment varchar,

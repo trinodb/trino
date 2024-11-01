@@ -51,7 +51,8 @@ public class TestJoin
     @Test
     public void testCrossJoinEliminationWithOuterJoin()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 WITH
                   a AS (SELECT id FROM (VALUES (1)) AS t(id)),
                   b AS (SELECT id FROM (VALUES (1)) AS t(id)),
@@ -69,7 +70,8 @@ public class TestJoin
     @Test
     public void testSingleRowNonDeterministicSource()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 WITH data(id) AS (SELECT uuid())
                 SELECT COUNT(DISTINCT id)
                 FROM (VALUES 1, 2, 3, 4, 5, 6, 7, 8)
@@ -81,7 +83,8 @@ public class TestJoin
     @Test
     public void testJoinOnNan()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 WITH t(x) AS (VALUES nan())
                 SELECT * FROM t t1 JOIN t t2 ON NOT t1.x < t2.x
                 """))
@@ -98,7 +101,8 @@ public class TestJoin
         // with the terms flipped (i.e., CASE ... END = CAST(...)). Because NullabilityAnalyzer.mayReturnNullOnNonNullInput
         // could return an inconsistent result for both forms, the expression ended being dropped
         // from the join clause.
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 WITH
                     t1 (id, v) as (
                         VALUES
@@ -119,7 +123,8 @@ public class TestJoin
     public void testAliasingOfNullCasts()
     {
         // Test for https://github.com/trinodb/trino/issues/13565
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 WITH t AS (
                     SELECT CAST(null AS varchar) AS x, CAST(null AS varchar) AS y
                     FROM (VALUES 1) t(a) JOIN (VALUES 1) u(a) USING (a))
@@ -135,7 +140,8 @@ public class TestJoin
     public void testInPredicateInJoinCriteria()
     {
         // IN with subquery containing column references
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 WITH
                     t(x, y) AS (VALUES (1, 10), (2, 20)),
                     u(x) AS (VALUES 1, 2),
@@ -284,7 +290,8 @@ public class TestJoin
     @Test
     public void testPredicateOverOuterJoin()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT 5
                 FROM (VALUES (1,'foo')) l(l1, l2)
                 LEFT JOIN (VALUES (2,'bar')) r(r1, r2)
@@ -293,7 +300,8 @@ public class TestJoin
                 """))
                 .matches("VALUES 5");
 
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT 5
                 FROM (VALUES (2,'foo')) l(l1, l2)
                 RIGHT JOIN (VALUES (1,'bar')) r(r1, r2)

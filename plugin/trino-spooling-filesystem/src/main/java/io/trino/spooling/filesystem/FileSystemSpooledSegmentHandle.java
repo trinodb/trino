@@ -15,7 +15,6 @@ package io.trino.spooling.filesystem;
 
 import io.azam.ulidj.ULID;
 import io.trino.filesystem.encryption.EncryptionKey;
-import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledSegmentHandle;
 import io.trino.spi.protocol.SpoolingContext;
 
@@ -29,14 +28,12 @@ import static java.util.Objects.requireNonNull;
 
 public record FileSystemSpooledSegmentHandle(
         @Override String encoding,
-        @Override QueryId queryId,
         byte[] uuid,
         Optional<EncryptionKey> encryptionKey)
         implements SpooledSegmentHandle
 {
     public FileSystemSpooledSegmentHandle
     {
-        requireNonNull(queryId, "queryId is null");
         requireNonNull(encryptionKey, "encryptionKey is null");
         verify(uuid.length == 16, "uuid must be 128 bits");
     }
@@ -50,7 +47,6 @@ public record FileSystemSpooledSegmentHandle(
     {
         return new FileSystemSpooledSegmentHandle(
                 context.encoding(),
-                context.queryId(),
                 ULID.generateBinary(expireAt.toEpochMilli(), entropy(random)),
                 encryptionKey);
     }
@@ -87,7 +83,6 @@ public record FileSystemSpooledSegmentHandle(
     public String toString()
     {
         return toStringHelper(this)
-                .add("queryId", queryId)
                 .add("encoding", encoding)
                 .add("expires", Instant.ofEpochMilli(ULID.getTimestampBinary(uuid)))
                 .add("identifier", identifier())

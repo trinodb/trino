@@ -286,7 +286,7 @@ public class MigrateProcedure
         for (Column column : columns) {
             int index = icebergColumns.size();
             org.apache.iceberg.types.Type type = toIcebergType(typeManager.getType(getTypeSignature(column.getType(), MILLISECONDS)), nextFieldId, storageFormat);
-            Types.NestedField field = Types.NestedField.of(index, false, column.getName(), type, column.getComment().orElse(null));
+            Types.NestedField field = Types.NestedField.optional(index, column.getName(), type, column.getComment().orElse(null));
             icebergColumns.add(field);
         }
 

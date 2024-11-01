@@ -194,12 +194,13 @@ public class TestHiveMetadataListing
         String withSchemaFilter = format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", DATABASE_NAME);
         assertQuery(withSchemaFilter,
                 """
-                        VALUES ('correct_view'),
-                        ('failing_general_view'),
-                        ('failing_storage_descriptor_view'),
-                        ('correct_table'),
-                        ('failing_serde_info_table'),
-                        ('failing_general_table')""");
+                VALUES ('correct_view'),
+                ('failing_general_view'),
+                ('failing_storage_descriptor_view'),
+                ('correct_table'),
+                ('failing_serde_info_table'),
+                ('failing_general_table')\
+                """);
 
         String withSchemaAndCorrectTableFilter = format(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'",

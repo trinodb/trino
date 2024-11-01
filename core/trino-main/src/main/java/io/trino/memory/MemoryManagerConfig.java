@@ -166,7 +166,8 @@ public class MemoryManagerConfig
         return faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit;
     }
 
-    @Config("fault-tolerant-execution-eager-speculative-tasks-node_memory-overcommit")
+    @Config("fault-tolerant-execution-eager-speculative-tasks-node-memory-overcommit")
+    @LegacyConfig("fault-tolerant-execution-eager-speculative-tasks-node_memory-overcommit")
     public MemoryManagerConfig setFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(DataSize faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit)
     {
         this.faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit = faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit;

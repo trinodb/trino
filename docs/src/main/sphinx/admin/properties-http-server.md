@@ -159,3 +159,34 @@ Configuration properties for the `PASSWORD` authentication types
 ### `http-server.log.*`
 
 Configuration properties for [](/admin/properties-logging).
+
+(props-internal-communication)
+## Internal communication
+
+The following properties are used for configuring the [internal
+communication](/security/internal-communication) between all
+[nodes](trino-concept-node) of a Trino cluster.
+
+### `internal-communication.shared-secret`
+
+- **Type:** [](prop-type-string)
+
+The string to use as secret that only the coordinators and workers in a specific
+cluster share and use to authenticate within the cluster. See
+[](internal-secret) for details.
+
+### `internal-communication.http2.enabled`
+
+- **Type:** [](prop-type-boolean)
+- **Default value:** `true`
+
+Enable use of the HTTP/2 protocol for internal communication for enhanced
+scalability compared to HTTP/1.1. Only turn this feature off if you encounter
+issues with HTTP/2 usage within the cluster in your deployment.
+
+### `internal-communication.https.required`
+
+- **Type:** [](prop-type-boolean)
+- **Default value:** `false`
+
+Enable the use of [SSL/TLS for all internal communication](internal-tls).

@@ -22,9 +22,7 @@ public class NoOpFailureInjector
         implements FailureInjector
 {
     @Override
-    public void injectTaskFailure(String traceToken, int stageId, int partitionId, int attemptId, InjectedFailureType injectionType, Optional<ErrorType> errorType)
-    {
-    }
+    public void injectTaskFailure(String traceToken, int stageId, int partitionId, int attemptId, InjectedFailureType injectionType, Optional<ErrorType> errorType) {}
 
     @Override
     public Optional<InjectedFailure> getInjectedFailure(String traceToken, int stageId, int partitionId, int attemptId)

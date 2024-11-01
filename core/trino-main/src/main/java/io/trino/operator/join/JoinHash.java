@@ -163,7 +163,5 @@ public final class JoinHash
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 }

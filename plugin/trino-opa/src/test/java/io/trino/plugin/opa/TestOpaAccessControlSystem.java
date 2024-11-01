@@ -61,7 +61,8 @@ public class TestOpaAccessControlSystem
         public void testAllowsQueryAndFilters()
                 throws IOException, InterruptedException
         {
-            OPA_CONTAINER.submitPolicy("""
+            OPA_CONTAINER.submitPolicy(
+                    """
                     package trino
                     import future.keywords.in
                     import future.keywords.if
@@ -97,7 +98,8 @@ public class TestOpaAccessControlSystem
         public void testShouldDenyQueryIfDirected()
                 throws IOException, InterruptedException
         {
-            OPA_CONTAINER.submitPolicy("""
+            OPA_CONTAINER.submitPolicy(
+                    """
                     package trino
                     import future.keywords.in
                     default allow = false
@@ -139,7 +141,8 @@ public class TestOpaAccessControlSystem
         public void testFilterOutItemsBatch()
                 throws IOException, InterruptedException
         {
-            OPA_CONTAINER.submitPolicy("""
+            OPA_CONTAINER.submitPolicy(
+                    """
                     package trino
                     import future.keywords.in
                     import future.keywords.if
@@ -183,7 +186,8 @@ public class TestOpaAccessControlSystem
         public void testDenyUnbatchedQuery()
                 throws IOException, InterruptedException
         {
-            OPA_CONTAINER.submitPolicy("""
+            OPA_CONTAINER.submitPolicy(
+                    """
                     package trino
                     import future.keywords.in
                     default allow = false
@@ -197,7 +201,8 @@ public class TestOpaAccessControlSystem
         public void testAllowUnbatchedQuery()
                 throws IOException, InterruptedException
         {
-            OPA_CONTAINER.submitPolicy("""
+            OPA_CONTAINER.submitPolicy(
+                    """
                     package trino
                     import future.keywords.in
                     default allow = false

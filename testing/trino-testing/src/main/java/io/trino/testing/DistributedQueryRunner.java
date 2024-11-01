@@ -914,7 +914,7 @@ public class DistributedQueryRunner
                 addExtraProperty("protocol.spooling.maximum-segment-size", "32MB");
                 addExtraProperty("protocol.spooling.shared-secret-key", randomAESKey());
                 // LocalSpoolingManager doesn't support direct storage access
-                addExtraProperty("protocol.spooling.direct-storage-access", "false");
+                addExtraProperty("protocol.spooling.retrieval-mode", "coordinator_proxy");
                 setAdditionalSetup(queryRunner -> {
                     queryRunner.installPlugin(new LocalSpoolingPlugin());
                     queryRunner.loadSpoolingManager("test-local", Map.of());

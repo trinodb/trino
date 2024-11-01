@@ -56,7 +56,8 @@ public class TestOpaBatchAccessControlFiltering
         Identity identityTwo = Identity.ofUser("user-two");
         Identity identityThree = Identity.ofUser("user-three");
 
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "FilterViewQueryOwnedBy",
                     "filterResources": [
@@ -79,7 +80,8 @@ public class TestOpaBatchAccessControlFiltering
                             }
                         }
                     ]
-                }""";
+                }\
+                """;
         assertAccessControlMethodBehaviour(
                 (accessControl, systemSecurityContext, identities) -> accessControl.filterViewQueryOwnedBy(systemSecurityContext.getIdentity(), identities),
                 identityOne,
@@ -91,7 +93,8 @@ public class TestOpaBatchAccessControlFiltering
     @Test
     public void testFilterCatalogs()
     {
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "FilterCatalogs",
                     "filterResources": [
@@ -111,7 +114,8 @@ public class TestOpaBatchAccessControlFiltering
                             }
                         }
                     ]
-                }""";
+                }\
+                """;
         assertAccessControlMethodBehaviour(
                 OpaAccessControl::filterCatalogs, "catalog_one", "catalog_two", "catalog_three", ImmutableSet.of(expectedRequest));
     }
@@ -119,7 +123,8 @@ public class TestOpaBatchAccessControlFiltering
     @Test
     public void testFilterSchemas()
     {
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "FilterSchemas",
                     "filterResources": [
@@ -142,7 +147,8 @@ public class TestOpaBatchAccessControlFiltering
                             }
                         }
                     ]
-                }""";
+                }\
+                """;
         assertAccessControlMethodBehaviour(
                 (accessControl, systemSecurityContext, items) -> accessControl.filterSchemas(systemSecurityContext, "my_catalog", items),
                 "schema_one",
@@ -154,7 +160,8 @@ public class TestOpaBatchAccessControlFiltering
     @Test
     public void testFilterTables()
     {
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "FilterTables",
                     "filterResources": [
@@ -180,7 +187,8 @@ public class TestOpaBatchAccessControlFiltering
                             }
                         }
                     ]
-                }""";
+                }\
+                """;
         assertAccessControlMethodBehaviour(
                 (accessControl, systemSecurityContext, items) -> accessControl.filterTables(systemSecurityContext, "my_catalog", items),
                 new SchemaTableName("schema_one", "table_one"),
@@ -208,7 +216,7 @@ public class TestOpaBatchAccessControlFiltering
                         TEST_IDENTITY,
                         parsedRequest -> {
                             String tableName = parsedRequest.at("/input/action/filterResources/0/table/tableName").asText();
-                            String responseContents = switch(tableName) {
+                            String responseContents = switch (tableName) {
                                 case "table_one" -> "{\"result\": [0, 1]}";
                                 case "table_two" -> "{\"result\": [1]}";
                                 default -> "{\"result\": []}";
@@ -222,7 +230,8 @@ public class TestOpaBatchAccessControlFiltering
                 requestedColumns);
 
         Set<String> expectedRequests = Stream.of("table_one", "table_two", "table_three")
-                .map(tableName -> """
+                .map(tableName ->
+                        """
                         {
                             "operation": "FilterColumns",
                             "filterResources": [
@@ -277,7 +286,8 @@ public class TestOpaBatchAccessControlFiltering
     @Test
     public void testFilterFunctions()
     {
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "FilterFunctions",
                     "filterResources": [
@@ -303,7 +313,8 @@ public class TestOpaBatchAccessControlFiltering
                             }
                         }
                     ]
-                }""";
+                }\
+                """;
         assertAccessControlMethodBehaviour(
                 (authorizer, systemSecurityContext, items) -> authorizer.filterFunctions(systemSecurityContext, "my_catalog", items),
                 new SchemaFunctionName("my_schema", "function_one"),

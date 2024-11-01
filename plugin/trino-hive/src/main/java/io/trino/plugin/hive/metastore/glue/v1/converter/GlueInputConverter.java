@@ -48,6 +48,7 @@ import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toResourceUris;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getStorageDescriptor;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableTypeNullable;
 
@@ -100,7 +101,7 @@ public final class GlueInputConverter
                 .withLastAccessTime(glueTable.getLastAccessTime())
                 .withLastAnalyzedTime(glueTable.getLastAnalyzedTime())
                 .withRetention(glueTable.getRetention())
-                .withStorageDescriptor(glueTable.getStorageDescriptor())
+                .withStorageDescriptor(getStorageDescriptor(glueTable).orElse(null))
                 .withPartitionKeys(glueTable.getPartitionKeys())
                 .withViewOriginalText(glueTable.getViewOriginalText())
                 .withViewExpandedText(glueTable.getViewExpandedText())

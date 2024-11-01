@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>189</version>
+        <version>194</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>463-SNAPSHOT</version>
+    <version>465-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -59,8 +59,6 @@
         <module>lib/trino-parquet</module>
         <module>lib/trino-plugin-toolkit</module>
         <module>lib/trino-record-decoder</module>
-        <module>plugin/trino-accumulo</module>
-        <module>plugin/trino-accumulo-iterators</module>
         <module>plugin/trino-base-jdbc</module>
         <module>plugin/trino-bigquery</module>
         <module>plugin/trino-blackhole</module>
@@ -74,6 +72,7 @@
         <module>plugin/trino-exasol</module>
         <module>plugin/trino-exchange-filesystem</module>
         <module>plugin/trino-exchange-hdfs</module>
+        <module>plugin/trino-faker</module>
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
@@ -116,6 +115,7 @@
         <module>plugin/trino-thrift-testing-server</module>
         <module>plugin/trino-tpcds</module>
         <module>plugin/trino-tpch</module>
+        <module>plugin/trino-vertica</module>
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark-queries</module>
@@ -144,16 +144,16 @@
     </scm>
 
     <properties>
-        <project.build.targetJdk>22</project.build.targetJdk>
+        <project.build.targetJdk>23</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2024-10-16T21:09:18Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2024-10-30T23:43:31Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
-        <air.java.version>22.0.0</air.java.version>
+        <air.java.version>23.0.0</air.java.version>
         <air.javadoc.lint>syntax,reference,html,-missing</air.javadoc.lint>
         <air.modernizer.java-version>8</air.modernizer.java-version>
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
@@ -182,18 +182,16 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
-        <dep.accumulo.version>3.0.0</dep.accumulo.version>
-        <dep.airlift.version>276</dep.airlift.version>
+        <dep.airlift.version>279</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
-        <dep.aws-sdk.version>1.12.776</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.777</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.7.1</dep.confluent.version>
         <dep.docker.images.version>102</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
-        <dep.flyway.version>10.20.0</dep.flyway.version>
+        <dep.flyway.version>10.20.1</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v20.17.0</dep.frontend-node.version>
         <dep.frontend-npm.version>10.8.3</dep.frontend-npm.version>
@@ -209,13 +207,13 @@
         <dep.parquet.version>1.14.3</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.5</dep.protobuf.version>
-        <dep.snowflake.version>3.19.0</dep.snowflake.version>
+        <dep.snowflake.version>3.19.1</dep.snowflake.version>
         <dep.swagger.version>2.2.25</dep.swagger.version>
         <dep.takari.version>2.2.0</dep.takari.version>
-        <dep.tcnative.version>2.0.66.Final</dep.tcnative.version>
+        <dep.tcnative.version>2.0.67.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>4.9.9</dep.wire.version>
-        <dep.zookeeper.version>3.9.2</dep.zookeeper.version>
+        <dep.zookeeper.version>3.9.3</dep.zookeeper.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
         <!--
         Instructs Provisio to write runtime dependencies in the format groupId_artifactId-version.jar.
@@ -231,7 +229,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.28</version>
+                <version>1.2.29</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -269,14 +267,6 @@
             </dependency>
 
             <dependency>
-                <groupId>io.grpc</groupId>
-                <artifactId>grpc-bom</artifactId>
-                <version>1.68.0</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
                 <version>4.1.114.Final</version>
@@ -287,7 +277,7 @@
             <dependency>
                 <groupId>org.apache.arrow</groupId>
                 <artifactId>arrow-bom</artifactId>
-                <version>17.0.0</version>
+                <version>18.0.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -295,7 +285,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.46.0</version>
+                <version>3.47.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -311,7 +301,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.20.2</version>
+                <version>1.20.3</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -319,7 +309,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.28.26</version>
+                <version>2.29.4</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -512,7 +502,7 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.5.6-6</version>
+                <version>1.5.6-7</version>
             </dependency>
 
             <dependency>
@@ -611,7 +601,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>9.41.2</version>
+                <version>9.42</version>
             </dependency>
 
             <dependency>
@@ -869,7 +859,7 @@
             <dependency>
                 <groupId>io.minio</groupId>
                 <artifactId>minio</artifactId>
-                <version>8.5.12</version>
+                <version>8.5.13</version>
             </dependency>
 
             <dependency>
@@ -1066,6 +1056,12 @@
                 <artifactId>trino-exchange-filesystem</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-faker</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -1559,6 +1555,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-tpch</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-vertica</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -2880,6 +2882,7 @@
                                     -Xep:OptionalNotPresent:ERROR \
                                     -Xep:OrphanedFormatString:ERROR \
                                     -Xep:Overrides:ERROR \
+                                    -Xep:PatternMatchingInstanceof:ERROR \
                                     <!-- flags List fields even if initialized with ImmutableList -->
                                     -Xep:PreferredInterfaceType:OFF \
                                     -Xep:PrimitiveArrayPassedToVarargsMethod:ERROR \

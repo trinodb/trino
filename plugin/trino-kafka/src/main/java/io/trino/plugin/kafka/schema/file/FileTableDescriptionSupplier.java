@@ -30,8 +30,6 @@ import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,53 +75,53 @@ public class FileTableDescriptionSupplier
 
         log.debug("Loading kafka table definitions from %s", tableDescriptionDir.getAbsolutePath());
 
-        try {
-            for (File file : listFiles(tableDescriptionDir)) {
-                if (file.isFile() && file.getName().endsWith(".json")) {
-                    KafkaTopicDescription table = topicDescriptionCodec.fromJson(readAllBytes(file.toPath()));
-                    String schemaName = table.schemaName().orElse(defaultSchema);
-                    log.debug("Kafka table %s.%s: %s", schemaName, table.tableName(), table);
-                    builder.put(new SchemaTableName(schemaName, table.tableName()), table);
-                }
-            }
-
-            Map<SchemaTableName, KafkaTopicDescription> tableDefinitions = builder.buildOrThrow();
-
-            log.debug("Loaded Table definitions: %s", tableDefinitions.keySet());
-
-            builder = ImmutableMap.builder();
-            for (String definedTable : tableNames) {
-                SchemaTableName tableName;
+        for (File file : listFiles(tableDescriptionDir)) {
+            if (file.isFile() && file.getName().endsWith(".json")) {
+                KafkaTopicDescription table;
                 try {
-                    tableName = parseTableName(definedTable);
+                    table = topicDescriptionCodec.fromJson(readAllBytes(file.toPath()));
                 }
-                catch (IllegalArgumentException iae) {
-                    tableName = new SchemaTableName(defaultSchema, definedTable);
+                catch (Exception e) {
+                    throw new IllegalArgumentException("Failed to get table description file for Kafka: " + file, e);
                 }
+                String schemaName = table.schemaName().orElse(defaultSchema);
+                log.debug("Kafka table %s.%s: %s", schemaName, table.tableName(), table);
+                builder.put(new SchemaTableName(schemaName, table.tableName()), table);
+            }
+        }
 
-                if (tableDefinitions.containsKey(tableName)) {
-                    KafkaTopicDescription kafkaTable = tableDefinitions.get(tableName);
-                    log.debug("Found Table definition for %s: %s", tableName, kafkaTable);
-                    builder.put(tableName, kafkaTable);
-                }
-                else {
-                    // A dummy table definition only supports the internal columns.
-                    log.debug("Created dummy Table definition for %s", tableName);
-                    builder.put(tableName, new KafkaTopicDescription(
-                            tableName.getTableName(),
-                            Optional.ofNullable(tableName.getSchemaName()),
-                            definedTable,
-                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), Optional.empty(), ImmutableList.of())),
-                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), Optional.empty(), ImmutableList.of()))));
-                }
+        Map<SchemaTableName, KafkaTopicDescription> tableDefinitions = builder.buildOrThrow();
+
+        log.debug("Loaded Table definitions: %s", tableDefinitions.keySet());
+
+        builder = ImmutableMap.builder();
+        for (String definedTable : tableNames) {
+            SchemaTableName tableName;
+            try {
+                tableName = parseTableName(definedTable);
+            }
+            catch (IllegalArgumentException iae) {
+                tableName = new SchemaTableName(defaultSchema, definedTable);
             }
 
-            return builder.buildOrThrow();
+            if (tableDefinitions.containsKey(tableName)) {
+                KafkaTopicDescription kafkaTable = tableDefinitions.get(tableName);
+                log.debug("Found Table definition for %s: %s", tableName, kafkaTable);
+                builder.put(tableName, kafkaTable);
+            }
+            else {
+                // A dummy table definition only supports the internal columns.
+                log.debug("Created dummy Table definition for %s", tableName);
+                builder.put(tableName, new KafkaTopicDescription(
+                        tableName.getTableName(),
+                        Optional.ofNullable(tableName.getSchemaName()),
+                        definedTable,
+                        Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), Optional.empty(), ImmutableList.of())),
+                        Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), Optional.empty(), ImmutableList.of()))));
+            }
         }
-        catch (IOException e) {
-            log.warn(e, "Failed to get table description files for Kafka");
-            throw new UncheckedIOException(e);
-        }
+
+        return builder.buildOrThrow();
     }
 
     private static List<File> listFiles(File dir)

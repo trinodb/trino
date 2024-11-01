@@ -58,9 +58,7 @@ public class HudiActiveTimeline
     }
 
     @Deprecated
-    public HudiActiveTimeline()
-    {
-    }
+    public HudiActiveTimeline() {}
 
     @Override
     public Optional<byte[]> getInstantDetails(HudiInstant instant)

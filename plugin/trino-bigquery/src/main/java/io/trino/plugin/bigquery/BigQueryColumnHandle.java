@@ -83,4 +83,10 @@ public record BigQueryColumnHandle(
                 + estimatedSizeOf(subColumns, BigQueryColumnHandle::getRetainedSizeInBytes)
                 + estimatedSizeOf(description);
     }
+
+    @Override
+    public String toString()
+    {
+        return "%s:%s".formatted(getQualifiedName(), trinoType.getDisplayName());
+    }
 }

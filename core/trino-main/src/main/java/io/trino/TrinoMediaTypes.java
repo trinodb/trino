@@ -17,10 +17,8 @@ import com.google.common.net.MediaType;
 
 public final class TrinoMediaTypes
 {
-    public static final String TRINO_PAGES = "application/X-trino-pages";
-    public static final MediaType TRINO_PAGES_TYPE = MediaType.create("application", "X-trino-pages");
+    public static final String TRINO_PAGES = "application/x-trino-pages";
+    public static final MediaType TRINO_PAGES_TYPE = MediaType.create("application", "x-trino-pages");
 
-    private TrinoMediaTypes()
-    {
-    }
+    private TrinoMediaTypes() {}
 }

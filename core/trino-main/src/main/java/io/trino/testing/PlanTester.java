@@ -366,7 +366,8 @@ public class PlanTester
                 globalFunctionCatalog,
                 languageFunctionManager,
                 tableFunctionRegistry,
-                typeManager);
+                typeManager,
+                new NotImplementedQueryManager());
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.joinCompiler = new JoinCompiler(typeOperators);
         this.hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
@@ -744,7 +745,8 @@ public class PlanTester
                 new IndexJoinLookupStats(),
                 this.taskManagerConfig,
                 new GenericSpillerFactory(unsupportedSingleStreamSpillerFactory()),
-                new QueryDataEncoders(Set.of()),
+                new QueryDataEncoders(new SpoolingEnabledConfig(), Set.of()),
+                Optional.empty(),
                 Optional.empty(),
                 unsupportedSingleStreamSpillerFactory(),
                 unsupportedPartitioningSpillerFactory(),

@@ -125,15 +125,6 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
-    @Override // Override because the regexp is different from the base test
-    public void testPredicateReflectedInExplain()
-    {
-        assertExplain(
-                "EXPLAIN SELECT name FROM nation WHERE nationkey = 42",
-                "nationkey", "bigint", "42");
-    }
-
-    @Test
     public void testPredicatePushdown()
     {
         testPredicatePushdown("true", "true", true);
@@ -789,10 +780,12 @@ public abstract class BaseBigQueryConnectorTest
         String expectedLabel = "q_" + queryId.toString() + "__t_" + traceToken;
 
         @Language("SQL")
-        String checkForLabelQuery = """
-                    SELECT * FROM region-us.INFORMATION_SCHEMA.JOBS_BY_USER WHERE EXISTS(
-                        SELECT * FROM UNNEST(labels) AS label WHERE label.key = 'trino_query' AND label.value = '%s'
-                    )""".formatted(expectedLabel);
+        String checkForLabelQuery =
+                """
+                SELECT * FROM region-us.INFORMATION_SCHEMA.JOBS_BY_USER WHERE EXISTS(
+                    SELECT * FROM UNNEST(labels) AS label WHERE label.key = 'trino_query' AND label.value = '%s'
+                )\
+                """.formatted(expectedLabel);
 
         assertEventually(() -> assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
                 .extracting(values -> values.get("query").getStringValue())

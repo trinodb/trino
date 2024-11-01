@@ -66,6 +66,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.jdbc.JdbcMetadata.getColumns;
 import static io.trino.plugin.phoenix5.MetadataUtil.getEscapedTableName;
 import static io.trino.plugin.phoenix5.MetadataUtil.toTrinoSchemaName;
 import static io.trino.plugin.phoenix5.PhoenixClient.MERGE_ROW_ID_COLUMN_NAME;
@@ -159,7 +160,7 @@ public class PhoenixMetadata
     @Override
     public List<ColumnMetadata> getColumnMetadata(ConnectorSession session, JdbcTableHandle handle)
     {
-        return phoenixClient.getColumns(session, handle).stream()
+        return getColumns(session, phoenixClient, handle).stream()
                 .filter(column -> !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .map(JdbcColumnHandle::getColumnMetadata)
                 .collect(toImmutableList());
@@ -239,7 +240,7 @@ public class PhoenixMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
         }
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        Optional<String> rowkeyColumn = phoenixClient.getColumns(session, handle).stream()
+        Optional<String> rowkeyColumn = getColumns(session, phoenixClient, handle).stream()
                 .map(JdbcColumnHandle::getColumnName)
                 .filter(ROWKEY::equalsIgnoreCase)
                 .findFirst();
@@ -336,7 +337,7 @@ public class PhoenixMetadata
         JdbcTableHandle plainTable = phoenixClient.buildPlainTable(handle);
         JdbcColumnHandle mergeRowIdColumnHandle = getMergeRowIdColumnHandle(session, plainTable);
 
-        List<JdbcColumnHandle> columns = phoenixClient.getColumns(session, plainTable).stream()
+        List<JdbcColumnHandle> columns = getColumns(session, phoenixClient, plainTable).stream()
                 .filter(column -> !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .collect(toImmutableList());
         PhoenixOutputTableHandle phoenixOutputTableHandle = (PhoenixOutputTableHandle) beginInsert(session, plainTable, ImmutableList.copyOf(columns), retryMode);
@@ -363,8 +364,7 @@ public class PhoenixMetadata
             List<ConnectorTableHandle> sourceTableHandles,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics)
-    {
-    }
+    {}
 
     @Override
     public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)

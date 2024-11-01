@@ -63,12 +63,24 @@ public final class JsonDecodingUtils
 {
     private JsonDecodingUtils() {}
 
+    private static final BigIntegerDecoder BIG_INTEGER_DECODER = new BigIntegerDecoder();
+    private static final IntegerDecoder INTEGER_DECODER = new IntegerDecoder();
+    private static final SmallintDecoder SMALLINT_DECODER = new SmallintDecoder();
+    private static final TinyintDecoder TINYINT_DECODER = new TinyintDecoder();
+    private static final DoubleDecoder DOUBLE_DECODER = new DoubleDecoder();
+    private static final RealDecoder REAL_DECODER = new RealDecoder();
+    private static final BooleanDecoder BOOLEAN_DECODER = new BooleanDecoder();
+    private static final StringDecoder STRING_DECODER = new StringDecoder();
+    private static final Base64Decoder BASE_64_DECODER = new Base64Decoder();
+
     public static TypeDecoder[] createTypeDecoders(List<Column> columns)
     {
         verify(!columns.isEmpty(), "Columns must not be empty");
-        return columns.stream()
-                .map(column -> createTypeDecoder(column.getTypeSignature()))
-                .toArray(TypeDecoder[]::new);
+        TypeDecoder[] decoders = new TypeDecoder[columns.size()];
+        for (int i = 0; i < columns.size(); i++) {
+            decoders[i] = createTypeDecoder(columns.get(i).getTypeSignature());
+        }
+        return decoders;
     }
 
     public interface TypeDecoder
@@ -81,19 +93,19 @@ public final class JsonDecodingUtils
     {
         switch (signature.getRawType()) {
             case BIGINT:
-                return new BigIntegerDecoder();
+                return BIG_INTEGER_DECODER;
             case INTEGER:
-                return new IntegerDecoder();
+                return INTEGER_DECODER;
             case SMALLINT:
-                return new SmallintDecoder();
+                return SMALLINT_DECODER;
             case TINYINT:
-                return new TinyintDecoder();
+                return TINYINT_DECODER;
             case DOUBLE:
-                return new DoubleDecoder();
+                return DOUBLE_DECODER;
             case REAL:
-                return new RealDecoder();
+                return REAL_DECODER;
             case BOOLEAN:
-                return new BooleanDecoder();
+                return BOOLEAN_DECODER;
             case ARRAY:
                 return new ArrayDecoder(signature);
             case MAP:
@@ -115,9 +127,9 @@ public final class JsonDecodingUtils
             case CHAR:
             case GEOMETRY:
             case SPHERICAL_GEOGRAPHY:
-                return new StringDecoder();
+                return STRING_DECODER;
             default:
-                return new Base64Decoder();
+                return BASE_64_DECODER;
         }
     }
 
@@ -129,8 +141,6 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
                 case VALUE_NUMBER_INT:
                     return parser.getLongValue();
                 case VALUE_STRING:
@@ -149,8 +159,6 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
                 case VALUE_NUMBER_INT:
                     return parser.getIntValue();
                 case VALUE_STRING:
@@ -169,8 +177,6 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
                 case VALUE_NUMBER_INT:
                     return parser.getShortValue();
                 case VALUE_STRING:
@@ -189,8 +195,6 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
                 case VALUE_NUMBER_INT:
                     return parser.getByteValue();
                 case VALUE_STRING:
@@ -209,8 +213,6 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
                 case VALUE_NUMBER_FLOAT:
                     return parser.getDoubleValue();
                 case VALUE_STRING:
@@ -229,8 +231,6 @@ public final class JsonDecodingUtils
                 throws IOException
         {
             switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
                 case VALUE_NUMBER_FLOAT:
                     return parser.getFloatValue();
                 case VALUE_STRING:
@@ -248,18 +248,7 @@ public final class JsonDecodingUtils
         public Object decode(JsonParser parser)
                 throws IOException
         {
-            switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
-                case VALUE_FALSE:
-                    return false;
-                case VALUE_TRUE:
-                    return true;
-                case VALUE_STRING:
-                    return Boolean.parseBoolean(parser.getValueAsString());
-                default:
-                    throw illegalToken(parser);
-            }
+            return parser.getBooleanValue();
         }
     }
 
@@ -270,14 +259,10 @@ public final class JsonDecodingUtils
         public Object decode(JsonParser parser)
                 throws IOException
         {
-            switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
-                case VALUE_STRING:
-                    return parser.getValueAsString();
-                default:
-                    throw illegalToken(parser);
+            if (requireNonNull(parser.currentToken()) != JsonToken.VALUE_STRING) {
+                throw illegalToken(parser);
             }
+            return parser.getValueAsString();
         }
     }
 
@@ -288,14 +273,7 @@ public final class JsonDecodingUtils
         public Object decode(JsonParser parser)
                 throws IOException
         {
-            switch (parser.currentToken()) {
-                case VALUE_NULL:
-                    return null;
-                case VALUE_STRING:
-                    return Base64.getDecoder().decode(parser.getValueAsString());
-                default:
-                    throw illegalToken(parser);
-            }
+            return Base64.getDecoder().decode(parser.getValueAsString());
         }
     }
 
@@ -315,14 +293,10 @@ public final class JsonDecodingUtils
         public Object decode(JsonParser parser)
                 throws IOException
         {
-            switch (parser.currentToken()) {
-                case START_ARRAY:
-                    break;
-                case VALUE_NULL:
-                    return null;
-                default:
-                    throw illegalToken(parser);
+            if (requireNonNull(parser.currentToken()) != JsonToken.START_ARRAY) {
+                throw illegalToken(parser);
             }
+
             List<Object> values = new LinkedList<>(); // nulls allowed
             while (true) {
                 switch (parser.nextToken()) {

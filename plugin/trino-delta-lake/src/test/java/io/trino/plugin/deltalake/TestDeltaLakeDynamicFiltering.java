@@ -45,8 +45,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Verify.verify;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
@@ -96,11 +94,11 @@ public class TestDeltaLakeDynamicFiltering
             String query = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice > 59995 AND orders.totalprice < 60000";
             MaterializedResultWithPlan filteredResult = getDistributedQueryRunner().executeWithPlan(sessionWithDynamicFiltering(true, joinDistributionType), query);
             MaterializedResultWithPlan unfilteredResult = getDistributedQueryRunner().executeWithPlan(sessionWithDynamicFiltering(false, joinDistributionType), query);
-            assertEqualsIgnoreOrder(filteredResult.result().getMaterializedRows(), unfilteredResult.result().getMaterializedRows());
+            assertThat(filteredResult.result().getMaterializedRows()).containsExactlyInAnyOrderElementsOf(unfilteredResult.result().getMaterializedRows());
 
             QueryStats filteredStats = getQueryStats(filteredResult.queryId());
             QueryStats unfilteredStats = getQueryStats(unfilteredResult.queryId());
-            assertGreaterThan(unfilteredStats.getPhysicalInputPositions(), filteredStats.getPhysicalInputPositions());
+            assertThat(unfilteredStats.getPhysicalInputPositions()).isGreaterThan(filteredStats.getPhysicalInputPositions());
         }
     }
 

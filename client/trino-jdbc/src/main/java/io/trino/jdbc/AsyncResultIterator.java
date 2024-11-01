@@ -41,6 +41,7 @@ public class AsyncResultIterator
         extends AbstractIterator<List<Object>>
         implements CancellableIterator<List<Object>>
 {
+    private static final int BATCH_SIZE = 100;
     private static final int MAX_QUEUED_ROWS = 50_000;
     private static final ExecutorService executorService = newCachedThreadPool(
             new ThreadFactoryBuilder().setNameFormat("Trino JDBC worker-%s").setDaemon(true).build());
@@ -66,16 +67,23 @@ public class AsyncResultIterator
         this.finished = false;
         this.future = executorService.submit(() -> {
             try {
+                int rowsProcessed = 0;
                 do {
                     QueryStatusInfo results = client.currentStatusInfo();
                     progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
                     warningsManager.addWarnings(results.getWarnings());
                     for (List<Object> row : client.currentRows()) {
                         rowQueue.put(row);
-                        semaphore.release();
+                        if (rowsProcessed++ % BATCH_SIZE == 0) {
+                            semaphore.release(rowsProcessed);
+                            rowsProcessed = 0;
+                        }
                     }
                 }
                 while (!cancelled && client.advance());
+                if (rowsProcessed > 0) {
+                    semaphore.release(rowsProcessed);
+                }
 
                 verify(client.isFinished());
                 QueryStatusInfo results = client.finalStatusInfo();

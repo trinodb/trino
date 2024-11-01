@@ -61,7 +61,5 @@ public class IndexSnapshot
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 }
