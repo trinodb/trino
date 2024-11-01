@@ -14,8 +14,8 @@
 package io.trino.sql.gen.columnar;
 
 import io.trino.operator.project.SelectedPositions;
-import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 
 import static io.trino.operator.project.SelectedPositions.positionsRange;
 
@@ -23,7 +23,7 @@ public final class SelectNoneEvaluator
         implements FilterEvaluator
 {
     @Override
-    public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, Page page)
+    public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, SourcePage page)
     {
         return new SelectionResult(positionsRange(0, 0), 0);
     }

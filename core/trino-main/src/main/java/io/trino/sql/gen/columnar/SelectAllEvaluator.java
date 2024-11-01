@@ -14,14 +14,14 @@
 package io.trino.sql.gen.columnar;
 
 import io.trino.operator.project.SelectedPositions;
-import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 
 public final class SelectAllEvaluator
         implements FilterEvaluator
 {
     @Override
-    public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, Page page)
+    public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, SourcePage page)
     {
         return new SelectionResult(activePositions, 0);
     }

@@ -21,6 +21,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.relational.RowExpression;
@@ -118,7 +119,7 @@ public class BenchmarkEqualsConjunctsOperator
                 SESSION,
                 SIGNAL,
                 newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                data.page);
+                SourcePage.create(data.page));
         while (pageProcessorOutput.hasNext()) {
             pageProcessorOutput.next().ifPresent(output::add);
         }
