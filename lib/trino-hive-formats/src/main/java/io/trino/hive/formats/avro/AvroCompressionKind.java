@@ -16,13 +16,11 @@ package io.trino.hive.formats.avro;
 import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileConstants;
 
+import static io.trino.hive.formats.avro.SnappyAirCompressorCodec.SNAPPY_CODEC_FACTORY;
+import static io.trino.hive.formats.avro.ZstdAirCompressorCodec.ZSTD_CODEC_FACTORY;
 import static org.apache.avro.file.CodecFactory.DEFAULT_DEFLATE_LEVEL;
-import static org.apache.avro.file.CodecFactory.DEFAULT_ZSTANDARD_BUFFERPOOL;
-import static org.apache.avro.file.CodecFactory.DEFAULT_ZSTANDARD_LEVEL;
 import static org.apache.avro.file.CodecFactory.deflateCodec;
 import static org.apache.avro.file.CodecFactory.nullCodec;
-import static org.apache.avro.file.CodecFactory.snappyCodec;
-import static org.apache.avro.file.CodecFactory.zstandardCodec;
 
 /**
  * Inner join between Trino plugin supported codec types and Avro spec supported codec types
@@ -31,19 +29,24 @@ import static org.apache.avro.file.CodecFactory.zstandardCodec;
  */
 public enum AvroCompressionKind
 {
-    // Avro nulls out codec's if it can't find the proper library locally
-    NULL(DataFileConstants.NULL_CODEC, nullCodec() != null),
-    DEFLATE(DataFileConstants.DEFLATE_CODEC, deflateCodec(DEFAULT_DEFLATE_LEVEL) != null),
-    SNAPPY(DataFileConstants.SNAPPY_CODEC, snappyCodec() != null),
-    ZSTANDARD(DataFileConstants.ZSTANDARD_CODEC, zstandardCodec(DEFAULT_ZSTANDARD_LEVEL, DEFAULT_ZSTANDARD_BUFFERPOOL) != null);
+    NULL(DataFileConstants.NULL_CODEC, nullCodec()),
+    DEFLATE(DataFileConstants.DEFLATE_CODEC, deflateCodec(DEFAULT_DEFLATE_LEVEL)),
+    SNAPPY(DataFileConstants.SNAPPY_CODEC, SNAPPY_CODEC_FACTORY),
+    ZSTANDARD(DataFileConstants.ZSTANDARD_CODEC, ZSTD_CODEC_FACTORY);
 
     private final String codecString;
-    private final boolean supportedLocally;
+    private final CodecFactory trinoCodecFactory;
 
-    AvroCompressionKind(String codecString, boolean supportedLocally)
+    static {
+        for (AvroCompressionKind kind : AvroCompressionKind.values()) {
+            CodecFactory.addCodec(kind.codecString, kind.getTrinoCodecFactory());
+        }
+    }
+
+    AvroCompressionKind(String codecString, CodecFactory trinoCodecFactory)
     {
         this.codecString = codecString;
-        this.supportedLocally = supportedLocally;
+        this.trinoCodecFactory = trinoCodecFactory;
     }
 
     @Override
@@ -52,13 +55,8 @@ public enum AvroCompressionKind
         return codecString;
     }
 
-    public CodecFactory getCodecFactory()
+    public CodecFactory getTrinoCodecFactory()
     {
-        return CodecFactory.fromString(codecString);
-    }
-
-    public boolean isSupportedLocally()
-    {
-        return supportedLocally;
+        return trinoCodecFactory;
     }
 }

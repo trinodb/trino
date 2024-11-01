@@ -41,6 +41,11 @@ public class AvroFileReader
     private Page nextPage;
     private final OptionalLong end;
 
+    static {
+        // ensure static CodecFactory map is updated by loading CompressionKind class
+        AvroCompressionKind.values();
+    }
+
     public AvroFileReader(
             TrinoInputFile inputFile,
             Schema schema,
