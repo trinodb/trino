@@ -100,7 +100,7 @@ public class TestGlueInputConverter
                 .withResourceUris(input.getResourceUris());
         LanguageFunction actual = GlueToTrinoConverter.convertFunction(function);
 
-        assertThat(input.getResourceUris().size()).isEqualTo(3);
+        assertThat(input.getResourceUris()).hasSize(3);
         assertThat(actual).isEqualTo(expected);
 
         // verify that the owner comes from the metastore
@@ -114,7 +114,7 @@ public class TestGlueInputConverter
         if (expected == null) {
             assertThat(actual).isNull();
         }
-        assertThat(actual.size()).isEqualTo(expected.size());
+        assertThat(actual).hasSize(expected.size());
 
         for (int i = 0; i < expected.size(); i++) {
             assertColumn(actual.get(i), expected.get(i));

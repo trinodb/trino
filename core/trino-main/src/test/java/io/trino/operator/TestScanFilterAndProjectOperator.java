@@ -188,7 +188,7 @@ public class TestScanFilterAndProjectOperator
         operator.noMoreSplits();
 
         List<Page> actual = toPages(operator);
-        assertThat(actual.size()).isEqualTo(1);
+        assertThat(actual).hasSize(1);
 
         List<Page> expected = rowPagesBuilder(BIGINT)
                 .row(10L)

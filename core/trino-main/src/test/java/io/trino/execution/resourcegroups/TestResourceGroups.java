@@ -1262,7 +1262,7 @@ public class TestResourceGroups
         assertThat(rootInfo.memoryUsage()).isEqualTo(DataSize.ofBytes(0));
         assertThat(rootInfo.cpuUsage().toMillis()).isEqualTo(0);
         List<ResourceGroupInfo> subGroups = rootInfo.subGroups().get();
-        assertThat(subGroups.size()).isEqualTo(2);
+        assertThat(subGroups).hasSize(2);
         assertGroupInfoEquals(subGroups.get(0), rootA.getInfo());
         assertThat(subGroups.get(0).id()).isEqualTo(rootA.getId());
         assertThat(subGroups.get(0).state()).isEqualTo(CAN_QUEUE);
@@ -1286,7 +1286,7 @@ public class TestResourceGroups
         assertThat(rootInfo.maxQueuedQueries()).isEqualTo(root.getMaxQueuedQueries());
         assertThat(rootInfo.numQueuedQueries()).isEqualTo(19);
         List<QueryStateInfo> runningQueries = rootInfo.runningQueries().get();
-        assertThat(runningQueries.size()).isEqualTo(1);
+        assertThat(runningQueries).hasSize(1);
         QueryStateInfo queryInfo = runningQueries.get(0);
         assertThat(queryInfo.getResourceGroupId()).isEqualTo(Optional.of(rootB.getId()));
     }

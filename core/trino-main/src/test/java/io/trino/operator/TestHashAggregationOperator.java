@@ -552,7 +552,7 @@ public class TestHashAggregationOperator
                 typeOperators,
                 Optional.empty());
 
-        assertThat(toPages(operatorFactory, createDriverContext(), input).size()).isEqualTo(2);
+        assertThat(toPages(operatorFactory, createDriverContext(), input)).hasSize(2);
     }
 
     @Test

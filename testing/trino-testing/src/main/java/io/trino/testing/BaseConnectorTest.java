@@ -1994,7 +1994,7 @@ public abstract class BaseConnectorTest
         MaterializedResult all = computeActual("SELECT orderkey FROM orders");
 
         assertContains(all, fullSample);
-        assertThat(emptySample.getMaterializedRows().size()).isEqualTo(0);
+        assertThat(emptySample.getMaterializedRows()).isEmpty();
         assertThat(all.getMaterializedRows().size() >= randomSample.getMaterializedRows().size()).isTrue();
     }
 
@@ -2005,7 +2005,7 @@ public abstract class BaseConnectorTest
         MaterializedResult halfSample = computeActual("SELECT DISTINCT orderkey, orderdate FROM orders TABLESAMPLE SYSTEM (50) WHERE orderkey BETWEEN 0 AND 9999999999");
         MaterializedResult all = computeActual("SELECT orderkey, orderdate FROM orders");
 
-        assertThat(emptySample.getMaterializedRows().size()).isEqualTo(0);
+        assertThat(emptySample.getMaterializedRows()).isEmpty();
         // Assertions need to be loose here because SYSTEM sampling random selects data on split boundaries. In this case either all the data will be selected, or
         // none of it. Sampling with a 100% ratio is ignored, so that also cannot be used to guarantee results.
         assertThat(all.getMaterializedRows().size() >= halfSample.getMaterializedRows().size()).isTrue();

@@ -1013,7 +1013,7 @@ public abstract class AbstractTestAggregations
     {
         MaterializedResult actual = computeActual("SELECT a, b, c FROM (VALUES ROW(nan(), 1, 2), ROW(nan(), 1, 2)) t(a, b, c) GROUP BY 1, 2, 3");
         List<MaterializedRow> actualRows = actual.getMaterializedRows();
-        assertThat(actualRows.size()).isEqualTo(1);
+        assertThat(actualRows).hasSize(1);
         assertThat(Double.isNaN((Double) actualRows.get(0).getField(0))).isTrue();
         assertThat(actualRows.get(0).getField(1)).isEqualTo(1);
         assertThat(actualRows.get(0).getField(2)).isEqualTo(2);
@@ -1024,7 +1024,7 @@ public abstract class AbstractTestAggregations
     {
         MaterializedResult actual = computeActual("SELECT a FROM (VALUES (ARRAY[nan(), 2e0, 3e0]), (ARRAY[nan(), 2e0, 3e0])) t(a) GROUP BY a");
         List<MaterializedRow> actualRows = actual.getMaterializedRows();
-        assertThat(actualRows.size()).isEqualTo(1);
+        assertThat(actualRows).hasSize(1);
         @SuppressWarnings("unchecked")
         List<Double> value = (List<Double>) actualRows.get(0).getField(0);
         assertThat(Double.isNaN(value.get(0))).isTrue();

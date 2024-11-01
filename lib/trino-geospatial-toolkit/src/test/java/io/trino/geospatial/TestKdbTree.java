@@ -67,7 +67,7 @@ public class TestKdbTree
 
         KdbTree tree = buildKdbTree(100, extent, rectangles.build());
 
-        assertThat(tree.getLeaves().size()).isEqualTo(1);
+        assertThat(tree.getLeaves()).hasSize(1);
 
         Map.Entry<Integer, Rectangle> entry = Iterables.getOnlyElement(tree.getLeaves().entrySet());
         assertThat(entry.getKey().intValue()).isEqualTo(0);
@@ -94,7 +94,7 @@ public class TestKdbTree
         KdbTree treeCopy = buildKdbTree(25, extent, rectangles.build());
 
         Map<Integer, Rectangle> leafNodes = treeCopy.getLeaves();
-        assertThat(leafNodes.size()).isEqualTo(2);
+        assertThat(leafNodes).hasSize(2);
         assertThat(leafNodes.keySet()).isEqualTo(ImmutableSet.of(0, 1));
         assertThat(leafNodes).containsEntry(0, new Rectangle(0, 0, 4.5, 4));
         assertThat(leafNodes).containsEntry(1, new Rectangle(4.5, 0, 9, 4));
@@ -123,7 +123,7 @@ public class TestKdbTree
         KdbTree tree = buildKdbTree(25, extent, rectangles.build());
 
         Map<Integer, Rectangle> leafNodes = tree.getLeaves();
-        assertThat(leafNodes.size()).isEqualTo(2);
+        assertThat(leafNodes).hasSize(2);
         assertThat(leafNodes.keySet()).isEqualTo(ImmutableSet.of(0, 1));
         assertThat(leafNodes).containsEntry(0, new Rectangle(0, 0, 4, 4.5));
         assertThat(leafNodes).containsEntry(1, new Rectangle(0, 4.5, 4, 9));
@@ -146,7 +146,7 @@ public class TestKdbTree
     private void assertPartitions(KdbTree kdbTree, Rectangle envelope, Set<Integer> partitions)
     {
         Map<Integer, Rectangle> matchingNodes = kdbTree.findIntersectingLeaves(envelope);
-        assertThat(matchingNodes.size()).isEqualTo(partitions.size());
+        assertThat(matchingNodes).hasSize(partitions.size());
         assertThat(matchingNodes.keySet()).isEqualTo(partitions);
     }
 
@@ -170,7 +170,7 @@ public class TestKdbTree
         KdbTree tree = buildKdbTree(10, extent, rectangles.build());
 
         Map<Integer, Rectangle> leafNodes = tree.getLeaves();
-        assertThat(leafNodes.size()).isEqualTo(6);
+        assertThat(leafNodes).hasSize(6);
         assertThat(leafNodes.keySet()).isEqualTo(ImmutableSet.of(0, 1, 2, 3, 4, 5));
         assertThat(leafNodes).containsEntry(0, new Rectangle(0, 0, 2.5, 2.5));
         assertThat(leafNodes).containsEntry(1, new Rectangle(0, 2.5, 2.5, 4));
@@ -206,7 +206,7 @@ public class TestKdbTree
         KdbTree tree = buildKdbTree(10, extent, rectangles.build());
 
         Map<Integer, Rectangle> leafNodes = tree.getLeaves();
-        assertThat(leafNodes.size()).isEqualTo(9);
+        assertThat(leafNodes).hasSize(9);
         assertThat(leafNodes.keySet()).isEqualTo(ImmutableSet.of(0, 1, 2, 3, 4, 5, 6, 7, 8));
         assertThat(leafNodes).containsEntry(0, new Rectangle(0, 0, 1.5, 2.5));
         assertThat(leafNodes).containsEntry(1, new Rectangle(1.5, 0, 3.5, 2.5));
@@ -240,7 +240,7 @@ public class TestKdbTree
         KdbTree tree = buildKdbTree(10, extent, rectangles.build());
 
         Map<Integer, Rectangle> leafNodes = tree.getLeaves();
-        assertThat(leafNodes.size()).isEqualTo(10);
+        assertThat(leafNodes).hasSize(10);
         assertThat(leafNodes.keySet()).isEqualTo(ImmutableSet.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9));
         assertThat(leafNodes).containsEntry(0, new Rectangle(0, 0, 4.5, 0.5));
         assertThat(leafNodes).containsEntry(1, new Rectangle(0, 0.5, 4.5, 1.5));
@@ -275,7 +275,7 @@ public class TestKdbTree
         KdbTree tree = buildKdbTree(10, extent, rectangles.build());
 
         Map<Integer, Rectangle> leafNodes = tree.getLeaves();
-        assertThat(leafNodes.size()).isEqualTo(2);
+        assertThat(leafNodes).hasSize(2);
         assertThat(leafNodes.keySet()).isEqualTo(ImmutableSet.of(0, 1));
         assertThat(leafNodes).containsEntry(0, new Rectangle(0, 0, 4.5, 4 + height));
         assertThat(leafNodes).containsEntry(1, new Rectangle(4.5, 0, 9 + width, 4 + height));

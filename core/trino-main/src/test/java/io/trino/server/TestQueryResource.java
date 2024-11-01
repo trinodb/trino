@@ -148,19 +148,19 @@ public class TestQueryResource
         runToCompletion("SELECT x FROM y");
 
         List<BasicQueryInfo> infos = getQueryInfos("/v1/query");
-        assertThat(infos.size()).isEqualTo(3);
+        assertThat(infos).hasSize(3);
         assertStateCounts(infos, 2, 1, 0);
 
         infos = getQueryInfos("/v1/query?state=finished");
-        assertThat(infos.size()).isEqualTo(2);
+        assertThat(infos).hasSize(2);
         assertStateCounts(infos, 2, 0, 0);
 
         infos = getQueryInfos("/v1/query?state=failed");
-        assertThat(infos.size()).isEqualTo(1);
+        assertThat(infos).hasSize(1);
         assertStateCounts(infos, 0, 1, 0);
 
         infos = getQueryInfos("/v1/query?state=running");
-        assertThat(infos.size()).isEqualTo(0);
+        assertThat(infos).isEmpty();
         assertStateCounts(infos, 0, 0, 0);
 
         server.getAccessControl().deny(privilege("query", VIEW_QUERY));
@@ -183,8 +183,8 @@ public class TestQueryResource
         QueryInfo queryInfoPruned = getQueryInfo(queryId, true);
         QueryInfo queryInfoNotPruned = getQueryInfo(queryId);
 
-        assertThat(queryInfoPruned.getRoutines().size()).isEqualTo(1);
-        assertThat(queryInfoNotPruned.getRoutines().size()).isEqualTo(1);
+        assertThat(queryInfoPruned.getRoutines()).hasSize(1);
+        assertThat(queryInfoNotPruned.getRoutines()).hasSize(1);
 
         assertThat(queryInfoPruned.getRoutines().get(0).getRoutine()).isEqualTo("now");
         assertThat(queryInfoNotPruned.getRoutines().get(0).getRoutine()).isEqualTo("now");

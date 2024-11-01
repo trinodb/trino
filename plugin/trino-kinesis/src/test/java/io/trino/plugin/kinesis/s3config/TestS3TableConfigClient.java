@@ -128,6 +128,6 @@ public class TestS3TableConfigClient
         assertThat(tableHandle.streamName()).isEqualTo("test123");
         assertThat(tableHandle.messageDataFormat()).isEqualTo("json");
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(SESSION, tableHandle);
-        assertThat(columnHandles.size()).isEqualTo(12);
+        assertThat(columnHandles).hasSize(12);
     }
 }

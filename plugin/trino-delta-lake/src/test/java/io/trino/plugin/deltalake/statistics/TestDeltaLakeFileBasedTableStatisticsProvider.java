@@ -136,7 +136,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandle = registerTable("nan");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         assertThat(stats.getRowCount()).isEqualTo(Estimate.of(1));
-        assertThat(stats.getColumnStatistics().size()).isEqualTo(1);
+        assertThat(stats.getColumnStatistics()).hasSize(1);
 
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertThat(columnStatistics.getRange()).isEqualTo(Optional.empty());

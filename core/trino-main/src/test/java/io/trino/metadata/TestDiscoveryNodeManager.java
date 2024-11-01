@@ -110,7 +110,7 @@ public class TestDiscoveryNodeManager
             AllNodes allNodes = manager.getAllNodes();
 
             Set<InternalNode> connectorNodes = manager.getActiveCatalogNodes(GlobalSystemConnector.CATALOG_HANDLE);
-            assertThat(connectorNodes.size()).isEqualTo(4);
+            assertThat(connectorNodes).hasSize(4);
             assertThat(connectorNodes.stream().anyMatch(InternalNode::isCoordinator)).isTrue();
 
             Set<InternalNode> activeNodes = allNodes.getActiveNodes();

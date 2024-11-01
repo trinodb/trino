@@ -404,7 +404,7 @@ public class TestDeltaLakeCreateTableStatistics
                 ImmutableList.of(partitionColumn),
                 "VALUES ('a', 1), ('b', 1), ('c', 1), ('c', 2), ('d', 2), ('e', 2), (null, 1)")) {
             List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
-            assertThat(addFileEntries.size()).isEqualTo(2);
+            assertThat(addFileEntries).hasSize(2);
 
             for (AddFileEntry addFileEntry : addFileEntries) {
                 assertThat(addFileEntry.getStats()).isPresent();

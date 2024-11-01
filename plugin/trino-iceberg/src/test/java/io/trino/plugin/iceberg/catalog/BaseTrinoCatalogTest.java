@@ -160,7 +160,7 @@ public abstract class BaseTrinoCatalogTest
 
             Table icebergTable = catalog.loadTable(SESSION, schemaTableName);
             assertThat(icebergTable.name()).isEqualTo(quotedTableName(schemaTableName));
-            assertThat(icebergTable.schema().columns().size()).isEqualTo(1);
+            assertThat(icebergTable.schema().columns()).hasSize(1);
             assertThat(icebergTable.schema().columns().get(0).name()).isEqualTo("col1");
             assertThat(icebergTable.schema().columns().get(0).type()).isEqualTo(Types.LongType.get());
             assertThat(icebergTable.location()).isEqualTo(tableLocation);
@@ -220,7 +220,7 @@ public abstract class BaseTrinoCatalogTest
 
             Table icebergTable = catalog.loadTable(SESSION, schemaTableName);
             assertThat(icebergTable.name()).isEqualTo(quotedTableName(schemaTableName));
-            assertThat(icebergTable.schema().columns().size()).isEqualTo(4);
+            assertThat(icebergTable.schema().columns()).hasSize(4);
             assertThat(icebergTable.schema().columns().get(0).name()).isEqualTo("col1");
             assertThat(icebergTable.schema().columns().get(0).type()).isEqualTo(Types.LongType.get());
             assertThat(icebergTable.schema().columns().get(1).name()).isEqualTo("col2");
@@ -363,14 +363,14 @@ public abstract class BaseTrinoCatalogTest
             assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream()).contains(new TableInfo(schemaTableName, TRINO_VIEW));
 
             Map<SchemaTableName, ConnectorViewDefinition> views = catalog.getViews(SESSION, Optional.of(schemaTableName.getSchemaName()));
-            assertThat(views.size()).isEqualTo(1);
+            assertThat(views).hasSize(1);
             assertViewDefinition(views.get(schemaTableName), viewDefinition);
             assertViewDefinition(catalog.getView(SESSION, schemaTableName).orElseThrow(), viewDefinition);
 
             catalog.renameView(SESSION, schemaTableName, renamedSchemaTableName);
             assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream().map(TableInfo::tableName).toList()).doesNotContain(schemaTableName);
             views = catalog.getViews(SESSION, Optional.of(schemaTableName.getSchemaName()));
-            assertThat(views.size()).isEqualTo(1);
+            assertThat(views).hasSize(1);
             assertViewDefinition(views.get(renamedSchemaTableName), viewDefinition);
             assertViewDefinition(catalog.getView(SESSION, renamedSchemaTableName).orElseThrow(), viewDefinition);
             assertThat(catalog.getView(SESSION, schemaTableName)).isEmpty();
@@ -442,7 +442,7 @@ public abstract class BaseTrinoCatalogTest
         assertThat(actualView.getOriginalSql()).isEqualTo(expectedView.getOriginalSql());
         assertThat(actualView.getCatalog()).isEqualTo(expectedView.getCatalog());
         assertThat(actualView.getSchema()).isEqualTo(expectedView.getSchema());
-        assertThat(actualView.getColumns().size()).isEqualTo(expectedView.getColumns().size());
+        assertThat(actualView.getColumns()).hasSize(expectedView.getColumns().size());
         for (int i = 0; i < actualView.getColumns().size(); i++) {
             assertViewColumnDefinition(actualView.getColumns().get(i), expectedView.getColumns().get(i));
         }

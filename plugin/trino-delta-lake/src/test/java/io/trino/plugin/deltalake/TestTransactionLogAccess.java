@@ -299,7 +299,7 @@ public class TestTransactionLogAccess
             List<AddFileEntry> activeEntries = addFileEntries.stream()
                     .filter(addFileEntry -> addFileEntry.getPath().equals(path))
                     .toList();
-            assertThat(activeEntries.size()).isEqualTo(1);
+            assertThat(activeEntries).hasSize(1);
             assertThat(activeEntries.get(0).getModificationTime()).isEqualTo(9999999L);
         }
     }
@@ -317,7 +317,7 @@ public class TestTransactionLogAccess
                     .filter(addFileEntry -> addFileEntry.getPath().equals("age=30/part-00002-5800be2e-2373-47d8-8b86-776a8ea9d69f.c000.snappy.parquet"))
                     .toList();
 
-            assertThat(activeEntries.size()).isEqualTo(1);
+            assertThat(activeEntries).hasSize(1);
             assertThat(activeEntries.get(0).getModificationTime()).isEqualTo(9999999L);
         }
     }
@@ -424,7 +424,7 @@ public class TestTransactionLogAccess
 
         try (Stream<ProtocolEntry> protocolEntryStream = transactionLogAccess.getProtocolEntries(SESSION, tableSnapshot)) {
             List<ProtocolEntry> protocolEntries = protocolEntryStream.toList();
-            assertThat(protocolEntries.size()).isEqualTo(1);
+            assertThat(protocolEntries).hasSize(1);
             assertThat(protocolEntries.get(0).minReaderVersion()).isEqualTo(1);
             assertThat(protocolEntries.get(0).minWriterVersion()).isEqualTo(2);
         }
@@ -659,7 +659,7 @@ public class TestTransactionLogAccess
             assertThat(dataFilesWithFixedVersion.stream().noneMatch(entry -> entry.getPath().equals(newFilePath))).isTrue();
         }
 
-        assertThat(expectedDataFiles.size()).isEqualTo(dataFilesWithFixedVersion.size());
+        assertThat(expectedDataFiles).hasSize(dataFilesWithFixedVersion.size());
         List<ColumnMetadata> columns = extractColumnMetadata(transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot), transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot), TESTING_TYPE_MANAGER);
         for (int i = 0; i < expectedDataFiles.size(); i++) {
             AddFileEntry expected = expectedDataFiles.get(i);

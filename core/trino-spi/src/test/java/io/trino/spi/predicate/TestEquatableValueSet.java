@@ -47,7 +47,7 @@ public class TestEquatableValueSet
         assertThat(equatables.isAll()).isFalse();
         assertThat(equatables.isSingleValue()).isFalse();
         assertThat(equatables.inclusive()).isTrue();
-        assertThat(equatables.getValues().size()).isEqualTo(0);
+        assertThat(equatables.getValues()).isEmpty();
         assertThat(equatables.complement()).isEqualTo(EquatableValueSet.all(ID));
         assertThat(equatables.containsValue(0L)).isFalse();
         assertThat(equatables.containsValue(1L)).isFalse();
@@ -63,7 +63,7 @@ public class TestEquatableValueSet
         assertThat(equatables.isAll()).isTrue();
         assertThat(equatables.isSingleValue()).isFalse();
         assertThat(equatables.inclusive()).isFalse();
-        assertThat(equatables.getValues().size()).isEqualTo(0);
+        assertThat(equatables.getValues()).isEmpty();
         assertThat(equatables.complement()).isEqualTo(EquatableValueSet.none(ID));
         assertThat(equatables.containsValue(0L)).isTrue();
         assertThat(equatables.containsValue(1L)).isTrue();

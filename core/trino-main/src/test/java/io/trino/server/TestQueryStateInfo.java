@@ -80,7 +80,7 @@ public class TestQueryStateInfo
 
         List<ResourceGroupInfo> chainInfo = query.getPathToRoot().get();
 
-        assertThat(chainInfo.size()).isEqualTo(3);
+        assertThat(chainInfo).hasSize(3);
 
         ResourceGroupInfo rootAInfo = chainInfo.get(1);
         ResourceGroupInfo expectedRootAInfo = rootA.getInfo();

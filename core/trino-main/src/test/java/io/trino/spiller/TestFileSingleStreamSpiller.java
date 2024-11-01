@@ -123,7 +123,7 @@ public class TestFileSingleStreamSpiller
             assertThat(memoryContext.getBytes()).isEqualTo(4096);
             spiller.spill(page).get();
             spiller.spill(Iterators.forArray(page, page, page)).get();
-            assertThat(listFiles(spillPath.toPath()).size()).isEqualTo(1);
+            assertThat(listFiles(spillPath.toPath())).hasSize(1);
 
             // Assert the spill codec flags match the expected configuration
             try (InputStream is = newInputStream(listFiles(spillPath.toPath()).get(0))) {
@@ -158,7 +158,7 @@ public class TestFileSingleStreamSpiller
                     .hasMessage("Repeated reads are disallowed to prevent potential resource leaks");
 
             spiller.close();
-            assertThat(listFiles(spillPath.toPath()).size()).isEqualTo(0);
+            assertThat(listFiles(spillPath.toPath())).isEmpty();
             assertThat(memoryContext.getBytes()).isEqualTo(0);
         }
         finally {

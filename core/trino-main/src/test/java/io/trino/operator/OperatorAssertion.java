@@ -211,7 +211,7 @@ public final class OperatorAssertion
     public static void assertOperatorEquals(OperatorFactory operatorFactory, List<Type> types, DriverContext driverContext, List<Page> input, List<Page> expected)
     {
         List<Page> actual = toPages(operatorFactory, driverContext, input);
-        assertThat(actual.size()).isEqualTo(expected.size());
+        assertThat(actual).hasSize(expected.size());
         for (int i = 0; i < actual.size(); i++) {
             assertPageEquals(types, actual.get(i), expected.get(i));
         }

@@ -115,7 +115,7 @@ public class TestRowOperators
     {
         TypeSignature signature = RowType.from(ImmutableList.of(field("b", BIGINT))).getTypeSignature();
         Type type = assertions.getQueryRunner().getPlannerContext().getTypeManager().getType(signature);
-        assertThat(type.getTypeSignature().getParameters().size()).isEqualTo(1);
+        assertThat(type.getTypeSignature().getParameters()).hasSize(1);
         assertThat(type.getTypeSignature().getParameters().get(0).getNamedTypeSignature().getName().get()).isEqualTo("b");
     }
 

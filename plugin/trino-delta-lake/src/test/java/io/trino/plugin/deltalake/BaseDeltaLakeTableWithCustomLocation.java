@@ -65,7 +65,7 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
                 .describedAs("The directory corresponding to the table storage location should exist")
                 .isTrue();
         List<MaterializedRow> materializedRows = computeActual("SELECT \"$path\" FROM " + tableName).getMaterializedRows();
-        assertThat(materializedRows.size()).isEqualTo(1);
+        assertThat(materializedRows).hasSize(1);
         Location filePath = Location.of((String) materializedRows.get(0).getField(0));
         assertThat(fileSystem.listFiles(filePath).hasNext())
                 .describedAs("The data file should exist")

@@ -81,7 +81,7 @@ public class TestCommitTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, transactionManager);
         assertThat(stateMachine.getSession().getTransactionId()).isPresent();
-        assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
+        assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
 
         getFutureValue(new CommitTask(transactionManager).execute(new Commit(new NodeLocation(1, 1)), stateMachine, emptyList(), WarningCollector.NOOP));
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isTrue();

@@ -235,9 +235,9 @@ public class TestRowNumberOperator
             ImmutableSet<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
             ImmutableSet<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
             ImmutableSet<?> expectedPartition3Set = ImmutableSet.copyOf(expectedPartition3.getMaterializedRows());
-            assertThat(Sets.intersection(expectedPartition1Set, actualSet).size()).isEqualTo(4);
-            assertThat(Sets.intersection(expectedPartition2Set, actualSet).size()).isEqualTo(4);
-            assertThat(Sets.intersection(expectedPartition3Set, actualSet).size()).isEqualTo(2);
+            assertThat(Sets.intersection(expectedPartition1Set, actualSet)).hasSize(4);
+            assertThat(Sets.intersection(expectedPartition2Set, actualSet)).hasSize(4);
+            assertThat(Sets.intersection(expectedPartition3Set, actualSet)).hasSize(2);
         }
     }
 
@@ -307,9 +307,9 @@ public class TestRowNumberOperator
             ImmutableSet<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
             ImmutableSet<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
             ImmutableSet<?> expectedPartition3Set = ImmutableSet.copyOf(expectedPartition3.getMaterializedRows());
-            assertThat(Sets.intersection(expectedPartition1Set, actualSet).size()).isEqualTo(3);
-            assertThat(Sets.intersection(expectedPartition2Set, actualSet).size()).isEqualTo(3);
-            assertThat(Sets.intersection(expectedPartition3Set, actualSet).size()).isEqualTo(2);
+            assertThat(Sets.intersection(expectedPartition1Set, actualSet)).hasSize(3);
+            assertThat(Sets.intersection(expectedPartition2Set, actualSet)).hasSize(3);
+            assertThat(Sets.intersection(expectedPartition3Set, actualSet)).hasSize(2);
         }
     }
 
@@ -363,10 +363,10 @@ public class TestRowNumberOperator
 
         pages = stripRowNumberColumn(pages);
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(3);
+        assertThat(actual.getMaterializedRows()).hasSize(3);
         ImmutableSet<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         ImmutableSet<?> expectedRowsSet = ImmutableSet.copyOf(expectedRows.getMaterializedRows());
-        assertThat(Sets.intersection(expectedRowsSet, actualSet).size()).isEqualTo(3);
+        assertThat(Sets.intersection(expectedRowsSet, actualSet)).hasSize(3);
     }
 
     private static Block getRowNumberColumn(List<Page> pages)

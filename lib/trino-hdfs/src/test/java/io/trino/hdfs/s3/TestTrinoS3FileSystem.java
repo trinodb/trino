@@ -965,19 +965,19 @@ public class TestTrinoS3FileSystem
             fs.setS3Client(s3);
 
             List<LocatedFileStatus> shallowAll = remoteIteratorToList(fs.listLocatedStatus(rootPath));
-            assertThat(shallowAll.size()).isEqualTo(2);
+            assertThat(shallowAll).hasSize(2);
             assertThat(shallowAll.get(0).isDirectory()).isTrue();
             assertThat(shallowAll.get(1).isDirectory()).isFalse();
             assertThat(shallowAll.get(0).getPath()).isEqualTo(new Path(rootPath, "prefix"));
             assertThat(shallowAll.get(1).getPath()).isEqualTo(new Path(rootPath, rootObject.getKey()));
 
             List<LocatedFileStatus> shallowFiles = remoteIteratorToList(fs.listFiles(rootPath, false));
-            assertThat(shallowFiles.size()).isEqualTo(1);
+            assertThat(shallowFiles).hasSize(1);
             assertThat(shallowFiles.get(0).isDirectory()).isFalse();
             assertThat(shallowFiles.get(0).getPath()).isEqualTo(new Path(rootPath, rootObject.getKey()));
 
             List<LocatedFileStatus> recursiveFiles = remoteIteratorToList(fs.listFiles(rootPath, true));
-            assertThat(recursiveFiles.size()).isEqualTo(2);
+            assertThat(recursiveFiles).hasSize(2);
             assertThat(recursiveFiles.get(0).isDirectory()).isFalse();
             assertThat(recursiveFiles.get(1).isDirectory()).isFalse();
             assertThat(recursiveFiles.get(0).getPath()).isEqualTo(new Path(rootPath, childObject.getKey()));

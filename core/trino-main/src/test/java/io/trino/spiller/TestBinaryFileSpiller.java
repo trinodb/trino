@@ -164,13 +164,13 @@ public class TestBinaryFileSpiller
         assertThat(memoryContext.getBytes()).isEqualTo((long) spills.length * FileSingleStreamSpiller.BUFFER_SIZE);
 
         List<Iterator<Page>> actualSpills = spiller.getSpills();
-        assertThat(actualSpills.size()).isEqualTo(spills.length);
+        assertThat(actualSpills).hasSize(spills.length);
 
         for (int i = 0; i < actualSpills.size(); i++) {
             List<Page> actualSpill = ImmutableList.copyOf(actualSpills.get(i));
             List<Page> expectedSpill = spills[i];
 
-            assertThat(actualSpill.size()).isEqualTo(expectedSpill.size());
+            assertThat(actualSpill).hasSize(expectedSpill.size());
             for (int j = 0; j < actualSpill.size(); j++) {
                 assertPageEquals(types, actualSpill.get(j), expectedSpill.get(j));
             }

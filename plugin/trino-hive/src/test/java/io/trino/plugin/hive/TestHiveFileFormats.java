@@ -1044,7 +1044,7 @@ public final class TestHiveFileFormats
     {
         try (pageSource) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, testColumns.stream().map(TestColumn::type).collect(toImmutableList()));
-            assertThat(result.getMaterializedRows().size()).isEqualTo(rowCount);
+            assertThat(result.getMaterializedRows()).hasSize(rowCount);
             for (MaterializedRow row : result) {
                 for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
                     TestColumn testColumn = testColumns.get(i);

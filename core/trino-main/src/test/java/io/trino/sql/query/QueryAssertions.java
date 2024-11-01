@@ -235,7 +235,7 @@ public class QueryAssertions
             fail("Execution of 'actual' query failed: " + actual, ex);
         }
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
-        assertThat(actualRows.size()).isEqualTo(0);
+        assertThat(actualRows).isEmpty();
     }
 
     public MaterializedResult execute(@Language("SQL") String query)

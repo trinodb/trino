@@ -74,7 +74,7 @@ public class TestRollbackTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, transactionManager);
         assertThat(stateMachine.getSession().getTransactionId()).isPresent();
-        assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
+        assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
 
         getFutureValue(new RollbackTask(transactionManager).execute(new Rollback(new NodeLocation(1, 1)), stateMachine, emptyList(), WarningCollector.NOOP));
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isTrue();

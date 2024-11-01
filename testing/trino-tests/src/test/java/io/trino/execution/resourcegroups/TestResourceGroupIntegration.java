@@ -57,7 +57,7 @@ public class TestResourceGroupIntegration
             queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").setSource("dashboard-foo").build(), "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
             List<ResourceGroupInfo> path = manager.tryGetPathToRoot(new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("global"), "user-user"), "dashboard-user"))
                     .orElseThrow(() -> new IllegalStateException("Resource group not found"));
-            assertThat(path.size()).isEqualTo(3);
+            assertThat(path).hasSize(3);
             assertThat(path.get(1).subGroups()).isPresent();
             assertThat(path.get(2).id()).isEqualTo(new ResourceGroupId("global"));
             assertThat(path.get(2).hardConcurrencyLimit()).isEqualTo(100);

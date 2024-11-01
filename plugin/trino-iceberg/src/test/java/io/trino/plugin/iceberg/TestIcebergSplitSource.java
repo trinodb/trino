@@ -465,7 +465,7 @@ public class TestIcebergSplitSource
                         .forEach(builder::add);
             }
             List<IcebergSplit> splits = builder.build();
-            assertThat(splits.size()).isEqualTo(1);
+            assertThat(splits).hasSize(1);
             assertThat(splitSource.isFinished()).isTrue();
 
             return splits.getFirst();
