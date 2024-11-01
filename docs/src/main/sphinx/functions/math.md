@@ -194,6 +194,36 @@ Returns the tangent of `x`.
 Returns the hyperbolic tangent of `x`.
 :::
 
+## Geometric functions
+
+:::{function} cosine_distance(array(double), array(double)) -> double
+Calculates the cosine distance between two dense vectors:
+
+```sql
+SELECT cosine_distance(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
+-- 0.01613008990009257
+```
+:::
+
+:::{function} cosine_similarity(array(double), array(double)) -> double
+Calculates the cosine similarity of two dense vectors:
+
+```sql
+SELECT cosine_similarity(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
+-- 0.9838699100999074
+```
+:::
+
+:::{function} cosine_similarity(x, y) -> double
+:no-index:
+Calculates the cosine similarity of two sparse vectors:
+
+```sql
+SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0]));
+-- 1.0
+```
+:::
+
 ## Floating point functions
 
 :::{function} infinity() -> double
@@ -227,14 +257,6 @@ Returns the base-`radix` representation of `x`.
 :::
 
 ## Statistical functions
-
-:::{function} cosine_similarity(x, y) -> double
-Returns the cosine similarity between the sparse vectors `x` and `y`:
-
-```
-SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0])); -- 1.0
-```
-:::
 
 :::{function} t_pdf(x, df) -> double
 Computes the Student's t-distribution probability density function for given x and

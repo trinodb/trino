@@ -102,6 +102,7 @@
 - {func}`corr`
 - {func}`cos`
 - {func}`cosh`
+- {func}`cosine_distance`
 - {func}`cosine_similarity`
 - {func}`count`
 - {func}`count_if`
