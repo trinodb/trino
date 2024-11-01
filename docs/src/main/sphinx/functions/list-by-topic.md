@@ -370,6 +370,7 @@ For more details, see {doc}`math`
 - {func}`ceil`
 - {func}`cos`
 - {func}`cosh`
+- {func}`cosine_distance`
 - {func}`cosine_similarity`
 - {func}`degrees`
 - {func}`e`
