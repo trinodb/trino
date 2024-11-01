@@ -887,10 +887,10 @@ public class TestIcebergV2
 
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(5);
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10", "SELECT count(*) FROM nation WHERE regionkey < 10");
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(0);
+        assertThat(this.loadTable(tableName).newScan().planFiles()).isEmpty();
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10");
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(0);
+        assertThat(this.loadTable(tableName).newScan().planFiles()).isEmpty();
     }
 
     @Test

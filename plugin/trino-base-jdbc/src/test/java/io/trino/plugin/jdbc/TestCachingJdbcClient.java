@@ -224,13 +224,13 @@ public class TestCachingJdbcClient
                     assertThat(cachingJdbcClient.getTableHandle(SESSION, query))
                             .isEqualTo(cachedTable);
                     assertThat(getColumns(SESSION, cachingJdbcClient, cachedTable))
-                            .hasSize(0); // phantom_table has no columns
+                            .isEmpty(); // phantom_table has no columns
                 });
         assertCacheStats(cachingJdbcClient)
                 // cache is not used, as the table handle has the columns list embedded
                 .afterRunning(() -> {
                     assertThat(getColumns(SESSION, cachingJdbcClient, cachedTable))
-                            .hasSize(0); // phantom_table has no columns
+                            .isEmpty(); // phantom_table has no columns
                 });
         assertStatisticsCacheStats(cachingJdbcClient)
                 .hits(1)
@@ -247,13 +247,13 @@ public class TestCachingJdbcClient
                     assertThat(cachingJdbcClient.getTableHandle(SESSION, query))
                             .isEqualTo(cachedTable);
                     assertThat(getColumns(SESSION, cachingJdbcClient, cachedTable))
-                            .hasSize(0); // phantom_table has no columns
+                            .isEmpty(); // phantom_table has no columns
                 });
         assertCacheStats(cachingJdbcClient)
                 // cache is not used, as the table handle has the columns list embedded
                 .afterRunning(() -> {
                     assertThat(getColumns(SESSION, cachingJdbcClient, cachedTable))
-                            .hasSize(0); // phantom_table has no columns
+                            .isEmpty(); // phantom_table has no columns
                 });
         assertStatisticsCacheStats(cachingJdbcClient)
                 .misses(1)
@@ -270,13 +270,13 @@ public class TestCachingJdbcClient
                     assertThat(cachingJdbcClient.getTableHandle(SESSION, query))
                             .isEqualTo(cachedTable);
                     assertThat(getColumns(SESSION, cachingJdbcClient, cachedTable))
-                            .hasSize(0); // phantom_table has no columns
+                            .isEmpty(); // phantom_table has no columns
                 });
         assertCacheStats(cachingJdbcClient)
                 // cache is not used, as the table handle has the columns list embedded
                 .afterRunning(() -> {
                     assertThat(getColumns(SESSION, cachingJdbcClient, cachedTable))
-                            .hasSize(0); // phantom_table has no columns
+                            .isEmpty(); // phantom_table has no columns
                 });
         assertStatisticsCacheStats(cachingJdbcClient)
                 .misses(1)
@@ -304,7 +304,7 @@ public class TestCachingJdbcClient
                 .loads(1)
                 .calling(() -> cachingJdbcClient.getProcedureHandle(SESSION, query));
         assertThat(cachedProcedure.getColumns().orElseThrow())
-                .hasSize(0);
+                .isEmpty();
 
         dropProcedure("test_procedure");
 
