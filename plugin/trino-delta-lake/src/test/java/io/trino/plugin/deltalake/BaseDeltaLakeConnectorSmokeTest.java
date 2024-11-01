@@ -761,7 +761,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         List<MaterializedRow> materializedRows = getQueryRunner()
                 .execute("SELECT DISTINCT regexp_replace(\"$path\", '(.*[/][^/]*)[/][^/]*$', '$1') FROM " + schemaName + "." + tableName)
                 .getMaterializedRows();
-        assertThat(materializedRows.size()).isEqualTo(1);
+        assertThat(materializedRows).hasSize(1);
         assertThat((String) materializedRows.get(0).getField(0)).matches(format("%s/%s.*", schemaLocation, tableName));
     }
 
@@ -886,7 +886,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 "SELECT count(*) FROM nation");
         int fileCount = getTableFiles(tableName).size();
         assertUpdate(format("DROP TABLE %s.%s", schemaName, tableName));
-        assertThat(getTableFiles(tableName).size()).isEqualTo(fileCount);
+        assertThat(getTableFiles(tableName)).hasSize(fileCount);
     }
 
     @Test

@@ -77,11 +77,11 @@ public class TestShadowing
         Query query = new Query(CATALOG, SCHEMA, ImmutableList.of(), "CREATE TABLE my_test_table AS SELECT 1 column1, CAST('2.0' AS DOUBLE) column2 LIMIT 1", ImmutableList.of(), null, null, ImmutableMap.of());
         QueryRewriter rewriter = new QueryRewriter(parser, URL, QualifiedName.of("tmp_"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 1, new Duration(10, SECONDS));
         Query rewrittenQuery = rewriter.shadowQuery(query);
-        assertThat(rewrittenQuery.getPreQueries().size()).isEqualTo(1);
-        assertThat(rewrittenQuery.getPostQueries().size()).isEqualTo(1);
+        assertThat(rewrittenQuery.getPreQueries()).hasSize(1);
+        assertThat(rewrittenQuery.getPostQueries()).hasSize(1);
 
         CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
-        assertThat(createTableAs.getName().getParts().size()).isEqualTo(1);
+        assertThat(createTableAs.getName().getParts()).hasSize(1);
         assertThat(createTableAs.getName().getSuffix()).startsWith("tmp_");
         assertThat(createTableAs.getName().getSuffix()).doesNotContain("my_test_table");
 
@@ -104,9 +104,9 @@ public class TestShadowing
         Query query = new Query(CATALOG, SCHEMA, ImmutableList.of(), "CREATE TABLE public.my_test_table2 AS SELECT 1 column1, 2E0 column2", ImmutableList.of(), null, null, ImmutableMap.of());
         QueryRewriter rewriter = new QueryRewriter(parser, URL, QualifiedName.of("other_catalog", "other_schema", "tmp_"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 1, new Duration(10, SECONDS));
         Query rewrittenQuery = rewriter.shadowQuery(query);
-        assertThat(rewrittenQuery.getPreQueries().size()).isEqualTo(1);
+        assertThat(rewrittenQuery.getPreQueries()).hasSize(1);
         CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
-        assertThat(createTableAs.getName().getParts().size()).isEqualTo(3);
+        assertThat(createTableAs.getName().getParts()).hasSize(3);
         assertThat(createTableAs.getName().getPrefix().get()).isEqualTo(QualifiedName.of("other_catalog", "other_schema"));
         assertThat(createTableAs.getName().getSuffix()).startsWith("tmp_");
         assertThat(createTableAs.getName().getSuffix()).doesNotContain("my_test_table");
@@ -122,9 +122,9 @@ public class TestShadowing
         QueryRewriter rewriter = new QueryRewriter(parser, URL, QualifiedName.of("other_catalog", "other_schema", "tmp_"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 1, new Duration(10, SECONDS));
         Query rewrittenQuery = rewriter.shadowQuery(query);
 
-        assertThat(rewrittenQuery.getPreQueries().size()).isEqualTo(2);
+        assertThat(rewrittenQuery.getPreQueries()).hasSize(2);
         CreateTable createTable = (CreateTable) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
-        assertThat(createTable.getName().getParts().size()).isEqualTo(3);
+        assertThat(createTable.getName().getParts()).hasSize(3);
         assertThat(createTable.getName().getPrefix().get()).isEqualTo(QualifiedName.of("other_catalog", "other_schema"));
         assertThat(createTable.getName().getSuffix()).startsWith("tmp_");
         assertThat(createTable.getName().getSuffix()).doesNotContain("test_insert_table");
@@ -139,7 +139,7 @@ public class TestShadowing
         SingleColumn columnC = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("C"))));
         assertThat(parser.createStatement(rewrittenQuery.getQuery())).isEqualTo(simpleQuery(selectList(columnA, columnB, columnC), table));
 
-        assertThat(rewrittenQuery.getPostQueries().size()).isEqualTo(1);
+        assertThat(rewrittenQuery.getPostQueries()).hasSize(1);
         assertThat(parser.createStatement(rewrittenQuery.getPostQueries().get(0))).isEqualTo(new DropTable(new NodeLocation(1, 1), createTable.getName(), true));
     }
 }

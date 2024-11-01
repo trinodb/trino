@@ -37,9 +37,9 @@ public class TestDateFormatParser
     @Test
     public void testGreedinessLongFirst()
     {
-        assertThat(DateFormatParser.tokenize("yy").size()).isEqualTo(1);
-        assertThat(DateFormatParser.tokenize("yyyy").size()).isEqualTo(1);
-        assertThat(DateFormatParser.tokenize("yyyyyy").size()).isEqualTo(2);
+        assertThat(DateFormatParser.tokenize("yy")).hasSize(1);
+        assertThat(DateFormatParser.tokenize("yyyy")).hasSize(1);
+        assertThat(DateFormatParser.tokenize("yyyyyy")).hasSize(2);
     }
 
     @Test

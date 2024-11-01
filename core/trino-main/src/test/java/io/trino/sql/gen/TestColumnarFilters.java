@@ -919,7 +919,7 @@ public class TestColumnarFilters
     {
         List<Page> outputPagesExpected = processFilter(inputPages, false, filter);
         List<Page> outputPagesActual = processFilter(inputPages, true, filter);
-        assertThat(outputPagesExpected.size()).isEqualTo(outputPagesActual.size());
+        assertThat(outputPagesExpected).hasSize(outputPagesActual.size());
 
         for (int pageCount = 0; pageCount < outputPagesActual.size(); pageCount++) {
             assertPageEquals(ImmutableList.of(BIGINT), outputPagesActual.get(pageCount), outputPagesExpected.get(pageCount));
@@ -930,7 +930,7 @@ public class TestColumnarFilters
     {
         assertThat(actual.getChannelCount()).isEqualTo(expected.getChannelCount());
         assertThat(actual.getPositionCount()).isEqualTo(expected.getPositionCount());
-        assertThat(types.size()).isEqualTo(actual.getChannelCount());
+        assertThat(types).hasSize(actual.getChannelCount());
 
         for (int channel = 0; channel < types.size(); channel++) {
             assertBlockEquals(types.get(channel), actual.getBlock(channel), expected.getBlock(channel));

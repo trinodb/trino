@@ -139,7 +139,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SELECT orderkey FROM orders LIMIT 10");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
+        assertThat(actual.getMaterializedRows()).hasSize(10);
         assertContains(all, actual);
 
         actual = computeActual(
@@ -149,7 +149,7 @@ public abstract class AbstractTestQueries
                         "(SELECT orderkey, custkey FROM orders LIMIT 5) UNION ALL " +
                         "SELECT orderkey, custkey FROM orders LIMIT 10");
         all = computeExpected("SELECT orderkey, custkey FROM orders", actual.getTypes());
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
+        assertThat(actual.getMaterializedRows()).hasSize(10);
         assertContains(all, actual);
 
         // with ORDER BY
@@ -175,7 +175,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT custkey, SUM(orderkey) FROM orders GROUP BY custkey LIMIT 10");
         MaterializedResult all = computeExpected("SELECT custkey, SUM(orderkey) FROM orders GROUP BY custkey", actual.getTypes());
 
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
+        assertThat(actual.getMaterializedRows()).hasSize(10);
         assertContains(all, actual);
     }
 
@@ -185,7 +185,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT orderkey FROM (SELECT orderkey FROM orders LIMIT 100) T LIMIT 10");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
 
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
+        assertThat(actual.getMaterializedRows()).hasSize(10);
         assertContains(all, actual);
     }
 
@@ -450,7 +450,7 @@ public abstract class AbstractTestQueries
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", fullSample.getTypes());
 
         assertContains(all, fullSample);
-        assertThat(emptySample.getMaterializedRows().size()).isEqualTo(0);
+        assertThat(emptySample.getMaterializedRows()).isEmpty();
     }
 
     @Test

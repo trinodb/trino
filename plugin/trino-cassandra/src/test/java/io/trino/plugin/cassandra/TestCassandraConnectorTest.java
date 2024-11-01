@@ -327,7 +327,7 @@ public class TestCassandraConnectorTest
                 ImmutableList.of("'2', 0"))) {
             String sql = "SELECT 1 FROM " + testCassandraTable.getTableName() + " WHERE id = '1' AND trino_filter_col = 0";
 
-            assertThat(computeActual(sql).getMaterializedRows().size()).isEqualTo(0);
+            assertThat(computeActual(sql).getMaterializedRows()).isEmpty();
         }
     }
 

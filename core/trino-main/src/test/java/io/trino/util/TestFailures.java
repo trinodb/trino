@@ -35,7 +35,7 @@ public class TestFailures
         ExecutionFailureInfo failure = toFailure(exception1);
         assertThat(failure.getMessage()).isEqualTo("fake exception 1");
         assertThat(failure.getCause()).isNull();
-        assertThat(failure.getSuppressed().size()).isEqualTo(1);
+        assertThat(failure.getSuppressed()).hasSize(1);
         assertThat(failure.getSuppressed().get(0).getMessage()).isEqualTo("fake exception 2");
         assertThat(failure.getErrorCode()).isEqualTo(TOO_MANY_REQUESTS_FAILED.toErrorCode());
 
@@ -44,7 +44,7 @@ public class TestFailures
         assertThat(failure.getMessage()).isEqualTo("fake exception 2");
         assertThat(failure.getCause()).isNotNull();
         assertThat(failure.getCause().getMessage()).isEqualTo("fake exception 1");
-        assertThat(failure.getSuppressed().size()).isEqualTo(0);
+        assertThat(failure.getSuppressed()).isEmpty();
         assertThat(failure.getErrorCode()).isEqualTo(TOO_MANY_REQUESTS_FAILED.toErrorCode());
 
         // add exception 1 --> add suppress (exception 2) --> add suppress (exception 1)
@@ -55,7 +55,7 @@ public class TestFailures
         failure = toFailure(exception1);
         assertThat(failure.getMessage()).isEqualTo("fake exception 1");
         assertThat(failure.getCause()).isNull();
-        assertThat(failure.getSuppressed().size()).isEqualTo(1);
+        assertThat(failure.getSuppressed()).hasSize(1);
         assertThat(failure.getSuppressed().get(0).getMessage()).isEqualTo("fake exception 2");
         assertThat(failure.getErrorCode()).isEqualTo(TOO_MANY_REQUESTS_FAILED.toErrorCode());
 
@@ -67,7 +67,7 @@ public class TestFailures
         assertThat(failure.getMessage()).isEqualTo("fake exception 2");
         assertThat(failure.getCause()).isNotNull();
         assertThat(failure.getCause().getMessage()).isEqualTo("fake exception 1");
-        assertThat(failure.getSuppressed().size()).isEqualTo(0);
+        assertThat(failure.getSuppressed()).isEmpty();
         assertThat(failure.getErrorCode()).isEqualTo(GENERIC_INTERNAL_ERROR.toErrorCode());
     }
 }

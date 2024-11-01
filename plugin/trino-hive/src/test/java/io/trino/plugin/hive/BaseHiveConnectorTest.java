@@ -1976,7 +1976,7 @@ public abstract class BaseHiveConnectorTest
         assertThat(tableMetadata.metadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("ship_priority", "order_status"));
 
         List<?> partitions = getPartitions("test_create_partitioned_table_as");
-        assertThat(partitions.size()).isEqualTo(3);
+        assertThat(partitions).hasSize(3);
 
         assertQuery(session, "SELECT * FROM test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
 
@@ -2736,7 +2736,7 @@ public abstract class BaseHiveConnectorTest
         assertThat(tableMetadata.metadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
 
         List<?> partitions = getPartitions(tableName);
-        assertThat(partitions.size()).isEqualTo(3);
+        assertThat(partitions).hasSize(3);
 
         // verify that we create bucket_count files in each partition
         assertEqualsIgnoreOrder(
@@ -2904,7 +2904,7 @@ public abstract class BaseHiveConnectorTest
         assertThat(tableMetadata.metadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
 
         List<?> partitions = getPartitions(tableName);
-        assertThat(partitions.size()).isEqualTo(3);
+        assertThat(partitions).hasSize(3);
 
         MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
         MaterializedResult expected = resultBuilder(getSession(), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()))
@@ -2976,7 +2976,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(format("INSERT INTO %s (dummy_col, part) VALUES (1, 'first'), (2, 'second'), (3, 'third')", tableName), 3);
         List<MaterializedRow> paths = getQueryRunner().execute(getSession(), "SELECT \"$path\" FROM " + tableName + " ORDER BY \"$path\" ASC").toTestTypes().getMaterializedRows();
-        assertThat(paths.size()).isEqualTo(3);
+        assertThat(paths).hasSize(3);
 
         String firstPartition = Location.of((String) paths.get(0).getField(0)).parentDirectory().toString();
 
@@ -3309,7 +3309,7 @@ public abstract class BaseHiveConnectorTest
 
         // verify the partitions
         List<?> partitions = getPartitions("test_insert_partitioned_table");
-        assertThat(partitions.size()).isEqualTo(3);
+        assertThat(partitions).hasSize(3);
 
         assertQuery(session, "SELECT * FROM test_insert_partitioned_table", "SELECT orderkey, shippriority, orderstatus FROM orders");
 
@@ -3378,7 +3378,7 @@ public abstract class BaseHiveConnectorTest
 
         // verify the partitions
         List<?> partitions = getPartitions(tableName);
-        assertThat(partitions.size()).isEqualTo(3);
+        assertThat(partitions).hasSize(3);
 
         assertQuery(
                 session,
@@ -3435,7 +3435,7 @@ public abstract class BaseHiveConnectorTest
 
             // verify the partitions
             List<?> partitions = getPartitions(tableName);
-            assertThat(partitions.size()).isEqualTo(3);
+            assertThat(partitions).hasSize(3);
 
             assertQuery(
                     session,
@@ -4750,7 +4750,7 @@ public abstract class BaseHiveConnectorTest
 
         List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.columns();
-        assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
+        assertThat(columnMetadatas).hasSize(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
             assertThat(columnMetadata.getName()).isEqualTo(columnNames.get(i));
@@ -4759,7 +4759,7 @@ public abstract class BaseHiveConnectorTest
                 assertThat(columnMetadata.isHidden()).isTrue();
             }
         }
-        assertThat(getPartitions("test_path").size()).isEqualTo(3);
+        assertThat(getPartitions("test_path")).hasSize(3);
 
         MaterializedResult results = computeActual(session, format("SELECT *, \"%s\" FROM test_path", PATH_COLUMN_NAME));
         Map<Integer, String> partitionPathMap = new HashMap<>();
@@ -4780,7 +4780,7 @@ public abstract class BaseHiveConnectorTest
                 partitionPathMap.put(col1, parentDirectory);
             }
         }
-        assertThat(partitionPathMap.size()).isEqualTo(3);
+        assertThat(partitionPathMap).hasSize(3);
 
         assertUpdate(session, "DROP TABLE test_path");
         assertThat(getQueryRunner().tableExists(session, "test_path")).isFalse();
@@ -4808,7 +4808,7 @@ public abstract class BaseHiveConnectorTest
 
         List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, BUCKET_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.columns();
-        assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
+        assertThat(columnMetadatas).hasSize(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
             assertThat(columnMetadata.getName()).isEqualTo(columnNames.get(i));
@@ -4858,7 +4858,7 @@ public abstract class BaseHiveConnectorTest
 
         List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.columns();
-        assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
+        assertThat(columnMetadatas).hasSize(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
             assertThat(columnMetadata.getName()).isEqualTo(columnNames.get(i));
@@ -4866,7 +4866,7 @@ public abstract class BaseHiveConnectorTest
                 assertThat(columnMetadata.isHidden()).isTrue();
             }
         }
-        assertThat(getPartitions("test_file_size").size()).isEqualTo(3);
+        assertThat(getPartitions("test_file_size")).hasSize(3);
 
         MaterializedResult results = computeActual(format("SELECT *, \"%s\" FROM test_file_size", FILE_SIZE_COLUMN_NAME));
         Map<Integer, Long> fileSizeMap = new HashMap<>();
@@ -4885,7 +4885,7 @@ public abstract class BaseHiveConnectorTest
                 fileSizeMap.put(col1, fileSize);
             }
         }
-        assertThat(fileSizeMap.size()).isEqualTo(3);
+        assertThat(fileSizeMap).hasSize(3);
 
         assertUpdate("DROP TABLE test_file_size");
     }
@@ -4918,7 +4918,7 @@ public abstract class BaseHiveConnectorTest
 
         List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.columns();
-        assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
+        assertThat(columnMetadatas).hasSize(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
             assertThat(columnMetadata.getName()).isEqualTo(columnNames.get(i));
@@ -4926,7 +4926,7 @@ public abstract class BaseHiveConnectorTest
                 assertThat(columnMetadata.isHidden()).isTrue();
             }
         }
-        assertThat(getPartitions("test_file_modified_time").size()).isEqualTo(3);
+        assertThat(getPartitions("test_file_modified_time")).hasSize(3);
 
         Session sessionWithTimestampPrecision = withTimestampPrecision(getSession(), precision);
         MaterializedResult results = computeActual(
@@ -4948,7 +4948,7 @@ public abstract class BaseHiveConnectorTest
                 fileModifiedTimeMap.put(col1, fileModifiedTime);
             }
         }
-        assertThat(fileModifiedTimeMap.size()).isEqualTo(3);
+        assertThat(fileModifiedTimeMap).hasSize(3);
 
         assertUpdate("DROP TABLE test_file_modified_time");
     }
@@ -4973,7 +4973,7 @@ public abstract class BaseHiveConnectorTest
 
         List<String> columnNames = ImmutableList.of("col0", "col1", "col2", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.columns();
-        assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
+        assertThat(columnMetadatas).hasSize(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
             assertThat(columnMetadata.getName()).isEqualTo(columnNames.get(i));
@@ -4981,7 +4981,7 @@ public abstract class BaseHiveConnectorTest
                 assertThat(columnMetadata.isHidden()).isTrue();
             }
         }
-        assertThat(getPartitions("test_partition_hidden_column").size()).isEqualTo(9);
+        assertThat(getPartitions("test_partition_hidden_column")).hasSize(9);
 
         MaterializedResult results = computeActual(format("SELECT *, \"%s\" FROM test_partition_hidden_column", PARTITION_COLUMN_NAME));
         for (MaterializedRow row : results.getMaterializedRows()) {

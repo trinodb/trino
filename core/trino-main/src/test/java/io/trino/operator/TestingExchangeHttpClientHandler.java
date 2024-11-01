@@ -59,11 +59,11 @@ public class TestingExchangeHttpClientHandler
     {
         ImmutableList<String> parts = ImmutableList.copyOf(Splitter.on("/").omitEmptyStrings().split(request.getUri().getPath()));
         if (request.getMethod().equals("DELETE")) {
-            assertThat(parts.size()).isEqualTo(1);
+            assertThat(parts).hasSize(1);
             return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]);
         }
 
-        assertThat(parts.size()).isEqualTo(2);
+        assertThat(parts).hasSize(2);
         TaskId taskId = TaskId.valueOf(parts.get(0));
         int pageToken = Integer.parseInt(parts.get(1));
 

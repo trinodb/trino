@@ -137,7 +137,7 @@ public class TestHttpPageBufferClient
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
 
-        assertThat(callback.getPages().size()).isEqualTo(1);
+        assertThat(callback.getPages()).hasSize(1);
         assertPageEquals(expectedPage, callback.getPages().get(0));
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
@@ -148,7 +148,7 @@ public class TestHttpPageBufferClient
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
 
-        assertThat(callback.getPages().size()).isEqualTo(0);
+        assertThat(callback.getPages()).isEmpty();
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertStatus(client, location, "queued", 1, 2, 2, 0, "not scheduled");
@@ -160,7 +160,7 @@ public class TestHttpPageBufferClient
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
 
-        assertThat(callback.getPages().size()).isEqualTo(2);
+        assertThat(callback.getPages()).hasSize(2);
         assertPageEquals(expectedPage, callback.getPages().get(0));
         assertPageEquals(expectedPage, callback.getPages().get(1));
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
@@ -176,7 +176,7 @@ public class TestHttpPageBufferClient
         requestComplete.await(10, TimeUnit.SECONDS);
 
         // get the buffer complete signal
-        assertThat(callback.getPages().size()).isEqualTo(0);
+        assertThat(callback.getPages()).isEmpty();
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
 
         // schedule the delete call to the buffer
@@ -185,7 +185,7 @@ public class TestHttpPageBufferClient
         requestComplete.await(10, TimeUnit.SECONDS);
         assertThat(callback.getFinishedBuffers()).isEqualTo(1);
 
-        assertThat(callback.getPages().size()).isEqualTo(0);
+        assertThat(callback.getPages()).isEmpty();
         assertThat(callback.getCompletedRequests()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(0);
 
@@ -268,7 +268,7 @@ public class TestHttpPageBufferClient
         processor.setResponse(new TestingResponse(HttpStatus.NOT_FOUND, ImmutableListMultimap.of(CONTENT_TYPE, TRINO_PAGES), new byte[0]));
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
-        assertThat(callback.getPages().size()).isEqualTo(0);
+        assertThat(callback.getPages()).isEmpty();
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(1);
@@ -281,7 +281,7 @@ public class TestHttpPageBufferClient
         processor.setResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "INVALID_TYPE"), new byte[0]));
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
-        assertThat(callback.getPages().size()).isEqualTo(0);
+        assertThat(callback.getPages()).isEmpty();
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(1);
@@ -294,7 +294,7 @@ public class TestHttpPageBufferClient
         processor.setResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "text/plain"), new byte[0]));
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
-        assertThat(callback.getPages().size()).isEqualTo(0);
+        assertThat(callback.getPages()).isEmpty();
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(1);
@@ -400,7 +400,7 @@ public class TestHttpPageBufferClient
         // this starts the error stopwatch
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
-        assertThat(callback.getPages().size()).isEqualTo(0);
+        assertThat(callback.getPages()).isEmpty();
         assertThat(callback.getCompletedRequests()).isEqualTo(1);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(0);
@@ -412,7 +412,7 @@ public class TestHttpPageBufferClient
         // verify that the client has not failed
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
-        assertThat(callback.getPages().size()).isEqualTo(0);
+        assertThat(callback.getPages()).isEmpty();
         assertThat(callback.getCompletedRequests()).isEqualTo(2);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(0);
@@ -424,7 +424,7 @@ public class TestHttpPageBufferClient
         // verify that the client has failed
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
-        assertThat(callback.getPages().size()).isEqualTo(0);
+        assertThat(callback.getPages()).isEmpty();
         assertThat(callback.getCompletedRequests()).isEqualTo(3);
         assertThat(callback.getFinishedBuffers()).isEqualTo(0);
         assertThat(callback.getFailedBuffers()).isEqualTo(1);

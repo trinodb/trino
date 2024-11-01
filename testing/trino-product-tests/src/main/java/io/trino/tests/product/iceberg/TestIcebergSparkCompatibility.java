@@ -2630,7 +2630,7 @@ public class TestIcebergSparkCompatibility
         List<Object> partitioning = onTrino().executeQuery(format("SELECT partition, record_count FROM iceberg.default.\"%s$partitions\"", baseTableName))
                 .column(1);
         Set<String> partitions = partitioning.stream().map(String::valueOf).collect(toUnmodifiableSet());
-        assertThat(partitions.size()).isEqualTo(expectedValues.size());
+        assertThat(partitions).hasSize(expectedValues.size());
         assertThat(partitions).containsAll(trinoResult);
         List<String> sparkResult = expectedValues.stream().map(m ->
                         m.entrySet().stream()
@@ -2639,7 +2639,7 @@ public class TestIcebergSparkCompatibility
                 .collect(toImmutableList());
         partitioning = onSpark().executeQuery(format("SELECT partition from %s.files", sparkTableName)).column(1);
         partitions = partitioning.stream().map(String::valueOf).collect(toUnmodifiableSet());
-        assertThat(partitions.size()).isEqualTo(expectedValues.size());
+        assertThat(partitions).hasSize(expectedValues.size());
         assertThat(partitions).containsAll(sparkResult);
     }
 

@@ -77,7 +77,7 @@ public class TestKinesisTableDescriptionSupplier
         assertThat(tableHandle.streamName()).isEqualTo("test_kinesis_stream");
         assertThat(tableHandle.messageDataFormat()).isEqualTo("json");
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(SESSION, tableHandle);
-        assertThat(columnHandles.size()).isEqualTo(14);
+        assertThat(columnHandles).hasSize(14);
         assertThat(columnHandles.values().stream().filter(x -> ((KinesisColumnHandle) x).isInternal()).count()).isEqualTo(10);
     }
 
@@ -89,7 +89,7 @@ public class TestKinesisTableDescriptionSupplier
 
         SchemaTableName tblName = new SchemaTableName("prod", "test_table");
         List<String> schemas = metadata.listSchemaNames(null);
-        assertThat(schemas.size()).isEqualTo(1);
+        assertThat(schemas).hasSize(1);
         assertThat(schemas.get(0)).isEqualTo("prod");
 
         KinesisTableHandle tblHandle = metadata.getTableHandle(null, tblName, Optional.empty(), Optional.empty());

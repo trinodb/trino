@@ -159,7 +159,7 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
-        assertThat(drain(hiveSplitSource).size()).isEqualTo(2);
+        assertThat(drain(hiveSplitSource)).hasSize(2);
     }
 
     @Test
@@ -196,7 +196,7 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
-        assertThat(drainSplits(hiveSplitSource).size()).isEqualTo(expectedSplitCount);
+        assertThat(drainSplits(hiveSplitSource)).hasSize(expectedSplitCount);
     }
 
     @Test
@@ -210,7 +210,7 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
-        assertThat(paths.size()).isEqualTo(1);
+        assertThat(paths).hasSize(1);
         assertThat(paths.get(0)).isEqualTo(LOCATION.toString());
     }
 
@@ -228,7 +228,7 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
-        assertThat(paths.size()).isEqualTo(1);
+        assertThat(paths).hasSize(1);
         assertThat(paths.get(0)).isEqualTo(LOCATION.toString());
     }
 
@@ -252,7 +252,7 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
-        assertThat(paths.size()).isEqualTo(1);
+        assertThat(paths).hasSize(1);
         assertThat(paths.get(0)).isEqualTo(LOCATION.toString());
     }
 
@@ -276,7 +276,7 @@ public class TestBackgroundHiveSplitLoader
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
         List<HiveSplit> splits = drainSplits(hiveSplitSource);
-        assertThat(splits.size()).isEqualTo(0);
+        assertThat(splits).isEmpty();
     }
 
     @Test
@@ -339,7 +339,7 @@ public class TestBackgroundHiveSplitLoader
             HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
             backgroundHiveSplitLoader.start(hiveSplitSource);
 
-            assertThat(drain(hiveSplitSource).size()).isEqualTo(2);
+            assertThat(drain(hiveSplitSource)).hasSize(2);
             assertThat(hiveSplitSource.isFinished()).isTrue();
         }
         finally {
@@ -381,7 +381,7 @@ public class TestBackgroundHiveSplitLoader
         }
 
         for (Future<List<HiveSplit>> future : futures) {
-            assertThat(future.get().size()).isEqualTo(TEST_LOCATIONS.size());
+            assertThat(future.get()).hasSize(TEST_LOCATIONS.size());
         }
         assertThat(cachingDirectoryLister.getRequestCount()).isEqualTo(totalCount);
         assertThat(cachingDirectoryLister.getHitCount()).isEqualTo(totalCount - 1);
@@ -517,7 +517,7 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
-        assertThat(drainSplits(hiveSplitSource).size()).isEqualTo(17);
+        assertThat(drainSplits(hiveSplitSource)).hasSize(17);
     }
 
     @Test
@@ -810,7 +810,7 @@ public class TestBackgroundHiveSplitLoader
                 locations,
                 true);
         List<InternalHiveSplit> splits = ImmutableList.copyOf(splitIterator);
-        assertThat(splits.size()).isEqualTo(2);
+        assertThat(splits).hasSize(2);
         assertThat(splits.get(0).getPath()).isEqualTo(firstFilePath.toString());
         assertThat(splits.get(1).getPath()).isEqualTo(secondFilePath.toString());
     }
@@ -852,7 +852,7 @@ public class TestBackgroundHiveSplitLoader
                 locations,
                 false);
         List<InternalHiveSplit> splits = ImmutableList.copyOf(splitIterator);
-        assertThat(splits.size()).isEqualTo(2);
+        assertThat(splits).hasSize(2);
         assertThat(splits.get(0).getPath()).isEqualTo(filePath.toString());
         assertThat(splits.get(1).getPath()).isEqualTo(directoryPath.toString());
     }
@@ -892,7 +892,7 @@ public class TestBackgroundHiveSplitLoader
                 locations1,
                 true);
         List<InternalHiveSplit> splits1 = ImmutableList.copyOf(splitIterator1);
-        assertThat(splits1.size()).isEqualTo(1);
+        assertThat(splits1).hasSize(1);
         assertThat(splits1.get(0).getPath()).isEqualTo(firstFilePath.toString());
 
         Location secondFilePath = Location.of("memory:///db_name/table_name/file2");
@@ -906,7 +906,7 @@ public class TestBackgroundHiveSplitLoader
                 locations2,
                 true);
         List<InternalHiveSplit> splits2 = ImmutableList.copyOf(splitIterator2);
-        assertThat(splits2.size()).isEqualTo(2);
+        assertThat(splits2).hasSize(2);
         assertThat(splits2.get(0).getPath()).isEqualTo(firstFilePath.toString());
         assertThat(splits2.get(1).getPath()).isEqualTo(secondFilePath.toString());
     }

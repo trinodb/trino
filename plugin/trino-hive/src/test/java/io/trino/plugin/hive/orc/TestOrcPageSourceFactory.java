@@ -140,7 +140,7 @@ public class TestOrcPageSourceFactory
                 .build();
 
         List<Nation> result = readFile(fileSystemFactory, Map.of(), OptionalLong.empty(), acidInfo, fileLocation, 625);
-        assertThat(result.size()).isEqualTo(1);
+        assertThat(result).hasSize(1);
     }
 
     @Test
@@ -178,7 +178,7 @@ public class TestOrcPageSourceFactory
         List<Nation> expected = expectedResult(OptionalLong.empty(), nationKey -> nationKey == 24, 1);
         List<Nation> result = readFile(fileSystemFactory, ALL_COLUMNS, OptionalLong.empty(), Optional.of(acidInfo), fileLocation, 1780);
 
-        assertThat(result.size()).isEqualTo(expected.size());
+        assertThat(result).hasSize(expected.size());
         int deletedRowKey = 24;
         String deletedRowNameColumn = "UNITED STATES";
         assertThat(result.stream().anyMatch(acidNationRow -> acidNationRow.name().equals(deletedRowNameColumn) && acidNationRow.nationKey() == deletedRowKey))

@@ -667,7 +667,7 @@ public class TestAnnotationEngineForAggregates
                 .build();
 
         List<ParametricAggregation> aggregations = parseFunctionDefinitions(MultiOutputAggregationFunction.class);
-        assertThat(aggregations.size()).isEqualTo(2);
+        assertThat(aggregations).hasSize(2);
 
         ParametricAggregation aggregation1 = aggregations.stream().filter(aggregate -> aggregate.getFunctionMetadata().getCanonicalName().equals("multi_output_aggregate_1")).collect(toImmutableList()).get(0);
         assertThat(aggregation1.getFunctionMetadata().getSignature()).isEqualTo(expectedSignature1);
@@ -817,7 +817,7 @@ public class TestAnnotationEngineForAggregates
         assertThat(aggregation.getFunctionMetadata().getSignature()).isEqualTo(expectedSignature);
         ParametricImplementationsGroup<ParametricAggregationImplementation> implementations = aggregation.getImplementations();
 
-        assertThat(implementations.getGenericImplementations().size()).isEqualTo(1);
+        assertThat(implementations.getGenericImplementations()).hasSize(1);
         ParametricAggregationImplementation implementation = implementations.getGenericImplementations().get(0);
         assertThat(implementation.getDefinitionClass()).isEqualTo(InjectTypeAggregateFunction.class);
         assertDependencyCount(implementation, 1, 1, 1);
@@ -880,7 +880,7 @@ public class TestAnnotationEngineForAggregates
         assertThat(aggregation.getFunctionMetadata().getSignature()).isEqualTo(expectedSignature);
         ParametricImplementationsGroup<ParametricAggregationImplementation> implementations = aggregation.getImplementations();
 
-        assertThat(implementations.getGenericImplementations().size()).isEqualTo(1);
+        assertThat(implementations.getGenericImplementations()).hasSize(1);
         ParametricAggregationImplementation implementation = implementations.getGenericImplementations().get(0);
         assertThat(implementation.getDefinitionClass()).isEqualTo(InjectLiteralAggregateFunction.class);
         assertDependencyCount(implementation, 1, 1, 1);
@@ -947,7 +947,7 @@ public class TestAnnotationEngineForAggregates
         assertThat(aggregation.getFunctionMetadata().getSignature()).isEqualTo(expectedSignature);
         ParametricImplementationsGroup<ParametricAggregationImplementation> implementations = aggregation.getImplementations();
 
-        assertThat(implementations.getGenericImplementations().size()).isEqualTo(1);
+        assertThat(implementations.getGenericImplementations()).hasSize(1);
         ParametricAggregationImplementation implementation = implementations.getGenericImplementations().get(0);
         assertThat(implementation.getDefinitionClass()).isEqualTo(LongConstraintAggregateFunction.class);
         assertDependencyCount(implementation, 0, 0, 0);
@@ -1133,13 +1133,13 @@ public class TestAnnotationEngineForAggregates
     public void testAggregateFunctionGetCanonicalName()
     {
         List<ParametricAggregation> aggregationFunctions = parseFunctionDefinitions(AggregationOutputFunctionWithAlias.class);
-        assertThat(aggregationFunctions.size()).isEqualTo(1);
+        assertThat(aggregationFunctions).hasSize(1);
         ParametricAggregation aggregation = getOnlyElement(aggregationFunctions);
         assertThat(aggregation.getFunctionMetadata().getCanonicalName()).isEqualTo("aggregation_output");
         assertThat(aggregation.getFunctionMetadata().getNames()).containsExactlyInAnyOrder("aggregation_output", "aggregation_output_alias_1", "aggregation_output_alias_2");
 
         aggregationFunctions = parseFunctionDefinitions(AggregationFunctionWithAlias.class);
-        assertThat(aggregationFunctions.size()).isEqualTo(1);
+        assertThat(aggregationFunctions).hasSize(1);
         aggregation = getOnlyElement(aggregationFunctions);
         assertThat(aggregation.getFunctionMetadata().getCanonicalName()).isEqualTo("aggregation");
         assertThat(aggregation.getFunctionMetadata().getNames()).containsExactlyInAnyOrder("aggregation", "aggregation_alias_1", "aggregation_alias_2");

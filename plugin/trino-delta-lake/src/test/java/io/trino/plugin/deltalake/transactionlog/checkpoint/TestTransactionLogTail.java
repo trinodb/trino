@@ -41,8 +41,8 @@ public class TestTransactionLogTail
             throws Exception
     {
         String tableLocation = getClass().getClassLoader().getResource(format("%s/person", dataSource)).toURI().toString();
-        assertThat(readJsonTransactionLogTails(tableLocation).size()).isEqualTo(7);
-        assertThat(updateJsonTransactionLogTails(tableLocation).size()).isEqualTo(7);
+        assertThat(readJsonTransactionLogTails(tableLocation)).hasSize(7);
+        assertThat(updateJsonTransactionLogTails(tableLocation)).hasSize(7);
     }
 
     private List<DeltaLakeTransactionLogEntry> updateJsonTransactionLogTails(String tableLocation)

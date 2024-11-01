@@ -1015,7 +1015,7 @@ public class TestDirectExchangeClient
         int clientCount = exchangeClient.scheduleRequestIfNecessary();
         // The first client filled the buffer. There is no place for the another one
         assertThat(clientCount).isEqualTo(1);
-        assertThat(exchangeClient.getRunningClients().size()).isEqualTo(1);
+        assertThat(exchangeClient.getRunningClients()).hasSize(1);
     }
 
     @Test
@@ -1049,7 +1049,7 @@ public class TestDirectExchangeClient
 
         int clientCount = exchangeClient.scheduleRequestIfNecessary();
         assertThat(clientCount).isEqualTo(2);
-        assertThat(exchangeClient.getRunningClients().size()).isEqualTo(2);
+        assertThat(exchangeClient.getRunningClients()).hasSize(2);
     }
 
     @Test
@@ -1088,7 +1088,7 @@ public class TestDirectExchangeClient
         int clientCount = exchangeClient.scheduleRequestIfNecessary();
         // The first client is pending and it reserved the space in the buffer. There is no place for the another one
         assertThat(clientCount).isEqualTo(0);
-        assertThat(exchangeClient.getRunningClients().size()).isEqualTo(1);
+        assertThat(exchangeClient.getRunningClients()).hasSize(1);
     }
 
     private HttpPageBufferClient createHttpPageBufferClient(TestingHttpClient.Processor processor, DataSize expectedMaxSize, URI location, HttpPageBufferClient.ClientCallback callback)

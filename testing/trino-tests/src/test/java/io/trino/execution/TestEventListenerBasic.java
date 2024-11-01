@@ -856,7 +856,7 @@ public class TestEventListenerBasic
         assertThat(queryCompletedEvent.getContext().getResourceGroupId()).isPresent();
         assertThat(queryCompletedEvent.getContext().getResourceGroupId().get()).isEqualTo(createResourceGroupId("global", "user-user"));
         assertThat(queryCompletedEvent.getIoMetadata().getOutput()).isEqualTo(Optional.empty());
-        assertThat(queryCompletedEvent.getIoMetadata().getInputs().size()).isEqualTo(0);  // Prepare has no inputs
+        assertThat(queryCompletedEvent.getIoMetadata().getInputs()).isEmpty();  // Prepare has no inputs
         assertThat(queryCompletedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
         assertThat(queryCreatedEvent.getMetadata().getQueryId()).isEqualTo(queryCompletedEvent.getMetadata().getQueryId());
         assertThat(queryCompletedEvent.getMetadata().getPreparedQuery()).isEmpty();
@@ -880,7 +880,7 @@ public class TestEventListenerBasic
         assertThat(queryCompletedEvent.getContext().getResourceGroupId()).isPresent();
         assertThat(queryCompletedEvent.getContext().getResourceGroupId().get()).isEqualTo(createResourceGroupId("global", "user-user"));
         assertThat(queryCompletedEvent.getIoMetadata().getOutput()).isEqualTo(Optional.empty());
-        assertThat(queryCompletedEvent.getIoMetadata().getInputs().size()).isEqualTo(1);
+        assertThat(queryCompletedEvent.getIoMetadata().getInputs()).hasSize(1);
         assertThat(queryCompletedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
         assertThat(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getCatalogName()).isEqualTo("tpch");
         assertThat(queryCreatedEvent.getMetadata().getQueryId()).isEqualTo(queryCompletedEvent.getMetadata().getQueryId());

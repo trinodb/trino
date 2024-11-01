@@ -222,7 +222,7 @@ class TestCreateTableTask
             getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}));
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
-            assertThat(columns.size()).isEqualTo(3);
+            assertThat(columns).hasSize(3);
 
             assertThat(columns.get(0).getName()).isEqualTo("a");
             assertThat(columns.get(0).getType().getDisplayName().toUpperCase(ROOT)).isEqualTo("DATE");

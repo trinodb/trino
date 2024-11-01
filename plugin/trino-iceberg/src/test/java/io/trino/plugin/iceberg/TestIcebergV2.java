@@ -770,7 +770,7 @@ public class TestIcebergV2
         assertThat(partitionFields.get(0).transform().isIdentity()).isTrue();
         assertThat(table.sortOrder().isSorted()).isTrue();
         List<SortField> sortFields = table.sortOrder().fields();
-        assertThat(sortFields.size()).isEqualTo(1);
+        assertThat(sortFields).hasSize(1);
         assertThat(getOnlyElement(sortFields).sourceId()).isEqualTo(table.schema().findField("comment").fieldId());
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
     }

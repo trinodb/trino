@@ -219,7 +219,7 @@ public class TestQueuesDb
         int selectorCount = getSelectors(queryRunner).size();
         dao.insertSelector(4, 100_000, "user.*", null, "(?i).*reject.*", null, null, null);
         dbConfigurationManager.load();
-        assertThat(getSelectors(queryRunner).size()).isEqualTo(selectorCount + 1);
+        assertThat(getSelectors(queryRunner)).hasSize(selectorCount + 1);
         // Verify the query can be submitted
         queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, queryId, RUNNING);

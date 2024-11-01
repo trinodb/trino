@@ -548,7 +548,7 @@ public class TestPagePartitioner
         pagePartitioner.close();
         List<Slice> output = outputBuffer.getEnqueued();
         // only a single page was flushed after the partitioner is closed, all output bytes were reported eagerly on release
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
     }
 
     @Test

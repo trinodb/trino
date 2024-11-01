@@ -108,7 +108,7 @@ public class TestParquetPredicateUtils
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
         TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain, fileSchema, useColumnNames);
 
-        assertThat(tupleDomain.getDomains().get().size()).isEqualTo(1);
+        assertThat(tupleDomain.getDomains().get()).hasSize(1);
         ColumnDescriptor descriptor = tupleDomain.getDomains().get().keySet().iterator().next();
         assertThat(descriptor.getPath().length).isEqualTo(1);
         assertThat(descriptor.getPath()[0]).isEqualTo("my_primitive");
@@ -177,7 +177,7 @@ public class TestParquetPredicateUtils
                         new PrimitiveType(OPTIONAL, INT32, "c")));
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
         TupleDomain<ColumnDescriptor> calculatedTupleDomain = getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, useColumNames);
-        assertThat(calculatedTupleDomain.getDomains().get().size()).isEqualTo(1);
+        assertThat(calculatedTupleDomain.getDomains().get()).hasSize(1);
         ColumnDescriptor selectedColumnDescriptor = descriptorsByPath.get(ImmutableList.of("row_field", "b"));
         assertThat(calculatedTupleDomain.getDomains().get()).containsEntry(selectedColumnDescriptor, predicateDomain);
     }

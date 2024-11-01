@@ -6202,9 +6202,9 @@ public abstract class BaseIcebergConnectorTest
                 .matches("VALUES (BIGINT '3', VARCHAR 'one two')");
         List<String> updatedFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
         List<Long> updatedSnapshots = getSnapshotIds(tableName);
-        assertThat(updatedFiles.size()).isEqualTo(initialFiles.size() - 2);
+        assertThat(updatedFiles).hasSize(initialFiles.size() - 2);
         assertThat(updatedSnapshots.size()).isLessThan(initialSnapshots.size());
-        assertThat(updatedSnapshots.size()).isEqualTo(1);
+        assertThat(updatedSnapshots).hasSize(1);
         assertThat(initialSnapshots).containsAll(updatedSnapshots);
     }
 
@@ -6891,7 +6891,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
         List<Long> updatedSnapshots = getSnapshotIds(tableName);
         assertThat(updatedSnapshots.size()).isLessThan(initialSnapshots.size());
-        assertThat(updatedSnapshots.size()).isEqualTo(1);
+        assertThat(updatedSnapshots).hasSize(1);
 
         assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName + " FOR VERSION AS OF " + v3SnapshotId))
                 .matches("VALUES (BIGINT '3', VARCHAR 'one two')");

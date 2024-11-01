@@ -95,7 +95,7 @@ public class TestNestedLoopBuildOperator
 
         assertThat(buildPages.get(0)).isEqualTo(buildPage1);
         assertThat(buildPages.get(1)).isEqualTo(buildPage2);
-        assertThat(buildPages.size()).isEqualTo(2);
+        assertThat(buildPages).hasSize(2);
     }
 
     @Test
@@ -128,7 +128,7 @@ public class TestNestedLoopBuildOperator
         assertThat(nestedLoopJoinBridge.getPagesFuture().isDone()).isTrue();
         List<Page> buildPages = nestedLoopJoinBridge.getPagesFuture().get().getPages();
 
-        assertThat(buildPages.size()).isEqualTo(1);
+        assertThat(buildPages).hasSize(1);
         assertThat(buildPages.get(0).getPositionCount()).isEqualTo(3003);
     }
 
@@ -157,7 +157,7 @@ public class TestNestedLoopBuildOperator
 
         assertThat(nestedLoopJoinBridge.getPagesFuture().isDone()).isTrue();
         List<Page> buildPages = nestedLoopJoinBridge.getPagesFuture().get().getPages();
-        assertThat(buildPages.size()).isEqualTo(2);
+        assertThat(buildPages).hasSize(2);
         assertThat(buildPages.get(0).getPositionCount()).isEqualTo(PageProcessor.MAX_BATCH_SIZE);
         assertThat(buildPages.get(1).getPositionCount()).isEqualTo(100);
     }

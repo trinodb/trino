@@ -83,22 +83,22 @@ public class TestDbResourceGroupConfigurationManager
         // check the prod configuration
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(listener -> {}, new DbResourceGroupConfig(), daoProvider.get(), prodEnvironment);
         List<ResourceGroupSpec> groups = manager.getRootGroups();
-        assertThat(groups.size()).isEqualTo(1);
+        assertThat(groups).hasSize(1);
         InternalResourceGroup prodGlobal = new InternalResourceGroup("prod_global", (group, export) -> {}, directExecutor());
         manager.configure(prodGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("prod_global")));
         assertEqualsResourceGroup(prodGlobal, "10MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1));
-        assertThat(manager.getSelectors().size()).isEqualTo(1);
+        assertThat(manager.getSelectors()).hasSize(1);
         ResourceGroupSelector prodSelector = manager.getSelectors().get(0);
         ResourceGroupId prodResourceGroupId = prodSelector.match(new SelectionCriteria(true, "prod_user", ImmutableSet.of(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
         assertThat(prodResourceGroupId.toString()).isEqualTo("prod_global");
 
         // check the dev configuration
         manager = new DbResourceGroupConfigurationManager(listener -> {}, new DbResourceGroupConfig(), daoProvider.get(), devEnvironment);
-        assertThat(groups.size()).isEqualTo(1);
+        assertThat(groups).hasSize(1);
         InternalResourceGroup devGlobal = new InternalResourceGroup("dev_global", (group, export) -> {}, directExecutor());
         manager.configure(devGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("dev_global")));
         assertEqualsResourceGroup(devGlobal, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1));
-        assertThat(manager.getSelectors().size()).isEqualTo(1);
+        assertThat(manager.getSelectors()).hasSize(1);
         ResourceGroupSelector devSelector = manager.getSelectors().get(0);
         ResourceGroupId devResourceGroupId = devSelector.match(new SelectionCriteria(true, "dev_user", ImmutableSet.of(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
         assertThat(devResourceGroupId.toString()).isEqualTo("dev_global");
@@ -235,13 +235,13 @@ public class TestDbResourceGroupConfigurationManager
         config.setExactMatchSelectorEnabled(true);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(listener -> {}, config, daoProvider.get(), ENVIRONMENT);
         manager.load();
-        assertThat(manager.getSelectors().size()).isEqualTo(2);
+        assertThat(manager.getSelectors()).hasSize(2);
         assertThat(manager.getSelectors().get(0)).isInstanceOf(DbSourceExactMatchSelector.class);
 
         config.setExactMatchSelectorEnabled(false);
         manager = new DbResourceGroupConfigurationManager(listener -> {}, config, daoProvider.get(), ENVIRONMENT);
         manager.load();
-        assertThat(manager.getSelectors().size()).isEqualTo(1);
+        assertThat(manager.getSelectors()).hasSize(1);
         assertThat(manager.getSelectors().get(0) instanceof DbSourceExactMatchSelector).isFalse();
     }
 
@@ -276,7 +276,7 @@ public class TestDbResourceGroupConfigurationManager
         manager.load();
 
         List<ResourceGroupSelector> selectors = manager.getSelectors();
-        assertThat(selectors.size()).isEqualTo(expectedUsers.size());
+        assertThat(selectors).hasSize(expectedUsers.size());
 
         // when we load the selectors we expect the selector list to be ordered by priority
         expectedUsers.sort(Comparator.<String>comparingInt(Integer::parseInt).reversed());

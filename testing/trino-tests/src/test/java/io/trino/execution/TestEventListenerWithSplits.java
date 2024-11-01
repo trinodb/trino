@@ -123,7 +123,7 @@ public class TestEventListenerWithSplits
         assertThat(queryCompletedEvent.getContext().getResourceGroupId()).isPresent();
         assertThat(queryCompletedEvent.getContext().getResourceGroupId().get()).isEqualTo(createResourceGroupId("global", "user-user"));
         assertThat(queryCompletedEvent.getIoMetadata().getOutput()).isEqualTo(Optional.empty());
-        assertThat(queryCompletedEvent.getIoMetadata().getInputs().size()).isEqualTo(1);
+        assertThat(queryCompletedEvent.getIoMetadata().getInputs()).hasSize(1);
         assertThat(queryCompletedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
         assertThat(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getCatalogName()).isEqualTo("tpch");
         assertThat(queryCreatedEvent.getMetadata().getQueryId()).isEqualTo(queryCompletedEvent.getMetadata().getQueryId());
@@ -131,7 +131,7 @@ public class TestEventListenerWithSplits
         assertThat(queryCompletedEvent.getStatistics().getCompletedSplits()).isEqualTo(SPLITS_PER_NODE + 2);
 
         List<SplitCompletedEvent> splitCompletedEvents = queryEvents.waitForSplitCompletedEvents(SPLITS_PER_NODE + 2, new Duration(30, SECONDS));
-        assertThat(splitCompletedEvents.size()).isEqualTo(SPLITS_PER_NODE + 2); // leaf splits + aggregation split
+        assertThat(splitCompletedEvents).hasSize(SPLITS_PER_NODE + 2); // leaf splits + aggregation split
 
         // All splits must have the same query ID
         Set<String> actual = splitCompletedEvents.stream()
@@ -159,7 +159,7 @@ public class TestEventListenerWithSplits
         // Not a write query
         assertThat(statistics.getWrittenBytes()).isEqualTo(0);
         assertThat(statistics.getWrittenRows()).isEqualTo(0);
-        assertThat(statistics.getStageGcStatistics().size()).isEqualTo(2);
+        assertThat(statistics.getStageGcStatistics()).hasSize(2);
 
         // Deterministic statistics
         assertThat(statistics.getPhysicalInputBytes()).isEqualTo(0);

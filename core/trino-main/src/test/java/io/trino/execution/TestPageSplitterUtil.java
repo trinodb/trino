@@ -87,7 +87,7 @@ public class TestPageSplitterUtil
 
         // the page should only be split in half as the recursion should terminate
         // after seeing that the size of the Page doesn't decrease
-        assertThat(pages.size()).isEqualTo(2);
+        assertThat(pages).hasSize(2);
         Page first = pages.get(0);
         Page second = pages.get(1);
 
