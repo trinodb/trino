@@ -23,6 +23,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
@@ -90,7 +91,7 @@ public class BenchmarkArrayDistinct
                         SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPage()));
+                        SourcePage.create(data.getPage())));
     }
 
     @SuppressWarnings("FieldMayBeFinal")

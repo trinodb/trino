@@ -38,6 +38,7 @@ import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
@@ -670,7 +671,7 @@ public class TestColumnarFilters
                     new DriverYieldSignal(),
                     context,
                     new PageProcessorMetrics(),
-                    inputPage);
+                    SourcePage.create(inputPage));
             if (workProcessor.process() && !workProcessor.isFinished()) {
                 outputPagesBuilder.add(workProcessor.getResult());
             }

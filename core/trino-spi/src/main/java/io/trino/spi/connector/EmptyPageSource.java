@@ -43,6 +43,12 @@ public class EmptyPageSource
     }
 
     @Override
+    public SourcePage getNextSourcePage()
+    {
+        return null;
+    }
+
+    @Override
     public long getMemoryUsage()
     {
         return 0;

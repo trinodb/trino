@@ -26,6 +26,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
 import io.trino.split.PageSourceProviderFactory;
@@ -265,8 +266,10 @@ public class TableScanOperator
             source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, dynamicFilter);
         }
 
-        Page page = source.getNextPage();
-        if (page != null) {
+        SourcePage sourcePage = source.getNextSourcePage();
+        Page page = null;
+        if (sourcePage != null) {
+            page = sourcePage.getPage();
             // assure the page is in memory before handing to another operator
             page = page.getLoadedPage();
 

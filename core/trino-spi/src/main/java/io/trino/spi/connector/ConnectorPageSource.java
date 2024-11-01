@@ -56,7 +56,22 @@ public interface ConnectorPageSource
     /**
      * Gets the next page of data.  This method is allowed to return null.
      */
-    Page getNextPage();
+    default Page getNextPage()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Gets the next page of data. This method is allowed to return null.
+     */
+    default SourcePage getNextSourcePage()
+    {
+        Page nextPage = getNextPage();
+        if (nextPage == null) {
+            return null;
+        }
+        return SourcePage.create(nextPage);
+    }
 
     /**
      * Get the total memory that needs to be reserved in the memory pool.

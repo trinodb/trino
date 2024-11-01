@@ -36,6 +36,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
@@ -208,9 +209,7 @@ public class TestScanFilterAndProjectOperator
     {
         Block inputBlock = BlockAssertions.createLongSequenceBlock(0, 100);
         // If column 1 is loaded, test will fail
-        Page input = new Page(100, inputBlock, new LazyBlock(100, () -> {
-            throw new AssertionError("Lazy block should not be loaded");
-        }));
+        TestingSourcePage input = new TestingSourcePage(100, inputBlock, null);
         DriverContext driverContext = newDriverContext();
 
         List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
@@ -413,7 +412,7 @@ public class TestScanFilterAndProjectOperator
         Block first = createIntsBlock(1, 2, 3);
         LazyBlock second = lazyWrapper(first);
         LazyBlock third = lazyWrapper(first);
-        Page page = new Page(3, first, second, third);
+        SourcePage page = new TestingSourcePage(3, first, second, third);
 
         second.getLoadedBlock();
 
@@ -433,7 +432,7 @@ public class TestScanFilterAndProjectOperator
         Block elements = lazyWrapper(createIntsBlock(1, 2, 3));
         Block arrayBlock = ArrayBlock.fromElementBlock(2, Optional.empty(), new int[] {0, 1, 3}, elements);
         long initialArraySize = arrayBlock.getSizeInBytes();
-        Page page = new Page(2, arrayBlock);
+        SourcePage page = new TestingSourcePage(2, arrayBlock);
 
         AtomicLong sizeInBytes = new AtomicLong();
         ScanFilterAndProjectOperator.ProcessedBytesMonitor monitor = new ScanFilterAndProjectOperator.ProcessedBytesMonitor(page, sizeInBytes::getAndAdd);
@@ -487,9 +486,9 @@ public class TestScanFilterAndProjectOperator
     public static class SinglePagePageSource
             implements ConnectorPageSource
     {
-        private Page page;
+        private SourcePage page;
 
-        public SinglePagePageSource(Page page)
+        public SinglePagePageSource(SourcePage page)
         {
             this.page = page;
         }
@@ -525,9 +524,12 @@ public class TestScanFilterAndProjectOperator
         }
 
         @Override
-        public Page getNextPage()
+        public SourcePage getNextSourcePage()
         {
-            Page page = this.page;
+            SourcePage page = this.page;
+            if (page == null) {
+                return null;
+            }
             this.page = null;
             return page;
         }

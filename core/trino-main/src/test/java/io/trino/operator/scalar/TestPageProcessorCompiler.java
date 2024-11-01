@@ -25,6 +25,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.relational.CallExpression;
@@ -81,7 +82,7 @@ public class TestPageProcessorCompiler
                         null,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        page))
+                        SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
 
         assertThat(outputPage.getPositionCount()).isEqualTo(100);
@@ -112,7 +113,7 @@ public class TestPageProcessorCompiler
                         null,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        page))
+                        SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
 
         assertThat(outputPage.getPositionCount()).isEqualTo(100);
@@ -127,7 +128,7 @@ public class TestPageProcessorCompiler
                         null,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        page)).orElseThrow(() -> new AssertionError("page is not present"));
+                        SourcePage.create(page))).orElseThrow(() -> new AssertionError("page is not present"));
         assertThat(outputPage2.getPositionCount()).isEqualTo(100);
         assertThat(outputPage2.getBlock(0) instanceof DictionaryBlock).isTrue();
 
@@ -150,7 +151,7 @@ public class TestPageProcessorCompiler
                         null,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        page))
+                        SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
 
         assertThat(outputPage.getPositionCount()).isEqualTo(100);
@@ -171,7 +172,7 @@ public class TestPageProcessorCompiler
                         null,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        page))
+                        SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
 
         assertThat(outputPage.getPositionCount()).isEqualTo(100);
@@ -201,7 +202,7 @@ public class TestPageProcessorCompiler
                         null,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        page))
+                        SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
         assertThat(outputPage.getBlock(0) instanceof DictionaryBlock).isFalse();
     }

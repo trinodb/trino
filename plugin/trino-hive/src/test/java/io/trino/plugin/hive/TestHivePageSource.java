@@ -22,6 +22,7 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -109,7 +110,7 @@ public class TestHivePageSource
         Page page = new Page(1, blocks);
 
         try (
-                ConnectorPageSource pageSource = new TestScanFilterAndProjectOperator.SinglePagePageSource(page);
+                ConnectorPageSource pageSource = new TestScanFilterAndProjectOperator.SinglePagePageSource(SourcePage.create(page));
                 HivePageSource hivePageSource = new HivePageSource(
                         columnMappings,
                         Optional.empty(),
