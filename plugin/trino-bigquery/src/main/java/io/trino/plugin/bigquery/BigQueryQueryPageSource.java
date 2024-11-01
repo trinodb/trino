@@ -197,7 +197,7 @@ public class BigQueryQueryPageSource
 
     private void appendTo(Type type, FieldValue value, BlockBuilder output)
     {
-        // TODO (https://github.com/trinodb/trino/issues/12346) Add support for bignumeric and timestamp with time zone types
+        // TODO (https://github.com/trinodb/trino/issues/12346) Add support for timestamp with time zone type
         if (value == null || value.isNull()) {
             output.appendNull();
             return;
