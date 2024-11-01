@@ -112,6 +112,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.cloud.bigquery.StandardSQLTypeName.INT64;
+import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
+import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
+import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.cloud.bigquery.storage.v1.WriteStream.Type.COMMITTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -131,6 +134,7 @@ import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_OP
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_DATE;
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_TIME;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.isProjectionPushdownEnabled;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.isSkipViewMaterialization;
 import static io.trino.plugin.bigquery.BigQueryTableHandle.BigQueryPartitionType.INGESTION;
 import static io.trino.plugin.bigquery.BigQueryTableHandle.getPartitionType;
 import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
@@ -348,10 +352,27 @@ public class BigQueryMetadata
                 new RemoteTableName(tableInfo.get().getTableId()),
                 tableInfo.get().getDefinition().getType().toString(),
                 partitionType,
-                Optional.ofNullable(tableInfo.get().getDescription())),
+                Optional.ofNullable(tableInfo.get().getDescription()),
+                useStorageApi(session, schemaTableName.getTableName(), tableInfo.get().getDefinition().getType())),
                 TupleDomain.all(),
                 Optional.empty())
                 .withProjectedColumns(columns.build());
+    }
+
+    private static boolean useStorageApi(ConnectorSession session, String tableName, TableDefinition.Type type)
+    {
+        if (isWildcardTable(type, tableName)) {
+            // Storage API doesn't support reading wildcard tables
+            return false;
+        }
+        if (type == EXTERNAL) {
+            // Storage API doesn't support reading external tables
+            return false;
+        }
+        if ((type == VIEW || type == MATERIALIZED_VIEW) && isSkipViewMaterialization(session)) {
+            return false;
+        }
+        return true;
     }
 
     private Optional<TableInfo> getTableInfoIgnoringConflicts(ConnectorSession session, SchemaTableName schemaTableName)

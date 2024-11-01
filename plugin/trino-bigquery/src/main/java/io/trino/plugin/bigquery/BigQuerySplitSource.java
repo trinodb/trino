@@ -42,7 +42,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 
-import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
 import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -51,8 +50,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.bigquery.BigQueryClient.TABLE_TYPES;
 import static io.trino.plugin.bigquery.BigQueryClient.selectSql;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
-import static io.trino.plugin.bigquery.BigQuerySessionProperties.isSkipViewMaterialization;
-import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -170,11 +167,12 @@ public class BigQuerySplitSource
                     .collect(toImmutableList());
         }
 
-        TableId remoteTableId = bigQueryTableHandle.asPlainTable().getRemoteTableName().toTableId();
+        BigQueryNamedRelationHandle namedRelation = bigQueryTableHandle.getRequiredNamedRelation();
+        TableId remoteTableId = namedRelation.getRemoteTableName().toTableId();
         TableDefinition.Type tableType = TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType());
         return emptyProjectionIsRequired(bigQueryTableHandle.projectedColumns())
                 ? createEmptyProjection(session, tableType, remoteTableId, filter)
-                : readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), tableConstraint);
+                : readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), tableConstraint, namedRelation.isUseStorageApi());
     }
 
     private static boolean emptyProjectionIsRequired(Optional<List<BigQueryColumnHandle>> projectedColumns)
@@ -187,7 +185,8 @@ public class BigQuerySplitSource
             TableDefinition.Type type,
             TableId remoteTableId,
             Optional<List<BigQueryColumnHandle>> projectedColumns,
-            TupleDomain<ColumnHandle> tableConstraint)
+            TupleDomain<ColumnHandle> tableConstraint,
+            boolean useStorageApi)
     {
         checkArgument(projectedColumns.isPresent() && projectedColumns.get().size() > 0, "Projected column is empty");
         Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
@@ -198,18 +197,10 @@ public class BigQuerySplitSource
         ImmutableList.Builder<BigQueryColumnHandle> projectedColumnHandles = ImmutableList.builder();
         projectedColumnHandles.addAll(columns);
 
-        if (isWildcardTable(type, remoteTableId.getTable())) {
-            // Storage API doesn't support reading wildcard tables
-            return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
-        }
-        if (type == EXTERNAL) {
-            // Storage API doesn't support reading external tables
+        if (!useStorageApi) {
             return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
         }
         if (type == VIEW || type == MATERIALIZED_VIEW) {
-            if (isSkipViewMaterialization(session)) {
-                return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
-            }
             tableConstraint.getDomains().ifPresent(domains -> domains.keySet().stream()
                     .map(BigQueryColumnHandle.class::cast)
                     .filter(column -> !projectedColumnsNames.contains(column.name()))
