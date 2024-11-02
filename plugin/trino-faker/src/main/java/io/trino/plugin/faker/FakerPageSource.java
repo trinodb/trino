@@ -26,6 +26,7 @@ import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
@@ -209,7 +210,7 @@ class FakerPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (!closed) {
             int positions = (int) Math.min(limit - completedRows, ROWS_PER_PAGE);
@@ -233,7 +234,7 @@ class FakerPageSource
         if ((closed && !pageBuilder.isEmpty()) || pageBuilder.isFull()) {
             Page page = pageBuilder.build();
             pageBuilder.reset();
-            return page;
+            return SourcePage.create(page);
         }
 
         return null;

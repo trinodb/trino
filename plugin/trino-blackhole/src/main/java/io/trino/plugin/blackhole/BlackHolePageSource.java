@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.units.Duration;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -49,7 +50,7 @@ class BlackHolePageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (isFinished()) {
             return null;
@@ -58,14 +59,14 @@ class BlackHolePageSource
         if (currentPage != null) {
             Page page = getFutureValue(currentPage);
             currentPage = null;
-            return page;
+            return SourcePage.create(page);
         }
 
         pagesLeft--;
         completedBytes += page.getSizeInBytes();
 
         if (pageProcessingDelayInMillis == 0) {
-            return page;
+            return SourcePage.create(page);
         }
         currentPage = toCompletableFuture(executorService.schedule(() -> page, pageProcessingDelayInMillis, MILLISECONDS));
         return null;

@@ -59,7 +59,7 @@ public class TpchPageSourceProvider
         TpchSplit tpchSplit = (TpchSplit) split;
         TpchTableHandle tpchTable = (TpchTableHandle) table;
 
-        return new LazyRecordPageSource(
+        return new TpchPageSource(
                 maxRowsPerPage,
                 getRecordSet(
                         TpchTable.getTable(tpchTable.tableName()),
