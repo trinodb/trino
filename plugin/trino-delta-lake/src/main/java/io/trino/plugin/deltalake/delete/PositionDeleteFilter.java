@@ -50,7 +50,8 @@ public final class PositionDeleteFilter
             if (retainedCount == positionCount) {
                 return page;
             }
-            return page.getPositions(retained, 0, retainedCount);
+            page.selectPositions(retained, 0, retainedCount);
+            return page;
         };
     }
 

@@ -18,7 +18,6 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.avro.AvroFileReader;
 import io.trino.hive.formats.avro.AvroTypeBlockHandler;
 import io.trino.hive.formats.avro.AvroTypeException;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
@@ -73,13 +72,6 @@ public class AvroPageSource
             closeAllSuppress(e, this);
             throw new TrinoException(HIVE_CURSOR_ERROR, "Failed to read Avro file: " + fileName, e);
         }
-    }
-
-    @Override
-    public Page getNextPage()
-    {
-        SourcePage sourcePage = getNextSourcePage();
-        return sourcePage == null ? null : sourcePage.getPage();
     }
 
     @Override
