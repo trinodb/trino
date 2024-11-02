@@ -20,6 +20,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -196,7 +197,7 @@ class FakerPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (!closed) {
             int positions = (int) Math.min(limit - completedRows, ROWS_PER_PAGE);
@@ -220,7 +221,7 @@ class FakerPageSource
         if ((closed && !pageBuilder.isEmpty()) || pageBuilder.isFull()) {
             Page page = pageBuilder.build();
             pageBuilder.reset();
-            return page;
+            return SourcePage.create(page);
         }
 
         return null;

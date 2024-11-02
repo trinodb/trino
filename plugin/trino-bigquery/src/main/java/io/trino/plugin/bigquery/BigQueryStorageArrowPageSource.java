@@ -22,6 +22,7 @@ import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ReadChannel;
@@ -106,7 +107,7 @@ public class BigQueryStorageArrowPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
         ReadRowsResponse response;
@@ -126,7 +127,7 @@ public class BigQueryStorageArrowPageSource
         Page page = pageBuilder.build();
         pageBuilder.reset();
         readTimeNanos.addAndGet(System.nanoTime() - start);
-        return page;
+        return SourcePage.create(page);
     }
 
     @Override

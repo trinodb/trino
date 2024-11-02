@@ -54,6 +54,6 @@ public class TpchPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
-        return new LazyRecordPageSource(maxRowsPerPage, tpchRecordSetProvider.getRecordSet(transaction, session, split, table, columns));
+        return new TpchPageSource(maxRowsPerPage, tpchRecordSetProvider.getRecordSet(transaction, session, split, table, columns));
     }
 }
