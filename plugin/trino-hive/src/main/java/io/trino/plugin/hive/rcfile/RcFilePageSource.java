@@ -110,13 +110,6 @@ public class RcFilePageSource
     }
 
     @Override
-    public Page getNextPage()
-    {
-        SourcePage sourcePage = getNextSourcePage();
-        return sourcePage == null ? null : sourcePage.getPage();
-    }
-
-    @Override
     public SourcePage getNextSourcePage()
     {
         try {

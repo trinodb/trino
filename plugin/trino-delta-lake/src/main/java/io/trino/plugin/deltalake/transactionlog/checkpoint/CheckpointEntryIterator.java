@@ -38,7 +38,6 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
@@ -47,6 +46,7 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
@@ -156,7 +156,7 @@ public class CheckpointEntryIterator
     private boolean deletionVectorsEnabled;
     private List<DeltaLakeColumnMetadata> schema;
     private List<DeltaLakeColumnMetadata> columnsWithMinMaxStats;
-    private Page page;
+    private SourcePage page;
     private int pagePosition;
 
     public CheckpointEntryIterator(
@@ -718,7 +718,7 @@ public class CheckpointEntryIterator
             return false;
         }
         boolean isFirstPage = page == null;
-        page = pageSource.getNextPage();
+        page = pageSource.getNextSourcePage();
         if (page == null) {
             return false;
         }
