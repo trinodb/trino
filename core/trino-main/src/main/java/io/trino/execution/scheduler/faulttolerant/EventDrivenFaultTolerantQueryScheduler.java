@@ -2706,7 +2706,9 @@ public class EventDrivenFaultTolerantQueryScheduler
             log.debug("StageExecution %s: %s",
                     stage.getStageId(),
                     toStringHelper(this)
-                            .add("taskDescriptorStorage.getReservedBytes()", taskDescriptorStorage.getReservedBytes())
+                            .add("taskDescriptorStorage.reservedUncompressedBytes", taskDescriptorStorage.getReservedUncompressedBytes())
+                            .add("taskDescriptorStorage.reservedCompressedBytes", taskDescriptorStorage.getReservedCompressedBytes())
+                            .add("taskDescriptorStorage.originalCompressedBytes", taskDescriptorStorage.getOriginalCompressedBytes())
                             .add("taskSource", taskSource.getDebugInfo())
                             .add("sinkPartitioningScheme", sinkPartitioningScheme)
                             .add("exchange", exchange)

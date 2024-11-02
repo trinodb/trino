@@ -62,6 +62,7 @@ public class QueryManagerConfig
     public static final int MAX_TASK_RETRY_ATTEMPTS = 126;
     public static final int FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT = 1000;
     public static final int DISPATCHER_THREADPOOL_MAX_SIZE = max(50, getRuntime().availableProcessors() * 10);
+    public static final DataSize DEFAULT_TASK_DESCRIPTOR_STORAGE_MAX_MEMORY = DataSize.ofBytes(round(AVAILABLE_HEAP_MEMORY * 0.15));
 
     private int scheduleSplitBatchSize = 1000;
     private int minScheduleSplitBatchSize = 100;
@@ -134,7 +135,9 @@ public class QueryManagerConfig
 
     private DataSize faultTolerantExecutionStandardSplitSize = DataSize.of(64, MEGABYTE);
     private int faultTolerantExecutionMaxTaskSplitCount = 2048;
-    private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(round(AVAILABLE_HEAP_MEMORY * 0.15));
+    private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DEFAULT_TASK_DESCRIPTOR_STORAGE_MAX_MEMORY;
+    private DataSize faultTolerantExecutionTaskDescriptorStorageHighWaterMark = DataSize.ofBytes((long) (DEFAULT_TASK_DESCRIPTOR_STORAGE_MAX_MEMORY.toBytes() * 0.6));
+    private DataSize faultTolerantExecutionTaskDescriptorStorageLowWaterMark = DataSize.ofBytes((long) (DEFAULT_TASK_DESCRIPTOR_STORAGE_MAX_MEMORY.toBytes() * 0.4));
     private int faultTolerantExecutionMaxPartitionCount = 50;
     private int faultTolerantExecutionMinPartitionCount = 4;
     private int faultTolerantExecutionMinPartitionCountForWrite = 50;
@@ -964,6 +967,32 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory)
     {
         this.faultTolerantExecutionTaskDescriptorStorageMaxMemory = faultTolerantExecutionTaskDescriptorStorageMaxMemory;
+        return this;
+    }
+
+    public DataSize getFaultTolerantExecutionTaskDescriptorStorageHighWaterMark()
+    {
+        return faultTolerantExecutionTaskDescriptorStorageHighWaterMark;
+    }
+
+    @Config("fault-tolerant-execution-task-descriptor-storage-high-water-mark")
+    @ConfigDescription("Compress the storage when task descriptors in memory are above given data size")
+    public QueryManagerConfig setFaultTolerantExecutionTaskDescriptorStorageHighWaterMark(DataSize faultTolerantExecutionTaskDescriptorStorageHighWaterMark)
+    {
+        this.faultTolerantExecutionTaskDescriptorStorageHighWaterMark = faultTolerantExecutionTaskDescriptorStorageHighWaterMark;
+        return this;
+    }
+
+    public DataSize getFaultTolerantExecutionTaskDescriptorStorageLowWaterMark()
+    {
+        return faultTolerantExecutionTaskDescriptorStorageLowWaterMark;
+    }
+
+    @Config("fault-tolerant-execution-task-descriptor-storage-low-water-mark")
+    @ConfigDescription("Do not compress the storage when tasks descriptors in memory are below given data size")
+    public QueryManagerConfig setFaultTolerantExecutionTaskDescriptorStorageLowWaterMark(DataSize faultTolerantExecutionTaskDescriptorStorageLowWaterMark)
+    {
+        this.faultTolerantExecutionTaskDescriptorStorageLowWaterMark = faultTolerantExecutionTaskDescriptorStorageLowWaterMark;
         return this;
     }
 
