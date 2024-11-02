@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
@@ -38,6 +37,7 @@ import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -600,9 +600,9 @@ public class FakerMetadata
         }
         ImmutableMap.Builder<String, List<Object>> columnValues = ImmutableMap.builder();
         try (FakerPageSource pageSource = new FakerPageSource(faker, random, dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
-            Page page = null;
+            SourcePage page = null;
             while (page == null) {
-                page = pageSource.getNextPage();
+                page = pageSource.getNextSourcePage();
             }
             Map<String, Type> types = columns.stream().collect(toImmutableMap(ColumnInfo::name, ColumnInfo::type));
             for (int channel = 0; channel < dictionaryColumns.size(); channel++) {

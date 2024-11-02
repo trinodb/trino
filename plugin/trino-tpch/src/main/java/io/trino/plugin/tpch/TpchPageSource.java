@@ -19,13 +19,14 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.function.ObjLongConsumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +34,7 @@ import static java.util.Objects.requireNonNull;
  * Wraps pages into lazy blocks. This enables counting of materialized bytes
  * for testing purposes.
  */
-class LazyRecordPageSource
+class TpchPageSource
         implements ConnectorPageSource
 {
     private static final int ROWS_PER_REQUEST = 4096;
@@ -43,7 +44,7 @@ class LazyRecordPageSource
     private final PageBuilder pageBuilder;
     private boolean closed;
 
-    LazyRecordPageSource(int maxRowsPerPage, RecordSet recordSet)
+    TpchPageSource(int maxRowsPerPage, RecordSet recordSet)
     {
         requireNonNull(recordSet, "recordSet is null");
 
@@ -85,7 +86,7 @@ class LazyRecordPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (!closed) {
             for (int i = 0; i < ROWS_PER_REQUEST && !pageBuilder.isFull() && pageBuilder.getPositionCount() < maxRowsPerPage; i++) {
@@ -127,20 +128,78 @@ class LazyRecordPageSource
         if ((closed && !pageBuilder.isEmpty()) || pageBuilder.isFull() || pageBuilder.getPositionCount() >= maxRowsPerPage) {
             Page page = pageBuilder.build();
             pageBuilder.reset();
-            return lazyWrapper(page);
+            return new TpchSourcePage(page);
         }
 
         return null;
     }
 
-    private Page lazyWrapper(Page page)
+    private static class TpchSourcePage
+            implements SourcePage
     {
-        Block[] lazyBlocks = new Block[page.getChannelCount()];
-        for (int i = 0; i < page.getChannelCount(); ++i) {
-            Block block = page.getBlock(i);
-            lazyBlocks[i] = new LazyBlock(page.getPositionCount(), () -> block);
+        private Page page;
+        private final boolean[] loaded;
+        private long sizeInBytes;
+
+        public TpchSourcePage(Page page)
+        {
+            this.page = requireNonNull(page, "page is null");
+            this.loaded = new boolean[page.getChannelCount()];
         }
 
-        return new Page(page.getPositionCount(), lazyBlocks);
+        @Override
+        public int getPositionCount()
+        {
+            return page.getPositionCount();
+        }
+
+        @Override
+        public long getSizeInBytes()
+        {
+            return sizeInBytes;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return page.getRetainedSizeInBytes();
+        }
+
+        @Override
+        public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+        {
+            for (int i = 0; i < page.getChannelCount(); i++) {
+                page.getBlock(i).retainedBytesForEachPart(consumer);
+            }
+        }
+
+        @Override
+        public int getChannelCount()
+        {
+            return page.getChannelCount();
+        }
+
+        @Override
+        public Block getBlock(int channel)
+        {
+            Block block = page.getBlock(channel);
+            if (!loaded[channel]) {
+                loaded[channel] = true;
+                sizeInBytes += block.getSizeInBytes();
+            }
+            return block;
+        }
+
+        @Override
+        public Page getPage()
+        {
+            return page;
+        }
+
+        @Override
+        public void selectPositions(int[] positions, int offset, int size)
+        {
+            page = page.getPositions(positions, offset, size);
+        }
     }
 }
