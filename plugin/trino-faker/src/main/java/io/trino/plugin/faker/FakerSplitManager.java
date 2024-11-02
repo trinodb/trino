@@ -70,11 +70,11 @@ public class FakerSplitManager
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (long i = 0; i < splitCount - 1; i++) {
             HostAddress address = addresses.get((int) (i % addresses.size()));
-            splits.add(new FakerSplit(ImmutableList.of(address), MAX_ROWS_PER_SPLIT));
+            splits.add(new FakerSplit(ImmutableList.of(address), i, MAX_ROWS_PER_SPLIT));
         }
         HostAddress address = addresses.get((int) ((splitCount - 1) % addresses.size()));
         long limit = fakerTable.limit() % MAX_ROWS_PER_SPLIT;
-        splits.add(new FakerSplit(ImmutableList.of(address), limit == 0 ? MAX_ROWS_PER_SPLIT : limit));
+        splits.add(new FakerSplit(ImmutableList.of(address), splitCount - 1, limit == 0 ? MAX_ROWS_PER_SPLIT : limit));
         return new FixedSplitSource(splits.build());
     }
 }
