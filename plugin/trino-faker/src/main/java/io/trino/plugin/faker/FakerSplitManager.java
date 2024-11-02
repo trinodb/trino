@@ -73,7 +73,8 @@ public class FakerSplitManager
             splits.add(new FakerSplit(ImmutableList.of(address), MAX_ROWS_PER_SPLIT));
         }
         HostAddress address = addresses.get((int) ((splitCount - 1) % addresses.size()));
-        splits.add(new FakerSplit(ImmutableList.of(address), fakerTable.limit() % MAX_ROWS_PER_SPLIT));
+        long limit = fakerTable.limit() % MAX_ROWS_PER_SPLIT;
+        splits.add(new FakerSplit(ImmutableList.of(address), limit == 0 ? MAX_ROWS_PER_SPLIT : limit));
         return new FixedSplitSource(splits.build());
     }
 }
