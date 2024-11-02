@@ -14,7 +14,6 @@
 package io.trino.orc.reader;
 
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.orc.OrcBlockFactory;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcReader;
@@ -43,7 +42,6 @@ public final class ColumnReaders
             OrcColumn column,
             OrcReader.ProjectedLayout projectedLayout,
             AggregatedMemoryContext memoryContext,
-            OrcBlockFactory blockFactory,
             FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
@@ -77,11 +75,11 @@ public final class ColumnReaders
             case DOUBLE -> new DoubleColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case BINARY, STRING, VARCHAR, CHAR -> new SliceColumnReader(type, column, memoryContext);
             case TIMESTAMP, TIMESTAMP_INSTANT -> new TimestampColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
-            case LIST -> new ListColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
-            case STRUCT -> new StructColumnReader(type, column, projectedLayout, memoryContext, blockFactory, fieldMapperFactory);
-            case MAP -> new MapColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
+            case LIST -> new ListColumnReader(type, column, memoryContext, fieldMapperFactory);
+            case STRUCT -> new StructColumnReader(type, column, projectedLayout, memoryContext, fieldMapperFactory);
+            case MAP -> new MapColumnReader(type, column, memoryContext, fieldMapperFactory);
             case DECIMAL -> new DecimalColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
-            case UNION -> new UnionColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
+            case UNION -> new UnionColumnReader(type, column, memoryContext, fieldMapperFactory);
         };
     }
 }
