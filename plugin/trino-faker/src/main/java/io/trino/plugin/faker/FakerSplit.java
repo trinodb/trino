@@ -20,7 +20,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public record FakerSplit(List<HostAddress> addresses, long limit)
+public record FakerSplit(List<HostAddress> addresses, long splitNumber, long limit)
         implements ConnectorSplit
 {
     public FakerSplit
