@@ -18,6 +18,7 @@ import io.trino.metastore.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SourcePage;
 
 import java.util.List;
 
@@ -56,7 +57,7 @@ public class BucketValidator
         checkArgument(bucketColumnIndices.length == bucketColumnTypes.size(), "indices and types counts mismatch");
     }
 
-    public void validate(Page page)
+    public void validate(SourcePage page)
     {
         Page bucketColumnsPage = page.getColumns(bucketColumnIndices);
         for (int position = 0; position < page.getPositionCount(); position += VALIDATION_STRIDE) {

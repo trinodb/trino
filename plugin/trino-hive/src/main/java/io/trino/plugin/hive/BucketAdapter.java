@@ -18,6 +18,7 @@ import io.trino.metastore.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SourcePage;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import jakarta.annotation.Nullable;
 
@@ -50,7 +51,7 @@ public class BucketAdapter
     }
 
     @Nullable
-    public Page filterPageToEligibleRowsOrDiscard(Page page)
+    public SourcePage filterPageToEligibleRowsOrDiscard(SourcePage page)
     {
         IntArrayList ids = new IntArrayList(page.getPositionCount());
         Page bucketColumnsPage = page.getColumns(bucketColumns);
@@ -72,6 +73,7 @@ public class BucketAdapter
         if (retainedRowCount == page.getPositionCount()) {
             return page;
         }
-        return page.getPositions(ids.elements(), 0, retainedRowCount);
+        page.selectPositions(ids.elements(), 0, retainedRowCount);
+        return page;
     }
 }

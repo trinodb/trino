@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
@@ -24,6 +25,7 @@ import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
+import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -38,6 +40,8 @@ import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.Utils;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
 import java.util.ArrayList;
@@ -64,6 +68,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
+import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createTypeFromCoercer;
 import static io.trino.plugin.hive.coercions.CoercionUtils.extractHiveStorageFormat;
 import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
@@ -216,8 +221,7 @@ public class HivePageSourceProvider
                     transaction);
 
             if (pageSource.isPresent()) {
-                return Optional.of(new HivePageSource(
-                        columnMappings,
+                return Optional.of(createHivePageSource(columnMappings,
                         bucketAdaptation,
                         bucketValidator,
                         typeManager,
@@ -227,6 +231,62 @@ public class HivePageSourceProvider
         }
 
         return Optional.empty();
+    }
+
+    @VisibleForTesting
+    static ConnectorPageSource createHivePageSource(
+            List<ColumnMapping> columnMappings,
+            Optional<BucketAdaptation> bucketAdaptation,
+            Optional<BucketValidator> bucketValidator,
+            TypeManager typeManager,
+            CoercionContext coercionContext,
+            ConnectorPageSource pageSource)
+    {
+        if (bucketAdaptation.isPresent()) {
+            BucketAdapter bucketAdapter = new BucketAdapter(bucketAdaptation.get());
+            pageSource = TransformConnectorPageSource.create(pageSource, bucketAdapter::filterPageToEligibleRowsOrDiscard);
+        }
+        else if (bucketValidator.isPresent()) {
+            BucketValidator validator = bucketValidator.get();
+            pageSource = TransformConnectorPageSource.create(pageSource, page -> {
+                validator.validate(page);
+                return page;
+            });
+        }
+
+        TransformConnectorPageSource.Builder transforms = TransformConnectorPageSource.builder();
+        for (ColumnMapping columnMapping : columnMappings) {
+            HiveColumnHandle column = columnMapping.getHiveColumnHandle();
+
+            Type type = column.getType();
+            switch (columnMapping.getKind()) {
+                case PREFILLED -> transforms.constantValue(Utils.nativeValueToBlock(type, columnMapping.getPrefilledValue().getValue()));
+                case EMPTY -> transforms.constantValue(type.createNullBlock());
+                case REGULAR, SYNTHESIZED -> {
+                    Optional<TypeCoercer<? extends Type, ? extends Type>> coercer = Optional.empty();
+                    if (columnMapping.getBaseTypeCoercionFrom().isPresent()) {
+                        List<Integer> dereferenceIndices = column.getHiveColumnProjectionInfo()
+                                .map(HiveColumnProjectionInfo::getDereferenceIndices)
+                                .orElse(ImmutableList.of());
+                        HiveType fromType = getHiveTypeForDereferences(columnMapping.getBaseTypeCoercionFrom().get(), dereferenceIndices).orElseThrow();
+                        HiveType toType = columnMapping.getHiveColumnHandle().getHiveType();
+                        coercer = createCoercer(typeManager, fromType, toType, coercionContext);
+                    }
+
+                    int inputChannel = columnMapping.getIndex();
+                    if (coercer.isPresent()) {
+                        transforms.transform(inputChannel, coercer.get());
+                    }
+                    else {
+                        transforms.column(inputChannel);
+                    }
+                }
+                case INTERIM -> {
+                    // interim columns don't show up in output
+                }
+            }
+        }
+        return transforms.build(pageSource);
     }
 
     private static boolean shouldSkipBucket(HiveTableHandle hiveTable, HiveSplit hiveSplit, DynamicFilter dynamicFilter)
