@@ -18,6 +18,8 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
+
 final class TestFakerQueries
         extends AbstractTestQueryFramework
 {
@@ -191,6 +193,9 @@ final class TestFakerQueries
         @Language("SQL")
         String testQuery = "SELECT count(rnd_bigint) FROM (SELECT rnd_bigint FROM single_column LIMIT 5) a";
         assertQuery(testQuery, "VALUES (5)");
+
+        testQuery = "SELECT count(rnd_bigint) FROM (SELECT rnd_bigint FROM single_column LIMIT %d) a".formatted(2*MAX_ROWS_PER_SPLIT);
+        assertQuery(testQuery, "VALUES (%d)".formatted(2*MAX_ROWS_PER_SPLIT));
 
         testQuery = "SELECT count(distinct rnd_bigint) FROM single_column LIMIT 5";
         assertQuery(testQuery, "VALUES (1000)");
