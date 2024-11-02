@@ -1987,9 +1987,12 @@ public class TestHive3OnDataLake
         String name = "test_" + randomNameSuffix();
         String name2 = "test_" + randomNameSuffix();
 
-        assertUpdate("CREATE FUNCTION " + name + "(x integer) RETURNS bigint COMMENT 't42' RETURN x * 42");
+        assertUpdate("CREATE FUNCTION " + name + "(x integer) RETURNS bigint RETURN x * 10");
+        assertQuery("SELECT " + name + "(99)", "SELECT 990");
 
+        assertUpdate("CREATE OR REPLACE FUNCTION " + name + "(x integer) RETURNS bigint COMMENT 't42' RETURN x * 42");
         assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+
         assertQueryFails("SELECT " + name + "(2.9)", ".*Unexpected parameters.*");
 
         assertUpdate("CREATE FUNCTION " + name + "(x double) RETURNS double COMMENT 't88' RETURN x * 8.8");
