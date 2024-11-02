@@ -77,6 +77,7 @@ import java.util.function.Function;
 import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -141,8 +142,10 @@ public class ParquetReader
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
     private final Optional<StatisticsValidation> rowGroupStatisticsValidation;
     private final FilteredRowRanges[] blockRowRanges;
-    private final ParquetBlockFactory blockFactory;
+    private final Function<Exception, RuntimeException> exceptionTransform;
     private final Map<String, Metric<?>> codecMetrics;
+
+    private int currentPageId;
 
     private long columnIndexRowsFiltered = -1;
 
@@ -193,7 +196,7 @@ public class ParquetReader
         }
         this.blockRowRanges = calculateFilteredRowRanges(rowGroups, filter, primitiveFields);
 
-        this.blockFactory = new ParquetBlockFactory(exceptionTransform);
+        this.exceptionTransform = exceptionTransform;
         ListMultimap<ChunkKey, DiskRange> ranges = ArrayListMultimap.create();
         Map<String, LongCount> codecMetrics = new HashMap<>();
         for (int rowGroup = 0; rowGroup < rowGroups.size(); rowGroup++) {
@@ -264,7 +267,7 @@ public class ParquetReader
             return null;
         }
         // create a lazy page
-        blockFactory.nextPage();
+        currentPageId++;
         SourcePage page = new ParquetSourcePage(batchSize);
         validateWritePageChecksum(page);
         return page;
@@ -273,9 +276,13 @@ public class ParquetReader
     private class ParquetSourcePage
             implements SourcePage
     {
+        private final int expectedPageId = currentPageId;
         private final Block[] blocks = new Block[columnFields.size() + (appendRowNumberColumn ? 1 : 0)];
         private final int rowNumberColumnIndex = appendRowNumberColumn ? columnFields.size() : -1;
         private SelectedPositions selectedPositions;
+
+        private long sizeInBytes;
+        private long retainedSizeInBytes;
 
         public ParquetSourcePage(int positionCount)
         {
@@ -291,24 +298,12 @@ public class ParquetReader
         @Override
         public long getSizeInBytes()
         {
-            long sizeInBytes = 0;
-            for (Block block : blocks) {
-                if (block != null) {
-                    sizeInBytes += block.getSizeInBytes();
-                }
-            }
             return sizeInBytes;
         }
 
         @Override
         public long getRetainedSizeInBytes()
         {
-            long retainedSizeInBytes = 0;
-            for (Block block : blocks) {
-                if (block != null) {
-                    retainedSizeInBytes += block.getRetainedSizeInBytes();
-                }
-            }
             return retainedSizeInBytes;
         }
 
@@ -331,18 +326,25 @@ public class ParquetReader
         @Override
         public Block getBlock(int channel)
         {
+            checkState(currentPageId == expectedPageId, "Parquet reader has been advanced beyond block");
             Block block = blocks[channel];
             if (block == null) {
                 if (channel == rowNumberColumnIndex) {
                     block = selectedPositions.createRowNumberBlock(lastBatchStartRow());
                 }
                 else {
-                    // todo use selected positions to improve read performance
-                    Field field = columnFields.get(channel).field();
-                    block = blockFactory.createBlock(batchSize, () -> readBlock(field));
+                    try {
+                        // todo use selected positions to improve read performance
+                        block = readBlock(columnFields.get(channel).field());
+                    }
+                    catch (IOException e) {
+                        throw exceptionTransform.apply(e);
+                    }
                     block = selectedPositions.apply(block);
                 }
                 blocks[channel] = block;
+                sizeInBytes += block.getSizeInBytes();
+                retainedSizeInBytes += block.getRetainedSizeInBytes();
             }
             return block;
         }
@@ -361,10 +363,12 @@ public class ParquetReader
         public void selectPositions(int[] positions, int offset, int size)
         {
             selectedPositions = selectedPositions.selectPositions(positions, offset, size);
+            retainedSizeInBytes = 0;
             for (int i = 0; i < blocks.length; i++) {
                 Block block = blocks[i];
                 if (block != null) {
                     block = selectedPositions.apply(block);
+                    retainedSizeInBytes += block.getRetainedSizeInBytes();
                     blocks[i] = block;
                 }
             }
