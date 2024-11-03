@@ -156,6 +156,8 @@ mode:
 * - `--editing-mode`
   - Sets key bindings in the CLI to be compatible with VI or
     EMACS editors. Defaults to `EMACS`.
+* - `--extra-credential`
+  - Extra credentials (property can be used multiple times; format is key=value)
 * - `--http-proxy`
   - Configures the URL of the HTTP proxy to connect to Trino.
 * - `--history-file`
