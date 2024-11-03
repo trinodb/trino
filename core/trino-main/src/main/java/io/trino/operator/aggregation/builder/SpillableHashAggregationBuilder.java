@@ -18,6 +18,7 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.AggregationMetrics;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.MergeHashSort;
 import io.trino.operator.OperatorContext;
@@ -42,6 +43,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.lang.Math.max;
+import static java.util.Objects.requireNonNull;
 
 public class SpillableHashAggregationBuilder
         implements HashAggregationBuilder
@@ -65,6 +67,7 @@ public class SpillableHashAggregationBuilder
     private ListenableFuture<Void> spillInProgress = immediateVoidFuture();
     private final FlatHashStrategyCompiler hashStrategyCompiler;
     private final TypeOperators typeOperators;
+    private final AggregationMetrics aggregationMetrics;
 
     // todo get rid of that and only use revocable memory
     private long emptyHashAggregationBuilderSize;
@@ -83,7 +86,8 @@ public class SpillableHashAggregationBuilder
             DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory,
             FlatHashStrategyCompiler hashStrategyCompiler,
-            TypeOperators typeOperators)
+            TypeOperators typeOperators,
+            AggregationMetrics aggregationMetrics)
     {
         this.aggregatorFactories = aggregatorFactories;
         this.step = step;
@@ -99,6 +103,7 @@ public class SpillableHashAggregationBuilder
         this.spillerFactory = spillerFactory;
         this.hashStrategyCompiler = hashStrategyCompiler;
         this.typeOperators = typeOperators;
+        this.aggregationMetrics = requireNonNull(aggregationMetrics, "aggregationMetrics is null");
 
         rebuildHashAggregationBuilder();
     }
@@ -301,7 +306,8 @@ public class SpillableHashAggregationBuilder
                 operatorContext.aggregateUserMemoryContext(),
                 memoryLimitForMerge,
                 hashAggregationBuilder.getKeyChannels(),
-                hashStrategyCompiler));
+                hashStrategyCompiler,
+                aggregationMetrics));
 
         return merger.get().buildResult();
     }
@@ -326,7 +332,8 @@ public class SpillableHashAggregationBuilder
                     updateMemory();
                     // TODO: Support GroupByHash yielding in spillable hash aggregation (https://github.com/trinodb/trino/issues/460)
                     return true;
-                });
+                },
+                aggregationMetrics);
         emptyHashAggregationBuilderSize = hashAggregationBuilder.getSizeInMemory();
     }
 }

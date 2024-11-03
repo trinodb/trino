@@ -23,6 +23,7 @@ import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -134,6 +135,7 @@ public class StreamingAggregationOperator
     }
 
     private final WorkProcessor<Page> pages;
+    private final AggregationMetrics aggregationMetrics = new AggregationMetrics();
 
     private StreamingAggregationOperator(
             ProcessorContext processorContext,
@@ -151,13 +153,20 @@ public class StreamingAggregationOperator
                         groupByTypes,
                         groupByChannels,
                         aggregatorFactories,
-                        joinCompiler));
+                        joinCompiler,
+                        aggregationMetrics));
     }
 
     @Override
     public WorkProcessor<Page> getOutputPages()
     {
         return pages;
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return aggregationMetrics.getMetrics();
     }
 
     private static class StreamingAggregation
@@ -168,6 +177,7 @@ public class StreamingAggregationOperator
         private final int[] groupByChannels;
         private final List<AggregatorFactory> aggregatorFactories;
         private final PagesHashStrategy pagesHashStrategy;
+        private final AggregationMetrics aggregationMetrics;
 
         private List<Aggregator> aggregates;
         private final PageBuilder pageBuilder;
@@ -180,7 +190,8 @@ public class StreamingAggregationOperator
                 List<Type> groupByTypes,
                 List<Integer> groupByChannels,
                 List<AggregatorFactory> aggregatorFactories,
-                JoinCompiler joinCompiler)
+                JoinCompiler joinCompiler,
+                AggregationMetrics aggregationMetrics)
         {
             requireNonNull(processorContext, "processorContext is null");
             this.userMemoryContext = processorContext.getMemoryTrackingContext().localUserMemoryContext();
@@ -189,7 +200,7 @@ public class StreamingAggregationOperator
             this.aggregatorFactories = requireNonNull(aggregatorFactories, "aggregatorFactories is null");
 
             this.aggregates = aggregatorFactories.stream()
-                    .map(AggregatorFactory::createAggregator)
+                    .map(factory -> factory.createAggregator(aggregationMetrics))
                     .collect(toImmutableList());
             this.pageBuilder = new PageBuilder(toTypes(groupByTypes, aggregates));
             requireNonNull(joinCompiler, "joinCompiler is null");
@@ -200,6 +211,7 @@ public class StreamingAggregationOperator
                             sourceTypes.stream()
                                     .map(type -> new ObjectArrayList<Block>())
                                     .collect(toImmutableList()), OptionalInt.empty());
+            this.aggregationMetrics = requireNonNull(aggregationMetrics, "aggregationMetrics is null");
         }
 
         @Override
@@ -317,7 +329,7 @@ public class StreamingAggregationOperator
             }
 
             aggregates = aggregatorFactories.stream()
-                    .map(AggregatorFactory::createAggregator)
+                    .map(factory -> factory.createAggregator(aggregationMetrics))
                     .collect(toImmutableList());
         }
 
