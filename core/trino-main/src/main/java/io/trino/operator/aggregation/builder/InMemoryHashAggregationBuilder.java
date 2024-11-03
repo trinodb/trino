@@ -19,8 +19,10 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.array.IntBigArray;
+import io.trino.operator.AggregationMetrics;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHash;
+import io.trino.operator.MeasuredGroupByHashWork;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.TransformWork;
 import io.trino.operator.UpdateMemory;
@@ -57,6 +59,7 @@ public class InMemoryHashAggregationBuilder
     private final boolean partial;
     private final OptionalLong maxPartialMemory;
     private final UpdateMemory updateMemory;
+    private final AggregationMetrics aggregationMetrics;
 
     private boolean full;
 
@@ -70,7 +73,8 @@ public class InMemoryHashAggregationBuilder
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
             FlatHashStrategyCompiler hashStrategyCompiler,
-            UpdateMemory updateMemory)
+            UpdateMemory updateMemory,
+            AggregationMetrics aggregationMetrics)
     {
         this(aggregatorFactories,
                 step,
@@ -82,7 +86,8 @@ public class InMemoryHashAggregationBuilder
                 maxPartialMemory,
                 Optional.empty(),
                 hashStrategyCompiler,
-                updateMemory);
+                updateMemory,
+                aggregationMetrics);
     }
 
     public InMemoryHashAggregationBuilder(
@@ -96,7 +101,8 @@ public class InMemoryHashAggregationBuilder
             Optional<DataSize> maxPartialMemory,
             Optional<Integer> unspillIntermediateChannelOffset,
             FlatHashStrategyCompiler hashStrategyCompiler,
-            UpdateMemory updateMemory)
+            UpdateMemory updateMemory,
+            AggregationMetrics aggregationMetrics)
     {
         if (hashChannel.isPresent()) {
             this.groupByOutputTypes = ImmutableList.<Type>builderWithExpectedSize(groupByTypes.size() + 1)
@@ -131,13 +137,14 @@ public class InMemoryHashAggregationBuilder
         for (int i = 0; i < aggregatorFactories.size(); i++) {
             AggregatorFactory accumulatorFactory = aggregatorFactories.get(i);
             if (unspillIntermediateChannelOffset.isPresent()) {
-                builder.add(accumulatorFactory.createUnspillGroupedAggregator(step, unspillIntermediateChannelOffset.get() + i));
+                builder.add(accumulatorFactory.createUnspillGroupedAggregator(step, unspillIntermediateChannelOffset.get() + i, aggregationMetrics));
             }
             else {
-                builder.add(accumulatorFactory.createGroupedAggregator());
+                builder.add(accumulatorFactory.createGroupedAggregator(aggregationMetrics));
             }
         }
         groupedAggregators = builder.build();
+        this.aggregationMetrics = requireNonNull(aggregationMetrics, "aggregationMetrics is null");
     }
 
     @Override
@@ -147,10 +154,10 @@ public class InMemoryHashAggregationBuilder
     public Work<?> processPage(Page page)
     {
         if (groupedAggregators.isEmpty()) {
-            return groupByHash.addPage(page.getLoadedPage(groupByChannels));
+            return new MeasuredGroupByHashWork<>(groupByHash.addPage(page.getLoadedPage(groupByChannels)), aggregationMetrics);
         }
         return new TransformWork<>(
-                groupByHash.getGroupIds(page.getLoadedPage(groupByChannels)),
+                new MeasuredGroupByHashWork<>(groupByHash.getGroupIds(page.getLoadedPage(groupByChannels)), aggregationMetrics),
                 groupByIdBlock -> {
                     int groupCount = groupByHash.getGroupCount();
                     for (GroupedAggregator groupedAggregator : groupedAggregators) {
@@ -339,7 +346,7 @@ public class InMemoryHashAggregationBuilder
             types.add(BIGINT);
         }
         for (AggregatorFactory factory : factories) {
-            types.add(factory.createAggregator().getType());
+            types.add(factory.createAggregator(new AggregationMetrics()).getType());
         }
         return types.build();
     }

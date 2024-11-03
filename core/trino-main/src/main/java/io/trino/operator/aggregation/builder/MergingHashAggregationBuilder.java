@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.AggregationMetrics;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.WorkProcessor;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static java.util.Objects.requireNonNull;
 
 public class MergingHashAggregationBuilder
         implements Closeable
@@ -49,6 +51,7 @@ public class MergingHashAggregationBuilder
     private final long memoryLimitForMerge;
     private final int overwriteIntermediateChannelOffset;
     private final FlatHashStrategyCompiler hashStrategyCompiler;
+    private final AggregationMetrics aggregationMetrics;
 
     public MergingHashAggregationBuilder(
             List<AggregatorFactory> aggregatorFactories,
@@ -61,7 +64,8 @@ public class MergingHashAggregationBuilder
             AggregatedMemoryContext aggregatedMemoryContext,
             long memoryLimitForMerge,
             int overwriteIntermediateChannelOffset,
-            FlatHashStrategyCompiler hashStrategyCompiler)
+            FlatHashStrategyCompiler hashStrategyCompiler,
+            AggregationMetrics aggregationMetrics)
     {
         ImmutableList.Builder<Integer> groupByPartialChannels = ImmutableList.builderWithExpectedSize(groupByTypes.size());
         for (int i = 0; i < groupByTypes.size(); i++) {
@@ -80,6 +84,7 @@ public class MergingHashAggregationBuilder
         this.memoryLimitForMerge = memoryLimitForMerge;
         this.overwriteIntermediateChannelOffset = overwriteIntermediateChannelOffset;
         this.hashStrategyCompiler = hashStrategyCompiler;
+        this.aggregationMetrics = requireNonNull(aggregationMetrics, "aggregationMetrics is null");
 
         rebuildHashAggregationBuilder();
     }
@@ -151,6 +156,7 @@ public class MergingHashAggregationBuilder
                 Optional.of(overwriteIntermediateChannelOffset),
                 hashStrategyCompiler,
                 // TODO: merging should also yield on memory reservations
-                () -> true);
+                () -> true,
+                aggregationMetrics);
     }
 }

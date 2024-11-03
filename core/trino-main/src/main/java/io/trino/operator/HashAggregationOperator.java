@@ -388,7 +388,7 @@ public class HashAggregationOperator
                     .map(PartialAggregationController::isPartialAggregationDisabled)
                     .orElse(false);
             if (step.isOutputPartial() && partialAggregationDisabled) {
-                aggregationBuilder = new SkipAggregationBuilder(groupByChannels, hashChannel, aggregatorFactories, memoryContext);
+                aggregationBuilder = new SkipAggregationBuilder(groupByChannels, hashChannel, aggregatorFactories, memoryContext, aggregationMetrics);
             }
             else if (step.isOutputPartial() || !spillEnabled || !isSpillable()) {
                 // TODO: We ignore spillEnabled here if any aggregate has ORDER BY clause or DISTINCT because they are not yet implemented for spilling.
@@ -409,7 +409,8 @@ public class HashAggregationOperator
                                 return true;
                             }
                             return operatorContext.isWaitingForMemory().isDone();
-                        });
+                        },
+                        aggregationMetrics);
             }
             else {
                 aggregationBuilder = new SpillableHashAggregationBuilder(
@@ -424,7 +425,8 @@ public class HashAggregationOperator
                         memoryLimitForMergeWithMemory,
                         spillerFactory,
                         flatHashStrategyCompiler,
-                        typeOperators);
+                        typeOperators,
+                        aggregationMetrics);
             }
 
             // assume initial aggregationBuilder is not full
@@ -582,7 +584,7 @@ public class HashAggregationOperator
             }
 
             for (AggregatorFactory aggregatorFactory : aggregatorFactories) {
-                aggregatorFactory.createAggregator().evaluate(output.getBlockBuilder(channel));
+                aggregatorFactory.createAggregator(aggregationMetrics).evaluate(output.getBlockBuilder(channel));
                 channel++;
             }
         }

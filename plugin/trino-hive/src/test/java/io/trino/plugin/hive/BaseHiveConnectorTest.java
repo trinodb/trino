@@ -9086,6 +9086,29 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testExplainAnalyzeAccumulatorUpdateWallTime()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT count(*) FROM nation",
+                "'Accumulator update CPU time' = \\{duration=.*}");
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT name, (SELECT max(name) FROM region WHERE regionkey > nation.regionkey) FROM nation",
+                "'Accumulator update CPU time' = \\{duration=.*}");
+    }
+
+    @Test
+    public void testExplainAnalyzeGroupByHashUpdateWallTime()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT nationkey FROM nation GROUP BY nationkey",
+                "'Group by hash update CPU time' = \\{duration=.*}");
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT count(*), nationkey FROM nation GROUP BY nationkey",
+                "'Accumulator update CPU time' = \\{duration=.*}",
+                "'Group by hash update CPU time' = \\{duration=.*}");
+    }
+
+    @Test
     public void testCreateAcidTableUnsupported()
     {
         assertQueryFails("CREATE TABLE acid_unsupported (x int) WITH (transactional = true)", "FileHiveMetastore does not support ACID tables");
