@@ -29,6 +29,7 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.TestPageProcessor.LazyPagePageProjection;
 import io.trino.operator.project.TestPageProcessor.SelectAllFilter;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -55,6 +56,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -62,6 +64,7 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.block.BlockAssertions.createIntsBlock;
 import static io.trino.block.BlockAssertions.toValues;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.PageAssertions.assertPageEquals;
@@ -402,6 +405,52 @@ public class TestScanFilterAndProjectOperator
         driverContext.getYieldSignal().reset();
         assertThat(output).isNotNull();
         assertThat(toValues(BIGINT, output.getBlock(0))).isEqualTo(toValues(BIGINT, input.getBlock(0)));
+    }
+
+    @Test
+    public void testRecordMaterializedBytes()
+    {
+        Block first = createIntsBlock(1, 2, 3);
+        LazyBlock second = lazyWrapper(first);
+        LazyBlock third = lazyWrapper(first);
+        Page page = new Page(3, first, second, third);
+
+        second.getLoadedBlock();
+
+        AtomicLong sizeInBytes = new AtomicLong();
+        ScanFilterAndProjectOperator.ProcessedBytesMonitor monitor = new ScanFilterAndProjectOperator.ProcessedBytesMonitor(page, sizeInBytes::getAndAdd);
+
+        assertThat(sizeInBytes.get()).isEqualTo(first.getSizeInBytes() * 2);
+
+        page.getBlock(2).getLoadedBlock();
+        monitor.update();
+        assertThat(sizeInBytes.get()).isEqualTo(first.getSizeInBytes() * 3);
+    }
+
+    @Test
+    public void testNestedBlocks()
+    {
+        Block elements = lazyWrapper(createIntsBlock(1, 2, 3));
+        Block arrayBlock = ArrayBlock.fromElementBlock(2, Optional.empty(), new int[] {0, 1, 3}, elements);
+        long initialArraySize = arrayBlock.getSizeInBytes();
+        Page page = new Page(2, arrayBlock);
+
+        AtomicLong sizeInBytes = new AtomicLong();
+        ScanFilterAndProjectOperator.ProcessedBytesMonitor monitor = new ScanFilterAndProjectOperator.ProcessedBytesMonitor(page, sizeInBytes::getAndAdd);
+
+        assertThat(arrayBlock.getSizeInBytes()).isEqualTo(initialArraySize);
+        assertThat(sizeInBytes.get()).isEqualTo(arrayBlock.getSizeInBytes());
+
+        // dictionary block caches size in bytes
+        arrayBlock.getLoadedBlock();
+        monitor.update();
+        assertThat(sizeInBytes.get()).isEqualTo(arrayBlock.getSizeInBytes());
+        assertThat(sizeInBytes.get()).isEqualTo(initialArraySize + elements.getSizeInBytes());
+    }
+
+    private static LazyBlock lazyWrapper(Block block)
+    {
+        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
     }
 
     private static List<Page> toPages(Operator operator)
