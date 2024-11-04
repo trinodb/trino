@@ -3458,6 +3458,25 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testCosineDistance()
+    {
+        assertThat(assertions.function("cosine_distance", "map(ARRAY['a', 'b'], ARRAY[1.0E0, 2.0E0])", "map(ARRAY['c', 'b'], ARRAY[1.0E0, 3.0E0])"))
+                .isEqualTo(1 - (2 * 3 / (Math.sqrt(5) * Math.sqrt(10))));
+
+        assertThat(assertions.function("cosine_distance", "map(ARRAY['a', 'b', 'c'], ARRAY[1.0E0, 2.0E0, -1.0E0])", "map(ARRAY['c', 'b'], ARRAY[1.0E0, 3.0E0])"))
+                .isEqualTo(1 - ((2 * 3 + -1 * 1) / (Math.sqrt(1 + 4 + 1) * Math.sqrt(1 + 9))));
+
+        assertThat(assertions.function("cosine_distance", "map(ARRAY['a', 'b', 'c'], ARRAY[1.0E0, 2.0E0, -1.0E0])", "map(ARRAY['d', 'e'], ARRAY[1.0E0, 3.0E0])"))
+                .isEqualTo(1.0);
+
+        assertThat(assertions.function("cosine_distance", "null", "map(ARRAY['c', 'b'], ARRAY[1.0E0, 3.0E0])"))
+                .isNull();
+
+        assertThat(assertions.function("cosine_distance", "map(ARRAY['a', 'b'], ARRAY[1.0E0, null])", "map(ARRAY['c', 'b'], ARRAY[1.0E0, 3.0E0])"))
+                .isNull();
+    }
+
+    @Test
     public void testInverseNormalCdf()
     {
         assertThat(assertions.function("inverse_normal_cdf", "0", "1", "0.3"))
