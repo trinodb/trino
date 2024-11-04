@@ -32,6 +32,7 @@ public class TestIcebergRestCatalogConfig
                 .setPrefix(null)
                 .setWarehouse(null)
                 .setParentNamespace(null)
+                .setNestedNamespaceEnabled(false)
                 .setSessionType(IcebergRestCatalogConfig.SessionType.NONE)
                 .setSecurity(IcebergRestCatalogConfig.Security.NONE)
                 .setVendedCredentialsEnabled(false));
@@ -45,6 +46,7 @@ public class TestIcebergRestCatalogConfig
                 .put("iceberg.rest-catalog.prefix", "dev")
                 .put("iceberg.rest-catalog.warehouse", "test_warehouse_identifier")
                 .put("iceberg.rest-catalog.parent-namespace", "main")
+                .put("iceberg.rest-catalog.nested-namespace-enabled", "true")
                 .put("iceberg.rest-catalog.security", "OAUTH2")
                 .put("iceberg.rest-catalog.session", "USER")
                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
@@ -55,6 +57,7 @@ public class TestIcebergRestCatalogConfig
                 .setPrefix("dev")
                 .setWarehouse("test_warehouse_identifier")
                 .setParentNamespace("main")
+                .setNestedNamespaceEnabled(true)
                 .setSessionType(IcebergRestCatalogConfig.SessionType.USER)
                 .setSecurity(IcebergRestCatalogConfig.Security.OAUTH2)
                 .setVendedCredentialsEnabled(true);
