@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.cloud.bigquery.Field.Mode.REQUIRED;
 import static com.google.cloud.bigquery.StandardSQLTypeName.INT64;
@@ -84,7 +85,7 @@ public class TestBigQuerySplitManager
 
             // Ignore constraints when creating temporary tables by default (view_materialization_with_filter is false)
             BigQueryColumnHandle column = new BigQueryColumnHandle("cnt", ImmutableList.of(), BIGINT, INT64, true, REQUIRED, ImmutableList.of(), null, false);
-            BigQueryTableHandle tableDifferentFilter = new BigQueryTableHandle(table.relationHandle(), TupleDomain.fromFixedValues(ImmutableMap.of(column, new NullableValue(BIGINT, 0L))), table.projectedColumns());
+            BigQueryTableHandle tableDifferentFilter = new BigQueryTableHandle(table.relationHandle(), TupleDomain.fromFixedValues(ImmutableMap.of(column, new NullableValue(BIGINT, 0L))), table.projectedColumns(), OptionalLong.empty());
             assertThat(createReadSession(transaction, session, tableDifferentFilter).getTable())
                     .isEqualTo(readSession.getTable());
 

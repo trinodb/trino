@@ -54,6 +54,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.bigquery.BigQueryClient.selectSql;
 import static io.trino.plugin.bigquery.BigQueryTypeManager.toTrinoTimestamp;
+import static io.trino.plugin.bigquery.BigQueryUtil.buildNativeQuery;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -125,13 +126,10 @@ public class BigQueryQueryPageSource
     {
         if (isQueryFunction) {
             BigQueryQueryRelationHandle queryRelationHandle = (BigQueryQueryRelationHandle) table.relationHandle();
-            if (filter.isEmpty()) {
-                return queryRelationHandle.getQuery();
-            }
-            return "SELECT * FROM (" + queryRelationHandle.getQuery() + " ) WHERE " + filter.get();
+            return buildNativeQuery(queryRelationHandle.getQuery(), filter, table.limit());
         }
         TableId tableId = TableId.of(projectId, table.asPlainTable().getRemoteTableName().datasetName(), table.asPlainTable().getRemoteTableName().tableName());
-        return selectSql(tableId, ImmutableList.copyOf(columns), filter);
+        return selectSql(tableId, ImmutableList.copyOf(columns), filter, table.limit());
     }
 
     @Override

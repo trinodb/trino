@@ -24,6 +24,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -32,7 +33,8 @@ import static java.util.stream.Collectors.joining;
 public record BigQueryTableHandle(
         BigQueryRelationHandle relationHandle,
         TupleDomain<ColumnHandle> constraint,
-        Optional<List<BigQueryColumnHandle>> projectedColumns)
+        Optional<List<BigQueryColumnHandle>> projectedColumns,
+        OptionalLong limit)
         implements ConnectorTableHandle
 {
     public BigQueryTableHandle
@@ -40,6 +42,7 @@ public record BigQueryTableHandle(
         requireNonNull(relationHandle, "relationHandle is null");
         requireNonNull(constraint, "constraint is null");
         requireNonNull(projectedColumns, "projectedColumns is null");
+        requireNonNull(limit, "limit is null");
     }
 
     @JsonIgnore
@@ -89,6 +92,7 @@ public record BigQueryTableHandle(
                     .collect(joining(", ", "[", "]")));
         }
         projectedColumns.ifPresent(columns -> builder.append(" columns=").append(columns));
+        limit.ifPresent(value -> builder.append(" limit=").append(value));
         return builder.toString();
     }
 
@@ -100,12 +104,17 @@ public record BigQueryTableHandle(
 
     BigQueryTableHandle withConstraint(TupleDomain<ColumnHandle> newConstraint)
     {
-        return new BigQueryTableHandle(relationHandle, newConstraint, projectedColumns);
+        return new BigQueryTableHandle(relationHandle, newConstraint, projectedColumns, limit);
     }
 
     public BigQueryTableHandle withProjectedColumns(List<BigQueryColumnHandle> newProjectedColumns)
     {
-        return new BigQueryTableHandle(relationHandle, constraint, Optional.of(newProjectedColumns));
+        return new BigQueryTableHandle(relationHandle, constraint, Optional.of(newProjectedColumns), limit);
+    }
+
+    public BigQueryTableHandle withLimit(long limit)
+    {
+        return new BigQueryTableHandle(relationHandle, constraint, projectedColumns, OptionalLong.of(limit));
     }
 
     public enum BigQueryPartitionType

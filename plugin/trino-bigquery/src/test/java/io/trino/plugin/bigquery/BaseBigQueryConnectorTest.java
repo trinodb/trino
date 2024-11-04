@@ -13,13 +13,20 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
 import io.trino.spi.QueryId;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -37,6 +44,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -46,6 +54,10 @@ import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.TEST_SCHEMA;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -1144,6 +1156,230 @@ public abstract class BaseBigQueryConnectorTest
         assertQuerySucceeds("CALL system.execute('SELECT 1')");
 
         assertQueryFails("CALL system.execute('invalid')", ".*Syntax error: Unexpected identifier.*");
+    }
+
+    @Test
+    public void testLimitPushdownWithExternalTable()
+    {
+        String externalTableName =  TEST_SCHEMA + ".region_external_table_" + randomNameSuffix();
+        onBigQuery("CREATE EXTERNAL TABLE " + externalTableName + " OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+        try {
+            assertLimitPushdownOnRegionTable(getSession(), externalTableName);
+        }
+        finally {
+            onBigQuery("DROP EXTERNAL TABLE " + externalTableName);
+        }
+    }
+
+    @Test
+    public void testLimitPushdownWithView()
+    {
+        try (TestView testView = new TestView(bigQuerySqlExecutor::executeQuery, TEST_SCHEMA + ".region_view_", "SELECT * FROM tpch.region")) {
+            // view with materialization uses storage api, with storage api limit pushdown is not supported
+            assertThat(query("SELECT * FROM " + testView.getName() + " LIMIT 3"))
+                    .skipResultsCorrectnessCheckForPushdown()
+                    .isNotFullyPushedDown(node(LimitNode.class, anyTree(node(TableScanNode.class))));
+
+            Session sessionWithSkipViewMaterialization = Session.builder(getSession())
+                    .setCatalogSessionProperty("bigquery", "skip_view_materialization", "true")
+                    .build();
+            assertLimitPushdownOnRegionTable(sessionWithSkipViewMaterialization, testView.getName());
+        }
+    }
+
+    @Test
+    public void testLimitPushdownWithMaterializedView()
+    {
+        String mvName =  TEST_SCHEMA + ".region_mv_" + randomNameSuffix();
+        onBigQuery("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM tpch.region");
+        try {
+            // materialized view with materialization uses storage api, with storage api limit pushdown is not supported
+            assertThat(query("SELECT * FROM " + mvName + " LIMIT 3"))
+                    .skipResultsCorrectnessCheckForPushdown()
+                    .isNotFullyPushedDown(node(LimitNode.class, anyTree(node(TableScanNode.class))));
+
+            Session sessionWithSkipViewMaterialization = Session.builder(getSession())
+                    .setCatalogSessionProperty("bigquery", "skip_view_materialization", "true")
+                    .build();
+            assertLimitPushdownOnRegionTable(sessionWithSkipViewMaterialization, mvName);
+        }
+        finally {
+            onBigQuery("DROP MATERIALIZED VIEW " + mvName);
+        }
+    }
+
+    @Test
+    public void testLimitPushdownWithManagedTable()
+    {
+        // managed table uses storage api, with storage api limit pushdown is not supported
+        assertThat(query("SELECT * FROM tpch.region LIMIT 3"))
+                .skipResultsCorrectnessCheckForPushdown()
+                .isNotFullyPushedDown(node(LimitNode.class, anyTree(node(TableScanNode.class))));
+    }
+
+    @Test
+    public void testLimitPushdownWithSnapshotTable()
+    {
+        String regionCopy = TEST_SCHEMA + ".region_" + randomNameSuffix();
+        String snapshotTableName = TEST_SCHEMA + ".region_snapshot_" + randomNameSuffix();
+        onBigQuery("CREATE TABLE " + regionCopy + " AS SELECT * FROM tpch.region");
+        try {
+            onBigQuery("CREATE SNAPSHOT TABLE " + snapshotTableName + " CLONE " + regionCopy);
+
+            // snapshot table uses storage api, with storage api limit pushdown is not supported
+            assertThat(query("SELECT * FROM " + snapshotTableName + " LIMIT 3"))
+                    .skipResultsCorrectnessCheckForPushdown()
+                    .isNotFullyPushedDown(node(LimitNode.class, anyTree(node(TableScanNode.class))));
+        }
+        finally {
+            onBigQuery("DROP SNAPSHOT TABLE IF EXISTS " + snapshotTableName);
+            onBigQuery("DROP TABLE " + regionCopy);
+        }
+    }
+
+    private void assertLimitPushdownOnRegionTable(Session session, String tableName)
+    {
+        // Simple limit pushdown
+        assertThat(query(session, "SELECT * FROM %s LIMIT 0".formatted(tableName)))
+                .returnsEmptyResult();
+        assertThat(query(session, "SELECT * FROM %s LIMIT 3".formatted(tableName)))
+                .skipResultsCorrectnessCheckForPushdown()
+                .isFullyPushedDown();
+        assertThat(query(session, "SELECT * FROM %s LIMIT 10".formatted(tableName)))
+                .isFullyPushedDown();
+
+        // With Filter
+        assertThat(query(session, "SELECT * FROM %s WHERE regionkey < 3 LIMIT 2".formatted(tableName)))
+                .skipResultsCorrectnessCheckForPushdown()
+                .isFullyPushedDown();
+        assertThat(query(session, "SELECT * FROM (SELECT * FROM %s WHERE regionkey < 3 LIMIT 2)".formatted(tableName)))
+                .skipResultsCorrectnessCheckForPushdown()
+                .isFullyPushedDown();
+        assertThat(query(session, "SELECT * FROM (SELECT * FROM %s) WHERE regionkey < 3 LIMIT 2".formatted(tableName)))
+                .skipResultsCorrectnessCheckForPushdown()
+                .isFullyPushedDown();
+        assertThat(query(session, "SELECT * FROM (SELECT * FROM %s WHERE regionkey < 3) LIMIT 2".formatted(tableName)))
+                .skipResultsCorrectnessCheckForPushdown()
+                .isFullyPushedDown();
+
+        // With native query
+        assertNativeQueryWithLimitPushdown(session, tableName);
+        // With Empty projection
+        assertEmptyProjectionWithLimitPushdown(session, tableName);
+        // Check for processed data size
+        assertLimitPushdownReadsLessData(session, tableName);
+    }
+
+    private void assertNativeQueryWithLimitPushdown(Session session, String tableName)
+    {
+        assertThat(query(session, "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s')) LIMIT 0".formatted(tableName)))
+                .returnsEmptyResult();
+        assertThat(query(session, "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s')) LIMIT 3".formatted(tableName)))
+                .skipResultsCorrectnessCheckForPushdown()
+                .isFullyPushedDown();
+        assertThat(query(session, "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s')) LIMIT 10".formatted(tableName)))
+                .isFullyPushedDown();
+
+        assertThat(query(session, "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s')) WHERE regionkey < 3 LIMIT 2".formatted(tableName)))
+                .skipResultsCorrectnessCheckForPushdown()
+                .isFullyPushedDown();
+        assertThat(query(session, "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s')) WHERE regionkey > 5 LIMIT 2".formatted(tableName)))
+                .returnsEmptyResult();
+    }
+
+    private void assertEmptyProjectionWithLimitPushdown(Session session, String tableName)
+    {
+        assertThat(query(session, "SELECT COUNT(*) FROM %s LIMIT 0".formatted(tableName)))
+                .returnsEmptyResult();
+        assertThat(query(session, "SELECT COUNT(*) FROM %s LIMIT 1".formatted(tableName)))
+                .matches("VALUES BIGINT '5'")
+                .hasPlan(tableScanWithLimit(OptionalLong.empty()));
+        assertThat(query(session, "SELECT COUNT(*) FROM %s LIMIT 10".formatted(tableName)))
+                .matches("VALUES BIGINT '5'")
+                .hasPlan(tableScanWithLimit(OptionalLong.empty()));
+
+        assertThat(query(session, "SELECT COUNT(*) FROM (SELECT * FROM %s LIMIT 0)".formatted(tableName)))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query(session, "SELECT COUNT(*) FROM (SELECT * FROM %s LIMIT 3)".formatted(tableName)))
+                .matches("VALUES BIGINT '3'")
+                .hasPlan(tableScanWithLimit(OptionalLong.of(3)));
+        assertThat(query(session, "SELECT COUNT(*) FROM (SELECT * FROM %s LIMIT 10)".formatted(tableName)))
+                .matches("VALUES BIGINT '5'")
+                .hasPlan(tableScanWithLimit(OptionalLong.of(10)));
+
+        assertThat(query(session, "SELECT COUNT(*) FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s')) LIMIT 0".formatted(tableName)))
+                .returnsEmptyResult();
+        assertThat(query(session, "SELECT COUNT(*) FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s')) LIMIT 1".formatted(tableName)))
+                .matches("VALUES BIGINT '5'")
+                .hasPlan(tableScanWithLimit(OptionalLong.empty()));
+        assertThat(query(session, "SELECT COUNT(*) FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s')) LIMIT 10".formatted(tableName)))
+                .matches("VALUES BIGINT '5'")
+                .hasPlan(tableScanWithLimit(OptionalLong.empty()));
+
+        assertThat(query(session, "SELECT COUNT(*) FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s LIMIT 0'))".formatted(tableName)))
+                .matches("VALUES BIGINT '0'")
+                .hasPlan(tableScanWithLimit(OptionalLong.empty()));
+        assertThat(query(session, "SELECT COUNT(*) FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s LIMIT 1'))".formatted(tableName)))
+                .matches("VALUES BIGINT '1'")
+                .hasPlan(tableScanWithLimit(OptionalLong.empty()));
+        assertThat(query(session, "SELECT COUNT(*) FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s LIMIT 10'))".formatted(tableName)))
+                .matches("VALUES BIGINT '5'")
+                .hasPlan(tableScanWithLimit(OptionalLong.empty()));
+
+        assertThat(query(session, "SELECT COUNT(*) FROM (SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s')) WHERE regionkey < 3 LIMIT 2)".formatted(tableName)))
+                .matches("VALUES BIGINT '2'")
+                .hasPlan(tableScanWithLimit(OptionalLong.of(2)));
+        assertThat(query(session, "SELECT COUNT(*) FROM (SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s')) WHERE regionkey > 3 LIMIT 2)".formatted(tableName)))
+                .matches("VALUES BIGINT '1'")
+                .hasPlan(tableScanWithLimit(OptionalLong.of(2)));
+        assertThat(query(session, "SELECT COUNT(*) FROM (SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM %s')) WHERE regionkey > 5 LIMIT 2)".formatted(tableName)))
+                .matches("VALUES BIGINT '0'")
+                .hasPlan(tableScanWithLimit(OptionalLong.of(2)));
+    }
+
+    private PlanMatchPattern tableScanWithLimit(OptionalLong limit)
+    {
+        // Make sure the LimitNode is not present in the plan when limit is pushed down
+        return anyNot(
+                LimitNode.class,
+                node(
+                        AggregationNode.class, anyTree(node(
+                                AggregationNode.class,
+                                tableScan(table -> {
+                                    BigQueryTableHandle actualTableHandle = (BigQueryTableHandle) table;
+                                    return actualTableHandle.limit().equals(limit);
+                                },
+                                TupleDomain.all(),
+                                ImmutableMap.of())))));
+    }
+
+    private void assertLimitPushdownReadsLessData(Session session, String tableName)
+    {
+        String selectQuery = "SELECT * FROM " + tableName + " LIMIT 2";
+        Session sessionWithoutPushdown = Session.builder(session)
+                .setSystemProperty("allow_pushdown_into_connectors", "false")
+                .build();
+
+        assertQueryStats(
+                session,
+                selectQuery,
+                statsWithPushdown -> {
+                    DataSize processedDataSizeWithPushdown = statsWithPushdown.getProcessedInputDataSize();
+                    long processedInputPositionWithPushdown = statsWithPushdown.getProcessedInputPositions();
+                    assertQueryStats(
+                            sessionWithoutPushdown,
+                            selectQuery,
+                            statsWithoutPushdown -> {
+                                assertThat(statsWithoutPushdown.getProcessedInputDataSize()).isGreaterThan(processedDataSizeWithPushdown);
+                                assertThat(statsWithoutPushdown.getProcessedInputPositions())
+                                        .isEqualTo(5);
+                                assertThat(processedInputPositionWithPushdown)
+                                        .isEqualTo(2);
+                                assertThat(statsWithoutPushdown.getProcessedInputPositions()).isGreaterThan(processedInputPositionWithPushdown);
+                            },
+                            results -> assertThat(results.getRowCount()).isEqualTo(2));
+                },
+                results -> assertThat(results.getRowCount()).isEqualTo(2));
     }
 
     @Test
