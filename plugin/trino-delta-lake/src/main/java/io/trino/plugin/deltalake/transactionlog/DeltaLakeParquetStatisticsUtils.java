@@ -46,7 +46,9 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.time.temporal.TemporalAccessor;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -85,6 +87,7 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
+import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 import static java.time.format.DateTimeFormatter.ISO_INSTANT;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.temporal.ChronoUnit.MILLIS;
@@ -127,15 +130,25 @@ public final class DeltaLakeParquetStatisticsUtils
             throw new IllegalArgumentException("Unexpected value for bigint type: " + jsonValue);
         }
         if (type == REAL) {
-            return (long) floatToRawIntBits((float) (double) jsonValue);
+            if (jsonValue instanceof String stringValue) {
+                return (long) floatToRawIntBits((float) parseNonFiniteValue(type, stringValue));
+            }
+            return (long) floatToRawIntBits(((Number) jsonValue).floatValue());
         }
         if (type == DOUBLE) {
-            //noinspection RedundantCast
-            return (double) jsonValue;
+            if (jsonValue instanceof String stringValue) {
+                return parseNonFiniteValue(type, stringValue);
+            }
+            return ((Number) jsonValue).doubleValue();
         }
         if (type instanceof DecimalType decimalType) {
-            BigDecimal decimal = new BigDecimal((String) jsonValue);
-
+            // Some writers store decimal statistics as JSON numbers instead of strings
+            BigDecimal decimal = switch (jsonValue) {
+                case String stringValue -> new BigDecimal(stringValue);
+                case Double doubleValue -> BigDecimal.valueOf(doubleValue);
+                case Number number -> new BigDecimal(number.toString());
+                default -> throw new IllegalArgumentException("Unexpected value for decimal type: " + jsonValue);
+            };
             if (decimalType.isShort()) {
                 return Decimals.encodeShortScaledValue(decimal, decimalType.getScale());
             }
@@ -151,14 +164,14 @@ public final class DeltaLakeParquetStatisticsUtils
             return Instant.parse((String) jsonValue).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
         }
         if (type == TIMESTAMP_MICROS) {
-            Instant instant = Instant.parse((String) jsonValue);
+            Instant instant = parseTimestampStatistic((String) jsonValue);
             return (instant.getEpochSecond() * MICROSECONDS_PER_SECOND) + (instant.getNano() / NANOSECONDS_PER_MICROSECOND);
         }
         if (type instanceof RowType rowType) {
             Map<?, ?> values = (Map<?, ?>) jsonValue;
             List<Type> fieldTypes = rowType.getFieldTypes();
             return buildRowValue(rowType, fields -> {
-                for (int i = 0; i < values.size(); ++i) {
+                for (int i = 0; i < fieldTypes.size(); ++i) {
                     Type fieldType = fieldTypes.get(i);
                     String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist"));
                     Object fieldValue = jsonValueToTrinoValue(fieldType, values.remove(fieldName));
@@ -169,6 +182,27 @@ public final class DeltaLakeParquetStatisticsUtils
         }
 
         throw new UnsupportedOperationException("Unsupported type: " + type);
+    }
+
+    // Non-finite floating point statistics are stored as JSON strings
+    private static double parseNonFiniteValue(Type type, String value)
+    {
+        return switch (value) {
+            case "Infinity" -> Double.POSITIVE_INFINITY;
+            case "-Infinity" -> Double.NEGATIVE_INFINITY;
+            case "NaN" -> Double.NaN;
+            default -> throw new IllegalArgumentException("Unexpected value for %s type: %s".formatted(type, value));
+        };
+    }
+
+    // Timestamp statistics are written with or without a zone offset depending on the writer; a missing offset means UTC
+    private static Instant parseTimestampStatistic(String value)
+    {
+        TemporalAccessor parsed = ISO_DATE_TIME.parseBest(value, Instant::from, LocalDateTime::from);
+        if (parsed instanceof LocalDateTime localDateTime) {
+            return localDateTime.toInstant(UTC);
+        }
+        return (Instant) parsed;
     }
 
     public static Map<String, Object> toJsonValues(Map<String, Type> columnTypeMapping, Map<String, Object> values)

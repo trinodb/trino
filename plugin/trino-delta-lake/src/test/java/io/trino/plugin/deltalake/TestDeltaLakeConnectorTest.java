@@ -1315,6 +1315,31 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testOptimizeWritesCheckpointWithNonFiniteStatistics()
+    {
+        String tableName = "test_optimize_checkpoint_non_finite_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_double double, a_real real)");
+        String deltaLog = getTableLocation(tableName).replaceFirst("s3://" + bucketName + "/", "") + "/_delta_log";
+        assertUpdate("INSERT INTO " + tableName + " VALUES (infinity(), -infinity()), (-infinity(), nan())", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (nan(), infinity()), (1.5, 2.5)", 2);
+
+        // OPTIMIZE always writes a checkpoint
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
+        assertThat(floci.listObjects(bucketName, deltaLog)).contains(deltaLog + "/00000000000000000003.checkpoint.parquet");
+
+        assertThat(query("SELECT a_double, a_real FROM " + tableName + " WHERE a_double = infinity()"))
+                .matches("VALUES (infinity(), REAL '-Infinity')");
+        assertThat(query("SELECT a_double, a_real FROM " + tableName + " WHERE a_double = -infinity()"))
+                .matches("VALUES (-infinity(), REAL 'NaN')");
+        assertThat(query("SELECT a_double, a_real FROM " + tableName + " WHERE a_real = infinity()"))
+                .matches("VALUES (nan(), REAL 'Infinity')");
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 4");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testTableLocationTrailingSpace()
     {
         String tableName = "table_with_space_" + randomNameSuffix();
