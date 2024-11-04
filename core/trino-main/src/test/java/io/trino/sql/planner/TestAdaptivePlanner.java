@@ -166,6 +166,77 @@ public class TestAdaptivePlanner
     }
 
     @Test
+    public void testAdaptivePlanNodeAsRootOfFragment()
+    {
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty("join_distribution_type", "PARTITIONED")
+                .setSystemProperty("push_partial_aggregation_through_join", "true")
+                .setSystemProperty("distinct_aggregations_strategy", "SINGLE_STEP")
+                .build();
+
+        SubPlanMatcher matcher = SubPlanMatcher.builder()
+                .fragmentMatcher(fm -> fm
+                        // This fragment id should change since it is downstream of adaptive stage
+                        .fragmentId(5)
+                        .planPattern(
+                                output(
+                                        node(AggregationNode.class,
+                                                exchange(
+                                                        remoteSource(ImmutableList.of(new PlanFragmentId("6"))))))))
+                .children(
+                        spb -> spb.fragmentMatcher(fm -> fm
+                                        // This fragment id should change since it has adaptive plan
+                                        .fragmentId(6)
+                                        .planPattern(
+                                                adaptivePlan(
+                                                        join(INNER, builder -> builder
+                                                                .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "count"))))
+                                                                .left(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
+                                                                .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("3")))))),
+                                                        join(INNER, builder -> builder
+                                                                .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "count"), new Symbol(BIGINT, "nationkey"))))
+                                                                .right(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
+                                                                .left(any(remoteSource(ImmutableList.of(new PlanFragmentId("3")))))))))
+                                .children(
+                                        spb2 -> spb2.fragmentMatcher(fm -> fm
+                                                        // This fragment id should not change
+                                                        .fragmentId(3)
+                                                        .planPattern(
+                                                                node(AggregationNode.class,
+                                                                        exchange(
+                                                                                remoteSource(ImmutableList.of(new PlanFragmentId("4")))))))
+                                                .children(spb3 -> spb3.fragmentMatcher(fm -> fm
+                                                        // This fragment id should not change
+                                                        .fragmentId(4)
+                                                        .planPattern(node(AggregationNode.class, node(TableScanNode.class))))),
+                                        spb2 -> spb2.fragmentMatcher(fm -> fm
+                                                // This fragment id should not change
+                                                .fragmentId(2).planPattern(any(node(TableScanNode.class))))))
+                .build();
+
+        assertAdaptivePlan(
+                """
+                    WITH t AS (SELECT regionkey, count(*) as some_count FROM nation group by regionkey)
+                    SELECT max(distinct s.nationkey), sum(distinct t.regionkey)
+                    FROM supplier AS s
+                    JOIN t
+                    ON s.nationkey = t.some_count
+                """,
+                session,
+                ImmutableList.of(new IterativeOptimizer(
+                        getPlanTester().getPlannerContext(),
+                        new RuleStatsRecorder(),
+                        getPlanTester().getStatsCalculator(),
+                        getPlanTester().getCostCalculator(),
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(new TestJoinOrderSwitchRule())
+                                .build())),
+                ImmutableMap.of(),
+                matcher,
+                true);
+    }
+
+    @Test
     public void testNoChangeToRootSubPlanIfStatsAreAccurate()
     {
         Session session = Session.builder(getPlanTester().getDefaultSession())
