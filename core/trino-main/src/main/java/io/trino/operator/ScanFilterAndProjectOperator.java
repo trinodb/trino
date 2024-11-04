@@ -51,14 +51,15 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
 import static io.trino.operator.project.MergePages.mergePages;
@@ -283,12 +284,16 @@ public class ScanFilterAndProjectOperator
             return WorkProcessor
                     .create(new ConnectorPageSourceToPages(pageSourceMemoryContext))
                     .yielding(yieldSignal::isSet)
-                    .flatMap(page -> pageProcessor.createWorkProcessor(
-                            connectorSession,
-                            yieldSignal,
-                            outputMemoryContext,
-                            pageProcessorMetrics,
-                            page))
+                    .flatMap(page -> {
+                        WorkProcessor<Page> workProcessor = pageProcessor.createWorkProcessor(
+                                connectorSession,
+                                yieldSignal,
+                                outputMemoryContext,
+                                pageProcessorMetrics,
+                                page);
+                        // Note this is monitoring the original source page not the result page
+                        return workProcessor.withProcessStateMonitor(new ProcessedBytesMonitor(page, bytes -> processedBytes += bytes));
+                    })
                     .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
                     .blocking(() -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
@@ -356,6 +361,44 @@ public class ScanFilterAndProjectOperator
         }
     }
 
+    static class ProcessedBytesMonitor
+            implements Consumer<ProcessState<Page>>
+    {
+        private final Page page;
+        private final LongConsumer processedBytesConsumer;
+        private long localProcessedBytes;
+
+        public ProcessedBytesMonitor(Page page, LongConsumer processedBytesConsumer)
+        {
+            this.page = requireNonNull(page, "page is null");
+            this.processedBytesConsumer = requireNonNull(processedBytesConsumer, "processedBytesConsumer is null");
+            localProcessedBytes = getSizeInBytes(page);
+            processedBytesConsumer.accept(localProcessedBytes);
+        }
+
+        @Override
+        public void accept(ProcessState<Page> state)
+        {
+            update();
+        }
+
+        void update()
+        {
+            long newProcessedBytes = getSizeInBytes(page);
+            processedBytesConsumer.accept(newProcessedBytes - localProcessedBytes);
+            localProcessedBytes = newProcessedBytes;
+        }
+
+        private static long getSizeInBytes(Page page)
+        {
+            long sizeInBytes = 0;
+            for (int i = 0; i < page.getChannelCount(); i++) {
+                sizeInBytes += page.getBlock(i).getSizeInBytes();
+            }
+            return sizeInBytes;
+        }
+    }
+
     private class ConnectorPageSourceToPages
             implements WorkProcessor.Process<Page>
     {
@@ -387,8 +430,6 @@ public class ScanFilterAndProjectOperator
                 }
                 return ProcessState.yielded();
             }
-
-            recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);
 
             // update operator stats
             processedPositions += page.getPositionCount();
