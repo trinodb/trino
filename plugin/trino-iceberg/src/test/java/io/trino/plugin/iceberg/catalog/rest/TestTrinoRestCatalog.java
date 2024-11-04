@@ -86,6 +86,7 @@ public class TestTrinoRestCatalog
                 NONE,
                 ImmutableMap.of(),
                 Namespace.empty(),
+                false,
                 "test",
                 new TestingTypeManager(),
                 useUniqueTableLocations);

@@ -39,6 +39,7 @@ public class IcebergRestCatalogConfig
     private Optional<String> prefix = Optional.empty();
     private Optional<String> warehouse = Optional.empty();
     private Namespace parentNamespace = Namespace.of();
+    private boolean nestedNamespaceEnabled;
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
     private boolean vendedCredentialsEnabled;
@@ -95,6 +96,19 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setParentNamespace(String parentNamespace)
     {
         this.parentNamespace = parentNamespace == null ? Namespace.empty() : Namespace.of(parentNamespace);
+        return this;
+    }
+
+    public boolean isNestedNamespaceEnabled()
+    {
+        return nestedNamespaceEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.nested-namespace-enabled")
+    @ConfigDescription("Support querying objects under nested namespace")
+    public IcebergRestCatalogConfig setNestedNamespaceEnabled(boolean nestedNamespaceEnabled)
+    {
+        this.nestedNamespaceEnabled = nestedNamespaceEnabled;
         return this;
     }
 
