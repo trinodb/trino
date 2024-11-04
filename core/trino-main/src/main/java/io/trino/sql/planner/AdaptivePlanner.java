@@ -140,7 +140,7 @@ public class AdaptivePlanner
         // Collect the sub plans for each remote exchange and remote source node. We will use this map during
         // re-fragmentation as a cache for all unchanged sub plans.
         ExchangeSourceIdToSubPlanCollector exchangeSourceIdToSubPlanCollector = new ExchangeSourceIdToSubPlanCollector();
-        currentPlan.accept(exchangeSourceIdToSubPlanCollector, subPlans);
+        currentAdaptivePlan.accept(exchangeSourceIdToSubPlanCollector, subPlans);
         Map<ExchangeSourceId, SubPlan> exchangeSourceIdToSubPlan = exchangeSourceIdToSubPlanCollector.getExchangeSourceIdToSubPlan();
 
         // optimize the current plan
