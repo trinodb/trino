@@ -127,6 +127,20 @@ public final class DeltaLakeParquetStatisticsUtils
             return (long) floatToRawIntBits((float) (double) jsonValue);
         }
         if (type == DOUBLE) {
+            if (jsonValue instanceof String stringValue) {
+                switch (stringValue) {
+                    case "Infinity" -> {
+                        return Double.POSITIVE_INFINITY;
+                    }
+                    case "-Infinity" -> {
+                        return Double.NEGATIVE_INFINITY;
+                    }
+                    case "NaN" -> {
+                        return Double.NaN;
+                    }
+                }
+            }
+
             //noinspection RedundantCast
             return (double) jsonValue;
         }
