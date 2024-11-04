@@ -23,24 +23,18 @@ import io.trino.tempto.internal.query.CassandraQueryExecutor;
 import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.function.Consumer;
 
-import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tests.product.TestGroups.CASSANDRA;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.TpchTableResults.TRINO_NATION_RESULT;
-import static io.trino.tests.product.cassandra.CassandraTpchTableDefinitions.CASSANDRA_NATION;
 import static io.trino.tests.product.cassandra.CassandraTpchTableDefinitions.CASSANDRA_SUPPLIER;
 import static io.trino.tests.product.cassandra.TestConstants.CONNECTOR_NAME;
 import static io.trino.tests.product.cassandra.TestConstants.KEY_SPACE;
 import static io.trino.tests.product.utils.QueryAssertions.assertContainsEventually;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -54,79 +48,7 @@ public class TestSelect
     public Requirement getRequirements(Configuration configuration)
     {
         this.configuration = configuration;
-        return compose(
-                immutableTable(CASSANDRA_NATION),
-                immutableTable(CASSANDRA_SUPPLIER));
-    }
-
-    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
-    public void testSelectNation()
-    {
-        String sql = format(
-                "SELECT n_nationkey, n_name, n_regionkey, n_comment FROM %s.%s.%s",
-                CONNECTOR_NAME,
-                KEY_SPACE,
-                CASSANDRA_NATION.getName());
-        QueryResult queryResult = onTrino()
-                .executeQuery(sql);
-
-        assertThat(queryResult).matches(TRINO_NATION_RESULT);
-    }
-
-    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
-    public void testSelectWithEqualityFilterOnPartitioningKey()
-    {
-        String sql = format(
-                "SELECT n_nationkey FROM %s.%s.%s WHERE n_nationkey = 0",
-                CONNECTOR_NAME,
-                KEY_SPACE,
-                CASSANDRA_NATION.getName());
-        QueryResult queryResult = onTrino()
-                .executeQuery(sql);
-
-        assertThat(queryResult).containsOnly(row(0));
-    }
-
-    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
-    public void testSelectWithFilterOnPartitioningKey()
-    {
-        String sql = format(
-                "SELECT n_nationkey FROM %s.%s.%s WHERE n_nationkey > 23",
-                CONNECTOR_NAME,
-                KEY_SPACE,
-                CASSANDRA_NATION.getName());
-        QueryResult queryResult = onTrino()
-                .executeQuery(sql);
-
-        assertThat(queryResult).containsOnly(row(24));
-    }
-
-    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
-    public void testSelectWithEqualityFilterOnNonPartitioningKey()
-    {
-        String sql = format(
-                "SELECT n_name FROM %s.%s.%s WHERE n_name = 'UNITED STATES'",
-                CONNECTOR_NAME,
-                KEY_SPACE,
-                CASSANDRA_NATION.getName());
-        QueryResult queryResult = onTrino()
-                .executeQuery(sql);
-
-        assertThat(queryResult).containsOnly(row("UNITED STATES"));
-    }
-
-    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
-    public void testSelectWithNonEqualityFilterOnNonPartitioningKey()
-    {
-        String sql = format(
-                "SELECT n_name FROM %s.%s.%s WHERE n_name < 'B'",
-                CONNECTOR_NAME,
-                KEY_SPACE,
-                CASSANDRA_NATION.getName());
-        QueryResult queryResult = onTrino()
-                .executeQuery(sql);
-
-        assertThat(queryResult).containsOnly(row("ALGERIA"), row("ARGENTINA"));
+        return immutableTable(CASSANDRA_SUPPLIER);
     }
 
     @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
@@ -155,43 +77,6 @@ public class TestSelect
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row(10));
-    }
-
-    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
-    public void testNationJoinNation()
-    {
-        String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_NATION.getName());
-        String sql = format(
-                "SELECT n1.n_name, n2.n_regionkey FROM %s n1 JOIN " +
-                        "%s n2 ON n1.n_nationkey = n2.n_regionkey " +
-                        "WHERE n1.n_nationkey=3",
-                tableName,
-                tableName);
-        QueryResult queryResult = onTrino()
-                .executeQuery(sql);
-
-        assertThat(queryResult).containsOnly(
-                row("CANADA", 3),
-                row("CANADA", 3),
-                row("CANADA", 3),
-                row("CANADA", 3),
-                row("CANADA", 3));
-    }
-
-    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
-    public void testNationJoinRegion()
-    {
-        String sql = format(
-                "SELECT c.n_name, t.name FROM %s.%s.%s c JOIN " +
-                        "tpch.tiny.region t ON c.n_regionkey = t.regionkey " +
-                        "WHERE c.n_nationkey=3",
-                CONNECTOR_NAME,
-                KEY_SPACE,
-                CASSANDRA_NATION.getName());
-        QueryResult queryResult = onTrino()
-                .executeQuery(sql);
-
-        assertThat(queryResult).containsOnly(row("CANADA", "AMERICA"));
     }
 
     @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
@@ -236,38 +121,6 @@ public class TestSelect
     }
 
     @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
-    public void testProtocolVersion()
-    {
-        QueryResult queryResult = onTrino()
-                .executeQuery(format("SELECT native_protocol_version FROM %s.system.local", CONNECTOR_NAME));
-        assertThat(queryResult).containsOnly(row("4"));
-    }
-
-    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
-    public void testSelectTupleType()
-    {
-        String tableName = "select_tuple_table";
-        onCassandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
-
-        onCassandra(format("CREATE TABLE %s.%s (key int, value frozen<tuple<int, text, float>>, PRIMARY KEY (key))",
-                 KEY_SPACE, tableName));
-
-        onCassandra(format("INSERT INTO %s.%s (key, value) VALUES(1, (1, 'text-1', 1.11))", KEY_SPACE, tableName));
-
-        QueryResult queryResult = onTrino().executeQuery(
-                 format("SELECT * FROM %s.%s.%s", CONNECTOR_NAME, KEY_SPACE, tableName));
-        assertThat(queryResult).hasRowsCount(1);
-        assertThat(queryResult.row(0).get(0)).isEqualTo(1);
-        assertThat(queryResult.row(0).get(1)).isEqualTo(Row.builder()
-                .addUnnamedField(1)
-                .addUnnamedField("text-1")
-                .addUnnamedField(1.11f)
-                .build());
-
-        onCassandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
-    }
-
-    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectTupleTypeInPrimaryKey()
     {
         String tableName = "select_tuple_in_primary_key_table";
@@ -291,113 +144,6 @@ public class TestSelect
         assertion.accept(onTrino().executeQuery(format("SELECT * FROM %s.%s.%s WHERE intkey = 1 and tuplekey = row(1, 'text-1', 1.11)", CONNECTOR_NAME, KEY_SPACE, tableName)));
 
         onCassandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
-    }
-
-    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
-    public void testSelectUserDefinedType()
-    {
-        String udtName = "type_user_defined";
-        String tableName = "user_defined_type_table";
-
-        onCassandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
-        onCassandra(format("DROP TYPE IF EXISTS %s.%s", KEY_SPACE, udtName));
-
-        onCassandra(format("" +
-                "CREATE TYPE %s.%s (" +
-                "t text, " +
-                "u uuid, " +
-                "integer int, " +
-                "b bigint, " +
-                "bl blob, " +
-                "ts timestamp, " +
-                "a ascii, " +
-                "bo boolean, " +
-                "d decimal, " +
-                "do double, " +
-                "f float, " +
-                "i inet, " +
-                "v varchar, " +
-                "vari varint, " +
-                "tu timeuuid, " +
-                "l frozen <list<text>>, " +
-                "m frozen <map<varchar, bigint>>, " +
-                "s frozen <set<boolean>> " +
-                ")", KEY_SPACE, udtName));
-
-        onCassandra(format("" +
-                "CREATE TABLE %s.%s (" +
-                "key text PRIMARY KEY, " +
-                "typeudt frozen <%s>, " +
-                ")", KEY_SPACE, tableName, udtName));
-
-        onCassandra(format("" +
-                "INSERT INTO %s.%s (key, typeudt) VALUES (" +
-                "'key'," +
-                "{ " +
-                "t: 'text', " +
-                "u: 01234567-0123-0123-0123-0123456789ab, " +
-                "integer: -2147483648, " +
-                "b:  -9223372036854775808," +
-                "bl: 0x3031323334, " +
-                "ts: '1970-01-01 13:30:00.000', " +
-                "a: 'ansi', " +
-                "bo: true, " +
-                "d: 99999999999999997748809823456034029568, " +
-                "do: 4.9407e-324, " +
-                "f: 1.4013e-45, " +
-                "i: '0.0.0.0', " +
-                "v: 'varchar', " +
-                "vari: -9223372036854775808, " +
-                "tu: d2177dd0-eaa2-11de-a572-001b779c76e3, " +
-                "l: ['list'], " +
-                "m: {'map': 1}, " +
-                "s: {true} " +
-                "}" +
-                ")", KEY_SPACE, tableName));
-
-        QueryResult queryResult = onTrino().executeQuery(format("" +
-                "SELECT " +
-                "typeudt.t, " +
-                "typeudt.u, " +
-                "typeudt.integer, " +
-                "typeudt.b, " +
-                "typeudt.bl, " +
-                "typeudt.ts, " +
-                "typeudt.a, " +
-                "typeudt.bo, " +
-                "typeudt.d, " +
-                "typeudt.do, " +
-                "typeudt.f, " +
-                "typeudt.i, " +
-                "typeudt.v, " +
-                "typeudt.vari, " +
-                "typeudt.tu, " +
-                "typeudt.l, " +
-                "typeudt.m, " +
-                "typeudt.s " +
-                "FROM %s.%s.%s", CONNECTOR_NAME, KEY_SPACE, tableName));
-        assertThat(queryResult).containsOnly(row(
-                "text",
-                "01234567-0123-0123-0123-0123456789ab",
-                -2147483648,
-                -9223372036854775808L,
-                "01234".getBytes(UTF_8),
-                Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 13, 30)),
-                "ansi",
-                true,
-                99999999999999997748809823456034029568D,
-                4.9407e-324,
-                1.4E-45f,
-                "0.0.0.0",
-                "varchar",
-                "-9223372036854775808",
-                "d2177dd0-eaa2-11de-a572-001b779c76e3",
-                "[\"list\"]",
-                "{\"map\":1}",
-                "[true]"));
-
-        onCassandra(format("DROP TABLE %s.%s", KEY_SPACE, tableName));
-        onCassandra(format("DROP TYPE %s.%s", KEY_SPACE, udtName));
     }
 
     @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})

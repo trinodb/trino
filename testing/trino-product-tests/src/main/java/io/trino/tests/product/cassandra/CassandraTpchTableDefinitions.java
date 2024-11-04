@@ -30,23 +30,6 @@ public final class CassandraTpchTableDefinitions
 {
     private CassandraTpchTableDefinitions() {}
 
-    public static final ImmutableList<JDBCType> NATION_TYPES = ImmutableList.of(BIGINT, VARCHAR, BIGINT, VARCHAR);
-
-    // TpchTable.NATION does provide data in order: nationkey, name, regionkey, comment. Unfortunately Cassandra reorders columns,
-    // so schema will be: nationkey, comment, name, regionkey (primary key first - nationkey, then alphabetical order: comment, name, regionkey)
-    // reordering is solved by providing mapping list
-    public static final CassandraTableDefinition CASSANDRA_NATION = CassandraTableDefinition.cassandraBuilder("nation")
-            .withDatabase(CONNECTOR_NAME)
-            .withSchema(KEY_SPACE)
-            .setCreateTableDDLTemplate("CREATE TABLE %NAME%(" +
-                    "   n_nationkey     BIGINT," +
-                    "   n_name          VARCHAR," +
-                    "   n_regionkey     BIGINT," +
-                    "   n_comment       VARCHAR," +
-                    "   primary key(n_nationkey))")
-            .setDataSource(new CassandraTpchDataSource(TpchTable.NATION, ImmutableList.of(0, 2, 3, 1), NATION_TYPES, 1.0))
-            .build();
-
     public static final ImmutableList<JDBCType> SUPPLIER_TYPES = ImmutableList.of(BIGINT, VARCHAR, VARCHAR, BIGINT, VARCHAR, DOUBLE, VARCHAR);
     public static final CassandraTableDefinition CASSANDRA_SUPPLIER = CassandraTableDefinition.cassandraBuilder("supplier")
             .withDatabase(CONNECTOR_NAME)

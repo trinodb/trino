@@ -242,6 +242,25 @@ public class TestCassandraConnectorTest
     }
 
     @Test
+    public void testSelectWithFilterOnPartitioningKey()
+    {
+        try (TestCassandraTable table = testTable(
+                "table_filter_on_partition_key",
+                ImmutableList.of(generalColumn("id", "int"), partitionColumn("part", "int")),
+                ImmutableList.of("1, 10", "2, 20"))) {
+            // predicate on partition column
+            assertThat(query("SELECT id FROM " + table.getTableName() + " WHERE part > 10"))
+                    .matches("VALUES 2");
+
+            // predicate on non-partition column
+            assertThat(query("SELECT id FROM " + table.getTableName() + " WHERE id = 1"))
+                    .matches("VALUES 1");
+            assertThat(query("SELECT id FROM " + table.getTableName() + " WHERE id < 2"))
+                    .matches("VALUES 1");
+        }
+    }
+
+    @Test
     public void testPushdownAllTypesPartitionKeyPredicate()
     {
         // TODO partition key predicate pushdown for decimal types does not work https://github.com/trinodb/trino/issues/10927
@@ -1669,6 +1688,31 @@ public class TestCassandraConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageContaining("Table names shouldn't be more than 48 characters long");
+    }
+
+    @Test
+    public void testNationJoinNation()
+    {
+        assertQuery("SELECT n1.name, n2.regionkey " +
+                        "FROM nation n1 JOIN nation n2 ON n1.nationkey = n2.regionkey " +
+                        "WHERE n1.nationkey = 3",
+                "VALUES ('CANADA', 3), ('CANADA', 3), ('CANADA', 3), ('CANADA', 3), ('CANADA', 3)");
+    }
+
+    @Test
+    public void testNationJoinRegion()
+    {
+        assertQuery("SELECT c.name, t.name " +
+                        "FROM nation c JOIN tpch.tiny.region t ON c.regionkey = t.regionkey " +
+                        "WHERE c.nationkey = 3",
+                "VALUES ('CANADA', 'AMERICA')");
+    }
+
+    @Test
+    public void testProtocolVersion()
+    {
+        assertQuery("SELECT native_protocol_version FROM system.local",
+                "VALUES 4");
     }
 
     private void assertSelect(String tableName)
