@@ -67,6 +67,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.InMemoryRecordSet;
+import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RelationCommentMetadata;
@@ -356,7 +357,8 @@ public class BigQueryMetadata
                 Optional.ofNullable(tableInfo.get().getDescription()),
                 useStorageApi),
                 TupleDomain.all(),
-                Optional.empty())
+                Optional.empty(),
+                OptionalLong.empty())
                 .withProjectedColumns(columns.build());
     }
 
@@ -1082,6 +1084,29 @@ public class BigQueryMetadata
         BigQueryTableHandle updatedHandle = bigQueryTableHandle.withConstraint(newDomain);
 
         return Optional.of(new ConstraintApplicationResult<>(updatedHandle, remainingFilter, constraint.getExpression(), false));
+    }
+
+    @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle handle, long limit)
+    {
+        BigQueryTableHandle table = (BigQueryTableHandle) handle;
+
+        if (table.limit().isPresent() && table.limit().getAsLong() <= limit) {
+            return Optional.empty();
+        }
+
+        if (!isLimitPushdownSupported(table)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new LimitApplicationResult<>(table.withLimit(limit), true, false));
+    }
+
+    private static boolean isLimitPushdownSupported(BigQueryTableHandle table)
+    {
+        return table.isQueryRelation()
+                // Storage API doesn't support limiting rows
+                || (table.isNamedRelation() && !table.getRequiredNamedRelation().isUseStorageApi());
     }
 
     @Override
