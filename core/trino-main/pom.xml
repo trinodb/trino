@@ -117,11 +117,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>event</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>http-client</artifactId>
         </dependency>
 

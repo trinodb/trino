@@ -28,8 +28,6 @@ import io.airlift.compress.v3.zstd.ZstdNativeCompressor;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceAnnouncement;
-import io.airlift.event.client.EventModule;
-import io.airlift.event.client.JsonEventModule;
 import io.airlift.http.server.HttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.JmxHttpModule;
@@ -122,8 +120,6 @@ public class Server
                 new JmxOpenMetricsModule(),
                 new LogJmxModule(),
                 new TracingModule("trino", trinoVersion),
-                new EventModule(),
-                new JsonEventModule(),
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
