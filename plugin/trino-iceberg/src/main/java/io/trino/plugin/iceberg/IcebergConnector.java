@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
@@ -71,6 +72,7 @@ public class IcebergConnector
     private final Set<ConnectorTableFunction> tableFunctions;
     private final FunctionProvider functionProvider;
 
+    @Inject
     public IcebergConnector(
             Injector injector,
             LifeCycleManager lifeCycleManager,
@@ -80,10 +82,10 @@ public class IcebergConnector
             ConnectorPageSinkProvider pageSinkProvider,
             ConnectorNodePartitioningProvider nodePartitioningProvider,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
-            List<PropertyMetadata<?>> schemaProperties,
-            List<PropertyMetadata<?>> tableProperties,
-            List<PropertyMetadata<?>> materializedViewProperties,
-            List<PropertyMetadata<?>> analyzeProperties,
+            IcebergSchemaProperties schemaProperties,
+            IcebergTableProperties tableProperties,
+            IcebergMaterializedViewProperties materializedViewProperties,
+            IcebergAnalyzeProperties analyzeProperties,
             Optional<ConnectorAccessControl> accessControl,
             Set<Procedure> procedures,
             Set<TableProcedureMetadata> tableProcedures,
@@ -100,10 +102,10 @@ public class IcebergConnector
         this.sessionProperties = sessionPropertiesProviders.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
-        this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
-        this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
-        this.materializedViewProperties = ImmutableList.copyOf(requireNonNull(materializedViewProperties, "materializedViewProperties is null"));
-        this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
+        this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null").getSchemaProperties());
+        this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null").getTableProperties());
+        this.materializedViewProperties = ImmutableList.copyOf(requireNonNull(materializedViewProperties, "materializedViewProperties is null").getMaterializedViewProperties());
+        this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null").getAnalyzeProperties());
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.tableProcedures = ImmutableSet.copyOf(requireNonNull(tableProcedures, "tableProcedures is null"));
