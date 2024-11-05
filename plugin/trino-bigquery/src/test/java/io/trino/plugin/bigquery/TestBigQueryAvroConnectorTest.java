@@ -15,17 +15,13 @@ package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -90,85 +86,9 @@ public class TestBigQueryAvroConnectorTest
     }
 
     @Override
-    @Test
-    public void testProjectionPushdownReadsLessData()
+    protected Session withoutSmallFileThreshold(Session session)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
-                "test_projection_pushdown_reads_less_data_",
-                "AS SELECT val AS id, CAST(ROW(val + 1, val + 2) AS ROW(leaf1 BIGINT, leaf2 BIGINT)) AS root FROM UNNEST(SEQUENCE(1, 10)) AS t(val)")) {
-            MaterializedResult expectedResult = computeActual("SELECT val + 2 FROM UNNEST(SEQUENCE(1, 10)) AS t(val)");
-            String selectQuery = "SELECT root.leaf2 FROM " + testTable.getName();
-            Session sessionWithoutPushdown = sessionWithProjectionPushdownDisabled(getSession());
-
-            assertQueryStats(
-                    getSession(),
-                    selectQuery,
-                    statsWithPushdown -> {
-                        DataSize physicalInputDataSizeWithPushdown = statsWithPushdown.getPhysicalInputDataSize();
-                        DataSize processedDataSizeWithPushdown = statsWithPushdown.getProcessedInputDataSize();
-                        assertQueryStats(
-                                sessionWithoutPushdown,
-                                selectQuery,
-                                statsWithoutPushdown -> {
-                                    if (supportsPhysicalPushdown()) {
-                                        assertThat(statsWithoutPushdown.getPhysicalInputDataSize()).isGreaterThan(physicalInputDataSizeWithPushdown);
-                                    }
-                                    else {
-                                        // TODO https://github.com/trinodb/trino/issues/17201
-                                        assertThat(statsWithoutPushdown.getPhysicalInputDataSize()).isEqualTo(physicalInputDataSizeWithPushdown);
-                                    }
-                                    assertThat(statsWithoutPushdown.getProcessedInputDataSize()).isGreaterThan(processedDataSizeWithPushdown);
-                                },
-                                results -> assertThat(results.getOnlyColumnAsSet()).isEqualTo(expectedResult.getOnlyColumnAsSet()));
-                    },
-                    results -> assertThat(results.getOnlyColumnAsSet()).isEqualTo(expectedResult.getOnlyColumnAsSet()));
-        }
-    }
-
-    @Override
-    @Test
-    public void testProjectionPushdownPhysicalInputSize()
-    {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
-                "test_projection_pushdown_physical_input_size_",
-                "AS SELECT val AS id, CAST(ROW(val + 1, val + 2) AS ROW(leaf1 BIGINT, leaf2 BIGINT)) AS root FROM UNNEST(SEQUENCE(1, 10)) AS t(val)")) {
-            // Verify that the physical input size is smaller when reading the root.leaf1 field compared to reading the root field
-            assertQueryStats(
-                    getSession(),
-                    "SELECT root FROM " + testTable.getName(),
-                    statsWithSelectRootField -> {
-                        assertQueryStats(
-                                getSession(),
-                                "SELECT root.leaf1 FROM " + testTable.getName(),
-                                statsWithSelectLeafField -> {
-                                    if (supportsPhysicalPushdown()) {
-                                        assertThat(statsWithSelectLeafField.getPhysicalInputDataSize()).isLessThan(statsWithSelectRootField.getPhysicalInputDataSize());
-                                    }
-                                    else {
-                                        // TODO https://github.com/trinodb/trino/issues/17201
-                                        assertThat(statsWithSelectLeafField.getPhysicalInputDataSize()).isEqualTo(statsWithSelectRootField.getPhysicalInputDataSize());
-                                    }
-                                },
-                                results -> assertThat(results.getOnlyColumnAsSet()).isEqualTo(computeActual("SELECT val + 1 FROM UNNEST(SEQUENCE(1, 10)) AS t(val)").getOnlyColumnAsSet()));
-                    },
-                    results -> assertThat(results.getOnlyColumnAsSet()).isEqualTo(computeActual("SELECT ROW(val + 1, val + 2) FROM UNNEST(SEQUENCE(1, 10)) AS t(val)").getOnlyColumnAsSet()));
-
-            // Verify that the physical input size is the same when reading the root field compared to reading both the root and root.leaf1 fields
-            assertQueryStats(
-                    getSession(),
-                    "SELECT root FROM " + testTable.getName(),
-                    statsWithSelectRootField -> {
-                        assertQueryStats(
-                                getSession(),
-                                "SELECT root, root.leaf1 FROM " + testTable.getName(),
-                                statsWithSelectRootAndLeafField -> {
-                                    assertThat(statsWithSelectRootAndLeafField.getPhysicalInputDataSize()).isEqualTo(statsWithSelectRootField.getPhysicalInputDataSize());
-                                },
-                                results -> assertEqualsIgnoreOrder(results.getMaterializedRows(), computeActual("SELECT ROW(val + 1, val + 2), val + 1 FROM UNNEST(SEQUENCE(1, 10)) AS t(val)").getMaterializedRows()));
-                    },
-                    results -> assertThat(results.getOnlyColumnAsSet()).isEqualTo(computeActual("SELECT ROW(val + 1, val + 2) FROM UNNEST(SEQUENCE(1, 10)) AS t(val)").getOnlyColumnAsSet()));
-        }
+        // Bigquery does not have small file threshold properties
+        return session;
     }
 }
