@@ -30,7 +30,6 @@ import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonModule;
 import io.airlift.log.Logger;
 import io.trino.sql.parser.SqlParser;
@@ -153,8 +152,6 @@ public class VerifyCommand
             for (String clientType : config.getEventClients()) {
                 checkArgument(supportedEventClients.contains(clientType), "Unsupported event client: %s", clientType);
             }
-            Set<EventClient> eventClients = injector.getInstance(new Key<>() {});
-
             VerifierDao dao = injector.getInstance(VerifierDao.class);
 
             ImmutableList.Builder<QueryPair> queriesBuilder = ImmutableList.builder();
@@ -184,9 +181,9 @@ public class VerifyCommand
                     loadJdbcDriver(urls, config.getControlJdbcDriverName());
                 }
             }
-
             // TODO: construct this with Guice
-            int numFailedQueries = new Verifier(System.out, config, eventClients).run(queries);
+            int numFailedQueries = new Verifier(System.out, config, injector.getInstance(new Key<>(){}))
+                    .run(queries);
             System.exit((numFailedQueries > 0) ? 1 : 0);
         }
         catch (InterruptedException | MalformedURLException e) {
