@@ -22,6 +22,11 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.filesystem.cache.CacheKeyProvider;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProviderFactory;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
+import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
+import io.trino.plugin.base.classloader.ForClassLoaderSafe;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.SortingFileWriterConfig;
@@ -82,15 +87,20 @@ public class IcebergModule
         configBinder(binder).bindConfig(SortingFileWriterConfig.class, "iceberg");
 
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(IcebergSessionProperties.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergSchemaProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMaterializedViewProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergAnalyzeProperties.class).in(Scopes.SINGLETON);
 
-        binder.bind(ConnectorSplitManager.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, ConnectorPageSourceProviderFactory.class).setDefault().to(IcebergPageSourceProviderFactory.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(ConnectorPageSourceProviderFactory.class, ForClassLoaderSafe.class)).setDefault().to(IcebergPageSourceProviderFactory.class).in(Scopes.SINGLETON);
         binder.bind(IcebergPageSourceProviderFactory.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorPageSinkProvider.class).to(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorNodePartitioningProvider.class).to(IcebergNodePartitioningProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSourceProviderFactory.class).to(ClassLoaderSafeConnectorPageSourceProviderFactory.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).annotatedWith(ForClassLoaderSafe.class).to(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).to(ClassLoaderSafeConnectorPageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorNodePartitioningProvider.class).annotatedWith(ForClassLoaderSafe.class).to(IcebergNodePartitioningProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorNodePartitioningProvider.class).to(ClassLoaderSafeNodePartitioningProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(OrcReaderConfig.class);
         configBinder(binder).bindConfig(OrcWriterConfig.class);
@@ -132,6 +142,8 @@ public class IcebergModule
 
         closingBinder(binder).registerExecutor(Key.get(ListeningExecutorService.class, ForIcebergSplitManager.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergScanPlanning.class));
+
+        binder.bind(IcebergConnector.class).in(Scopes.SINGLETON);
     }
 
     @Provides
