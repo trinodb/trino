@@ -54,6 +54,7 @@ public enum PropertyName
     KERBEROS_USE_CANONICAL_HOSTNAME("KerberosUseCanonicalHostname"),
     LOCALE("locale"),
     PASSWORD("password"),
+    PREFETCH_BUFFER_SIZE("prefetchBufferSize"),
     SQL_PATH("path"),
     RESOURCE_ESTIMATES("resourceEstimates"),
     ROLES("roles"),

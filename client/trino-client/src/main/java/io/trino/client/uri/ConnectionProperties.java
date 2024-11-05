@@ -110,6 +110,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, ZoneId> TIMEZONE = new TimeZone();
     public static final ConnectionProperty<String, Boolean> EXPLICIT_PREPARE = new ExplicitPrepare();
     public static final ConnectionProperty<String, Boolean> ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG = new AssumeNullCatalogMeansCurrentCatalog();
+    public static final ConnectionProperty<String, String> PREFETCH_BUFFER_SIZE = new PrefetchBufferSize();
     public static final ConnectionProperty<String, Locale> LOCALE = new UserLocale();
     public static final ConnectionProperty<String, Duration> TIMEOUT = new Timeout();
     public static final ConnectionProperty<String, LoggingLevel> HTTP_LOGGING_LEVEL = new HttpLoggingLevel();
@@ -148,6 +149,7 @@ final class ConnectionProperties
             .add(KERBEROS_REMOTE_SERVICE_NAME)
             .add(KERBEROS_SERVICE_PRINCIPAL_PATTERN)
             .add(KERBEROS_USE_CANONICAL_HOSTNAME)
+            .add(PREFETCH_BUFFER_SIZE)
             .add(LOCALE)
             .add(PASSWORD)
             .add(RESOURCE_ESTIMATES)
@@ -944,6 +946,15 @@ final class ConnectionProperties
         public AssumeNullCatalogMeansCurrentCatalog()
         {
             super(PropertyName.ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class PrefetchBufferSize
+            extends AbstractConnectionProperty<String, String>
+    {
+        public PrefetchBufferSize()
+        {
+            super(PropertyName.PREFETCH_BUFFER_SIZE, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 

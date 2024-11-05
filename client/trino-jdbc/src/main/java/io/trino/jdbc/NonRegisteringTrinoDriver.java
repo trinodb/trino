@@ -13,6 +13,7 @@
  */
 package io.trino.jdbc;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.trino.client.uri.HttpClientFactory;
 import okhttp3.Call;
 import okhttp3.ConnectionPool;
@@ -27,12 +28,15 @@ import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
 import java.util.logging.Logger;
 
 import static io.trino.jdbc.DriverInfo.DRIVER_NAME;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MAJOR;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MINOR;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 public class NonRegisteringTrinoDriver
         implements Driver, Closeable
@@ -40,11 +44,17 @@ public class NonRegisteringTrinoDriver
     private static final String USER_AGENT = DRIVER_NAME + "/" + DRIVER_VERSION;
     private final Dispatcher dispatcher;
     private final ConnectionPool pool;
+    private final ExecutorService decoder;
+    private final ExecutorService segmentLoader;
 
     protected NonRegisteringTrinoDriver()
     {
         this.dispatcher = new Dispatcher();
         this.pool = new ConnectionPool();
+        this.decoder = newSingleThreadExecutor(
+                new ThreadFactoryBuilder().setNameFormat("Decoder-%s").setDaemon(true).build());
+        this.segmentLoader = newCachedThreadPool(
+            new ThreadFactoryBuilder().setNameFormat("Segment loader worker-%s").setDaemon(true).build());
     }
 
     @Override
@@ -54,6 +64,8 @@ public class NonRegisteringTrinoDriver
         // Close dispatcher and pool shared between multiple clients
         dispatcher.executorService().shutdown();
         pool.evictAll();
+        decoder.shutdown();
+        segmentLoader.shutdown();
     }
 
     @Override
@@ -77,7 +89,9 @@ public class NonRegisteringTrinoDriver
             return new TrinoConnection(
                     uri,
                     wrapClient(httpClientBuilder.build()),
-                    wrapClient(segmentHttpClientBuilder.build()));
+                    wrapClient(segmentHttpClientBuilder.build()),
+                    decoder,
+                    segmentLoader);
         }
         catch (RuntimeException e) {
             throw new SQLException(e.getMessage(), e);

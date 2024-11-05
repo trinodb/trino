@@ -48,6 +48,15 @@ public class TestClientOptions
         assertThat(session.getServer().toString()).isEqualTo("http://localhost:8080");
         assertThat(session.getSource()).isEqualTo("trino-cli");
         assertThat(session.getTimeZone()).isEqualTo(ZoneId.systemDefault());
+        assertThat(session.getPrefetchBufferSize()).isEqualTo("64000000");
+    }
+
+    @Test
+    public void testPrefetchBufferSize()
+    {
+        Console console = createConsole("--prefetch-buffer-size=32000");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getPrefetchBufferSize()).isEqualTo("32000");
     }
 
     @Test

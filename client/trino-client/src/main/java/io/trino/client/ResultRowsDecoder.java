@@ -13,8 +13,11 @@
  */
 package io.trino.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.trino.client.spooling.DataAttributes;
+import io.trino.client.spooling.DeferredIterable;
 import io.trino.client.spooling.EncodedQueryData;
 import io.trino.client.spooling.InlineSegment;
 import io.trino.client.spooling.Segment;
@@ -26,17 +29,29 @@ import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.Streams.forEachPair;
 import static io.trino.client.ResultRows.NULL_ROWS;
 import static io.trino.client.ResultRows.fromIterableRows;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 /**
  * Class responsible for decoding any QueryData type.
@@ -45,16 +60,39 @@ public class ResultRowsDecoder
         implements AutoCloseable
 {
     private final SegmentLoader loader;
+    private final long prefetchBufferSize;
+    private final ExecutorService decoderExecutorService;
+    private final ExecutorService segmentLoaderExecutorService;
     private QueryDataDecoder decoder;
+    private final ReentrantLock lock = new ReentrantLock();
+    private final Condition sizeCondition = lock.newCondition();
+    private final Deque<Thread> waitingThreads = new ArrayDeque<>();
+    private long currentSizeInBytes;
 
+    @VisibleForTesting
     public ResultRowsDecoder()
     {
-        this(new OkHttpSegmentLoader());
+        this(new OkHttpSegmentLoader(),
+                "64000000",
+                newCachedThreadPool(new ThreadFactoryBuilder().setNameFormat("Decoder-%s").setDaemon(true).build()),
+                newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("Segment loader worker-%s").setDaemon(true).build()));
     }
 
+    @VisibleForTesting
     public ResultRowsDecoder(SegmentLoader loader)
     {
+        this(loader,
+                "64000000",
+                newCachedThreadPool(new ThreadFactoryBuilder().setNameFormat("Decoder-%s").setDaemon(true).build()),
+                newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("Segment loader worker-%s").setDaemon(true).build()));
+    }
+
+    public ResultRowsDecoder(SegmentLoader loader, String prefetchBufferSize, ExecutorService decoderExecutorService, ExecutorService segmentLoaderExecutorService)
+    {
         this.loader = requireNonNull(loader, "loader is null");
+        this.prefetchBufferSize = Long.parseLong(requireNonNull(prefetchBufferSize, "prefetchBufferSize is null"));
+        this.decoderExecutorService = requireNonNull(decoderExecutorService, "decoder is null");
+        this.segmentLoaderExecutorService = requireNonNull(segmentLoaderExecutorService, "segmentLoaderExecutor is null");
     }
 
     private void setEncoding(List<Column> columns, String encoding)
@@ -106,38 +144,92 @@ public class ResultRowsDecoder
         if (data instanceof EncodedQueryData) {
             EncodedQueryData encodedData = (EncodedQueryData) data;
             setEncoding(columns, encodedData.getEncoding());
-            return concat(transform(encodedData.getSegments(), this::segmentToRows));
+            List<Segment> segments = encodedData.getSegments();
+
+            List<Future<? extends InputStream>> futures = segments.stream().map(segment -> {
+                int segmentSize = segment.getSegmentSize();
+
+                if (segment instanceof InlineSegment) {
+                    InlineSegment inlineSegment = (InlineSegment) segment;
+                    return CompletableFuture.completedFuture(new ByteArrayInputStream(inlineSegment.getData()));
+                }
+
+                if (segment instanceof SpooledSegment) {
+                    SpooledSegment spooledSegment = (SpooledSegment) segment;
+                    // download segments in parallel
+                    return segmentLoaderExecutorService.submit(() -> {
+                        lock.lock();
+                        try {
+                            boolean mustWait = currentSizeInBytes + segmentSize > prefetchBufferSize;
+                            if (mustWait) {
+                                waitingThreads.addLast(Thread.currentThread());
+                            }
+                            while (mustWait && waitingThreads.peekFirst() != Thread.currentThread()) {
+                                // block if prefetch buffer is full
+                                sizeCondition.await();
+                                // now unblock the first thread that came in
+                            }
+                            if (mustWait) {
+                                waitingThreads.removeFirst();
+                            }
+                            currentSizeInBytes += segmentSize;
+                        }
+                        catch (InterruptedException e) {
+                            waitingThreads.remove(Thread.currentThread());
+                            Thread.currentThread().interrupt();
+                            throw new RuntimeException(e);
+                        }
+                        finally {
+                            lock.unlock();
+                        }
+                        return loader.load(spooledSegment);
+                    });
+                }
+
+                throw new UnsupportedOperationException("Unsupported segment type: " + segment.getClass().getName());
+            }).collect(toImmutableList());
+
+            List<ResultRows> resultRows = new ArrayList<>();
+            forEachPair(futures.stream(), segments.stream(), (future, segment) -> {
+                resultRows.add(ResultRows.fromIterableRows(new DeferredIterable(decoderExecutorService.submit(() -> {
+                    try {
+                        // block decode if segment is not yet downloaded
+                        InputStream input = future.get();
+                        return decoder.decode(input, segment.getMetadata());
+                    }
+                    catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    catch (ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                    catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }), new Callable<Void>() {
+                    @Override
+                    public Void call()
+                            throws Exception
+                    {
+                        // the data has been read, so we can free up the buffer
+                        lock.lock();
+                        try {
+                            int segmentSize = segment.getSegmentSize();
+                            currentSizeInBytes -= segmentSize;
+                            sizeCondition.signalAll();
+                        }
+                        finally {
+                            lock.unlock();
+                        }
+                        return null;
+                    }
+                })));
+            });
+
+            return concat(resultRows);
         }
 
         throw new UnsupportedOperationException("Unsupported data type: " + data.getClass().getName());
-    }
-
-    private ResultRows segmentToRows(Segment segment)
-    {
-        if (segment instanceof InlineSegment) {
-            InlineSegment inlineSegment = (InlineSegment) segment;
-            try {
-                return decoder.decode(new ByteArrayInputStream(inlineSegment.getData()), inlineSegment.getMetadata());
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
-
-        if (segment instanceof SpooledSegment) {
-            SpooledSegment spooledSegment = (SpooledSegment) segment;
-
-            try {
-                // The returned rows are lazy which means that decoder is responsible for closing input stream
-                InputStream stream = loader.load(spooledSegment);
-                return decoder.decode(stream, spooledSegment.getMetadata());
-            }
-            catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        throw new UnsupportedOperationException("Unsupported segment type: " + segment.getClass().getName());
     }
 
     public Optional<String> getEncoding()
