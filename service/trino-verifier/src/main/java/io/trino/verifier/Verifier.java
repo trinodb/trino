@@ -15,14 +15,12 @@ package io.trino.verifier;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import jakarta.annotation.Nullable;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
@@ -87,17 +85,17 @@ public class Verifier
     private final String skipCorrectnessRegex;
     private final boolean simplifiedControlQueriesGenerationEnabled;
     private final String simplifiedControlQueriesOutputDirectory;
-    private final Set<EventClient> eventClients;
+    private final Set<EventConsumer> eventConsumers;
     private final int threadCount;
     private final Set<String> allowedQueries;
     private final Set<String> bannedQueries;
     private final int precision;
 
-    public Verifier(PrintStream out, VerifierConfig config, Set<EventClient> eventClients)
+    public Verifier(PrintStream out, VerifierConfig config, Set<EventConsumer> eventConsumers)
     {
         requireNonNull(out, "out is null");
         requireNonNull(config, "config is null");
-        this.eventClients = requireNonNull(eventClients, "eventClients is null");
+        this.eventConsumers = requireNonNull(eventConsumers, "eventConsumers is null");
         this.allowedQueries = requireNonNull(config.getAllowedQueries(), "allowedQueries is null");
         this.bannedQueries = requireNonNull(config.getBannedQueries(), "bannedQueries is null");
         this.runId = config.getRunId();
@@ -224,10 +222,10 @@ public class Verifier
                 failed++;
             }
 
-            for (EventClient eventClient : eventClients) {
-                eventClient.post(buildEvent(validator));
+            VerifierQueryEvent queryEvent = buildEvent(validator);
+            for (EventConsumer eventConsumer : eventConsumers) {
+                eventConsumer.postEvent(queryEvent);
             }
-
             double progress = (((double) total) / totalQueries) * 100;
             if (!isQuiet || (progress - lastProgress) > 1) {
                 log.info("Progress: %s valid, %s failed, %s skipped, %.2f%% done", valid, failed, skipped, progress);
@@ -238,15 +236,13 @@ public class Verifier
         log.info("Results: %s / %s (%s skipped)", valid, failed, skipped);
         log.info("");
 
-        for (EventClient eventClient : eventClients) {
-            if (eventClient instanceof Closeable) {
-                try {
-                    ((Closeable) eventClient).close();
-                }
-                catch (IOException _) {
-                }
-                log.info("");
+        for (EventConsumer eventConsumer : eventConsumers) {
+            try {
+                eventConsumer.close();
             }
+            catch (IOException _) {
+            }
+            log.info("");
         }
 
         return failed;
