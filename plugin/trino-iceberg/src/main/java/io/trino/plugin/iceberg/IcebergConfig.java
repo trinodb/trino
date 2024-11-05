@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -28,9 +29,11 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -52,8 +55,8 @@ public class IcebergConfig
     public static final String EXTENDED_STATISTICS_CONFIG = "iceberg.extended-statistics.enabled";
     public static final String EXTENDED_STATISTICS_DESCRIPTION = "Enable collection (ANALYZE) and use of extended statistics.";
     public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION = "Collect extended statistics during writes";
-    public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire_snapshots.min-retention";
-    public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove_orphan_files.min-retention";
+    public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire-snapshots.min-retention";
+    public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove-orphan-files.min-retention";
 
     private IcebergFileFormat fileFormat = PARQUET;
     private HiveCompressionCodec compressionCodec = ZSTD;
@@ -67,6 +70,7 @@ public class IcebergConfig
     private boolean collectExtendedStatisticsOnWrite = true;
     private boolean projectionPushdownEnabled = true;
     private boolean registerTableProcedureEnabled;
+    private boolean addFilesProcedureEnabled;
     private Optional<String> hiveCatalogName = Optional.empty();
     private int formatVersion = FORMAT_VERSION_SUPPORT_MAX;
     private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
@@ -84,6 +88,7 @@ public class IcebergConfig
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;
     private boolean metadataCacheEnabled = true;
 
@@ -255,6 +260,20 @@ public class IcebergConfig
         return this;
     }
 
+    public boolean isAddFilesProcedureEnabled()
+    {
+        return addFilesProcedureEnabled;
+    }
+
+    @Config("iceberg.add-files-procedure.enabled")
+    @LegacyConfig("iceberg.add_files-procedure.enabled")
+    @ConfigDescription("Allow users to call the add_files procedure")
+    public IcebergConfig setAddFilesProcedureEnabled(boolean addFilesProcedureEnabled)
+    {
+        this.addFilesProcedureEnabled = addFilesProcedureEnabled;
+        return this;
+    }
+
     public Optional<String> getHiveCatalogName()
     {
         return hiveCatalogName;
@@ -290,6 +309,7 @@ public class IcebergConfig
     }
 
     @Config(EXPIRE_SNAPSHOTS_MIN_RETENTION)
+    @LegacyConfig("iceberg.expire_snapshots.min-retention")
     @ConfigDescription("Minimal retention period for expire_snapshot procedure")
     public IcebergConfig setExpireSnapshotsMinRetention(Duration expireSnapshotsMinRetention)
     {
@@ -304,6 +324,7 @@ public class IcebergConfig
     }
 
     @Config(REMOVE_ORPHAN_FILES_MIN_RETENTION)
+    @LegacyConfig("iceberg.remove_orphan_files.min-retention")
     @ConfigDescription("Minimal retention period for remove_orphan_files procedure")
     public IcebergConfig setRemoveOrphanFilesMinRetention(Duration removeOrphanFilesMinRetention)
     {
@@ -449,6 +470,21 @@ public class IcebergConfig
     public IcebergConfig setSplitManagerThreads(int splitManagerThreads)
     {
         this.splitManagerThreads = splitManagerThreads;
+        return this;
+    }
+
+    public List<String> getAllowedExtraProperties()
+    {
+        return allowedExtraProperties;
+    }
+
+    @Config("iceberg.allowed-extra-properties")
+    @ConfigDescription("List of extra properties that are allowed to be set on Iceberg tables")
+    public IcebergConfig setAllowedExtraProperties(List<String> allowedExtraProperties)
+    {
+        this.allowedExtraProperties = ImmutableList.copyOf(allowedExtraProperties);
+        checkArgument(!allowedExtraProperties.contains("*") || allowedExtraProperties.size() == 1,
+                "Wildcard * should be the only element in the list");
         return this;
     }
 

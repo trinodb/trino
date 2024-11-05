@@ -41,6 +41,8 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_104;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_113;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_122;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_133;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_143;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
@@ -104,7 +106,7 @@ public class TestDeltaLakeCheckpointsCompatibility
                     row(4, "lwa"));
 
             // sanity check
-            assertThat(listCheckpointFiles(bucketName, tableDirectory)).hasSize(0);
+            assertThat(listCheckpointFiles(bucketName, tableDirectory)).isEmpty();
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
                     .containsOnly(expectedRows);
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
@@ -252,7 +254,7 @@ public class TestDeltaLakeCheckpointsCompatibility
 
             // sanity check
             fillWithInserts("delta.default." + tableName, "(1, 'trino')", 4);
-            assertThat(listCheckpointFiles(bucketName, tableDirectory)).hasSize(0);
+            assertThat(listCheckpointFiles(bucketName, tableDirectory)).isEmpty();
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " WHERE a_string <> 'trino'")).hasNoRows();
 
             // fill to first checkpoint using Trino
@@ -277,7 +279,7 @@ public class TestDeltaLakeCheckpointsCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_104, DELTA_LAKE_DATABRICKS_113, DELTA_LAKE_DATABRICKS_122, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_104, DELTA_LAKE_DATABRICKS_113, DELTA_LAKE_DATABRICKS_122, DELTA_LAKE_DATABRICKS_133, DELTA_LAKE_DATABRICKS_143, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksUsesCheckpointInterval()
     {
@@ -299,7 +301,7 @@ public class TestDeltaLakeCheckpointsCompatibility
             // sanity check
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 'databricks')");
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (2, 'databricks')");
-            assertThat(listCheckpointFiles(bucketName, tableDirectory)).hasSize(0);
+            assertThat(listCheckpointFiles(bucketName, tableDirectory)).isEmpty();
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " WHERE a_string <> 'databricks'")).hasNoRows();
 
             // fill to first checkpoint using Databricks

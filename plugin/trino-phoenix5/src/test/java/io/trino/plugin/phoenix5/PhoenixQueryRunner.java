@@ -49,9 +49,7 @@ public final class PhoenixQueryRunner
     private static final Logger LOG = Logger.get(PhoenixQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
 
-    private PhoenixQueryRunner()
-    {
-    }
+    private PhoenixQueryRunner() {}
 
     public static Builder builder(TestingPhoenixServer phoenixServer)
     {

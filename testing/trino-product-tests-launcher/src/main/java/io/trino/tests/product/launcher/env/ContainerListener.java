@@ -17,19 +17,11 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 
 public interface ContainerListener
 {
-    default void containerStarting(DockerContainer container, InspectContainerResponse response)
-    {
-    }
+    default void containerStarting(DockerContainer container, InspectContainerResponse response) {}
 
-    default void containerStarted(DockerContainer container, InspectContainerResponse containerInfo)
-    {
-    }
+    default void containerStarted(DockerContainer container, InspectContainerResponse containerInfo) {}
 
-    default void containerStopping(DockerContainer container, InspectContainerResponse response)
-    {
-    }
+    default void containerStopping(DockerContainer container, InspectContainerResponse response) {}
 
-    default void containerStopped(DockerContainer container, InspectContainerResponse response)
-    {
-    }
+    default void containerStopped(DockerContainer container, InspectContainerResponse response) {}
 }

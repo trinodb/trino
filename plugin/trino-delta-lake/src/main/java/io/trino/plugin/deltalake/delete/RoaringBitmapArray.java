@@ -94,6 +94,10 @@ public final class RoaringBitmapArray
         highBitmap.add(low);
     }
 
+    /**
+     * @param rangeStart inclusive beginning of range
+     * @param rangeEnd exclusive ending of range
+     */
     public void addRange(long rangeStart, long rangeEnd)
     {
         checkArgument(rangeStart >= 0 && rangeStart <= rangeEnd, "Unsupported value: %s", rangeStart);

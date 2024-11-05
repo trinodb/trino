@@ -33,6 +33,7 @@ public enum PropertyName
     DISABLE_COMPRESSION("disableCompression"),
     DNS_RESOLVER("dnsResolver"),
     DNS_RESOLVER_CONTEXT("dnsResolverContext"),
+    ENCODING("encoding"),
     EXPLICIT_PREPARE("explicitPrepare"),
     EXTERNAL_AUTHENTICATION("externalAuthentication"),
     EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS("externalAuthenticationRedirectHandlers"),

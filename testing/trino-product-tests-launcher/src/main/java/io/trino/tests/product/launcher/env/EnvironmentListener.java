@@ -44,25 +44,15 @@ public interface EnvironmentListener
 {
     Logger log = Logger.get(EnvironmentListener.class);
 
-    EnvironmentListener NOOP = new EnvironmentListener()
-    {
-    };
+    EnvironmentListener NOOP = new EnvironmentListener() {};
 
-    default void environmentStarting(Environment environment)
-    {
-    }
+    default void environmentStarting(Environment environment) {}
 
-    default void environmentStarted(Environment environment)
-    {
-    }
+    default void environmentStarted(Environment environment) {}
 
-    default void environmentStopped(Environment environment)
-    {
-    }
+    default void environmentStopped(Environment environment) {}
 
-    default void environmentStopping(Environment environment)
-    {
-    }
+    default void environmentStopping(Environment environment) {}
 
     static void tryInvokeListener(FailsafeExecutor<?> executor, Consumer<EnvironmentListener> call, EnvironmentListener... listeners)
     {

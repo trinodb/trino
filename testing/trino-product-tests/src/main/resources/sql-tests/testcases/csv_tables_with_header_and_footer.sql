@@ -1,4 +1,4 @@
--- database: presto; tables: csv_with_header, csv_with_footer, csv_with_header_and_footer; groups: storage_formats;
+-- database: trino; tables: csv_with_header, csv_with_footer, csv_with_header_and_footer; groups: storage_formats;
 --! name: Simple scan from table with Header
 SELECT * FROM csv_with_header
 --!

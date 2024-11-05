@@ -29,6 +29,7 @@ import java.util.Iterator;
 import java.util.Optional;
 
 import static java.util.Collections.emptyIterator;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 class LocalFileIterator
@@ -79,7 +80,10 @@ class LocalFileIterator
                     throw e;
                 }
             });
-            this.iterator = files.build().iterator();
+            this.iterator = files.build()
+                    .stream()
+                    .sorted(comparing(entry -> entry.location().fileName()))
+                    .iterator();
         }
     }
 

@@ -24,6 +24,7 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SingleColumn;
 import io.trino.sql.tree.Table;
@@ -76,13 +77,13 @@ public class TestShadowing
         Query query = new Query(CATALOG, SCHEMA, ImmutableList.of(), "CREATE TABLE my_test_table AS SELECT 1 column1, CAST('2.0' AS DOUBLE) column2 LIMIT 1", ImmutableList.of(), null, null, ImmutableMap.of());
         QueryRewriter rewriter = new QueryRewriter(parser, URL, QualifiedName.of("tmp_"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 1, new Duration(10, SECONDS));
         Query rewrittenQuery = rewriter.shadowQuery(query);
-        assertThat(rewrittenQuery.getPreQueries().size()).isEqualTo(1);
-        assertThat(rewrittenQuery.getPostQueries().size()).isEqualTo(1);
+        assertThat(rewrittenQuery.getPreQueries()).hasSize(1);
+        assertThat(rewrittenQuery.getPostQueries()).hasSize(1);
 
         CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
-        assertThat(createTableAs.getName().getParts().size()).isEqualTo(1);
-        assertThat(createTableAs.getName().getSuffix().startsWith("tmp_")).isTrue();
-        assertThat(createTableAs.getName().getSuffix().contains("my_test_table")).isFalse();
+        assertThat(createTableAs.getName().getParts()).hasSize(1);
+        assertThat(createTableAs.getName().getSuffix()).startsWith("tmp_");
+        assertThat(createTableAs.getName().getSuffix()).doesNotContain("my_test_table");
 
         assertThat(statementToQueryType(parser, rewrittenQuery.getQuery())).isEqualTo(READ);
 
@@ -91,7 +92,7 @@ public class TestShadowing
         SingleColumn column2 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("COLUMN2"), new LongLiteral("1"))))));
         assertThat(parser.createStatement(rewrittenQuery.getQuery())).isEqualTo(simpleQuery(selectList(column1, column2), table));
 
-        assertThat(parser.createStatement(rewrittenQuery.getPostQueries().get(0))).isEqualTo(new DropTable(createTableAs.getName(), true));
+        assertThat(parser.createStatement(rewrittenQuery.getPostQueries().get(0))).isEqualTo(new DropTable(new NodeLocation(1, 1), createTableAs.getName(), true));
     }
 
     @Test
@@ -103,12 +104,12 @@ public class TestShadowing
         Query query = new Query(CATALOG, SCHEMA, ImmutableList.of(), "CREATE TABLE public.my_test_table2 AS SELECT 1 column1, 2E0 column2", ImmutableList.of(), null, null, ImmutableMap.of());
         QueryRewriter rewriter = new QueryRewriter(parser, URL, QualifiedName.of("other_catalog", "other_schema", "tmp_"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 1, new Duration(10, SECONDS));
         Query rewrittenQuery = rewriter.shadowQuery(query);
-        assertThat(rewrittenQuery.getPreQueries().size()).isEqualTo(1);
+        assertThat(rewrittenQuery.getPreQueries()).hasSize(1);
         CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
-        assertThat(createTableAs.getName().getParts().size()).isEqualTo(3);
+        assertThat(createTableAs.getName().getParts()).hasSize(3);
         assertThat(createTableAs.getName().getPrefix().get()).isEqualTo(QualifiedName.of("other_catalog", "other_schema"));
-        assertThat(createTableAs.getName().getSuffix().startsWith("tmp_")).isTrue();
-        assertThat(createTableAs.getName().getSuffix().contains("my_test_table")).isFalse();
+        assertThat(createTableAs.getName().getSuffix()).startsWith("tmp_");
+        assertThat(createTableAs.getName().getSuffix()).doesNotContain("my_test_table");
     }
 
     @Test
@@ -121,12 +122,12 @@ public class TestShadowing
         QueryRewriter rewriter = new QueryRewriter(parser, URL, QualifiedName.of("other_catalog", "other_schema", "tmp_"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 1, new Duration(10, SECONDS));
         Query rewrittenQuery = rewriter.shadowQuery(query);
 
-        assertThat(rewrittenQuery.getPreQueries().size()).isEqualTo(2);
+        assertThat(rewrittenQuery.getPreQueries()).hasSize(2);
         CreateTable createTable = (CreateTable) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
-        assertThat(createTable.getName().getParts().size()).isEqualTo(3);
+        assertThat(createTable.getName().getParts()).hasSize(3);
         assertThat(createTable.getName().getPrefix().get()).isEqualTo(QualifiedName.of("other_catalog", "other_schema"));
-        assertThat(createTable.getName().getSuffix().startsWith("tmp_")).isTrue();
-        assertThat(createTable.getName().getSuffix().contains("test_insert_table")).isFalse();
+        assertThat(createTable.getName().getSuffix()).startsWith("tmp_");
+        assertThat(createTable.getName().getSuffix()).doesNotContain("test_insert_table");
 
         Insert insert = (Insert) parser.createStatement(rewrittenQuery.getPreQueries().get(1));
         assertThat(insert.getTarget()).isEqualTo(createTable.getName());
@@ -138,7 +139,7 @@ public class TestShadowing
         SingleColumn columnC = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("C"))));
         assertThat(parser.createStatement(rewrittenQuery.getQuery())).isEqualTo(simpleQuery(selectList(columnA, columnB, columnC), table));
 
-        assertThat(rewrittenQuery.getPostQueries().size()).isEqualTo(1);
-        assertThat(parser.createStatement(rewrittenQuery.getPostQueries().get(0))).isEqualTo(new DropTable(createTable.getName(), true));
+        assertThat(rewrittenQuery.getPostQueries()).hasSize(1);
+        assertThat(parser.createStatement(rewrittenQuery.getPostQueries().get(0))).isEqualTo(new DropTable(new NodeLocation(1, 1), createTable.getName(), true));
     }
 }

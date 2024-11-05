@@ -44,9 +44,7 @@ public class HudiDefaultTimeline
         this.instants = ImmutableList.copyOf(instants);
     }
 
-    public HudiDefaultTimeline()
-    {
-    }
+    public HudiDefaultTimeline() {}
 
     @Override
     public HudiTimeline filterCompletedInstants()

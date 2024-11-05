@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,17 +28,7 @@ public final class RenameTable
     private final QualifiedName target;
     private final boolean exists;
 
-    public RenameTable(QualifiedName source, QualifiedName target, boolean exists)
-    {
-        this(Optional.empty(), source, target, exists);
-    }
-
     public RenameTable(NodeLocation location, QualifiedName source, QualifiedName target, boolean exists)
-    {
-        this(Optional.of(location), source, target, exists);
-    }
-
-    private RenameTable(Optional<NodeLocation> location, QualifiedName source, QualifiedName target, boolean exists)
     {
         super(location);
         this.source = requireNonNull(source, "source name is null");

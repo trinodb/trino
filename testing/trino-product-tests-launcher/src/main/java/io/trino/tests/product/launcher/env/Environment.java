@@ -40,7 +40,9 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
@@ -75,6 +77,7 @@ import static io.trino.tests.product.launcher.env.EnvironmentListener.printStart
 import static io.trino.tests.product.launcher.env.Environments.pruneEnvironment;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.lang.String.format;
+import static java.lang.System.getenv;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
@@ -126,7 +129,13 @@ public final class Environment
                 .onFailedAttempt(event -> log.warn(event.getLastException(), "Could not start environment '%s'", this))
                 .onRetry(event -> log.info("Trying to start environment '%s', %d failed attempt(s)", this, event.getAttemptCount() + 1))
                 .onSuccess(event -> log.info("Environment '%s' started in %s, %d attempt(s)", this, event.getElapsedTime(), event.getAttemptCount()))
-                .onFailure(event -> log.info("Environment '%s' failed to start in attempt(s): %d: %s", this, event.getAttemptCount(), event.getException()))
+                .onFailure(event -> {
+                    if (getenv("GITHUB_RUN_ID") != null) {
+                        PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out));
+                        out.printf("::error title=Failed to start environment '%s'::%s%n", this, event.getException());
+                    }
+                    log.info("Environment '%s' failed to start in attempt(s): %d: %s", this, event.getAttemptCount(), event.getException());
+                })
                 .build();
 
         return Failsafe
@@ -683,7 +692,7 @@ public final class Environment
                 tempFile = File.createTempFile("tempto-configured-features-", ".yaml");
                 objectMapper.writeValue(tempFile,
                         Map.of("databases",
-                                Map.of("presto",
+                                Map.of("trino",
                                         Map.of(
                                                 "configured_connectors",
                                                 configuredFeatures.asMap().getOrDefault(CONNECTOR, ImmutableList.of()),
@@ -693,7 +702,7 @@ public final class Environment
             catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            String temptoConfig = "/docker/presto-product-tests/conf/tempto/tempto-configured-features.yaml";
+            String temptoConfig = "/docker/trino-product-tests/conf/tempto/tempto-configured-features.yaml";
             testContainer.withCopyFileToContainer(forHostPath(tempFile.getPath()), temptoConfig);
             // add custom tempto config and configured_features to arguments if there are any other groups enabled
             String[] commandParts = testContainer.getCommandParts();

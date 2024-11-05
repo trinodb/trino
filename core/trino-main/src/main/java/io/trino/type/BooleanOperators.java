@@ -30,9 +30,7 @@ public final class BooleanOperators
     private static final Slice TRUE = Slices.copiedBuffer("true", US_ASCII);
     private static final Slice FALSE = Slices.copiedBuffer("false", US_ASCII);
 
-    private BooleanOperators()
-    {
-    }
+    private BooleanOperators() {}
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.DOUBLE)

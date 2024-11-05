@@ -30,7 +30,5 @@ public final class SessionTestUtils
                     .collect(toImmutableSet()))
             .build();
 
-    private SessionTestUtils()
-    {
-    }
+    private SessionTestUtils() {}
 }

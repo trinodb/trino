@@ -1,0 +1,11 @@
+databases:
+  trino:
+    jdbc_url: "jdbc:trino://${databases.trino.host}:${databases.trino.port}/hive/${databases.hive.schema}?\
+      SSL=true&\
+      SSLTrustStorePath=${databases.trino.https_keystore_path}&\
+      SSLTrustStorePassword=${databases.trino.https_keystore_password}&\
+      KerberosRemoteServiceName=${databases.trino.cli_kerberos_service_name}&\
+      KerberosUseCanonicalHostname=${databases.trino.cli_kerberos_use_canonical_hostname}&\
+      KerberosDelegation=true"
+    kerberos_principal: ${databases.trino.cli_kerberos_principal}
+    kerberos_keytab: ${databases.trino.cli_kerberos_keytab}

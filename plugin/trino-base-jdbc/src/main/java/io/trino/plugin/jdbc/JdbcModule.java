@@ -51,7 +51,7 @@ public class JdbcModule
         install(new JdbcDiagnosticModule());
         install(new IdentifierMappingModule());
         install(new RemoteQueryModifierModule());
-        install(new RetryingConnectionFactoryModule());
+        install(new RetryingModule());
 
         newOptionalBinder(binder, ConnectorAccessControl.class);
         newOptionalBinder(binder, QueryBuilder.class).setDefault().to(DefaultQueryBuilder.class).in(Scopes.SINGLETON);
@@ -85,6 +85,7 @@ public class JdbcModule
         newExporter(binder).export(DynamicFilteringStats.class)
                 .as(generator -> generator.generatedNameOf(DynamicFilteringStats.class, catalogName.get().toString()));
 
+        binder.bind(JdbcClient.class).annotatedWith(ForCaching.class).to(Key.get(RetryingJdbcClient.class)).in(Scopes.SINGLETON);
         binder.bind(CachingJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).to(Key.get(CachingJdbcClient.class)).in(Scopes.SINGLETON);
 
@@ -93,6 +94,7 @@ public class JdbcModule
 
         newSetBinder(binder, ConnectorTableFunction.class);
 
+        binder.bind(ConnectionFactory.class).annotatedWith(ForLazyConnectionFactory.class).to(Key.get(RetryingConnectionFactory.class)).in(Scopes.SINGLETON);
         install(conditionalModule(
                 QueryConfig.class,
                 QueryConfig::isReuseConnection,

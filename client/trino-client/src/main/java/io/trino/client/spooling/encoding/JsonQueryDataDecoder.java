@@ -13,47 +13,37 @@
  */
 package io.trino.client.spooling.encoding;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.trino.client.Column;
+import io.trino.client.JsonDecodingUtils.TypeDecoder;
+import io.trino.client.JsonResultRows;
 import io.trino.client.QueryDataDecoder;
+import io.trino.client.ResultRows;
 import io.trino.client.spooling.DataAttributes;
 
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.util.List;
 
-import static io.trino.client.FixJsonDataUtils.fixData;
+import static io.trino.client.JsonDecodingUtils.createTypeDecoders;
 import static java.util.Objects.requireNonNull;
 
 public class JsonQueryDataDecoder
         implements QueryDataDecoder
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final TypeReference<List<List<Object>>> TYPE = new TypeReference<List<List<Object>>>() {};
-    private final List<Column> columns;
+    private final TypeDecoder[] decoders;
 
-    public JsonQueryDataDecoder(List<Column> columns)
+    JsonQueryDataDecoder(TypeDecoder[] decoders)
     {
-        this.columns = requireNonNull(columns, "columns is null");
+        this.decoders = requireNonNull(decoders, "decoders is null");
     }
 
     @Override
-    public Iterable<List<Object>> decode(InputStream stream, DataAttributes attributes)
+    public ResultRows decode(InputStream stream, DataAttributes queryAttributes)
     {
-        try {
-            return fixData(columns, OBJECT_MAPPER.readValue(stream, TYPE));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return JsonResultRows.forInputStream(stream, decoders);
     }
 
     @Override
-    public String encodingId()
+    public String encoding()
     {
         return "json";
     }
@@ -64,11 +54,11 @@ public class JsonQueryDataDecoder
         @Override
         public QueryDataDecoder create(List<Column> columns, DataAttributes queryAttributes)
         {
-            return new JsonQueryDataDecoder(columns);
+            return new JsonQueryDataDecoder(createTypeDecoders(columns));
         }
 
         @Override
-        public String encodingId()
+        public String encoding()
         {
             return "json";
         }
@@ -84,9 +74,9 @@ public class JsonQueryDataDecoder
         }
 
         @Override
-        public String encodingId()
+        public String encoding()
         {
-            return super.encodingId() + "+zstd";
+            return super.encoding() + "+zstd";
         }
     }
 
@@ -100,34 +90,9 @@ public class JsonQueryDataDecoder
         }
 
         @Override
-        public String encodingId()
+        public String encoding()
         {
-            return super.encodingId() + "+lz4";
-        }
-    }
-
-    public static class JsonSchema
-    {
-        private final int[] offsets;
-        private final int step;
-
-        @JsonCreator
-        public JsonSchema(int[] offsets, int step)
-        {
-            this.offsets = offsets;
-            this.step = step;
-        }
-
-        @JsonProperty("offsets")
-        public int[] getOffsets()
-        {
-            return offsets;
-        }
-
-        @JsonProperty("step")
-        public int getStep()
-        {
-            return step;
+            return super.encoding() + "+lz4";
         }
     }
 }

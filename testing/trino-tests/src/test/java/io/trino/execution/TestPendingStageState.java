@@ -73,7 +73,7 @@ public class TestPendingStageState
         QueryInfo queryInfo = queryRunner.getCoordinator().getFullQueryInfo(queryId);
         assertThat(queryInfo.getState()).isEqualTo(RUNNING);
         assertThat(queryInfo.getOutputStage().get().getState()).isEqualTo(StageState.RUNNING);
-        assertThat(queryInfo.getOutputStage().get().getSubStages().size()).isEqualTo(1);
+        assertThat(queryInfo.getOutputStage().get().getSubStages()).hasSize(1);
         assertThat(queryInfo.getOutputStage().get().getSubStages().get(0).getState()).isEqualTo(StageState.PENDING);
     }
 

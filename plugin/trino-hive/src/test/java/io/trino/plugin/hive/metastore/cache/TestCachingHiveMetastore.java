@@ -237,7 +237,7 @@ public class TestCachingHiveMetastore
     @Test
     public void testInvalidDbGetAllTAbles()
     {
-        assertThat(metastore.getTables(BAD_DATABASE).isEmpty()).isTrue();
+        assertThat(metastore.getTables(BAD_DATABASE)).isEmpty();
     }
 
     @Test
@@ -278,7 +278,7 @@ public class TestCachingHiveMetastore
     @Test
     public void testInvalidDbGetTable()
     {
-        assertThat(metastore.getTable(BAD_DATABASE, TEST_TABLE).isPresent()).isFalse();
+        assertThat(metastore.getTable(BAD_DATABASE, TEST_TABLE)).isEmpty();
 
         assertThat(stats.getGetTable().getThriftExceptions().getTotalCount()).isEqualTo(0);
         assertThat(stats.getGetTable().getTotalFailures().getTotalCount()).isEqualTo(0);
@@ -369,7 +369,7 @@ public class TestCachingHiveMetastore
     @Test
     public void testInvalidGetPartitionNamesByFilterAll()
     {
-        assertThat(metastore.getPartitionNamesByFilter(BAD_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).isEmpty()).isTrue();
+        assertThat(metastore.getPartitionNamesByFilter(BAD_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all())).isEmpty();
     }
 
     @Test
@@ -427,7 +427,7 @@ public class TestCachingHiveMetastore
     @Test
     public void testInvalidGetPartitionNamesByParts()
     {
-        assertThat(metastore.getPartitionNamesByFilter(BAD_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).isPresent()).isFalse();
+        assertThat(metastore.getPartitionNamesByFilter(BAD_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all())).isEmpty();
     }
 
     @Test
@@ -438,24 +438,24 @@ public class TestCachingHiveMetastore
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
         // Select half of the available partitions and load them into the cache
-        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1)).size()).isEqualTo(1);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1))).hasSize(1);
         assertThat(mockClient.getAccessCount()).isEqualTo(2);
 
         // Now select all the partitions
-        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size()).isEqualTo(2);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2))).hasSize(2);
         // There should be one more access to fetch the remaining partition
         assertThat(mockClient.getAccessCount()).isEqualTo(3);
 
         // Now if we fetch any or both of them, they should not hit the client
-        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1)).size()).isEqualTo(1);
-        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION2)).size()).isEqualTo(1);
-        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size()).isEqualTo(2);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1))).hasSize(1);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION2))).hasSize(1);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2))).hasSize(2);
         assertThat(mockClient.getAccessCount()).isEqualTo(3);
 
         metastore.flushCache();
 
         // Fetching both should only result in one batched access
-        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size()).isEqualTo(2);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2))).hasSize(2);
         assertThat(mockClient.getAccessCount()).isEqualTo(4);
     }
 
@@ -910,9 +910,9 @@ public class TestCachingHiveMetastore
     {
         Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
         Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(table, ImmutableList.of(BAD_PARTITION));
-        assertThat(partitionsByNames.size()).isEqualTo(1);
+        assertThat(partitionsByNames).hasSize(1);
         Optional<Partition> onlyElement = Iterables.getOnlyElement(partitionsByNames.values());
-        assertThat(onlyElement.isPresent()).isFalse();
+        assertThat(onlyElement).isEmpty();
     }
 
     @Test

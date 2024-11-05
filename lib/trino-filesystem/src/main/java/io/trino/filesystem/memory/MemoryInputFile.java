@@ -34,18 +34,19 @@ public class MemoryInputFile
     private final Location location;
     private final Supplier<MemoryBlob> dataSupplier;
     private OptionalLong length;
-    private Optional<Instant> lastModified = Optional.empty();
+    private Optional<Instant> lastModified;
 
     public MemoryInputFile(Location location, Slice data)
     {
-        this(location, () -> new MemoryBlob(data), OptionalLong.of(data.length()));
+        this(location, () -> new MemoryBlob(data), OptionalLong.of(data.length()), Optional.empty());
     }
 
-    public MemoryInputFile(Location location, Supplier<MemoryBlob> dataSupplier, OptionalLong length)
+    public MemoryInputFile(Location location, Supplier<MemoryBlob> dataSupplier, OptionalLong length, Optional<Instant> lastModified)
     {
         this.location = requireNonNull(location, "location is null");
         this.dataSupplier = requireNonNull(dataSupplier, "dataSupplier is null");
         this.length = requireNonNull(length, "length is null");
+        this.lastModified = requireNonNull(lastModified, "lastModified is null");
     }
 
     @Override

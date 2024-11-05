@@ -103,7 +103,7 @@ public class TestTaskExecutorStuckSplits
 
                 mockSplitRunner.waitForFinish();
                 List<TaskInfo> taskInfos = sqlTaskManager.getAllTaskInfo();
-                assertThat(taskInfos.size()).isEqualTo(1);
+                assertThat(taskInfos).hasSize(1);
 
                 TaskInfo taskInfo = pollTerminatingTaskInfoUntilDone(sqlTaskManager, taskInfos.get(0));
                 assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.FAILED);

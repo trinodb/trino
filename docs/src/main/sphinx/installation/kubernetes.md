@@ -95,7 +95,7 @@ installed and configured to connect to your running Kubernetes cluster:
    TEST SUITE: None
    NOTES:
    Get the application URL by running these commands:
-     export POD_NAME=$(kubectl get pods --namespace default -l "app=trino,release=example-trino-cluster,component=coordinator" -o jsonpath="{.items[0].metadata.name}")
+     export POD_NAME=$(kubectl get pods --namespace default --selector "app.kubernetes.io/name=trino,app.kubernetes.io/instance=example-trino-cluster,app.kubernetes.io/component=coordinator" --output name)
      echo "Visit http://127.0.0.1:8080 to use your application"
      kubectl port-forward $POD_NAME 8080:8080
    ```
@@ -157,21 +157,15 @@ internal to Kubernetes. In order to access them, specifically the coordinator,
 you need to create a tunnel to the coordinator pod and your computer. You can do
 this by running the commands generated upon installation.
 
-1. Store the coordinator pod name in a shell variable called `POD_NAME`.
+1. Create the tunnel from the client to the coordinator service.
 
    ```text
-   POD_NAME=$(kubectl get pods -l "app=trino,release=example-trino-cluster,component=coordinator" -o name)
-   ```
-
-2. Create the tunnel from the coordinator pod to the client.
-
-   ```text
-   kubectl port-forward $POD_NAME 8080:8080
+   kubectl port-forward svc/trino 8080:8080
    ```
 
    Now you can connect to the Trino coordinator at `http://localhost:8080`.
 
-3. To connect to Trino, you can use the
+2. To connect to Trino, you can use the
    {doc}`command-line interface </client/cli>`, a
    {doc}`JDBC client </client/jdbc>`, or any of the
    {doc}`other clients </client>`. For this example,
@@ -182,7 +176,7 @@ this by running the commands generated upon installation.
    trino --server http://localhost:8080
    ```
 
-4. Using the sample data in the `tpch` catalog, type and execute a query on
+3. Using the sample data in the `tpch` catalog, type and execute a query on
    the `nation` table using the `tiny` schema:
 
    ```text
@@ -199,10 +193,10 @@ this by running the commands generated upon installation.
 
    Try other SQL queries to explore the data set and test your cluster.
 
-5. Once you are done with your exploration, enter the `quit` command in the
+4. Once you are done with your exploration, enter the `quit` command in the
    CLI.
 
-6. Kill the tunnel to the coordinator pod. The is only available while the
+5. Kill the tunnel to the coordinator pod. The is only available while the
    `kubectl` process is running, so you can just kill the `kubectl` process
    that's forwarding the port. In most cases that means pressing `CTRL` +
    `C` in the terminal where the port-forward command is running.
@@ -279,10 +273,10 @@ for more tips on configuring Kubernetes deployments.
 ### Adding catalogs
 
 A common use-case is to add custom catalogs. You can do this by adding values to
-the `additionalCatalogs` property in the `example.yaml` file.
+the `catalogs` property in the `example.yaml` file.
 
 ```yaml
-additionalCatalogs:
+catalogs:
   lakehouse: |-
     connector.name=iceberg
     hive.metastore.uri=thrift://example.net:9083
@@ -291,6 +285,9 @@ additionalCatalogs:
     connection-url=jdbc:postgresql://example.net:5432/database
     connection-user=root
     connection-password=secret
+  tpch: |-
+    connector.name=tpch
+    tpch.splits-per-node=4
 ```
 
 This adds both `lakehouse` and `rdbms` catalogs to the Kubernetes deployment

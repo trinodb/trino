@@ -49,7 +49,8 @@ public class TestIcebergMaterializedView
             queryRunner.createCatalog("iceberg2", "iceberg", Map.of(
                     "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                     "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg2-catalog").toString(),
-                    "iceberg.hive-catalog-name", "hive"));
+                    "iceberg.hive-catalog-name", "hive",
+                    "fs.hadoop.enabled", "true"));
 
             secondIceberg = Session.builder(queryRunner.getDefaultSession())
                     .setCatalog("iceberg2")
@@ -59,7 +60,8 @@ public class TestIcebergMaterializedView
                     "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                     "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toString(),
                     "iceberg.hive-catalog-name", "hive",
-                    "iceberg.materialized-views.hide-storage-table", "false"));
+                    "iceberg.materialized-views.hide-storage-table", "false",
+                    "fs.hadoop.enabled", "true"));
 
             queryRunner.execute(secondIceberg, "CREATE SCHEMA " + secondIceberg.getSchema().orElseThrow());
 
@@ -96,9 +98,10 @@ public class TestIcebergMaterializedView
         assertUpdate(secondIceberg, createTable, 1); // this one will be used by MV
         assertUpdate(defaultIceberg, createTable, 1); // this one exists so that it can be mistakenly treated as the base table
 
-        assertUpdate(defaultIceberg, """
-                            CREATE MATERIALIZED VIEW iceberg.tpch.mv_on_iceberg2
-                            AS SELECT sum(value) AS s FROM iceberg2.tpch.common_base_table
+        assertUpdate(defaultIceberg,
+                """
+                CREATE MATERIALIZED VIEW iceberg.tpch.mv_on_iceberg2
+                AS SELECT sum(value) AS s FROM iceberg2.tpch.common_base_table
                 """);
 
         // The MV is initially stale

@@ -123,12 +123,12 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
         ALL_SUPPORTED_TYPES_GENERIC_RECORD = new GenericData.Record(ALL_SUPPORTED_TYPES_SCHEMA);
 
         ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("timestampMillis", testTime.getTime());
-        BlockBuilder timestampMilliBlock = TimestampType.TIMESTAMP_MILLIS.createBlockBuilder(null, 1);
+        BlockBuilder timestampMilliBlock = TimestampType.TIMESTAMP_MILLIS.createFixedSizeBlockBuilder(1);
         TimestampType.TIMESTAMP_MILLIS.writeLong(timestampMilliBlock, testTime.getTime() * Timestamps.MICROSECONDS_PER_MILLISECOND);
         blocks.add(timestampMilliBlock.build());
 
         ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("timestampMicros", testTime.getTime() * 1000);
-        BlockBuilder timestampMicroBlock = TimestampType.TIMESTAMP_MICROS.createBlockBuilder(null, 1);
+        BlockBuilder timestampMicroBlock = TimestampType.TIMESTAMP_MICROS.createFixedSizeBlockBuilder(1);
         TimestampType.TIMESTAMP_MICROS.writeLong(timestampMicroBlock, testTime.getTime() * Timestamps.MICROSECONDS_PER_MILLISECOND);
         blocks.add(timestampMicroBlock.build());
 
@@ -147,22 +147,22 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
         blocks.add(largeDecimalBlock.build());
 
         ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("date", 9035);
-        BlockBuilder dateBlockBuilder = DateType.DATE.createBlockBuilder(null, 1);
+        BlockBuilder dateBlockBuilder = DateType.DATE.createFixedSizeBlockBuilder(1);
         DateType.DATE.writeInt(dateBlockBuilder, 9035);
         blocks.add(dateBlockBuilder.build());
 
         ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("timeMillis", 39_600_000);
-        BlockBuilder timeMillisBlock = TimeType.TIME_MILLIS.createBlockBuilder(null, 1);
+        BlockBuilder timeMillisBlock = TimeType.TIME_MILLIS.createFixedSizeBlockBuilder(1);
         TimeType.TIME_MILLIS.writeLong(timeMillisBlock, 39_600_000L * Timestamps.PICOSECONDS_PER_MILLISECOND);
         blocks.add(timeMillisBlock.build());
 
         ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("timeMicros", 39_600_000_000L);
-        BlockBuilder timeMicrosBlock = TimeType.TIME_MICROS.createBlockBuilder(null, 1);
+        BlockBuilder timeMicrosBlock = TimeType.TIME_MICROS.createFixedSizeBlockBuilder(1);
         TimeType.TIME_MICROS.writeLong(timeMicrosBlock, 39_600_000_000L * Timestamps.PICOSECONDS_PER_MICROSECOND);
         blocks.add(timeMicrosBlock.build());
 
         ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("id", RANDOM_UUID.toString());
-        BlockBuilder uuidBlock = UuidType.UUID.createBlockBuilder(null, 1);
+        BlockBuilder uuidBlock = UuidType.UUID.createFixedSizeBlockBuilder(1);
         UuidType.UUID.writeSlice(uuidBlock, UuidType.javaUuidToTrinoUuid(RANDOM_UUID));
         blocks.add(uuidBlock.build());
 

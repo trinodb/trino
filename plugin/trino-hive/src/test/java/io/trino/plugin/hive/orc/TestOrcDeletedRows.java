@@ -75,7 +75,7 @@ public class TestOrcDeletedRows
                 .build()
                 .getOnlyColumnAsSet();
 
-        assertThat(validRows.size()).isEqualTo(8);
+        assertThat(validRows).hasSize(8);
         assertThat(validRows).isEqualTo(ImmutableSet.of(0L, 1L, 3L, 4L, 5L, 7L, 8L, 9L));
 
         // page with no deleted rows
@@ -104,7 +104,7 @@ public class TestOrcDeletedRows
                 .build()
                 .getOnlyColumnAsSet();
 
-        assertThat(validRows.size()).isEqualTo(7);
+        assertThat(validRows).hasSize(7);
         assertThat(validRows).isEqualTo(ImmutableSet.of(0L, 1L, 3L, 4L, 5L, 6L, 7L));
 
         // page with no deleted rows
@@ -129,7 +129,7 @@ public class TestOrcDeletedRows
                 .build()
                 .getOnlyColumnAsSet();
 
-        assertThat(validRows.size()).isEqualTo(9);
+        assertThat(validRows).hasSize(9);
         assertThat(validRows).isEqualTo(ImmutableSet.of(0L, 1L, 3L, 4L, 5L, 6L, 7L, 8L, 9L));
 
         // page with no deleted rows

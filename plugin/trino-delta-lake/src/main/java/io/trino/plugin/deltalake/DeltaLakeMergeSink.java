@@ -62,6 +62,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -327,7 +328,7 @@ public class DeltaLakeMergeSink
         insertPageSink.finish().join().stream()
                 .map(Slice::getBytes)
                 .map(dataFileInfoCodec::fromJson)
-                .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.of(info)))
+                .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
                 .map(mergeResultJsonCodec::toJsonBytes)
                 .map(Slices::wrappedBuffer)
                 .forEach(fragments::add);
@@ -345,7 +346,7 @@ public class DeltaLakeMergeSink
             MoreFutures.getDone(cdfPageSink.finish()).stream()
                     .map(Slice::getBytes)
                     .map(dataFileInfoCodec::fromJson)
-                    .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.of(info)))
+                    .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
                     .map(mergeResultJsonCodec::toJsonBytes)
                     .map(Slices::wrappedBuffer)
                     .forEach(fragments::add);
@@ -356,16 +357,31 @@ public class DeltaLakeMergeSink
 
     private Slice writeMergeResult(Slice path, FileDeletion deletion)
     {
+        RoaringBitmapArray rowsDeletedByDelete = deletion.rowsDeletedByDelete();
+        RoaringBitmapArray rowsDeletedByUpdate = deletion.rowsDeletedByUpdate();
         RoaringBitmapArray deletedRows = loadDeletionVector(Location.of(path.toStringUtf8()));
-        deletedRows.or(deletion.rowsDeletedByDelete());
-        deletedRows.or(deletion.rowsDeletedByUpdate());
+        deletedRows.or(rowsDeletedByDelete);
+        deletedRows.or(rowsDeletedByUpdate);
 
+        if (cdfEnabled) {
+            try (ConnectorPageSource connectorPageSource = createParquetPageSource(Location.of(path.toStringUtf8())).get()) {
+                readConnectorPageSource(
+                        connectorPageSource,
+                        rowsDeletedByDelete,
+                        rowsDeletedByUpdate,
+                        deletion,
+                        _ -> {});
+            }
+            catch (IOException e) {
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Error reading Parquet file: " + path, e);
+            }
+        }
         TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(path.toStringUtf8()));
         try (ParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, parquetReaderOptions, fileFormatDataSourceStats)) {
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
             long rowCount = parquetMetadata.getBlocks().stream().map(BlockMetadata::rowCount).mapToLong(Long::longValue).sum();
             RoaringBitmapArray rowsRetained = new RoaringBitmapArray();
-            rowsRetained.addRange(0, rowCount);
+            rowsRetained.addRange(0, rowCount - 1);
             rowsRetained.andNot(deletedRows);
             if (rowsRetained.isEmpty()) {
                 // No rows are retained in the file, so we don't need to write deletion vectors.
@@ -407,7 +423,7 @@ public class DeltaLakeMergeSink
                     deletion.partitionValues,
                     readStatistics(parquetMetadata, dataColumns, rowCount),
                     Optional.of(deletionVectorEntry));
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceRelativePath), Optional.of(newFileInfo));
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceRelativePath), Optional.empty(), Optional.of(newFileInfo));
             return utf8Slice(mergeResultJsonCodec.toJson(result));
         }
         catch (Throwable e) {
@@ -426,7 +442,8 @@ public class DeltaLakeMergeSink
     private Slice onlySourceFile(String sourcePath, FileDeletion deletion)
     {
         String sourceRelativePath = relativePath(rootTableLocation.toString(), sourcePath);
-        DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), Optional.empty());
+        DeletionVectorEntry deletionVector = deletionVectors.get(sourceRelativePath);
+        DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), Optional.ofNullable(deletionVector), Optional.empty());
         return utf8Slice(mergeResultJsonCodec.toJson(result));
     }
 
@@ -453,7 +470,7 @@ public class DeltaLakeMergeSink
 
             Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourceLocation, deletion, writer);
 
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), newFileInfo);
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), Optional.empty(), newFileInfo);
             return ImmutableList.of(utf8Slice(mergeResultJsonCodec.toJson(result)));
         }
         catch (IOException e) {
@@ -522,47 +539,16 @@ public class DeltaLakeMergeSink
         RoaringBitmapArray rowsDeletedByDelete = deletion.rowsDeletedByDelete();
         RoaringBitmapArray rowsDeletedByUpdate = deletion.rowsDeletedByUpdate();
         try (ConnectorPageSource connectorPageSource = createParquetPageSource(path).get()) {
-            long filePosition = 0;
-            while (!connectorPageSource.isFinished()) {
-                Page page = connectorPageSource.getNextPage();
-                if (page == null) {
-                    continue;
-                }
-
-                int positionCount = page.getPositionCount();
-                int[] retained = new int[positionCount];
-                int[] deletedByDelete = new int[(int) rowsDeletedByDelete.cardinality()];
-                int[] deletedByUpdate = new int[(int) rowsDeletedByUpdate.cardinality()];
-                int retainedCount = 0;
-                int deletedByUpdateCount = 0;
-                int deletedByDeleteCount = 0;
-                for (int position = 0; position < positionCount; position++) {
-                    if (rowsDeletedByDelete.contains(filePosition)) {
-                        deletedByDelete[deletedByDeleteCount] = position;
-                        deletedByDeleteCount++;
-                    }
-                    else if (rowsDeletedByUpdate.contains(filePosition)) {
-                        deletedByUpdate[deletedByUpdateCount] = position;
-                        deletedByUpdateCount++;
-                    }
-                    else {
-                        retained[retainedCount] = position;
-                        retainedCount++;
-                    }
-                    filePosition++;
-                }
-
-                storeCdfEntries(page, deletedByDelete, deletedByDeleteCount, deletion, DELETE_CDF_LABEL);
-                storeCdfEntries(page, deletedByUpdate, deletedByUpdateCount, deletion, UPDATE_PREIMAGE_CDF_LABEL);
-
-                if (retainedCount != positionCount) {
-                    page = page.getPositions(retained, 0, retainedCount);
-                }
-
-                if (page.getPositionCount() > 0) {
-                    fileWriter.appendRows(page);
-                }
-            }
+            readConnectorPageSource(
+                    connectorPageSource,
+                    rowsDeletedByDelete,
+                    rowsDeletedByUpdate,
+                    deletion,
+                    page -> {
+                        if (page.getPositionCount() > 0) {
+                            fileWriter.appendRows(page);
+                        }
+                    });
             if (fileWriter.getRowCount() == 0) {
                 fileWriter.rollback();
                 return Optional.empty();
@@ -582,6 +568,54 @@ public class DeltaLakeMergeSink
         }
 
         return Optional.of(fileWriter.getDataFileInfo());
+    }
+
+    private void readConnectorPageSource(
+            ConnectorPageSource connectorPageSource,
+            RoaringBitmapArray rowsDeletedByDelete,
+            RoaringBitmapArray rowsDeletedByUpdate,
+            FileDeletion deletion,
+            Consumer<Page> pageConsumer)
+    {
+        long filePosition = 0;
+        while (!connectorPageSource.isFinished()) {
+            Page page = connectorPageSource.getNextPage();
+            if (page == null) {
+                continue;
+            }
+
+            int positionCount = page.getPositionCount();
+            int[] retained = new int[positionCount];
+            int[] deletedByDelete = new int[(int) rowsDeletedByDelete.cardinality()];
+            int[] deletedByUpdate = new int[(int) rowsDeletedByUpdate.cardinality()];
+            int retainedCount = 0;
+            int deletedByUpdateCount = 0;
+            int deletedByDeleteCount = 0;
+            for (int position = 0; position < positionCount; position++) {
+                if (rowsDeletedByDelete.contains(filePosition)) {
+                    deletedByDelete[deletedByDeleteCount] = position;
+                    deletedByDeleteCount++;
+                }
+                else if (rowsDeletedByUpdate.contains(filePosition)) {
+                    deletedByUpdate[deletedByUpdateCount] = position;
+                    deletedByUpdateCount++;
+                }
+                else {
+                    retained[retainedCount] = position;
+                    retainedCount++;
+                }
+                filePosition++;
+            }
+
+            storeCdfEntries(page, deletedByDelete, deletedByDeleteCount, deletion, DELETE_CDF_LABEL);
+            storeCdfEntries(page, deletedByUpdate, deletedByUpdateCount, deletion, UPDATE_PREIMAGE_CDF_LABEL);
+
+            if (retainedCount != positionCount) {
+                page = page.getPositions(retained, 0, retainedCount);
+            }
+
+            pageConsumer.accept(page);
+        }
     }
 
     private void storeCdfEntries(Page page, int[] deleted, int deletedCount, FileDeletion deletion, String operation)

@@ -133,7 +133,7 @@ public class TestParquetReader
                 new File(Resources.getResource("lineitem_sorted_by_shipdate/data.parquet").toURI()),
                 new ParquetReaderOptions());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
-        assertThat(parquetMetadata.getBlocks().size()).isEqualTo(2);
+        assertThat(parquetMetadata.getBlocks()).hasSize(2);
         // The predicate and the file are prepared so that page indexes will result in non-overlapping row ranges and eliminate the entire first row group
         // while the second row group still has to be read
         TupleDomain<String> predicate = TupleDomain.withColumnDomains(

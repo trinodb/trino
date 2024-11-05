@@ -83,7 +83,7 @@ public class TestAnnotationEngineForScalars
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(SingleImplementationScalarFunction.class);
-        assertThat(functions.size()).isEqualTo(1);
+        assertThat(functions).hasSize(1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
 
         FunctionMetadata functionMetadata = scalar.getFunctionMetadata();
@@ -99,7 +99,7 @@ public class TestAnnotationEngineForScalars
         ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
-        assertThat(specialized.getChoices().get(0).getInstanceFactory().isPresent()).isFalse();
+        assertThat(specialized.getChoices().get(0).getInstanceFactory()).isEmpty();
     }
 
     @ScalarFunction(value = "hidden_scalar_function", hidden = true)
@@ -117,7 +117,7 @@ public class TestAnnotationEngineForScalars
     public void testHiddenScalarParse()
     {
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(HiddenScalarFunction.class);
-        assertThat(functions.size()).isEqualTo(1);
+        assertThat(functions).hasSize(1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
 
         FunctionMetadata functionMetadata = scalar.getFunctionMetadata();
@@ -140,7 +140,7 @@ public class TestAnnotationEngineForScalars
     public void testNonDeterministicScalarParse()
     {
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(NonDeterministicScalarFunction.class);
-        assertThat(functions.size()).isEqualTo(1);
+        assertThat(functions).hasSize(1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
 
         FunctionMetadata functionMetadata = scalar.getFunctionMetadata();
@@ -172,7 +172,7 @@ public class TestAnnotationEngineForScalars
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(WithNullablePrimitiveArgScalarFunction.class);
-        assertThat(functions.size()).isEqualTo(1);
+        assertThat(functions).hasSize(1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
 
         FunctionMetadata functionMetadata = scalar.getFunctionMetadata();
@@ -187,7 +187,7 @@ public class TestAnnotationEngineForScalars
         ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
-        assertThat(specialized.getChoices().get(0).getInstanceFactory().isPresent()).isFalse();
+        assertThat(specialized.getChoices().get(0).getInstanceFactory()).isEmpty();
     }
 
     @ScalarFunction("scalar_with_nullable_complex")
@@ -213,7 +213,7 @@ public class TestAnnotationEngineForScalars
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(WithNullableComplexArgScalarFunction.class);
-        assertThat(functions.size()).isEqualTo(1);
+        assertThat(functions).hasSize(1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
 
         FunctionMetadata functionMetadata = scalar.getFunctionMetadata();
@@ -228,7 +228,7 @@ public class TestAnnotationEngineForScalars
         ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
-        assertThat(specialized.getChoices().get(0).getInstanceFactory().isPresent()).isFalse();
+        assertThat(specialized.getChoices().get(0).getInstanceFactory()).isEmpty();
     }
 
     public static final class StaticMethodScalarFunction
@@ -251,7 +251,7 @@ public class TestAnnotationEngineForScalars
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinitions(StaticMethodScalarFunction.class);
-        assertThat(functions.size()).isEqualTo(1);
+        assertThat(functions).hasSize(1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
 
         FunctionMetadata functionMetadata = scalar.getFunctionMetadata();
@@ -294,7 +294,7 @@ public class TestAnnotationEngineForScalars
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinitions(MultiScalarFunction.class);
-        assertThat(functions.size()).isEqualTo(2);
+        assertThat(functions).hasSize(2);
         ParametricScalar scalar1 = (ParametricScalar) functions.stream().filter(function -> function.getFunctionMetadata().getSignature().equals(expectedSignature1)).collect(toImmutableList()).get(0);
         ParametricScalar scalar2 = (ParametricScalar) functions.stream().filter(function -> function.getFunctionMetadata().getSignature().equals(expectedSignature2)).collect(toImmutableList()).get(0);
 
@@ -343,7 +343,7 @@ public class TestAnnotationEngineForScalars
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ParametricScalarFunction.class);
-        assertThat(functions.size()).isEqualTo(1);
+        assertThat(functions).hasSize(1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
         assertImplementationCount(scalar, 0, 2, 0);
 
@@ -386,7 +386,7 @@ public class TestAnnotationEngineForScalars
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ComplexParametricScalarFunction.class);
-        assertThat(functions.size()).isEqualTo(1);
+        assertThat(functions).hasSize(1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
         assertImplementationCount(scalar.getImplementations(), 1, 0, 1);
         assertThat(getOnlyElement(scalar.getImplementations().getExactImplementations().keySet())).isEqualTo(exactSignature);
@@ -421,14 +421,14 @@ public class TestAnnotationEngineForScalars
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(SimpleInjectionScalarFunction.class);
-        assertThat(functions.size()).isEqualTo(1);
+        assertThat(functions).hasSize(1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
         assertImplementationCount(scalar, 0, 0, 1);
         List<ParametricScalarImplementationChoice> parametricScalarImplementationChoices = scalar.getImplementations().getGenericImplementations().get(0).getChoices();
-        assertThat(parametricScalarImplementationChoices.size()).isEqualTo(1);
+        assertThat(parametricScalarImplementationChoices).hasSize(1);
         List<ImplementationDependency> dependencies = parametricScalarImplementationChoices.get(0).getDependencies();
-        assertThat(dependencies.size()).isEqualTo(1);
-        assertThat(dependencies.get(0) instanceof LiteralImplementationDependency).isTrue();
+        assertThat(dependencies).hasSize(1);
+        assertThat(dependencies.get(0)).isInstanceOf(LiteralImplementationDependency.class);
 
         FunctionMetadata functionMetadata = scalar.getFunctionMetadata();
         assertThat(functionMetadata.getSignature()).isEqualTo(expectedSignature);
@@ -474,16 +474,16 @@ public class TestAnnotationEngineForScalars
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ConstructorInjectionScalarFunction.class);
-        assertThat(functions.size()).isEqualTo(1);
+        assertThat(functions).hasSize(1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
         assertImplementationCount(scalar, 2, 0, 1);
         List<ParametricScalarImplementationChoice> parametricScalarImplementationChoices = scalar.getImplementations().getGenericImplementations().get(0).getChoices();
-        assertThat(parametricScalarImplementationChoices.size()).isEqualTo(1);
+        assertThat(parametricScalarImplementationChoices).hasSize(1);
         List<ImplementationDependency> dependencies = parametricScalarImplementationChoices.get(0).getDependencies();
-        assertThat(dependencies.size()).isEqualTo(0);
+        assertThat(dependencies).isEmpty();
         List<ImplementationDependency> constructorDependencies = parametricScalarImplementationChoices.get(0).getConstructorDependencies();
-        assertThat(constructorDependencies.size()).isEqualTo(1);
-        assertThat(constructorDependencies.get(0) instanceof TypeImplementationDependency).isTrue();
+        assertThat(constructorDependencies).hasSize(1);
+        assertThat(constructorDependencies.get(0)).isInstanceOf(TypeImplementationDependency.class);
 
         FunctionMetadata functionMetadata = scalar.getFunctionMetadata();
         assertThat(functionMetadata.getSignature()).isEqualTo(expectedSignature);
@@ -514,7 +514,7 @@ public class TestAnnotationEngineForScalars
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(FixedTypeParameterScalarFunction.class);
-        assertThat(functions.size()).isEqualTo(1);
+        assertThat(functions).hasSize(1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
         assertImplementationCount(scalar, 1, 0, 0);
 
@@ -551,13 +551,13 @@ public class TestAnnotationEngineForScalars
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(PartiallyFixedTypeParameterScalarFunction.class);
-        assertThat(functions.size()).isEqualTo(1);
+        assertThat(functions).hasSize(1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
         assertImplementationCount(scalar, 0, 0, 1);
         List<ParametricScalarImplementationChoice> parametricScalarImplementationChoices = scalar.getImplementations().getGenericImplementations().get(0).getChoices();
-        assertThat(parametricScalarImplementationChoices.size()).isEqualTo(1);
+        assertThat(parametricScalarImplementationChoices).hasSize(1);
         List<ImplementationDependency> dependencies = parametricScalarImplementationChoices.get(0).getDependencies();
-        assertThat(dependencies.size()).isEqualTo(1);
+        assertThat(dependencies).hasSize(1);
 
         FunctionMetadata functionMetadata = scalar.getFunctionMetadata();
         assertThat(functionMetadata.getSignature()).isEqualTo(expectedSignature);

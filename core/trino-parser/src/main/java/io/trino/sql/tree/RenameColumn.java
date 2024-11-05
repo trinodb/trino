@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -33,7 +32,7 @@ public class RenameColumn
 
     public RenameColumn(NodeLocation location, QualifiedName table, QualifiedName source, Identifier target, boolean tableExists, boolean columnExists)
     {
-        super(Optional.of(location));
+        super(location);
         this.table = requireNonNull(table, "table is null");
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");

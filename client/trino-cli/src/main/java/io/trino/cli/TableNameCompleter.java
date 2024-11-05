@@ -18,7 +18,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import io.trino.client.QueryData;
 import io.trino.client.StatementClient;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.jline.reader.Candidate;
@@ -86,11 +85,8 @@ public class TableNameCompleter
         ImmutableList.Builder<String> cache = ImmutableList.builder();
         try (StatementClient client = queryRunner.startInternalQuery(query)) {
             while (client.isRunning() && !Thread.currentThread().isInterrupted()) {
-                QueryData results = client.currentData();
-                if (results.getData() != null) {
-                    for (List<Object> row : results.getData()) {
-                        cache.add((String) row.get(0));
-                    }
+                for (List<Object> row : client.currentRows()) {
+                    cache.add((String) row.get(0));
                 }
                 client.advance();
             }

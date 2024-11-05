@@ -1,4 +1,4 @@
--- database: presto; groups: tpch; tables: lineitem,supplier
+-- database: trino; groups: tpch; tables: lineitem,supplier
 CREATE OR REPLACE VIEW revenue AS
   SELECT
     l_suppkey AS supplier_no,

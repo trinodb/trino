@@ -76,7 +76,7 @@ public class TestRealAverageAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = REAL.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = REAL.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             REAL.writeLong(blockBuilder, floatToRawIntBits((float) i));
         }
@@ -111,7 +111,7 @@ public class TestRealAverageAggregation
 
     protected Block[] getSequenceBlocksForRealNaNTest(int start, int length)
     {
-        BlockBuilder blockBuilder = REAL.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = REAL.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length - 5; i++) {
             REAL.writeLong(blockBuilder, floatToRawIntBits((float) i));
         }
@@ -124,7 +124,7 @@ public class TestRealAverageAggregation
 
     protected Block[] getSequenceBlocksForRealInfinityTest(int start, int length)
     {
-        BlockBuilder blockBuilder = REAL.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = REAL.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length - 5; i++) {
             REAL.writeLong(blockBuilder, floatToRawIntBits((float) i));
         }
@@ -164,8 +164,8 @@ public class TestRealAverageAggregation
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction(getFunctionName(), fromTypes(getFunctionParameterTypes()));
         AggregationImplementation aggregationImplementation = functionResolution.getPlannerContext().getFunctionManager().getAggregationImplementation(resolvedFunction);
         WindowAccumulator aggregation = createWindowAccumulator(resolvedFunction, aggregationImplementation);
-        assertThat(resolvedFunction.signature().getReturnType().toString().contains("real")).isTrue();
-        assertThat(resolvedFunction.signature().getName().toString().contains("avg")).isTrue();
+        assertThat(resolvedFunction.signature().getReturnType().toString()).contains("real");
+        assertThat(resolvedFunction.signature().getName().toString()).contains("avg");
         int oldStart = 0;
         int oldWidth = 0;
         for (int start = 0; start < totalPositions; ++start) {

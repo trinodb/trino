@@ -65,11 +65,8 @@ public final class OutputHandler
         BlockingQueue<List<?>> rowQueue = new ArrayBlockingQueue<>(MAX_QUEUED_ROWS);
         CompletableFuture<Void> readerFuture = CompletableFuture.runAsync(() -> {
             while (client.isRunning()) {
-                Iterable<List<Object>> data = client.currentData().getData();
-                if (data != null) {
-                    for (List<Object> row : data) {
-                        putOrThrow(rowQueue, row);
-                    }
+                for (List<Object> row : client.currentRows()) {
+                    putOrThrow(rowQueue, row);
                 }
                 client.advance();
             }

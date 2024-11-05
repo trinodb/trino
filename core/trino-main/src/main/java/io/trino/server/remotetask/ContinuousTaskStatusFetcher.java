@@ -171,7 +171,7 @@ class ContinuousTaskStatusFetcher
         @Override
         public void success(TaskStatus value)
         {
-            try (SetThreadName _ = new SetThreadName("ContinuousTaskStatusFetcher-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("ContinuousTaskStatusFetcher-" + taskId)) {
                 updateStats(requestStartNanos);
                 updateTaskStatus(value);
                 errorTracker.requestSucceeded();
@@ -185,7 +185,7 @@ class ContinuousTaskStatusFetcher
         @Override
         public void failed(Throwable cause)
         {
-            try (SetThreadName _ = new SetThreadName("ContinuousTaskStatusFetcher-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("ContinuousTaskStatusFetcher-" + taskId)) {
                 updateStats(requestStartNanos);
                 // if task not already done, record error
                 TaskStatus taskStatus = getTaskStatus();
@@ -209,7 +209,7 @@ class ContinuousTaskStatusFetcher
         @Override
         public void fatal(Throwable cause)
         {
-            try (SetThreadName _ = new SetThreadName("ContinuousTaskStatusFetcher-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("ContinuousTaskStatusFetcher-" + taskId)) {
                 updateStats(requestStartNanos);
                 onFail.accept(cause);
             }

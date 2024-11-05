@@ -138,7 +138,8 @@ public class TestComments
     @Test
     public void testCommentColumn()
     {
-        onTrino().executeQuery("""
+        onTrino().executeQuery(
+                """
                 CREATE TABLE hive.default.%s (
                    c1 bigint COMMENT 'test comment',
                    c2 bigint COMMENT '',

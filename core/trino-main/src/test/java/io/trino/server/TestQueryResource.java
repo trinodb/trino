@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Key;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
@@ -25,9 +24,11 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.trino.client.Column;
 import io.trino.client.QueryData;
 import io.trino.client.QueryDataClientJacksonModule;
 import io.trino.client.QueryResults;
+import io.trino.client.ResultRowsDecoder;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
@@ -134,7 +135,7 @@ public class TestQueryResource
                             .build(),
                     createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
 
-            assertDataEquals(attempt2.getData(), attempt1.getData());
+            assertDataEquals(attempt1.getColumns(), attempt2.getData(), attempt1.getData());
             uri = attempt1.getNextUri();
         }
     }
@@ -147,27 +148,27 @@ public class TestQueryResource
         runToCompletion("SELECT x FROM y");
 
         List<BasicQueryInfo> infos = getQueryInfos("/v1/query");
-        assertThat(infos.size()).isEqualTo(3);
+        assertThat(infos).hasSize(3);
         assertStateCounts(infos, 2, 1, 0);
 
         infos = getQueryInfos("/v1/query?state=finished");
-        assertThat(infos.size()).isEqualTo(2);
+        assertThat(infos).hasSize(2);
         assertStateCounts(infos, 2, 0, 0);
 
         infos = getQueryInfos("/v1/query?state=failed");
-        assertThat(infos.size()).isEqualTo(1);
+        assertThat(infos).hasSize(1);
         assertStateCounts(infos, 0, 1, 0);
 
         infos = getQueryInfos("/v1/query?state=running");
-        assertThat(infos.size()).isEqualTo(0);
+        assertThat(infos).isEmpty();
         assertStateCounts(infos, 0, 0, 0);
 
         server.getAccessControl().deny(privilege("query", VIEW_QUERY));
         try {
-            assertThat(getQueryInfos("/v1/query").isEmpty()).isTrue();
-            assertThat(getQueryInfos("/v1/query?state=finished").isEmpty()).isTrue();
-            assertThat(getQueryInfos("/v1/query?state=failed").isEmpty()).isTrue();
-            assertThat(getQueryInfos("/v1/query?state=running").isEmpty()).isTrue();
+            assertThat(getQueryInfos("/v1/query")).isEmpty();
+            assertThat(getQueryInfos("/v1/query?state=finished")).isEmpty();
+            assertThat(getQueryInfos("/v1/query?state=failed")).isEmpty();
+            assertThat(getQueryInfos("/v1/query?state=running")).isEmpty();
         }
         finally {
             server.getAccessControl().reset();
@@ -182,8 +183,8 @@ public class TestQueryResource
         QueryInfo queryInfoPruned = getQueryInfo(queryId, true);
         QueryInfo queryInfoNotPruned = getQueryInfo(queryId);
 
-        assertThat(queryInfoPruned.getRoutines().size()).isEqualTo(1);
-        assertThat(queryInfoNotPruned.getRoutines().size()).isEqualTo(1);
+        assertThat(queryInfoPruned.getRoutines()).hasSize(1);
+        assertThat(queryInfoNotPruned.getRoutines()).hasSize(1);
 
         assertThat(queryInfoPruned.getRoutines().get(0).getRoutine()).isEqualTo("now");
         assertThat(queryInfoNotPruned.getRoutines().get(0).getRoutine()).isEqualTo("now");
@@ -257,23 +258,20 @@ public class TestQueryResource
         testKilled("preempted");
     }
 
-    private void assertDataEquals(QueryData left, QueryData right)
+    private void assertDataEquals(List<Column> columns, QueryData left, QueryData right)
     {
         if (left == null) {
             assertThat(right).isNull();
             return;
         }
 
-        if (left.getData() == null) {
-            assertThat(right.getData()).isNull();
-            return;
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder()) {
+            assertThat(decoder.toRows(columns, left))
+                    .containsAll(decoder.toRows(columns, right));
         }
-
-        if (right.getData() == null) {
-            throw new AssertionError("Expected right data to be non-null");
+        catch (Exception e) {
+            fail(e);
         }
-
-        assertThat(ImmutableList.copyOf(left.getData())).isEqualTo(ImmutableList.copyOf(right.getData()));
     }
 
     private void testKilled(String killType)

@@ -53,7 +53,7 @@ import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
-import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
+import static io.trino.server.PagesInputStreamFactory.SERIALIZED_PAGES_MAGIC;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class MockExchangeRequestProcessor
@@ -100,7 +100,7 @@ public class MockExchangeRequestProcessor
         }
 
         // verify we got a data size and it parses correctly
-        assertThat(!request.getHeaders().get(InternalHeaders.TRINO_MAX_SIZE).isEmpty()).isTrue();
+        assertThat(request.getHeaders().get(InternalHeaders.TRINO_MAX_SIZE)).isNotEmpty();
         DataSize maxSize = DataSize.valueOf(request.getHeader(InternalHeaders.TRINO_MAX_SIZE));
         assertThat(maxSize).isEqualTo(expectedMaxSize);
 

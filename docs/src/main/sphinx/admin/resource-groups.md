@@ -28,6 +28,7 @@ resource-groups.config-file=etc/resource-groups.json
 The path to the JSON file can be an absolute path, or a path relative to the Trino
 data directory. The JSON file only needs to be present on the coordinator.
 
+(db-resource-group-manager)=
 ## Database resource group manager
 
 The database resource group manager loads the configuration from a relational database. The
@@ -161,7 +162,7 @@ evenly and each receive 50% of the queries in a given timeframe.
 The selector rules for pattern matching use Java's regular expression
 capabilities. Java implements regular expressions through the `java.util.regex`
 package. For more information, see the [Java
-documentation](https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/util/regex/Pattern.html).
+documentation](https://docs.oracle.com/en/java/javase/23/docs/api/java.base/java/util/regex/Pattern.html).
 
 - `user` (optional): Java regex to match against user name.
 
@@ -171,15 +172,25 @@ documentation](https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java
 
 - `queryType` (optional): string to match against the type of the query submitted:
 
-  - `SELECT`: `SELECT` queries.
-  - `EXPLAIN`: `EXPLAIN` queries (but not `EXPLAIN ANALYZE`).
-  - `DESCRIBE`: `DESCRIBE`, `DESCRIBE INPUT`, `DESCRIBE OUTPUT`, and `SHOW` queries.
-  - `INSERT`: `INSERT`, `CREATE TABLE AS`, and `REFRESH MATERIALIZED VIEW` queries.
-  - `UPDATE`: `UPDATE` queries.
-  - `DELETE`: `DELETE` queries.
-  - `ANALYZE`: `ANALYZE` queries.
-  - `DATA_DEFINITION`: Queries that alter/create/drop the metadata of schemas/tables/views,
-    and that manage prepared statements, privileges, sessions, and transactions.
+  - `SELECT`: [SELECT](/sql/select) queries.
+  - `EXPLAIN`: [EXPLAIN](/sql/explain) queries, but not [EXPLAIN
+    ANALYZE](/sql/explain-analyze) queries.
+  - `DESCRIBE`: [DESCRIBE](/sql/describe), [DESCRIBE
+    INPUT](/sql/describe-input), [DESCRIBE OUTPUT](/sql/describe-output), and
+    `SHOW` queries such as [SHOW CATALOGS](/sql/show-catalogs), [SHOW
+    SCHEMAS](/sql/show-schemas), and [SHOW TABLES](/sql/show-tables).
+  - `INSERT`: [INSERT](/sql/insert), [CREATE TABLE AS](/sql/create-table-as),
+    and [REFRESH MATERIALIZED VIEW](/sql/refresh-materialized-view) queries.
+  - `UPDATE`: [UPDATE](/sql/update) queries.
+  - `MERGE`: [MERGE](/sql/merge) queries.
+  - `DELETE`: [DELETE](/sql/delete) queries.
+  - `ANALYZE`: [ANALYZE](/sql/analyze) queries.
+  - `DATA_DEFINITION`: Queries that affect the data definition. These include
+    `CREATE`, `ALTER`, and `DROP` statements for schemas, tables, views, and
+    materialized views, as well as statements that manage prepared statements,
+    privileges, sessions, and transactions.
+  - `ALTER_TABLE_EXECUTE`: Queries that execute table procedures with [ALTER
+    TABLE EXECUTE](alter-table-execute).
 
 - `clientTags` (optional): list of tags. To match, every tag in this list must be in the list of
   client-provided tags associated with the query.

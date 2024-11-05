@@ -37,9 +37,7 @@ public class TestRedshiftAutomaticJoinPushdown
     @Test
     @Override
     @Disabled
-    public void testJoinPushdownWithEmptyStatsInitially()
-    {
-    }
+    public void testJoinPushdownWithEmptyStatsInitially() {}
 
     @Override
     protected void gatherStats(String tableName)

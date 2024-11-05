@@ -22,9 +22,15 @@ public abstract class Node
 {
     private final Optional<NodeLocation> location;
 
+    @Deprecated
     protected Node(Optional<NodeLocation> location)
     {
         this.location = requireNonNull(location, "location is null");
+    }
+
+    protected Node(NodeLocation location)
+    {
+        this.location = Optional.ofNullable(location);
     }
 
     /**

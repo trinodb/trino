@@ -164,7 +164,7 @@ final class GlueConverter
             storage = FAKE_PARQUET_STORAGE;
         }
         else if (isIcebergTable(tableParameters)) {
-            // todo: any reason to not do this for delta and trino mv?
+            // todo: any reason to not do this for trino mv?
             if (sd.columns() == null) {
                 dataColumns = ImmutableList.of(FAKE_COLUMN);
             }
@@ -173,6 +173,11 @@ final class GlueConverter
             }
             partitionColumns = ImmutableList.of();
             storage = FAKE_PARQUET_STORAGE;
+        }
+        else if (isDeltaLakeTable(tableParameters)) {
+            dataColumns = ImmutableList.of(FAKE_COLUMN);
+            partitionColumns = ImmutableList.of();
+            storage = fromGlueStorage(sd, databaseName + "." + glueTable.name());
         }
         else {
             boolean isCsv = sd.serdeInfo() != null && HiveStorageFormat.CSV.getSerde().equals(sd.serdeInfo().serializationLibrary());

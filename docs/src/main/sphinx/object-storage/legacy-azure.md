@@ -4,6 +4,11 @@ The {doc}`/connector/hive` can be configured to use [Azure Data Lake Storage
 (Gen2)](https://azure.microsoft.com/products/storage/data-lake-storage/). Trino
 supports Azure Blob File System (ABFS) to access data in ADLS Gen2.
 
+:::{warning}
+Legacy support is not recommended and will be removed. Use
+[](file-system-azure).
+:::
+
 ## Hive connector configuration for Azure Storage credentials
 
 To configure Trino to use the Azure Storage credentials, set the following
@@ -16,6 +21,9 @@ properties from the following sections in the catalog properties file.
 For more complex use cases, such as configuring multiple secondary storage
 accounts using Hadoop's `core-site.xml`, see the
 {ref}`hive-azure-advanced-config` options.
+
+To use legacy support, the `fs.hadoop.enabled` property must be set to `true` in
+your catalog configuration file.
 
 ### ADLS Gen2 / ABFS storage
 

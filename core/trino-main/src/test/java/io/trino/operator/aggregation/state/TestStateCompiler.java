@@ -62,7 +62,7 @@ public class TestStateCompiler
         state.setValue(2);
         state.setNull(false);
 
-        BlockBuilder builder = BIGINT.createBlockBuilder(null, 2);
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(2);
         serializer.serialize(state, builder);
         state.setNull(true);
         serializer.serialize(state, builder);
@@ -87,7 +87,7 @@ public class TestStateCompiler
 
         state.setValue(2);
 
-        BlockBuilder builder = BIGINT.createBlockBuilder(null, 1);
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
@@ -114,7 +114,7 @@ public class TestStateCompiler
 
         state.setBoolean(true);
 
-        BlockBuilder builder = BOOLEAN.createBlockBuilder(null, 1);
+        BlockBuilder builder = BOOLEAN.createFixedSizeBlockBuilder(1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
@@ -132,7 +132,7 @@ public class TestStateCompiler
 
         state.setByte((byte) 3);
 
-        BlockBuilder builder = TINYINT.createBlockBuilder(null, 1);
+        BlockBuilder builder = TINYINT.createFixedSizeBlockBuilder(1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();

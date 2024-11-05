@@ -19,6 +19,7 @@ import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.ColumnIdentity;
@@ -101,30 +102,34 @@ public class TestTrinoSnowflakeCatalog
         try {
             server.execute(SNOWFLAKE_TEST_SCHEMA, "CREATE SCHEMA IF NOT EXISTS %s".formatted(SNOWFLAKE_TEST_SCHEMA));
             if (!server.checkIfTableExists(ICEBERG, SNOWFLAKE_TEST_SCHEMA, TpchTable.NATION.getTableName())) {
-                executeOnSnowflake(server, """
-                    CREATE OR REPLACE ICEBERG TABLE %s (
-                    	NATIONKEY NUMBER(38,0),
-                    	NAME STRING,
-                    	REGIONKEY NUMBER(38,0),
-                    	COMMENT STRING
-                    )
-                     EXTERNAL_VOLUME = '%s'
-                     CATALOG = 'SNOWFLAKE'
-                     BASE_LOCATION = '%s/'""".formatted(TpchTable.NATION.getTableName(), SNOWFLAKE_S3_EXTERNAL_VOLUME, TpchTable.NATION.getTableName()));
+                executeOnSnowflake(
+                        server,
+                        """
+                        CREATE OR REPLACE ICEBERG TABLE %s (
+                        	NATIONKEY NUMBER(38,0),
+                        	NAME STRING,
+                        	REGIONKEY NUMBER(38,0),
+                        	COMMENT STRING
+                        )
+                         EXTERNAL_VOLUME = '%s'
+                         CATALOG = 'SNOWFLAKE'
+                         BASE_LOCATION = '%s/'""".formatted(TpchTable.NATION.getTableName(), SNOWFLAKE_S3_EXTERNAL_VOLUME, TpchTable.NATION.getTableName()));
 
                 executeOnSnowflake(server, "INSERT INTO %s(NATIONKEY, NAME, REGIONKEY, COMMENT) SELECT N_NATIONKEY, N_NAME, N_REGIONKEY, N_COMMENT FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.%s"
                         .formatted(TpchTable.NATION.getTableName(), TpchTable.NATION.getTableName()));
             }
             if (!server.checkIfTableExists(ICEBERG, SNOWFLAKE_TEST_SCHEMA, TpchTable.REGION.getTableName())) {
-                executeOnSnowflake(server, """
-                    CREATE OR REPLACE ICEBERG TABLE %s (
-                    	REGIONKEY NUMBER(38,0),
-                    	NAME STRING,
-                    	COMMENT STRING
-                    )
-                     EXTERNAL_VOLUME = '%s'
-                     CATALOG = 'SNOWFLAKE'
-                     BASE_LOCATION = '%s/'""".formatted(TpchTable.REGION.getTableName(), SNOWFLAKE_S3_EXTERNAL_VOLUME, TpchTable.REGION.getTableName()));
+                executeOnSnowflake(
+                        server,
+                        """
+                        CREATE OR REPLACE ICEBERG TABLE %s (
+                        	REGIONKEY NUMBER(38,0),
+                        	NAME STRING,
+                        	COMMENT STRING
+                        )
+                         EXTERNAL_VOLUME = '%s'
+                         CATALOG = 'SNOWFLAKE'
+                         BASE_LOCATION = '%s/'""".formatted(TpchTable.REGION.getTableName(), SNOWFLAKE_S3_EXTERNAL_VOLUME, TpchTable.REGION.getTableName()));
 
                 executeOnSnowflake(server, "INSERT INTO %s(REGIONKEY, NAME, COMMENT) SELECT R_REGIONKEY, R_NAME, R_COMMENT FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.%s"
                         .formatted(TpchTable.REGION.getTableName(), TpchTable.REGION.getTableName()));
@@ -159,7 +164,7 @@ public class TestTrinoSnowflakeCatalog
                                 .setAwsAccessKey(S3_ACCESS_KEY)
                                 .setAwsSecretKey(S3_SECRET_KEY)
                                 .setRegion(S3_REGION)
-                                .setStreamingPartSize(DataSize.valueOf("5.5MB")));
+                                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
 
         CatalogName catalogName = new CatalogName("snowflake_test_catalog");
         TrinoIcebergSnowflakeCatalogFileIOFactory catalogFileIOFactory = new TrinoIcebergSnowflakeCatalogFileIOFactory(s3FileSystemFactory, ConnectorIdentity.ofUser("trino"));
@@ -215,7 +220,10 @@ public class TestTrinoSnowflakeCatalog
                 (connectorIdentity, fileIOProperties) -> {
                     throw new UnsupportedOperationException();
                 },
-                new TableStatisticsWriter(new NodeVersion("test-version")));
+                new TableStatisticsWriter(new NodeVersion("test-version")),
+                Optional.empty(),
+                false,
+                _ -> false);
         assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                 .isTrue();
         assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -237,13 +245,13 @@ public class TestTrinoSnowflakeCatalog
         String tableLocation = "some/location";
         assertThatThrownBy(
                 () -> catalog.newCreateTableTransaction(
-                        SESSION,
-                        schemaTableName,
-                        new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
-                        PartitionSpec.unpartitioned(),
-                        SortOrder.unsorted(),
-                        tableLocation,
-                        tableProperties)
+                                SESSION,
+                                schemaTableName,
+                                new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                                PartitionSpec.unpartitioned(),
+                                SortOrder.unsorted(),
+                                tableLocation,
+                                tableProperties)
                         .commitTransaction())
                 .hasMessageContaining("Snowflake managed Iceberg tables do not support modifications");
     }
@@ -276,14 +284,14 @@ public class TestTrinoSnowflakeCatalog
 
         assertThatThrownBy(
                 () -> catalog.newCreateTableTransaction(
-                            SESSION,
-                            schemaTableName,
-                            tableSchema,
-                            PartitionSpec.unpartitioned(),
-                            sortOrder,
-                            tableLocation,
-                            ImmutableMap.of())
-                    .commitTransaction())
+                                SESSION,
+                                schemaTableName,
+                                tableSchema,
+                                PartitionSpec.unpartitioned(),
+                                sortOrder,
+                                tableLocation,
+                                ImmutableMap.of())
+                        .commitTransaction())
                 .hasMessageContaining("Snowflake managed Iceberg tables do not support modifications");
     }
 
@@ -361,7 +369,7 @@ public class TestTrinoSnowflakeCatalog
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
         Map<String, Object> metadata = catalog.loadNamespaceMetadata(SESSION, SNOWFLAKE_TEST_SCHEMA);
-        assertThat(metadata.isEmpty()).isTrue();
+        assertThat(metadata).isEmpty();
     }
 
     @Test

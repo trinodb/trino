@@ -179,7 +179,7 @@ public final class BingTileFunctions
         int tileX = longitudeToTileX(longitude, mapSize);
         int tileY = longitudeToTileY(latitude, mapSize);
 
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 9);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(9);
         for (int i = -1; i <= 1; i++) {
             for (int j = -1; j <= 1; j++) {
                 int x = tileX + i;
@@ -242,7 +242,7 @@ public final class BingTileFunctions
                 "The number of tiles covering input rectangle exceeds the limit of 1M. Number of tiles: %d. Radius: %.1f km. Zoom level: %d.",
                 totalTileCount, radiusInKm, zoomLevel);
 
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, totalTileCount);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(totalTileCount);
 
         for (int i = 0; i < tileCountX; i++) {
             int x = (leftTile.getX() + i) % (maxTileIndex + 1);
@@ -370,7 +370,7 @@ public final class BingTileFunctions
 
         checkGeometryToBingTilesLimits(ogcGeometry, envelope, pointOrRectangle, tileCount, zoomLevel);
 
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, toIntExact(tileCount));
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(toIntExact(tileCount));
         if (pointOrRectangle || zoomLevel <= OPTIMIZED_TILING_MIN_ZOOM_LEVEL) {
             // Collect tiles covering the bounding box and check each tile for intersection with the geometry.
             // Skip intersection check if geometry is a point or rectangle. In these cases, by definition,

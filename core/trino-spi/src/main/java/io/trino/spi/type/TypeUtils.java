@@ -32,9 +32,7 @@ public final class TypeUtils
 {
     public static final int NULL_HASH_CODE = 0;
 
-    private TypeUtils()
-    {
-    }
+    private TypeUtils() {}
 
     /**
      * Get the native value as an object in the value at {@code position} of {@code block}.

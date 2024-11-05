@@ -13,15 +13,12 @@
  */
 package io.trino.plugin.example;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.http.server.TheServlet;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.node.testing.TestingNodeModule;
@@ -33,7 +30,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
-import java.util.Map;
 
 public class ExampleHttpServer
 {
@@ -71,8 +67,7 @@ public class ExampleHttpServer
         @Override
         public void configure(Binder binder)
         {
-            binder.bind(new TypeLiteral<Map<String, String>>() {}).annotatedWith(TheServlet.class).toInstance(ImmutableMap.of());
-            binder.bind(Servlet.class).annotatedWith(TheServlet.class).toInstance(new ExampleHttpServlet());
+            binder.bind(Servlet.class).toInstance(new ExampleHttpServlet());
         }
     }
 

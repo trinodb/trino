@@ -29,9 +29,7 @@ public final class BlockSerdeUtil
     public static final MethodHandle READ_BLOCK = methodHandle(BlockSerdeUtil.class, "readBlock", BlockEncodingSerde.class, Slice.class);
     public static final MethodHandle READ_BLOCK_VALUE = methodHandle(BlockSerdeUtil.class, "readBlockValue", BlockEncodingSerde.class, Type.class, Slice.class);
 
-    private BlockSerdeUtil()
-    {
-    }
+    private BlockSerdeUtil() {}
 
     public static Block readBlock(BlockEncodingSerde blockEncodingSerde, Slice slice)
     {

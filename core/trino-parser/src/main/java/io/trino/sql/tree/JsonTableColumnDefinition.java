@@ -13,13 +13,11 @@
  */
 package io.trino.sql.tree;
 
-import java.util.Optional;
-
 public abstract class JsonTableColumnDefinition
         extends Node
 {
     protected JsonTableColumnDefinition(NodeLocation location)
     {
-        super(Optional.of(location));
+        super(location);
     }
 }

@@ -43,10 +43,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1047,8 +1049,9 @@ public abstract class BaseOpenSearchConnectorTest
                 "SELECT a.b.c FROM nested_variants",
                 "VALUES 'value1', 'value2', 'value3', 'value4'");
 
-        assertThatThrownBy(() -> computeActual("SELECT a.\"b.c\" FROM nested_variants"))
-                .hasMessageContaining("Column 'a.b.c' cannot be resolved");
+        assertTrinoExceptionThrownBy(() -> computeActual("SELECT a.\"b.c\" FROM nested_variants"))
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessageContaining("Column reference 'a.b.c' is invalid");
     }
 
     @Test
@@ -1117,11 +1120,12 @@ public abstract class BaseOpenSearchConnectorTest
                 .matches("VALUES VARCHAR 'so.me tex\\t'")
                 .isFullyPushedDown();
 
-        assertThat(query("" +
-                 "SELECT " +
-                 "text_column " +
-                 "FROM " + indexName + " " +
-                 "WHERE text_column LIKE 's_.m%ex\\t'"))
+        assertThat(query(
+                """
+                SELECT text_column
+                FROM like_test WHERE text_column
+                LIKE 's_.m%ex\\t'
+                """))
                 .matches("VALUES VARCHAR 'so.me tex\\t'");
 
         assertThat(query("" +
@@ -1412,7 +1416,8 @@ public abstract class BaseOpenSearchConnectorTest
                 .buildOrThrow());
 
         // Trino query filters in the engine, so the rounding (dependent on scaling factor) does not impact results
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT text_column, scaled_float_column
                 FROM scaled_float_type
                 WHERE scaled_float_column = 123.46
@@ -1578,6 +1583,39 @@ public abstract class BaseOpenSearchConnectorTest
         // ipaddress
         assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv4_column = IPADDRESS '1.2.3.4'", "VALUES 1");
         assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv6_column = IPADDRESS '2001:db8::1:0:0:1'", "VALUES 1");
+    }
+
+    @Test
+    public void testFiltersCharset()
+            throws IOException
+    {
+        String indexName = "filter_charset_pushdown";
+
+        @Language("JSON")
+        String mappings =
+                """
+                {
+                  "properties": {
+                    "keyword_column":   { "type": "keyword" },
+                    "text_column":      { "type": "text" }
+                  }
+                }
+                """;
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "Türkiye")
+                .put("text_column", "Türkiye")
+                .buildOrThrow());
+
+        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE keyword_column = 'Türkiye'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE keyword_column = 'bar'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE text_column = 'Türkiye'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE text_column = 'some'", "VALUES 0");
+
+        assertQuery("SELECT keyword_column FROM filter_charset_pushdown WHERE keyword_column = 'Türkiye'", "VALUES ('Türkiye')");
+        assertQuery("SELECT text_column FROM filter_charset_pushdown WHERE text_column = 'Türkiye'", "VALUES ('Türkiye')");
     }
 
     @Test
@@ -1941,7 +1979,7 @@ public abstract class BaseOpenSearchConnectorTest
 
         Map<String, Object> record2 = new HashMap<>();
         record2.put("id", 2L);
-        record2.put( "root", null);
+        record2.put("root", null);
         index(tableName, record2);
 
         Map<String, Object> record32 = new HashMap<>();
@@ -1974,7 +2012,8 @@ public abstract class BaseOpenSearchConnectorTest
     public void testProjectionPushdownWithCaseSensitiveField()
             throws IOException
     {
-        String tableName = "test_projection_with_case_sensitive_field_" + randomNameSuffix();;
+        String tableName = "test_projection_with_case_sensitive_field_" + randomNameSuffix();
+
         @Language("JSON")
         String properties =
                 """
@@ -2216,25 +2255,25 @@ public abstract class BaseOpenSearchConnectorTest
         assertThat(query("SELECT id, row1_t.row2_t.row3_t.f2 FROM " + tableName)).matches("VALUES (BIGINT '1', BIGINT '7'), (BIGINT '11', BIGINT '17'), (BIGINT '21', BIGINT '27')");
         assertThat(query("SELECT id, row1_t.row2_t.row3_t.f2, CAST(row1_t AS JSON) FROM " + tableName))
                 .matches(
-                "VALUES (BIGINT '1', BIGINT '7', JSON '%s'), "
+                        "VALUES (BIGINT '1', BIGINT '7', JSON '%s'), "
                                 .formatted(
                                         """
-                                                {
-                                                    "f1": 2,
-                                                    "f2": 3,
-                                                    "row2_t": {
-                                                        "f1": 4,
-                                                        "f2": 5,
-                                                        "row3_t": {
-                                                            "f1": 6,
-                                                            "f2": 7
-                                                        }
-                                                    }
+                                        {
+                                            "f1": 2,
+                                            "f2": 3,
+                                            "row2_t": {
+                                                "f1": 4,
+                                                "f2": 5,
+                                                "row3_t": {
+                                                    "f1": 6,
+                                                    "f2": 7
                                                 }
-                                                """) +
-                        "(BIGINT '11', BIGINT '17', JSON '%s'), "
-                                .formatted(
-                                        """
+                                            }
+                                        }
+                                        """) +
+                                "(BIGINT '11', BIGINT '17', JSON '%s'), "
+                                        .formatted(
+                                                """
                                                 {
                                                     "f1": 12,
                                                     "f2": 13,
@@ -2248,9 +2287,9 @@ public abstract class BaseOpenSearchConnectorTest
                                                     }
                                                 }
                                                 """) +
-                        "(BIGINT '21', BIGINT '27', JSON '%s')"
-                                .formatted(
-                                        """
+                                "(BIGINT '21', BIGINT '27', JSON '%s')"
+                                        .formatted(
+                                                """
                                                 {
                                                     "f1": 22,
                                                     "f2": 23,
@@ -2270,54 +2309,54 @@ public abstract class BaseOpenSearchConnectorTest
                 .matches("VALUES (BIGINT '21', JSON '%s')"
                         .formatted(
                                 """
-                                        {
-                                            "f1": 26,
-                                            "f2": 27
-                                        }
-                                        """));
+                                {
+                                    "f1": 26,
+                                    "f2": 27
+                                }
+                                """));
         assertThat(query("SELECT id, CAST(row1_t.row2_t.row3_t AS JSON) FROM " + tableName + " WHERE row1_t.row2_t.row3_t.f2 > 20"))
                 .matches("VALUES (BIGINT '21', JSON '%s')"
                         .formatted(
                                 """
-                                        {
-                                            "f1": 26,
-                                            "f2": 27
-                                        }
-                                        """));
+                                {
+                                    "f1": 26,
+                                    "f2": 27
+                                }
+                                """));
         assertThat(query("SELECT id, CAST(row1_t AS JSON) FROM " + tableName + " WHERE row1_t.row2_t.row3_t.f2 = 27"))
                 .matches("VALUES (BIGINT '21', JSON '%s')"
                         .formatted(
                                 """
-                                        {
-                                            "f1": 22,
-                                            "f2": 23,
-                                            "row2_t": {
-                                                "f1": 24,
-                                                "f2": 25,
-                                                "row3_t": {
-                                                    "f1": 26,
-                                                    "f2": 27
-                                                }
-                                            }
+                                {
+                                    "f1": 22,
+                                    "f2": 23,
+                                    "row2_t": {
+                                        "f1": 24,
+                                        "f2": 25,
+                                        "row3_t": {
+                                            "f1": 26,
+                                            "f2": 27
                                         }
-                                        """));
+                                    }
+                                }
+                                """));
         assertThat(query("SELECT id, CAST(row1_t AS JSON) FROM " + tableName + " WHERE row1_t.row2_t.row3_t.f2 > 20"))
                 .matches("VALUES (BIGINT '21', JSON '%s')"
                         .formatted(
                                 """
-                                        {
-                                            "f1": 22,
-                                            "f2": 23,
-                                            "row2_t": {
-                                                "f1": 24,
-                                                "f2": 25,
-                                                "row3_t": {
-                                                    "f1": 26,
-                                                    "f2": 27
-                                                }
-                                            }
+                                {
+                                    "f1": 22,
+                                    "f2": 23,
+                                    "row2_t": {
+                                        "f1": 24,
+                                        "f2": 25,
+                                        "row3_t": {
+                                            "f1": 26,
+                                            "f2": 27
                                         }
-                                        """));
+                                    }
+                                }
+                                """));
 
         // Test predicates on parent columns
         assertThat(query("SELECT id, row1_t.row2_t.row3_t.f1 FROM " + tableName + " WHERE row1_t.row2_t.row3_t = ROW(16, 17)"))
@@ -2334,44 +2373,44 @@ public abstract class BaseOpenSearchConnectorTest
     {
         String tableName = "test_dereference_pushdown_" + randomNameSuffix();
         index(tableName, ImmutableMap.<String, Object>builder()
+                .put("array_string_field", ImmutableList.<String>builder()
+                        .addAll(Stream.of("trino", "the", "lean", "machine-ohs")::iterator)
+                        .build())
+                .put("object_field_outer", ImmutableMap.<String, Object>builder()
                         .put("array_string_field", ImmutableList.<String>builder()
                                 .addAll(Stream.of("trino", "the", "lean", "machine-ohs")::iterator)
                                 .build())
-                        .put("object_field_outer", ImmutableMap.<String, Object>builder()
+                        .put("string_field_outer", "sample")
+                        .put("int_field_outer", 44)
+                        .put("object_field_inner", ImmutableMap.<String, Object>builder()
+                                .put("int_field_inner", 432)
+                                .buildOrThrow())
+                        .buildOrThrow())
+                .put("long_field", 314159265359L)
+                .put("id_field", "564e6982-88ee-4498-aa98-df9e3f6b6109")
+                .put("timestamp_field", "1987-09-17T06:22:48.000Z")
+                .put("object_field", ImmutableMap.<String, Object>builder()
+                        .put("array_string_field", ImmutableList.<String>builder()
+                                .addAll(Stream.of("trino", "the", "lean", "machine-ohs")::iterator)
+                                .build())
+                        .put("string_field", "sample")
+                        .put("int_field", 2)
+                        .put("object_field_2", ImmutableMap.<String, Object>builder()
                                 .put("array_string_field", ImmutableList.<String>builder()
                                         .addAll(Stream.of("trino", "the", "lean", "machine-ohs")::iterator)
                                         .build())
-                                .put("string_field_outer", "sample")
-                                .put("int_field_outer", 44)
-                                .put("object_field_inner", ImmutableMap.<String, Object>builder()
-                                        .put("int_field_inner", 432)
+                                .put("string_field2", "sample")
+                                .put("int_field", 33)
+                                .put("object_field_3", ImmutableMap.<String, Object>builder()
+                                        .put("array_string_field", ImmutableList.<String>builder()
+                                                .addAll(Stream.of("trino", "the", "lean", "machine-ohs")::iterator)
+                                                .build())
+                                        .put("string_field3", "some value")
+                                        .put("int_field3", 55)
                                         .buildOrThrow())
                                 .buildOrThrow())
-                        .put("long_field", 314159265359L)
-                        .put("id_field", "564e6982-88ee-4498-aa98-df9e3f6b6109")
-                        .put("timestamp_field", "1987-09-17T06:22:48.000Z")
-                        .put("object_field", ImmutableMap.<String, Object>builder()
-                                        .put("array_string_field", ImmutableList.<String>builder()
-                                                        .addAll(Stream.of("trino", "the", "lean", "machine-ohs")::iterator)
-                                                        .build())
-                                        .put("string_field", "sample")
-                                        .put("int_field", 2)
-                                        .put("object_field_2", ImmutableMap.<String, Object>builder()
-                                                        .put("array_string_field", ImmutableList.<String>builder()
-                                                                .addAll(Stream.of("trino", "the", "lean", "machine-ohs")::iterator)
-                                                                .build())
-                                                        .put("string_field2", "sample")
-                                                        .put("int_field", 33)
-                                                        .put("object_field_3", ImmutableMap.<String, Object>builder()
-                                                                        .put("array_string_field", ImmutableList.<String>builder()
-                                                                                .addAll(Stream.of("trino", "the", "lean", "machine-ohs")::iterator)
-                                                                                .build())
-                                                                        .put("string_field3", "some value")
-                                                                        .put("int_field3", 55)
-                                                                .buildOrThrow())
-                                                .buildOrThrow())
-                                .buildOrThrow())
-                        .buildOrThrow());
+                        .buildOrThrow())
+                .buildOrThrow());
 
         HashMap<String, Object> innerRecord = new HashMap<>();
         innerRecord.put("object_field_inner", null);
@@ -2395,7 +2434,7 @@ public abstract class BaseOpenSearchConnectorTest
     {
         String catalogName = getSession().getCatalog().orElseThrow();
         assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
-        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(name)).isFalse();
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).doesNotContain(name);
         assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");
     }
 
@@ -2455,7 +2494,7 @@ public abstract class BaseOpenSearchConnectorTest
     private void deleteIndex(String indexName)
             throws IOException
     {
-        Request request = new Request("DELETE",  "/" + indexName);
+        Request request = new Request("DELETE", "/" + indexName);
         client.getLowLevelClient().performRequest(request);
     }
 }

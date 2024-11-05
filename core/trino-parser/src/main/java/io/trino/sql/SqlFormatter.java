@@ -2066,7 +2066,11 @@ public final class SqlFormatter
         @Override
         protected Void visitDropRole(DropRole node, Integer indent)
         {
-            builder.append("DROP ROLE ").append(formatName(node.getName()));
+            builder.append("DROP ROLE ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getName()));
             node.getCatalog().ifPresent(catalog -> builder
                     .append(" IN ")
                     .append(formatName(catalog)));

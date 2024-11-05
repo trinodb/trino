@@ -114,7 +114,7 @@ public class TestGroupedTopNRankBuilder
                         .build()).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
 
         List<Type> outputTypes = ImmutableList.of(DOUBLE, BIGINT);
         Page expected = rowPageBuilder(outputTypes)
@@ -190,7 +190,7 @@ public class TestGroupedTopNRankBuilder
                         .build()).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
 
         List<Type> outputTypes = ImmutableList.of(BIGINT, DOUBLE, BIGINT);
         Page expected = rowPageBuilder(outputTypes)
@@ -242,7 +242,7 @@ public class TestGroupedTopNRankBuilder
         unblock.set(true);
         assertThat(work.process()).isTrue();
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(types)
                 .row(1L, 0.1)

@@ -112,7 +112,8 @@ public class TestQueryAssertions
         // Report wrong message
         assertThatThrownBy(() -> assertQueryFails("SELECT CAST('123a' AS integer)", "Different expected message"))
                 .isInstanceOf(AssertionError.class)
-                .hasMessageStartingWith("""
+                .hasMessageStartingWith(
+                        """
 
                         Expecting message:
                           "Cannot cast '123a' to INT"
@@ -120,7 +121,8 @@ public class TestQueryAssertions
                           "Different expected message"
                         but did not.
 
-                        Throwable that failed the check:""");
+                        Throwable that failed the check:\
+                        """);
 
         // Match message with regular expression
         assertQueryFails("SELECT CAST('123a' AS integer)", "Cannot cast '\\w+' (to)? INT");
@@ -130,7 +132,8 @@ public class TestQueryAssertions
         assertQueryFails("SELECT CAST('123a' AS integer)", "^Cannot cast '123a' to INT$");
         assertThatThrownBy(() -> assertQueryFails("SELECT CAST('123a' AS integer)", "Cannot cast"))
                 .isInstanceOf(AssertionError.class)
-                .hasMessageStartingWith("""
+                .hasMessageStartingWith(
+                        """
 
                         Expecting message:
                           "Cannot cast '123a' to INT"
@@ -138,7 +141,8 @@ public class TestQueryAssertions
                           "Cannot cast"
                         but did not.
 
-                        Throwable that failed the check:""");
+                        Throwable that failed the check:\
+                        """);
 
         // Report query success
         assertThatThrownBy(() -> assertQueryFails("SELECT 1", "Foo bar"))
@@ -164,7 +168,8 @@ public class TestQueryAssertions
 
         assertThatThrownBy(() -> assertQueryFails(sql, Pattern.quote(lastMessage)))
                 .isInstanceOf(AssertionError.class)
-                .hasMessageStartingWith("""
+                .hasMessageStartingWith(
+                        """
 
                         Expecting message:
                           "Value cannot be cast to date: abc"
@@ -172,7 +177,8 @@ public class TestQueryAssertions
                           "\\QInvalid format: "abc"\\E"
                         but did not.
 
-                        Throwable that failed the check:""");
+                        Throwable that failed the check:\
+                        """);
     }
 
     @Test
@@ -180,7 +186,8 @@ public class TestQueryAssertions
     {
         QueryAssert queryAssert = assertThat(query("SELECT X'001234'"));
         assertThatThrownBy(() -> queryAssert.matches("VALUES '001234'"))
-                .hasMessageContaining("""
+                .hasMessageContaining(
+                        """
                         [Output types for query [SELECT X'001234']]\s
                         expected: [varchar(6)]
                          but was: [varbinary]
@@ -192,7 +199,8 @@ public class TestQueryAssertions
     {
         QueryAssert queryAssert = assertThat(query("SELECT X'001234' WHERE false"));
         assertThatThrownBy(() -> queryAssert.matches("SELECT '001234' WHERE false"))
-                .hasMessageContaining("""
+                .hasMessageContaining(
+                        """
                         [Output types for query [SELECT X'001234' WHERE false]]\s
                         expected: [varchar(6)]
                          but was: [varbinary]

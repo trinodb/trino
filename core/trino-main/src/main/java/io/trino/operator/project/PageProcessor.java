@@ -113,16 +113,16 @@ public class PageProcessor
         }
 
         SelectedPositions activePositions = positionsRange(0, page.getPositionCount());
-        FilterEvaluator.SelectionResult staticFilterResult = new FilterEvaluator.SelectionResult(activePositions, 0);
-        if (filterEvaluator.isPresent()) {
-            staticFilterResult = filterEvaluator.get().evaluate(session, activePositions, page);
-            metrics.recordFilterTime(staticFilterResult.filterTimeNanos());
+        FilterEvaluator.SelectionResult dynamicFilterResult = new FilterEvaluator.SelectionResult(activePositions, 0);
+        if (dynamicFilterEvaluator.isPresent()) {
+            dynamicFilterResult = dynamicFilterEvaluator.get().evaluate(session, activePositions, page);
+            metrics.recordDynamicFilterMetrics(dynamicFilterResult.filterTimeNanos(), dynamicFilterResult.selectedPositions().size());
         }
 
-        FilterEvaluator.SelectionResult result = staticFilterResult;
-        if (dynamicFilterEvaluator.isPresent()) {
-            result = dynamicFilterEvaluator.get().evaluate(session, staticFilterResult.selectedPositions(), page);
-            metrics.recordDynamicFilterMetrics(result.filterTimeNanos(), staticFilterResult.selectedPositions().size());
+        FilterEvaluator.SelectionResult result = dynamicFilterResult;
+        if (filterEvaluator.isPresent()) {
+            result = filterEvaluator.get().evaluate(session, dynamicFilterResult.selectedPositions(), page);
+            metrics.recordFilterTime(result.filterTimeNanos());
         }
         SelectedPositions selectedPositions = result.selectedPositions();
 

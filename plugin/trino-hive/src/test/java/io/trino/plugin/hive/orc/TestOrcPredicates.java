@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.metastore.HiveType;
 import io.trino.orc.OrcReaderOptions;
@@ -30,6 +31,7 @@ import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceProvider;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.util.HiveTypeTranslator;
 import io.trino.spi.Page;
@@ -160,7 +162,8 @@ class TestOrcPredicates
     {
         OrcPageSourceFactory readerFactory = new OrcPageSourceFactory(new OrcReaderOptions(), fileSystemFactory, STATS, UTC);
 
-        long length = fileSystemFactory.create(session).newInputFile(location).length();
+        TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(location);
+        long length = inputFile.length();
         List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
                 "",
                 ImmutableList.of(),
@@ -180,7 +183,14 @@ class TestOrcPredicates
                         0,
                         length,
                         length,
-                        getTableProperties(),
+                        inputFile.lastModified().toEpochMilli(),
+                        new Schema(
+                                ORC.getSerde(),
+                                false,
+                                ImmutableMap.<String, String>builder()
+                                        .put(LIST_COLUMNS, COLUMNS.stream().map(HiveColumnHandle::getName).collect(Collectors.joining(",")))
+                                        .put(LIST_COLUMN_TYPES, COLUMNS.stream().map(HiveColumnHandle::getHiveType).map(HiveType::toString).collect(Collectors.joining(",")))
+                                        .buildOrThrow()),
                         effectivePredicate,
                         TESTING_TYPE_MANAGER,
                         Optional.empty(),

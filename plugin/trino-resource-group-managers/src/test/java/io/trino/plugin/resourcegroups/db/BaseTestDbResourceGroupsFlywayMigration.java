@@ -80,7 +80,7 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
         dropAllTables();
     }
 
-    protected void verifyResourceGroupsSchema(long expectedPropertiesCount)
+    protected void verifyResourceGroupsSchema(int expectedPropertiesCount)
     {
         verifyResultSetCount("SELECT name FROM resource_groups_global_properties", expectedPropertiesCount);
         verifyResultSetCount("SELECT name FROM resource_groups", 0);
@@ -88,11 +88,11 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
         verifyResultSetCount("SELECT environment FROM exact_match_source_selectors", 0);
     }
 
-    private void verifyResultSetCount(String sql, long expectedCount)
+    private void verifyResultSetCount(String sql, int expectedCount)
     {
         List<String> results = jdbi.withHandle(handle ->
                 handle.createQuery(sql).mapTo(String.class).list());
-        assertThat(results.size()).isEqualTo(expectedCount);
+        assertThat(results).hasSize(expectedCount);
     }
 
     protected void dropAllTables()

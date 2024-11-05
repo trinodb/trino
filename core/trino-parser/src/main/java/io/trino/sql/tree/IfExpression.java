@@ -31,22 +31,7 @@ public class IfExpression
     private final Expression trueValue;
     private final Optional<Expression> falseValue;
 
-    public IfExpression(Expression condition, Expression trueValue, Expression falseValue)
-    {
-        this(Optional.empty(), condition, trueValue, falseValue);
-    }
-
-    public IfExpression(Expression condition, Expression trueValue)
-    {
-        this(Optional.empty(), condition, trueValue, null);
-    }
-
     public IfExpression(NodeLocation location, Expression condition, Expression trueValue, Expression falseValue)
-    {
-        this(Optional.of(location), condition, trueValue, falseValue);
-    }
-
-    private IfExpression(Optional<NodeLocation> location, Expression condition, Expression trueValue, Expression falseValue)
     {
         super(location);
         this.condition = requireNonNull(condition, "condition is null");

@@ -72,7 +72,7 @@ public class TestSpatialPartitioningInternalAggregation
         List<OGCGeometry> geometries = makeGeometries();
         Block geometryBlock = makeGeometryBlock(geometries);
 
-        BlockBuilder blockBuilder = INTEGER.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = INTEGER.createFixedSizeBlockBuilder(1);
         INTEGER.writeInt(blockBuilder, partitionCount);
         Block partitionCountBlock = RunLengthEncodedBlock.create(blockBuilder.build(), geometries.size());
 

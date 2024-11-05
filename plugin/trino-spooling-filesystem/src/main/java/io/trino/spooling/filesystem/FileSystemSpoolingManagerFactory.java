@@ -39,9 +39,8 @@ public class FileSystemSpoolingManagerFactory
     public SpoolingManager create(Map<String, String> config, SpoolingManagerContext context)
     {
         requireNonNull(config, "requiredConfig is null");
-
         Bootstrap app = new Bootstrap(
-                new FilesystemSpoolingModule(),
+                new FileSystemSpoolingModule(context.isCoordinator()),
                 new MBeanModule(),
                 new MBeanServerModule(),
                 binder -> {
@@ -54,6 +53,6 @@ public class FileSystemSpoolingManagerFactory
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
-        return injector.getInstance(SpoolingManager.class);
+        return new TracingSpoolingManager(context.getTracer(), injector.getInstance(SpoolingManager.class));
     }
 }

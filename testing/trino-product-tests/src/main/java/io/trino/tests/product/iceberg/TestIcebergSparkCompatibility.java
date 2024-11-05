@@ -723,6 +723,20 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC})
+    public void testSparkReadingTrinoIcebergTablePropertiesData()
+    {
+        String baseTableName = "test_spark_reading_trino_iceberg_table_properties" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + " (doc_id VARCHAR) WITH (extra_properties = MAP(ARRAY['custom.table-property'], ARRAY['my_custom_value']))");
+
+        assertThat(onSpark().executeQuery("SHOW TBLPROPERTIES " + sparkTableName)).contains(row("custom.table-property", "my_custom_value"));
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
     public void testTrinoReadingNestedSparkData(StorageFormat storageFormat, int specVersion)
     {
@@ -1134,7 +1148,7 @@ public class TestIcebergSparkCompatibility
 
         QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
-        assertThat(((String) queryResult.getOnlyValue()).contains(dataPath)).isTrue();
+        assertThat(((String) queryResult.getOnlyValue())).contains(dataPath);
 
         // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
         assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
@@ -1163,7 +1177,7 @@ public class TestIcebergSparkCompatibility
 
         QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
-        assertThat(((String) queryResult.getOnlyValue()).contains(dataPath)).isTrue();
+        assertThat(((String) queryResult.getOnlyValue())).contains(dataPath);
 
         assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
                 .hasMessageContaining("contains Iceberg path override properties and cannot be dropped from Trino");
@@ -1460,35 +1474,35 @@ public class TestIcebergSparkCompatibility
             QueryExecutor onTrino = onTrino();
             QueryExecutor onSpark = onSpark();
             List<Row> allInserted = executor.invokeAll(
-                    Stream.of(Engine.TRINO, Engine.SPARK)
-                            .map(engine -> (Callable<List<Row>>) () -> {
-                                List<Row> inserted = new ArrayList<>();
-                                for (int i = 0; i < insertsPerEngine; i++) {
-                                    barrier.await(20, SECONDS);
-                                    String engineName = engine.name().toLowerCase(ENGLISH);
-                                    long value = i;
-                                    switch (engine) {
-                                        case TRINO:
-                                            try {
-                                                onTrino.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", trinoTableName, engineName, value));
+                            Stream.of(Engine.TRINO, Engine.SPARK)
+                                    .map(engine -> (Callable<List<Row>>) () -> {
+                                        List<Row> inserted = new ArrayList<>();
+                                        for (int i = 0; i < insertsPerEngine; i++) {
+                                            barrier.await(20, SECONDS);
+                                            String engineName = engine.name().toLowerCase(ENGLISH);
+                                            long value = i;
+                                            switch (engine) {
+                                                case TRINO:
+                                                    try {
+                                                        onTrino.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", trinoTableName, engineName, value));
+                                                    }
+                                                    catch (QueryExecutionException queryExecutionException) {
+                                                        // failed to insert
+                                                        continue; // next loop iteration
+                                                    }
+                                                    break;
+                                                case SPARK:
+                                                    onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
+                                                    break;
+                                                default:
+                                                    throw new UnsupportedOperationException("Unexpected engine: " + engine);
                                             }
-                                            catch (QueryExecutionException queryExecutionException) {
-                                                // failed to insert
-                                                continue; // next loop iteration
-                                            }
-                                            break;
-                                        case SPARK:
-                                            onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
-                                            break;
-                                        default:
-                                            throw new UnsupportedOperationException("Unexpected engine: " + engine);
-                                    }
 
-                                    inserted.add(row(engineName, value));
-                                }
-                                return inserted;
-                            })
-                            .collect(toImmutableList())).stream()
+                                            inserted.add(row(engineName, value));
+                                        }
+                                        return inserted;
+                                    })
+                                    .collect(toImmutableList())).stream()
                     .map(MoreFutures::getDone)
                     .flatMap(List::stream)
                     .collect(toImmutableList());
@@ -2609,23 +2623,23 @@ public class TestIcebergSparkCompatibility
     private void validatePartitioning(String baseTableName, String sparkTableName, List<Map<String, String>> expectedValues)
     {
         List<String> trinoResult = expectedValues.stream().map(m ->
-                m.entrySet().stream()
-                        .map(entry -> format("%s=%s", entry.getKey(), entry.getValue()))
-                        .collect(Collectors.joining(", ", "{", "}")))
+                        m.entrySet().stream()
+                                .map(entry -> format("%s=%s", entry.getKey(), entry.getValue()))
+                                .collect(Collectors.joining(", ", "{", "}")))
                 .collect(toImmutableList());
         List<Object> partitioning = onTrino().executeQuery(format("SELECT partition, record_count FROM iceberg.default.\"%s$partitions\"", baseTableName))
                 .column(1);
         Set<String> partitions = partitioning.stream().map(String::valueOf).collect(toUnmodifiableSet());
-        assertThat(partitions.size()).isEqualTo(expectedValues.size());
+        assertThat(partitions).hasSize(expectedValues.size());
         assertThat(partitions).containsAll(trinoResult);
         List<String> sparkResult = expectedValues.stream().map(m ->
-                m.entrySet().stream()
-                        .map(entry -> format("\"%s\":%s", entry.getKey(), entry.getValue()))
-                        .collect(Collectors.joining(",", "{", "}")))
+                        m.entrySet().stream()
+                                .map(entry -> format("\"%s\":%s", entry.getKey(), entry.getValue()))
+                                .collect(Collectors.joining(",", "{", "}")))
                 .collect(toImmutableList());
         partitioning = onSpark().executeQuery(format("SELECT partition from %s.files", sparkTableName)).column(1);
         partitions = partitioning.stream().map(String::valueOf).collect(toUnmodifiableSet());
-        assertThat(partitions.size()).isEqualTo(expectedValues.size());
+        assertThat(partitions).hasSize(expectedValues.size());
         assertThat(partitions).containsAll(sparkResult);
     }
 

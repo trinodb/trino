@@ -35,6 +35,7 @@ import io.trino.plugin.jdbc.DoubleReadFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -99,7 +100,6 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.StandardTypes;
@@ -220,7 +220,6 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -455,20 +454,14 @@ public class PostgreSqlClient
     }
 
     @Override
-    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        if (tableHandle.getColumns().isPresent()) {
-            return tableHandle.getColumns().get();
-        }
-        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
-        SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
-
         try (Connection connection = connectionFactory.openConnection(session)) {
             Map<String, Integer> arrayColumnDimensions = ImmutableMap.of();
             if (getArrayMapping(session) == AS_ARRAY) {
-                arrayColumnDimensions = getArrayColumnDimensions(connection, tableHandle);
+                arrayColumnDimensions = getArrayColumnDimensions(connection, remoteTableName);
             }
-            try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+            try (ResultSet resultSet = getColumns(remoteTableName, connection.getMetaData())) {
                 int allColumns = 0;
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 while (resultSet.next()) {
@@ -530,7 +523,7 @@ public class PostgreSqlClient
         return super.getAllTableColumns(connection, remoteSchemaName);
     }
 
-    private static Map<String, Integer> getArrayColumnDimensions(Connection connection, JdbcTableHandle tableHandle)
+    private static Map<String, Integer> getArrayColumnDimensions(Connection connection, RemoteTableName remoteTableName)
             throws SQLException
     {
         String sql = "" +
@@ -543,7 +536,6 @@ public class PostgreSqlClient
                 "AND tbl.relname = ? " +
                 "AND attyp.typcategory = 'A' ";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
             statement.setString(1, remoteTableName.getSchemaName().orElse(null));
             statement.setString(2, remoteTableName.getTableName());
 
@@ -1028,19 +1020,19 @@ public class PostgreSqlClient
 
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()).stream()
-                    .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
+                    .collect(toImmutableMap(ColumnStatisticsResult::columnName, identity()));
 
-            for (JdbcColumnHandle column : this.getColumns(session, table)) {
+            for (JdbcColumnHandle column : JdbcMetadata.getColumns(session, this, table)) {
                 ColumnStatisticsResult result = columnStatistics.get(column.getColumnName());
                 if (result == null) {
                     continue;
                 }
 
                 ColumnStatistics statistics = ColumnStatistics.builder()
-                        .setNullsFraction(result.getNullsFraction()
+                        .setNullsFraction(result.nullsFraction()
                                 .map(Estimate::of)
                                 .orElseGet(Estimate::unknown))
-                        .setDistinctValuesCount(result.getDistinctValuesIndicator()
+                        .setDistinctValuesCount(result.distinctValuesIndicator()
                                 .map(distinctValuesIndicator -> {
                                     if (distinctValuesIndicator >= 0.0) {
                                         return distinctValuesIndicator;
@@ -1049,9 +1041,9 @@ public class PostgreSqlClient
                                 })
                                 .map(Estimate::of)
                                 .orElseGet(Estimate::unknown))
-                        .setDataSize(result.getAverageColumnLength()
+                        .setDataSize(result.averageColumnLength()
                                 .flatMap(averageColumnLength ->
-                                        result.getNullsFraction().map(nullsFraction ->
+                                        result.nullsFraction().map(nullsFraction ->
                                                 Estimate.of(1.0 * averageColumnLength * rowCount * (1 - nullsFraction))))
                                 .orElseGet(Estimate::unknown))
                         .build();
@@ -1269,21 +1261,6 @@ public class PostgreSqlClient
     {
         LocalDateTime localDateTime = fromTrinoTimestamp(epochMicros);
         statement.setObject(index, toPgTimestamp(localDateTime));
-    }
-
-    private static ObjectWriteFunction longTimestampWriteFunction()
-    {
-        return ObjectWriteFunction.of(LongTimestamp.class, (statement, index, timestamp) -> {
-            // PostgreSQL supports up to 6 digits of precision
-            //noinspection ConstantConditions
-            verify(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION == 6);
-
-            long epochMicros = timestamp.getEpochMicros();
-            if (timestamp.getPicosOfMicro() >= PICOSECONDS_PER_MICROSECOND / 2) {
-                epochMicros++;
-            }
-            shortTimestampWriteFunction(statement, index, epochMicros);
-        });
     }
 
     @Override
@@ -1625,13 +1602,13 @@ public class PostgreSqlClient
             // getArray is unsupported for vectors type
             String result = resultSet.getString(columnIndex);
             if (result == null) {
-                BlockBuilder builder = REAL.createBlockBuilder(null, 1);
+                BlockBuilder builder = REAL.createFixedSizeBlockBuilder(1);
                 builder.appendNull();
                 return builder.build();
             }
             verify(result.charAt(0) == '[' && result.charAt(result.length() - 1) == ']', "vector must be enclosed in square brackets: %s", result);
             String[] vectors = result.substring(1, result.length() - 1).split(",");
-            BlockBuilder builder = REAL.createBlockBuilder(null, vectors.length);
+            BlockBuilder builder = REAL.createFixedSizeBlockBuilder(vectors.length);
             for (String vector : vectors) {
                 REAL.writeFloat(builder, Float.parseFloat(vector));
             }
@@ -1737,39 +1714,18 @@ public class PostgreSqlClient
         }
     }
 
-    private static class ColumnStatisticsResult
+    private record ColumnStatisticsResult(
+            String columnName,
+            Optional<Float> nullsFraction,
+            Optional<Float> distinctValuesIndicator,
+            Optional<Integer> averageColumnLength)
     {
-        private final String columnName;
-        private final Optional<Float> nullsFraction;
-        private final Optional<Float> distinctValuesIndicator;
-        private final Optional<Integer> averageColumnLength;
-
-        public ColumnStatisticsResult(String columnName, Optional<Float> nullsFraction, Optional<Float> distinctValuesIndicator, Optional<Integer> averageColumnLength)
+        private ColumnStatisticsResult
         {
-            this.columnName = columnName;
-            this.nullsFraction = nullsFraction;
-            this.distinctValuesIndicator = distinctValuesIndicator;
-            this.averageColumnLength = averageColumnLength;
-        }
-
-        public String getColumnName()
-        {
-            return columnName;
-        }
-
-        public Optional<Float> getNullsFraction()
-        {
-            return nullsFraction;
-        }
-
-        public Optional<Float> getDistinctValuesIndicator()
-        {
-            return distinctValuesIndicator;
-        }
-
-        public Optional<Integer> getAverageColumnLength()
-        {
-            return averageColumnLength;
+            requireNonNull(columnName, "columnName is null");
+            requireNonNull(nullsFraction, "nullsFraction is null");
+            requireNonNull(distinctValuesIndicator, "distinctValuesIndicator is null");
+            requireNonNull(averageColumnLength, "averageColumnLength is null");
         }
     }
 }

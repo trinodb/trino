@@ -88,7 +88,7 @@ public class TestIcebergMemoryCacheFileOperations
                         .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
                         .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
-                        .add(new CacheOperation("Input.readTail", MANIFEST))
+                        .addCopies(new CacheOperation("Input.readTail", MANIFEST), 2)
                         .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 2)
                         .build());
 
@@ -116,7 +116,7 @@ public class TestIcebergMemoryCacheFileOperations
                         .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
                         .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
-                        .add(new CacheOperation("Input.readTail", MANIFEST))
+                        .addCopies(new CacheOperation("Input.readTail", MANIFEST), 3)
                         .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 5)
                         .build());
 

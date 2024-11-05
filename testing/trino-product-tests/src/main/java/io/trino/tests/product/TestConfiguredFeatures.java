@@ -39,7 +39,7 @@ public class TestConfiguredFeatures
         extends ProductTest
 {
     @Inject
-    @Named("databases.presto.configured_connectors")
+    @Named("databases.trino.configured_connectors")
     private List<String> configuredConnectors;
 
     @Test(groups = CONFIGURED_FEATURES)

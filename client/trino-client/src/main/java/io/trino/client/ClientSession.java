@@ -36,8 +36,8 @@ import static java.util.Objects.requireNonNull;
 public class ClientSession
 {
     private final URI server;
-    private final Optional<String> principal;
     private final Optional<String> user;
+    private final Optional<String> sessionUser;
     private final Optional<String> authorizationUser;
     private final String source;
     private final Optional<String> traceToken;
@@ -56,6 +56,7 @@ public class ClientSession
     private final String transactionId;
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
+    private Optional<String> encoding;
 
     public static Builder builder()
     {
@@ -76,8 +77,8 @@ public class ClientSession
 
     private ClientSession(
             URI server,
-            Optional<String> principal,
             Optional<String> user,
+            Optional<String> sessionUser,
             Optional<String> authorizationUser,
             String source,
             Optional<String> traceToken,
@@ -95,11 +96,12 @@ public class ClientSession
             Map<String, String> extraCredentials,
             String transactionId,
             Duration clientRequestTimeout,
-            boolean compressionDisabled)
+            boolean compressionDisabled,
+            Optional<String> encoding)
     {
         this.server = requireNonNull(server, "server is null");
-        this.principal = requireNonNull(principal, "principal is null");
         this.user = requireNonNull(user, "user is null");
+        this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
         this.authorizationUser = requireNonNull(authorizationUser, "authorizationUser is null");
         this.source = requireNonNull(source, "source is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
@@ -118,6 +120,7 @@ public class ClientSession
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.clientRequestTimeout = clientRequestTimeout;
         this.compressionDisabled = compressionDisabled;
+        this.encoding = requireNonNull(encoding, "encoding is null");
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -153,14 +156,14 @@ public class ClientSession
         return server;
     }
 
-    public Optional<String> getPrincipal()
-    {
-        return principal;
-    }
-
     public Optional<String> getUser()
     {
         return user;
+    }
+
+    public Optional<String> getSessionUser()
+    {
+        return sessionUser;
     }
 
     public Optional<String> getAuthorizationUser()
@@ -261,13 +264,18 @@ public class ClientSession
         return compressionDisabled;
     }
 
+    public Optional<String> getEncoding()
+    {
+        return encoding;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("server", server)
-                .add("principal", principal)
                 .add("user", user)
+                .add("sessionUser", sessionUser)
                 .add("authorizationUser", authorizationUser)
                 .add("clientTags", clientTags)
                 .add("clientInfo", clientInfo)
@@ -283,6 +291,7 @@ public class ClientSession
                 .add("resourceEstimates", resourceEstimates)
                 .add("clientRequestTimeout", clientRequestTimeout)
                 .add("compressionDisabled", compressionDisabled)
+                .add("encoding", encoding)
                 .omitNullValues()
                 .toString();
     }
@@ -290,8 +299,8 @@ public class ClientSession
     public static final class Builder
     {
         private URI server;
-        private Optional<String> principal = Optional.empty();
         private Optional<String> user = Optional.empty();
+        private Optional<String> sessionUser = Optional.empty();
         private Optional<String> authorizationUser = Optional.empty();
         private String source;
         private Optional<String> traceToken = Optional.empty();
@@ -310,6 +319,7 @@ public class ClientSession
         private String transactionId;
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
+        private Optional<String> encoding = Optional.empty();
 
         private Builder() {}
 
@@ -317,8 +327,8 @@ public class ClientSession
         {
             requireNonNull(clientSession, "clientSession is null");
             server = clientSession.getServer();
-            principal = clientSession.getPrincipal();
             user = clientSession.getUser();
+            sessionUser = clientSession.getSessionUser();
             authorizationUser = clientSession.getAuthorizationUser();
             source = clientSession.getSource();
             traceToken = clientSession.getTraceToken();
@@ -337,6 +347,7 @@ public class ClientSession
             transactionId = clientSession.getTransactionId();
             clientRequestTimeout = clientSession.getClientRequestTimeout();
             compressionDisabled = clientSession.isCompressionDisabled();
+            encoding = clientSession.getEncoding();
         }
 
         public Builder server(URI server)
@@ -351,15 +362,15 @@ public class ClientSession
             return this;
         }
 
-        public Builder authorizationUser(Optional<String> authorizationUser)
+        public Builder sessionUser(Optional<String> sessionUser)
         {
-            this.authorizationUser = authorizationUser;
+            this.sessionUser = sessionUser;
             return this;
         }
 
-        public Builder principal(Optional<String> principal)
+        public Builder authorizationUser(Optional<String> authorizationUser)
         {
-            this.principal = principal;
+            this.authorizationUser = authorizationUser;
             return this;
         }
 
@@ -465,12 +476,18 @@ public class ClientSession
             return this;
         }
 
+        public Builder encoding(Optional<String> encoding)
+        {
+            this.encoding = encoding;
+            return this;
+        }
+
         public ClientSession build()
         {
             return new ClientSession(
                     server,
-                    principal,
                     user,
+                    sessionUser,
                     authorizationUser,
                     source,
                     traceToken,
@@ -488,7 +505,8 @@ public class ClientSession
                     credentials,
                     transactionId,
                     clientRequestTimeout,
-                    compressionDisabled);
+                    compressionDisabled,
+                    encoding);
         }
     }
 }

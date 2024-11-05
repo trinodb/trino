@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -27,17 +26,7 @@ public class SetSessionAuthorization
 {
     private final Expression user;
 
-    public SetSessionAuthorization(Expression user)
-    {
-        this(Optional.empty(), user);
-    }
-
     public SetSessionAuthorization(NodeLocation location, Expression user)
-    {
-        this(Optional.of(location), user);
-    }
-
-    private SetSessionAuthorization(Optional<NodeLocation> location, Expression user)
     {
         super(location);
         this.user = requireNonNull(user, "user is null");

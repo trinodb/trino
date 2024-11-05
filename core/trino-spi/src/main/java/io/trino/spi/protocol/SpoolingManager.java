@@ -13,13 +13,19 @@
  */
 package io.trino.spi.protocol;
 
+import io.airlift.slice.Slice;
+import io.trino.spi.Experimental;
 import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
+@Experimental(eta = "2025-05-31")
 public interface SpoolingManager
 {
     SpooledSegmentHandle create(SpoolingContext context);
@@ -35,17 +41,16 @@ public interface SpoolingManager
     {
     }
 
-    default Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
+    default Optional<DirectLocation> directLocation(SpooledSegmentHandle handle, OptionalInt ttlSeconds)
+            throws IOException
     {
-        return Optional.empty();
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     // Converts the handle to a location that client will be redirected to
-    SpooledLocation location(SpooledSegmentHandle handle);
+    SpooledLocation location(SpooledSegmentHandle handle)
+            throws IOException;
 
-    // Convert spooled location back to the handle
-    default SpooledSegmentHandle handle(SpooledLocation location)
-    {
-        throw new UnsupportedOperationException();
-    }
+    // Converts spooled location back to the handle
+    SpooledSegmentHandle handle(Slice identifier, Map<String, List<String>> headers);
 }

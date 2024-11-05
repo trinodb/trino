@@ -464,7 +464,7 @@ public class TestArbitraryOutputBuffer
             secondReads.add(buffer.get(completed, result.getNextToken(), sizeOfPages(1)));
         }
         // Test sanity
-        assertThat(secondReads.size()).isEqualTo(ids.length);
+        assertThat(secondReads).hasSize(ids.length);
 
         // Completion order should be identical to the first iteration at this point
         for (int i = 0; i < ids.length; i++) {

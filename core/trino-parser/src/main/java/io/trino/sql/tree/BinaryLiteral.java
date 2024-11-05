@@ -18,7 +18,6 @@ import com.google.common.io.BaseEncoding;
 import io.trino.sql.parser.ParsingException;
 
 import java.util.Arrays;
-import java.util.Optional;
 
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -36,7 +35,7 @@ public class BinaryLiteral
 
     public BinaryLiteral(NodeLocation location, String value)
     {
-        super(Optional.of(location));
+        super(location);
         requireNonNull(value, "value is null");
         String hexString = WHITESPACE_MATCHER.removeFrom(value).toUpperCase(ENGLISH);
         if (!HEX_DIGIT_MATCHER.matchesAllOf(hexString)) {

@@ -17,7 +17,6 @@ import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
 import io.trino.client.uri.HttpClientFactory;
 import io.trino.client.uri.TrinoUri;
-import okhttp3.Call;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
@@ -33,11 +32,15 @@ public class QueryRunner
     private final AtomicReference<ClientSession> session;
     private final boolean debug;
     private final OkHttpClient httpClient;
+    private final OkHttpClient segmentHttpClient;
 
     public QueryRunner(TrinoUri uri, ClientSession session, boolean debug)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.httpClient = HttpClientFactory.toHttpClientBuilder(uri, session.getSource()).build();
+        this.segmentHttpClient = HttpClientFactory
+                .unauthenticatedClientBuilder(uri, session.getSource())
+                .build();
         this.debug = debug;
     }
 
@@ -68,7 +71,7 @@ public class QueryRunner
 
     private StatementClient startInternalQuery(ClientSession session, String query)
     {
-        return newStatementClient((Call.Factory) httpClient, session, query);
+        return newStatementClient(httpClient, segmentHttpClient, session, query);
     }
 
     @Override

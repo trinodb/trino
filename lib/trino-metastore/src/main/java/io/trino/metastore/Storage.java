@@ -142,9 +142,7 @@ public class Storage
         private boolean skewed;
         private Map<String, String> serdeParameters = ImmutableMap.of();
 
-        private Builder()
-        {
-        }
+        private Builder() {}
 
         private Builder(Storage storage)
         {

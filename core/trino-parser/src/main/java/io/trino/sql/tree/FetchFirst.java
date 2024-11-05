@@ -28,27 +28,43 @@ public class FetchFirst
     private final Optional<Expression> rowCount;
     private final boolean withTies;
 
+    @Deprecated
     public FetchFirst(Expression rowCount)
     {
         this(Optional.empty(), Optional.of(rowCount), false);
     }
 
+    @Deprecated
     public FetchFirst(Expression rowCount, boolean withTies)
     {
         this(Optional.empty(), Optional.of(rowCount), withTies);
     }
 
+    @Deprecated
     public FetchFirst(Optional<Expression> rowCount)
     {
         this(Optional.empty(), rowCount, false);
     }
 
+    @Deprecated
     public FetchFirst(Optional<Expression> rowCount, boolean withTies)
     {
         this(Optional.empty(), rowCount, withTies);
     }
 
+    @Deprecated
     public FetchFirst(Optional<NodeLocation> location, Optional<Expression> rowCount, boolean withTies)
+    {
+        super(location);
+        rowCount.ifPresent(count -> checkArgument(
+                count instanceof LongLiteral || count instanceof Parameter,
+                "unexpected rowCount class: %s",
+                rowCount.getClass().getSimpleName()));
+        this.rowCount = rowCount;
+        this.withTies = withTies;
+    }
+
+    public FetchFirst(NodeLocation location, Optional<Expression> rowCount, boolean withTies)
     {
         super(location);
         rowCount.ifPresent(count -> checkArgument(

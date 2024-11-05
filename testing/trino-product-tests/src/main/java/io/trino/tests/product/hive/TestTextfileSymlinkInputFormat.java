@@ -46,11 +46,13 @@ public class TestTextfileSymlinkInputFormat
     {
         String table = "test_textfile_symlink";
         onHive().executeQuery("DROP TABLE IF EXISTS " + table);
-        onHive().executeQuery("""
+        onHive().executeQuery(
+                """
                 CREATE TABLE %s (col int)
                 ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'
                 STORED AS INPUTFORMAT 'org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat'
-                OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'""".formatted(table));
+                OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'\
+                """.formatted(table));
 
         String tableRoot = warehouseDirectory + '/' + table;
         String dataDir = warehouseDirectory + "/data_test_textfile_symlink";
@@ -69,11 +71,13 @@ public class TestTextfileSymlinkInputFormat
     {
         String table = "test_textfile_invalid_symlink";
         onHive().executeQuery("DROP TABLE IF EXISTS " + table);
-        onHive().executeQuery("""
+        onHive().executeQuery(
+                """
                 CREATE TABLE %s (col int)
                 ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'
                 STORED AS INPUTFORMAT 'org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat'
-                OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'""".formatted(table));
+                OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'\
+                """.formatted(table));
 
         String tableRoot = warehouseDirectory + '/' + table;
         String dataDir = warehouseDirectory + "/data_test_textfile_invalid_symlink";
@@ -94,11 +98,13 @@ public class TestTextfileSymlinkInputFormat
         String table = "test_textfile_symlink_with_multiple_parents";
         onHive().executeQuery("DROP TABLE IF EXISTS " + table);
 
-        onHive().executeQuery("""
+        onHive().executeQuery(
+                """
                 CREATE TABLE %s (value int)
                 ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'
                 STORED AS INPUTFORMAT 'org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat'
-                OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'""".formatted(table));
+                OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'\
+                """.formatted(table));
 
         String tableRoot = warehouseDirectory + '/' + table;
         String dataDir = warehouseDirectory + "/data_test_textfile_symlink_with_multiple_parents";

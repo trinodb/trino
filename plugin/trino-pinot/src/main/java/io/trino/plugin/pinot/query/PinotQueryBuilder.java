@@ -49,9 +49,7 @@ import static java.util.stream.Collectors.joining;
 
 public final class PinotQueryBuilder
 {
-    private PinotQueryBuilder()
-    {
-    }
+    private PinotQueryBuilder() {}
 
     public static String generatePql(PinotTableHandle tableHandle, List<PinotColumnHandle> columnHandles, Optional<String> tableNameSuffix, Optional<String> timePredicate, int limitForSegmentQueries)
     {

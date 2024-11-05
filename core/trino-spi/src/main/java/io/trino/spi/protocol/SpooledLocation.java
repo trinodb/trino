@@ -14,6 +14,7 @@
 package io.trino.spi.protocol;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.Experimental;
 
 import java.net.URI;
 import java.util.List;
@@ -21,11 +22,14 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
+@Experimental(eta = "2025-05-31")
 public sealed interface SpooledLocation
 {
     Map<String, List<String>> headers();
 
-    record CoordinatorLocation(Slice identifier, Map<String, List<String>> headers)
+    Slice identifier();
+
+    record CoordinatorLocation(@Override Slice identifier, Map<String, List<String>> headers)
             implements SpooledLocation
     {
         public CoordinatorLocation {
@@ -33,17 +37,12 @@ public sealed interface SpooledLocation
         }
     }
 
-    record DirectLocation(URI uri, Map<String, List<String>> headers)
+    record DirectLocation(@Override Slice identifier, URI directUri, Map<String, List<String>> headers)
             implements SpooledLocation
     {
         public DirectLocation {
             headers = Map.copyOf(requireNonNull(headers, "headers is null"));
         }
-    }
-
-    static DirectLocation directLocation(URI uri, Map<String, List<String>> headers)
-    {
-        return new DirectLocation(uri, headers);
     }
 
     static CoordinatorLocation coordinatorLocation(Slice identifier, Map<String, List<String>> headers)

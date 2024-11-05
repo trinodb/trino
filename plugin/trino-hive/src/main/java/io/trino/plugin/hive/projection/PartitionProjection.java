@@ -102,10 +102,18 @@ public final class PartitionProjection
                                         table.getPartitionColumns().stream()
                                                 .map(Column::getName).collect(Collectors.toList()),
                                         partitionValues))
-                                .orElseGet(() -> format("%s/%s/", table.getStorage().getLocation(), partitionName)))
+                                .orElseGet(() -> getPartitionLocation(table.getStorage().getLocation(), partitionName)))
                         .setBucketProperty(table.getStorage().getBucketProperty())
                         .setSerdeParameters(table.getStorage().getSerdeParameters()))
                 .build();
+    }
+
+    private static String getPartitionLocation(String tableLocation, String partitionName)
+    {
+        if (tableLocation.endsWith("/")) {
+            return format("%s%s/", tableLocation, partitionName);
+        }
+        return format("%s/%s/", tableLocation, partitionName);
     }
 
     private static String expandStorageLocationTemplate(String template, List<String> partitionColumns, List<String> partitionValues)

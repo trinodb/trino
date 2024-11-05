@@ -22,9 +22,8 @@ support:
 * - Property
   - Description
 * - `fs.native-s3.enabled`
-  - Activate the native implementation for S3 storage support, and deactivate
-    all [legacy support](file-system-legacy). Defaults to `false`. Must be set
-    to `true` for all other properties be used.
+  - Activate the native implementation for S3 storage support. Defaults to
+    `false`. Set to `true` to use S3 and enable all other properties.
 * - `s3.endpoint`
   - Required endpoint URL for S3.
 * - `s3.region`

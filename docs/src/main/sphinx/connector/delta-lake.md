@@ -13,7 +13,7 @@ data.
 To connect to Databricks Delta Lake, you need:
 
 - Tables written by Databricks Runtime 7.3 LTS, 9.1 LTS, 10.4 LTS, 11.3 LTS,
-  12.2 LTS and 13.3 LTS are supported.
+  12.2 LTS, 13.3 LTS, 14.3 LTS and 15.4 LTS are supported.
 - Deployments using AWS, HDFS, Azure Storage, and Google Cloud Storage (GCS) are
   fully supported.
 - Network access from the coordinator and workers to the Delta Lake storage.
@@ -27,15 +27,20 @@ To connect to Databricks Delta Lake, you need:
 ## General configuration
 
 To configure the Delta Lake connector, create a catalog properties file
-`etc/catalog/example.properties` that references the `delta_lake`
-connector and defines a metastore. You must configure a metastore for table
-metadata.  If you are using a {ref}`Hive metastore <hive-thrift-metastore>`,
-`hive.metastore.uri` must be configured:
+`etc/catalog/example.properties` that references the `delta_lake` connector.
+
+You must configure a [metastore for metadata](/object-storage/metastores).
+
+You must select and configure one of the [supported file
+systems](delta-lake-file-system-configuration).
 
 ```properties
 connector.name=delta_lake
 hive.metastore.uri=thrift://example.net:9083
+fs.x.enabled=true
 ```
+
+Replace the `fs.x.enabled` configuration property with the desired file system.
 
 If you are using {ref}`AWS Glue <hive-glue-metastore>` as your metastore, you
 must instead set `hive.metastore` to `glue`:
@@ -55,17 +60,15 @@ visible to the connector.
 (delta-lake-file-system-configuration)=
 ## File system access configuration
 
-The connector supports native, high-performance file system access to object
-storage systems:
+The connector supports accessing the following file systems:
 
-* [](/object-storage)
 * [](/object-storage/file-system-azure)
 * [](/object-storage/file-system-gcs)
 * [](/object-storage/file-system-s3)
+* [](/object-storage/file-system-hdfs)
 
-You must enable and configure the specific native file system access. If none is
-activated, the [legacy support](file-system-legacy) is used and must be
-configured.
+You must enable and configure the specific file system access. [Legacy
+support](file-system-legacy) is not recommended and will be removed.
 
 ### Delta Lake general configuration properties
 
@@ -709,6 +712,17 @@ WITH (
 AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
 ```
 
+(delta-lake-shallow-clone)=
+#### Shallow cloned tables
+
+The connector supports read and write operations on shallow cloned tables. Trino
+does not support creating shallow clone tables. More information about shallow
+cloning is available in the [Delta Lake
+documentation](https://docs.delta.io/latest/delta-utility.html#shallow-clone-a-delta-table).
+
+Shallow cloned tables let you test queries or experiment with changes to a table
+without duplicating data.
+
 #### Metadata tables
 
 The connector exposes several metadata tables for each Delta Lake table.
@@ -1210,3 +1224,22 @@ keep a backup of the original values if you change them.
 
 The connector supports configuring and using [file system
 caching](/object-storage/file-system-cache).
+
+The following table describes file system cache properties specific to 
+the Delta Lake connector.
+
+:::{list-table} Delta Lake file system cache configuration properties
+:widths: 30, 50, 20
+:header-rows: 1
+
+* - Property name
+  - Description
+  - Default
+* - `delta.fs.cache.disable-transaction-log-caching`
+  - Set to `true` to disable caching of the `_delta_log` directory of 
+    Delta Tables. This is useful in those cases when Delta Tables are 
+    destroyed and recreated, and the files inside the transaction log 
+    directory get overwritten and cannot be safely cached. Effective 
+    only when `fs.cache.enabled=true`.
+  - `false`
+:::

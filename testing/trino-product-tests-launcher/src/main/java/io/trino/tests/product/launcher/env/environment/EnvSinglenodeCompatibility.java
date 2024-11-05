@@ -68,8 +68,8 @@ public class EnvSinglenodeCompatibility
 
     private void configureCompatibilityTestContainer(Environment.Builder builder, Config config)
     {
-        boolean java22 = config.getCompatibilityTestVersion() >= 447;
-        String jvmConfig = java22 ? "conf/presto/etc/jvm.config" : "conf/presto/etc/jvm-pre-jdk22.config";
+        boolean initialJdk22 = config.getCompatibilityTestVersion() >= 447 && config.getCompatibilityTestVersion() <= 452;
+        String jvmConfig = initialJdk22 ? "conf/trino/etc/jvm.config-initial-jdk-22" : "conf/trino/etc/jvm.config";
         String dockerImage = config.getCompatibilityTestDockerImage();
         String containerConfigDir = getConfigurationDirectory(dockerImage);
         DockerContainer container = new DockerContainer(dockerImage, COMPATIBILTY_TEST_CONTAINER_NAME)
@@ -77,8 +77,8 @@ public class EnvSinglenodeCompatibility
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath(jvmConfig)), containerConfigDir + "jvm.config")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getConfigFileFor(dockerImage))), containerConfigDir + "config.properties")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getHiveConfigFor(dockerImage))), containerConfigDir + "catalog/hive.properties")
-                .withCopyFileToContainer(forHostPath(configDir.getPath("iceberg.properties")), containerConfigDir + "catalog/iceberg.properties")
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
+                .withCopyFileToContainer(forHostPath(configDir.getPath(getIcebergConfigFor(dockerImage))), containerConfigDir + "catalog/iceberg.properties")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/trino-product-tests")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
                 .withStartupTimeout(Duration.ofMinutes(5));
@@ -120,14 +120,22 @@ public class EnvSinglenodeCompatibility
         return "hive.properties";
     }
 
+    private String getIcebergConfigFor(String dockerImage)
+    {
+        if (getVersionFromDockerImageName(dockerImage) < 359) {
+            return "iceberg_old.properties";
+        }
+        return "iceberg.properties";
+    }
+
     private void configureTestsContainer(Environment.Builder builder, Config config)
     {
         int version = getVersionFromDockerImageName(config.getCompatibilityTestDockerImage());
-        String temptoConfig = version <= 350 ? "presto-tempto-configuration.yaml" : "trino-tempto-configuration.yaml";
+        String temptoConfig = version <= 350 ? "legacy-tempto-configuration.yaml" : "tempto-configuration.yaml";
         builder.configureContainer(TESTS, container -> container
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath(temptoConfig)),
-                        "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml"));
+                        "/docker/trino-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml"));
     }
 
     protected int getVersionFromDockerImageName(String dockerImageName)

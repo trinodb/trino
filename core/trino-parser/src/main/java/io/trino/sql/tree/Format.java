@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -27,17 +26,7 @@ public class Format
 {
     private final List<Expression> arguments;
 
-    public Format(List<Expression> arguments)
-    {
-        this(Optional.empty(), arguments);
-    }
-
     public Format(NodeLocation location, List<Expression> arguments)
-    {
-        this(Optional.of(location), arguments);
-    }
-
-    private Format(Optional<NodeLocation> location, List<Expression> arguments)
     {
         super(location);
         requireNonNull(arguments, "arguments is null");

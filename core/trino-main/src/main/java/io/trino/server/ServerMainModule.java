@@ -208,7 +208,7 @@ public class ServerMainModule
         binder.bind(StartupStatus.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
-            httpServerConfig.setAdminEnabled(false);
+            httpServerConfig.setHttp2MaxConcurrentStreams(32 * 1024); // from the default 16K
         });
 
         binder.bind(PreparedStatementEncoder.class).in(Scopes.SINGLETON);
@@ -254,7 +254,6 @@ public class ServerMainModule
         binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(DiscoveryNodeManager.class).withGeneratedName();
         install(internalHttpClientModule("node-manager", ForNodeManager.class)
-                .withTracing()
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
@@ -346,19 +345,18 @@ public class ServerMainModule
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
-
-        jaxrsBinder(binder).bind(PagesResponseWriter.class);
+        binder.bind(PagesInputStreamFactory.class);
+        jaxrsBinder(binder).bind(IoExceptionSuppressingWriterInterceptor.class);
 
         // exchange client
         binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
         install(internalHttpClientModule("exchange", ForExchange.class)
-                .withTracing()
-                .withFilter(GenerateTraceTokenRequestFilter.class)
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
-                    config.setMaxConnectionsPerServer(250);
+                    config.setMaxConnectionsPerServer(64);
                     config.setMaxContentLength(DataSize.of(32, MEGABYTE));
+                    config.setMaxRequestsQueuedPerDestination(65536);
                 }).build());
 
         configBinder(binder).bindConfig(DirectExchangeClientConfig.class);

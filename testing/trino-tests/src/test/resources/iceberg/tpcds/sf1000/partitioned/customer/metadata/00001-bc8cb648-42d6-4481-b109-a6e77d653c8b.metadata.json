@@ -1,0 +1,398 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "10c0298b-2178-40a8-ad81-7c732d3ded47",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/customer",
+  "last-updated-ms" : 1663712676249,
+  "last-column-id" : 18,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "c_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "c_customer_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "c_current_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "c_current_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "c_current_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "c_first_shipto_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "c_first_sales_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "c_salutation",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "c_first_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "c_last_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "c_preferred_cust_flag",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "c_birth_day",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 13,
+      "name" : "c_birth_month",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 14,
+      "name" : "c_birth_year",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 15,
+      "name" : "c_birth_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "c_login",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "c_email_address",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 18,
+      "name" : "c_last_review_date_sk",
+      "required" : false,
+      "type" : "long"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "c_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "c_customer_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "c_current_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "c_current_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "c_current_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "c_first_shipto_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "c_first_sales_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "c_salutation",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "c_first_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "c_last_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "c_preferred_cust_flag",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "c_birth_day",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 13,
+      "name" : "c_birth_month",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 14,
+      "name" : "c_birth_year",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 15,
+      "name" : "c_birth_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "c_login",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "c_email_address",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 18,
+      "name" : "c_last_review_date_sk",
+      "required" : false,
+      "type" : "long"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "PARQUET"
+  },
+  "current-snapshot-id" : 2201162249508106077,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 2201162249508106077,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 2201162249508106077,
+    "timestamp-ms" : 1648081220181,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "6",
+      "added-records" : "12000000",
+      "added-files-size" : "464014522",
+      "changed-partition-count" : "1",
+      "total-records" : "12000000",
+      "total-files-size" : "464014522",
+      "total-data-files" : "6",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/customer/metadata/snap-2201162249508106077-1-384651b4-d41a-43fe-9b7b-b1ce97b12f81.avro",
+    "schema-id" : 0
+  } ],
+  "statistics" : [ {
+    "snapshot-id" : 2201162249508106077,
+    "statistics-path" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/customer/metadata/20240320_234832_02760_t6z6k-5622964d-552a-4782-8283-ae74a3553a1e.stats",
+    "file-size-in-bytes" : 317507,
+    "file-footer-size-in-bytes" : 3560,
+    "blob-metadata" : [ {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 1 ],
+      "properties" : {
+        "ndv" : "11975335"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 2 ],
+      "properties" : {
+        "ndv" : "11986190"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 3 ],
+      "properties" : {
+        "ndv" : "1929074"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 4 ],
+      "properties" : {
+        "ndv" : "7165"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 5 ],
+      "properties" : {
+        "ndv" : "5238268"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 6 ],
+      "properties" : {
+        "ndv" : "3651"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 7 ],
+      "properties" : {
+        "ndv" : "3651"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 8 ],
+      "properties" : {
+        "ndv" : "6"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 9 ],
+      "properties" : {
+        "ndv" : "5104"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 10 ],
+      "properties" : {
+        "ndv" : "4950"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 11 ],
+      "properties" : {
+        "ndv" : "2"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 12 ],
+      "properties" : {
+        "ndv" : "31"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 13 ],
+      "properties" : {
+        "ndv" : "12"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 14 ],
+      "properties" : {
+        "ndv" : "69"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 15 ],
+      "properties" : {
+        "ndv" : "211"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 16 ],
+      "properties" : {
+        "ndv" : "0"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 17 ],
+      "properties" : {
+        "ndv" : "11462955"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2201162249508106077,
+      "sequence-number" : 2,
+      "fields" : [ 18 ],
+      "properties" : {
+        "ndv" : "366"
+      }
+    } ]
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648081220181,
+    "snapshot-id" : 2201162249508106077
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648081220181,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/customer/metadata/00000-c81f4e20-55e7-408e-8fe0-c6c22a7d8db5.metadata.json"
+  } ]
+}

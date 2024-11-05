@@ -92,12 +92,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.builderWithExpectedSize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -122,7 +124,9 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_CO
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_NATIVE_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
@@ -182,6 +186,7 @@ import static org.apache.iceberg.util.PropertyUtil.propertyAsBoolean;
 public final class IcebergUtil
 {
     public static final String TRINO_TABLE_METADATA_INFO_VALID_FOR = "trino_table_metadata_info_valid_for";
+    public static final String TRINO_TABLE_COMMENT_CACHE_PREVENTED = "trino_table_comment_cache_prevented";
     public static final String COLUMN_TRINO_NOT_NULL_PROPERTY = "trino_not_null";
     public static final String COLUMN_TRINO_TYPE_ID_PROPERTY = "trino_type_id";
 
@@ -238,32 +243,46 @@ public final class IcebergUtil
 
     public static List<IcebergColumnHandle> getProjectedColumns(Schema schema, TypeManager typeManager)
     {
-        ImmutableList.Builder<IcebergColumnHandle> projectedColumns = ImmutableList.builder();
-        StructType schemaAsStruct = schema.asStruct();
-        Map<Integer, NestedField> indexById = TypeUtil.indexById(schemaAsStruct);
-        Map<Integer, Integer> indexParents = TypeUtil.indexParents(schemaAsStruct);
-        Map<Integer, List<Integer>> indexPaths = indexById.entrySet().stream()
-                .collect(toImmutableMap(Entry::getKey, e -> ImmutableList.copyOf(buildPath(indexParents, e.getKey()))));
-
-        for (Map.Entry<Integer, NestedField> entry : indexById.entrySet()) {
-            int fieldId = entry.getKey();
-            NestedField childField = entry.getValue();
-            NestedField baseField = childField;
-
-            List<Integer> path = requireNonNull(indexPaths.get(fieldId));
-            if (!path.isEmpty()) {
-                baseField = indexById.get(path.getFirst());
-                path = ImmutableList.<Integer>builder()
-                        .addAll(path.subList(1, path.size())) // Base column id shouldn't exist in IcebergColumnHandle.path
-                        .add(fieldId) // Append the leaf field id
-                        .build();
-            }
-            projectedColumns.add(createColumnHandle(baseField, childField, typeManager, path));
-        }
-        return projectedColumns.build();
+        Map<Integer, NestedField> indexById = TypeUtil.indexById(schema.asStruct());
+        return getProjectedColumns(schema, typeManager, indexById, indexById.keySet() /* project all columns */);
     }
 
-    private static List<Integer> buildPath(Map<Integer, Integer> indexParents, int fieldId)
+    public static List<IcebergColumnHandle> getProjectedColumns(Schema schema, TypeManager typeManager, Set<Integer> fieldIds)
+    {
+        Map<Integer, NestedField> indexById = TypeUtil.indexById(schema.asStruct());
+        return getProjectedColumns(schema, typeManager, indexById, fieldIds /* project selected columns */);
+    }
+
+    private static List<IcebergColumnHandle> getProjectedColumns(Schema schema, TypeManager typeManager, Map<Integer, NestedField> indexById, Set<Integer> fieldIds)
+    {
+        ImmutableList.Builder<IcebergColumnHandle> columns = builderWithExpectedSize(fieldIds.size());
+        Map<Integer, Integer> indexParents = TypeUtil.indexParents(schema.asStruct());
+        Map<Integer, List<Integer>> indexPaths = indexById.entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, entry -> ImmutableList.copyOf(buildPath(indexParents, entry.getKey()))));
+
+        for (int fieldId : fieldIds) {
+            columns.add(createColumnHandle(typeManager, fieldId, indexById, indexPaths));
+        }
+        return columns.build();
+    }
+
+    public static IcebergColumnHandle createColumnHandle(TypeManager typeManager, int fieldId, Map<Integer, NestedField> indexById, Map<Integer, List<Integer>> indexPaths)
+    {
+        NestedField childField = indexById.get(fieldId);
+        NestedField baseField = childField;
+
+        List<Integer> path = requireNonNull(indexPaths.get(fieldId));
+        if (!path.isEmpty()) {
+            baseField = indexById.get(path.getFirst());
+            path = ImmutableList.<Integer>builder()
+                    .addAll(path.subList(1, path.size())) // Base column id shouldn't exist in IcebergColumnHandle.path
+                    .add(fieldId) // Append the leaf field id
+                    .build();
+        }
+        return createColumnHandle(baseField, childField, typeManager, path);
+    }
+
+    public static List<Integer> buildPath(Map<Integer, Integer> indexParents, int fieldId)
     {
         List<Integer> path = new ArrayList<>();
         while (indexParents.containsKey(fieldId)) {
@@ -322,8 +341,8 @@ public final class IcebergUtil
     public static Optional<String> getOrcBloomFilterColumns(Map<String, String> properties)
     {
         Optional<String> orcBloomFilterColumns = Stream.of(
-                    properties.get(ORC_BLOOM_FILTER_COLUMNS),
-                    properties.get(BROKEN_ORC_BLOOM_FILTER_COLUMNS_KEY))
+                        properties.get(ORC_BLOOM_FILTER_COLUMNS),
+                        properties.get(BROKEN_ORC_BLOOM_FILTER_COLUMNS_KEY))
                 .filter(Objects::nonNull)
                 .findFirst();
         return orcBloomFilterColumns;
@@ -340,8 +359,8 @@ public final class IcebergUtil
     public static Optional<String> getOrcBloomFilterFpp(Map<String, String> properties)
     {
         return Stream.of(
-                    properties.get(ORC_BLOOM_FILTER_FPP),
-                    properties.get(BROKEN_ORC_BLOOM_FILTER_FPP_KEY))
+                        properties.get(ORC_BLOOM_FILTER_FPP),
+                        properties.get(BROKEN_ORC_BLOOM_FILTER_FPP_KEY))
                 .filter(Objects::nonNull)
                 .findFirst();
     }
@@ -356,7 +375,7 @@ public final class IcebergUtil
     public static List<ColumnMetadata> getColumnMetadatas(Schema schema, TypeManager typeManager)
     {
         List<NestedField> icebergColumns = schema.columns();
-        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(icebergColumns.size() + 2);
+        ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 2);
 
         icebergColumns.stream()
                 .map(column ->
@@ -774,7 +793,7 @@ public final class IcebergUtil
                 .toList();
     }
 
-    public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session, boolean replace, String tableLocation)
+    public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session, boolean replace, String tableLocation, Predicate<String> allowedExtraProperties)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         Schema schema = schemaFromMetadata(tableMetadata.getColumns());
@@ -782,12 +801,12 @@ public final class IcebergUtil
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
 
         if (replace) {
-            return catalog.newCreateOrReplaceTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata));
+            return catalog.newCreateOrReplaceTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata, allowedExtraProperties));
         }
-        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata));
+        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata, allowedExtraProperties));
     }
 
-    public static Map<String, String> createTableProperties(ConnectorTableMetadata tableMetadata)
+    public static Map<String, String> createTableProperties(ConnectorTableMetadata tableMetadata, Predicate<String> allowedExtraProperties)
     {
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         IcebergFileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
@@ -816,7 +835,34 @@ public final class IcebergUtil
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
-        return propertiesBuilder.buildOrThrow();
+
+        Map<String, String> baseProperties = propertiesBuilder.buildOrThrow();
+        Map<String, String> extraProperties = IcebergTableProperties.getExtraProperties(tableMetadata.getProperties()).orElseGet(ImmutableMap::of);
+
+        Set<String> illegalExtraProperties = ImmutableSet.<String>builder()
+                .addAll(Sets.intersection(
+                        ImmutableSet.<String>builder()
+                                .add(TABLE_COMMENT)
+                                .addAll(baseProperties.keySet())
+                                .addAll(SUPPORTED_PROPERTIES)
+                                .addAll(PROTECTED_ICEBERG_NATIVE_PROPERTIES)
+                                .build(),
+                        extraProperties.keySet()))
+                .addAll(extraProperties.keySet().stream()
+                        .filter(name -> !allowedExtraProperties.test(name))
+                        .collect(toImmutableSet()))
+                .build();
+
+        if (!illegalExtraProperties.isEmpty()) {
+            throw new TrinoException(
+                    INVALID_TABLE_PROPERTY,
+                    format("Illegal keys in extra_properties: %s", illegalExtraProperties));
+        }
+
+        return ImmutableMap.<String, String>builder()
+                .putAll(baseProperties)
+                .putAll(extraProperties)
+                .buildOrThrow();
     }
 
     /**

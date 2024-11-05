@@ -25,9 +25,7 @@ public final class TableLocationUtils
 {
     private static final Pattern ACID_LOCATION_PATTERN = Pattern.compile("(.*)/delta_[^/]+");
 
-    private TableLocationUtils()
-    {
-    }
+    private TableLocationUtils() {}
 
     public static String getTableLocation(String tableName)
     {

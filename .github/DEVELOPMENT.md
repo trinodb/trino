@@ -1,51 +1,27 @@
 # Development
 
-Developers should read [the development section of the website](https://trino.io/development),
-which covers thing like development philosophy and contribution process.
+Learn about development for all Trino organization projects:
 
-More information about the writing and building the documentation can
-be found in the [docs module](../docs).
+* [Vision](https://trino.io/development/vision)
+* [Contribution process](https://trino.io/development/process#contribution-process)
+* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines-)
+* [Release note guidelines](https://trino.io/development/process#release-note-guidelines-)
 
-* [Commits and pull requests](#commits-and-pull-requests)
+Further information in the [development section of the
+website](https://trino.io/development) includes different roles, like
+contributors, reviewers, and maintainers, related processes, and other aspects.
+
+See [the Trino developer guide](https://trino.io/docs/current/develop.html) for
+information about the SPI, implementing connectors and other plugins plugins,
+the client protocol, writing tests and other lower level details.
+
+More information about writing and building the documentation can be found in
+the [docs module](../docs).
+
 * [Code style](#code-style)
 * [Additional IDE configuration](#additional-ide-configuration)
 * [Building the Web UI](#building-the-web-ui)
 * [CI pipeline](#ci-pipeline)
-
-## Commits and pull requests
-
-### Format Git commit messages
-
-When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
-
-### Git merge strategy
-
-Pull requests are usually merged into `master` using the  [`rebase and merge`](https://docs.github.com/en/github/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges#rebase-and-merge-your-pull-request-commits) strategy.
-
-A typical pull request should strive to contain a single logical change (but not
-necessarily a single commit). Unrelated changes should generally be extracted
-into their own PRs.
-
-If a pull request contains a stack of more than one commit, then
-popping any number of commits from the top of the stack, should not
-break the PR, ie. every commit should build and pass all tests.
-
-Commit messages and history are important as well, because they are
-used by other developers to keep track of the motivation behind
-changes. Keep logical diffs grouped together in separate commits and
-order commits in a way that explains by itself the evolution of the
-change. Rewriting and reordering commits is a natural part of the
-review process. Mechanical changes like refactoring, renaming, removing
-duplication, extracting helper methods, static imports should be kept
-separated from logical and functional changes like adding a new feature
-or modifying code behaviour. This makes reviewing the code much easier
-and reduces the chance of introducing unintended changes in behavior.
-
-Whenever in doubt on splitting a change into a separate commit, ask
-yourself the following question: if all other work in the PR needs to
-be reverted after merging to master for some objective reason (eg. a
-bug has been discovered), is it worth keeping that commit still in
-master.
 
 ## Code Style
 
@@ -240,17 +216,17 @@ folder). You must have [Node.js](https://nodejs.org/en/download/) and
 [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update
 this folder after making changes, simply run:
 
-    yarn --cwd core/trino-main/src/main/resources/webapp/src install
+    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src install
 
 If no Javascript dependencies have changed (i.e., no changes to `package.json`),
 it is faster to run:
 
-    yarn --cwd core/trino-main/src/main/resources/webapp/src run package
+    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src run package
 
 To simplify iteration, you can also run in `watch` mode, which automatically
 re-compiles when changes to source files are detected:
 
-    yarn --cwd core/trino-main/src/main/resources/webapp/src run watch
+    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src run watch
 
 To iterate quickly, simply re-build the project in IntelliJ after packaging is
 complete. Project resources will be hot-reloaded and changes are reflected on
@@ -262,16 +238,22 @@ Trino aims for frequent releases, generally once per week. This is a goal but
 not a guarantee, as critical bugs may lead to a release being pushed back or
 require an extra emergency release to patch the issue.
 
-At the start of each release cycle, a GitHub issue is filed and pinned to track
-all necessary release notes. For example, see [the issue for Trino 395](https://github.com/trinodb/trino/issues/13913).
-In addition, a release notes pull request is updated and maintained throughout
-the week, tracking all merged commits to ensure every change is properly
-documented and noted. This uses the [release note template](../docs/release-template.md),
-with changes in each section arranged to have new features first, performance
-improvements second, and bugfixes third. See [the release notes for 395](https://github.com/trinodb/trino/pull/13975)
-as an example.
+At the start of each release cycle, a release notes pull request (PR) is started
+and maintained throughout the week, tracking all merged PRs to ensure every
+change is properly documented and noted.
 
-Once it is time to release, the release process is kicked off. A code freeze is
-announced on the Trino Slack in the #releases channel, and then a maintainer
-utilizes the [release scripts](https://github.com/trinodb/release-scripts) to
-update Trino to the next version.
+The PR uses the [release note template](../docs/release-template.md) and follows
+the [release notes
+guidelines](https://trino.io/development/process#release-note) to use and
+improve the proposed release note entries from the merged PRs. When necessary,
+documentation and clarification for the release notes entries is requested from
+the merging maintainer and the contributor.
+
+See [the release notes for
+455](https://github.com/trinodb/trino/pull/23096) as an example.
+
+Once it is time to release, the release notes PR is merged and the process is
+kicked off. A code freeze is announced on the Trino Slack in the #releases
+channel, and then a maintainer utilizes the [release
+scripts](https://github.com/trinodb/release-scripts) to update Trino to the next
+version.

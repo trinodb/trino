@@ -1,0 +1,27 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            local exchange (REPARTITION, ROUND_ROBIN, [])
+                final aggregation over (groupid, i_item_id_gid, s_state_gid)
+                    local exchange (REPARTITION, HASH, [groupid, i_item_id_gid, s_state_gid])
+                        remote exchange (REPARTITION, HASH, [groupid, i_item_id_gid, s_state_gid])
+                            partial aggregation over (groupid, i_item_id_gid, s_state_gid)
+                                join (INNER, PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, [ss_item_sk])
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                join (INNER, REPLICATED):
+                                                    dynamic filter (ss_cdemo_sk::EQUAL, ss_item_sk::EQUAL, ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL)
+                                                        scan store_sales
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan customer_demographics
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan store
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan date_dim
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, [i_item_sk])
+                                            scan item

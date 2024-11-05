@@ -14,6 +14,7 @@
 package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.cassandra.TestCassandraTable.ColumnDefinition;
 import io.trino.spi.type.RowType.Field;
@@ -140,7 +141,11 @@ public class TestCassandraTypeMapping
     {
         server = closeAfterClass(new CassandraServer());
         session = server.getSession();
-        return CassandraQueryRunner.builder(server).build();
+        return CassandraQueryRunner.builder(server)
+                .addConnectorProperties(ImmutableMap.<String, String>builder()
+                        .put("cassandra.client.read-timeout", "30s")
+                        .buildOrThrow())
+                .build();
     }
 
     @AfterAll

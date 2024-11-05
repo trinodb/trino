@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -28,6 +29,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -47,6 +49,7 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.TransferPair;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -74,6 +77,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.arrow.compression.CommonsCompressionFactory.INSTANCE;
+import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 import static org.apache.arrow.vector.types.Types.MinorType.DECIMAL256;
 
 public class BigQueryArrowToPageConverter
@@ -82,18 +86,14 @@ public class BigQueryArrowToPageConverter
     private final BigQueryTypeManager typeManager;
     private final VectorSchemaRoot root;
     private final VectorLoader loader;
-    private final List<Type> columnTypes;
-    private final List<String> columnNames;
+    private final List<BigQueryColumnHandle> columns;
+    private final BufferAllocator allocator;
 
     public BigQueryArrowToPageConverter(BigQueryTypeManager typeManager, BufferAllocator allocator, Schema schema, List<BigQueryColumnHandle> columns)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.columnTypes = requireNonNull(columns, "columns is null").stream()
-                .map(BigQueryColumnHandle::trinoType)
-                .collect(toImmutableList());
-        this.columnNames = columns.stream()
-                .map(BigQueryColumnHandle::name)
-                .collect(toImmutableList());
+        this.allocator = requireNonNull(allocator, "allocator is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         List<FieldVector> vectors = schema.getFields().stream()
                 .map(field -> field.createVector(allocator))
                 .collect(toImmutableList());
@@ -106,15 +106,32 @@ public class BigQueryArrowToPageConverter
         loader.load(batch);
         pageBuilder.declarePositions(root.getRowCount());
 
-        for (int column = 0; column < columnTypes.size(); column++) {
+        for (int column = 0; column < columns.size(); column++) {
+            BigQueryColumnHandle columnHandle = columns.get(column);
+            FieldVector fieldVector = getFieldVector(root, columnHandle);
             convertType(pageBuilder.getBlockBuilder(column),
-                    columnTypes.get(column),
-                    root.getVector(toBigQueryColumnName(columnNames.get(column))),
+                    columnHandle.trinoType(),
+                    fieldVector,
                     0,
-                    root.getVector(toBigQueryColumnName(columnNames.get(column))).getValueCount());
+                    fieldVector.getValueCount());
         }
 
         root.clear();
+    }
+
+    private static FieldVector getFieldVector(VectorSchemaRoot root, BigQueryColumnHandle columnHandle)
+    {
+        FieldVector fieldVector = root.getVector(toBigQueryColumnName(columnHandle.name()));
+
+        for (String dereferenceName : columnHandle.dereferenceNames()) {
+            for (FieldVector child : fieldVector.getChildrenFromFields()) {
+                if (child.getField().getName().equals(dereferenceName)) {
+                    fieldVector = child;
+                    break;
+                }
+            }
+        }
+        return fieldVector;
     }
 
     private void convertType(BlockBuilder output, Type type, FieldVector vector, int offset, int length)
@@ -160,7 +177,7 @@ public class BigQueryArrowToPageConverter
                 writeVectorValues(output, vector, index -> writeObjectTimestampWithTimezone(output, type, vector, index), offset, length);
             }
             else if (type instanceof ArrayType arrayType) {
-                writeVectorValues(output, vector, _ -> writeArrayBlock(output, arrayType, vector), offset, length);
+                writeVectorValues(output, vector, index -> writeArrayBlock(output, arrayType, vector, index), offset, length);
             }
             else if (type instanceof RowType rowType) {
                 writeVectorValues(output, vector, index -> writeRowBlock(output, rowType, vector, index), offset, length);
@@ -229,11 +246,23 @@ public class BigQueryArrowToPageConverter
         type.writeObject(output, fromEpochMillisAndFraction(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND), picosOfMillis, UTC_KEY));
     }
 
-    private void writeArrayBlock(BlockBuilder output, ArrayType arrayType, FieldVector vector)
+    private void writeArrayBlock(BlockBuilder output, ArrayType arrayType, FieldVector vector, int index)
     {
         Type elementType = arrayType.getElementType();
-        FieldVector innerVector = ((ListVector) vector).getDataVector();
-        ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> convertType(elementBuilder, elementType, innerVector, 0, innerVector.getValueCount()));
+        ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
+            ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+
+            int start = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
+            int end = offsetBuffer.getInt((long) (index + 1) * OFFSET_WIDTH);
+
+            FieldVector innerVector = ((ListVector) vector).getDataVector();
+
+            TransferPair transferPair = innerVector.getTransferPair(allocator);
+            transferPair.splitAndTransfer(start, end - start);
+            try (FieldVector sliced = (FieldVector) transferPair.getTo()) {
+                convertType(elementBuilder, elementType, sliced, 0, sliced.getValueCount());
+            }
+        });
     }
 
     private void writeRowBlock(BlockBuilder output, RowType rowType, FieldVector vector, int index)

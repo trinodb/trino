@@ -41,9 +41,17 @@ public interface StatementClient
 
     QueryStatusInfo currentStatusInfo();
 
+    // For backward compatibility and migration path
     QueryData currentData();
 
+    ResultRows currentRows();
+
     QueryStatusInfo finalStatusInfo();
+
+    default Optional<String> getEncoding()
+    {
+        return Optional.empty();
+    }
 
     Optional<String> getSetCatalog();
 

@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.base.util;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -26,7 +28,10 @@ import static java.util.Objects.requireNonNull;
 public final class AutoCloseableCloser
         implements AutoCloseable
 {
-    private final Deque<AutoCloseable> stack = new ArrayDeque<>(4);
+    @GuardedBy("this")
+    private boolean closed;
+    @GuardedBy("this")
+    private final ArrayList<AutoCloseable> closeables = new ArrayList<>(4);
 
     private AutoCloseableCloser() {}
 
@@ -38,7 +43,23 @@ public final class AutoCloseableCloser
     public <C extends AutoCloseable> C register(C closeable)
     {
         requireNonNull(closeable, "closeable is null");
-        stack.addFirst(closeable);
+        boolean registered = false;
+        synchronized (this) {
+            if (!closed) {
+                closeables.add(closeable);
+                registered = true;
+            }
+        }
+        if (!registered) {
+            IllegalStateException failure = new IllegalStateException("Already closed");
+            try {
+                closeable.close();
+            }
+            catch (Exception e) {
+                failure.addSuppressed(e);
+            }
+            throw failure;
+        }
         return closeable;
     }
 
@@ -46,9 +67,15 @@ public final class AutoCloseableCloser
     public void close()
             throws Exception
     {
+        List<AutoCloseable> closeables;
+        synchronized (this) {
+            closed = true;
+            closeables = List.copyOf(this.closeables.reversed());
+            this.closeables.clear();
+            this.closeables.trimToSize();
+        }
         Throwable rootCause = null;
-        while (!stack.isEmpty()) {
-            AutoCloseable closeable = stack.removeFirst();
+        for (AutoCloseable closeable : closeables) {
             try {
                 closeable.close();
             }

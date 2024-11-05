@@ -28,21 +28,19 @@ public final class Explain
     private final Statement statement;
     private final List<ExplainOption> options;
 
+    @Deprecated
     public Explain(Statement statement, List<ExplainOption> options)
     {
-        this(Optional.empty(), statement, options);
+        super(Optional.empty());
+        this.statement = requireNonNull(statement, "statement is null");
+        this.options = ImmutableList.copyOf(requireNonNull(options, "options is null"));
     }
 
     public Explain(NodeLocation location, Statement statement, List<ExplainOption> options)
     {
-        this(Optional.of(location), statement, options);
-    }
-
-    public Explain(Optional<NodeLocation> location, Statement statement, List<ExplainOption> options)
-    {
         super(location);
         this.statement = requireNonNull(statement, "statement is null");
-        this.options = ImmutableList.copyOf(requireNonNull(options, "options is null"));
+        this.options = ImmutableList.copyOf(options);
     }
 
     public Statement getStatement()

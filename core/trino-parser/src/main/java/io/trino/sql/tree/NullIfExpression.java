@@ -17,7 +17,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * NULLIF(V1,V2): CASE WHEN V1=V2 THEN NULL ELSE V1 END
@@ -28,21 +29,11 @@ public class NullIfExpression
     private final Expression first;
     private final Expression second;
 
-    public NullIfExpression(Expression first, Expression second)
-    {
-        this(Optional.empty(), first, second);
-    }
-
     public NullIfExpression(NodeLocation location, Expression first, Expression second)
     {
-        this(Optional.of(location), first, second);
-    }
-
-    private NullIfExpression(Optional<NodeLocation> location, Expression first, Expression second)
-    {
         super(location);
-        this.first = first;
-        this.second = second;
+        this.first = requireNonNull(first, "first is null");
+        this.second = requireNonNull(second, "second is null");
     }
 
     public Expression getFirst()

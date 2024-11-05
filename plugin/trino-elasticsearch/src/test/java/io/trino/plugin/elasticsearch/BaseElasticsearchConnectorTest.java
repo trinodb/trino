@@ -1063,19 +1063,23 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("text_column", "Привет")
                 .buildOrThrow());
 
-        assertThat(query("" +
-                "SELECT " +
-                "keyword_column " +
-                "FROM " + indexName + " " +
-                "WHERE keyword_column LIKE 's_.m%ex\\t'"))
+        assertThat(query(
+                """
+                SELECT keyword_column
+                FROM like_test
+                WHERE keyword_column
+                LIKE 's_.m%ex\\t'
+                """))
                 .matches("VALUES VARCHAR 'so.me tex\\t'")
                 .isFullyPushedDown();
 
-        assertThat(query("" +
-                 "SELECT " +
-                 "text_column " +
-                 "FROM " + indexName + " " +
-                 "WHERE text_column LIKE 's_.m%ex\\t'"))
+        assertThat(query(
+                """
+                SELECT text_column
+                FROM like_test
+                WHERE text_column
+                LIKE 's_.m%ex\\t'
+                """))
                 .matches("VALUES VARCHAR 'so.me tex\\t'");
 
         assertThat(query("" +
@@ -1365,7 +1369,8 @@ public abstract class BaseElasticsearchConnectorTest
                 .buildOrThrow());
 
         // Trino query filters in the engine, so the rounding (dependent on scaling factor) does not impact results
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT text_column, scaled_float_column
                 FROM scaled_float_type
                 WHERE scaled_float_column = 123.46
@@ -1534,6 +1539,39 @@ public abstract class BaseElasticsearchConnectorTest
         // ipaddress
         assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv4_column = IPADDRESS '1.2.3.4'", "VALUES 1");
         assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv6_column = IPADDRESS '2001:db8::1:0:0:1'", "VALUES 1");
+    }
+
+    @Test
+    public void testFiltersCharset()
+            throws IOException
+    {
+        String indexName = "filter_charset_pushdown";
+
+        @Language("JSON")
+        String mappings =
+                """
+                {
+                  "properties": {
+                    "keyword_column":   { "type": "keyword" },
+                    "text_column":      { "type": "text" }
+                  }
+                }
+                """;
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "Türkiye")
+                .put("text_column", "Türkiye")
+                .buildOrThrow());
+
+        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE keyword_column = 'Türkiye'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE keyword_column = 'bar'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE text_column = 'Türkiye'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE text_column = 'some'", "VALUES 0");
+
+        assertQuery("SELECT keyword_column FROM filter_charset_pushdown WHERE keyword_column = 'Türkiye'", "VALUES ('Türkiye')");
+        assertQuery("SELECT text_column FROM filter_charset_pushdown WHERE text_column = 'Türkiye'", "VALUES ('Türkiye')");
     }
 
     @Test
@@ -1897,7 +1935,7 @@ public abstract class BaseElasticsearchConnectorTest
     {
         String catalogName = getSession().getCatalog().orElseThrow();
         assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
-        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(name)).isFalse();
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).doesNotContain(name);
         assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");
     }
 

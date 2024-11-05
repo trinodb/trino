@@ -81,7 +81,7 @@ class TestTypeOperators
                 callArguments.add(value == null);
             }
             case BLOCK_POSITION, BLOCK_POSITION_NOT_NULL -> {
-                BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
+                BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(1);
                 if (value == null) {
                     verify(convention == BLOCK_POSITION);
                     blockBuilder.appendNull();

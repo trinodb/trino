@@ -221,7 +221,7 @@ public class TestHashJoinOperator
             pages = dropChannel(pages, getHashChannels(probePagesBuilder, buildPages));
         }
 
-        assertThat(pages.size()).isEqualTo(2);
+        assertThat(pages).hasSize(2);
         if (withFilter) {
             assertThat(pages.get(0).getBlock(2)).isInstanceOf(VariableWidthBlock.class);
             assertThat(pages.get(0).getBlock(3)).isInstanceOf(LongArrayBlock.class);
@@ -302,7 +302,7 @@ public class TestHashJoinOperator
         operator.finish();
 
         Page output = operator.getOutput();
-        assertThat(output.getBlock(1) instanceof LazyBlock).isFalse();
+        assertThat(output.getBlock(1)).isNotInstanceOf(LazyBlock.class);
     }
 
     @Test

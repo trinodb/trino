@@ -13,42 +13,81 @@
  */
 package io.trino.spooling.filesystem;
 
-import io.airlift.slice.Slice;
-import io.airlift.units.Duration;
+import io.azam.ulidj.ULID;
+import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.protocol.SpooledSegmentHandle;
 import io.trino.spi.protocol.SpoolingContext;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.Random;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
-import static java.util.UUID.randomUUID;
 
-public record FileSystemSpooledSegmentHandle(String name, Instant validUntil, Optional<Slice> encryptionKey)
+public record FileSystemSpooledSegmentHandle(
+        @Override String encoding,
+        byte[] uuid,
+        Optional<EncryptionKey> encryptionKey)
         implements SpooledSegmentHandle
 {
     public FileSystemSpooledSegmentHandle
     {
-        requireNonNull(name, "name is null");
-        validUntil = requireNonNull(validUntil, "validUntil is null").truncatedTo(ChronoUnit.MILLIS);
+        requireNonNull(encryptionKey, "encryptionKey is null");
+        verify(uuid.length == 16, "uuid must be 128 bits");
     }
 
-    public static FileSystemSpooledSegmentHandle random(SpoolingContext context, Duration ttl)
+    public static FileSystemSpooledSegmentHandle random(Random random, SpoolingContext context, Instant expireAt)
     {
-        return random(context, ttl, Optional.empty());
+        return random(random, context, expireAt, Optional.empty());
     }
 
-    public static FileSystemSpooledSegmentHandle random(SpoolingContext context, Duration ttl, Optional<Slice> encryptionKey)
+    public static FileSystemSpooledSegmentHandle random(Random random, SpoolingContext context, Instant expireAt, Optional<EncryptionKey> encryptionKey)
     {
         return new FileSystemSpooledSegmentHandle(
-                context.queryId().getId() + "/" + randomObjectName(),
-                Instant.now().plusMillis(ttl.toMillis()),
+                context.encoding(),
+                ULID.generateBinary(expireAt.toEpochMilli(), entropy(random)),
                 encryptionKey);
     }
 
-    private static String randomObjectName()
+    @Override
+    public Instant expirationTime()
     {
-        return randomUUID().toString().replace("-", "");
+        return Instant.ofEpochMilli(ULID.getTimestampBinary(uuid()));
+    }
+
+    /**
+     * Storage identifiers are ULIDs which are ordered lexicographically
+     * by the time of the expiration. This makes it possible to find the expired
+     * segments by listing the storage objects. This is crucial for the storage
+     * cleanup process to be able to efficiently delete the expired segments.
+     *
+     * @return String lexicographically sortable storage object name
+     * @see <a href="https://github.com/ulid/spec">ULID specification</a>
+     */
+    @Override
+    public String identifier()
+    {
+        return ULID.fromBinary(uuid);
+    }
+
+    private static byte[] entropy(Random random)
+    {
+        byte[] entropy = new byte[16];
+        random.nextBytes(entropy);
+        return entropy;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("encoding", encoding)
+                .add("expires", Instant.ofEpochMilli(ULID.getTimestampBinary(uuid)))
+                .add("identifier", identifier())
+                .add("encoding", encoding)
+                .add("encryptionKey", encryptionKey.map(_ -> "[redacted]").orElse("[none"))
+                .toString();
     }
 }

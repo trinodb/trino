@@ -199,6 +199,7 @@ For more details, see {doc}`datetime`
 - {func}`last_day_of_month`
 - {func}`now`
 - {func}`parse_duration`
+- {func}`timezone`
 - {func}`to_iso8601`
 - {func}`to_milliseconds`
 - {func}`to_unixtime`
@@ -369,6 +370,7 @@ For more details, see {doc}`math`
 - {func}`ceil`
 - {func}`cos`
 - {func}`cosh`
+- {func}`cosine_distance`
 - {func}`cosine_similarity`
 - {func}`degrees`
 - {func}`e`

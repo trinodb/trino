@@ -45,9 +45,7 @@ final class Util
     private static final CatalogSchemaFunctionName ROW_NUMBER_NAME = builtinFunctionName("row_number");
     private static final CatalogSchemaFunctionName RANK_NAME = builtinFunctionName("rank");
 
-    private Util()
-    {
-    }
+    private Util() {}
 
     /**
      * Prune the set of available inputs to those required by the given expressions.

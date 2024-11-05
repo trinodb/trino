@@ -24,6 +24,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public final class NullInputCharacteristic
         extends RoutineCharacteristic
 {
+    @Deprecated
     public static NullInputCharacteristic returnsNullOnNullInput()
     {
         return new NullInputCharacteristic(Optional.empty(), false);
@@ -31,9 +32,10 @@ public final class NullInputCharacteristic
 
     public static NullInputCharacteristic returnsNullOnNullInput(NodeLocation location)
     {
-        return new NullInputCharacteristic(Optional.of(location), false);
+        return new NullInputCharacteristic(location, false);
     }
 
+    @Deprecated
     public static NullInputCharacteristic calledOnNullInput()
     {
         return new NullInputCharacteristic(Optional.empty(), true);
@@ -41,12 +43,18 @@ public final class NullInputCharacteristic
 
     public static NullInputCharacteristic calledOnNullInput(NodeLocation location)
     {
-        return new NullInputCharacteristic(Optional.of(location), true);
+        return new NullInputCharacteristic(location, true);
     }
 
     private final boolean calledOnNull;
 
     private NullInputCharacteristic(Optional<NodeLocation> location, boolean calledOnNull)
+    {
+        super(location);
+        this.calledOnNull = calledOnNull;
+    }
+
+    private NullInputCharacteristic(NodeLocation location, boolean calledOnNull)
     {
         super(location);
         this.calledOnNull = calledOnNull;

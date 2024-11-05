@@ -25,6 +25,7 @@ import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.InternalHiveSplit;
 import io.trino.plugin.hive.InternalHiveSplit.InternalHiveBlock;
+import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.fs.BlockLocation;
 import io.trino.plugin.hive.fs.TrinoFileStatus;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
@@ -45,13 +46,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveColumnHandle.isPathColumnHandle;
+import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
+import static io.trino.plugin.hive.util.HiveUtil.getSerializationLibraryName;
 import static java.util.Objects.requireNonNull;
 
 public class InternalHiveSplitFactory
 {
     private final String partitionName;
     private final HiveStorageFormat storageFormat;
-    private final Map<String, String> strippedSchema;
+    private final Schema strippedSchema;
     private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
     private final Map<Integer, HiveTypeName> hiveColumnCoercions;
@@ -91,13 +94,18 @@ public class InternalHiveSplitFactory
         checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
     }
 
-    private static Map<String, String> stripUnnecessaryProperties(Map<String, String> schema)
+    private static Schema stripUnnecessaryProperties(Map<String, String> schema)
     {
         // Sending the full schema with every split is costly and can be avoided for formats supported natively
-        schema = OrcPageSourceFactory.stripUnnecessaryProperties(schema);
-        schema = ParquetPageSourceFactory.stripUnnecessaryProperties(schema);
-        schema = RcFilePageSourceFactory.stripUnnecessaryProperties(schema);
-        return schema;
+        String serializationLibraryName = getSerializationLibraryName(schema);
+        boolean isFullAcidTable = isFullAcidTable(schema);
+        Map<String, String> serdeProperties = schema;
+        if (RcFilePageSourceFactory.stripUnnecessaryProperties(serializationLibraryName)
+                || OrcPageSourceFactory.stripUnnecessaryProperties(serializationLibraryName)
+                || ParquetPageSourceFactory.stripUnnecessaryProperties(serializationLibraryName)) {
+            serdeProperties = ImmutableMap.of();
+        }
+        return new Schema(serializationLibraryName, isFullAcidTable, serdeProperties);
     }
 
     public String getPartitionName()

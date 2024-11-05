@@ -111,7 +111,7 @@ public class BenchmarkMapToMapCast
 
         private static Block createKeyBlock(int positionCount, int mapSize)
         {
-            BlockBuilder valueBlockBuilder = DOUBLE.createBlockBuilder(null, positionCount * mapSize);
+            BlockBuilder valueBlockBuilder = DOUBLE.createFixedSizeBlockBuilder(positionCount * mapSize);
             for (int i = 0; i < positionCount * mapSize; i++) {
                 DOUBLE.writeDouble(valueBlockBuilder, ThreadLocalRandom.current().nextLong());
             }
@@ -120,7 +120,7 @@ public class BenchmarkMapToMapCast
 
         private static Block createValueBlock(int positionCount, int mapSize)
         {
-            BlockBuilder valueBlockBuilder = BIGINT.createBlockBuilder(null, positionCount * mapSize);
+            BlockBuilder valueBlockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount * mapSize);
             for (int i = 0; i < positionCount * mapSize; i++) {
                 BIGINT.writeLong(valueBlockBuilder, ThreadLocalRandom.current().nextLong());
             }

@@ -16,7 +16,6 @@ package io.trino.execution.scheduler.faulttolerant;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.StageId;
@@ -203,7 +202,7 @@ public class TestTaskDescriptorStorage
                 SplitsMapping.builder()
                         .addSplit(new PlanNodeId("1"), 1, new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.of(new TestingExchangeSourceHandle(retainedSize.toBytes())), Optional.empty()))))
                         .build(),
-                new NodeRequirements(catalog, ImmutableSet.of(), true));
+                new NodeRequirements(catalog, Optional.empty(), true));
     }
 
     private static Optional<String> getCatalogName(TaskDescriptor descriptor)

@@ -1,0 +1,3 @@
+databases:
+    trino:
+        jdbc_url: "jdbc:trino://${databases.trino.host}:${databases.trino.port}/phoenix/default"

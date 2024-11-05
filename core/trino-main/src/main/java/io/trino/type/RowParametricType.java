@@ -35,9 +35,7 @@ public final class RowParametricType
 {
     public static final RowParametricType ROW = new RowParametricType();
 
-    private RowParametricType()
-    {
-    }
+    private RowParametricType() {}
 
     @Override
     public String getName()

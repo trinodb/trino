@@ -20,7 +20,7 @@ import com.google.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 
-public class AzureAuthAccessKey
+public final class AzureAuthAccessKey
         implements AzureAuth
 {
     private final String accessKey;

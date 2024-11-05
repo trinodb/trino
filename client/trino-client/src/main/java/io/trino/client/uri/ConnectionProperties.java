@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
+import io.trino.client.spooling.encoding.QueryDataDecoders;
 import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
@@ -46,7 +47,6 @@ import static io.trino.client.ClientSelectedRole.Type.NONE;
 import static io.trino.client.uri.AbstractConnectionProperty.Validator;
 import static io.trino.client.uri.AbstractConnectionProperty.validator;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
-import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_KEY_STORE;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableMap;
@@ -69,6 +69,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, HostAndPort> HTTP_PROXY = new HttpProxy();
     public static final ConnectionProperty<String, String> APPLICATION_NAME_PREFIX = new ApplicationNamePrefix();
     public static final ConnectionProperty<String, Boolean> DISABLE_COMPRESSION = new DisableCompression();
+    public static final ConnectionProperty<String, String> ENCODING = new Encoding();
     public static final ConnectionProperty<String, Boolean> ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS = new AssumeLiteralNamesInMetadataCallsForNonConformingClients();
     public static final ConnectionProperty<String, Boolean> ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS = new AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients();
     public static final ConnectionProperty<String, Boolean> SSL = new Ssl();
@@ -128,6 +129,7 @@ final class ConnectionProperties
             .add(DISABLE_COMPRESSION)
             .add(DNS_RESOLVER)
             .add(DNS_RESOLVER_CONTEXT)
+            .add(ENCODING)
             .add(EXPLICIT_PREPARE)
             .add(EXTERNAL_AUTHENTICATION)
             .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
@@ -375,6 +377,28 @@ final class ConnectionProperties
         public DisableCompression()
         {
             super(PropertyName.DISABLE_COMPRESSION, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class Encoding
+            extends AbstractConnectionProperty<String, String>
+    {
+        public Encoding()
+        {
+            super(PropertyName.ENCODING, NOT_REQUIRED, Encoding::areEncodingsValid, STRING_CONVERTER);
+        }
+
+        public static Optional<String> areEncodingsValid(Properties properties)
+        {
+            List<String> supportedEncodings = Splitter.on(",").trimResults().omitEmptyStrings()
+                    .splitToList(ENCODING.getRequiredValue(properties));
+
+            for (String encoding : supportedEncodings) {
+                if (!QueryDataDecoders.exists(encoding)) {
+                    return Optional.of("Unknown encoding: " + encoding);
+                }
+            }
+            return Optional.empty();
         }
     }
 

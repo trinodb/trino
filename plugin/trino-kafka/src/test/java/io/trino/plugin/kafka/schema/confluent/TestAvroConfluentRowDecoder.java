@@ -213,7 +213,7 @@ public class TestAvroConfluentRowDecoder
                     Optional<Schema> nonNullSchema = schema.getTypes().stream()
                             .filter(type -> type.getType() != Schema.Type.NULL)
                             .findFirst();
-                    assertThat(nonNullSchema.isPresent()).isTrue();
+                    assertThat(nonNullSchema).isPresent();
 
                     if (expected == null) {
                         expected = getOnlyElement(schema.getFields()).defaultVal();

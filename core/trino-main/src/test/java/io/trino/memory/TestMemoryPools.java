@@ -212,7 +212,7 @@ class TestMemoryPools
 
         // free all for test_tag2
         testPool.free(testTask, "test_tag2", 20);
-        assertThat(testPool.getTaggedMemoryAllocations().size()).isEqualTo(0);
+        assertThat(testPool.getTaggedMemoryAllocations()).isEmpty();
     }
 
     @Test

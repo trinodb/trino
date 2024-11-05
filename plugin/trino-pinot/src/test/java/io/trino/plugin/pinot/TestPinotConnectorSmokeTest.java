@@ -1062,15 +1062,15 @@ public class TestPinotConnectorSmokeTest
 
         // Test segment query single row
         assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
-                        "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
-                        "  WHERE longcol = 3"))
+                "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
+                "  WHERE longcol = 3"))
                 .matches(singleRowValues)
                 .isFullyPushedDown();
 
         // Test broker query single row
         assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
-                        "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
-                        "\" WHERE longcol = 3"))
+                "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
+                "\" WHERE longcol = 3"))
                 .matches(singleRowValues)
                 .isFullyPushedDown();
 
@@ -1308,73 +1308,73 @@ public class TestPinotConnectorSmokeTest
 
         // Default null value for long single value columns is 0
         assertThat(query("SELECT long_col" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'array_null'"))
                 .matches("VALUES(BIGINT '0')")
                 .isFullyPushedDown();
 
         // Default null value for long array values is Long.MIN_VALUE,
         assertThat(query("SELECT element_at(long_array_col, 1)" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'array_null'"))
                 .matches("VALUES(BIGINT '" + Long.MIN_VALUE + "')")
                 .isNotFullyPushedDown(ProjectNode.class);
 
         // Default null value for int single value columns is 0
         assertThat(query("SELECT int_col" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'null'"))
                 .matches("VALUES(INTEGER '0')")
                 .isFullyPushedDown();
 
         // Default null value for int array values is Integer.MIN_VALUE,
         assertThat(query("SELECT element_at(int_array_col, 1)" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'null'"))
                 .matches("VALUES(INTEGER '" + Integer.MIN_VALUE + "')")
                 .isNotFullyPushedDown(ProjectNode.class);
 
         // Verify a null value for an array with all null values is a single element.
         // The original value inserted from kafka is 5 null elements.
         assertThat(query("SELECT element_at(int_array_col, 1)" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'array_null'"))
                 .matches("VALUES(INTEGER '" + Integer.MIN_VALUE + "')")
                 .isNotFullyPushedDown(ProjectNode.class);
 
         // Verify default null value for array matches expected result
         assertThat(query("SELECT element_at(int_array_col_with_pinot_default, 1)" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'null'"))
                 .matches("VALUES(INTEGER '7')")
                 .isNotFullyPushedDown(ProjectNode.class);
 
         // Verify an array with null and non-null values omits the null values
         assertThat(query("SELECT int_array_col_with_pinot_default" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'array_null'"))
                 .matches("VALUES(CAST(ARRAY[-1112, 753, -9238] AS ARRAY(INTEGER)))")
                 .isFullyPushedDown();
 
         // Default null value for strings is the string 'null'
         assertThat(query("SELECT string_col" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE bytes_col = X'' AND element_at(string_array_col, 1) = 'null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE bytes_col = X'' AND element_at(string_array_col, 1) = 'null'"))
                 .matches("VALUES (VARCHAR 'null')")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // Default array null value for strings is the string 'null'
         assertThat(query("SELECT element_at(string_array_col, 1)" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE bytes_col = X'' AND string_col = 'null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE bytes_col = X'' AND string_col = 'null'"))
                 .matches("VALUES (VARCHAR 'null')")
                 .isNotFullyPushedDown(ProjectNode.class);
 
         // Default null value for booleans is the string 'null'
         // Booleans are treated as a string
         assertThat(query("SELECT bool_col" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'null'"))
                 .matches("VALUES (false)")
                 .isFullyPushedDown();
 
@@ -1382,36 +1382,36 @@ public class TestPinotConnectorSmokeTest
         // BYTES values are treated as a strings
         // BYTES arrays are not supported
         assertThat(query("SELECT bytes_col" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'null'"))
                 .matches("VALUES (VARBINARY '')")
                 .isFullyPushedDown();
 
         // Default null value for float single value columns is 0.0F
         assertThat(query("SELECT float_col" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'array_null'"))
                 .matches("VALUES(REAL '0.0')")
                 .isFullyPushedDown();
 
         // Default null value for float array values is -INFINITY,
         assertThat(query("SELECT element_at(float_array_col, 1)" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'array_null'"))
                 .matches("VALUES(CAST(-POWER(0, -1) AS REAL))")
                 .isNotFullyPushedDown(ProjectNode.class);
 
         // Default null value for double single value columns is 0.0D
         assertThat(query("SELECT double_col" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'array_null'"))
                 .matches("VALUES(DOUBLE '0.0')")
                 .isFullyPushedDown();
 
         // Default null value for double array values is -INFINITY,
         assertThat(query("SELECT element_at(double_array_col, 1)" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'array_null'"))
                 .matches("VALUES(-POWER(0, -1))")
                 .isNotFullyPushedDown(ProjectNode.class);
 
@@ -1419,148 +1419,183 @@ public class TestPinotConnectorSmokeTest
         // Default value for a "null" array is 1 element with default null array value,
         // Values are tested above, this test is to verify pinot returns an array with 1 element.
         assertThat(query("SELECT CARDINALITY(string_array_col)," +
-                        "  CARDINALITY(int_array_col_with_pinot_default)," +
-                        "  CARDINALITY(int_array_col)," +
-                        "  CARDINALITY(float_array_col)," +
-                        "  CARDINALITY(long_array_col)" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'null'"))
+                "  CARDINALITY(int_array_col_with_pinot_default)," +
+                "  CARDINALITY(int_array_col)," +
+                "  CARDINALITY(float_array_col)," +
+                "  CARDINALITY(long_array_col)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'null'"))
                 .matches("VALUES (BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')")
                 .isNotFullyPushedDown(ProjectNode.class);
 
         // If an array contains both null and non-null values, the null values are omitted:
         // There are 5 values in the avro records, but only the 3 non-null values are in pinot
         assertThat(query("SELECT CARDINALITY(string_array_col)," +
-                        "  CARDINALITY(int_array_col_with_pinot_default)," +
-                        "  CARDINALITY(int_array_col)," +
-                        "  CARDINALITY(float_array_col)," +
-                        "  CARDINALITY(long_array_col)" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col = 'array_null'"))
+                "  CARDINALITY(int_array_col_with_pinot_default)," +
+                "  CARDINALITY(int_array_col)," +
+                "  CARDINALITY(float_array_col)," +
+                "  CARDINALITY(long_array_col)" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col = 'array_null'"))
                 .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '1', BIGINT '1', BIGINT '1')")
                 .isNotFullyPushedDown(ProjectNode.class);
 
         // IS NULL and IS NOT NULL is not pushed down in Pinot due to inconsistent results.
         // see https://docs.pinot.apache.org/developers/advanced/null-value-support
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE string_col IS NULL"""))
+                WHERE string_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '0')")
                 .isNotFullyPushedDown(FilterNode.class);
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE string_col IS NOT NULL"""))
+                WHERE string_col IS NOT NULL
+                """))
                 .matches("VALUES (BIGINT '11')")
                 .isNotFullyPushedDown(FilterNode.class);
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE string_col = 'string_0' OR string_col IS NULL"""))
+                WHERE string_col = 'string_0' OR string_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '1')")
                 .isNotFullyPushedDown(FilterNode.class);
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE string_col = 'string_0'"""))
+                WHERE string_col = 'string_0'
+                """))
                 .matches("VALUES (BIGINT '1')")
                 .isFullyPushedDown();
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE string_col != 'string_0' OR string_col IS NULL"""))
+                WHERE string_col != 'string_0' OR string_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '10')")
                 .isNotFullyPushedDown(FilterNode.class);
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE string_col != 'string_0'"""))
+                WHERE string_col != 'string_0'
+                """))
                 .matches("VALUES (BIGINT '10')")
                 .isFullyPushedDown();
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE string_col NOT IN ('null', 'array_null') OR string_col IS NULL"""))
+                WHERE string_col NOT IN ('null', 'array_null') OR string_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '9')")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // VARCHAR NOT IN is pushed down
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE string_col NOT IN ('null', 'array_null')"""))
+                WHERE string_col NOT IN ('null', 'array_null')
+                """))
                 .matches("VALUES (BIGINT '9')")
                 .isFullyPushedDown();
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE string_col IN ('null', 'array_null') OR string_col IS NULL"""))
+                WHERE string_col IN ('null', 'array_null') OR string_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '2')")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // VARCHAR IN is pushed down
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE string_col IN ('null', 'array_null')"""))
+                WHERE string_col IN ('null', 'array_null')
+                """))
                 .matches("VALUES (BIGINT '2')")
                 .isFullyPushedDown();
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE long_col IS NULL"""))
+                WHERE long_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '0')")
                 .isNotFullyPushedDown(FilterNode.class);
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE long_col IS NOT NULL"""))
+                WHERE long_col IS NOT NULL
+                """))
                 .matches("VALUES (BIGINT '11')")
                 .isNotFullyPushedDown(FilterNode.class);
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE long_col = -3147483645 OR long_col IS NULL"""))
+                WHERE long_col = -3147483645 OR long_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '1')")
                 .isNotFullyPushedDown(FilterNode.class);
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE long_col = -3147483645"""))
+                WHERE long_col = -3147483645
+                """))
                 .matches("VALUES (BIGINT '1')")
                 .isFullyPushedDown();
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE long_col != -3147483645 OR long_col IS NULL"""))
+                WHERE long_col != -3147483645 OR long_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '10')")
                 .isNotFullyPushedDown(FilterNode.class);
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE long_col != -3147483645"""))
+                WHERE long_col != -3147483645
+                """))
                 .matches("VALUES (BIGINT '10')")
                 .isFullyPushedDown();
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT long_col
                 FROM alltypes
-                WHERE long_col NOT IN (-3147483645, -3147483646, -3147483647) OR long_col IS NULL"""))
-                .matches("""
+                WHERE long_col NOT IN (-3147483645, -3147483646, -3147483647) OR long_col IS NULL
+                """))
+                .matches(
+                        """
                         VALUES (BIGINT '-3147483644'),
                         (BIGINT '-3147483643'),
                         (BIGINT '-3147483642'),
@@ -1572,11 +1607,14 @@ public class TestPinotConnectorSmokeTest
                 .isNotFullyPushedDown(FilterNode.class);
 
         // BIGINT NOT IN is pushed down
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT long_col
                 FROM alltypes
-                WHERE long_col NOT IN (-3147483645, -3147483646, -3147483647)"""))
-                .matches("""
+                WHERE long_col NOT IN (-3147483645, -3147483646, -3147483647)
+                """))
+                .matches(
+                        """
                         VALUES (BIGINT '-3147483644'),
                         (BIGINT '-3147483643'),
                         (BIGINT '-3147483642'),
@@ -1587,107 +1625,135 @@ public class TestPinotConnectorSmokeTest
                         (BIGINT '0')""")
                 .isFullyPushedDown();
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE long_col IN (-3147483645, -3147483646, -3147483647) OR long_col IS NULL"""))
+                WHERE long_col IN (-3147483645, -3147483646, -3147483647) OR long_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '3')")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // BIGINT IN is pushed down
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE long_col IN (-3147483645, -3147483646, -3147483647)"""))
+                WHERE long_col IN (-3147483645, -3147483646, -3147483647)
+                """))
                 .matches("VALUES (BIGINT '3')")
                 .isFullyPushedDown();
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT int_col
                 FROM alltypes
-                WHERE int_col NOT IN (0, 54, 56) OR int_col IS NULL"""))
+                WHERE int_col NOT IN (0, 54, 56) OR int_col IS NULL
+                """))
                 .matches("VALUES (55), (55), (55)")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // INTEGER NOT IN is pushed down
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT int_col
                 FROM alltypes
-                WHERE int_col NOT IN (0, 54, 56)"""))
+                WHERE int_col NOT IN (0, 54, 56)
+                """))
                 .matches("VALUES (55), (55), (55)")
                 .isFullyPushedDown();
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE int_col IN (0, 54, 56) OR int_col IS NULL"""))
+                WHERE int_col IN (0, 54, 56) OR int_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '8')")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // INTEGER IN is pushed down
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE int_col IN (0, 54, 56)"""))
+                WHERE int_col IN (0, 54, 56)
+                """))
                 .matches("VALUES (BIGINT '8')")
                 .isFullyPushedDown();
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE bool_col OR bool_col IS NULL"""))
+                WHERE bool_col OR bool_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '9')")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // BOOLEAN values are pushed down
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE bool_col"""))
+                WHERE bool_col
+                """))
                 .matches("VALUES (BIGINT '9')")
                 .isFullyPushedDown();
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE NOT bool_col OR bool_col IS NULL"""))
+                WHERE NOT bool_col OR bool_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '2')")
                 .isNotFullyPushedDown(FilterNode.class);
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE NOT bool_col"""))
+                WHERE NOT bool_col
+                """))
                 .matches("VALUES (BIGINT '2')")
                 .isFullyPushedDown();
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE float_col NOT IN (-2.33, -3.33, -4.33, -5.33, -6.33, -7.33) OR float_col IS NULL"""))
+                WHERE float_col NOT IN (-2.33, -3.33, -4.33, -5.33, -6.33, -7.33) OR float_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '5')")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // REAL values are not pushed down, applyFilter is not called
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE float_col NOT IN (-2.33, -3.33, -4.33, -5.33, -6.33, -7.33)"""))
+                WHERE float_col NOT IN (-2.33, -3.33, -4.33, -5.33, -6.33, -7.33)
+                """))
                 .matches("VALUES (BIGINT '5')")
                 .isNotFullyPushedDown(FilterNode.class);
 
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE double_col NOT IN (0.0, -16.33, -17.33) OR double_col IS NULL"""))
+                WHERE double_col NOT IN (0.0, -16.33, -17.33) OR double_col IS NULL
+                """))
                 .matches("VALUES (BIGINT '7')")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // DOUBLE values are not pushed down, applyFilter is not called
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*)
                 FROM alltypes
-                WHERE double_col NOT IN (0.0, -16.33, -17.33)"""))
+                WHERE double_col NOT IN (0.0, -16.33, -17.33)
+                """))
                 .matches("VALUES (BIGINT '7')")
                 .isNotFullyPushedDown(FilterNode.class);
     }
@@ -2088,83 +2154,96 @@ public class TestPinotConnectorSmokeTest
                 .withMessageContaining("'bool_col' must be an aggregate expression or appear in GROUP BY clause");
 
         // Verify that count(<column name>) is pushed down only when it matches a COUNT(DISTINCT <column name>) query
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(bool_col) FROM
                 (SELECT bool_col FROM alltypes GROUP BY bool_col)
                 """))
                 .matches("VALUES (BIGINT '2')")
                 .isFullyPushedDown();
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT bool_col, COUNT(long_col) FROM
                 (SELECT bool_col, long_col FROM alltypes GROUP BY bool_col, long_col)
                 GROUP BY bool_col
                 """))
-                .matches("""
-                    VALUES (FALSE, BIGINT '1'),
-                    (TRUE, BIGINT '9')
-                """)
+                .matches(
+                        """
+                            VALUES (FALSE, BIGINT '1'),
+                            (TRUE, BIGINT '9')
+                        """)
                 .isFullyPushedDown();
         // Verify that count(1) is not pushed down when the subquery selects distinct values for a single column
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(1) FROM
                 (SELECT bool_col FROM alltypes GROUP BY bool_col)
                 """))
                 .matches("VALUES (BIGINT '2')")
                 .isNotFullyPushedDown(AggregationNode.class);
         // Verify that count(*) is not pushed down when the subquery selects distinct values for a single column
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT COUNT(*) FROM
                 (SELECT bool_col FROM alltypes GROUP BY bool_col)
                 """))
                 .matches("VALUES (BIGINT '2')")
                 .isNotFullyPushedDown(AggregationNode.class);
         // Verify that other aggregation types are not pushed down when the subquery selects distinct values for a single column
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT SUM(long_col) FROM
                 (SELECT long_col FROM alltypes GROUP BY long_col)
                 """))
                 .matches("VALUES (BIGINT '-28327352787')")
                 .isNotFullyPushedDown(AggregationNode.class);
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT bool_col, SUM(long_col) FROM
                 (SELECT bool_col, long_col FROM alltypes GROUP BY bool_col, long_col)
                 GROUP BY bool_col
                 """))
                 .matches("VALUES (TRUE, BIGINT '-28327352787'), (FALSE, BIGINT '0')")
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT AVG(long_col) FROM
                 (SELECT long_col FROM alltypes GROUP BY long_col)
                 """))
                 .matches("VALUES (DOUBLE '-2.8327352787E9')")
                 .isNotFullyPushedDown(AggregationNode.class);
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT bool_col, AVG(long_col) FROM
                 (SELECT bool_col, long_col FROM alltypes GROUP BY bool_col, long_col)
                 GROUP BY bool_col
                 """))
                 .matches("VALUES (TRUE, DOUBLE '-3.147483643E9'), (FALSE, DOUBLE '0.0')")
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT MIN(long_col) FROM
                 (SELECT long_col FROM alltypes GROUP BY long_col)
                 """))
                 .matches("VALUES (BIGINT '-3147483647')")
                 .isNotFullyPushedDown(AggregationNode.class);
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT bool_col, MIN(long_col) FROM
                 (SELECT bool_col, long_col FROM alltypes GROUP BY bool_col, long_col)
                 GROUP BY bool_col
                 """))
                 .matches("VALUES (TRUE, BIGINT '-3147483647'), (FALSE, BIGINT '0')")
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT MAX(long_col) FROM
                 (SELECT long_col FROM alltypes GROUP BY long_col)
                 """))
                 .matches("VALUES (BIGINT '0')")
                 .isNotFullyPushedDown(AggregationNode.class);
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT bool_col, MAX(long_col) FROM
                 (SELECT bool_col, long_col FROM alltypes GROUP BY bool_col, long_col)
                 GROUP BY bool_col
@@ -2839,12 +2918,12 @@ public class TestPinotConnectorSmokeTest
     public void testQueryOptions()
     {
         assertThat(query("SELECT city, \"sum(long_number)\" FROM" +
-                         " \"SET skipUpsert = 'true';" +
-                         " SET numReplicaGroupsToQuery = '1';" +
-                         " SELECT city, SUM(long_number)" +
-                         "  FROM my_table" +
-                         "  GROUP BY city" +
-                         "  HAVING SUM(long_number) > 10000\""))
+                " \"SET skipUpsert = 'true';" +
+                " SET numReplicaGroupsToQuery = '1';" +
+                " SELECT city, SUM(long_number)" +
+                "  FROM my_table" +
+                "  GROUP BY city" +
+                "  HAVING SUM(long_number) > 10000\""))
                 .matches("VALUES (VARCHAR 'Los Angeles', DOUBLE '50000.0'), (VARCHAR 'New York', DOUBLE '20000.0')")
                 .isFullyPushedDown();
     }

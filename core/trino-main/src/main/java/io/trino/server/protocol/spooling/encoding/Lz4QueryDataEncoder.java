@@ -22,7 +22,7 @@ import java.io.OutputStream;
 public class Lz4QueryDataEncoder
         extends CompressedQueryDataEncoder
 {
-    private static final int COMPRESSION_THRESHOLD = 2048;
+    private static final int COMPRESSION_THRESHOLD = 8192;
 
     public Lz4QueryDataEncoder(QueryDataEncoder delegate)
     {
@@ -41,8 +41,8 @@ public class Lz4QueryDataEncoder
     }
 
     @Override
-    public String encodingId()
+    public String encoding()
     {
-        return delegate.encodingId() + "+lz4";
+        return delegate.encoding() + "+lz4";
     }
 }

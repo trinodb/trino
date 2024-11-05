@@ -132,7 +132,7 @@ public class TestOrcBloomFilters
         OrcMetadataReader metadataReader = new OrcMetadataReader(new OrcReaderOptions());
         List<BloomFilter> bloomFilters = metadataReader.readBloomFilterIndexes(inputStream);
 
-        assertThat(bloomFilters.size()).isEqualTo(1);
+        assertThat(bloomFilters).hasSize(1);
 
         assertThat(bloomFilters.get(0).test(TEST_STRING)).isTrue();
         assertThat(bloomFilters.get(0).testSlice(wrappedBuffer(TEST_STRING))).isTrue();
@@ -149,7 +149,7 @@ public class TestOrcBloomFilters
         CodedInputStream input = CodedInputStream.newInstance(bloomFilterBytes.getBytes());
         OrcProto.BloomFilterIndex deserializedBloomFilterIndex = OrcProto.BloomFilterIndex.parseFrom(input);
         List<OrcProto.BloomFilter> bloomFilterList = deserializedBloomFilterIndex.getBloomFilterList();
-        assertThat(bloomFilterList.size()).isEqualTo(1);
+        assertThat(bloomFilterList).hasSize(1);
 
         OrcProto.BloomFilter bloomFilterRead = bloomFilterList.get(0);
 

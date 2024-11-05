@@ -82,7 +82,6 @@ public abstract class BaseBigQueryConnectorTest
             case SUPPORTS_ADD_COLUMN,
                     SUPPORTS_CREATE_MATERIALIZED_VIEW,
                     SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_DEREFERENCE_PUSHDOWN,
                     SUPPORTS_MERGE,
                     SUPPORTS_NEGATIVE_DATE,
                     SUPPORTS_NOT_NULL_CONSTRAINT,
@@ -123,15 +122,6 @@ public abstract class BaseBigQueryConnectorTest
                 .row("shippriority", "bigint", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
-    }
-
-    @Test
-    @Override // Override because the regexp is different from the base test
-    public void testPredicateReflectedInExplain()
-    {
-        assertExplain(
-                "EXPLAIN SELECT name FROM nation WHERE nationkey = 42",
-                "nationkey", "bigint", "42");
     }
 
     @Test
@@ -790,10 +780,12 @@ public abstract class BaseBigQueryConnectorTest
         String expectedLabel = "q_" + queryId.toString() + "__t_" + traceToken;
 
         @Language("SQL")
-        String checkForLabelQuery = """
-                    SELECT * FROM region-us.INFORMATION_SCHEMA.JOBS_BY_USER WHERE EXISTS(
-                        SELECT * FROM UNNEST(labels) AS label WHERE label.key = 'trino_query' AND label.value = '%s'
-                    )""".formatted(expectedLabel);
+        String checkForLabelQuery =
+                """
+                SELECT * FROM region-us.INFORMATION_SCHEMA.JOBS_BY_USER WHERE EXISTS(
+                    SELECT * FROM UNNEST(labels) AS label WHERE label.key = 'trino_query' AND label.value = '%s'
+                )\
+                """.formatted(expectedLabel);
 
         assertEventually(() -> assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
                 .extracting(values -> values.get("query").getStringValue())
@@ -820,7 +812,7 @@ public abstract class BaseBigQueryConnectorTest
 
             // Verify query cache is empty
             assertThat(query(createNeverDisposition, "SELECT * FROM test." + materializedView))
-                    .failure().hasMessageMatching("Failed to run the query: Not found: Table .* was not found .*");
+                    .failure().hasMessageMatching("Failed to run the query: Not found: Table .*");
             // Populate cache and verify it
             assertQuery(queryResultsCacheSession, "SELECT * FROM test." + materializedView, "VALUES 5");
             assertQuery(createNeverDisposition, "SELECT * FROM test." + materializedView, "VALUES 5");

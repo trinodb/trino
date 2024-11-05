@@ -59,9 +59,7 @@ public final class VectorIntBitUnpackers
         return UNPACKERS[bitWidth];
     }
 
-    private VectorIntBitUnpackers()
-    {
-    }
+    private VectorIntBitUnpackers() {}
 
     private static final class Unpacker0
             implements IntBitUnpacker

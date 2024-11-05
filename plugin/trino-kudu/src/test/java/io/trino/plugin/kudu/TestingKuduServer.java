@@ -15,15 +15,12 @@ package io.trino.plugin.kudu;
 
 import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
-import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.ToxiproxyContainer;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 
 import static java.lang.String.format;
 
@@ -44,8 +41,6 @@ public class TestingKuduServer
     private final ToxiproxyContainer toxiProxy;
     private final GenericContainer<?> master;
     private final GenericContainer<?> tabletServer;
-
-    private boolean stopped;
 
     public TestingKuduServer()
     {
@@ -109,23 +104,6 @@ public class TestingKuduServer
             closer.register(network::close);
         }
         catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        stopped = true;
-    }
-
-    @ResourcePresence
-    public boolean isNotStopped()
-    {
-        return !stopped;
-    }
-
-    private static String getHostIPAddress()
-    {
-        try {
-            return InetAddress.getLocalHost().getHostAddress();
-        }
-        catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
     }

@@ -46,15 +46,13 @@ public final class EnvMultinodeAllConnectors
     {
         // blackhole, jmx, tpch are already configured in Standard base env
         List.of(
-                        // TODO accumulo needs to connect to ZooKeeper, it won't start otherwise
-                        //"accumulo",
-                        "atop",
                         "bigquery",
                         "cassandra",
                         "clickhouse",
                         "druid",
                         "delta_lake",
                         "elasticsearch",
+                        "faker",
                         "gsheets",
                         "hive",
                         "hudi",
@@ -63,7 +61,6 @@ public final class EnvMultinodeAllConnectors
                         "kafka",
                         "kinesis",
                         "kudu",
-                        "localfile",
                         "mariadb",
                         "memory",
                         "singlestore",
@@ -75,13 +72,13 @@ public final class EnvMultinodeAllConnectors
                         "pinot",
                         "postgresql",
                         "prometheus",
-                        "raptor_legacy",
                         "redis",
                         "redshift",
                         "snowflake",
                         "sqlserver",
                         "trino_thrift",
-                        "tpcds")
+                        "tpcds",
+                        "vertica")
                 .forEach(connector -> builder.addConnector(
                         connector,
                         forHostPath(configDir.getPath(connector + ".properties"))));

@@ -29,15 +29,19 @@ public final class Insert
     private final Query query;
     private final Optional<List<Identifier>> columns;
 
+    @Deprecated
     public Insert(Table table, Optional<List<Identifier>> columns, Query query)
     {
-        this(Optional.empty(), table, columns, query);
+        super(Optional.empty());
+        this.table = requireNonNull(table, "table is null");
+        this.columns = requireNonNull(columns, "columns is null");
+        this.query = requireNonNull(query, "query is null");
     }
 
-    private Insert(Optional<NodeLocation> location, Table table, Optional<List<Identifier>> columns, Query query)
+    public Insert(NodeLocation location, Table table, Optional<List<Identifier>> columns, Query query)
     {
         super(location);
-        this.table = requireNonNull(table, "target is null");
+        this.table = requireNonNull(table, "table is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.query = requireNonNull(query, "query is null");
     }

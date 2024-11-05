@@ -54,27 +54,27 @@ public class TestTrinoLdapCli
     private static final String SELECT_FROM_NATION = "SELECT * FROM hive.default.nation;";
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_ldap_truststore_path")
+    @Named("databases.trino.cli_ldap_truststore_path")
     private String ldapTruststorePath;
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_ldap_truststore_password")
+    @Named("databases.trino.cli_ldap_truststore_password")
     private String ldapTruststorePassword;
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_ldap_user_name")
+    @Named("databases.trino.cli_ldap_user_name")
     private String ldapUserName;
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_ldap_server_address")
+    @Named("databases.trino.cli_ldap_server_address")
     private String ldapServerAddress;
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_ldap_user_password")
+    @Named("databases.trino.cli_ldap_user_password")
     private String ldapUserPassword;
 
     @Inject(optional = true)
-    @Named("databases.presto.file_user_password")
+    @Named("databases.trino.file_user_password")
     private String fileUserPassword;
 
     @Inject(optional = true)

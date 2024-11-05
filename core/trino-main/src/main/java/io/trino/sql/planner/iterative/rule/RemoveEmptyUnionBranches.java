@@ -75,7 +75,7 @@ public class RemoveEmptyUnionBranches
         }
 
         if (emptyBranches == node.getSources().size()) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
 
         List<PlanNode> newSources = newSourcesBuilder.build();

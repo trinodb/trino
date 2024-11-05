@@ -49,15 +49,21 @@ To use Iceberg, you need:
 ## General configuration
 
 To configure the Iceberg connector, create a catalog properties file
-`etc/catalog/example.properties` that references the `iceberg`
-connector and defines a metastore type. The Hive metastore catalog is the
-default implementation. To use a {ref}`Hive metastore <hive-thrift-metastore>`,
-`hive.metastore.uri` must be configured:
+`etc/catalog/example.properties` that references the `iceberg` connector.
+
+The [Hive metastore catalog](hive-thrift-metastore) is the default
+implementation.
+
+You must select and configure one of the [supported file
+systems](iceberg-file-system-configuration).
 
 ```properties
 connector.name=iceberg
 hive.metastore.uri=thrift://example.net:9083
+fs.x.enabled=true
 ```
+
+Replace the `fs.x.enabled` configuration property with the desired file system.
 
 Other metadata catalog types as listed in the requirements section of this topic
 are available. Each metastore type has specific configuration properties along
@@ -162,6 +168,9 @@ implementation is used:
 * - `iceberg.register-table-procedure.enabled`
   - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
   - `false`
+* - `iceberg.add-files-procedure.enabled`
+  - Enable to allow user to call [`add_files` procedure](iceberg-add-files).
+  - `false`
 * - `iceberg.query-partition-filter-required`
   - Set to `true` to force a query to use a partition filter for schemas
     specified with `iceberg.query-partition-filter-required-schemas`. Equivalent
@@ -188,7 +197,32 @@ implementation is used:
   - Set to `false` to disable in-memory caching of metadata files on the 
     coordinator. This cache is not used when `fs.cache.enabled` is set to true.
   - `true`
-
+* - `iceberg.expire-snapshots.min-retention`
+  -  Minimal retention period for the
+     [`expire_snapshot` command](iceberg-expire-snapshots).
+     Equivalent session property is `expire_snapshots_min_retention`.
+  -  `7d` 
+* - `iceberg.remove-orphan-files.min-retention`
+  -  Minimal retention period for the 
+     [`remove_orphan_files` command](iceberg-remove-orphan-files).
+     Equivalent session property is `remove_orphan_files_min_retention`.
+  -  `7d`
+* - `iceberg.idle-writer-min-file-size`
+  -  Minimum data written by a single partition writer before it can
+     be considered as idle and can be closed by the engine. Equivalent
+     session property is `idle_writer_min_file_size`.
+  -  `16MB`
+* - `iceberg.sorted-writing-enabled`
+  -  Enable [sorted writing](iceberg-sorted-files) to tables with a specified sort order. Equivalent
+     session property is `sorted_writing_enabled`.
+  -  `true` 
+* - `iceberg.allowed-extra-properties`
+  -  List of extra properties that are allowed to be set on Iceberg tables.
+     Use `*` to allow all properties.
+  - `[]`
+* - `iceberg.split-manager-threads`
+  -  Number of threads to use for generating splits.
+  -  Double the number of processors on the coordinator node.
 :::
 
 (iceberg-fte-support)=
@@ -201,17 +235,15 @@ processing. Read and write operations are both supported with any retry policy.
 (iceberg-file-system-configuration)=
 ## File system access configuration
 
-The connector supports native, high-performance file system access to object
-storage systems:
+The connector supports accessing the following file systems:
 
-* [](/object-storage)
 * [](/object-storage/file-system-azure)
 * [](/object-storage/file-system-gcs)
 * [](/object-storage/file-system-s3)
+* [](/object-storage/file-system-hdfs)
 
-You must enable and configure the specific native file system access. If none is
-activated, the [legacy support](file-system-legacy) is used and must be
-configured.
+You must enable and configure the specific file system access. [Legacy
+support](file-system-legacy) is not recommended and will be removed.
 
 ## Type mapping
 
@@ -558,6 +590,83 @@ The default value is `fail`, which causes the migrate procedure to throw an
 exception if subdirectories are found. Set the value to `true` to migrate
 nested directories, or `false` to ignore them.
 
+(iceberg-add-files)=
+#### Add files
+
+The connector can add files from tables or locations to an existing table if
+`iceberg.add-files-procedure.enabled` is set to `true` for the catalog.
+
+Use the procedure `system.add_files_from_table` to add existing files from a
+Hive table or `system.add_files` to add existing files from a specified location
+to an existing table.
+ 
+The data files must be the Parquet, ORC, or Avro file format.
+
+:::{warning}
+The procedure does not check if files are already present in the target table.
+:::
+
+The procedure must be called for a specific catalog `example` with the
+relevant schema and table names supplied with the required parameters
+`schema_name` and `table_name`:
+
+```sql
+ALTER TABLE testdb.iceberg_customer_orders 
+EXECUTE example.system.add_files_from_table(
+    schema_name => 'testdb',
+    table_name => 'hive_customer_orders')
+```
+
+Alternatively, you can set the current catalog and schema with a `USE`
+statement, and omit catalog and schema information, including the `system`
+schema for the procedure from any following `ALTER TABLE` statements:
+
+```sql
+USE example.testdb;
+ALTER TABLE iceberg_customer_orders 
+EXECUTE add_files_from_table(
+    schema_name => 'testdb',
+    table_name => 'hive_customer_orders')
+```
+
+Use a `partition_filter` argument to add files from specified partitions.
+The following example adds files from a partition where the `region` is `ASIA` and
+`country` is `JAPAN`:
+
+```sql
+ALTER TABLE testdb.iceberg_customer_orders 
+EXECUTE example.system.add_files_from_table(
+    schema_name => 'testdb',
+    table_name => 'hive_customer_orders',
+    partition_filter => map(ARRAY['region', 'country'], ARRAY['ASIA', 'JAPAN']))
+```
+
+In addition, you can provide a `recursive_directory` argument to migrate a
+Hive table that contains subdirectories:
+
+```sql
+ALTER TABLE testdb.iceberg_customer_orders 
+EXECUTE example.system.add_files_from_table(
+    schema_name => 'testdb',
+    table_name => 'hive_customer_orders',
+    recursive_directory => 'true')
+```
+
+The default value of `recursive_directory` is `fail`, which causes the procedure 
+to throw an exception if subdirectories are found. Set the value to `true` to add 
+files from nested directories, or `false` to ignore them.
+
+The `add_files` procedure supports adding files from a specified location.
+The procedure does not validate file schemas for compatibility with
+the target Iceberg table. The `location` property is supported for partitioned tables.
+
+```sql
+ALTER TABLE testdb.iceberg_customer_orders 
+EXECUTE example.system.add_files(
+    location => 's3://my-bucket/a/path',
+    format => 'ORC')
+```
+
 (iceberg-data-management)=
 ### Data management
 
@@ -623,6 +732,7 @@ EXECUTE <alter-table-execute>`.
 ```{include} optimize.fragment
 ```
 
+(iceberg-expire-snapshots)=
 ##### expire_snapshots
 
 The `expire_snapshots` command removes all snapshots and all related metadata
@@ -638,11 +748,12 @@ ALTER TABLE test_table EXECUTE expire_snapshots(retention_threshold => '7d')
 ```
 
 The value for `retention_threshold` must be higher than or equal to
-`iceberg.expire_snapshots.min-retention` in the catalog, otherwise the
+`iceberg.expire-snapshots.min-retention` in the catalog, otherwise the
 procedure fails with a similar message: `Retention specified (1.00d) is shorter
 than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
 
+(iceberg-remove-orphan-files)=
 ##### remove_orphan_files
 
 The `remove_orphan_files` command removes all files from a table's data
@@ -657,7 +768,7 @@ ALTER TABLE test_table EXECUTE remove_orphan_files(retention_threshold => '7d')
 ```
 
 The value for `retention_threshold` must be higher than or equal to
-`iceberg.remove_orphan_files.min-retention` in the catalog otherwise the
+`iceberg.remove-orphan-files.min-retention` in the catalog otherwise the
 procedure fails with a similar message: `Retention specified (1.00d) is shorter
 than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
@@ -748,6 +859,10 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Comma-separated list of columns to use for Parquet bloom filter. It improves
     the performance of queries using Equality and IN predicates when reading
     Parquet files. Requires Parquet format. Defaults to `[]`.
+* - `extra_properties`
+  - Additional properties added to a Iceberg table. The properties are not used by Trino,
+    and are available in the `$properties` metadata table.
+    The properties are not included in the output of `SHOW CREATE TABLE` statements.
 :::
 
 The table definition below specifies to use Parquet files, partitioning by columns
@@ -1325,6 +1440,7 @@ CREATE TABLE example.testdb.customer_orders (
 WITH (partitioning = ARRAY['month(order_date)', 'bucket(account_number, 10)', 'country'])
 ```
 
+(iceberg-sorted-files)=
 #### Sorted tables
 
 The connector supports sorted files as a performance improvement. Data is sorted

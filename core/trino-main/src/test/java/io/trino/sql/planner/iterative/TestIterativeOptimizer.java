@@ -72,7 +72,7 @@ public class TestIterativeOptimizer
                     planTester.createPlan(transactionSession, "SELECT 1", ImmutableList.of(optimizer), OPTIMIZED_AND_VALIDATED, NOOP, planOptimizersStatsCollector));
             Optional<QueryPlanOptimizerStatistics> queryRuleStats = planOptimizersStatsCollector.getTopRuleStats().stream().findFirst();
 
-            assertThat(queryRuleStats.isPresent()).isTrue();
+            assertThat(queryRuleStats).isPresent();
             QueryPlanOptimizerStatistics queryRuleStat = queryRuleStats.get();
             assertThat(queryRuleStat.rule()).isEqualTo(RemoveRedundantIdentityProjections.class.getCanonicalName());
             assertThat(queryRuleStat.invocations()).isEqualTo(4);

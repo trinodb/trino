@@ -1,0 +1,20 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            local exchange (REPARTITION, ROUND_ROBIN, [])
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, [expr_5, expr_6])
+                        final aggregation over (groupid, i_category_gid, i_class_gid)
+                            local exchange (REPARTITION, HASH, [groupid, i_category_gid, i_class_gid])
+                                remote exchange (REPARTITION, HASH, [groupid, i_category_gid, i_class_gid])
+                                    partial aggregation over (groupid, i_category_gid, i_class_gid)
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                dynamic filter (ws_item_sk::EQUAL, ws_sold_date_sk::EQUAL)
+                                                    scan web_sales
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan date_dim
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan item

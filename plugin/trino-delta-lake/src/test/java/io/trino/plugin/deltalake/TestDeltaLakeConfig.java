@@ -66,13 +66,15 @@ public class TestDeltaLakeConfig
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
                 .setStoreTableMetadataEnabled(false)
                 .setStoreTableMetadataThreads(5)
+                .setStoreTableMetadataInterval(new Duration(1, SECONDS))
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setIdleWriterMinFileSize(DataSize.of(16, MEGABYTE))
                 .setUniqueTableLocation(true)
                 .setRegisterTableProcedureEnabled(false)
                 .setProjectionPushdownEnabled(true)
                 .setQueryPartitionFilterRequired(false)
-                .setDeletionVectorsEnabled(false));
+                .setDeletionVectorsEnabled(false)
+                .setDeltaLogFileSystemCacheDisabled(false));
     }
 
     @Test
@@ -104,6 +106,7 @@ public class TestDeltaLakeConfig
                 .put("delta.delete-schema-locations-fallback", "true")
                 .put("delta.metastore.store-table-metadata", "true")
                 .put("delta.metastore.store-table-metadata-threads", "1")
+                .put("delta.metastore.store-table-metadata-interval", "30m")
                 .put("delta.parquet.time-zone", nonDefaultTimeZone().getID())
                 .put("delta.target-max-file-size", "2 GB")
                 .put("delta.idle-writer-min-file-size", "1MB")
@@ -112,6 +115,7 @@ public class TestDeltaLakeConfig
                 .put("delta.projection-pushdown-enabled", "false")
                 .put("delta.query-partition-filter-required", "true")
                 .put("delta.deletion-vectors-enabled", "true")
+                .put("delta.fs.cache.disable-transaction-log-caching", "true")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -141,13 +145,15 @@ public class TestDeltaLakeConfig
                 .setPerTransactionMetastoreCacheMaximumSize(500)
                 .setStoreTableMetadataEnabled(true)
                 .setStoreTableMetadataThreads(1)
+                .setStoreTableMetadataInterval(new Duration(30, MINUTES))
                 .setTargetMaxFileSize(DataSize.of(2, GIGABYTE))
                 .setIdleWriterMinFileSize(DataSize.of(1, MEGABYTE))
                 .setUniqueTableLocation(false)
                 .setRegisterTableProcedureEnabled(true)
                 .setProjectionPushdownEnabled(false)
                 .setQueryPartitionFilterRequired(true)
-                .setDeletionVectorsEnabled(true);
+                .setDeletionVectorsEnabled(true)
+                .setDeltaLogFileSystemCacheDisabled(true);
 
         assertFullMapping(properties, expected);
     }

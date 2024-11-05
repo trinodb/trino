@@ -84,7 +84,7 @@ public class EnvMultinodeAzure
             container.setDockerImageName(dockerImageName);
             container.withCopyFileToContainer(
                     forHostPath(getCoreSiteOverrideXml()),
-                    "/docker/presto-product-tests/conf/environment/multinode-azure/core-site-overrides.xml");
+                    "/docker/trino-product-tests/conf/environment/multinode-azure/core-site-overrides.xml");
             container.withCopyFileToContainer(
                     forHostPath(configDir.getPath("apply-azure-config.sh")),
                     CONTAINER_HADOOP_INIT_D + "apply-azure-config.sh");
@@ -106,7 +106,7 @@ public class EnvMultinodeAzure
                 .withEnv("ABFS_ACCOUNT", abfsAccount)
                 .withEnv("ABFS_ACCESS_KEY", abfsAccessKey));
 
-        String temptoConfig = "/docker/presto-product-tests/conf/tempto/tempto-configuration-abfs.yaml";
+        String temptoConfig = "/docker/trino-product-tests/conf/tempto/tempto-configuration-abfs.yaml";
         builder.configureContainer(TESTS, container -> container
                 .withEnv("ABFS_CONTAINER", abfsContainer)
                 .withEnv("ABFS_ACCOUNT", abfsAccount)
@@ -190,10 +190,11 @@ public class EnvMultinodeAzure
         try {
             File temptoConfiguration = Files.createTempFile("tempto-configuration", ".yaml", PosixFilePermissions.asFileAttribute(fromString("rwxrwxrwx"))).toFile();
             temptoConfiguration.deleteOnExit();
-            String contents = """
-databases:
-    presto:
-        abfs_schema: "%s"
+            String contents =
+                    """
+                    databases:
+                        trino:
+                            abfs_schema: "%s"
                     """.formatted(schema);
             Files.writeString(temptoConfiguration.toPath(), contents);
             return temptoConfiguration.toPath();

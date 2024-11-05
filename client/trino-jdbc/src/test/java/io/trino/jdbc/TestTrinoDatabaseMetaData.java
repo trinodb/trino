@@ -70,7 +70,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Assertions.assertContains;
 import static io.trino.jdbc.TestingJdbcUtils.array;
 import static io.trino.jdbc.TestingJdbcUtils.assertResultSet;
 import static io.trino.jdbc.TestingJdbcUtils.list;
@@ -121,6 +120,7 @@ public class TestTrinoDatabaseMetaData
                 .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toAbsolutePath().toString())
                 .put("hive.security", "sql-standard")
                 .put("bootstrap.quiet", "true")
+                .put("fs.hadoop.enabled", "true")
                 .buildOrThrow());
 
         countingMockConnector = new CountingMockConnector();
@@ -200,7 +200,7 @@ public class TestTrinoDatabaseMetaData
                     .isEqualTo(1);
             String query = getOnlyElement(queries);
 
-            assertContains(query, "_t' ESCAPE '", "Metadata query does not contain ESCAPE");
+            assertThat(query).as("Metadata query does not contain ESCAPE").contains("_t' ESCAPE '");
         }
     }
 

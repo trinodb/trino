@@ -19,7 +19,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -31,7 +30,8 @@ public interface HivePageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
-            Map<String, String> schema,
+            long fileModifiedTime,
+            Schema schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,

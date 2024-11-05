@@ -155,7 +155,6 @@ import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -974,7 +973,6 @@ public final class TestHiveFileFormats
 
         Map<String, String> splitProperties = ImmutableMap.<String, String>builder()
                 .put(FILE_INPUT_FORMAT, storageFormat.getInputFormat())
-                .put(SERIALIZATION_LIB, storageFormat.getSerde())
                 .put(LIST_COLUMNS, String.join(",", splitPropertiesColumnNames.build()))
                 .put(LIST_COLUMN_TYPES, String.join(",", splitPropertiesColumnTypes.build()))
                 .buildOrThrow();
@@ -1007,7 +1005,8 @@ public final class TestHiveFileFormats
                 0,
                 fileSize,
                 paddedFileSize,
-                splitProperties,
+                12345,
+                new Schema(storageFormat.getSerde(), false, splitProperties),
                 TupleDomain.all(),
                 TESTING_TYPE_MANAGER,
                 Optional.empty(),
@@ -1045,7 +1044,7 @@ public final class TestHiveFileFormats
     {
         try (pageSource) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, testColumns.stream().map(TestColumn::type).collect(toImmutableList()));
-            assertThat(result.getMaterializedRows().size()).isEqualTo(rowCount);
+            assertThat(result.getMaterializedRows()).hasSize(rowCount);
             for (MaterializedRow row : result) {
                 for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
                     TestColumn testColumn = testColumns.get(i);

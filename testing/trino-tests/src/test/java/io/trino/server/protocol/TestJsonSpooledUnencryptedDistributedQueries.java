@@ -19,14 +19,14 @@ public class TestJsonSpooledUnencryptedDistributedQueries
         extends AbstractSpooledQueryDataDistributedQueries
 {
     @Override
-    protected String encodingId()
+    protected String encoding()
     {
         return "json+zstd";
     }
 
     @Override
-    protected Map<String, String> spoolingConfig()
+    protected Map<String, String> spoolingFileSystemConfig()
     {
-        return Map.of("encryption", "false");
+        return Map.of("fs.segment.encryption", "false");
     }
 }

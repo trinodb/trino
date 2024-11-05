@@ -60,7 +60,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile.WriterOptions;
-import org.apache.hadoop.hive.ql.io.orc.OrcInputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.ql.io.orc.Writer;
@@ -83,7 +82,6 @@ import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -96,7 +94,6 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
@@ -111,7 +108,6 @@ import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.relational.Expressions.field;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -124,7 +120,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.ZLIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
@@ -199,7 +194,7 @@ public class TestOrcPageSourceMemoryTracking
 
         if (useCache) {
             // file is fully cached
-            assertBetweenInclusive(pageSource.getMemoryUsage(), testPreparer.getFileSize(), testPreparer.getFileSize() + 200);
+            assertThat(pageSource.getMemoryUsage()).isBetween(testPreparer.getFileSize(), testPreparer.getFileSize() + 200);
         }
         else {
             assertThat(pageSource.getMemoryUsage()).isEqualTo(0);
@@ -216,19 +211,19 @@ public class TestOrcPageSourceMemoryTracking
             if (memoryUsage == -1) {
                 // Memory usage before lazy-loading the block
                 if (useCache) {
-                    assertBetweenInclusive(pageSource.getMemoryUsage(), testPreparer.getFileSize(), testPreparer.getFileSize() + 2000);
+                    assertThat(pageSource.getMemoryUsage()).isBetween(testPreparer.getFileSize(), testPreparer.getFileSize() + 2000);
                 }
                 else {
-                    assertBetweenInclusive(pageSource.getMemoryUsage(), 0L, 1000L);
+                    assertThat(pageSource.getMemoryUsage()).isBetween(0L, 1000L);
                 }
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 memoryUsage = pageSource.getMemoryUsage();
                 // Memory usage after lazy-loading the actual block
                 if (useCache) {
-                    assertBetweenInclusive(pageSource.getMemoryUsage(), testPreparer.getFileSize() + 270_000, testPreparer.getFileSize() + 280_000);
+                    assertThat(pageSource.getMemoryUsage()).isBetween(testPreparer.getFileSize() + 270_000, testPreparer.getFileSize() + 280_000);
                 }
                 else {
-                    assertBetweenInclusive(memoryUsage, 460_000L, 469_999L);
+                    assertThat(memoryUsage).isBetween(460_000L, 469_999L);
                 }
             }
             else {
@@ -249,19 +244,19 @@ public class TestOrcPageSourceMemoryTracking
             if (memoryUsage == -1) {
                 // Memory usage before lazy-loading the block
                 if (useCache) {
-                    assertBetweenInclusive(pageSource.getMemoryUsage(), testPreparer.getFileSize(), testPreparer.getFileSize() + 2000);
+                    assertThat(pageSource.getMemoryUsage()).isBetween(testPreparer.getFileSize(), testPreparer.getFileSize() + 2000);
                 }
                 else {
-                    assertBetweenInclusive(pageSource.getMemoryUsage(), 0L, 1000L);
+                    assertThat(pageSource.getMemoryUsage()).isBetween(0L, 1000L);
                 }
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 memoryUsage = pageSource.getMemoryUsage();
                 // Memory usage after lazy-loading the actual block
                 if (useCache) {
-                    assertBetweenInclusive(pageSource.getMemoryUsage(), testPreparer.getFileSize() + 270_000, testPreparer.getFileSize() + 280_000);
+                    assertThat(pageSource.getMemoryUsage()).isBetween(testPreparer.getFileSize() + 270_000, testPreparer.getFileSize() + 280_000);
                 }
                 else {
-                    assertBetweenInclusive(memoryUsage, 460_000L, 469_999L);
+                    assertThat(memoryUsage).isBetween(460_000L, 469_999L);
                 }
             }
             else {
@@ -282,19 +277,19 @@ public class TestOrcPageSourceMemoryTracking
             if (memoryUsage == -1) {
                 // Memory usage before lazy-loading the block
                 if (useCache) {
-                    assertBetweenInclusive(pageSource.getMemoryUsage(), testPreparer.getFileSize(), testPreparer.getFileSize() + 2000);
+                    assertThat(pageSource.getMemoryUsage()).isBetween(testPreparer.getFileSize(), testPreparer.getFileSize() + 2000);
                 }
                 else {
-                    assertBetweenInclusive(pageSource.getMemoryUsage(), 0L, 1000L);
+                    assertThat(pageSource.getMemoryUsage()).isBetween(0L, 1000L);
                 }
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 memoryUsage = pageSource.getMemoryUsage();
                 // Memory usage after loading the actual block
                 if (useCache) {
-                    assertBetweenInclusive(pageSource.getMemoryUsage(), testPreparer.getFileSize() + 260_000, testPreparer.getFileSize() + 270_000);
+                    assertThat(pageSource.getMemoryUsage()).isBetween(testPreparer.getFileSize() + 260_000, testPreparer.getFileSize() + 270_000);
                 }
                 else {
-                    assertBetweenInclusive(memoryUsage, 360_000L, 369_999L);
+                    assertThat(memoryUsage).isBetween(360_000L, 369_999L);
                 }
             }
             else {
@@ -310,7 +305,7 @@ public class TestOrcPageSourceMemoryTracking
         assertThat(pageSource.isFinished()).isTrue();
         if (useCache) {
             // file is fully cached
-            assertBetweenInclusive(pageSource.getMemoryUsage(), testPreparer.getFileSize(), testPreparer.getFileSize() + 200);
+            assertThat(pageSource.getMemoryUsage()).isBetween(testPreparer.getFileSize(), testPreparer.getFileSize() + 200);
         }
         else {
             assertThat(pageSource.getMemoryUsage()).isEqualTo(0);
@@ -410,7 +405,7 @@ public class TestOrcPageSourceMemoryTracking
                 assertThat(page).isNotNull();
                 if (memoryUsage == -1) {
                     memoryUsage = driverContext.getMemoryUsage();
-                    assertBetweenInclusive(memoryUsage, 460000L, 469999L);
+                    assertThat(memoryUsage).isBetween(460000L, 469999L);
                 }
                 else {
                     assertThat(driverContext.getMemoryUsage()).isEqualTo(memoryUsage);
@@ -425,7 +420,7 @@ public class TestOrcPageSourceMemoryTracking
                 assertThat(page).isNotNull();
                 if (memoryUsage == -1) {
                     memoryUsage = driverContext.getMemoryUsage();
-                    assertBetweenInclusive(memoryUsage, 460000L, 469999L);
+                    assertThat(memoryUsage).isBetween(460000L, 469999L);
                 }
                 else {
                     assertThat(driverContext.getMemoryUsage()).isEqualTo(memoryUsage);
@@ -440,7 +435,7 @@ public class TestOrcPageSourceMemoryTracking
                 assertThat(page).isNotNull();
                 if (memoryUsage == -1) {
                     memoryUsage = driverContext.getMemoryUsage();
-                    assertBetweenInclusive(memoryUsage, 360000L, 369999L);
+                    assertThat(memoryUsage).isBetween(360000L, 369999L);
                 }
                 else {
                     assertThat(driverContext.getMemoryUsage()).isEqualTo(memoryUsage);
@@ -484,14 +479,14 @@ public class TestOrcPageSourceMemoryTracking
             // done... in the current implementation finish is not set until output returns a null page
             assertThat(operator.getOutput()).isNull();
             assertThat(operator.isFinished()).isTrue();
-            assertBetweenInclusive(driverContext.getMemoryUsage(), 0L, 500L);
+            assertThat(driverContext.getMemoryUsage()).isBetween(0L, 500L);
         }
     }
 
     private class TestPreparer
     {
         private final FileSplit fileSplit;
-        private final Map<String, String> schema;
+        private final Schema schema;
         private final List<HiveColumnHandle> columns;
         private final List<Type> types;
         private final String partitionName;
@@ -509,12 +504,13 @@ public class TestOrcPageSourceMemoryTracking
                 throws Exception
         {
             OrcSerde serde = new OrcSerde();
-            schema = ImmutableMap.<String, String>builder()
-                    .put(LIST_COLUMNS, testColumns.stream().map(TestColumn::getName).collect(Collectors.joining(",")))
-                    .put(LIST_COLUMN_TYPES, testColumns.stream().map(TestColumn::getType).collect(Collectors.joining(",")))
-                    .put(FILE_INPUT_FORMAT, OrcInputFormat.class.getName())
-                    .put(SERIALIZATION_LIB, serde.getClass().getName())
-                    .buildOrThrow();
+            schema = new Schema(
+                    serde.getClass().getName(),
+                    false,
+                    ImmutableMap.<String, String>builder()
+                            .put(LIST_COLUMNS, testColumns.stream().map(TestColumn::getName).collect(Collectors.joining(",")))
+                            .put(LIST_COLUMN_TYPES, testColumns.stream().map(TestColumn::getType).collect(Collectors.joining(",")))
+                            .buildOrThrow());
 
             partitionKeys = testColumns.stream()
                     .filter(TestColumn::isPartitionKey)
@@ -577,6 +573,7 @@ public class TestOrcPageSourceMemoryTracking
                     fileSplit.getStart(),
                     fileSplit.getLength(),
                     fileSplit.getLength(),
+                    12345,
                     schema,
                     TupleDomain.all(),
                     TESTING_TYPE_MANAGER,

@@ -17,7 +17,6 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.Timeout;
 import io.airlift.log.Logger;
-import io.trino.testing.ResourcePresence;
 import io.trino.testing.sql.SqlExecutor;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
@@ -64,7 +63,7 @@ public final class TestingSqlServer
             .build();
 
     private static final DockerImageName IMAGE_NAME = DockerImageName.parse("mcr.microsoft.com/mssql/server");
-    public static final String DEFAULT_VERSION = "2017-CU13";
+    public static final String DEFAULT_VERSION = "2017-latest";
     public static final String LATEST_VERSION = "2019-CU13-ubuntu-20.04";
 
     private final MSSQLServerContainer<?> container;
@@ -220,12 +219,6 @@ public final class TestingSqlServer
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return container.getContainerId() != null;
     }
 
     private static class InitializedState

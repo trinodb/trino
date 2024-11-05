@@ -29,9 +29,7 @@ import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
 
 public final class TpchTables
 {
-    private TpchTables()
-    {
-    }
+    private TpchTables() {}
 
     public static List<Type> getTableColumns(String tableName, DecimalTypeMapping decimalTypeMapping)
     {

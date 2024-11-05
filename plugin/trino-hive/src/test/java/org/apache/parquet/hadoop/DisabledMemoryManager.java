@@ -22,12 +22,8 @@ public final class DisabledMemoryManager
     }
 
     @Override
-    synchronized void addWriter(InternalParquetRecordWriter<?> writer, Long allocation)
-    {
-    }
+    synchronized void addWriter(InternalParquetRecordWriter<?> writer, Long allocation) {}
 
     @Override
-    synchronized void removeWriter(InternalParquetRecordWriter<?> writer)
-    {
-    }
+    synchronized void removeWriter(InternalParquetRecordWriter<?> writer) {}
 }

@@ -122,10 +122,12 @@ import io.trino.operator.scalar.json.JsonQueryFunction;
 import io.trino.operator.scalar.json.JsonValueFunction;
 import io.trino.operator.table.ExcludeColumnsFunction;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
+import io.trino.server.ServerConfig;
 import io.trino.server.SessionPropertyDefaults;
-import io.trino.server.protocol.spooling.PreferredQueryDataEncoderSelector;
+import io.trino.server.protocol.spooling.QueryDataEncoders;
 import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
 import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
@@ -356,12 +358,16 @@ public class PlanTester
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
         TestingGroupProviderManager groupProvider = new TestingGroupProviderManager();
         LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(sqlParser, typeManager, groupProvider, blockEncodingSerde);
+        TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(catalogManager));
         Metadata metadata = new MetadataManager(
+                new AllowAllAccessControl(),
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 globalFunctionCatalog,
                 languageFunctionManager,
-                typeManager);
+                tableFunctionRegistry,
+                typeManager,
+                new NotImplementedQueryManager());
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.joinCompiler = new JoinCompiler(typeOperators);
         this.hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
@@ -395,7 +401,6 @@ public class PlanTester
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, typeOperators, createNodePartitioningProvider(catalogManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(catalogManager));
         FunctionManager functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog, languageFunctionManager);
-        TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(catalogManager));
         this.schemaPropertyManager = createSchemaPropertyManager(catalogManager);
         this.columnPropertyManager = createColumnPropertyManager(catalogManager);
         this.tablePropertyManager = createTablePropertyManager(catalogManager);
@@ -452,7 +457,7 @@ public class PlanTester
                 ImmutableSet.of(new ExcludeColumnsFunction()));
 
         exchangeManagerRegistry = new ExchangeManagerRegistry(noop(), noopTracer(), secretsResolver);
-        spoolingManagerRegistry = new SpoolingManagerRegistry(new SpoolingEnabledConfig(), noop(), noopTracer());
+        spoolingManagerRegistry = new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 Optional.empty(),
@@ -503,7 +508,7 @@ public class PlanTester
                 defaultSession.getPreparedStatements(),
                 defaultSession.getProtocolHeaders(),
                 defaultSession.getExchangeEncryptionKey(),
-                defaultSession.getQueryDataEncodingId());
+                defaultSession.getQueryDataEncoding());
     }
 
     private static SessionPropertyManager createSessionPropertyManager(
@@ -723,7 +728,6 @@ public class PlanTester
             throw new AssertionError("Expected sub-plan to have no children");
         }
 
-        SpoolingManagerRegistry spoolingManagerRegistry = new SpoolingManagerRegistry(new SpoolingEnabledConfig(), noop(), noopTracer());
         TaskContext taskContext = createTaskContext(notificationExecutor, yieldExecutor, session);
         TableExecuteContextManager tableExecuteContextManager = new TableExecuteContextManager();
         tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
@@ -741,7 +745,8 @@ public class PlanTester
                 new IndexJoinLookupStats(),
                 this.taskManagerConfig,
                 new GenericSpillerFactory(unsupportedSingleStreamSpillerFactory()),
-                new PreferredQueryDataEncoderSelector(Set.of(), spoolingManagerRegistry),
+                new QueryDataEncoders(new SpoolingEnabledConfig(), Set.of()),
+                Optional.empty(),
                 Optional.empty(),
                 unsupportedSingleStreamSpillerFactory(),
                 unsupportedPartitioningSpillerFactory(),
@@ -883,7 +888,7 @@ public class PlanTester
                 new PlanSanityChecker(true),
                 idAllocator,
                 getPlannerContext(),
-                new SpoolingManagerRegistry(new SpoolingEnabledConfig(), noop(), noopTracer()),
+                new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer()),
                 statsCalculator,
                 costCalculator,
                 warningCollector,

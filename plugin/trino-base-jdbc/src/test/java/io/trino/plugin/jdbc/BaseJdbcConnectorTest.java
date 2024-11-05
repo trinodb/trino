@@ -1603,18 +1603,21 @@ public abstract class BaseJdbcConnectorTest
 
         if (temporarySchema.isPresent()) {
             // Hack for Druid, where numeric columns are NOT NULL by default
-            String numericNullable = (String) computeScalar("""
+            String numericNullable = (String) computeScalar(
+                    """
                     SELECT is_nullable FROM information_schema.columns
                     WHERE table_schema = CURRENT_SCHEMA AND table_name = 'nation' AND column_name = 'nationkey'
                     """);
 
             // information_schema.columns for single, isolated schema
-            assertThat(query(session, """
-                            SELECT table_name, column_name, is_nullable FROM information_schema.columns
-                            WHERE table_schema = '%s'
+            assertThat(query(session,
+                    """
+                    SELECT table_name, column_name, is_nullable FROM information_schema.columns
+                    WHERE table_schema = '%s'
                     """.formatted(temporarySchema.get())))
                     .skippingTypesCheck()
-                    .matches("""
+                    .matches(
+                            """
                             VALUES
                                 ('%1$s', 'nationkey', '%3$s')
                               , ('%1$s', 'name', 'YES')
@@ -1623,12 +1626,14 @@ public abstract class BaseJdbcConnectorTest
                             """.formatted(temporaryNationTable.orElseThrow(), temporaryRegionTable.orElseThrow(), numericNullable));
 
             // system.jdbc.columns for single, isolated schema
-            assertThat(query(session, """
-                            SELECT table_name, column_name, is_nullable FROM system.jdbc.columns
-                            WHERE table_cat = CURRENT_CATALOG AND table_schem = '%s'
+            assertThat(query(session,
+                    """
+                    SELECT table_name, column_name, is_nullable FROM system.jdbc.columns
+                    WHERE table_cat = CURRENT_CATALOG AND table_schem = '%s'
                     """.formatted(temporarySchema.get())))
                     .skippingTypesCheck()
-                    .matches("""
+                    .matches(
+                            """
                             VALUES
                                 ('%1$s', 'nationkey', '%3$s')
                               , ('%1$s', 'name', 'YES')
@@ -1638,26 +1643,30 @@ public abstract class BaseJdbcConnectorTest
         }
 
         // information_schema.columns for single schema with more tables
-        assertThat(query(session, """
-                        SELECT table_name, column_name, is_nullable FROM information_schema.columns
-                        WHERE table_schema = CURRENT_SCHEMA
-                        AND ((column_name LIKE 'n_me' AND table_name IN ('customer', 'nation')) OR rand() = 42) -- not pushed down into connector
+        assertThat(query(session,
+                """
+                SELECT table_name, column_name, is_nullable FROM information_schema.columns
+                WHERE table_schema = CURRENT_SCHEMA
+                AND ((column_name LIKE 'n_me' AND table_name IN ('customer', 'nation')) OR rand() = 42) -- not pushed down into connector
                 """))
                 .skippingTypesCheck()
-                .matches("""
+                .matches(
+                        """
                         VALUES
                             ('customer', 'name', 'YES')
                           , ('nation', 'name', 'YES')
                         """);
 
         // system.jdbc.columns for single schema with more tables
-        assertThat(query(session, """
-                        SELECT table_name, column_name, is_nullable FROM system.jdbc.columns
-                        WHERE table_cat = CURRENT_CATALOG AND table_schem = CURRENT_SCHEMA
-                        AND ((column_name LIKE 'n_me' AND table_name IN ('customer', 'nation')) OR rand() = 42) -- not pushed down into connector
+        assertThat(query(session,
+                """
+                SELECT table_name, column_name, is_nullable FROM system.jdbc.columns
+                WHERE table_cat = CURRENT_CATALOG AND table_schem = CURRENT_SCHEMA
+                AND ((column_name LIKE 'n_me' AND table_name IN ('customer', 'nation')) OR rand() = 42) -- not pushed down into connector
                 """))
                 .skippingTypesCheck()
-                .matches("""
+                .matches(
+                        """
                         VALUES
                             ('customer', 'name', 'YES')
                           , ('nation', 'name', 'YES')
@@ -2267,9 +2276,11 @@ public abstract class BaseJdbcConnectorTest
         String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
         try (TestTable left = new TestTable(getQueryRunner()::execute, "test_long_id_l", format("(%s BIGINT)", validColumnName));
                 TestTable right = new TestTable(getQueryRunner()::execute, "test_long_id_r", format("(%s BIGINT)", validColumnName))) {
-            assertThat(query(joinPushdownEnabled(getSession()), """
+            assertThat(query(joinPushdownEnabled(getSession()),
+                    """
                     SELECT l.%1$s, r.%1$s
-                    FROM %2$s l JOIN %3$s r ON l.%1$s = r.%1$s""".formatted(validColumnName, left.getName(), right.getName())))
+                    FROM %2$s l JOIN %3$s r ON l.%1$s = r.%1$s\
+                    """.formatted(validColumnName, left.getName(), right.getName())))
                     .isFullyPushedDown();
         }
     }

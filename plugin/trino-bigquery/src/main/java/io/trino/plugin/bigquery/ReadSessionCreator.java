@@ -75,7 +75,7 @@ public class ReadSessionCreator
         this.maxCreateReadSessionRetries = maxCreateReadSessionRetries;
     }
 
-    public ReadSession create(ConnectorSession session, TableId remoteTable, List<String> selectedFields, Optional<String> filter, int currentWorkerCount)
+    public ReadSession create(ConnectorSession session, TableId remoteTable, List<BigQueryColumnHandle> selectedFields, Optional<String> filter, int currentWorkerCount)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
         TableInfo tableDetails = client.getTable(remoteTable)
@@ -84,6 +84,7 @@ public class ReadSessionCreator
         TableInfo actualTable = getActualTable(client, tableDetails, selectedFields, isViewMaterializationWithFilter(session) ? filter : Optional.empty());
 
         List<String> filteredSelectedFields = selectedFields.stream()
+                .map(BigQueryColumnHandle::getQualifiedName)
                 .map(BigQueryUtil::toBigQueryColumnName)
                 .collect(toList());
 
@@ -134,7 +135,7 @@ public class ReadSessionCreator
     private TableInfo getActualTable(
             BigQueryClient client,
             TableInfo remoteTable,
-            List<String> requiredColumns,
+            List<BigQueryColumnHandle> requiredColumns,
             Optional<String> filter)
     {
         TableDefinition tableDefinition = remoteTable.getDefinition();

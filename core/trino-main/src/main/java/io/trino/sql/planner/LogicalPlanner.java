@@ -110,7 +110,6 @@ import io.trino.sql.tree.Update;
 import io.trino.tracing.ScopedSpan;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.type.UnknownType;
-import jakarta.annotation.Nonnull;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
@@ -301,7 +300,6 @@ public class LogicalPlanner
         return new Plan(root, statsAndCosts);
     }
 
-    @Nonnull
     private PlanNode runOptimizer(PlanNode root, TableStatsProvider tableStatsProvider, PlanOptimizer optimizer)
     {
         PlanNode result;
@@ -909,7 +907,7 @@ public class LogicalPlanner
             columnNumber++;
         }
 
-        if (session.getQueryDataEncodingId().isPresent() && spoolingManagerRegistry.getSpoolingManager().isPresent()) {
+        if (session.getQueryDataEncoding().isPresent() && spoolingManagerRegistry.getSpoolingManager().isPresent()) {
             names.add(SPOOLING_METADATA_SYMBOL.name());
             outputs.add(SPOOLING_METADATA_SYMBOL);
         }

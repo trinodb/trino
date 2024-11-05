@@ -1,5 +1,5 @@
--- database: presto; groups: insert; mutable_tables: datatype|created; tables: datatype
--- delimiter: |; ignoreOrder: true; 
+-- database: trino; groups: insert; mutable_tables: datatype|created; tables: datatype
+-- delimiter: |; ignoreOrder: true;
 --!
 insert into ${mutableTables.hive.datatype} select * from datatype union all select * from datatype;
 select * from ${mutableTables.hive.datatype}

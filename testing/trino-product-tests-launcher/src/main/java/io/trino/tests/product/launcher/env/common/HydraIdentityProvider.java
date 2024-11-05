@@ -122,7 +122,7 @@ public class HydraIdentityProvider
                                 CONTAINER_TEMPTO_PROFILE_CONFIG)
                         .withCopyFileToContainer(
                                 forHostPath(configDir.getPath("cert/truststore.jks")),
-                                "/docker/presto-product-tests/truststore.jks"));
+                                "/docker/trino-product-tests/truststore.jks"));
     }
 
     public DockerContainer createClient(

@@ -249,6 +249,7 @@ import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
 import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.FIRST;
 import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.LAST;
+import static io.trino.sql.analyzer.SemanticExceptions.invalidReferenceException;
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -852,7 +853,8 @@ public class ExpressionAnalyzer
             }
 
             if (rowFieldType == null) {
-                throw missingAttributeException(node, qualifiedName);
+                throw invalidReferenceException(node, Optional.ofNullable(qualifiedName)
+                        .orElseGet(() -> QualifiedName.of(fieldName)));
             }
 
             return setExpressionType(node, rowFieldType);
@@ -1537,7 +1539,7 @@ public class ExpressionAnalyzer
 
                 // validate frame start and end types
                 FrameBound.Type startType = frame.getStart().getType();
-                FrameBound.Type endType = frame.getEnd().orElse(new FrameBound(CURRENT_ROW)).getType();
+                FrameBound.Type endType = frame.getEnd().map(FrameBound::getType).orElse(CURRENT_ROW);
                 if (startType == UNBOUNDED_FOLLOWING) {
                     throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame start cannot be UNBOUNDED FOLLOWING");
                 }

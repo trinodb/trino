@@ -141,9 +141,7 @@ public class HadoopFileSystemExchangeStorage
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 
     private static Configuration newEmptyConfiguration()
     {

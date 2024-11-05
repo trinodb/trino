@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ContiguousSet;
@@ -79,7 +80,6 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesSpatialIndexFactory;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.RefreshMaterializedViewOperator.RefreshMaterializedViewOperatorFactory;
-import io.trino.operator.RetryPolicy;
 import io.trino.operator.RowNumberOperator;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import io.trino.operator.SetBuilderOperator.SetBuilderOperatorFactory;
@@ -153,8 +153,8 @@ import io.trino.operator.window.pattern.PhysicalValuePointer;
 import io.trino.operator.window.pattern.SetEvaluator.SetEvaluatorSupplier;
 import io.trino.plugin.base.MappedRecordSet;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
-import io.trino.server.protocol.spooling.QueryDataEncoderSelector;
-import io.trino.server.protocol.spooling.SpoolingManagerBridge;
+import io.trino.server.protocol.spooling.QueryDataEncoders;
+import io.trino.server.protocol.spooling.SpoolingConfig;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -176,6 +176,7 @@ import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.protocol.SpoolingManager;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -271,6 +272,7 @@ import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.FunctionType;
+import org.objectweb.asm.MethodTooLargeException;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -330,6 +332,7 @@ import static io.trino.operator.OperatorFactories.join;
 import static io.trino.operator.OperatorFactories.spillingJoin;
 import static io.trino.operator.OutputSpoolingOperatorFactory.layoutUnionWithSpooledMetadata;
 import static io.trino.operator.OutputSpoolingOperatorFactory.spooledOutputLayout;
+import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
 import static io.trino.operator.TableFinishOperator.TableFinisher;
 import static io.trino.operator.TableWriterOperator.FRAGMENT_CHANNEL;
@@ -350,6 +353,7 @@ import static io.trino.operator.window.FrameInfo.Ordering.DESCENDING;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
+import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -421,8 +425,9 @@ public class LocalExecutionPlanner
     private final DataSize maxPagePartitioningBufferSize;
     private final DataSize maxLocalExchangeBufferSize;
     private final SpillerFactory spillerFactory;
-    private final QueryDataEncoderSelector encoderSelector;
-    private final Optional<SpoolingManagerBridge> spoolingManager;
+    private final QueryDataEncoders encoders;
+    private final Optional<SpoolingManager> spoolingManager;
+    private final Optional<SpoolingConfig> spoolingConfig;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
     private final PagesIndex.Factory pagesIndexFactory;
@@ -475,8 +480,9 @@ public class LocalExecutionPlanner
             IndexJoinLookupStats indexJoinLookupStats,
             TaskManagerConfig taskManagerConfig,
             SpillerFactory spillerFactory,
-            QueryDataEncoderSelector encoderSelector,
-            Optional<SpoolingManagerBridge> spoolingManager,
+            QueryDataEncoders encoders,
+            Optional<SpoolingManager> spoolingManager,
+            Optional<SpoolingConfig> spoolingConfig,
             SingleStreamSpillerFactory singleStreamSpillerFactory,
             PartitioningSpillerFactory partitioningSpillerFactory,
             PagesIndex.Factory pagesIndexFactory,
@@ -505,8 +511,9 @@ public class LocalExecutionPlanner
         this.indexJoinLookupStats = requireNonNull(indexJoinLookupStats, "indexJoinLookupStats is null");
         this.maxIndexMemorySize = taskManagerConfig.getMaxIndexMemoryUsage();
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
-        this.encoderSelector = requireNonNull(encoderSelector, "encoderSelector is null");
+        this.encoders = requireNonNull(encoders, "encoders is null");
         this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
+        this.spoolingConfig = requireNonNull(spoolingConfig, "spoolingConfig is null");
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
         this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
@@ -905,7 +912,7 @@ public class LocalExecutionPlanner
         private PhysicalOperation createMergeSource(RemoteSourceNode node, LocalExecutionPlanContext context)
         {
             checkArgument(node.getOrderingScheme().isPresent(), "orderingScheme is absent");
-            checkArgument(node.getRetryPolicy() == RetryPolicy.NONE, "unexpected retry policy: %s", node.getRetryPolicy());
+            checkArgument(node.getRetryPolicy() == NONE, "unexpected retry policy: %s", node.getRetryPolicy());
 
             // merging remote source must have a single driver
             context.setDriverInstanceCount(1);
@@ -972,25 +979,26 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitOutput(OutputNode node, LocalExecutionPlanContext context)
         {
             Session session = context.taskContext.getSession();
-            Optional<QueryDataEncoder.Factory> encoderFactory = session
-                    .getQueryDataEncodingId()
-                    .flatMap(encoderSelector::select);
             PhysicalOperation operation = node.getSource().accept(this, context);
 
-            if (encoderFactory.isEmpty()) {
+            if (session.getQueryDataEncoding().isEmpty()) {
                 return operation;
             }
 
-            SpoolingManagerBridge spoolingManagerBridge = spoolingManager.orElseThrow(() ->
-                    new IllegalStateException("Query data encoding was requested but spooling manager is not available"));
-
-            if (!spoolingManagerBridge.isLoaded()) {
-                throw new IllegalStateException("Query data encoding was requested but spooling manager is not loaded");
-            }
+            QueryDataEncoder.Factory encoderFactory = session
+                    .getQueryDataEncoding()
+                    .map(encoders::get)
+                    .orElseThrow(() -> new IllegalStateException("Spooled query encoding was not found"));
 
             Map<Symbol, Integer> spooledLayout = layoutUnionWithSpooledMetadata(operation.layout);
-            QueryDataEncoder queryDataEncoder = encoderFactory.orElseThrow().create(session, spooledOutputLayout(node, operation.layout));
-            OutputSpoolingOperatorFactory outputSpoolingOperatorFactory = new OutputSpoolingOperatorFactory(context.getNextOperatorId(), node.getId(), spooledLayout, queryDataEncoder, spoolingManagerBridge);
+            QueryDataEncoder queryDataEncoder = encoderFactory.create(session, spooledOutputLayout(node, operation.layout));
+            OutputSpoolingOperatorFactory outputSpoolingOperatorFactory = new OutputSpoolingOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    spooledLayout,
+                    queryDataEncoder,
+                    spoolingManager.orElseThrow(),
+                    spoolingConfig.orElseThrow());
 
             return new PhysicalOperation(outputSpoolingOperatorFactory, spooledLayout, operation);
         }
@@ -2071,11 +2079,12 @@ public class LocalExecutionPlanner
                 throw e;
             }
             catch (RuntimeException e) {
-                throw new TrinoException(
-                        COMPILER_ERROR,
-                        "Compiler failed. Possible reasons include: the query may have too many or too complex expressions, " +
-                                "or the underlying tables may have too many columns",
-                        e);
+                if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
+                    throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT,
+                            "Compiler failed. Possible reasons include: the query may have too many or too complex expressions, " +
+                                    "or the underlying tables may have too many columns", e);
+                }
+                throw new TrinoException(COMPILER_ERROR, e);
             }
         }
 

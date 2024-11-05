@@ -34,7 +34,7 @@ public class CreateMaterializedView
     private final Optional<String> comment;
 
     public CreateMaterializedView(
-            Optional<NodeLocation> location,
+            NodeLocation location,
             QualifiedName name,
             Query query,
             boolean replace,

@@ -54,6 +54,7 @@ public class TestBigQueryConfig
                 .setQueryLabelName(null)
                 .setQueryLabelFormat(null)
                 .setProxyEnabled(false)
+                .setProjectionPushdownEnabled(true)
                 .setMetadataParallelism(2));
     }
 
@@ -82,6 +83,7 @@ public class TestBigQueryConfig
                 .put("bigquery.job.label-format", "$TRACE_TOKEN")
                 .put("bigquery.rpc-proxy.enabled", "true")
                 .put("bigquery.metadata.parallelism", "31")
+                .put("bigquery.projection-pushdown-enabled", "false")
                 .buildOrThrow();
 
         BigQueryConfig expected = new BigQueryConfig()
@@ -105,6 +107,7 @@ public class TestBigQueryConfig
                 .setQueryLabelName("trino_job_name")
                 .setQueryLabelFormat("$TRACE_TOKEN")
                 .setProxyEnabled(true)
+                .setProjectionPushdownEnabled(false)
                 .setMetadataParallelism(31);
 
         assertFullMapping(properties, expected);

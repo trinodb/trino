@@ -88,7 +88,7 @@ public final class IcebergOrcFileWriter
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "fileInputColumnIndexes is null");
 
         this.nullBlocks = fileColumnTypes.stream()
-                .map(type -> type.createBlockBuilder(null, 1, 0).appendNull().build())
+                .map(Type::createNullBlock)
                 .collect(toImmutableList());
 
         this.validationInputFactory = validationInputFactory;

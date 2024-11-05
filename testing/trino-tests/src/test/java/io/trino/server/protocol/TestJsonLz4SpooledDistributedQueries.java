@@ -17,7 +17,7 @@ public class TestJsonLz4SpooledDistributedQueries
         extends AbstractSpooledQueryDataDistributedQueries
 {
     @Override
-    protected String encodingId()
+    protected String encoding()
     {
         return "json+lz4";
     }

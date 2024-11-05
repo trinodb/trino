@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
-import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
+import io.trino.client.ResultRows;
 import io.trino.client.Row;
 import io.trino.client.RowField;
 import io.trino.client.StatementStats;
@@ -129,7 +129,7 @@ public class TestingTrinoClient
 
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
         private final AtomicReference<List<String>> columnNames = new AtomicReference<>();
-
+        private final AtomicReference<String> queryDataEncoding = new AtomicReference<>();
         private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
         private final AtomicReference<List<Warning>> warnings = new AtomicReference<>(ImmutableList.of());
@@ -160,17 +160,25 @@ public class TestingTrinoClient
         }
 
         @Override
-        public void addResults(QueryStatusInfo statusInfo, QueryData data)
+        public void addResults(QueryStatusInfo statusInfo, ResultRows data)
         {
             if (types.get() == null && statusInfo.getColumns() != null) {
                 types.set(getTypes(statusInfo.getColumns()));
                 columnNames.set(getNames(statusInfo.getColumns()));
             }
 
-            if (data.getData() != null) {
-                checkState(types.get() != null, "data received without types");
-                rows.addAll(mappedCopy(data.getData(), dataToRow(types.get())));
+            if (data.isNull()) {
+                return;
             }
+
+            checkState(types.get() != null, "data received without types");
+            rows.addAll(mappedCopy(data, dataToRow(types.get())));
+        }
+
+        @Override
+        public void setQueryDataEncoding(String encoding)
+        {
+            queryDataEncoding.set(encoding);
         }
 
         @Override
@@ -181,6 +189,7 @@ public class TestingTrinoClient
                     rows.build(),
                     types.get(),
                     columnNames.get(),
+                    Optional.ofNullable(queryDataEncoding.get()),
                     setSessionProperties,
                     resetSessionProperties,
                     updateType.get(),

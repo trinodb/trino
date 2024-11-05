@@ -94,7 +94,7 @@ public final class EnvTwoKerberosHives
         builder.configureContainer(COORDINATOR, container -> {
             container
                     .withFileSystemBind(keytabsHostDirectory, "/etc/trino/conf", READ_WRITE)
-                    .withCopyFileToContainer(forHostPath(configDir.getPath("presto-krb5.conf")), "/etc/krb5.conf");
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("trino-krb5.conf")), "/etc/krb5.conf");
         });
         builder.addConnector("hive", forHostPath(configDir.getPath("hive1.properties")), CONTAINER_TRINO_ETC + "/catalog/hive1.properties");
         builder.addConnector("hive", forHostPath(configDir.getPath("hive2.properties")), CONTAINER_TRINO_ETC + "/catalog/hive2.properties");

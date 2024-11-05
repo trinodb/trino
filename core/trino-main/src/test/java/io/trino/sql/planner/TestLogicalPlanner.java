@@ -103,7 +103,7 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.predicate.Domain.multipleValues;
@@ -1900,14 +1900,15 @@ public class TestLogicalPlanner
     {
         assertPlan(
                 """
-                        SELECT col FROM (
-                            SELECT nationkey FROM nation
-                            UNION ALL
-                            SELECT nationkey FROM nation
-                            UNION ALL
-                            SELECT nationkey FROM nation
-                        ) AS t(col)
-                        LIMIT 2""",
+                SELECT col FROM (
+                    SELECT nationkey FROM nation
+                    UNION ALL
+                    SELECT nationkey FROM nation
+                    UNION ALL
+                    SELECT nationkey FROM nation
+                ) AS t(col)
+                LIMIT 2
+                """,
                 output(
                         limit(
                                 2,
@@ -2415,9 +2416,9 @@ public class TestLogicalPlanner
     @Test
     public void testPruneUnreferencedRowPatternWindowFunctions()
     {
-        // window function `row_number` is not referenced
+        // window function `last_value` is not referenced
         assertPlan("SELECT id, min FROM " +
-                        "       (SELECT id, min(value) OVER w min, row_number() OVER w " +
+                        "       (SELECT id, min(value) OVER w min, last_value(value) OVER w " +
                         "          FROM (VALUES (1, 90)) t(id, value) " +
                         "          WINDOW w AS ( " +
                         "                   ORDER BY id " +
@@ -2484,8 +2485,8 @@ public class TestLogicalPlanner
     public void testMergePatternRecognitionNodes()
     {
         // The pattern matching window `w` is referenced in three calls: row pattern measure calls: `val OVER w` and `label OVER w`,
-        // and window function call `row_number() OVER w`. They are all planned within a single PatternRecognitionNode.
-        assertPlan("SELECT id, val OVER w, label OVER w, row_number() OVER w " +
+        // and window function call `last_value(value) OVER w`. They are all planned within a single PatternRecognitionNode.
+        assertPlan("SELECT id, val OVER w, label OVER w, last_value(value) OVER w " +
                         "          FROM (VALUES (1, 90)) t(id, value) " +
                         "          WINDOW w AS ( " +
                         "                   ORDER BY id " +
@@ -2513,9 +2514,9 @@ public class TestLogicalPlanner
                                                         ImmutableMap.of("classy", new ClassifierValuePointer(
                                                                 new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0))),
                                                         VARCHAR)
-                                                .addFunction("row_number", windowFunction(
-                                                        "row_number",
-                                                        ImmutableList.of(),
+                                                .addFunction("last_value", windowFunction(
+                                                        "last_value",
+                                                        ImmutableList.of("value"),
                                                         ROWS_FROM_CURRENT))
                                                 .rowsPerMatch(WINDOW)
                                                 .frame(ROWS_FROM_CURRENT)

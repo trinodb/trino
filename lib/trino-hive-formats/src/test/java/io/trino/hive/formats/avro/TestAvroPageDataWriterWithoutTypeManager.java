@@ -183,15 +183,15 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 .type().longType().noDefault()
                 .endRecord();
 
-        BlockBuilder byteBlockBuilder = TINYINT.createBlockBuilder(null, 1);
+        BlockBuilder byteBlockBuilder = TINYINT.createFixedSizeBlockBuilder(1);
         TINYINT.writeByte(byteBlockBuilder, (byte) 1);
         Block byteBlock = byteBlockBuilder.build();
 
-        BlockBuilder shortBlockBuilder = SMALLINT.createBlockBuilder(null, 1);
+        BlockBuilder shortBlockBuilder = SMALLINT.createFixedSizeBlockBuilder(1);
         SMALLINT.writeShort(shortBlockBuilder, (short) 2);
         Block shortBlock = shortBlockBuilder.build();
 
-        BlockBuilder integerBlockBuilder = INTEGER.createBlockBuilder(null, 1);
+        BlockBuilder integerBlockBuilder = INTEGER.createFixedSizeBlockBuilder(1);
         INTEGER.writeInt(integerBlockBuilder, 4);
         Block integerBlock = integerBlockBuilder.build();
 

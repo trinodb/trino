@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>458-SNAPSHOT</version>
+        <version>465-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -85,6 +85,12 @@
             <artifactId>jakarta.annotation-api</artifactId>
             <!-- JDK8 support dropped by version 3.0.0+ -->
             <version>2.1.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>

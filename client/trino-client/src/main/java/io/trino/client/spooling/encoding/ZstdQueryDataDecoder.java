@@ -13,10 +13,12 @@
  */
 package io.trino.client.spooling.encoding;
 
-import io.airlift.compress.zstd.ZstdInputStream;
+import io.airlift.compress.zstd.ZstdDecompressor;
 import io.trino.client.QueryDataDecoder;
 
-import java.io.InputStream;
+import java.io.IOException;
+
+import static java.lang.String.format;
 
 public class ZstdQueryDataDecoder
         extends CompressedQueryDataDecoder
@@ -27,14 +29,19 @@ public class ZstdQueryDataDecoder
     }
 
     @Override
-    InputStream decompress(InputStream inputStream, int uncompressedSize)
+    void decompress(byte[] bytes, byte[] output)
+            throws IOException
     {
-        return new ZstdInputStream(inputStream);
+        ZstdDecompressor decompressor = new ZstdDecompressor();
+        int decompressedSize = decompressor.decompress(bytes, 0, bytes.length, output, 0, output.length);
+        if (decompressedSize != output.length) {
+            throw new IOException(format("Decompressed size does not match expected segment size, expected %d, got %d", decompressedSize, output.length));
+        }
     }
 
     @Override
-    public String encodingId()
+    public String encoding()
     {
-        return delegate.encodingId() + "+zstd";
+        return delegate.encoding() + "+zstd";
     }
 }

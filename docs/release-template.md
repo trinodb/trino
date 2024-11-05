@@ -14,10 +14,6 @@
 
 ## CLI
 
-## Accumulo connector
-
-## Atop connector
-
 ## BigQuery connector
 
 ## Blackhole connector
@@ -52,8 +48,6 @@
 
 ## Kudu connector
 
-## Local file connector
-
 ## MariaDB connector
 
 ## Memory connector
@@ -73,8 +67,6 @@
 ## PostgreSQL connector
 
 ## Prometheus connector
-
-## Raptor connector
 
 ## Redis connector
 

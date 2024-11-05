@@ -4,6 +4,10 @@ Object storage connectors can access
 [Google Cloud Storage](https://cloud.google.com/storage/) data using the
 `gs://` URI prefix.
 
+:::{warning}
+Legacy support is not recommended and will be removed. Use [](file-system-gcs).
+:::
+
 ## Requirements
 
 To use Google Cloud Storage with non-anonymous access objects, you need:
@@ -13,6 +17,9 @@ To use Google Cloud Storage with non-anonymous access objects, you need:
 
 (hive-google-cloud-storage-configuration)=
 ## Configuration
+
+To use legacy support, the `fs.hadoop.enabled` property must be set to `true` in
+your catalog configuration file.
 
 The use of Google Cloud Storage as a storage location for an object storage
 catalog requires setting a configuration property that defines the

@@ -104,6 +104,7 @@ import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
+import static io.trino.spi.resourcegroups.QueryType.SELECT;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static io.trino.util.Ciphers.serializeAesEncryptionKey;
 import static io.trino.util.Failures.toFailure;
@@ -306,6 +307,10 @@ public class QueryStateMachine
         if (getRetryPolicy(session) == TASK && faultTolerantExecutionExchangeEncryptionEnabled) {
             // encryption is mandatory for fault tolerant execution as it relies on an external storage to store intermediate data generated during an exchange
             session = session.withExchangeEncryption(serializeAesEncryptionKey(createRandomAesEncryptionKey()));
+        }
+
+        if (!queryType.map(SELECT::equals).orElse(false)) {
+            session = session.withoutSpooling();
         }
 
         Span querySpan = session.getQuerySpan();

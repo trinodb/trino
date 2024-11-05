@@ -54,7 +54,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "query.queue-config-file",
         "query.remote-task.max-consecutive-error-count",
         "query.remote-task.min-error-duration",
-        "retry-attempts",
+        "retry-attempts"
 })
 public class QueryManagerConfig
 {
@@ -108,7 +108,7 @@ public class QueryManagerConfig
     private double retryDelayScaleFactor = 2.0;
 
     private int maxTasksWaitingForExecutionPerQuery = 10;
-    private int maxTasksWaitingForNodePerStage = 5;
+    private int maxTasksWaitingForNodePerQuery = 50;
 
     private boolean enabledAdaptiveTaskRequestSize = true;
     private DataSize maxRemoteTaskRequestSize = DataSize.of(8, MEGABYTE);
@@ -679,16 +679,17 @@ public class QueryManagerConfig
     }
 
     @Min(1)
-    public int getMaxTasksWaitingForNodePerStage()
+    public int getMaxTasksWaitingForNodePerQuery()
     {
-        return maxTasksWaitingForNodePerStage;
+        return maxTasksWaitingForNodePerQuery;
     }
 
-    @Config("max-tasks-waiting-for-node-per-stage")
-    @ConfigDescription("Maximum possible number of tasks waiting for node allocation per stage before scheduling of new tasks for stage is paused")
-    public QueryManagerConfig setMaxTasksWaitingForNodePerStage(int maxTasksWaitingForNodePerStage)
+    @Config("max-tasks-waiting-for-node-per-query")
+    @LegacyConfig("max-tasks-waiting-for-node-per-stage") // TODO drop this alltogether in couple releases as name is misleading
+    @ConfigDescription("Maximum possible number of tasks waiting for node allocation per query before scheduling of new tasks for query is paused")
+    public QueryManagerConfig setMaxTasksWaitingForNodePerQuery(int maxTasksWaitingForNodePerQuery)
     {
-        this.maxTasksWaitingForNodePerStage = maxTasksWaitingForNodePerStage;
+        this.maxTasksWaitingForNodePerQuery = maxTasksWaitingForNodePerQuery;
         return this;
     }
 

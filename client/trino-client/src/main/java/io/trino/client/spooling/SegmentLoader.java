@@ -30,25 +30,32 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class SegmentLoader
         implements AutoCloseable
 {
     private static final Logger logger = Logger.getLogger(SegmentLoader.class.getPackage().getName());
-    private final OkHttpClient client;
+
+    private final Call.Factory callFactory;
 
     public SegmentLoader()
     {
-        this.client = new OkHttpClient();
+        this(new OkHttpClient());
+    }
+
+    public SegmentLoader(Call.Factory callFactory)
+    {
+        this.callFactory = requireNonNull(callFactory, "callFactory is null");
     }
 
     public InputStream load(SpooledSegment segment)
             throws IOException
     {
-        return loadFromURI(segment.getDataUri(), segment.getHeaders());
+        return loadFromURI(segment.getDataUri(), segment.getAckUri(), segment.getHeaders());
     }
 
-    public InputStream loadFromURI(URI segmentUri, Map<String, List<String>> headers)
+    public InputStream loadFromURI(URI segmentUri, URI ackUri, Map<String, List<String>> headers)
             throws IOException
     {
         Headers requestHeaders = toHeaders(headers);
@@ -57,26 +64,26 @@ public class SegmentLoader
                 .headers(requestHeaders)
                 .build();
 
-        Response response = client.newCall(request).execute();
+        Response response = callFactory.newCall(request).execute();
         if (response.body() == null) {
             throw new IOException("Could not open segment for streaming, got empty body");
         }
 
         if (response.isSuccessful()) {
-            return delegatingInputStream(response, response.body().byteStream(), segmentUri, requestHeaders);
+            return delegatingInputStream(response, response.body().byteStream(), ackUri, requestHeaders);
         }
         throw new IOException(format("Could not open segment for streaming, got error '%s' with code %d", response.message(), response.code()));
     }
 
-    private void delete(URI segmentUri, Headers headers)
+    private void acknowledge(URI ackUri, Headers headers)
     {
-        Request deleteRequest = new Request.Builder()
-                .delete()
-                .url(segmentUri.toString())
+        Request ackRequest = new Request.Builder()
+                .get()
+                .url(ackUri.toString())
                 .headers(headers)
                 .build();
 
-        client.newCall(deleteRequest).enqueue(new Callback()
+        callFactory.newCall(ackRequest).enqueue(new Callback()
         {
             @Override
             public void onFailure(Call call, IOException cause)
@@ -92,7 +99,7 @@ public class SegmentLoader
         });
     }
 
-    private InputStream delegatingInputStream(Response response, InputStream delegate, URI segmentUri, Headers headers)
+    private InputStream delegatingInputStream(Response response, InputStream delegate, URI ackUri, Headers headers)
     {
         return new FilterInputStream(delegate)
         {
@@ -101,7 +108,7 @@ public class SegmentLoader
                     throws IOException
             {
                 try (Response ignored = response; InputStream ignored2 = delegate) {
-                    delete(segmentUri, headers);
+                    acknowledge(ackUri, headers);
                 }
             }
         };
@@ -117,6 +124,8 @@ public class SegmentLoader
     @Override
     public void close()
     {
-        client.dispatcher().executorService().shutdown();
+        if (callFactory instanceof OkHttpClient) {
+            ((OkHttpClient) callFactory).dispatcher().executorService().shutdown();
+        }
     }
 }

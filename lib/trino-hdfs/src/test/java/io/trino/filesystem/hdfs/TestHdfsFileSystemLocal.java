@@ -142,4 +142,9 @@ public class TestHdfsFileSystemLocal
     @Test
     @Override
     public void testPaths() {}
+
+    @Disabled("Hdfs does not guarantee lexicographical order when listing files")
+    @Test
+    @Override
+    public void testListLexicographicalOrder() {}
 }

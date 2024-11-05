@@ -34,7 +34,7 @@ public class TestJdbcMetadataConfig
                 .setAggregationPushdownEnabled(true)
                 .setTopNPushdownEnabled(true)
                 .setBulkListColumns(false)
-                .setDomainCompactionThreshold(32));
+                .setDomainCompactionThreshold(256));
     }
 
     @Test

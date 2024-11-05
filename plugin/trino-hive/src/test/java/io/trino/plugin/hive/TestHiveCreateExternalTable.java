@@ -120,14 +120,15 @@ public class TestHiveCreateExternalTable
         tempFile.deleteOnExit();
         String tableName = "test_create_external_on_file_" + randomNameSuffix();
 
-        @Language("SQL") String createTableSql = format("""
-                        CREATE TABLE %s.%s.%s (
-                            col1 varchar,
-                            col2 varchar
-                        )WITH (
-                            external_location = '%s',
-                            format = 'TEXTFILE')
-                        """,
+        @Language("SQL") String createTableSql = format(
+                """
+                CREATE TABLE %s.%s.%s (
+                    col1 varchar,
+                    col2 varchar
+                )WITH (
+                    external_location = '%s',
+                    format = 'TEXTFILE')
+                """,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 tableName,

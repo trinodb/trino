@@ -628,7 +628,7 @@ public class TestTupleDomain
     @Test
     public void testExtractFixedValuesFromNone()
     {
-        assertThat(TupleDomain.extractFixedValues(TupleDomain.none()).isPresent()).isFalse();
+        assertThat(TupleDomain.extractFixedValues(TupleDomain.none())).isEmpty();
     }
 
     @Test

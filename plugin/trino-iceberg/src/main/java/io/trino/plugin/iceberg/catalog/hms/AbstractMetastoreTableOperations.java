@@ -68,7 +68,7 @@ public abstract class AbstractMetastoreTableOperations
     }
 
     @Override
-    protected final String getRefreshedLocation(boolean invalidateCaches)
+    protected String getRefreshedLocation(boolean invalidateCaches)
     {
         if (invalidateCaches) {
             metastore.invalidateTable(database, tableName);

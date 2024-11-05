@@ -53,6 +53,7 @@ public class TestDeltaLakeSharedFileMetastoreWithTableRedirections
                 .put("hive.metastore.catalog.dir", dataDirectory.toString())
                 .put("delta.enable-non-concurrent-writes", "true")
                 .put("delta.hive-catalog-name", "hive_with_redirections")
+                .put("fs.hadoop.enabled", "true")
                 .buildOrThrow();
 
         queryRunner.createCatalog("delta_with_redirections", CONNECTOR_NAME, deltaLakeProperties);
@@ -67,6 +68,7 @@ public class TestDeltaLakeSharedFileMetastoreWithTableRedirections
                         .put("hive.metastore", "file")
                         .put("hive.metastore.catalog.dir", dataDirectory.toString())
                         .put("hive.delta-lake-catalog-name", "delta_with_redirections")
+                        .put("fs.hadoop.enabled", "true")
                         .buildOrThrow());
 
         queryRunner.execute("CREATE TABLE hive_with_redirections." + schema + ".hive_table (a_integer) WITH (format='PARQUET') AS VALUES 1, 2, 3");

@@ -178,7 +178,7 @@ public class TestBloomFilterStore
     {
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
             BloomFilterStore bloomFilterEnabled = generateBloomFilterStore(tempFile, true, typeTestCase.writeValues, typeTestCase.objectInspector);
-            assertThat(bloomFilterEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).isPresent()).isTrue();
+            assertThat(bloomFilterEnabled.getBloomFilter(fromDotString(COLUMN_NAME))).isPresent();
             BloomFilter bloomFilter = bloomFilterEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).get();
 
             for (Object data : typeTestCase.matchingValues) {
@@ -191,7 +191,7 @@ public class TestBloomFilterStore
 
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
             BloomFilterStore bloomFilterNotEnabled = generateBloomFilterStore(tempFile, false, typeTestCase.writeValues, typeTestCase.objectInspector);
-            assertThat(bloomFilterNotEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).isEmpty()).isTrue();
+            assertThat(bloomFilterNotEnabled.getBloomFilter(fromDotString(COLUMN_NAME))).isEmpty();
         }
     }
 

@@ -61,7 +61,7 @@ public class TestSliceDictionaryColumnReader
                 .orElseThrow(() -> new RuntimeException("File is empty"));
         Footer footer = orcReader.getFooter();
         List<OrcColumn> columns = orcReader.getRootColumn().getNestedColumns();
-        assertThat(columns.size() == 1).isTrue();
+        assertThat(columns).hasSize(1);
         StripeReader stripeReader = new StripeReader(
                 dataSource,
                 UTC,
@@ -92,7 +92,7 @@ public class TestSliceDictionaryColumnReader
         }
 
         columnReader.close();
-        assertThat(memoryContext.getBytes() == 0).isTrue();
+        assertThat(memoryContext.getBytes()).isZero();
     }
 
     private List<String> createValues()

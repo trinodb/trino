@@ -39,7 +39,8 @@ public class TestWindow
     @Timeout(10)
     public void testManyFunctionsWithSameWindow()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT
                           SUM(a) OVER w,
                           COUNT(a) OVER w,

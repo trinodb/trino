@@ -21,6 +21,7 @@ import io.trino.spi.Page;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Optional;
 
 public interface QueryDataEncoder
 {
@@ -28,13 +29,13 @@ public interface QueryDataEncoder
     {
         QueryDataEncoder create(Session session, List<OutputColumn> columns);
 
-        String encodingId();
+        String encoding();
     }
 
     DataAttributes encodeTo(OutputStream output, List<Page> pages)
             throws IOException;
 
-    String encodingId();
+    String encoding();
 
     /**
      * Returns additional attributes that are passed to the QueryDataDecoder.Factory.create method.
@@ -42,5 +43,23 @@ public interface QueryDataEncoder
     default DataAttributes attributes()
     {
         return DataAttributes.empty();
+    }
+
+    /**
+     * Responsible for choosing a {@link Factory} based on the client-provider
+     * supported encodings. Encoding that will be used is resolved one time
+     * during session creation.
+     * <p></p>
+     * Returning Optional.empty() fallbacks to the previous, direct protocol.
+     */
+    @FunctionalInterface
+    interface EncoderSelector
+    {
+        Optional<Factory> select(List<String> encoding);
+
+        static EncoderSelector noEncoder()
+        {
+            return _ -> Optional.empty();
+        }
     }
 }

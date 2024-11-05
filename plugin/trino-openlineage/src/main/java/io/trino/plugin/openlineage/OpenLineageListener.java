@@ -293,14 +293,13 @@ public class OpenLineageListener
             List<OutputColumnMetadata> outputColumns = outputMetadata.getColumns().orElse(List.of());
 
             OpenLineage.ColumnLineageDatasetFacetFieldsBuilder columnLineageDatasetFacetFieldsBuilder = openLineage.newColumnLineageDatasetFacetFieldsBuilder();
-
             outputColumns.forEach(column ->
                     columnLineageDatasetFacetFieldsBuilder.put(column.getColumnName(),
                             openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                                     .inputFields(column
                                             .getSourceColumns()
                                             .stream()
-                                            .map(inputColumn -> openLineage.newColumnLineageDatasetFacetFieldsAdditionalInputFieldsBuilder()
+                                            .map(inputColumn -> openLineage.newInputFieldBuilder()
                                                     .field(inputColumn.getColumnName())
                                                     .namespace(this.datasetNamespace)
                                                     .name(getDatasetName(inputColumn.getCatalog(), inputColumn.getSchema(), inputColumn.getTable()))
@@ -308,12 +307,23 @@ public class OpenLineageListener
                                             .toList()
                                     ).build()));
 
+            ImmutableList.Builder<OpenLineage.InputField> inputFields = ImmutableList.builder();
+            ioMetadata.getInputs().forEach(input -> {
+                for (String columnName : input.getColumns()) {
+                    inputFields.add(openLineage.newInputFieldBuilder()
+                            .field(columnName)
+                            .namespace(this.datasetNamespace)
+                            .name(getDatasetName(input.getCatalogName(), input.getSchema(), input.getTable()))
+                            .build());
+                }
+            });
+
             return ImmutableList.of(
                     openLineage.newOutputDatasetBuilder()
                             .namespace(this.datasetNamespace)
                             .name(getDatasetName(outputMetadata.getCatalogName(), outputMetadata.getSchema(), outputMetadata.getTable()))
                             .facets(openLineage.newDatasetFacetsBuilder()
-                                    .columnLineage(openLineage.newColumnLineageDatasetFacet(columnLineageDatasetFacetFieldsBuilder.build()))
+                                    .columnLineage(openLineage.newColumnLineageDatasetFacet(columnLineageDatasetFacetFieldsBuilder.build(), inputFields.build()))
                                     .schema(openLineage.newSchemaDatasetFacetBuilder()
                                             .fields(
                                                     outputColumns.stream()
@@ -326,7 +336,6 @@ public class OpenLineageListener
                                     ).build()
                             ).build());
         }
-
         return ImmutableList.of();
     }
 

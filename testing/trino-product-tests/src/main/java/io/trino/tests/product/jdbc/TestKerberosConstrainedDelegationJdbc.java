@@ -49,15 +49,15 @@ public class TestKerberosConstrainedDelegationJdbc
 {
     private static final String KERBEROS_OID = "1.2.840.113554.1.2.2";
     @Inject
-    @Named("databases.presto.jdbc_url")
+    @Named("databases.trino.jdbc_url")
     String jdbcUrl;
 
     @Inject
-    @Named("databases.presto.kerberos_principal")
+    @Named("databases.trino.kerberos_principal")
     private String kerberosPrincipal;
 
     @Inject
-    @Named("databases.presto.kerberos_keytab")
+    @Named("databases.trino.kerberos_keytab")
     private String kerberosKeytab;
 
     private GSSManager gssManager;
@@ -80,7 +80,7 @@ public class TestKerberosConstrainedDelegationJdbc
         try (Connection connection = DriverManager.getConnection(jdbcUrl, driverProperties);
                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
-            assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+            assertThat(forResultSet(results)).matches(TpchTableResults.TRINO_NATION_RESULT);
         }
         finally {
             credential.dispose();

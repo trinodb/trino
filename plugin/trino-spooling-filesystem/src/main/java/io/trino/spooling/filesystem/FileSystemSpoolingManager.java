@@ -13,61 +13,71 @@
  */
 package io.trino.spooling.filesystem;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
-import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.XxHash64;
+import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.protocol.SpooledLocation;
+import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
 import io.trino.spi.protocol.SpoolingContext;
 import io.trino.spi.protocol.SpoolingManager;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spooling.filesystem.encryption.EncryptionHeadersTranslator;
 import io.trino.spooling.filesystem.encryption.ExceptionMappingInputStream;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static io.airlift.units.Duration.succinctDuration;
+import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
 import static io.trino.spi.protocol.SpooledLocation.coordinatorLocation;
-import static io.trino.spooling.filesystem.encryption.EncryptionUtils.decryptingInputStream;
-import static io.trino.spooling.filesystem.encryption.EncryptionUtils.encryptingOutputStream;
-import static io.trino.spooling.filesystem.encryption.EncryptionUtils.generateRandomKey;
+import static io.trino.spooling.filesystem.encryption.EncryptionHeadersTranslator.encryptionHeadersTranslator;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.Duration.between;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class FileSystemSpoolingManager
         implements SpoolingManager
 {
-    private static final String ENCRYPTION_KEY_HEADER = "X-Trino-Server-Side-Encryption-Key";
-    private static final String ENCRYPTION_KEY_CIPHER = "X-Trino-Server-Side-Encryption";
-
-    private static final String ENCRYPTION_CIPHER_NAME = "AES256";
-
-    private final String location;
+    private final Location location;
+    private final EncryptionHeadersTranslator encryptionHeadersTranslator;
     private final TrinoFileSystem fileSystem;
+    private final FileSystemLayout fileSystemLayout;
     private final Duration ttl;
     private final boolean encryptionEnabled;
+    private final Random random = ThreadLocalRandom.current();
 
     @Inject
-    public FileSystemSpoolingManager(FileSystemSpoolingConfig config, TrinoFileSystemFactory fileSystemFactory)
+    public FileSystemSpoolingManager(FileSystemSpoolingConfig config, TrinoFileSystemFactory fileSystemFactory, FileSystemLayout fileSystemLayout)
     {
         requireNonNull(config, "config is null");
-        this.location = config.getLocation();
+        this.location = Location.of(config.getLocation());
         this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null")
                 .create(ConnectorIdentity.ofUser("ignored"));
+        this.fileSystemLayout = requireNonNull(fileSystemLayout, "fileSystemLayout is null");
+        this.encryptionHeadersTranslator = encryptionHeadersTranslator(location);
         this.ttl = config.getTtl();
         this.encryptionEnabled = config.isEncryptionEnabled();
     }
@@ -76,156 +86,161 @@ public class FileSystemSpoolingManager
     public OutputStream createOutputStream(SpooledSegmentHandle handle)
             throws IOException
     {
-        FileSystemSpooledSegmentHandle filesystemHandle = (FileSystemSpooledSegmentHandle) handle;
-        OutputStream stream = fileSystem.newOutputFile(location(filesystemHandle)).create();
-        if (filesystemHandle.encryptionKey().isPresent()) {
-            return encryptingOutputStream(stream, filesystemHandle.encryptionKey().get());
+        FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
+        Location storageLocation = fileSystemLayout.location(location, fileHandle);
+        Optional<EncryptionKey> encryption = fileHandle.encryptionKey();
+
+        TrinoOutputFile outputFile;
+        if (encryptionEnabled) {
+            outputFile = fileSystem.newEncryptedOutputFile(storageLocation, encryption.orElseThrow());
         }
-        return stream;
+        else {
+            outputFile = fileSystem.newOutputFile(storageLocation);
+        }
+
+        return outputFile.create();
     }
 
     @Override
     public FileSystemSpooledSegmentHandle create(SpoolingContext context)
     {
+        Instant expireAt = Instant.now().plusMillis(ttl.toMillis());
         if (encryptionEnabled) {
-            return FileSystemSpooledSegmentHandle.random(context, ttl, Optional.of(generateRandomKey()));
+            return FileSystemSpooledSegmentHandle.random(random, context, expireAt, Optional.of(randomAes256()));
         }
-        return FileSystemSpooledSegmentHandle.random(context, ttl);
+        return FileSystemSpooledSegmentHandle.random(random, context, expireAt);
     }
 
     @Override
     public InputStream openInputStream(SpooledSegmentHandle handle)
             throws IOException
     {
-        FileSystemSpooledSegmentHandle segmentHandle = (FileSystemSpooledSegmentHandle) handle;
-        checkExpiration(segmentHandle);
-        try {
-            if (!fileSystem.newInputFile(location(segmentHandle)).exists()) {
-                throw new IOException("Segment not found or expired");
-            }
+        FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
+        checkExpiration(fileHandle);
 
-            InputStream stream = fileSystem.newInputFile(location(segmentHandle)).newStream();
-            if (segmentHandle.encryptionKey().isPresent()) {
-                return new ExceptionMappingInputStream(decryptingInputStream(stream, segmentHandle.encryptionKey().get()));
-            }
-            return stream;
+        Optional<EncryptionKey> encryption = fileHandle.encryptionKey();
+        Location storageLocation = fileSystemLayout.location(location, fileHandle);
+
+        TrinoInputFile inputFile;
+
+        if (encryptionEnabled) {
+            inputFile = fileSystem.newEncryptedInputFile(storageLocation, encryption.orElseThrow());
         }
-        catch (FileNotFoundException e) {
-            throw new IOException("Segment not found or expired", e);
+        else {
+            inputFile = fileSystem.newInputFile(storageLocation);
         }
+
+        checkFileExists(inputFile);
+        return new ExceptionMappingInputStream(inputFile.newStream());
     }
 
     @Override
     public void acknowledge(SpooledSegmentHandle handle)
             throws IOException
     {
-        fileSystem.deleteFile(location((FileSystemSpooledSegmentHandle) handle));
+        fileSystem.deleteFile(fileSystemLayout.location(location, (FileSystemSpooledSegmentHandle) handle));
+    }
+
+    @Override
+    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle, OptionalInt ttlSeconds)
+            throws IOException
+    {
+        FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
+        Location storageLocation = fileSystemLayout.location(location, fileHandle);
+        Duration ttl = remainingTtl(fileHandle.expirationTime(), ttlSeconds);
+        Optional<EncryptionKey> key = fileHandle.encryptionKey();
+
+        Optional<DirectLocation> directLocation;
+        if (encryptionEnabled) {
+            directLocation = fileSystem.encryptedPreSignedUri(storageLocation, ttl, key.orElseThrow())
+                    .map(uri -> new DirectLocation(serialize(fileHandle), uri.uri(), uri.headers()));
+        }
+        else {
+            directLocation = fileSystem.preSignedUri(storageLocation, ttl)
+                    .map(uri -> new DirectLocation(serialize(fileHandle), uri.uri(), uri.headers()));
+        }
+
+        if (directLocation.isEmpty()) {
+            throw new IOException("Failed to generate pre-signed URI for segment %s".formatted(fileHandle.identifier()));
+        }
+        return directLocation;
     }
 
     @Override
     public SpooledLocation location(SpooledSegmentHandle handle)
     {
+        FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
+        return coordinatorLocation(serialize(fileHandle), headers(fileHandle));
+    }
+
+    private static Slice serialize(FileSystemSpooledSegmentHandle fileHandle)
+    {
         // Identifier layout:
         //
-        // ttl: long
-        // nameLength: int
-        // name: byte[]
-        // hasEncryptionKey: boolean
-        // encryptionKeyHash: long
-        FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
-        DynamicSliceOutput output = new DynamicSliceOutput(64);
-        output.writeLong(fileHandle.validUntil().toEpochMilli());
-        output.writeInt(fileHandle.name().length());
-        output.writeBytes(utf8Slice(fileHandle.name()));
-        output.writeBoolean(fileHandle.encryptionKey().isPresent());
-        if (fileHandle.encryptionKey().isPresent()) {
-            output.writeLong(XxHash64.hash(fileHandle.encryptionKey().orElseThrow()));
-        }
+        // ulid: byte[16]
+        // encodingLength: short
+        // encoding: byte[encodingLength]
+        // isEncrypted: boolean
 
-        return coordinatorLocation(output.slice(), headers(fileHandle));
+        byte[] encoding = fileHandle.encoding().getBytes(UTF_8);
+        Slice slice = Slices.allocate(16 + SIZE_OF_SHORT + encoding.length + SIZE_OF_BYTE);
+
+        SliceOutput output = slice.getOutput();
+        output.writeBytes(fileHandle.uuid());
+        output.writeShort(fileHandle.encoding().length());
+        output.writeBytes(encoding);
+        output.writeBoolean(fileHandle.encryptionKey().isPresent());
+        return output.slice();
+    }
+
+    private Map<String, List<String>> headers(FileSystemSpooledSegmentHandle fileHandle)
+    {
+        return fileHandle.encryptionKey()
+                .map(encryptionHeadersTranslator::createHeaders)
+                .orElse(ImmutableMap.of());
     }
 
     @Override
-    public SpooledSegmentHandle handle(SpooledLocation location)
+    public SpooledSegmentHandle handle(Slice identifier, Map<String, List<String>> headers)
     {
-        if (!(location instanceof SpooledLocation.CoordinatorLocation coordinatorLocation)) {
-            throw new IllegalArgumentException("Cannot convert direct location to handle");
-        }
+        BasicSliceInput input = identifier.getInput();
+        byte[] uuid = new byte[16];
+        input.readBytes(uuid);
+        short encodingLength = input.readShort();
 
-        SliceInput input = coordinatorLocation.identifier().getInput();
-        Instant validUntil = Instant.ofEpochMilli(input.readLong());
-        int nameLength = input.readInt();
-        byte[] name = new byte[nameLength];
-        input.readBytes(name);
+        String encoding = input.readSlice(encodingLength).toStringUtf8();
         if (!input.readBoolean()) {
-            return new FileSystemSpooledSegmentHandle(new String(name, UTF_8), validUntil, Optional.empty());
+            return new FileSystemSpooledSegmentHandle(encoding, uuid, Optional.empty());
         }
-
-        long encryptionKeyHash = input.readLong();
-        List<String> encryptionCipher = location.headers().get(ENCRYPTION_KEY_CIPHER);
-        if (encryptionCipher == null || encryptionCipher.isEmpty()) {
-            throw new IllegalArgumentException("Header %s is missing".formatted(ENCRYPTION_KEY_CIPHER));
-        }
-        if (!encryptionCipher.getFirst().contentEquals(ENCRYPTION_CIPHER_NAME)) {
-            throw new IllegalArgumentException("Unsupported encryption cipher %s".formatted(encryptionCipher));
-        }
-
-        List<String> encryptionKey = location.headers().get(ENCRYPTION_KEY_HEADER);
-        if (encryptionKey == null || encryptionKey.isEmpty()) {
-            throw new IllegalArgumentException("Header %s is missing".formatted(ENCRYPTION_KEY_HEADER));
-        }
-
-        Slice key = base64Decode(encryptionKey.getFirst());
-        if (encryptionKeyChecksum(key) != encryptionKeyHash) {
-            throw new IllegalArgumentException("Encryption key checksum mismatch");
-        }
-
-        return new FileSystemSpooledSegmentHandle(new String(name, UTF_8), validUntil, Optional.of(key));
+        return new FileSystemSpooledSegmentHandle(encoding, uuid, Optional.of(encryptionHeadersTranslator.extractKey(headers)));
     }
 
-    private Map<String, List<String>> headers(SpooledSegmentHandle handle)
+    private Duration remainingTtl(Instant expiresAt, OptionalInt ttlSeconds)
     {
-        FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
-        if (encryptionEnabled) {
-            return Map.of(
-                    ENCRYPTION_KEY_CIPHER, List.of(ENCRYPTION_CIPHER_NAME),
-                    ENCRYPTION_KEY_HEADER, List.of(base64Encode(fileHandle.encryptionKey().orElseThrow())));
+        Duration maxTtl = new Duration(between(Instant.now(), expiresAt).toMillis(), MILLISECONDS);
+        if (ttlSeconds.isPresent()) {
+            Duration ttl = succinctDuration(ttlSeconds.getAsInt(), SECONDS);
+            if (ttl.compareTo(maxTtl) > 0) {
+                return maxTtl;
+            }
+            return ttl;
         }
-        return Map.of();
-    }
-
-    private static String safeString(String value)
-    {
-        return value.replaceAll("[^a-zA-Z0-9-_/]", "-");
-    }
-
-    private Location location(FileSystemSpooledSegmentHandle handle)
-            throws IOException
-    {
-        checkExpiration(handle);
-        return Location.of(location + "/" + safeString(handle.name()));
+        return maxTtl;
     }
 
     private void checkExpiration(FileSystemSpooledSegmentHandle handle)
             throws IOException
     {
-        if (handle.validUntil().isBefore(Instant.now())) {
+        if (handle.expirationTime().isBefore(Instant.now())) {
             throw new IOException("Segment not found or expired");
         }
     }
 
-    private static long encryptionKeyChecksum(Slice key)
+    private static void checkFileExists(TrinoInputFile inputFile)
+            throws IOException
     {
-        return XxHash64.hash(key);
-    }
-
-    private static String base64Encode(Slice slice)
-    {
-        return Base64.getEncoder().encodeToString(slice.getBytes());
-    }
-
-    private static Slice base64Decode(String base64)
-    {
-        return wrappedBuffer(Base64.getDecoder().decode(base64));
+        if (!inputFile.exists()) {
+            throw new IOException("Segment not found or expired");
+        }
     }
 }

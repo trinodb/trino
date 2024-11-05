@@ -1,0 +1,6 @@
+databases:
+  hive:
+    host: hadoop-master
+  trino:
+    host: presto-master
+    configured_hdfs_user: hive

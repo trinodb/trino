@@ -128,7 +128,7 @@ public class PushPredicateThroughProjectIntoWindow
             return Result.empty();
         }
         if (upperBound.getAsInt() <= 0) {
-            return Result.ofPlanNode(new ValuesNode(filter.getId(), filter.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(filter.getId(), filter.getOutputSymbols()));
         }
         RankingType rankingType = toTopNRankingType(window).orElseThrow();
         project = (ProjectNode) project.replaceChildren(ImmutableList.of(new TopNRankingNode(

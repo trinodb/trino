@@ -1,0 +1,14 @@
+databases:
+  trino:
+    host: presto-master
+    port: 7778
+    http_port: 8080
+    https_port: ${databases.trino.port}
+    server_address: https://${databases.trino.host}:${databases.trino.port}
+    jdbc_url: "jdbc:trino://${databases.trino.host}:${databases.trino.port}?\
+      SSL=true&\
+      SSLTrustStorePath=${databases.trino.https_keystore_path}&\
+      SSLTrustStorePassword=${databases.trino.https_keystore_password}&\
+      externalAuthentication=true"
+    https_keystore_path: /docker/trino-product-tests/truststore.jks
+    https_keystore_password: '123456'

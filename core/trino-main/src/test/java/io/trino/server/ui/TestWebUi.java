@@ -33,6 +33,7 @@ import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.protocol.PreparedStatementEncoder;
+import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.security.oauth2.ChallengeFailedException;
@@ -98,7 +99,7 @@ import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.jsonwebtoken.Claims.SUBJECT;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
@@ -306,7 +307,7 @@ public class TestWebUi
 
         String body = assertOk(client, getLoginHtmlLocation(baseUri))
                 .orElseThrow(() -> new AssertionError("No response body"));
-        assertThat(body).contains("action=\"/ui/login\"");
+        assertThat(body).contains("action=\"login\"");
         assertThat(body).contains("method=\"post\"");
 
         assertThat(body).doesNotContain("<!-- This value will be replaced -->");
@@ -372,7 +373,7 @@ public class TestWebUi
         try (Response response = client.newCall(request).execute()) {
             assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
             assertThat(response.header(LOCATION)).isEqualTo(getLoginHtmlLocation(httpsUrl));
-            assertThat(cookieManager.getCookieStore().getCookies().isEmpty()).isTrue();
+            assertThat(cookieManager.getCookieStore().getCookies()).isEmpty();
         }
     }
 
@@ -425,7 +426,7 @@ public class TestWebUi
                     ImmutableSet::of,
                     accessControl,
                     new ProtocolConfig(),
-                    _ -> Optional.empty());
+                    QueryDataEncoder.EncoderSelector.noEncoder());
         }
 
         @ResourceSecurity(WEB_UI)
@@ -1247,7 +1248,7 @@ public class TestWebUi
         HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
 
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet(), ImmutableMap.of());
+        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet());
     }
 
     private static class JwkServlet
@@ -1307,9 +1308,7 @@ public class TestWebUi
         }
 
         @Override
-        public void load()
-        {
-        }
+        public void load() {}
 
         @Override
         public Request createAuthorizationRequest(String state, URI callbackUri)

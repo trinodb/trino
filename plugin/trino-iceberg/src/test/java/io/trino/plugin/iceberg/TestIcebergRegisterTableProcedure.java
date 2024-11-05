@@ -59,6 +59,8 @@ import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.getLatestMetadataLocation;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
+import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -94,7 +96,7 @@ public class TestIcebergRegisterTableProcedure
 
         dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDir, Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore))));
-        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of("iceberg.register-table-procedure.enabled", "true"));
+        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of("fs.hadoop.enabled", "true", "iceberg.register-table-procedure.enabled", "true"));
         queryRunner.execute("CREATE SCHEMA iceberg.tpch");
         return queryRunner;
     }
@@ -539,6 +541,20 @@ public class TestIcebergRegisterTableProcedure
 
         assertUpdate("DROP TABLE " + registeredTableName);
         assertUpdate("DROP TABLE " + tempTableName);
+    }
+
+    @Test
+    void testRegisterTableAccessControl()
+    {
+        String tableName = "test_register_table_access_control_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 a", 1);
+        String tableLocation = getTableLocation(tableName);
+        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')");
+
+        assertAccessDenied(
+                "CALL system.register_table(CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')",
+                "Cannot create table .*",
+                privilege(tableName, CREATE_TABLE));
     }
 
     private String getTableLocation(String tableName)

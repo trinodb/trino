@@ -24,6 +24,13 @@ public class LambdaArgumentDeclaration
 {
     private final Identifier name;
 
+    public LambdaArgumentDeclaration(NodeLocation location, Identifier name)
+    {
+        super(location);
+        this.name = name;
+    }
+
+    @Deprecated
     public LambdaArgumentDeclaration(Identifier name)
     {
         super(Optional.empty());

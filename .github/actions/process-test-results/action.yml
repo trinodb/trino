@@ -30,10 +30,10 @@ runs:
       retention-days: 5
   - name: Upload test report
     uses: actions/upload-artifact@v4
-    # Always upload the test report for the annotate.yml workflow,
+    # Always upload the test report for the upload-test-results.yml workflow,
     # but only the single XML file to keep the artifact small
     with:
-      # Name prefix is checked in the `Annotate checks` workflow
+      # Name prefix is checked in the `Upload test results` workflow
       name: test report ${{ inputs.artifact-name }}
       if-no-files-found: 'ignore'
       path: |
@@ -49,3 +49,20 @@ runs:
       path: |
         **/*.hprof
       retention-days: 14
+  - name: Process unit and integration test reports
+    uses: trinodb/github-actions/action-surefire-report@b63800bedfbc7ab1ff2e5fe7eaecf5ab82ce6a70
+    if: format('{0}', inputs.has-failed-tests) == 'true'
+    with:
+      # this workflow should never fail, as it is not a quality gateway
+      fail_if_no_tests: false
+      # don't create or update checks, only annotate current job
+      skip_publishing: true
+  - name: Process Product Test reports
+    uses: starburstdata/action-testng-report@f245422953fb97ec5075d07782a1b596124b7cc4
+    if: format('{0}', inputs.has-failed-tests) == 'true'
+    with:
+      # this workflow should never fail, as it is not a quality gateway
+      fail_if_empty: false
+      github_token: ${{ github.token }}
+      # don't create or update checks, only annotate current job
+      skip_publishing: true

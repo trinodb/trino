@@ -19,11 +19,9 @@ import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class PageBuilder
 {
@@ -34,7 +32,6 @@ public class PageBuilder
     private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 8;
 
     private final BlockBuilder[] blockBuilders;
-    private final List<Type> types;
     private PageBuilderStatus pageBuilderStatus;
     private int declaredPositions;
 
@@ -55,32 +52,22 @@ public class PageBuilder
 
     public PageBuilder(int initialExpectedEntries, List<? extends Type> types)
     {
-        this(initialExpectedEntries, DEFAULT_MAX_PAGE_SIZE_IN_BYTES, types, Optional.empty());
+        this(initialExpectedEntries, DEFAULT_MAX_PAGE_SIZE_IN_BYTES, types);
     }
 
     public static PageBuilder withMaxPageSize(int maxPageBytes, List<? extends Type> types)
     {
-        return new PageBuilder(DEFAULT_INITIAL_EXPECTED_ENTRIES, maxPageBytes, types, Optional.empty());
+        return new PageBuilder(DEFAULT_INITIAL_EXPECTED_ENTRIES, maxPageBytes, types);
     }
 
-    private PageBuilder(int initialExpectedEntries, int maxPageBytes, List<? extends Type> types, Optional<BlockBuilder[]> templateBlockBuilders)
+    private PageBuilder(int initialExpectedEntries, int maxPageBytes, List<? extends Type> types)
     {
-        this.types = List.copyOf(requireNonNull(types, "types is null"));
-
         pageBuilderStatus = new PageBuilderStatus(maxPageBytes);
-        blockBuilders = new BlockBuilder[types.size()];
 
-        if (templateBlockBuilders.isPresent()) {
-            BlockBuilder[] templates = templateBlockBuilders.get();
-            checkArgument(templates.length == types.size(), "Size of templates and types should match");
-            for (int i = 0; i < blockBuilders.length; i++) {
-                blockBuilders[i] = templates[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
-            }
-        }
-        else {
-            for (int i = 0; i < blockBuilders.length; i++) {
-                blockBuilders[i] = types.get(i).createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), initialExpectedEntries);
-            }
+        // Stream API should not be used since constructor can be called in performance sensitive sections
+        blockBuilders = new BlockBuilder[types.size()];
+        for (int i = 0; i < blockBuilders.length; i++) {
+            blockBuilders[i] = types.get(i).createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), initialExpectedEntries);
         }
     }
 
@@ -98,32 +85,9 @@ public class PageBuilder
         }
     }
 
-    public void reset(int expectedEntries)
-    {
-        if (isEmpty()) {
-            return;
-        }
-        pageBuilderStatus = new PageBuilderStatus(pageBuilderStatus.getMaxPageSizeInBytes());
-
-        for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = blockBuilders[i].newBlockBuilderLike(expectedEntries, pageBuilderStatus.createBlockBuilderStatus());
-        }
-        declaredPositions = 0;
-    }
-
-    public PageBuilder newPageBuilderLike()
-    {
-        return new PageBuilder(declaredPositions, pageBuilderStatus.getMaxPageSizeInBytes(), types, Optional.of(blockBuilders));
-    }
-
     public BlockBuilder getBlockBuilder(int channel)
     {
         return blockBuilders[channel];
-    }
-
-    public Type getType(int channel)
-    {
-        return types.get(channel);
     }
 
     public void declarePosition()
@@ -182,12 +146,5 @@ public class PageBuilder
         }
 
         return Page.wrapBlocksWithoutCopy(declaredPositions, blocks);
-    }
-
-    private static void checkArgument(boolean expression, String errorMessage)
-    {
-        if (!expression) {
-            throw new IllegalArgumentException(errorMessage);
-        }
     }
 }

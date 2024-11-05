@@ -15,7 +15,6 @@ package io.trino.execution.buffer;
 
 import com.google.common.base.VerifyException;
 import io.airlift.compress.v3.Compressor;
-import io.airlift.compress.v3.lz4.Lz4Compressor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -95,9 +94,6 @@ public class PageSerializer
             extends SliceOutput
     {
         private static final int INSTANCE_SIZE = instanceSize(SerializedPageOutput.class);
-        // TODO: implement getRetainedSizeInBytes in Lz4Compressor
-        // TODO: need a fix
-        private static final int COMPRESSOR_RETAINED_SIZE = toIntExact(instanceSize(Lz4Compressor.class));
         private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(instanceSize(SecretKeySpec.class) + sizeOfByteArray(256 / 8));
 
         private static final double MINIMUM_COMPRESSION_RATIO = 0.8;
@@ -483,7 +479,8 @@ public class PageSerializer
         public long getRetainedSize()
         {
             long size = INSTANCE_SIZE;
-            size += sizeOf(compressor, compressor -> COMPRESSOR_RETAINED_SIZE);
+            size += sizeOf(compressor, compressor -> instanceSize(compressor.getClass())
+                    + compressor.getRetainedSizeInBytes(uncompressedSize));
             size += sizeOf(encryptionKey, encryptionKey -> ENCRYPTION_KEY_RETAINED_SIZE);
             size += sizeOf(cipher, cipher -> ESTIMATED_AES_CIPHER_RETAINED_SIZE);
             for (WriteBuffer buffer : buffers) {

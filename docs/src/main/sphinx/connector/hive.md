@@ -27,8 +27,8 @@ The Hive connector requires a
 implementation of the Hive metastore, such as
 {ref}`AWS Glue <hive-glue-metastore>`.
 
-Many [distributed storage systems](hive-file-system-configuration) can be
-queried with the Hive connector.
+You must select and configure a [supported
+file system](hive-file-system-configuration) in your catalog configuration file.
 
 The coordinator and all workers must have network access to the Hive metastore
 and the storage system. Hive metastore access with the Thrift protocol defaults
@@ -58,15 +58,21 @@ In the case of serializable formats, only specific
 ## General configuration
 
 To configure the Hive connector, create a catalog properties file
-`etc/catalog/example.properties` that references the `hive`
-connector and defines a metastore. You must configure a metastore for table
-metadata. If you are using a {ref}`Hive metastore <hive-thrift-metastore>`,
-`hive.metastore.uri` must be configured:
+`etc/catalog/example.properties` that references the `hive` connector.
+
+You must configure a [metastore for metadata](/object-storage/metastores).
+
+You must select and configure one of the [supported file
+systems](hive-file-system-configuration).
+
 
 ```properties
 connector.name=hive
 hive.metastore.uri=thrift://example.net:9083
+fs.x.enabled=true
 ```
+
+Replace the `fs.x.enabled` configuration property with the desired file system.
 
 If you are using {ref}`AWS Glue <hive-glue-metastore>` as your metastore, you
 must instead set `hive.metastore` to `glue`:
@@ -77,7 +83,7 @@ hive.metastore=glue
 ```
 
 Each metastore type has specific configuration properties along with
-{ref}`general metastore configuration properties <general-metastore-properties>`.
+[](general-metastore-properties).
 
 ### Multiple Hive clusters
 
@@ -290,17 +296,15 @@ Hive connector documentation.
 (hive-file-system-configuration)=
 ### File system access configuration
 
-The connector supports native, high-performance file system access to object
-storage systems:
+The connector supports accessing the following file systems:
 
-* [](/object-storage)
 * [](/object-storage/file-system-azure)
 * [](/object-storage/file-system-gcs)
 * [](/object-storage/file-system-s3)
+* [](/object-storage/file-system-hdfs)
 
-You must enable and configure the specific native file system access. If none is
-activated, the [legacy support](file-system-legacy) is used and must be
-configured.
+You must enable and configure the specific file system access. [Legacy
+support](file-system-legacy) is not recommended and will be removed.
 
 (hive-fte-support)=
 ### Fault-tolerant execution support
@@ -1266,11 +1270,15 @@ session property `<hive-catalog>.dynamic_filtering_wait_timeout`.
 ```{include} table-redirection.fragment
 ```
 
-The connector supports redirection from Hive tables to Iceberg
-and Delta Lake tables with the following catalog configuration properties:
+The connector supports redirection from Hive tables to Iceberg, Delta Lake, and
+Hudi tables with the following catalog configuration properties:
 
-- `hive.iceberg-catalog-name` for redirecting the query to {doc}`/connector/iceberg`
-- `hive.delta-lake-catalog-name` for redirecting the query to {doc}`/connector/delta-lake`
+- `hive.iceberg-catalog-name`: Name of the catalog, configured with the
+  [](/connector/iceberg), to use for reading Iceberg tables.
+- `hive.delta-lake-catalog-name`: Name of the catalog, configured with the
+  [](/connector/delta-lake), to use for reading Delta Lake tables.
+- `hive.hudi-catalog-name`: Name of the catalog, configured with the
+  [](/connector/hudi), to use for reading Hudi tables.
 
 ### File system cache
 

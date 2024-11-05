@@ -233,7 +233,8 @@ final class TestJoin
     @Test
     void testXXX()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+            """
             ...
             """))
             .matches("...");

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -32,28 +31,7 @@ public final class FunctionSpecification
     private final ControlStatement statement;
 
     public FunctionSpecification(
-            QualifiedName name,
-            List<ParameterDeclaration> parameters,
-            ReturnsClause returnsClause,
-            List<RoutineCharacteristic> routineCharacteristics,
-            ControlStatement statement)
-    {
-        this(Optional.empty(), name, parameters, returnsClause, routineCharacteristics, statement);
-    }
-
-    public FunctionSpecification(
             NodeLocation location,
-            QualifiedName name,
-            List<ParameterDeclaration> parameters,
-            ReturnsClause returnsClause,
-            List<RoutineCharacteristic> routineCharacteristics,
-            ControlStatement statement)
-    {
-        this(Optional.of(location), name, parameters, returnsClause, routineCharacteristics, statement);
-    }
-
-    private FunctionSpecification(
-            Optional<NodeLocation> location,
             QualifiedName name,
             List<ParameterDeclaration> parameters,
             ReturnsClause returnsClause,

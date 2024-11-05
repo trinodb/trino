@@ -1,0 +1,236 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "de39f656-0565-4fa0-a349-dd55485b7245",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet/orders",
+  "last-updated-ms" : 1663700056763,
+  "last-column-id" : 9,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "orderkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "custkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "orderstatus",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "totalprice",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 5,
+      "name" : "orderdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 6,
+      "name" : "orderpriority",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "clerk",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "shippriority",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 9,
+      "name" : "comment",
+      "required" : false,
+      "type" : "string"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "orderkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "custkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "orderstatus",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "totalprice",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 5,
+      "name" : "orderdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 6,
+      "name" : "orderpriority",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "clerk",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "shippriority",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 9,
+      "name" : "comment",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "PARQUET"
+  },
+  "current-snapshot-id" : 2054734473589120268,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 2054734473589120268,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 2054734473589120268,
+    "timestamp-ms" : 1647889492638,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "43",
+      "added-records" : "1500000000",
+      "added-files-size" : "43271276699",
+      "changed-partition-count" : "1",
+      "total-records" : "1500000000",
+      "total-files-size" : "43271276699",
+      "total-data-files" : "43",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet/orders/metadata/snap-2054734473589120268-1-a2c9dd59-f137-4d62-bba4-cd37998c427d.avro",
+    "schema-id" : 0
+  } ],
+   "statistics" : [ {
+    "snapshot-id" : 2054734473589120268,
+    "statistics-path" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet/orders/metadata/20240327_144926_01528_dkpyt-66aeb449-2c98-48ab-982b-5fa5bdb79b29.stats",
+    "file-size-in-bytes" : 164640,
+    "file-footer-size-in-bytes" : 1833,
+    "blob-metadata" : [ {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2054734473589120268,
+      "sequence-number" : 1,
+      "fields" : [ 1 ],
+      "properties" : {
+        "ndv" : "1461095820"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2054734473589120268,
+      "sequence-number" : 1,
+      "fields" : [ 2 ],
+      "properties" : {
+        "ndv" : "102574727"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2054734473589120268,
+      "sequence-number" : 1,
+      "fields" : [ 3 ],
+      "properties" : {
+        "ndv" : "3"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2054734473589120268,
+      "sequence-number" : 1,
+      "fields" : [ 4 ],
+      "properties" : {
+        "ndv" : "41894107"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2054734473589120268,
+      "sequence-number" : 1,
+      "fields" : [ 5 ],
+      "properties" : {
+        "ndv" : "2406"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2054734473589120268,
+      "sequence-number" : 1,
+      "fields" : [ 6 ],
+      "properties" : {
+        "ndv" : "5"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2054734473589120268,
+      "sequence-number" : 1,
+      "fields" : [ 7 ],
+      "properties" : {
+        "ndv" : "993495"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2054734473589120268,
+      "sequence-number" : 1,
+      "fields" : [ 8 ],
+      "properties" : {
+        "ndv" : "1"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2054734473589120268,
+      "sequence-number" : 1,
+      "fields" : [ 9 ],
+      "properties" : {
+        "ndv" : "274900607"
+      }
+    } ]
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1647889492638,
+    "snapshot-id" : 2054734473589120268
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1647889492638,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet/orders/metadata/00000-50f0c3e6-0615-4d82-a0be-20013977b9c1.metadata.json"
+  } ]
+}

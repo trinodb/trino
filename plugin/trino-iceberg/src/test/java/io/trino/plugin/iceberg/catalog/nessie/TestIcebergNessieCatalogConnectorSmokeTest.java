@@ -56,7 +56,6 @@ import static org.apache.iceberg.CatalogUtil.buildIcebergCatalog;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -145,13 +144,6 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
     {
         assertThatThrownBy(super::testRenameSchema)
                 .hasStackTraceContaining("renameNamespace is not supported for Iceberg Nessie catalogs");
-    }
-
-    @Test
-    @Override
-    public void testDeleteRowsConcurrently()
-    {
-        abort("skipped for now due to flakiness");
     }
 
     @Override

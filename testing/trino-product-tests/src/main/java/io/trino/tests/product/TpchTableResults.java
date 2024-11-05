@@ -19,9 +19,7 @@ import static io.trino.tempto.internal.convention.SqlResultDescriptor.sqlResultD
 
 public final class TpchTableResults
 {
-    public static final SqlResultDescriptor PRESTO_NATION_RESULT = sqlResultDescriptorForResource("table-results/presto-nation.result");
+    public static final SqlResultDescriptor TRINO_NATION_RESULT = sqlResultDescriptorForResource("table-results/trino-nation.result");
 
-    private TpchTableResults()
-    {
-    }
+    private TpchTableResults() {}
 }

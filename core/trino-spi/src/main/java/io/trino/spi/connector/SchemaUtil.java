@@ -15,9 +15,7 @@ package io.trino.spi.connector;
 
 final class SchemaUtil
 {
-    private SchemaUtil()
-    {
-    }
+    private SchemaUtil() {}
 
     static String checkNotEmpty(String value, String name)
     {

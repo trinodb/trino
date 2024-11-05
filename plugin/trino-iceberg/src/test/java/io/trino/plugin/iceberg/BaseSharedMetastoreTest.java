@@ -50,8 +50,17 @@ public abstract class BaseSharedMetastoreTest
 
         assertThat(query("SELECT * FROM iceberg." + tpchSchema + ".region"))
                 .failure().hasMessageContaining("Not an Iceberg table");
+        assertThat(query("SELECT * FROM iceberg." + tpchSchema + ".\"region$data\""))
+                .failure().hasMessageMatching(".* Table .* does not exist");
+        assertThat(query("SELECT * FROM iceberg." + tpchSchema + ".\"region$files\""))
+                .failure().hasMessageMatching(".* Table .* does not exist");
+
         assertThat(query("SELECT * FROM hive." + tpchSchema + ".nation"))
                 .failure().hasMessageContaining("Cannot query Iceberg table");
+        assertThat(query("SELECT * FROM hive." + tpchSchema + ".\"nation$partitions\""))
+                .failure().hasMessageMatching(".* Table .* does not exist");
+        assertThat(query("SELECT * FROM hive." + tpchSchema + ".\"nation$properties\""))
+                .failure().hasMessageMatching(".* Table .* does not exist");
     }
 
     @Test
@@ -85,6 +94,20 @@ public abstract class BaseSharedMetastoreTest
                 "VALUES" +
                         "('region', 'regionkey'), ('region', 'name'), ('region', 'comment'), " +
                         "('nation', 'nationkey'), ('nation', 'name'), ('nation', 'regionkey'), ('nation', 'comment')");
+    }
+
+    @Test
+    void testHiveSelectTableColumns()
+    {
+        assertThat(query("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = '" + tpchSchema + "' AND table_name = 'region'"))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "('hive', '" + tpchSchema + "', 'region', 'regionkey')," +
+                        "('hive', '" + tpchSchema + "', 'region', 'name')," +
+                        "('hive', '" + tpchSchema + "', 'region', 'comment')");
+
+        // Hive does not show any information about tables with unsupported format
+        assertQueryReturnsEmptyResult("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = '" + tpchSchema + "' AND table_name = 'nation'");
     }
 
     @Test
@@ -167,6 +190,34 @@ public abstract class BaseSharedMetastoreTest
         finally {
             assertUpdate("DROP TABLE IF EXISTS iceberg." + testSchema + ".nation_test");
         }
+    }
+
+    @Test
+    void testIcebergCannotCreateTableNamesakeToHiveTable()
+    {
+        String tableName = "test_iceberg_create_namesake_hive_table_" + randomNameSuffix();
+        String hiveTableName = "hive.%s.%s".formatted(testSchema, tableName);
+        String icebergTableName = "iceberg.%s.%s".formatted(testSchema, tableName);
+
+        assertUpdate("CREATE TABLE " + hiveTableName + "(a bigint)");
+        assertThat(query("CREATE TABLE " + icebergTableName + "(a bigint)"))
+                .failure().hasMessageMatching(".* Table .* of unsupported type already exists");
+
+        assertUpdate("DROP TABLE " + hiveTableName);
+    }
+
+    @Test
+    void testHiveCannotCreateTableNamesakeToIcebergTable()
+    {
+        String tableName = "test_iceberg_create_namesake_hive_table_" + randomNameSuffix();
+        String hiveTableName = "hive.%s.%s".formatted(testSchema, tableName);
+        String icebergTableName = "iceberg.%s.%s".formatted(testSchema, tableName);
+
+        assertUpdate("CREATE TABLE " + icebergTableName + "(a bigint)");
+        assertThat(query("CREATE TABLE " + hiveTableName + "(a bigint)"))
+                .failure().hasMessageMatching(".* Table .* of unsupported type already exists");
+
+        assertUpdate("DROP TABLE " + icebergTableName);
     }
 
     @Test

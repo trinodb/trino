@@ -18,7 +18,7 @@ import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
 
-public class AzureAuthDefault
+public final class AzureAuthDefault
         implements AzureAuth
 {
     private final TokenCredential credential = new DefaultAzureCredentialBuilder().build();

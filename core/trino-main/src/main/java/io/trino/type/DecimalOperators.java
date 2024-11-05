@@ -61,9 +61,7 @@ public final class DecimalOperators
     public static final SqlScalarFunction DECIMAL_DIVIDE_OPERATOR = decimalDivideOperator();
     public static final SqlScalarFunction DECIMAL_MODULUS_OPERATOR = decimalModulusOperator();
 
-    private DecimalOperators()
-    {
-    }
+    private DecimalOperators() {}
 
     private static SqlScalarFunction decimalAddOperator()
     {

@@ -141,13 +141,15 @@ public class TestHiveMetastoreCatalogs
         assertThat(computeActual(customCatalogSession, "SHOW TABLES IN " + customCatalogSchema).getOnlyColumn())
                 .containsOnly("tablecustom");
         assertThat((String) computeScalar(customCatalogSession, format("SHOW CREATE TABLE %s.tablecustom", customCatalogSchema)))
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE TABLE hive_custom_catalog.custom_catalog_schema.tablecustom (
                            data integer
                         )
                         WITH (
                            format = 'ORC'
-                        )""");
+                        )\
+                        """);
 
         // select query : join hive's and custom catalog's table
         assertQuery("SELECT a.data from hive.default_catalog_schema.tabledefault a, hive_custom_catalog.custom_catalog_schema.tablecustom b WHERE a.data = b.data", "SELECT 4");

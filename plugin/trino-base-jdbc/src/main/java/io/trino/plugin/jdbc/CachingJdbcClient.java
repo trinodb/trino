@@ -93,7 +93,7 @@ public class CachingJdbcClient
 
     @Inject
     public CachingJdbcClient(
-            @StatsCollecting JdbcClient delegate,
+            @ForCaching JdbcClient delegate,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             IdentityCacheMapping identityMapping,
             BaseJdbcConfig config)
@@ -173,13 +173,10 @@ public class CachingJdbcClient
     }
 
     @Override
-    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        if (tableHandle.getColumns().isPresent()) {
-            return tableHandle.getColumns().get();
-        }
-        ColumnsCacheKey key = new ColumnsCacheKey(getIdentityKey(session), getSessionProperties(session), tableHandle.getRequiredNamedRelation().getSchemaTableName());
-        return get(columnsCache, key, () -> delegate.getColumns(session, tableHandle));
+        ColumnsCacheKey key = new ColumnsCacheKey(getIdentityKey(session), getSessionProperties(session), schemaTableName);
+        return get(columnsCache, key, () -> delegate.getColumns(session, schemaTableName, remoteTableName));
     }
 
     @Override

@@ -81,6 +81,7 @@ public final class TpchQueryRunner
                         .put("sql.default-catalog", "tpch")
                         .put("sql.default-schema", "tiny")
                         .buildOrThrow())
+                .withProtocolSpooling("json+zstd")
                 .build();
         Logger log = Logger.get(TpchQueryRunner.class);
         log.info("======== SERVER STARTED ========");

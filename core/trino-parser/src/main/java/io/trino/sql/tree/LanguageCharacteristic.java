@@ -16,7 +16,6 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,7 +27,7 @@ public final class LanguageCharacteristic
 
     public LanguageCharacteristic(NodeLocation location, Identifier language)
     {
-        super(Optional.of(location));
+        super(location);
         this.language = requireNonNull(language, "comment is null");
     }
 

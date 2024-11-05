@@ -29,7 +29,7 @@ public class SetTimeZone
 
     public SetTimeZone(NodeLocation location, Optional<Expression> timeZone)
     {
-        super(Optional.of(location));
+        super(location);
         requireNonNull(timeZone, "timeZone is null");
         this.timeZone = timeZone;
     }

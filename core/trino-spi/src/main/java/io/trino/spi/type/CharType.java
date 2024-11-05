@@ -24,7 +24,6 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.ScalarOperator;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -212,7 +211,7 @@ public final class CharType
     @Override
     public int hashCode()
     {
-        return Objects.hash(length);
+        return (length * 31) + getClass().hashCode();
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

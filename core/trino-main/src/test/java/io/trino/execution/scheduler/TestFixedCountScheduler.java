@@ -77,8 +77,8 @@ public class TestFixedCountScheduler
         ScheduleResult result = nodeScheduler.schedule();
         assertThat(result.isFinished()).isTrue();
         assertThat(result.getBlocked().isDone()).isTrue();
-        assertThat(result.getNewTasks().size()).isEqualTo(1);
-        assertThat(result.getNewTasks().iterator().next().getNodeId().equals("other 0")).isTrue();
+        assertThat(result.getNewTasks()).hasSize(1);
+        assertThat(result.getNewTasks().iterator().next().getNodeId()).isEqualTo("other 0");
     }
 
     @Test
@@ -94,8 +94,8 @@ public class TestFixedCountScheduler
         ScheduleResult result = nodeScheduler.schedule();
         assertThat(result.isFinished()).isTrue();
         assertThat(result.getBlocked().isDone()).isTrue();
-        assertThat(result.getNewTasks().size()).isEqualTo(5);
-        assertThat(result.getNewTasks().stream().map(RemoteTask::getNodeId).collect(toImmutableSet()).size()).isEqualTo(5);
+        assertThat(result.getNewTasks()).hasSize(5);
+        assertThat(result.getNewTasks().stream().map(RemoteTask::getNodeId).collect(toImmutableSet())).hasSize(5);
     }
 
     private static List<InternalNode> generateRandomNodes(int count)

@@ -80,7 +80,7 @@ public class TestS3FileSystemMinIo
                 .setAwsAccessKey(Minio.MINIO_ACCESS_KEY)
                 .setAwsSecretKey(Minio.MINIO_SECRET_KEY)
                 .setSupportsExclusiveCreate(true)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")));
+                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
     }
 
     @Test

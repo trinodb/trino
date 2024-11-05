@@ -88,7 +88,7 @@ public final class DataAttributes
 
     @JsonCreator
     @DoNotCall
-    public static DataAttributes fromMap(Map<String, Object> attributes)
+    public static DataAttributes fromMap(@JsonProperty("attributes") Map<String, Object> attributes)
     {
         Builder builder = DataAttributes.builder();
         attributes.forEach(builder::set); // Fixes the types after the deserialization

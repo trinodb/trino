@@ -13,17 +13,23 @@
  */
 package io.trino.spi.protocol;
 
+import io.trino.spi.Experimental;
 import io.trino.spi.QueryId;
 
 import static java.util.Objects.requireNonNull;
 
-public record SpoolingContext(QueryId queryId, long rowCount)
+@Experimental(eta = "2025-05-31")
+public record SpoolingContext(String encoding, QueryId queryId, long rows, long size)
 {
     public SpoolingContext
     {
         requireNonNull(queryId, "queryId is null");
-        if (rowCount < 0) {
-            throw new IllegalArgumentException("rowCount is negative");
+        requireNonNull(encoding, "encoding is null");
+        if (rows < 0) {
+            throw new IllegalArgumentException("rows is negative");
+        }
+        if (size < 0) {
+            throw new IllegalArgumentException("size is negative");
         }
     }
 }

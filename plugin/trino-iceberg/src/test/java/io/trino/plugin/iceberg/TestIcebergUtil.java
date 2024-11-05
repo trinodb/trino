@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
@@ -85,5 +86,40 @@ public class TestIcebergUtil
                         tuple(5, "element", 2, ImmutableList.of(4, 5)),
                         tuple(6, "nested", 2, ImmutableList.of(6)),
                         tuple(7, "value", 2, ImmutableList.of(6, 7)));
+
+        assertThat(getProjectedColumns(schema, TESTING_TYPE_MANAGER, ImmutableSet.of(1)))
+                .extracting(IcebergColumnHandle::getId, IcebergColumnHandle::getName, column -> column.getBaseColumn().getId(), IcebergColumnHandle::getPath)
+                .containsExactly(tuple(1, "id", 1, ImmutableList.of()));
+        assertThat(getProjectedColumns(schema, TESTING_TYPE_MANAGER, ImmutableSet.of(2)))
+                .extracting(IcebergColumnHandle::getId, IcebergColumnHandle::getName, column -> column.getBaseColumn().getId(), IcebergColumnHandle::getPath)
+                .containsExactly(tuple(2, "nested", 2, ImmutableList.of()));
+        assertThat(getProjectedColumns(schema, TESTING_TYPE_MANAGER, ImmutableSet.of(3)))
+                .extracting(IcebergColumnHandle::getId, IcebergColumnHandle::getName, column -> column.getBaseColumn().getId(), IcebergColumnHandle::getPath)
+                .containsExactly(tuple(3, "value", 2, ImmutableList.of(3)));
+        assertThat(getProjectedColumns(schema, TESTING_TYPE_MANAGER, ImmutableSet.of(4)))
+                .extracting(IcebergColumnHandle::getId, IcebergColumnHandle::getName, column -> column.getBaseColumn().getId(), IcebergColumnHandle::getPath)
+                .containsExactly(tuple(4, "list", 2, ImmutableList.of(4)));
+        assertThat(getProjectedColumns(schema, TESTING_TYPE_MANAGER, ImmutableSet.of(5)))
+                .extracting(IcebergColumnHandle::getId, IcebergColumnHandle::getName, column -> column.getBaseColumn().getId(), IcebergColumnHandle::getPath)
+                .containsExactly(tuple(5, "element", 2, ImmutableList.of(4, 5)));
+        assertThat(getProjectedColumns(schema, TESTING_TYPE_MANAGER, ImmutableSet.of(6)))
+                .extracting(IcebergColumnHandle::getId, IcebergColumnHandle::getName, column -> column.getBaseColumn().getId(), IcebergColumnHandle::getPath)
+                .containsExactly(tuple(6, "nested", 2, ImmutableList.of(6)));
+        assertThat(getProjectedColumns(schema, TESTING_TYPE_MANAGER, ImmutableSet.of(7)))
+                .extracting(IcebergColumnHandle::getId, IcebergColumnHandle::getName, column -> column.getBaseColumn().getId(), IcebergColumnHandle::getPath)
+                .containsExactly(tuple(7, "value", 2, ImmutableList.of(6, 7)));
+
+        assertThat(getProjectedColumns(schema, TESTING_TYPE_MANAGER, ImmutableSet.of(3, 7)))
+                .extracting(IcebergColumnHandle::getId, IcebergColumnHandle::getName, column -> column.getBaseColumn().getId(), IcebergColumnHandle::getPath)
+                .containsExactly(
+                        tuple(3, "value", 2, ImmutableList.of(3)),
+                        tuple(7, "value", 2, ImmutableList.of(6, 7)));
+
+        assertThat(getProjectedColumns(schema, TESTING_TYPE_MANAGER, ImmutableSet.of(1, 4, 5)))
+                .extracting(IcebergColumnHandle::getId, IcebergColumnHandle::getName, column -> column.getBaseColumn().getId(), IcebergColumnHandle::getPath)
+                .containsExactly(
+                        tuple(1, "id", 1, ImmutableList.of()),
+                        tuple(4, "list", 2, ImmutableList.of(4)),
+                        tuple(5, "element", 2, ImmutableList.of(4, 5)));
     }
 }

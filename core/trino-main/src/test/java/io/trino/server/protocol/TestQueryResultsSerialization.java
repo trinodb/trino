@@ -22,8 +22,9 @@ import io.trino.client.Column;
 import io.trino.client.JsonCodec;
 import io.trino.client.QueryData;
 import io.trino.client.QueryResults;
-import io.trino.client.RawQueryData;
+import io.trino.client.ResultRowsDecoder;
 import io.trino.client.StatementStats;
+import io.trino.client.TypedQueryData;
 import io.trino.server.protocol.spooling.QueryDataJacksonModule;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,6 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static io.trino.client.ClientStandardTypes.BIGINT;
-import static io.trino.client.FixJsonDataUtils.fixData;
 import static io.trino.client.JsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,68 +55,73 @@ public class TestQueryResultsSerialization
     public void testNullDataSerialization()
     {
         // data field should not be serialized
-        assertThat(serialize(null)).isEqualToIgnoringWhitespace("""
-            {
-            "id" : "20160128_214710_00012_rk68b",
-            "infoUri" : "http://coordinator/query.html?20160128_214710_00012_rk68b",
-            "columns" : [ {
-              "name" : "_col0",
-              "type" : "bigint",
-              "typeSignature" : {
-                "rawType" : "bigint",
-                "arguments" : [ ]
-              }
-            } ],
-            "stats" : {
-              "state" : "FINISHED",
-              "queued" : false,
-              "scheduled" : false,
-              "nodes" : 0,
-              "totalSplits" : 0,
-              "queuedSplits" : 0,
-              "runningSplits" : 0,
-              "completedSplits" : 0,
-              "cpuTimeMillis" : 0,
-              "wallTimeMillis" : 0,
-              "queuedTimeMillis" : 0,
-              "elapsedTimeMillis" : 0,
-              "processedRows" : 0,
-              "processedBytes" : 0,
-              "physicalInputBytes" : 0,
-              "physicalWrittenBytes" : 0,
-              "peakMemoryBytes" : 0,
-              "spilledBytes" : 0
-            },
-            "warnings" : [ ]
-          }
-          """);
+        assertThat(serialize(null)).isEqualToIgnoringWhitespace(
+                """
+                  {
+                  "id" : "20160128_214710_00012_rk68b",
+                  "infoUri" : "http://coordinator/query.html?20160128_214710_00012_rk68b",
+                  "columns" : [ {
+                    "name" : "_col0",
+                    "type" : "bigint",
+                    "typeSignature" : {
+                      "rawType" : "bigint",
+                      "arguments" : [ ]
+                    }
+                  } ],
+                  "stats" : {
+                    "state" : "FINISHED",
+                    "queued" : false,
+                    "scheduled" : false,
+                    "nodes" : 0,
+                    "totalSplits" : 0,
+                    "queuedSplits" : 0,
+                    "runningSplits" : 0,
+                    "completedSplits" : 0,
+                    "cpuTimeMillis" : 0,
+                    "wallTimeMillis" : 0,
+                    "queuedTimeMillis" : 0,
+                    "elapsedTimeMillis" : 0,
+                    "processedRows" : 0,
+                    "processedBytes" : 0,
+                    "physicalInputBytes" : 0,
+                    "physicalWrittenBytes" : 0,
+                    "peakMemoryBytes" : 0,
+                    "spilledBytes" : 0
+                  },
+                  "warnings" : [ ]
+                }
+                """);
     }
 
     @Test
     public void testEmptyArraySerialization()
+            throws Exception
     {
-        testRoundTrip(RawQueryData.of(ImmutableList.of()), "[]");
+        testRoundTrip(TypedQueryData.of(ImmutableList.of()), "[]");
 
-        assertThatThrownBy(() -> testRoundTrip(RawQueryData.of(ImmutableList.of(ImmutableList.of())), "[[]]"))
+        assertThatThrownBy(() -> testRoundTrip(TypedQueryData.of(ImmutableList.of(ImmutableList.of())), "[[]]"))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage("row/column size mismatch");
+                .hasMessageContaining("Unexpected token END_ARRAY");
     }
 
     @Test
     public void testSerialization()
+            throws Exception
     {
-        QueryData values = RawQueryData.of(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L)));
+        QueryData values = TypedQueryData.of(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L)));
         testRoundTrip(values, "[[1],[5]]");
     }
 
     private void testRoundTrip(QueryData results, String expectedDataRepresentation)
+            throws Exception
     {
         assertThat(serialize(results))
                 .isEqualToIgnoringWhitespace(queryResultsJson(expectedDataRepresentation));
 
         String serialized = serialize(results);
-        try {
-            assertThat(fixData(COLUMNS, CLIENT_CODEC.fromJson(serialized).getData().getData())).hasSameElementsAs(results.getData());
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder()) {
+            assertThat(decoder.toRows(COLUMNS, CLIENT_CODEC.fromJson(serialized).getData()))
+                    .containsAll(decoder.toRows(COLUMNS, results));
         }
         catch (JsonProcessingException e) {
             throw new UncheckedIOException(e);
@@ -125,7 +130,8 @@ public class TestQueryResultsSerialization
 
     private String queryResultsJson(String expectedDataField)
     {
-        return format("""
+        return format(
+                """
                 {
                     "id" : "20160128_214710_00012_rk68b",
                     "infoUri" : "http://coordinator/query.html?20160128_214710_00012_rk68b",

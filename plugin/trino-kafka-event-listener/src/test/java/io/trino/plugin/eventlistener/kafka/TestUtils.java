@@ -60,9 +60,7 @@ public final class TestUtils
     static final QueryCreatedEvent queryCreatedEvent;
     static final QueryCompletedEvent queryCompletedEvent;
 
-    private TestUtils()
-    {
-    }
+    private TestUtils() {}
 
     static {
         queryIOMetadata = new QueryIOMetadata(Collections.emptyList(), Optional.empty());
@@ -92,6 +90,7 @@ public final class TestUtils
 
         queryMetadata = new QueryMetadata(
                 "queryId",
+                Optional.empty(),
                 Optional.empty(),
                 "query",
                 Optional.of("updateType"),

@@ -102,6 +102,7 @@
 - {func}`corr`
 - {func}`cos`
 - {func}`cosh`
+- {func}`cosine_distance`
 - {func}`cosine_similarity`
 - {func}`count`
 - {func}`count_if`
@@ -460,6 +461,7 @@
 - {func}`tanh`
 - {func}`tdigest_agg`
 - {func}`timestamp_objectid`
+- {func}`timezone`
 - {func}`timezone_hour`
 - {func}`timezone_minute`
 - {func}`to_base`

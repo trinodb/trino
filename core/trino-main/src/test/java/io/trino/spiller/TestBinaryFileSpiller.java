@@ -111,8 +111,8 @@ public class TestBinaryFileSpiller
     {
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE, VARBINARY);
 
-        BlockBuilder col1 = BIGINT.createBlockBuilder(null, 1);
-        BlockBuilder col2 = DOUBLE.createBlockBuilder(null, 1);
+        BlockBuilder col1 = BIGINT.createFixedSizeBlockBuilder(1);
+        BlockBuilder col2 = DOUBLE.createFixedSizeBlockBuilder(1);
         BlockBuilder col3 = VARBINARY.createBlockBuilder(null, 1);
 
         BIGINT.writeLong(col1, 42);
@@ -164,13 +164,13 @@ public class TestBinaryFileSpiller
         assertThat(memoryContext.getBytes()).isEqualTo((long) spills.length * FileSingleStreamSpiller.BUFFER_SIZE);
 
         List<Iterator<Page>> actualSpills = spiller.getSpills();
-        assertThat(actualSpills.size()).isEqualTo(spills.length);
+        assertThat(actualSpills).hasSize(spills.length);
 
         for (int i = 0; i < actualSpills.size(); i++) {
             List<Page> actualSpill = ImmutableList.copyOf(actualSpills.get(i));
             List<Page> expectedSpill = spills[i];
 
-            assertThat(actualSpill.size()).isEqualTo(expectedSpill.size());
+            assertThat(actualSpill).hasSize(expectedSpill.size());
             for (int j = 0; j < actualSpill.size(); j++) {
                 assertPageEquals(types, actualSpill.get(j), expectedSpill.get(j));
             }

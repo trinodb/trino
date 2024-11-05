@@ -31,21 +31,22 @@ public class CreateTable
     private final List<Property> properties;
     private final Optional<String> comment;
 
+    @Deprecated
     public CreateTable(QualifiedName name, List<TableElement> elements, SaveMode saveMode, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.empty(), name, elements, saveMode, properties, comment);
+        super(Optional.empty());
+        this.name = requireNonNull(name, "name is null");
+        this.elements = ImmutableList.copyOf(requireNonNull(elements, "elements is null"));
+        this.saveMode = requireNonNull(saveMode, "saveMode is null");
+        this.properties = requireNonNull(properties, "properties is null");
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public CreateTable(NodeLocation location, QualifiedName name, List<TableElement> elements, SaveMode saveMode, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.of(location), name, elements, saveMode, properties, comment);
-    }
-
-    private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<TableElement> elements, SaveMode saveMode, List<Property> properties, Optional<String> comment)
-    {
         super(location);
         this.name = requireNonNull(name, "name is null");
-        this.elements = ImmutableList.copyOf(requireNonNull(elements, "elements is null"));
+        this.elements = ImmutableList.copyOf(elements);
         this.saveMode = requireNonNull(saveMode, "saveMode is null");
         this.properties = requireNonNull(properties, "properties is null");
         this.comment = requireNonNull(comment, "comment is null");

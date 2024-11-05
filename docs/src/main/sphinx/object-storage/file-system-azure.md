@@ -19,9 +19,8 @@ system support:
 * - Property
   - Description
 * - `fs.native-azure.enabled`
-  - Activate the native implementation for Azure Storage support, and deactivate
-    all [legacy support](file-system-legacy). Defaults to `false`.
-    Must be set to `true` for all other properties be used.
+  - Activate the native implementation for Azure Storage support. Defaults to
+    `false`. Set to `true` to use Azure Storage and enable all other properties.
 * - `azure.auth-type`
   - Authentication type to use for Azure Storage access. Defaults no
     authentication used with `NONE`. Use `ACCESS_KEY` for
@@ -43,6 +42,11 @@ system support:
   - Maximum number of concurrent write operations. Defaults to 8.
 * - `azure.max-single-upload-size`
   - [Data size](prop-type-data-size) Defaults to `4MB`.
+* - `azure.max-http-requests`
+  - Maximum [integer](prop-type-integer) number of concurrent HTTP requests to
+    Azure from every node. Defaults to double the number of processors on the
+    node. Minimum `1`. Use this property to reduce the number of requests when
+    you encounter rate limiting issues.
 :::
 
 (azure-access-key-authentication)=
@@ -87,3 +91,25 @@ Storage:
 * - `azure.oauth.secret`
   - A OAuth 2.0 client secret for the service principal.
 :::
+
+## Access multiple storage accounts
+
+To allow Trino to access multiple Azure storage accounts from a single
+catalog configuration, you can use [](azure-oauth-authentication) with
+an Azure service principal. The following steps describe how to create
+a service principal in Azure and assign an IAM role granting access to the
+storage accounts:
+
+- Create a service principal in Azure Active Directory using Azure
+  **App Registrations** and save the client secret.
+- Assign access to the storage accounts from the account's
+  **Access Control (IAM)** section. You can add **Role Assignments** and
+  select appropriate roles, such as **Storage Blob Data Contributor**.
+- Assign access using the option **User, group, or service principal** and
+  select the service principal created. Save to finalize the role
+  assignment.
+
+ Once you create the service principal and configure the storage accounts
+ use the **Client ID**, **Secret** and **Tenant ID** values from the
+ application registration, to configure the catalog using properties from
+ [](azure-oauth-authentication).

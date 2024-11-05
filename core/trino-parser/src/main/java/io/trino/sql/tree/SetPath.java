@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -27,17 +26,7 @@ public class SetPath
 {
     private final PathSpecification pathSpecification;
 
-    public SetPath(PathSpecification pathSpecification)
-    {
-        this(Optional.empty(), pathSpecification);
-    }
-
     public SetPath(NodeLocation location, PathSpecification pathSpecification)
-    {
-        this(Optional.of(location), pathSpecification);
-    }
-
-    private SetPath(Optional<NodeLocation> location, PathSpecification pathSpecification)
     {
         super(location);
         this.pathSpecification = requireNonNull(pathSpecification, "pathSpecification is null");

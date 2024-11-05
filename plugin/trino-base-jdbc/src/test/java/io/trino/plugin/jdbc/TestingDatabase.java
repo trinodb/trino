@@ -108,7 +108,7 @@ final class TestingDatabase
 
     public Map<String, JdbcColumnHandle> getColumnHandles(ConnectorSession session, JdbcTableHandle table)
     {
-        return jdbcClient.getColumns(session, table).stream()
+        return jdbcClient.getColumns(session, table.getRequiredNamedRelation().getSchemaTableName(), table.getRequiredNamedRelation().getRemoteTableName()).stream()
                 .collect(toImmutableMap(column -> column.getColumnMetadata().getName(), identity()));
     }
 }

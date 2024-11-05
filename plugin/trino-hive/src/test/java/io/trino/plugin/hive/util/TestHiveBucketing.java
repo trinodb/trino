@@ -137,7 +137,7 @@ public class TestHiveBucketing
                     .hasMessage("Computation of Hive bucket hashCode is not supported for Hive primitive category: TIMESTAMP");
 
             TimestampType timestampType = createTimestampType(3);
-            BlockBuilder builder = timestampType.createBlockBuilder(null, 1);
+            BlockBuilder builder = timestampType.createFixedSizeBlockBuilder(1);
             timestampType.writeLong(builder, 0);
             Page page = new Page(builder.build());
 

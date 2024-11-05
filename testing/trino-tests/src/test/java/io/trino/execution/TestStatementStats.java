@@ -36,7 +36,7 @@ public class TestStatementStats
                 .build()) {
             MaterializedResult result = queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").build(), "SELECT COUNT(*) from lineitem LIMIT 10");
 
-            assertThat(result.getStatementStats().isPresent()).isTrue();
+            assertThat(result.getStatementStats()).isPresent();
 
             StatementStats stats = result.getStatementStats().get();
             // two unique nodes across all stages
@@ -48,7 +48,7 @@ public class TestStatementStats
             assertThat(rootStage.getNodes()).isEqualTo(1);
 
             // one child stage
-            assertThat(rootStage.getSubStages().size()).isEqualTo(1);
+            assertThat(rootStage.getSubStages()).hasSize(1);
             // child stage has two unique nodes
             assertThat(rootStage.getSubStages().get(0).getNodes()).isEqualTo(2);
         }

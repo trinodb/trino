@@ -162,7 +162,7 @@ public final class SystemSessionProperties
     public static final String QUERY_RETRY_ATTEMPTS = "query_retry_attempts";
     public static final String TASK_RETRY_ATTEMPTS_PER_TASK = "task_retry_attempts_per_task";
     public static final String MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY = "max_tasks_waiting_for_execution_per_query";
-    public static final String MAX_TASKS_WAITING_FOR_NODE_PER_STAGE = "max_tasks_waiting_for_node_per_stage";
+    public static final String MAX_TASKS_WAITING_FOR_NODE_PER_QUERY = "max_tasks_waiting_for_node_per_query";
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
     public static final String RETRY_DELAY_SCALE_FACTOR = "retry_delay_scale_factor";
@@ -816,9 +816,9 @@ public final class SystemSessionProperties
                         queryManagerConfig.getMaxTasksWaitingForExecutionPerQuery(),
                         false),
                 integerProperty(
-                        MAX_TASKS_WAITING_FOR_NODE_PER_STAGE,
-                        "Maximum possible number of tasks waiting for node allocation per stage before scheduling of new tasks for stage is paused",
-                        queryManagerConfig.getMaxTasksWaitingForNodePerStage(),
+                        MAX_TASKS_WAITING_FOR_NODE_PER_QUERY,
+                        "Maximum possible number of tasks waiting for node allocation per query before scheduling of new tasks is paused",
+                        queryManagerConfig.getMaxTasksWaitingForNodePerQuery(),
                         false),
                 durationProperty(
                         RETRY_INITIAL_DELAY,
@@ -1733,9 +1733,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY, Integer.class);
     }
 
-    public static int getMaxTasksWaitingForNodePerStage(Session session)
+    public static int getMaxTasksWaitingForNodePerQuery(Session session)
     {
-        return session.getSystemProperty(MAX_TASKS_WAITING_FOR_NODE_PER_STAGE, Integer.class);
+        return session.getSystemProperty(MAX_TASKS_WAITING_FOR_NODE_PER_QUERY, Integer.class);
     }
 
     public static Duration getRetryInitialDelay(Session session)

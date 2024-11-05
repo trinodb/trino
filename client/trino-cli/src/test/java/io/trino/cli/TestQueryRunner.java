@@ -20,8 +20,8 @@ import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
 import io.trino.client.JsonCodec;
 import io.trino.client.QueryResults;
-import io.trino.client.RawQueryData;
 import io.trino.client.StatementStats;
+import io.trino.client.TypedQueryData;
 import io.trino.client.uri.PropertyName;
 import io.trino.client.uri.TrinoUri;
 import okhttp3.mockwebserver.MockResponse;
@@ -92,10 +92,10 @@ public class TestQueryRunner
         QueryRunner queryRunner = createQueryRunner(createTrinoUri(server, false), createClientSession(server));
 
         try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
-            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false);
+            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false, false);
         }
         try (Query query = queryRunner.startQuery("second query should carry the cookie")) {
-            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false);
+            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false, false);
         }
 
         assertThat(server.takeRequest().getHeader("Cookie")).isNull();
@@ -115,7 +115,7 @@ public class TestQueryRunner
     {
         return ClientSession.builder()
                 .server(server.url("/").uri())
-                .principal(Optional.of("user"))
+                .user(Optional.of("user"))
                 .source("source")
                 .clientInfo("clientInfo")
                 .catalog("catalog")
@@ -136,7 +136,7 @@ public class TestQueryRunner
                 null,
                 null,
                 ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature(BIGINT))),
-                RawQueryData.of(ImmutableList.of(ImmutableList.of(123))),
+                TypedQueryData.of(ImmutableList.of(ImmutableList.of(123))),
                 StatementStats.builder()
                         .setState("FINISHED")
                         .setProgressPercentage(OptionalDouble.empty())

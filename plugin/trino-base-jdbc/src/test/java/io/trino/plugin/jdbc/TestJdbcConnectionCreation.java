@@ -75,6 +75,7 @@ public class TestJdbcConnectionCreation
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 1, Optional.empty());
         assertJdbcConnections("SHOW STATS FOR nation", 1, Optional.empty());
+        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE table_cat = 'jdbc'", 1, Optional.empty());
     }
 
     private static class TestingConnectionH2Module

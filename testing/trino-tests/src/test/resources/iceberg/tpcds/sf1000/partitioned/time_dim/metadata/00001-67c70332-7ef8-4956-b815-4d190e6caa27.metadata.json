@@ -1,0 +1,254 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "0eef8303-2dc1-4c78-aed2-51b10335cbc5",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/time_dim",
+  "last-updated-ms" : 1663713405115,
+  "last-column-id" : 10,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "t_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "t_time_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "t_time",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 4,
+      "name" : "t_hour",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "t_minute",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 6,
+      "name" : "t_second",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 7,
+      "name" : "t_am_pm",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "t_shift",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "t_sub_shift",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "t_meal_time",
+      "required" : false,
+      "type" : "string"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "t_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "t_time_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "t_time",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 4,
+      "name" : "t_hour",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "t_minute",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 6,
+      "name" : "t_second",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 7,
+      "name" : "t_am_pm",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "t_shift",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "t_sub_shift",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "t_meal_time",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "PARQUET"
+  },
+  "current-snapshot-id" : 4765156773063077910,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 4765156773063077910,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 4765156773063077910,
+    "timestamp-ms" : 1648081268208,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "6",
+      "added-records" : "86400",
+      "added-files-size" : "399121",
+      "changed-partition-count" : "1",
+      "total-records" : "86400",
+      "total-files-size" : "399121",
+      "total-data-files" : "6",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/time_dim/metadata/snap-4765156773063077910-1-c1b011b3-8b57-4dff-875c-4dd6db7ad6b4.avro",
+    "schema-id" : 0
+  } ],
+  "statistics" : [ {
+    "snapshot-id" : 4765156773063077910,
+    "statistics-path" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/time_dim/metadata/20240320_235032_02777_t6z6k-6169041c-bd1c-4698-90f7-497ade0f6db1.stats",
+    "file-size-in-bytes" : 99708,
+    "file-footer-size-in-bytes" : 1955,
+    "blob-metadata" : [ {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4765156773063077910,
+      "sequence-number" : 2,
+      "fields" : [ 1 ],
+      "properties" : {
+        "ndv" : "83615"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4765156773063077910,
+      "sequence-number" : 2,
+      "fields" : [ 2 ],
+      "properties" : {
+        "ndv" : "89816"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4765156773063077910,
+      "sequence-number" : 2,
+      "fields" : [ 3 ],
+      "properties" : {
+        "ndv" : "86925"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4765156773063077910,
+      "sequence-number" : 2,
+      "fields" : [ 4 ],
+      "properties" : {
+        "ndv" : "24"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4765156773063077910,
+      "sequence-number" : 2,
+      "fields" : [ 5 ],
+      "properties" : {
+        "ndv" : "60"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4765156773063077910,
+      "sequence-number" : 2,
+      "fields" : [ 6 ],
+      "properties" : {
+        "ndv" : "60"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4765156773063077910,
+      "sequence-number" : 2,
+      "fields" : [ 7 ],
+      "properties" : {
+        "ndv" : "2"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4765156773063077910,
+      "sequence-number" : 2,
+      "fields" : [ 8 ],
+      "properties" : {
+        "ndv" : "3"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4765156773063077910,
+      "sequence-number" : 2,
+      "fields" : [ 9 ],
+      "properties" : {
+        "ndv" : "4"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 4765156773063077910,
+      "sequence-number" : 2,
+      "fields" : [ 10 ],
+      "properties" : {
+        "ndv" : "3"
+      }
+    } ]
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648081268208,
+    "snapshot-id" : 4765156773063077910
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648081268208,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/time_dim/metadata/00000-4ecc5bd2-a935-4e10-aec1-38c13dfa54fc.metadata.json"
+  } ]
+}

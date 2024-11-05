@@ -32,7 +32,7 @@ public final class LazyConnectionFactory
     private final ConnectionFactory delegate;
 
     @Inject
-    public LazyConnectionFactory(RetryingConnectionFactory delegate)
+    public LazyConnectionFactory(@ForLazyConnectionFactory ConnectionFactory delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }

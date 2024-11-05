@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
@@ -65,11 +66,11 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
         this.metastore = createTestMetastore(dataDirectory);
 
         queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.of(new TestingDeltaLakeMetastoreModule(metastore))));
-        queryRunner.createCatalog(DELTA_CATALOG_NAME, "delta_lake");
+        queryRunner.createCatalog(DELTA_CATALOG_NAME, "delta_lake", ImmutableMap.of("fs.hadoop.enabled", "true"));
 
         queryRunner.installPlugin(new TestingHivePlugin(dataDirectory, metastore));
 
-        queryRunner.createCatalog(HIVE_CATALOG_NAME, "hive");
+        queryRunner.createCatalog(HIVE_CATALOG_NAME, "hive", ImmutableMap.of("fs.hadoop.enabled", "true"));
         queryRunner.execute("CREATE SCHEMA " + SCHEMA);
 
         return queryRunner;

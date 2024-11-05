@@ -52,6 +52,7 @@ import static io.trino.client.uri.PropertyName.CATALOG;
 import static io.trino.client.uri.PropertyName.CLIENT_INFO;
 import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
 import static io.trino.client.uri.PropertyName.DISABLE_COMPRESSION;
+import static io.trino.client.uri.PropertyName.ENCODING;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
@@ -286,11 +287,18 @@ public class ClientOptions
     @Option(names = "--disable-compression", description = "Disable compression of query results")
     public boolean disableCompression;
 
+    @PropertyMapping(ENCODING)
+    @Option(names = "--encoding", paramLabel = "<encoding>", description = "Experimental spooled protocol encoding [available: ${ENCODINGS}, default: " + DEFAULT_VALUE + "]", defaultValue = "${PREFERRED_ENCODINGS}")
+    public Optional<String> encoding = Optional.empty();
+
     @Option(names = "--editing-mode", paramLabel = "<editing-mode>", defaultValue = "EMACS", description = "Editing mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
     public EditingMode editingMode;
 
     @Option(names = "--disable-auto-suggestion", description = "Disable auto suggestion")
     public boolean disableAutoSuggestion;
+
+    @Option(names = "--decimal-data-size", description = "Show data size and rate in base 10 rather than base 2")
+    public boolean decimalDataSize;
 
     public enum OutputFormat
     {
@@ -337,6 +345,7 @@ public class ClientOptions
         return uri
                 .toClientSessionBuilder()
                 .source(uri.getSource().orElse(SOURCE_DEFAULT))
+                .encoding(encoding)
                 .build();
     }
 

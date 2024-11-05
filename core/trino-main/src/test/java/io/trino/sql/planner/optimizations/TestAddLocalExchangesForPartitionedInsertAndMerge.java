@@ -111,7 +111,8 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
     @Test
     public void testTaskWriterCountHasNoEffectOnMergeOperation()
     {
-        @Language("SQL") String query = """
+        @Language("SQL") String query =
+                """
                 MERGE INTO target_table t USING source_table s
                     ON t.customer = s.customer
                     WHEN MATCHED

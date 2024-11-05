@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.mysql;
 
-import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.MySQLContainer;
 
 import java.io.Closeable;
@@ -133,11 +132,5 @@ public class TestingMySqlServer
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return container.getContainerId() != null;
     }
 }

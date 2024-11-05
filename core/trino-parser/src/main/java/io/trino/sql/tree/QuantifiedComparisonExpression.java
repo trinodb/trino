@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -36,17 +35,7 @@ public class QuantifiedComparisonExpression
     private final Expression value;
     private final Expression subquery;
 
-    public QuantifiedComparisonExpression(ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery)
-    {
-        this(Optional.empty(), operator, quantifier, value, subquery);
-    }
-
     public QuantifiedComparisonExpression(NodeLocation location, ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery)
-    {
-        this(Optional.of(location), operator, quantifier, value, subquery);
-    }
-
-    private QuantifiedComparisonExpression(Optional<NodeLocation> location, ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery)
     {
         super(location);
         this.operator = requireNonNull(operator, "operator is null");

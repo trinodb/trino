@@ -68,7 +68,7 @@ public class TestRunLengthEncodedBlock
         Block valueBlock = createSingleValueBlock(createExpectedValue(10));
         Block rleBlock = RunLengthEncodedBlock.create(valueBlock, 10);
         // Size in bytes is not fixed per position
-        assertThat(rleBlock.fixedSizeInBytesPerPosition().isEmpty()).isTrue();
+        assertThat(rleBlock.fixedSizeInBytesPerPosition()).isEmpty();
         // Accepts specific position selection
         boolean[] positions = new boolean[rleBlock.getPositionCount()];
         positions[0] = true;

@@ -34,6 +34,7 @@ import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.protocol.PreparedStatementEncoder;
+import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.security.oauth2.ChallengeFailedException;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.security.oauth2.TokenPairSerializer;
@@ -98,7 +99,7 @@ import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
@@ -862,9 +863,7 @@ public class TestResourceSecurity
                     .cookieJar(new CookieJar()
                     {
                         @Override
-                        public void saveFromResponse(HttpUrl url, List<Cookie> cookies)
-                        {
-                        }
+                        public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {}
 
                         @Override
                         public List<Cookie> loadForRequest(HttpUrl url)
@@ -1091,9 +1090,7 @@ public class TestResourceSecurity
             return new OAuth2Client()
             {
                 @Override
-                public void load()
-                {
-                }
+                public void load() {}
 
                 @Override
                 public Request createAuthorizationRequest(String state, URI callbackUri)
@@ -1212,7 +1209,7 @@ public class TestResourceSecurity
                     user -> ImmutableSet.of(),
                     accessControl,
                     new ProtocolConfig(),
-                    _ -> Optional.empty());
+                    QueryDataEncoder.EncoderSelector.noEncoder());
         }
 
         @ResourceSecurity(AUTHENTICATED_USER)
@@ -1490,7 +1487,7 @@ public class TestResourceSecurity
         HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
 
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet(), ImmutableMap.of());
+        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet());
     }
 
     private static class JwkServlet

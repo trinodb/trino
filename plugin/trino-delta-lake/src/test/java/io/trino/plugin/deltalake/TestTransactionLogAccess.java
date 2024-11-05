@@ -68,7 +68,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.union;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
@@ -105,12 +104,12 @@ public class TestTransactionLogAccess
             "age=29/part-00000-3794c463-cb0c-4beb-8d07-7cc1e3b5920f.c000.snappy.parquet");
 
     private static final Set<RemoveFileEntry> EXPECTED_REMOVE_ENTRIES = ImmutableSet.of(
-            new RemoveFileEntry("age=30/part-00000-7e43a3c3-ea26-4ae7-8eac-8f60cbb4df03.c000.snappy.parquet", null, 1579190163932L, false),
-            new RemoveFileEntry("age=30/part-00000-72a56c23-01ba-483a-9062-dd0accc86599.c000.snappy.parquet", null, 1579190163932L, false),
-            new RemoveFileEntry("age=42/part-00000-951068bd-bcf4-4094-bb94-536f3c41d31f.c000.snappy.parquet", null, 1579190155406L, false),
-            new RemoveFileEntry("age=25/part-00000-609e34b1-5466-4dbc-a780-2708166e7adb.c000.snappy.parquet", null, 1579190163932L, false),
-            new RemoveFileEntry("age=42/part-00000-6aed618a-2beb-4edd-8466-653e67a9b380.c000.snappy.parquet", null, 1579190155406L, false),
-            new RemoveFileEntry("age=42/part-00000-b82d8859-84a0-4f05-872c-206b07dd54f0.c000.snappy.parquet", null, 1579190163932L, false));
+            new RemoveFileEntry("age=30/part-00000-7e43a3c3-ea26-4ae7-8eac-8f60cbb4df03.c000.snappy.parquet", null, 1579190163932L, false, Optional.empty()),
+            new RemoveFileEntry("age=30/part-00000-72a56c23-01ba-483a-9062-dd0accc86599.c000.snappy.parquet", null, 1579190163932L, false, Optional.empty()),
+            new RemoveFileEntry("age=42/part-00000-951068bd-bcf4-4094-bb94-536f3c41d31f.c000.snappy.parquet", null, 1579190155406L, false, Optional.empty()),
+            new RemoveFileEntry("age=25/part-00000-609e34b1-5466-4dbc-a780-2708166e7adb.c000.snappy.parquet", null, 1579190163932L, false, Optional.empty()),
+            new RemoveFileEntry("age=42/part-00000-6aed618a-2beb-4edd-8466-653e67a9b380.c000.snappy.parquet", null, 1579190155406L, false, Optional.empty()),
+            new RemoveFileEntry("age=42/part-00000-b82d8859-84a0-4f05-872c-206b07dd54f0.c000.snappy.parquet", null, 1579190163932L, false, Optional.empty()));
 
     private final TestingTelemetry testingTelemetry = TestingTelemetry.create("transaction-log-access");
     private final TracingFileSystemFactory tracingFileSystemFactory = new TracingFileSystemFactory(testingTelemetry.getTracer(), new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
@@ -300,7 +299,7 @@ public class TestTransactionLogAccess
             List<AddFileEntry> activeEntries = addFileEntries.stream()
                     .filter(addFileEntry -> addFileEntry.getPath().equals(path))
                     .toList();
-            assertThat(activeEntries.size()).isEqualTo(1);
+            assertThat(activeEntries).hasSize(1);
             assertThat(activeEntries.get(0).getModificationTime()).isEqualTo(9999999L);
         }
     }
@@ -318,7 +317,7 @@ public class TestTransactionLogAccess
                     .filter(addFileEntry -> addFileEntry.getPath().equals("age=30/part-00002-5800be2e-2373-47d8-8b86-776a8ea9d69f.c000.snappy.parquet"))
                     .toList();
 
-            assertThat(activeEntries.size()).isEqualTo(1);
+            assertThat(activeEntries).hasSize(1);
             assertThat(activeEntries.get(0).getModificationTime()).isEqualTo(9999999L);
         }
     }
@@ -425,7 +424,7 @@ public class TestTransactionLogAccess
 
         try (Stream<ProtocolEntry> protocolEntryStream = transactionLogAccess.getProtocolEntries(SESSION, tableSnapshot)) {
             List<ProtocolEntry> protocolEntries = protocolEntryStream.toList();
-            assertThat(protocolEntries.size()).isEqualTo(1);
+            assertThat(protocolEntries).hasSize(1);
             assertThat(protocolEntries.get(0).minReaderVersion()).isEqualTo(1);
             assertThat(protocolEntries.get(0).minWriterVersion()).isEqualTo(2);
         }
@@ -482,7 +481,7 @@ public class TestTransactionLogAccess
                     "age=21/part-00000-3d546786-bedc-407f-b9f7-e97aa12cce0f.c000.snappy.parquet",
                     "age=21/part-00001-290f0f26-19cf-4772-821e-36d55d9b7872.c000.snappy.parquet");
 
-            assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), dataFiles);
+            assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(dataFiles);
         }
 
         copyTransactionLogEntry(7, 9, resourceDir, transactionLogDir);
@@ -497,7 +496,7 @@ public class TestTransactionLogAccess
                     "age=42/part-00003-0f53cae3-3e34-4876-b651-e1db9584dbc3.c000.snappy.parquet",
                     "age=25/part-00000-b7fbbe31-c7f9-44ed-8757-5c47d10c3e81.c000.snappy.parquet");
 
-            assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), dataFiles);
+            assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(dataFiles);
         }
     }
 
@@ -526,7 +525,7 @@ public class TestTransactionLogAccess
                     "age=30/part-00002-5800be2e-2373-47d8-8b86-776a8ea9d69f.c000.snappy.parquet",
                     "age=42/part-00003-0f53cae3-3e34-4876-b651-e1db9584dbc3.c000.snappy.parquet");
 
-            assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), dataFiles);
+            assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(dataFiles);
         }
 
         copyTransactionLogEntry(8, 12, resourceDir, transactionLogDir);
@@ -545,7 +544,7 @@ public class TestTransactionLogAccess
                     "age=42/part-00000-b26c891a-7288-4d96-9d3b-bef648f12a34.c000.snappy.parquet",
                     "age=30/part-00000-37ccfcd3-b44b-4d04-a1e6-d2837da75f7a.c000.snappy.parquet");
 
-            assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), dataFiles);
+            assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(dataFiles);
         }
     }
 
@@ -590,7 +589,7 @@ public class TestTransactionLogAccess
                 () -> {
                     setupTransactionLogAccess(tableName, tableDir.toURI().toString());
                     try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(activeDataFileCacheSession, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
-                        assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), originalDataFiles);
+                        assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(originalDataFiles);
                     }
                 },
                 ImmutableMultiset.<FileOperation>builder()
@@ -609,7 +608,7 @@ public class TestTransactionLogAccess
                 () -> {
                     TableSnapshot updatedTableSnapshot = transactionLogAccess.loadSnapshot(activeDataFileCacheSession, new SchemaTableName("schema", tableName), tableDir.toURI().toString(), Optional.empty());
                     try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(activeDataFileCacheSession, updatedTableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
-                        assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), union(originalDataFiles, newDataFiles));
+                        assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(union(originalDataFiles, newDataFiles));
                     }
                 },
                 ImmutableMultiset.<FileOperation>builder()
@@ -660,7 +659,7 @@ public class TestTransactionLogAccess
             assertThat(dataFilesWithFixedVersion.stream().noneMatch(entry -> entry.getPath().equals(newFilePath))).isTrue();
         }
 
-        assertThat(expectedDataFiles.size()).isEqualTo(dataFilesWithFixedVersion.size());
+        assertThat(expectedDataFiles).hasSize(dataFilesWithFixedVersion.size());
         List<ColumnMetadata> columns = extractColumnMetadata(transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot), transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot), TESTING_TYPE_MANAGER);
         for (int i = 0; i < expectedDataFiles.size(); i++) {
             AddFileEntry expected = expectedDataFiles.get(i);
@@ -673,8 +672,8 @@ public class TestTransactionLogAccess
             assertThat(expected.isDataChange()).isEqualTo(actual.isDataChange());
             assertThat(expected.getTags()).isEqualTo(actual.getTags());
 
-            assertThat(expected.getStats().isPresent()).isTrue();
-            assertThat(actual.getStats().isPresent()).isTrue();
+            assertThat(expected.getStats()).isPresent();
+            assertThat(actual.getStats()).isPresent();
 
             for (ColumnMetadata column : columns) {
                 DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(column.getName(), column.getType(), OptionalInt.empty(), column.getName(), column.getType(), REGULAR, Optional.empty());

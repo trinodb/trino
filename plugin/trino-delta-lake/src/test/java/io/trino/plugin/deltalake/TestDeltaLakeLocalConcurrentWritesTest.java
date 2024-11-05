@@ -105,14 +105,15 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .forEach(MoreFutures::getDone);
 
             assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (21, 30)");
-            assertQuery("SELECT version, operation, isolation_level, read_version, is_blind_append FROM \"" + tableName + "$history\"",
+            assertQuery(
+                    "SELECT version, operation, isolation_level, read_version, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                (0, 'CREATE TABLE', 'WriteSerializable', 0, true),
-                                (1, 'WRITE', 'WriteSerializable', 0, true),
-                                (2, 'WRITE', 'WriteSerializable', 1, true),
-                                (3, 'WRITE', 'WriteSerializable', 2, true)
-                            """);
+                    VALUES
+                        (0, 'CREATE TABLE', 'WriteSerializable', 0, true),
+                        (1, 'WRITE', 'WriteSerializable', 0, true),
+                        (2, 'WRITE', 'WriteSerializable', 1, true),
+                        (3, 'WRITE', 'WriteSerializable', 2, true)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -238,14 +239,15 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .forEach(MoreFutures::getDone);
 
             assertQuery("SELECT * FROM " + tableName, "VALUES (0, 'a'), (1, 'b'), (2, 'c'), (3, 'd')");
-            assertQuery("SELECT version, operation, isolation_level, read_version, is_blind_append FROM \"" + tableName + "$history\"",
+            assertQuery(
+                    "SELECT version, operation, isolation_level, read_version, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0, true),
-                                (1, 'WRITE', 'WriteSerializable', 0, true),
-                                (2, 'WRITE', 'WriteSerializable', 1, true),
-                                (3, 'WRITE', 'WriteSerializable', 2, true)
-                            """);
+                    VALUES
+                        (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0, true),
+                        (1, 'WRITE', 'WriteSerializable', 0, true),
+                        (2, 'WRITE', 'WriteSerializable', 1, true),
+                        (3, 'WRITE', 'WriteSerializable', 2, true)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -365,12 +367,12 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             assertQuery(
                     "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                ('WRITE', 'WriteSerializable', false),
-                                ('WRITE', 'WriteSerializable', false),
-                                ('WRITE', 'WriteSerializable', true)
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        ('WRITE', 'WriteSerializable', false),
+                        ('WRITE', 'WriteSerializable', false),
+                        ('WRITE', 'WriteSerializable', true)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -418,12 +420,12 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             assertQuery(
                     "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                ('WRITE', 'WriteSerializable', false),
-                                ('WRITE', 'WriteSerializable', false),
-                                ('WRITE', 'WriteSerializable', false)
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        ('WRITE', 'WriteSerializable', false),
+                        ('WRITE', 'WriteSerializable', false),
+                        ('WRITE', 'WriteSerializable', false)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -470,24 +472,24 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             assertQuery(
                     "SELECT * FROM " + tableName,
                     """
-                            VALUES
-                                (0, 10), (1, 10), (2, 10), (3, 10),
-                                (11, 20), (12, 20), (13, 20), (14, 20),
-                                (22, 30), (23, 30),(24, 30), (25, 30),
-                                (33, 40), (34, 40), (35, 40), (36, 40),
-                                (44, 50), (45, 50), (46, 50), (47, 50),
-                                (55, 60), (56,60), (57, 60), (58,60)
-                            """);
+                    VALUES
+                        (0, 10), (1, 10), (2, 10), (3, 10),
+                        (11, 20), (12, 20), (13, 20), (14, 20),
+                        (22, 30), (23, 30),(24, 30), (25, 30),
+                        (33, 40), (34, 40), (35, 40), (36, 40),
+                        (44, 50), (45, 50), (46, 50), (47, 50),
+                        (55, 60), (56,60), (57, 60), (58,60)
+                    """);
             assertQuery(
                     "SELECT version, operation, isolation_level, read_version, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0, true),
-                                (1, 'WRITE', 'WriteSerializable', 0, true),
-                                (2, 'WRITE', 'WriteSerializable', 1, false),
-                                (3, 'WRITE', 'WriteSerializable', 2, false),
-                                (4, 'WRITE', 'WriteSerializable', 3, false)
-                            """);
+                    VALUES
+                        (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0, true),
+                        (1, 'WRITE', 'WriteSerializable', 0, true),
+                        (2, 'WRITE', 'WriteSerializable', 1, false),
+                        (3, 'WRITE', 'WriteSerializable', 2, false),
+                        (4, 'WRITE', 'WriteSerializable', 3, false)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -640,14 +642,15 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .forEach(MoreFutures::getDone);
 
             assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (31, 40)");
-            assertQuery("SELECT version, operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+            assertQuery(
+                    "SELECT version, operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                (1, 'DELETE', 'WriteSerializable', false),
-                                (2, 'DELETE', 'WriteSerializable', false),
-                                (3, 'DELETE', 'WriteSerializable', false)
-                            """);
+                    VALUES
+                        (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        (1, 'DELETE', 'WriteSerializable', false),
+                        (2, 'DELETE', 'WriteSerializable', false),
+                        (3, 'DELETE', 'WriteSerializable', false)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -804,16 +807,16 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
             // Depending on the read version of the operation we may have different results for the following query
             // although it will most likely be 52 (sum of 21 and 31).
-            assertThat((long) computeActual("SELECT sum(a) FROM " + tableName).getOnlyValue()).isIn(0L, 21L, 31L, (long)(21 + 31));
+            assertThat((long) computeActual("SELECT sum(a) FROM " + tableName).getOnlyValue()).isIn(0L, 21L, 31L, (long) (21 + 31));
             assertQuery(
                     "SELECT operation, isolation_level FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable'),
-                                ('DELETE', 'WriteSerializable'),
-                                ('WRITE', 'WriteSerializable'),
-                                ('WRITE', 'WriteSerializable')
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable'),
+                        ('DELETE', 'WriteSerializable'),
+                        ('WRITE', 'WriteSerializable'),
+                        ('WRITE', 'WriteSerializable')
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -856,16 +859,16 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
             // Depending on the read version of the operation we may have different results for the following query
             // although it will most likely be 52 (sum of 21 and 31).
-            assertThat((long) computeActual("SELECT sum(a) FROM " + tableName).getOnlyValue()).isIn(0L, 21L, 31L, (long)(21 + 31), (long)(1 + 11 + 21 + 31));
+            assertThat((long) computeActual("SELECT sum(a) FROM " + tableName).getOnlyValue()).isIn(0L, 21L, 31L, (long) (21 + 31), (long) (1 + 11 + 21 + 31));
             assertQuery(
                     "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                ('TRUNCATE', 'WriteSerializable', false),
-                                ('WRITE', 'WriteSerializable', true),
-                                ('WRITE', 'WriteSerializable', true)
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        ('TRUNCATE', 'WriteSerializable', false),
+                        ('WRITE', 'WriteSerializable', true),
+                        ('WRITE', 'WriteSerializable', true)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -912,13 +915,13 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             assertQuery(
                     "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                ('WRITE', 'WriteSerializable', true),
-                                ('DELETE', 'WriteSerializable', false),
-                                ('DELETE', 'WriteSerializable', false),
-                                ('WRITE', 'WriteSerializable', false)
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        ('WRITE', 'WriteSerializable', true),
+                        ('DELETE', 'WriteSerializable', false),
+                        ('DELETE', 'WriteSerializable', false),
+                        ('WRITE', 'WriteSerializable', false)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -1067,14 +1070,15 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .forEach(MoreFutures::getDone);
 
             assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (2, 10), (12, 20), (22, 30), (31, 40)");
-            assertQuery("SELECT version, operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+            assertQuery(
+                    "SELECT version, operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                (1, 'MERGE', 'WriteSerializable', false),
-                                (2, 'MERGE', 'WriteSerializable', false),
-                                (3, 'MERGE', 'WriteSerializable', false)
-                            """);
+                    VALUES
+                        (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        (1, 'MERGE', 'WriteSerializable', false),
+                        (2, 'MERGE', 'WriteSerializable', false),
+                        (3, 'MERGE', 'WriteSerializable', false)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -1119,15 +1123,16 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .forEach(MoreFutures::getDone);
 
             assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (31, 40)");
-            assertQuery("SELECT version, operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+            assertQuery(
+                    "SELECT version, operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                (1, 'WRITE', 'WriteSerializable', true),
-                                (2, 'MERGE', 'WriteSerializable', false),
-                                (3, 'MERGE', 'WriteSerializable', false),
-                                (4, 'MERGE', 'WriteSerializable', false)
-                            """);
+                    VALUES
+                        (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        (1, 'WRITE', 'WriteSerializable', true),
+                        (2, 'MERGE', 'WriteSerializable', false),
+                        (3, 'MERGE', 'WriteSerializable', false),
+                        (4, 'MERGE', 'WriteSerializable', false)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -1150,14 +1155,14 @@ public class TestDeltaLakeLocalConcurrentWritesTest
         // Add more files in the partition 30
         assertUpdate("INSERT INTO " + tableName + " VALUES (22, 30)", 1);
 
-
         try {
             // merge data concurrently by using non-overlapping partition predicate
             executor.invokeAll(ImmutableList.<Callable<Void>>builder()
                             .add(() -> {
                                 barrier.await(10, SECONDS);
                                 // No source table handles are employed for this MERGE statement, which causes a blind insert
-                                getQueryRunner().execute("""
+                                getQueryRunner().execute(
+                                        """
                                         MERGE INTO %s t USING (VALUES (12, 20)) AS s(a, part)
                                           ON (FALSE)
                                             WHEN NOT MATCHED THEN INSERT (a, part) VALUES(s.a, s.part)
@@ -1166,7 +1171,8 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("""
+                                getQueryRunner().execute(
+                                        """
                                         MERGE INTO %s t USING (VALUES (21, 30)) AS s(a, part)
                                           ON (t.part = s.part)
                                             WHEN MATCHED THEN DELETE
@@ -1175,7 +1181,8 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("""
+                                getQueryRunner().execute(
+                                        """
                                         MERGE INTO %s t USING (VALUES (32, 40)) AS s(a, part)
                                           ON (t.part = s.part)
                                             WHEN MATCHED THEN UPDATE SET a = s.a
@@ -1186,15 +1193,16 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .forEach(MoreFutures::getDone);
 
             assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (12, 20), (32, 40)");
-            assertQuery("SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+            assertQuery(
+                    "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                ('WRITE', 'WriteSerializable', true),
-                                ('MERGE', 'WriteSerializable', true),
-                                ('MERGE', 'WriteSerializable', false),
-                                ('MERGE', 'WriteSerializable', false)
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        ('WRITE', 'WriteSerializable', true),
+                        ('MERGE', 'WriteSerializable', true),
+                        ('MERGE', 'WriteSerializable', false),
+                        ('MERGE', 'WriteSerializable', false)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -1224,11 +1232,12 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                         try {
                             // Writing concurrently on the same partition even when doing blind inserts is not permitted
                             // in Serializable isolation level
-                            getQueryRunner().execute("""
-                                        MERGE INTO %s t USING (VALUES (12, 20)) AS s(a, part)
-                                          ON (FALSE)
-                                            WHEN NOT MATCHED THEN INSERT (a, part) VALUES(s.a, s.part)
-                                        """.formatted(tableName));
+                            getQueryRunner().execute(
+                                    """
+                                    MERGE INTO %s t USING (VALUES (12, 20)) AS s(a, part)
+                                      ON (FALSE)
+                                        WHEN NOT MATCHED THEN INSERT (a, part) VALUES(s.a, s.part)
+                                    """.formatted(tableName));
                             return true;
                         }
                         catch (Exception e) {
@@ -1301,13 +1310,13 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             assertQuery(
                     "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                ('WRITE', 'WriteSerializable', true),
-                                ('MERGE', 'WriteSerializable', false),
-                                ('MERGE', 'WriteSerializable', false),
-                                ('WRITE', 'WriteSerializable', false)
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        ('WRITE', 'WriteSerializable', true),
+                        ('MERGE', 'WriteSerializable', false),
+                        ('MERGE', 'WriteSerializable', false),
+                        ('WRITE', 'WriteSerializable', false)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -1315,7 +1324,6 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
     }
-
 
     @Test
     public void testConcurrentDeleteAndBlindInsertsReconciliation()
@@ -1359,12 +1367,12 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             assertQuery(
                     "SELECT operation, isolation_level FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable'),
-                                ('MERGE', 'WriteSerializable'),
-                                ('WRITE', 'WriteSerializable'),
-                                ('WRITE', 'WriteSerializable')
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable'),
+                        ('MERGE', 'WriteSerializable'),
+                        ('WRITE', 'WriteSerializable'),
+                        ('WRITE', 'WriteSerializable')
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -1415,12 +1423,12 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             assertQuery(
                     "SELECT operation, isolation_level FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable'),
-                                ('MERGE', 'WriteSerializable'),
-                                ('WRITE', 'WriteSerializable'),
-                                ('WRITE', 'WriteSerializable')
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable'),
+                        ('MERGE', 'WriteSerializable'),
+                        ('WRITE', 'WriteSerializable'),
+                        ('WRITE', 'WriteSerializable')
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -1444,7 +1452,8 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             executor.invokeAll(ImmutableList.<Callable<Void>>builder()
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("""
+                                getQueryRunner().execute(
+                                        """
                                         MERGE INTO %s t USING (VALUES (11, 20), (8, 10), (21, 30)) AS s(a, part)
                                           ON (t.a = s.a AND t.part = s.part)
                                             WHEN MATCHED THEN DELETE
@@ -1474,12 +1483,12 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             assertQuery(
                     "SELECT operation, isolation_level FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable'),
-                                ('MERGE', 'WriteSerializable'),
-                                ('WRITE', 'WriteSerializable'),
-                                ('WRITE', 'WriteSerializable')
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable'),
+                        ('MERGE', 'WriteSerializable'),
+                        ('WRITE', 'WriteSerializable'),
+                        ('WRITE', 'WriteSerializable')
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -1527,13 +1536,13 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             assertQuery(
                     "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
-                            VALUES
-                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
-                                ('WRITE', 'WriteSerializable', true),
-                                ('MERGE', 'WriteSerializable', false),
-                                ('DELETE', 'WriteSerializable', false),
-                                ('WRITE', 'WriteSerializable', false)
-                            """);
+                    VALUES
+                        ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                        ('WRITE', 'WriteSerializable', true),
+                        ('MERGE', 'WriteSerializable', false),
+                        ('DELETE', 'WriteSerializable', false),
+                        ('WRITE', 'WriteSerializable', false)
+                    """);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);

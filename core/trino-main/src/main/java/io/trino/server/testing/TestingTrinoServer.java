@@ -40,7 +40,6 @@ import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
-import io.airlift.tracetoken.TraceTokenModule;
 import io.airlift.tracing.TracingModule;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.sdk.trace.SpanProcessor;
@@ -160,6 +159,8 @@ public class TestingTrinoServer
         Logging logging = Logging.initialize();
         logging.setLevel("io.trino.event.QueryMonitor", Level.ERROR);
         logging.setLevel("org.eclipse.jetty", Level.ERROR);
+        logging.setLevel("org.glassfish.jersey.server.ServerRuntime$Responder", Level.OFF);
+        logging.setLevel("io.airlift.concurrent.BoundedExecutor", Level.OFF);
 
         // Trino server behavior does not depend on locale settings.
         // Use en_US as this is what Trino is tested with.
@@ -304,7 +305,6 @@ public class TestingTrinoServer
                 .add(new TestingJmxModule())
                 .add(new JmxOpenMetricsModule())
                 .add(new EventModule())
-                .add(new TraceTokenModule())
                 .add(new TracingModule("trino", VERSION))
                 .add(new ServerSecurityModule())
                 .add(new CatalogManagerModule())

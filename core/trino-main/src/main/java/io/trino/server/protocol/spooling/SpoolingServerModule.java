@@ -23,12 +23,13 @@ import com.google.inject.multibindings.OptionalBinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.server.ServerConfig;
-import io.trino.server.protocol.spooling.encoding.QueryDataEncodingModule;
-
-import java.util.Optional;
+import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
+import io.trino.spi.protocol.SpoolingManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.trino.server.protocol.spooling.QueryDataEncoder.EncoderSelector.noEncoder;
+import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.WORKER_PROXY;
 import static java.util.Objects.requireNonNull;
 
 public class SpoolingServerModule
@@ -37,23 +38,30 @@ public class SpoolingServerModule
     @Override
     protected void setup(Binder binder)
     {
+        install(new QueryDataEncodingModule());
+
         binder.bind(SpoolingManagerRegistry.class).in(Scopes.SINGLETON);
-        OptionalBinder<SpoolingManagerBridge> bridgeBinder = newOptionalBinder(binder, new TypeLiteral<>() {});
+        OptionalBinder<SpoolingManager> spoolingManagerBinder = newOptionalBinder(binder, new TypeLiteral<>() {});
+        newOptionalBinder(binder, SpoolingConfig.class);
         SpoolingEnabledConfig spoolingEnabledConfig = buildConfigObject(SpoolingEnabledConfig.class);
         if (!spoolingEnabledConfig.isEnabled()) {
-            binder.bind(QueryDataEncoderSelector.class).toInstance(_ -> Optional.empty());
+            binder.bind(QueryDataEncoder.EncoderSelector.class).toInstance(noEncoder());
             return;
         }
 
         boolean isCoordinator = buildConfigObject(ServerConfig.class).isCoordinator();
         SpoolingConfig spoolingConfig = buildConfigObject(SpoolingConfig.class);
-        binder.bind(QueryDataEncoderSelector.class).to(PreferredQueryDataEncoderSelector.class).in(Scopes.SINGLETON);
-        install(new QueryDataEncodingModule());
-        if (spoolingConfig.isUseWorkers() || isCoordinator) {
-            jaxrsBinder(binder).bind(SegmentResource.class);
+        binder.bind(QueryDataEncoder.EncoderSelector.class).to(PreferredQueryDataEncoderSelector.class).in(Scopes.SINGLETON);
+
+        SegmentRetrievalMode mode = spoolingConfig.getRetrievalMode();
+        if (isCoordinator) {
+            jaxrsBinder(binder).bind(CoordinatorSegmentResource.class);
+        }
+        else if (mode == WORKER_PROXY) {
+            jaxrsBinder(binder).bind(WorkerSegmentResource.class);
         }
 
-        bridgeBinder.setBinding().toProvider(SpoolingManagerBridgeProvider.class).in(Scopes.SINGLETON);
+        spoolingManagerBinder.setBinding().toProvider(SpoolingManagerProvider.class).in(Scopes.SINGLETON);
     }
 
     @ProvidesIntoSet
@@ -64,21 +72,21 @@ public class SpoolingServerModule
         return new QueryDataJacksonModule();
     }
 
-    private static class SpoolingManagerBridgeProvider
-            implements Provider<SpoolingManagerBridge>
+    private static class SpoolingManagerProvider
+            implements Provider<SpoolingManager>
     {
         private final SpoolingManagerRegistry registry;
         private final SpoolingConfig config;
 
         @Inject
-        public SpoolingManagerBridgeProvider(SpoolingManagerRegistry registry, SpoolingConfig config)
+        public SpoolingManagerProvider(SpoolingManagerRegistry registry, SpoolingConfig config)
         {
             this.registry = requireNonNull(registry, "registry is null");
             this.config = requireNonNull(config, "config is null");
         }
 
         @Override
-        public SpoolingManagerBridge get()
+        public SpoolingManager get()
         {
             return new SpoolingManagerBridge(config, registry);
         }

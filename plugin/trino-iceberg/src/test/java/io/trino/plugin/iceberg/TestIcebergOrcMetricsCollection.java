@@ -144,10 +144,10 @@ public class TestIcebergOrcMetricsCollection
         materializedRows = computeActual("select * from \"c1_metrics$files\"").getMaterializedRows();
         datafile = toDataFileRecord(materializedRows.get(0));
         assertThat(datafile.getRecordCount()).isEqualTo(1);
-        assertThat(datafile.getValueCounts().size()).isEqualTo(1);
-        assertThat(datafile.getNullValueCounts().size()).isEqualTo(1);
-        assertThat(datafile.getUpperBounds().size()).isEqualTo(1);
-        assertThat(datafile.getLowerBounds().size()).isEqualTo(1);
+        assertThat(datafile.getValueCounts()).hasSize(1);
+        assertThat(datafile.getNullValueCounts()).hasSize(1);
+        assertThat(datafile.getUpperBounds()).hasSize(1);
+        assertThat(datafile.getLowerBounds()).hasSize(1);
 
         // set c1 metrics mode to count
         assertUpdate("create table c1_metrics_count (c1 varchar, c2 varchar)");
@@ -162,8 +162,8 @@ public class TestIcebergOrcMetricsCollection
         materializedRows = computeActual("select * from \"c1_metrics_count$files\"").getMaterializedRows();
         datafile = toDataFileRecord(materializedRows.get(0));
         assertThat(datafile.getRecordCount()).isEqualTo(1);
-        assertThat(datafile.getValueCounts().size()).isEqualTo(1);
-        assertThat(datafile.getNullValueCounts().size()).isEqualTo(1);
+        assertThat(datafile.getValueCounts()).hasSize(1);
+        assertThat(datafile.getNullValueCounts()).hasSize(1);
         assertThat(datafile.getUpperBounds()).isNull();
         assertThat(datafile.getLowerBounds()).isNull();
 
@@ -180,8 +180,8 @@ public class TestIcebergOrcMetricsCollection
         materializedRows = computeActual("select * from \"c1_metrics_truncate$files\"").getMaterializedRows();
         datafile = toDataFileRecord(materializedRows.get(0));
         assertThat(datafile.getRecordCount()).isEqualTo(1);
-        assertThat(datafile.getValueCounts().size()).isEqualTo(1);
-        assertThat(datafile.getNullValueCounts().size()).isEqualTo(1);
+        assertThat(datafile.getValueCounts()).hasSize(1);
+        assertThat(datafile.getNullValueCounts()).hasSize(1);
         datafile.getUpperBounds().forEach((k, v) -> assertThat(v.length()).isEqualTo(10));
         datafile.getLowerBounds().forEach((k, v) -> assertThat(v.length()).isEqualTo(10));
 
@@ -197,10 +197,10 @@ public class TestIcebergOrcMetricsCollection
         materializedRows = computeActual("select * from \"c_metrics$files\"").getMaterializedRows();
         datafile = toDataFileRecord(materializedRows.get(0));
         assertThat(datafile.getRecordCount()).isEqualTo(1);
-        assertThat(datafile.getValueCounts().size()).isEqualTo(2);
-        assertThat(datafile.getNullValueCounts().size()).isEqualTo(2);
-        assertThat(datafile.getUpperBounds().size()).isEqualTo(2);
-        assertThat(datafile.getLowerBounds().size()).isEqualTo(2);
+        assertThat(datafile.getValueCounts()).hasSize(2);
+        assertThat(datafile.getNullValueCounts()).hasSize(2);
+        assertThat(datafile.getUpperBounds()).hasSize(2);
+        assertThat(datafile.getLowerBounds()).hasSize(2);
 
         // keep all metrics
         assertUpdate("create table metrics (c1 varchar, c2 varchar)");
@@ -213,10 +213,10 @@ public class TestIcebergOrcMetricsCollection
         materializedRows = computeActual("select * from \"metrics$files\"").getMaterializedRows();
         datafile = toDataFileRecord(materializedRows.get(0));
         assertThat(datafile.getRecordCount()).isEqualTo(1);
-        assertThat(datafile.getValueCounts().size()).isEqualTo(2);
-        assertThat(datafile.getNullValueCounts().size()).isEqualTo(2);
-        assertThat(datafile.getUpperBounds().size()).isEqualTo(2);
-        assertThat(datafile.getLowerBounds().size()).isEqualTo(2);
+        assertThat(datafile.getValueCounts()).hasSize(2);
+        assertThat(datafile.getNullValueCounts()).hasSize(2);
+        assertThat(datafile.getUpperBounds()).hasSize(2);
+        assertThat(datafile.getLowerBounds()).hasSize(2);
     }
 
     @Test
@@ -335,7 +335,7 @@ public class TestIcebergOrcMetricsCollection
         datafile.getValueCounts().values().forEach(valueCount -> assertThat(valueCount).isEqualTo((Long) 3L));
 
         // Check per-column nan value count
-        assertThat(datafile.getNanValueCounts().size()).isEqualTo(2);
+        assertThat(datafile.getNanValueCounts()).hasSize(2);
         assertThat(datafile.getNanValueCounts()).containsEntry(2, (Long) 1L);
         assertThat(datafile.getNanValueCounts()).containsEntry(3, (Long) 1L);
 
@@ -367,8 +367,8 @@ public class TestIcebergOrcMetricsCollection
         // 1. top-level primitive columns
         // 2. and nested primitive fields that are not descendants of LISTs or MAPs
         // should appear in lowerBounds or UpperBounds
-        assertThat(lowerBounds.size()).isEqualTo(3);
-        assertThat(upperBounds.size()).isEqualTo(3);
+        assertThat(lowerBounds).hasSize(3);
+        assertThat(upperBounds).hasSize(3);
 
         // col1
         assertThat(lowerBounds).containsEntry(1, "-9");

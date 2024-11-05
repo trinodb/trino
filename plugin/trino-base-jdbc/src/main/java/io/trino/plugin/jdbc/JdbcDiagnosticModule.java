@@ -14,7 +14,6 @@
 package io.trino.plugin.jdbc;
 
 import com.google.inject.Binder;
-import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
@@ -43,7 +42,7 @@ public class JdbcDiagnosticModule
         binder.bind(StatisticsAwareConnectionFactory.class).in(Scopes.SINGLETON);
 
         Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
-        newExporter(binder).export(Key.get(JdbcClient.class, StatsCollecting.class))
+        newExporter(binder).export(StatisticsAwareJdbcClient.class)
                 .as(generator -> generator.generatedNameOf(JdbcClient.class, catalogName.get().toString()));
         newExporter(binder).export(StatisticsAwareConnectionFactory.class)
                 .as(generator -> generator.generatedNameOf(ConnectionFactory.class, catalogName.get().toString()));
@@ -53,8 +52,7 @@ public class JdbcDiagnosticModule
 
     @Provides
     @Singleton
-    @StatsCollecting
-    public JdbcClient createJdbcClientWithStats(@ForBaseJdbc JdbcClient client, CatalogName catalogName)
+    public StatisticsAwareJdbcClient createStatisticsAwareJdbcClient(@ForBaseJdbc JdbcClient client, CatalogName catalogName)
     {
         Logger logger = Logger.get(format("io.trino.plugin.jdbc.%s.jdbcclient", catalogName));
 

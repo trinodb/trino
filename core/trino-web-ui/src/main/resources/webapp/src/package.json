@@ -18,6 +18,7 @@
   "dependencies": {
     "d3": "^5.7.0",
     "dagre-d3": "^0.6.1",
+    "highlight.js": "^11.10.0",
     "react": "^16.4.2",
     "react-dom": "^16.4.2",
     "reactable": "^1.0.2"
@@ -30,10 +31,12 @@
     ]
   },
   "scripts": {
-    "package": "npm clean-install && webpack --config webpack.config.js",
+    "package": "npm install && webpack --config webpack.config.js",
+    "package:clean": "npm clean-install && webpack --config webpack.config.js",
     "watch": "npm clean-install && webpack --config webpack.config.js --watch",
     "flow": "flow",
-    "check": "flow && prettier --check **/*.js **/*.jsx *.js *.jsx",
+    "check": "npm install && flow && prettier --check **/*.js **/*.jsx *.js *.jsx",
+    "check:clean": "npm clean-install && flow && prettier --check **/*.js **/*.jsx *.js *.jsx",
     "format": "prettier --write **/*.js **/*.jsx *.js *.jsx",
     "lint": "prettier --check **/*.js **/*.jsx"
   }

@@ -27,6 +27,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -60,7 +61,13 @@ public class LocalFileSystem
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
-        return new LocalInputFile(location, toFilePath(location), length);
+        return new LocalInputFile(location, toFilePath(location), length, null);
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+    {
+        return new LocalInputFile(location, toFilePath(location), length, lastModified);
     }
 
     @Override

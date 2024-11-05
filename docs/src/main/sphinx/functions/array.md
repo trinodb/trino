@@ -410,15 +410,6 @@ SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
 ```
 :::
 
-:::{function} cosine_distance(array(double), array(double)) -> double
-Calculates the cosine distance:
-
-```sql
-SELECT cosine_distance(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
--- 0.01613008990009257
-```
-:::
-
 :::{function} zip(array1, array2[, ...]) -> array(row)
 Merges the given arrays, element-wise, into a single array of rows. The M-th element of
 the N-th argument will be the N-th field of the M-th output element.

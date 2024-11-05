@@ -92,7 +92,7 @@ public final class AvroHiveFileWriter
             outputColumnNames.add(entry.getKey().toLowerCase(Locale.ENGLISH));
             Type type = avroTypeBlockHandler.typeFor(entry.getValue().schema());
             outputColumnTypes.add(type);
-            blocks.add(type.createBlockBuilder(null, 1).appendNull().build());
+            blocks.add(type.createNullBlock());
         }
         typeCorrectNullBlocks = blocks.build();
         fileWriter = new AvroFileWriter(countingOutputStream, fileSchema, typeManager, compressionKind, metadata, outputColumnNames.build(), outputColumnTypes.build(), true);

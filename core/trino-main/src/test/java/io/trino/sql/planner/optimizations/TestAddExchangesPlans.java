@@ -202,7 +202,8 @@ public class TestAddExchangesPlans
     @Test
     public void testSingleGatheringExchangeForUnionAllWithLimit()
     {
-        assertDistributedPlan("""
+        assertDistributedPlan(
+                """
                 SELECT * FROM (
                     SELECT nationkey FROM nation
                     UNION ALL
@@ -409,7 +410,7 @@ public class TestAddExchangesPlans
                                         ImmutableList.of(),
                                         ImmutableSet.of("regionkey"),
                                         project(
-                                                ImmutableMap.of("regionkey", expression(new Reference(BIGINT,"regionkey"))),
+                                                ImmutableMap.of("regionkey", expression(new Reference(BIGINT, "regionkey"))),
                                                 topN(
                                                         5,
                                                         ImmutableList.of(sort("nationkey", ASCENDING, LAST)),
@@ -611,7 +612,8 @@ public class TestAddExchangesPlans
     @Test
     public void testAggregationPrefersParentPartitioning()
     {
-        String singleColumnParentGroupBy = """
+        String singleColumnParentGroupBy =
+                """
                 SELECT (partkey, sum(count))
                 FROM (
                     SELECT suppkey, partkey, count(*) as count
@@ -676,13 +678,15 @@ public class TestAddExchangesPlans
         // no stats. fallback to exact partitioning expected
         assertDistributedPlan(singleColumnParentGroupBy, disableStats(), exactPartitioningPlan);
         // parent partitioning with estimated small number of distinct values. fallback to exact partitioning expected
-        assertDistributedPlan("""
-                        SELECT (partkey_expr, sum(count))
-                        FROM (
-                            SELECT suppkey, partkey % 10 as partkey_expr, count(*) as count
-                            FROM lineitem
-                            GROUP BY suppkey, partkey % 10)
-                        GROUP BY partkey_expr""",
+        assertDistributedPlan(
+                """
+                SELECT (partkey_expr, sum(count))
+                FROM (
+                    SELECT suppkey, partkey % 10 as partkey_expr, count(*) as count
+                    FROM lineitem
+                    GROUP BY suppkey, partkey % 10)
+                GROUP BY partkey_expr
+                """,
                 anyTree(aggregation(
                         singleGroupingSet("partkey_expr"),
                         ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", false, ImmutableList.of(symbol("sum_partial")))),
@@ -714,13 +718,15 @@ public class TestAddExchangesPlans
                                                                                                 "suppkey", "suppkey"))))))))))))));
 
         // parent aggregation partitioned by multiple columns
-        assertDistributedPlan("""
-                        SELECT (orderkey % 10000, partkey, sum(count))
-                        FROM (
-                            SELECT orderkey % 10000 as orderkey, partkey, suppkey, count(*) as count
-                            FROM lineitem
-                            GROUP BY orderkey % 10000, partkey, suppkey)
-                        GROUP BY orderkey, partkey""",
+        assertDistributedPlan(
+                """
+                SELECT (orderkey % 10000, partkey, sum(count))
+                FROM (
+                    SELECT orderkey % 10000 as orderkey, partkey, suppkey, count(*) as count
+                    FROM lineitem
+                    GROUP BY orderkey % 10000, partkey, suppkey)
+                GROUP BY orderkey, partkey
+                """,
                 anyTree(aggregation(
                         singleGroupingSet("orderkey_expr", "partkey"),
                         ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", false, ImmutableList.of(symbol("count")))),
@@ -996,8 +1002,8 @@ public class TestAddExchangesPlans
         // Put union at probe side
         assertDistributedPlan(
                 """
-                            SELECT * FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n JOIN region r ON r.regionkey = n.nationkey
-                        """,
+                SELECT * FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n JOIN region r ON r.regionkey = n.nationkey
+                """,
                 noJoinReordering(),
                 anyTree(
                         join(INNER, join -> join
