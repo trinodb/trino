@@ -19,7 +19,6 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
@@ -75,7 +74,6 @@ public class HudiConnectorFactory
         ClassLoader classLoader = HudiConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
-                    new EventModule(),
                     new MBeanModule(),
                     new JsonModule(),
                     new HudiModule(),

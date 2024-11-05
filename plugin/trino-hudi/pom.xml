@@ -57,11 +57,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>event</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
