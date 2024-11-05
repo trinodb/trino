@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -88,31 +87,6 @@ public class TestBigQueryAvroConnectorTest
             finally {
                 assertUpdate("DROP TABLE " + tableName);
             }
-        }
-    }
-
-    @Override
-    @Test
-    public void testProjectionPushdown()
-    {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
-                "test_projection_pushdown_",
-                "(id BIGINT, root ROW(f1 BIGINT, f2 BIGINT))",
-                ImmutableList.of("(1, ROW(1, 2))", "(2, NULl)", "(3, ROW(NULL, 4))"))) {
-            String selectQuery = "SELECT id, root.f1 FROM " + testTable.getName();
-            String expectedResult = "VALUES (BIGINT '1', BIGINT '1'), (BIGINT '2', NULL), (BIGINT '3', NULL)";
-
-            // With Projection Pushdown enabled
-            assertThat(query(selectQuery))
-                    .matches(expectedResult)
-                    .isFullyPushedDown();
-
-            // With Projection Pushdown disabled
-            Session sessionWithoutPushdown = sessionWithProjectionPushdownDisabled(getSession());
-            assertThat(query(sessionWithoutPushdown, selectQuery))
-                    .matches(expectedResult)
-                    .isNotFullyPushedDown(ProjectNode.class);
         }
     }
 
