@@ -839,11 +839,21 @@ public final class IcebergUtil
         Map<String, String> baseProperties = propertiesBuilder.buildOrThrow();
         Map<String, String> extraProperties = IcebergTableProperties.getExtraProperties(tableMetadata.getProperties()).orElseGet(ImmutableMap::of);
 
+        verifyExtraProperties(baseProperties.keySet(), extraProperties, allowedExtraProperties);
+
+        return ImmutableMap.<String, String>builder()
+                .putAll(baseProperties)
+                .putAll(extraProperties)
+                .buildOrThrow();
+    }
+
+    public static void verifyExtraProperties(Set<String> basePropertyKeys, Map<String, String> extraProperties, Predicate<String> allowedExtraProperties)
+    {
         Set<String> illegalExtraProperties = ImmutableSet.<String>builder()
                 .addAll(Sets.intersection(
                         ImmutableSet.<String>builder()
                                 .add(TABLE_COMMENT)
-                                .addAll(baseProperties.keySet())
+                                .addAll(basePropertyKeys)
                                 .addAll(SUPPORTED_PROPERTIES)
                                 .addAll(PROTECTED_ICEBERG_NATIVE_PROPERTIES)
                                 .build(),
@@ -858,11 +868,6 @@ public final class IcebergUtil
                     INVALID_TABLE_PROPERTY,
                     format("Illegal keys in extra_properties: %s", illegalExtraProperties));
         }
-
-        return ImmutableMap.<String, String>builder()
-                .putAll(baseProperties)
-                .putAll(extraProperties)
-                .buildOrThrow();
     }
 
     /**
