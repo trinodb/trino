@@ -30,7 +30,6 @@ import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceSelectorManager;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
-import io.airlift.event.client.EventModule;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
@@ -304,7 +303,6 @@ public class TestingTrinoServer
                 .add(new PrefixObjectNameGeneratorModule("io.trino"))
                 .add(new TestingJmxModule())
                 .add(new JmxOpenMetricsModule())
-                .add(new EventModule())
                 .add(new TracingModule("trino", VERSION))
                 .add(new ServerSecurityModule())
                 .add(new CatalogManagerModule())
