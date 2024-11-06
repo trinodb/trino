@@ -110,6 +110,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -232,7 +233,7 @@ public class Analysis
     private final Map<NodeRef<Table>, List<Expression>> checkConstraints = new LinkedHashMap<>();
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
-    private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, List<FieldExpression>> columnMasks = new LinkedHashMap<>();
 
     private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
@@ -1161,17 +1162,15 @@ public class Analysis
         referenceChain.pop();
     }
 
-    public void addColumnMask(Table table, String column, Expression mask)
+    public void addColumnMask(Table table, Field column, Expression mask)
     {
-        Map<String, Expression> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
-        checkArgument(!masks.containsKey(column), "Mask already exists for column %s", column);
-
-        masks.put(column, mask);
+        columnMasks.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+                .add(new FieldExpression(column, mask));
     }
 
-    public Map<String, Expression> getColumnMasks(Table table)
+    public List<FieldExpression> getColumnMasks(Table table)
     {
-        return unmodifiableMap(columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of()));
+        return unmodifiableList(columnMasks.getOrDefault(NodeRef.of(table), ImmutableList.of()));
     }
 
     public List<TableInfo> getReferencedTables()
@@ -1189,7 +1188,7 @@ public class Analysis
                             .distinct()
                             .map(fieldName -> new ColumnInfo(
                                     fieldName,
-                                    Optional.ofNullable(columnMasks.getOrDefault(table, ImmutableMap.of()).get(fieldName))
+                                    resolveColumnMask(table.getNode().getName(), fieldName, columnMasks.getOrDefault(table, ImmutableList.of()))
                                             .map(Expression::toString)))
                             .collect(toImmutableList());
 
@@ -1208,6 +1207,22 @@ public class Analysis
                             info.getReferenceChain());
                 })
                 .collect(toImmutableList());
+    }
+
+    public static Optional<Expression> resolveColumnMask(QualifiedName tableName, String fieldName, List<FieldExpression> expressions)
+    {
+        return expressions.stream()
+                .filter(fieldExpression -> fieldExpression.field().canResolve(concatIdentifier(tableName, fieldName)))
+                .findFirst()
+                .map(FieldExpression::expression);
+    }
+
+    private static QualifiedName concatIdentifier(QualifiedName tableName, String fieldName)
+    {
+        return QualifiedName.of(Stream.concat(
+                        tableName.getOriginalParts().stream(),
+                        Stream.of(new Identifier(fieldName)))
+                .collect(toImmutableList()));
     }
 
     public List<RoutineInfo> getRoutines()
@@ -2526,6 +2541,15 @@ public class Analysis
             requireNonNull(transactionHandle, "transactionHandle is null");
             requireNonNull(parametersType, "parametersType is null");
             requireNonNull(orderedOutputColumns, "orderedOutputColumns is null");
+        }
+    }
+
+    public record FieldExpression(Field field, Expression expression)
+    {
+        public FieldExpression
+        {
+            requireNonNull(field, "field is null");
+            requireNonNull(expression, "expression is null");
         }
     }
 }
