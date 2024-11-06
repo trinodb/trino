@@ -14,6 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.api.core.ApiFuture;
+import com.google.api.gax.batching.FlowControlSettings;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.cloud.bigquery.storage.v1.CreateWriteStreamRequest;
@@ -106,7 +107,9 @@ public class BigQueryPageSink
     private void insertWithCommitted(JSONArray batch)
     {
         WriteStream stream = writeStream.updateAndGet(this::getOrCreateWriteStream);
-        try (JsonStreamWriter writer = JsonStreamWriter.newBuilder(stream.getName(), stream.getTableSchema(), client).build()) {
+        try (JsonStreamWriter writer = JsonStreamWriter.newBuilder(stream.getName(), stream.getTableSchema(), client)
+                .setFlowControlSettings(FlowControlSettings.newBuilder().setMaxOutstandingElementCount(1L).build())
+                .build()) {
             ApiFuture<AppendRowsResponse> future = writer.append(batch);
             AppendRowsResponse response = future.get(); // Throw error
             if (response.hasError()) {
