@@ -4925,6 +4925,17 @@ public abstract class BaseConnectorTest
         }
     }
 
+    @Test
+    public void testUpdateCaseSensitivity()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_update", "AS SELECT * FROM nation")) {
+            assertUpdate("UPDATE " + table.getName() + " SET NATIONKEY = 100 WHERE REGIONKEY = 2", 5);
+            assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE nationkey = 100", "VALUES 5");
+        }
+    }
+
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
     @RepeatedTest(4)
     @Timeout(60)
