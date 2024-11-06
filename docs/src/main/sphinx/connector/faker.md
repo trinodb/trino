@@ -2,9 +2,12 @@
 
 The Faker connector generates random data matching a defined structure. It uses
 the [Datafaker](https://www.datafaker.net/) library to make the generated data
-more realistic. Use the connector to populate another data source with large
-and realistic test data. This allows testing performance of applications
-processing data, including Trino itself, and application user interfaces.
+more realistic.
+
+Use the connector to test and learn SQL queries without the need for a fixed,
+imported dataset, or to populate another data source with large and realistic
+test data. This allows testing the performance of applications processing data,
+including Trino itself, and application user interfaces accessing the data.
 
 ## Configuration
 
@@ -20,83 +23,79 @@ faker.null-probability=0.1
 faker.default-limit=1000
 ```
 
-Create tables in the `default` schema, or create different schemas first.
-Reading from tables in this catalog return random data. See [](faker-usage) for
+Create tables in the `default` schema, or create different schemas first. Tables
+in the catalog only exist as definition and do not hold actual data. Any query
+reading from tables returns random, but deterministic data. As a result,
+repeated invocation of a query returns identical data. See [](faker-usage) for
 more examples.
 
-Schema objects created in this connector are not persisted, and are stored in
-memory only. They need to be recreated every time after restarting the
-coordinator.
+Schemas and tables in a catalog are not persisted, and are stored in the memory
+of the coordinator only. They need to be recreated every time after restarting
+the coordinator.
 
 The following table details all general configuration properties:
 
 :::{list-table} Faker configuration properties
-:widths: 35, 55, 10
+:widths: 25, 75
 :header-rows: 1
 
 * - Property name
   - Description
-  - Default
 * - `faker.null-probability`
-  - Default null probability for any column in any table that allows them.
-  - `0.5`
+  - Default probability of a value created as `null` for any column in any table
+    that allows them. Defaults to `0.5`.
 * - `faker.default-limit`
-  - Default number of rows for each table, when the LIMIT clause is not
-    specified in the query.
-  - `1000`
+  - Default number of rows in a table. Defaults to `1000`.
 :::
 
 The following table details all supported schema properties. If they're not
 set, values from corresponding configuration properties are used.
 
 :::{list-table} Faker schema properties
-:widths: 35, 65
+:widths: 25, 75
 :header-rows: 1
 
 * - Property name
   - Description
 * - `null_probability`
-  - Default probability of null values in any column that allows them, in any
-    table of this schema.
+  - Default probability of a value created as `null` in any column that allows
+    them, in any table of this schema.
 * - `default_limit`
-  - Default limit of rows returned from any table in this schema, if not
-    specified in the query.
+  - Default number of rows in a table.
 :::
 
 The following table details all supported table properties. If they're not set,
 values from corresponding schema properties are used.
 
 :::{list-table} Faker table properties
-:widths: 35, 65
+:widths: 25, 75
 :header-rows: 1
 
 * - Property name
   - Description
 * - `null_probability`
-  - Default probability of null values in any column in this table that allows
-    them.
+  - Default probability of a value created as `null` in any column that allows
+    `null` in the table.
 * - `default_limit`
-  - Default limit of rows returned from this table if not specified in the
-    query.
+  - Default number of rows in the table.
 :::
 
 The following table details all supported column properties.
 
 :::{list-table} Faker column properties
-:widths: 20, 40, 40
+:widths: 25, 75
 :header-rows: 1
 
 * - Property name
   - Description
-  - Default
 * - `null_probability`
-  - Default probability of null values in any column in this table that allows them.
-  - Defaults to the `null_probability` table or schema property, if set, or the
+  - Default probability of a value created as `null` in the column. Defaults to
+    the `null_probability` table or schema property, if set, or the
     `faker.null-probability` configuration property.
 * - `generator`
-  - Name of the Faker library generator used to generate data for this column.
-    Only valid for columns of a character based type.
-  - Defaults to a 3 to 40 word sentence from the
+  - Name of the Faker library generator used to generate data for the column.
+    Only valid for columns of a character-based type. Defaults to a 3 to 40 word
+    sentence from the
     [Lorem](https://javadoc.io/doc/net.datafaker/datafaker/latest/net/datafaker/providers/base/Lorem.html)
     provider.
 :::
@@ -126,11 +125,11 @@ See the Datafaker's documentation for more information about
 [the expression](https://www.datafaker.net/documentation/expressions/) syntax
 and [available providers](https://www.datafaker.net/documentation/providers/).
 
-To test a generator expression, without having to recreate the table, use the
-`random_string` function from the `default` schema:
+Use the `random_string` function from the `default` schema of the `generator`
+catalog to test a generator expression:
 
 ```sql
-SELECT default.random_string('#{Name.first_name}')
+SELECT generator.default.random_string('#{Name.first_name}');
 ```
 
 ### Non-character types
@@ -156,19 +155,20 @@ Faker supports the following non-character types:
 - `UUID`
 
 You can not use generator expressions for non-character-based columns. To limit
-their data range, specify constraints in the `WHERE` clause.
+their data range, specify constraints in the `WHERE` clause - see
+[](faker-usage).
 
 ### Unsupported types
 
 Faker does not support the following data types:
 
-- structural types: `ARRAY`, `MAP`, `ROW`
+- Structural types `ARRAY`, `MAP`, and `ROW`
 - `JSON`
 - Geometry
 - HyperLogLog and all digest types
 
 To generate data using these complex types, data from column of primitive types
-can be combined, like in the following example.
+can be combined, like in the following example:
 
 ```sql
 CREATE TABLE faker.default.prices (
@@ -182,7 +182,7 @@ WHERE price > 0
 LIMIT 3;
 ```
 
-Executing these queries should return data structured like this:
+Running the queries returns data similar to the following result:
 
 ```text
       complex
@@ -199,13 +199,14 @@ By default, the connector generates 1000 rows for every table. To control how
 many rows are generated for a table, use the `LIMIT` clause in the query. A
 default limit can be set using the `default_limit` table, or schema property or
 in the connector configuration file, using the `faker.default-limit` property.
+Use a limit value higher than the configured default to return more rows.
 
 ### Null values
 
-For columns without a `NOT NULL` constraint, null values are generated using
+For columns without a `NOT NULL` constraint, `null` values are generated using
 the default probability of 50%. It can be modified using the `null_probability`
 property set for a column, table, or schema. The default value of 0.5 can be
-also modified in the connector configuration file, by using the
+also modified in the catalog configuration file, by using the
 `faker.null-probability` property.
 
 (faker-type-mapping)=
@@ -216,8 +217,8 @@ The Faker connector generates data itself, so no mapping is required.
 (faker-sql-support)=
 ## SQL support
 
-The connector provides {ref}`globally available <sql-globally-available>` and
-{ref}`read operation <sql-read-operations>` statements to generate data.
+The connector provides [globally available](sql-globally-available) and [read
+operation](sql-read-operations) statements to generate data.
 
 To define the schema for generating data, it supports the following features:
 
@@ -284,4 +285,4 @@ CREATE TABLE generator.default.customer (
 
 ## Limitations
 
-- It is not possible to choose the locale used by the Datafaker's generators.
+* It is not possible to choose the locale used by the Datafaker's generators.
