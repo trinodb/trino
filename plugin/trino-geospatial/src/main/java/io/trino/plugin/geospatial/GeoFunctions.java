@@ -177,8 +177,6 @@ public final class GeoFunctions
     private static final EnumSet<GeometryType> VALID_TYPES_FOR_ST_POINTS = EnumSet.of(
             LINE_STRING, POLYGON, POINT, MULTI_POINT, MULTI_LINE_STRING, MULTI_POLYGON, GEOMETRY_COLLECTION);
 
-    private static final WKBReader WKB_READER = new WKBReader();
-
     private GeoFunctions() {}
 
     @Description("Returns a Geometry type LineString object from Well-Known Text representation (WKT)")
@@ -1546,7 +1544,7 @@ public final class GeoFunctions
     {
         requireNonNull(input, "input is null");
         try {
-            return WKB_READER.read(input.getBytes());
+            return new WKBReader().read(input.getBytes());
         }
         catch (ParseException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);
