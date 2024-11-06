@@ -54,6 +54,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeParquetSchemas.createParquetSchemaMapping;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getRandomPrefixLength;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -199,7 +200,8 @@ public class DeltaLakePageSinkProvider
                 parquetReaderOptions,
                 fileFormatDataSourceStats,
                 isDeletionVectorEnabled(tableHandle.metadataEntry(), tableHandle.protocolEntry()),
-                merge.deletionVectors());
+                merge.deletionVectors(),
+                getRandomPrefixLength(tableHandle.metadataEntry()));
     }
 
     private DeltaLakeCdfPageSink createCdfPageSink(
