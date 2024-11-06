@@ -650,7 +650,7 @@ public class StageStateMachine
                 succinctDuration(inputBlockedTime, NANOSECONDS),
                 succinctDuration(failedInputBlockedTime, NANOSECONDS),
                 succinctBytes(bufferedDataSize),
-                TDigestHistogram.merge(bufferUtilizationHistograms.build()),
+                TDigestHistogram.merge(bufferUtilizationHistograms.build()).map(DistributionSnapshot::new),
                 succinctBytes(outputDataSize),
                 succinctBytes(failedOutputDataSize),
                 outputPositions,
