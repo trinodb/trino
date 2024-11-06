@@ -18,6 +18,7 @@ import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
@@ -350,6 +351,10 @@ public class BinPackingNodeAllocatorService
         List<QueryPendingAcquires> iterators = pendingAcquires.entrySet().stream()
                 .map(entry -> new QueryPendingAcquires(entry.getKey(), entry.getValue().iterator()))
                 .collect(toCollection(ArrayList::new));
+
+        if (iterators.isEmpty()) {
+            return ImmutableList.<PendingAcquire>of().iterator();
+        }
 
         int startingIteratorIndex = 0;
         if (startingQueryId.isPresent()) {
