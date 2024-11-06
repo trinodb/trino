@@ -16,6 +16,7 @@ package io.trino.operator.aggregation.partial;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.AggregationMetrics;
 import io.trino.operator.CompletedWork;
 import io.trino.operator.Work;
 import io.trino.operator.WorkProcessor;
@@ -43,6 +44,7 @@ public class SkipAggregationBuilder
 {
     private final LocalMemoryContext memoryContext;
     private final List<AggregatorFactory> aggregatorFactories;
+    private final AggregationMetrics aggregationMetrics;
     @Nullable
     private Page currentPage;
     private final int[] hashChannels;
@@ -51,7 +53,8 @@ public class SkipAggregationBuilder
             List<Integer> groupByChannels,
             Optional<Integer> inputHashChannel,
             List<AggregatorFactory> aggregatorFactories,
-            LocalMemoryContext memoryContext)
+            LocalMemoryContext memoryContext,
+            AggregationMetrics aggregationMetrics)
     {
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.aggregatorFactories = ImmutableList.copyOf(requireNonNull(aggregatorFactories, "aggregatorFactories is null"));
@@ -60,6 +63,7 @@ public class SkipAggregationBuilder
             hashChannels[i] = groupByChannels.get(i);
         }
         inputHashChannel.ifPresent(channelIndex -> hashChannels[groupByChannels.size()] = channelIndex);
+        this.aggregationMetrics = requireNonNull(aggregationMetrics, "aggregationMetrics is null");
     }
 
     @Override
@@ -128,7 +132,7 @@ public class SkipAggregationBuilder
 
         // Evaluate each grouped aggregator into its own output block
         for (int i = 0; i < aggregatorFactories.size(); i++) {
-            GroupedAggregator groupedAggregator = aggregatorFactories.get(i).createGroupedAggregator();
+            GroupedAggregator groupedAggregator = aggregatorFactories.get(i).createGroupedAggregator(aggregationMetrics);
             groupedAggregator.processPage(positionCount, groupIds, page);
             BlockBuilder outputBuilder = groupedAggregator.getType().createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {

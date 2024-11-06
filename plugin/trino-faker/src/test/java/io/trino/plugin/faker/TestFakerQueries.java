@@ -18,6 +18,8 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
+
 final class TestFakerQueries
         extends AbstractTestQueryFramework
 {
@@ -184,16 +186,39 @@ final class TestFakerQueries
     @Test
     void testSelectLimit()
     {
-        @Language("SQL")
-        String tableQuery = "CREATE TABLE faker.default.single_column (rnd_bigint bigint NOT NULL)";
-        assertUpdate(tableQuery);
+        assertUpdate("CREATE TABLE faker.default.single_column (rnd_bigint bigint NOT NULL)");
 
-        @Language("SQL")
-        String testQuery = "SELECT count(rnd_bigint) FROM (SELECT rnd_bigint FROM single_column LIMIT 5) a";
-        assertQuery(testQuery, "VALUES (5)");
+        assertQuery("SELECT count(rnd_bigint) FROM (SELECT rnd_bigint FROM single_column LIMIT 5) a",
+                "VALUES (5)");
 
-        testQuery = "SELECT count(distinct rnd_bigint) FROM single_column LIMIT 5";
-        assertQuery(testQuery, "VALUES (1000)");
+        assertQuery("""
+                    SELECT count(rnd_bigint)
+                    FROM (SELECT rnd_bigint FROM single_column LIMIT %d) a""".formatted(2 * MAX_ROWS_PER_SPLIT),
+                "VALUES (%d)".formatted(2 * MAX_ROWS_PER_SPLIT));
+
+        assertQuery("SELECT count(distinct rnd_bigint) FROM single_column LIMIT 5",
+                "VALUES (1000)");
+
+        assertQuery("""
+                    SELECT count(rnd_bigint)
+                    FROM (SELECT rnd_bigint FROM single_column LIMIT %d) a""".formatted(MAX_ROWS_PER_SPLIT),
+                "VALUES (%d)".formatted(MAX_ROWS_PER_SPLIT));
+
+        // generating data should be deterministic
+        String testQuery = """
+                           SELECT to_hex(checksum(rnd_bigint))
+                           FROM (SELECT rnd_bigint FROM single_column LIMIT %d) a""".formatted(3 * MAX_ROWS_PER_SPLIT);
+        assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
+        assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
+        assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
+
+        // there should be no overlap between data generated from different splits
+        assertQuery("""
+                    SELECT count(1)
+                    FROM (SELECT rnd_bigint FROM single_column LIMIT %d) a
+                    JOIN (SELECT rnd_bigint FROM single_column LIMIT %d) b ON a.rnd_bigint = b.rnd_bigint""".formatted(2 * MAX_ROWS_PER_SPLIT, 5 * MAX_ROWS_PER_SPLIT),
+                "VALUES (%d)".formatted(2 * MAX_ROWS_PER_SPLIT));
+
         assertUpdate("DROP TABLE faker.default.single_column");
     }
 

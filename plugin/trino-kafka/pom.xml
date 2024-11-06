@@ -177,7 +177,6 @@
         <dependency>
             <groupId>com.google.api.grpc</groupId>
             <artifactId>proto-google-common-protos</artifactId>
-            <version>2.46.0</version>
             <scope>runtime</scope>
         </dependency>
 

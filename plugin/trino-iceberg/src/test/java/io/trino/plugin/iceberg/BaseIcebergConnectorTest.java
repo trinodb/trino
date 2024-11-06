@@ -7475,8 +7475,6 @@ public abstract class BaseIcebergConnectorTest
                 "The following properties cannot be updated: location, orc_bloom_filter_fpp");
         assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES format = 'ORC', orc_bloom_filter_columns = ARRAY['a']",
                 "The following properties cannot be updated: orc_bloom_filter_columns");
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['extra.property.one'], ARRAY['foo'])",
-                "The following properties cannot be updated: extra_properties");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8439,6 +8437,11 @@ public abstract class BaseIcebergConnectorTest
                 .skippingTypesCheck()
                 .matches("VALUES ('extra.property.one', 'one'), ('extra.property.two', 'two')");
 
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['extra.property.one'], ARRAY['updated'])");
+        assertThat(query("SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two')"))
+                .skippingTypesCheck()
+                .matches("VALUES ('extra.property.one', 'updated'), ('extra.property.two', 'two')");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -8515,6 +8518,22 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails(
                 "CREATE TABLE test_create_table_with_as_illegal_extra_properties WITH (extra_properties = MAP(ARRAY['not_allowed_property'], ARRAY['foo'])) AS SELECT 1 as c1",
                 "\\QIllegal keys in extra_properties: [not_allowed_property]");
+    }
+
+    @Test
+    public void testSetIllegalExtraPropertyKey()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_illegal_table_properties", "(x int)")) {
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES extra_properties = MAP(ARRAY['sorted_by'], ARRAY['id'])",
+                    "\\QIllegal keys in extra_properties: [sorted_by]");
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES extra_properties = MAP(ARRAY['comment'], ARRAY['some comment'])",
+                    "\\QIllegal keys in extra_properties: [comment]");
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES extra_properties = MAP(ARRAY['not_allowed_property'], ARRAY['foo'])",
+                    "\\QIllegal keys in extra_properties: [not_allowed_property]");
+        }
     }
 
     @Override

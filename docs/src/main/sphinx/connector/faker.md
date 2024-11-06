@@ -284,7 +284,4 @@ CREATE TABLE generator.default.customer (
 
 ## Limitations
 
-- Generated data is not deterministic. There is no way to specify a seed for
-  the random generator. The same query reading from catalogs using this
-  connector, executed multiple times, returns different results each time.
 - It is not possible to choose the locale used by the Datafaker's generators.

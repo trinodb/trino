@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>194</version>
+        <version>196</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -182,7 +182,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>279</dep.airlift.version>
+        <dep.airlift.version>282</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
@@ -201,7 +201,7 @@
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
-        <dep.kafka-clients.version>3.8.0</dep.kafka-clients.version>
+        <dep.kafka-clients.version>3.8.1</dep.kafka-clients.version>
         <dep.okio.version>3.9.1</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.14.3</dep.parquet.version>
@@ -210,7 +210,7 @@
         <dep.snowflake.version>3.19.1</dep.snowflake.version>
         <dep.swagger.version>2.2.25</dep.swagger.version>
         <dep.takari.version>2.2.0</dep.takari.version>
-        <dep.tcnative.version>2.0.67.Final</dep.tcnative.version>
+        <dep.tcnative.version>2.0.69.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>4.9.9</dep.wire.version>
         <dep.zookeeper.version>3.9.3</dep.zookeeper.version>
@@ -237,7 +237,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.49.0</version>
+                <version>26.50.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -309,7 +309,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.29.4</version>
+                <version>2.29.6</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -601,7 +601,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>9.42</version>
+                <version>9.45</version>
             </dependency>
 
             <dependency>
@@ -1573,7 +1573,7 @@
             <dependency>
                 <groupId>io.trino.benchto</groupId>
                 <artifactId>benchto-driver</artifactId>
-                <version>0.29</version>
+                <version>0.31</version>
                 <exclusions>
                     <exclusion>
                         <groupId>ch.qos.logback</groupId>
@@ -2177,7 +2177,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.48.1</version>
+                <version>3.48.2</version>
             </dependency>
 
             <dependency>

@@ -69,6 +69,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -248,8 +249,9 @@ public class SymbolMapper
                     .map(this::map)
                     .collect(toImmutableList());
             WindowNode.Frame newFrame = map(function.getFrame());
+            Optional<OrderingScheme> newOrderingScheme = function.getOrderingScheme().map(this::map);
 
-            newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, newFrame, function.isIgnoreNulls()));
+            newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, newOrderingScheme, newFrame, function.isIgnoreNulls()));
         });
 
         SpecificationWithPreSortedPrefix newSpecification = mapAndDistinct(node.getSpecification(), node.getPreSortedOrderPrefix());
@@ -307,8 +309,9 @@ public class SymbolMapper
                     .map(this::map)
                     .collect(toImmutableList());
             WindowNode.Frame newFrame = map(function.getFrame());
+            verify(function.getOrderingScheme().isEmpty());
 
-            newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, newFrame, function.isIgnoreNulls()));
+            newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, Optional.empty(), newFrame, function.isIgnoreNulls()));
         });
 
         ImmutableMap.Builder<Symbol, Measure> newMeasures = ImmutableMap.builder();

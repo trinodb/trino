@@ -242,6 +242,25 @@ public class TestCassandraConnectorTest
     }
 
     @Test
+    public void testSelectWithFilterOnPartitioningKey()
+    {
+        try (TestCassandraTable table = testTable(
+                "table_filter_on_partition_key",
+                ImmutableList.of(generalColumn("id", "int"), partitionColumn("part", "int")),
+                ImmutableList.of("1, 10", "2, 20"))) {
+            // predicate on partition column
+            assertThat(query("SELECT id FROM " + table.getTableName() + " WHERE part > 10"))
+                    .matches("VALUES 2");
+
+            // predicate on non-partition column
+            assertThat(query("SELECT id FROM " + table.getTableName() + " WHERE id = 1"))
+                    .matches("VALUES 1");
+            assertThat(query("SELECT id FROM " + table.getTableName() + " WHERE id < 2"))
+                    .matches("VALUES 1");
+        }
+    }
+
+    @Test
     public void testPushdownAllTypesPartitionKeyPredicate()
     {
         // TODO partition key predicate pushdown for decimal types does not work https://github.com/trinodb/trino/issues/10927
@@ -887,6 +906,43 @@ public class TestCassandraConnectorTest
             assertThat(computeActual(sql).getRowCount()).isEqualTo(1);
             sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two = 2";
             assertThat(computeActual(sql).getRowCount()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void testMultiColumnKey()
+    {
+        try (TestCassandraTable table = testTable(
+                "test_multi_column_key",
+                ImmutableList.of(
+                        partitionColumn("user_id", "text"),
+                        partitionColumn("key", "text"),
+                        partitionColumn("updated_at", "timestamp"),
+                        generalColumn("value", "text")),
+                ImmutableList.of(
+                        "'Alice', 'a1', '2015-01-01 01:01:01', 'Test value 1'",
+                        "'Bob', 'b1', '2014-02-02 03:04:05', 'Test value 2'"))) {
+            // equality filter on clustering key
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE key = 'a1'", "VALUES 'Test value 1'");
+
+            // equality filter on primary and clustering keys
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'Alice' and key = 'a1' and updated_at = TIMESTAMP '2015-01-01 01:01:01Z'",
+                    "VALUES 'Test value 1'");
+
+            // mixed filter on primary and clustering keys
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'Alice' and key < 'b' and updated_at >= TIMESTAMP '2015-01-01 01:01:01Z'",
+                    "VALUES 'Test value 1'");
+
+            // filter on primary key doesn't match
+            assertQueryReturnsEmptyResult("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'George'");
+
+            // filter on prefix of clustering key
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'Bob' and key = 'b1'",
+                    "VALUES 'Test value 2'");
+
+            // filter on second clustering key
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'Bob' and updated_at = TIMESTAMP '2014-02-02 03:04:05Z'",
+                    "VALUES 'Test value 2'");
         }
     }
 
@@ -1669,6 +1725,31 @@ public class TestCassandraConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageContaining("Table names shouldn't be more than 48 characters long");
+    }
+
+    @Test
+    public void testNationJoinNation()
+    {
+        assertQuery("SELECT n1.name, n2.regionkey " +
+                        "FROM nation n1 JOIN nation n2 ON n1.nationkey = n2.regionkey " +
+                        "WHERE n1.nationkey = 3",
+                "VALUES ('CANADA', 3), ('CANADA', 3), ('CANADA', 3), ('CANADA', 3), ('CANADA', 3)");
+    }
+
+    @Test
+    public void testNationJoinRegion()
+    {
+        assertQuery("SELECT c.name, t.name " +
+                        "FROM nation c JOIN tpch.tiny.region t ON c.regionkey = t.regionkey " +
+                        "WHERE c.nationkey = 3",
+                "VALUES ('CANADA', 'AMERICA')");
+    }
+
+    @Test
+    public void testProtocolVersion()
+    {
+        assertQuery("SELECT native_protocol_version FROM system.local",
+                "VALUES 4");
     }
 
     private void assertSelect(String tableName)

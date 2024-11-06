@@ -11,14 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.planner;
+package io.trino.verifier;
 
-/**
- * This class is to facilitate obtaining the type of an expression and its subexpressions
- * during planning (i.e., when interacting with IR expression). It will eventually get
- * removed when we split the AST from the IR and we encode the type directly into IR expressions.
- */
-public class IrTypeAnalyzer
+import java.io.Closeable;
+
+public interface EventConsumer
+        extends Closeable
 {
-    public IrTypeAnalyzer() {}
+    void postEvent(VerifierQueryEvent event);
 }

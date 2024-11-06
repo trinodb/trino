@@ -4333,12 +4333,8 @@ class StatementAnalyzer
                 if (windowFunction.getFilter().isPresent()) {
                     throw semanticException(NOT_SUPPORTED, node, "FILTER is not yet supported for window functions");
                 }
-
-                if (windowFunction.getOrderBy().isPresent()) {
-                    throw semanticException(NOT_SUPPORTED, windowFunction, "Window function with ORDER BY is not supported");
-                }
-
-                List<Expression> nestedWindowExpressions = extractWindowExpressions(windowFunction.getArguments());
+                List<Expression> nestedWindowExpressions = new ArrayList<>(extractWindowExpressions(windowFunction.getArguments()));
+                windowFunction.getOrderBy().map(OrderBy::getChildren).map(ExpressionTreeUtils::extractWindowExpressions).ifPresent(nestedWindowExpressions::addAll);
                 if (!nestedWindowExpressions.isEmpty()) {
                     throw semanticException(NESTED_WINDOW, nestedWindowExpressions.getFirst(), "Cannot nest window functions or row pattern measures inside window function arguments");
                 }
@@ -4369,6 +4365,10 @@ class StatementAnalyzer
                 FunctionKind kind = resolvedFunction.functionKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
                     throw semanticException(FUNCTION_NOT_WINDOW, node, "Not a window function: %s", windowFunction.getName());
+                }
+
+                if (windowFunction.getOrderBy().isPresent() && kind != AGGREGATE) {
+                    throw semanticException(NOT_SUPPORTED, windowFunction, "Only aggregation window functions with ORDER BY are supported");
                 }
             }
 

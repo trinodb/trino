@@ -16,12 +16,12 @@ package io.trino.server.remotetask;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
-import io.airlift.event.client.ServiceUnavailableException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.execution.TaskId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
+import jakarta.ws.rs.ServiceUnavailableException;
 
 import java.io.EOFException;
 import java.net.SocketException;

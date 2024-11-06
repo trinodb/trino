@@ -103,6 +103,7 @@ import io.trino.operator.aggregation.AccumulatorFactory;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.DistinctAccumulatorFactory;
 import io.trino.operator.aggregation.OrderedAccumulatorFactory;
+import io.trino.operator.aggregation.OrderedWindowAccumulator;
 import io.trino.operator.aggregation.partial.PartialAggregationController;
 import io.trino.operator.exchange.LocalExchange;
 import io.trino.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
@@ -134,6 +135,7 @@ import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.unnest.UnnestOperator;
+import io.trino.operator.window.AggregateWindowFunction;
 import io.trino.operator.window.AggregationWindowFunctionSupplier;
 import io.trino.operator.window.FrameInfo;
 import io.trino.operator.window.PartitionerSupplier;
@@ -172,6 +174,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.predicate.Domain;
@@ -1154,15 +1157,15 @@ public class LocalExecutionPlanner
 
                 WindowNode.Function function = entry.getValue();
                 ResolvedFunction resolvedFunction = function.getResolvedFunction();
-                ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
+                ArrayList<Integer> argumentChannels = new ArrayList<>();
                 for (Expression argument : function.getArguments()) {
                     if (!(argument instanceof Lambda)) {
                         Symbol argumentSymbol = Symbol.from(argument);
-                        arguments.add(source.getLayout().get(argumentSymbol));
+                        argumentChannels.add(source.getLayout().get(argumentSymbol));
                     }
                 }
                 Symbol symbol = entry.getKey();
-                WindowFunctionSupplier windowFunctionSupplier = getWindowFunctionImplementation(resolvedFunction);
+
                 Type type = resolvedFunction.signature().getReturnType();
 
                 List<Lambda> lambdas = function.getArguments().stream()
@@ -1174,8 +1177,39 @@ public class LocalExecutionPlanner
                         .map(FunctionType.class::cast)
                         .collect(toImmutableList());
 
+                WindowFunctionSupplier windowFunctionSupplier;
+                if (function.getOrderingScheme().isPresent()) {
+                    OrderingScheme orderingScheme = function.getOrderingScheme().orElseThrow();
+                    List<Symbol> sortKeys = orderingScheme.orderBy();
+                    List<SortOrder> sortOrders = sortKeys.stream()
+                            .map(orderingScheme::ordering)
+                            .collect(toImmutableList());
+
+                    ImmutableList.Builder<Integer> sortKeysArguments = ImmutableList.builder();
+                    sortKeys.forEach(orderingArgumentSymbol -> {
+                        argumentChannels.add(source.getLayout().get(orderingArgumentSymbol));
+                        sortKeysArguments.add(argumentChannels.size() - 1); // last added argument
+                    });
+
+                    List<Type> argumentTypes = argumentChannels.stream()
+                            .map(channel -> source.getTypes().get(channel))
+                            .collect(toImmutableList());
+
+                    windowFunctionSupplier = getOrderedWindowFunctionImplementation(
+                            resolvedFunction,
+                            argumentTypes,
+                            argumentChannels,
+                            sortKeysArguments.build(),
+                            sortOrders);
+                }
+                else {
+                    windowFunctionSupplier = getWindowFunctionImplementation(resolvedFunction);
+                }
+
                 List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdas, windowFunctionSupplier.getLambdaInterfaces(), functionTypes);
-                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, function.isIgnoreNulls(), lambdaProviders, arguments.build()));
+                WindowFunctionDefinition windowFunction = window(windowFunctionSupplier, type, frameInfo, function.isIgnoreNulls(), lambdaProviders, ImmutableList.copyOf(argumentChannels));
+
+                windowFunctionsBuilder.add(windowFunction);
                 windowFunctionOutputSymbolsBuilder.add(symbol);
             }
 
@@ -1219,15 +1253,58 @@ public class LocalExecutionPlanner
         private WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
         {
             if (resolvedFunction.functionKind() == FunctionKind.AGGREGATE) {
-                return uncheckedCacheGet(aggregationWindowFunctionSupplierCache, new FunctionKey(resolvedFunction.functionId(), resolvedFunction.signature()), () -> {
-                    AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction);
-                    return new AggregationWindowFunctionSupplier(
-                            resolvedFunction.signature(),
-                            aggregationImplementation,
-                            resolvedFunction.functionNullability());
-                });
+                return getAggregationWindowFunctionSupplier(resolvedFunction);
             }
             return plannerContext.getFunctionManager().getWindowFunctionSupplier(resolvedFunction);
+        }
+
+        private AggregationWindowFunctionSupplier getAggregationWindowFunctionSupplier(ResolvedFunction resolvedFunction)
+        {
+            checkArgument(
+                    resolvedFunction.functionKind() == FunctionKind.AGGREGATE,
+                    "Expected %s to be AGGREGATE function, but got %s",
+                    resolvedFunction.functionId(),
+                    resolvedFunction.functionKind());
+            return uncheckedCacheGet(aggregationWindowFunctionSupplierCache, new FunctionKey(resolvedFunction.functionId(), resolvedFunction.signature()), () -> {
+                AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction);
+                return new AggregationWindowFunctionSupplier(
+                        resolvedFunction.signature(),
+                        aggregationImplementation,
+                        resolvedFunction.functionNullability());
+            });
+        }
+
+        private WindowFunctionSupplier getOrderedWindowFunctionImplementation(
+                ResolvedFunction resolvedFunction,
+                List<Type> argumentTypes,
+                List<Integer> argumentChannels,
+                List<Integer> sortKeysArguments,
+                List<SortOrder> sortOrders)
+        {
+            AggregationWindowFunctionSupplier aggregationWindowFunctionSupplier = getAggregationWindowFunctionSupplier(resolvedFunction);
+            return new WindowFunctionSupplier() {
+                @Override
+                public WindowFunction createWindowFunction(boolean ignoreNulls, List<Supplier<Object>> lambdaProviders)
+                {
+                    AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction);
+                    boolean hasRemoveInput = aggregationImplementation.getWindowAccumulator().isPresent();
+                    return new AggregateWindowFunction(
+                            () -> new OrderedWindowAccumulator(
+                                    pagesIndexFactory,
+                                    aggregationWindowFunctionSupplier.createWindowAccumulator(lambdaProviders),
+                                    argumentTypes,
+                                    argumentChannels,
+                                    sortKeysArguments,
+                                    sortOrders),
+                            hasRemoveInput);
+                }
+
+                @Override
+                public List<Class<?>> getLambdaInterfaces()
+                {
+                    return aggregationWindowFunctionSupplier.getLambdaInterfaces();
+                }
+            };
         }
 
         @Override
