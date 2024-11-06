@@ -2370,23 +2370,33 @@ class StatementAnalyzer
 
         private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, RelationType relationType, Scope accessControlScope)
         {
+            ImmutableList.Builder<Field> fieldBuilder = ImmutableList.builder();
             ImmutableList.Builder<ColumnSchema> columnSchemaBuilder = ImmutableList.builder();
             for (int index = 0; index < relationType.getAllFieldCount(); index++) {
                 Field field = relationType.getFieldByIndex(index);
-                field.getName().ifPresent(fieldName -> columnSchemaBuilder.add(ColumnSchema.builder()
-                        .setName(fieldName)
-                        .setType(field.getType())
-                        .setHidden(field.isHidden())
-                        .build()));
+                field.getName().ifPresent(fieldName -> {
+                    fieldBuilder.add(field);
+                    columnSchemaBuilder.add(ColumnSchema.builder()
+                            .setName(fieldName)
+                            .setType(field.getType())
+                            .setHidden(field.isHidden())
+                            .build());
+                });
             }
+            List<Field> fields = fieldBuilder.build();
             List<ColumnSchema> columnSchemas = columnSchemaBuilder.build();
 
             Map<ColumnSchema, ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, columnSchemas);
 
-            for (ColumnSchema columnSchema : columnSchemas) {
+            for (Field field : fields) {
+                ColumnSchema columnSchema = ColumnSchema.builder()
+                        .setName(field.getName().orElseThrow())
+                        .setType(field.getType())
+                        .setHidden(field.isHidden())
+                        .build();
                 Optional.ofNullable(masks.get(columnSchema)).ifPresent(mask -> {
                     if (checkCanSelectFromColumn(name, columnSchema.getName())) {
-                        analyzeColumnMask(session.getIdentity().getUser(), table, name, columnSchema, accessControlScope, mask);
+                        analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask);
                     }
                 });
             }
@@ -5215,9 +5225,9 @@ class StatementAnalyzer
             analysis.addCheckConstraints(table, expression);
         }
 
-        private void analyzeColumnMask(String currentIdentity, Table table, QualifiedObjectName tableName, ColumnSchema columnSchema, Scope scope, ViewExpression mask)
+        private void analyzeColumnMask(String currentIdentity, Table table, QualifiedObjectName tableName, Field field, Scope scope, ViewExpression mask)
         {
-            String column = columnSchema.getName();
+            String column = field.getName().orElseThrow();
             if (analysis.hasColumnMask(tableName, column, currentIdentity)) {
                 throw new TrinoException(INVALID_COLUMN_MASK, extractLocation(table), format("Column mask for '%s.%s' is recursive", tableName, column), null);
             }
@@ -5261,13 +5271,13 @@ class StatementAnalyzer
 
             analysis.recordSubqueries(expression, expressionAnalysis);
 
-            Type expectedType = columnSchema.getType();
+            Type expectedType = field.getType();
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(expectedType)) {
                 TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
 
-                if (!coercion.canCoerce(actualType, columnSchema.getType())) {
-                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, columnSchema.getType(), actualType), null);
+                if (!coercion.canCoerce(actualType, field.getType())) {
+                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, field.getType(), actualType), null);
                 }
 
                 // TODO: this should be "coercion.isTypeOnlyCoercion(actualType, expectedType)", but type-only coercions are broken
@@ -5277,7 +5287,7 @@ class StatementAnalyzer
                 analysis.addCoercion(expression, expectedType);
             }
 
-            analysis.addColumnMask(table, column, expression);
+            analysis.addColumnMask(table, field, expression);
         }
 
         private List<Expression> descriptorToFields(Scope scope)
