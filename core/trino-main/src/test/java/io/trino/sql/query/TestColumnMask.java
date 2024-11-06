@@ -88,6 +88,17 @@ public class TestColumnMask
                 Optional.of(VIEW_OWNER),
                 false,
                 ImmutableList.of());
+        ConnectorViewDefinition viewUpperCase = new ConnectorViewDefinition(
+                "SELECT NATIONKEY, NAME FROM local.tiny.nation",
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(
+                        new ConnectorViewDefinition.ViewColumn("NATIONKEY", BigintType.BIGINT.getTypeId(), Optional.empty()),
+                        new ConnectorViewDefinition.ViewColumn("NAME", VarcharType.createVarcharType(25).getTypeId(), Optional.empty())),
+                Optional.empty(),
+                Optional.of(VIEW_OWNER),
+                false,
+                ImmutableList.of());
 
         ConnectorViewDefinition viewWithNested = new ConnectorViewDefinition(
                 """
@@ -170,6 +181,7 @@ public class TestColumnMask
                 })
                 .withGetViews((s, prefix) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_view"), view,
+                        new SchemaTableName("default", "nation_view_uppercase"), viewUpperCase,
                         new SchemaTableName("default", "view_with_nested"), viewWithNested))
                 .withGetMaterializedViews((s, prefix) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_materialized_view"), materializedView,
@@ -453,6 +465,23 @@ public class TestColumnMask
                         .expression("reverse(name)")
                         .build());
         assertThat(assertions.query("SELECT name FROM mock.default.nation_view WHERE nationkey = 1")).matches("VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
+    }
+
+    @Test
+    public void testViewWithUppercaseColumnName()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "default", "nation_view_uppercase"),
+                "name",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("reverse(name)")
+                        .build());
+        assertThat(assertions.query("SELECT name FROM mock.default.nation_view_uppercase WHERE nationkey = 1")).matches("VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
     }
 
     @Test
