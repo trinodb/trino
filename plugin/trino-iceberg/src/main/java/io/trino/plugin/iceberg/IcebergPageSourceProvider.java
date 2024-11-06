@@ -300,7 +300,7 @@ public class IcebergPageSourceProvider
                 .forEach(requiredColumns::add);
 
         icebergColumns.stream()
-                .filter(column -> column.isUpdateRowIdColumn() || column.isMergeRowIdColumn())
+                .filter(IcebergColumnHandle::isMergeRowIdColumn)
                 .findFirst().ifPresent(rowIdColumn -> {
                     Set<Integer> alreadyRequiredColumnIds = requiredColumns.stream()
                             .map(IcebergColumnHandle::getId)
@@ -679,8 +679,8 @@ public class IcebergPageSourceProvider
                 else if (column.isFileModifiedTimeColumn()) {
                     columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY))));
                 }
-                else if (column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()) {
-                    // $row_id is a composite of multiple physical columns. It is assembled by the IcebergPageSource
+                else if (column.isMergeRowIdColumn()) {
+                    // The merge $row_id is a composite of multiple physical columns. It is assembled by the IcebergPageSource
                     columnAdaptations.add(ColumnAdaptation.nullColumn(column.getType()));
                 }
                 else if (column.isRowPositionColumn()) {
@@ -831,8 +831,8 @@ public class IcebergPageSourceProvider
 
             ImmutableMap.Builder<Integer, Map<String, Integer>> mapping = ImmutableMap.builder();
             for (IcebergColumnHandle column : columns) {
-                if (column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()) {
-                    // The update $row_id column contains fields which should not be accounted for in the mapping.
+                if (column.isMergeRowIdColumn()) {
+                    // The merge $row_id column contains fields which should not be accounted for in the mapping.
                     continue;
                 }
 
@@ -979,8 +979,8 @@ public class IcebergPageSourceProvider
                 else if (column.isFileModifiedTimeColumn()) {
                     pageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY)));
                 }
-                else if (column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()) {
-                    // $row_id is a composite of multiple physical columns, it is assembled by the IcebergPageSource
+                else if (column.isMergeRowIdColumn()) {
+                    // The merge $row_id is a composite of multiple physical columns, it is assembled by the IcebergPageSource
                     pageSourceBuilder.addNullColumn(column.getType());
                 }
                 else if (column.isRowPositionColumn()) {

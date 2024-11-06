@@ -42,21 +42,20 @@ public class IcebergColumnHandle
     private static final int INSTANCE_SIZE = instanceSize(IcebergColumnHandle.class);
 
     // Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
-    public static final int TRINO_UPDATE_ROW_ID = Integer.MIN_VALUE;
-    public static final int TRINO_MERGE_ROW_ID = Integer.MIN_VALUE + 1;
+    public static final int TRINO_MERGE_ROW_ID = Integer.MIN_VALUE;
     public static final String TRINO_ROW_ID_NAME = "$row_id";
 
-    public static final int TRINO_MERGE_PARTITION_SPEC_ID = Integer.MIN_VALUE + 2;
-    public static final int TRINO_MERGE_PARTITION_DATA = Integer.MIN_VALUE + 3;
+    public static final int TRINO_MERGE_PARTITION_SPEC_ID = Integer.MIN_VALUE + 1;
+    public static final int TRINO_MERGE_PARTITION_DATA = Integer.MIN_VALUE + 2;
 
     public static final String DATA_CHANGE_TYPE_NAME = "_change_type";
-    public static final int DATA_CHANGE_TYPE_ID = Integer.MIN_VALUE + 5;
+    public static final int DATA_CHANGE_TYPE_ID = Integer.MIN_VALUE + 3;
     public static final String DATA_CHANGE_VERSION_NAME = "_change_version_id";
-    public static final int DATA_CHANGE_VERSION_ID = Integer.MIN_VALUE + 6;
+    public static final int DATA_CHANGE_VERSION_ID = Integer.MIN_VALUE + 4;
     public static final String DATA_CHANGE_TIMESTAMP_NAME = "_change_timestamp";
-    public static final int DATA_CHANGE_TIMESTAMP_ID = Integer.MIN_VALUE + 7;
+    public static final int DATA_CHANGE_TIMESTAMP_ID = Integer.MIN_VALUE + 5;
     public static final String DATA_CHANGE_ORDINAL_NAME = "_change_ordinal";
-    public static final int DATA_CHANGE_ORDINAL_ID = Integer.MIN_VALUE + 8;
+    public static final int DATA_CHANGE_ORDINAL_ID = Integer.MIN_VALUE + 6;
 
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;
@@ -180,12 +179,6 @@ public class IcebergColumnHandle
     public boolean isRowPositionColumn()
     {
         return id == ROW_POSITION.fieldId();
-    }
-
-    @JsonIgnore
-    public boolean isUpdateRowIdColumn()
-    {
-        return id == TRINO_UPDATE_ROW_ID;
     }
 
     @JsonIgnore

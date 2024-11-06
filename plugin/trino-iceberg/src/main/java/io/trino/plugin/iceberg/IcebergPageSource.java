@@ -70,7 +70,7 @@ public class IcebergPageSource
             checkArgument(expectedColumn.equals(requiredColumns.get(i)), "Expected columns must be a prefix of required columns");
             expectedColumnIndexes[i] = i;
 
-            if (expectedColumn.isUpdateRowIdColumn() || expectedColumn.isMergeRowIdColumn()) {
+            if (expectedColumn.isMergeRowIdColumn()) {
                 this.rowIdColumnIndex = i;
 
                 Map<Integer, Integer> fieldIdToColumnIndex = mapFieldIdsToIndex(requiredColumns);
