@@ -204,6 +204,18 @@ public final class DeltaLakeSchemaSupport
         return parseBoolean(metadataEntry.getConfiguration().get(DELETION_VECTORS_CONFIGURATION_KEY));
     }
 
+    public static int getRandomPrefixLength(MetadataEntry metadataEntry)
+    {
+        boolean randomizeFilePrefixes = parseBoolean(metadataEntry.getConfiguration().get("delta.randomizeFilePrefixes"));
+        if (randomizeFilePrefixes) {
+            // 2 is the default value in Delta Lake
+            int randomPrefixLength = Integer.parseInt(metadataEntry.getConfiguration().getOrDefault("delta.randomPrefixLength", "2"));
+            checkArgument(randomPrefixLength >= 0, "randomPrefixLength must be >= 0: %s", randomPrefixLength);
+            return randomPrefixLength;
+        }
+        return 0;
+    }
+
     public static List<String> enabledUniversalFormats(MetadataEntry metadataEntry)
     {
         String formats = metadataEntry.getConfiguration().get(UNIVERSAL_FORMAT_CONFIGURATION_KEY);

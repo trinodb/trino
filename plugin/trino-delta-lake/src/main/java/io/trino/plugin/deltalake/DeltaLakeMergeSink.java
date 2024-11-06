@@ -130,6 +130,7 @@ public class DeltaLakeMergeSink
     private final ParquetReaderOptions parquetReaderOptions;
     private final boolean deletionVectorEnabled;
     private final Map<String, DeletionVectorEntry> deletionVectors;
+    private final int randomPrefixLength;
 
     @Nullable
     private DeltaLakeCdfPageSink cdfPageSink;
@@ -153,7 +154,8 @@ public class DeltaLakeMergeSink
             ParquetReaderOptions parquetReaderOptions,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             boolean deletionVectorEnabled,
-            Map<String, DeletionVectorEntry> deletionVectors)
+            Map<String, DeletionVectorEntry> deletionVectors,
+            int randomPrefixLength)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
@@ -181,6 +183,7 @@ public class DeltaLakeMergeSink
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.deletionVectorEnabled = deletionVectorEnabled;
         this.deletionVectors = ImmutableMap.copyOf(requireNonNull(deletionVectors, "deletionVectors is null"));
+        this.randomPrefixLength = randomPrefixLength;
         dataColumnsIndices = new int[tableColumnCount];
         dataAndRowIdColumnsIndices = new int[tableColumnCount + 1];
         for (int i = 0; i < tableColumnCount; i++) {
@@ -408,7 +411,7 @@ public class DeltaLakeMergeSink
 
         DeletionVectorEntry deletionVectorEntry;
         try {
-            deletionVectorEntry = writeDeletionVectors(fileSystem, rootTableLocation, deletedRows);
+            deletionVectorEntry = writeDeletionVectors(fileSystem, rootTableLocation, deletedRows, randomPrefixLength);
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to write deletion vector file", e);

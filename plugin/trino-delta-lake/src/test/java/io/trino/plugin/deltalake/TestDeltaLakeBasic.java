@@ -1244,6 +1244,26 @@ public class TestDeltaLakeBasic
     }
 
     @Test
+    public void testDeletionVectorsRandomPrefix()
+            throws Exception
+    {
+        String tableName = "deletion_vectors_random_prefix" + randomNameSuffix();
+
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/deletion_vector_random_prefix").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20), (3, 30)", 3);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a = 1", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (2, 20), (3, 30)");
+
+        assertThat(fileNamesIn(new URI(tableLocation.toString()).getPath(), true))
+                .anyMatch(path -> path.matches(tableLocation + "/[a-zA-Z0-9_]{3}/deletion_vector_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}.bin"));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testUnsupportedVacuumDeletionVectors()
             throws Exception
     {

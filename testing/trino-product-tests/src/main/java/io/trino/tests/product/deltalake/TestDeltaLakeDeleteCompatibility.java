@@ -307,9 +307,15 @@ public class TestDeltaLakeDeleteCompatibility
                 "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
                 "TBLPROPERTIES ('delta.enableDeletionVectors' = true, 'delta.randomizeFilePrefixes' = true)");
         try {
-            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11), (2, 22)");
-            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a = 2");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11), (2, 22), (3, 33)");
 
+            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a = 2");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(1, 11), row(3, 33));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(1, 11), row(3, 33));
+
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 3");
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
                     .containsOnly(row(1, 11));
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
