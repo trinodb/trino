@@ -910,6 +910,43 @@ public class TestCassandraConnectorTest
     }
 
     @Test
+    void testMultiColumnKey()
+    {
+        try (TestCassandraTable table = testTable(
+                "test_multi_column_key",
+                ImmutableList.of(
+                        partitionColumn("user_id", "text"),
+                        partitionColumn("key", "text"),
+                        partitionColumn("updated_at", "timestamp"),
+                        generalColumn("value", "text")),
+                ImmutableList.of(
+                        "'Alice', 'a1', '2015-01-01 01:01:01', 'Test value 1'",
+                        "'Bob', 'b1', '2014-02-02 03:04:05', 'Test value 2'"))) {
+            // equality filter on clustering key
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE key = 'a1'", "VALUES 'Test value 1'");
+
+            // equality filter on primary and clustering keys
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'Alice' and key = 'a1' and updated_at = TIMESTAMP '2015-01-01 01:01:01Z'",
+                    "VALUES 'Test value 1'");
+
+            // mixed filter on primary and clustering keys
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'Alice' and key < 'b' and updated_at >= TIMESTAMP '2015-01-01 01:01:01Z'",
+                    "VALUES 'Test value 1'");
+
+            // filter on primary key doesn't match
+            assertQueryReturnsEmptyResult("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'George'");
+
+            // filter on prefix of clustering key
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'Bob' and key = 'b1'",
+                    "VALUES 'Test value 2'");
+
+            // filter on second clustering key
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'Bob' and updated_at = TIMESTAMP '2014-02-02 03:04:05Z'",
+                    "VALUES 'Test value 2'");
+        }
+    }
+
+    @Test
     public void testSelectWithSecondaryIndex()
     {
         testSelectWithSecondaryIndex(true);
