@@ -762,18 +762,18 @@ public class QueryMonitor
                             stageInfo.getStageId().getId(),
                             stageInfo.getTasks().size(),
                             // scale ratio to percentages
-                            utilization.getP01() * 100,
-                            utilization.getP05() * 100,
-                            utilization.getP10() * 100,
-                            utilization.getP25() * 100,
-                            utilization.getP50() * 100,
-                            utilization.getP75() * 100,
-                            utilization.getP90() * 100,
-                            utilization.getP95() * 100,
-                            utilization.getP99() * 100,
-                            utilization.getMin() * 100,
-                            utilization.getMax() * 100,
-                            Duration.ofNanos(utilization.getTotal())));
+                            utilization.p01() * 100,
+                            utilization.p05() * 100,
+                            utilization.p10() * 100,
+                            utilization.p25() * 100,
+                            utilization.p50() * 100,
+                            utilization.p75() * 100,
+                            utilization.p90() * 100,
+                            utilization.p95() * 100,
+                            utilization.p99() * 100,
+                            utilization.min() * 100,
+                            utilization.max() * 100,
+                            Duration.ofNanos(utilization.total())));
                 });
         for (StageInfo subStage : stageInfo.getSubStages()) {
             populateStageOutputBufferUtilization(subStage, utilizations);

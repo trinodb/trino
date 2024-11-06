@@ -32,6 +32,7 @@ import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsAndCosts;
+import io.trino.execution.DistributionSnapshot;
 import io.trino.execution.QueryStats;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StageStats;
@@ -41,7 +42,6 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
-import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -507,22 +507,23 @@ public class PlanPrinter
                             stageStats.getPeakUserMemoryReservation().succinct(),
                             tasks.size(),
                             maxPeakTaskMemoryUsage.succinct()));
-            Optional<TDigestHistogram> outputBufferUtilization = stageInfo.get().getStageStats().getOutputBufferUtilization();
+            Optional<DistributionSnapshot> outputBufferUtilization = stageInfo.get().getStageStats().getOutputBufferUtilization();
             if (verbose && outputBufferUtilization.isPresent()) {
                 builder.append(indentString(1))
-                        .append(format("Output buffer active time: %s, buffer utilization distribution (%%): {p01=%s, p05=%s, p10=%s, p25=%s, p50=%s, p75=%s, p90=%s, p95=%s, p99=%s, max=%s}\n",
-                                succinctNanos(outputBufferUtilization.get().getTotal()),
+                        .append(format("Output buffer active time: %s, buffer utilization distribution (%%): {p01=%s, p05=%s, p10=%s, p25=%s, p50=%s, p75=%s, p90=%s, p95=%s, p99=%s, min=%s, max=%s}\n",
+                                succinctNanos(outputBufferUtilization.get().total()),
                                 // scale ratio to percentages
-                                formatDouble(outputBufferUtilization.get().getP01() * 100),
-                                formatDouble(outputBufferUtilization.get().getP05() * 100),
-                                formatDouble(outputBufferUtilization.get().getP10() * 100),
-                                formatDouble(outputBufferUtilization.get().getP25() * 100),
-                                formatDouble(outputBufferUtilization.get().getP50() * 100),
-                                formatDouble(outputBufferUtilization.get().getP75() * 100),
-                                formatDouble(outputBufferUtilization.get().getP90() * 100),
-                                formatDouble(outputBufferUtilization.get().getP95() * 100),
-                                formatDouble(outputBufferUtilization.get().getP99() * 100),
-                                formatDouble(outputBufferUtilization.get().getMax() * 100)));
+                                formatDouble(outputBufferUtilization.get().p01() * 100),
+                                formatDouble(outputBufferUtilization.get().p05() * 100),
+                                formatDouble(outputBufferUtilization.get().p10() * 100),
+                                formatDouble(outputBufferUtilization.get().p25() * 100),
+                                formatDouble(outputBufferUtilization.get().p50() * 100),
+                                formatDouble(outputBufferUtilization.get().p75() * 100),
+                                formatDouble(outputBufferUtilization.get().p90() * 100),
+                                formatDouble(outputBufferUtilization.get().p95() * 100),
+                                formatDouble(outputBufferUtilization.get().p99() * 100),
+                                formatDouble(outputBufferUtilization.get().min() * 100),
+                                formatDouble(outputBufferUtilization.get().max() * 100)));
             }
 
             TDigest taskOutputDistribution = new TDigest();
