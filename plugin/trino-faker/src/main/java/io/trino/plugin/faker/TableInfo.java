@@ -40,7 +40,7 @@ public record TableInfo(List<ColumnInfo> columns, Map<String, Object> properties
         return columns.stream()
                 .filter(column -> column.handle().equals(handle))
                 .findFirst()
-                .get();
+                .orElseThrow();
     }
 
     public TableInfo withColumns(List<ColumnInfo> columns)
