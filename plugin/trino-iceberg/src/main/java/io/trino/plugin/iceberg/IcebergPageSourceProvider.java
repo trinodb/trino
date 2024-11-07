@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
@@ -60,7 +61,10 @@ import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -81,7 +85,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.generic.GenericDatumReader;
-import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -135,8 +138,6 @@ import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createDataSource;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_DATA;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_SPEC_ID;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
@@ -172,10 +173,8 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.UuidType.UUID;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -299,34 +298,6 @@ public class IcebergPageSourceProvider
                 .filter(not(icebergColumns::contains))
                 .forEach(requiredColumns::add);
 
-        icebergColumns.stream()
-                .filter(IcebergColumnHandle::isMergeRowIdColumn)
-                .findFirst().ifPresent(rowIdColumn -> {
-                    Set<Integer> alreadyRequiredColumnIds = requiredColumns.stream()
-                            .map(IcebergColumnHandle::getId)
-                            .collect(toImmutableSet());
-                    for (ColumnIdentity identity : rowIdColumn.getColumnIdentity().getChildren()) {
-                        if (alreadyRequiredColumnIds.contains(identity.getId())) {
-                            // ignore
-                        }
-                        else if (identity.getId() == MetadataColumns.FILE_PATH.fieldId()) {
-                            requiredColumns.add(new IcebergColumnHandle(identity, VARCHAR, ImmutableList.of(), VARCHAR, false, Optional.empty()));
-                        }
-                        else if (identity.getId() == ROW_POSITION.fieldId()) {
-                            requiredColumns.add(new IcebergColumnHandle(identity, BIGINT, ImmutableList.of(), BIGINT, false, Optional.empty()));
-                        }
-                        else if (identity.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
-                            requiredColumns.add(new IcebergColumnHandle(identity, INTEGER, ImmutableList.of(), INTEGER, false, Optional.empty()));
-                        }
-                        else if (identity.getId() == TRINO_MERGE_PARTITION_DATA) {
-                            requiredColumns.add(new IcebergColumnHandle(identity, VARCHAR, ImmutableList.of(), VARCHAR, false, Optional.empty()));
-                        }
-                        else {
-                            requiredColumns.add(getColumnHandle(tableSchema.findField(identity.getId()), typeManager));
-                        }
-                    }
-                });
-
         TupleDomain<IcebergColumnHandle> effectivePredicate = getUnenforcedPredicate(
                 tableSchema,
                 partitionKeys,
@@ -363,8 +334,6 @@ public class IcebergPageSourceProvider
                 start,
                 length,
                 fileSize,
-                partitionSpec.specId(),
-                partitionDataJson,
                 fileFormat,
                 tableSchema,
                 requiredColumns,
@@ -399,7 +368,8 @@ public class IcebergPageSourceProvider
                 requiredColumns,
                 dataPageSource.get(),
                 projectionsAdapter,
-                deletePredicate);
+                deletePredicate,
+                MergeRowIdBlockFactory.create(utf8Slice(inputfile.location().toString()), partitionSpec.specId(), utf8Slice(partitionDataJson)));
     }
 
     private DeleteManager getDeleteManager(PartitionSpec partitionSpec, PartitionData partitionData)
@@ -501,8 +471,6 @@ public class IcebergPageSourceProvider
                 0,
                 delete.fileSizeInBytes(),
                 delete.fileSizeInBytes(),
-                0,
-                "",
                 IcebergFileFormat.fromIceberg(delete.format()),
                 schemaFromHandles(columns),
                 columns,
@@ -519,8 +487,6 @@ public class IcebergPageSourceProvider
             long start,
             long length,
             long fileSize,
-            int partitionSpecId,
-            String partitionData,
             IcebergFileFormat fileFormat,
             Schema fileSchema,
             List<IcebergColumnHandle> dataColumns,
@@ -533,8 +499,6 @@ public class IcebergPageSourceProvider
                     inputFile,
                     start,
                     length,
-                    partitionSpecId,
-                    partitionData,
                     dataColumns,
                     predicate,
                     orcReaderOptions
@@ -555,8 +519,6 @@ public class IcebergPageSourceProvider
                     start,
                     length,
                     fileSize,
-                    partitionSpecId,
-                    partitionData,
                     dataColumns,
                     parquetReaderOptions
                             .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
@@ -575,8 +537,6 @@ public class IcebergPageSourceProvider
                     inputFile,
                     start,
                     length,
-                    partitionSpecId,
-                    partitionData,
                     fileSchema,
                     nameMapping,
                     dataColumns);
@@ -622,8 +582,6 @@ public class IcebergPageSourceProvider
             TrinoInputFile inputFile,
             long start,
             long length,
-            int partitionSpecId,
-            String partitionData,
             List<IcebergColumnHandle> columns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             OrcReaderOptions options,
@@ -680,17 +638,11 @@ public class IcebergPageSourceProvider
                     columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY))));
                 }
                 else if (column.isMergeRowIdColumn()) {
-                    // The merge $row_id is a composite of multiple physical columns. It is assembled by the IcebergPageSource
-                    columnAdaptations.add(ColumnAdaptation.nullColumn(column.getType()));
+                    // The merge $row_id is a composite of the row position and constant file information. The final value is assembled in IcebergPageSource
+                    columnAdaptations.add(ColumnAdaptation.positionColumn());
                 }
                 else if (column.isRowPositionColumn()) {
                     columnAdaptations.add(ColumnAdaptation.positionColumn());
-                }
-                else if (column.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
-                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(column.getType(), (long) partitionSpecId)));
-                }
-                else if (column.getId() == TRINO_MERGE_PARTITION_DATA) {
-                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(column.getType(), utf8Slice(partitionData))));
                 }
                 else if (orcColumn != null) {
                     Type readType = getOrcReadType(column.getType(), typeManager);
@@ -898,8 +850,6 @@ public class IcebergPageSourceProvider
             long start,
             long length,
             long fileSize,
-            int partitionSpecId,
-            String partitionData,
             List<IcebergColumnHandle> regularColumns,
             ParquetReaderOptions options,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
@@ -980,17 +930,11 @@ public class IcebergPageSourceProvider
                     pageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY)));
                 }
                 else if (column.isMergeRowIdColumn()) {
-                    // The merge $row_id is a composite of multiple physical columns, it is assembled by the IcebergPageSource
-                    pageSourceBuilder.addNullColumn(column.getType());
+                    // The merge $row_id is a composite of the row position and constant file information. The final value is assembled in IcebergPageSource
+                    pageSourceBuilder.addRowIndexColumn();
                 }
                 else if (column.isRowPositionColumn()) {
                     pageSourceBuilder.addRowIndexColumn();
-                }
-                else if (column.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
-                    pageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), (long) partitionSpecId));
-                }
-                else if (column.getId() == TRINO_MERGE_PARTITION_DATA) {
-                    pageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), utf8Slice(partitionData)));
                 }
                 else {
                     org.apache.parquet.schema.Type parquetField = parquetFields.get(columnIndex);
@@ -1096,8 +1040,6 @@ public class IcebergPageSourceProvider
             TrinoInputFile inputFile,
             long start,
             long length,
-            int partitionSpecId,
-            String partitionData,
             Schema fileSchema,
             Optional<NameMapping> nameMapping,
             List<IcebergColumnHandle> columns)
@@ -1149,18 +1091,13 @@ public class IcebergPageSourceProvider
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(fileModifiedTime.orElseThrow(), UTC_KEY)));
                 }
                 // For delete
-                else if (column.isRowPositionColumn()) {
+                else if (column.isMergeRowIdColumn() || column.isRowPositionColumn()) {
+                    // The merge $row_id is a composite of the row position and constant file information. The final value is assembled in IcebergPageSource
                     rowIndexChannels.add(true);
                     columnNames.add(ROW_POSITION.name());
                     columnTypes.add(BIGINT);
                     constantPopulatingPageSourceBuilder.addDelegateColumn(avroSourceChannel);
                     avroSourceChannel++;
-                }
-                else if (column.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
-                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), (long) partitionSpecId));
-                }
-                else if (column.getId() == TRINO_MERGE_PARTITION_DATA) {
-                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), utf8Slice(partitionData)));
                 }
                 else if (field == null) {
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), null));
@@ -1519,6 +1456,29 @@ public class IcebergPageSourceProvider
         public int hashCode()
         {
             return Objects.hash(baseColumnIdentity, path);
+        }
+    }
+
+    private record MergeRowIdBlockFactory(VariableWidthBlock filePath, IntArrayBlock partitionSpecId, VariableWidthBlock partitionData)
+            implements Function<Block, RowBlock>
+    {
+        private static Function<Block, RowBlock> create(Slice filePath, int partitionSpecId, Slice partitionData)
+        {
+            return new MergeRowIdBlockFactory(
+                    new VariableWidthBlock(1, filePath, new int[] {0, filePath.length()}, Optional.empty()),
+                    new IntArrayBlock(1, Optional.empty(), new int[] {partitionSpecId}),
+                    new VariableWidthBlock(1, partitionData, new int[] {0, partitionData.length()}, Optional.empty()));
+        }
+
+        @Override
+        public RowBlock apply(Block rowPosition)
+        {
+            return RowBlock.fromFieldBlocks(rowPosition.getPositionCount(), new Block[] {
+                    RunLengthEncodedBlock.create(filePath, rowPosition.getPositionCount()),
+                    rowPosition,
+                    RunLengthEncodedBlock.create(partitionSpecId, rowPosition.getPositionCount()),
+                    RunLengthEncodedBlock.create(partitionData, rowPosition.getPositionCount())
+            });
         }
     }
 }

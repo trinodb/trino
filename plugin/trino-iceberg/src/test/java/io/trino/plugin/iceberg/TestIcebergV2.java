@@ -1426,6 +1426,23 @@ public class TestIcebergV2
                 ImmutableSet.of("grandparent.parent.ts_hour=2021-01-01-01/", "grandparent.parent.ts_hour=2022-02-02-02/", "grandparent.parent.ts_hour=2023-03-03-03/"));
     }
 
+    @Test
+    public void testUpdateAfterEqualityDelete()
+            throws Exception
+    {
+        String tableName = "test_update_after_equality_delete_" + randomNameSuffix();
+        for (String format : ImmutableList.of("PARQUET", "ORC", "AVRO")) {
+            assertUpdate("CREATE TABLE " + tableName + " WITH (format = '" + format + "') AS SELECT * FROM tpch.tiny.nation", 25);
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+            writeEqualityDeleteToNationTable(icebergTable);
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
+            assertUpdate("UPDATE " + tableName + " SET comment = 'test'", 20);
+            assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, 'test' FROM nation WHERE regionkey != 1");
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
     private void testHighlyNestedFieldPartitioningWithTimestampTransform(String partitioning, String partitionDirectoryRegex, Set<String> expectedPartitionDirectories)
     {
         String tableName = "test_highly_nested_field_partitioning_with_timestamp_transform_" + randomNameSuffix();
