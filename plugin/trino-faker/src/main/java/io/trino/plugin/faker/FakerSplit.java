@@ -15,5 +15,5 @@ package io.trino.plugin.faker;
 
 import io.trino.spi.connector.ConnectorSplit;
 
-public record FakerSplit(long splitNumber, long limit)
+public record FakerSplit(long splitNumber, long rowsCount)
         implements ConnectorSplit {}
