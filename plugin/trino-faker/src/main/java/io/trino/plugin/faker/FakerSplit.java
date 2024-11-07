@@ -17,12 +17,13 @@ import io.trino.spi.connector.ConnectorSplit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public record FakerSplit(long splitNumber, long rowsCount)
+public record FakerSplit(long splitNumber, long rowsOffset, long rowsCount)
         implements ConnectorSplit
 {
     public FakerSplit
     {
         checkArgument(splitNumber >= 0, "splitNumber is negative");
+        checkArgument(rowsOffset >= 0, "rowsOffset is negative");
         checkArgument(rowsCount >= 0, "rowsCount is negative");
     }
 }
