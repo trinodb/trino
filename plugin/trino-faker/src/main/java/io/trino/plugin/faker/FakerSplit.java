@@ -13,24 +13,7 @@
  */
 package io.trino.plugin.faker;
 
-import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
-import java.util.List;
-
-import static java.util.Objects.requireNonNull;
-
-public record FakerSplit(List<HostAddress> addresses, long splitNumber, long limit)
-        implements ConnectorSplit
-{
-    public FakerSplit
-    {
-        requireNonNull(addresses, "addresses is null");
-    }
-
-    @Override
-    public List<HostAddress> getAddresses()
-    {
-        return addresses;
-    }
-}
+public record FakerSplit(long splitNumber, long limit)
+        implements ConnectorSplit {}
