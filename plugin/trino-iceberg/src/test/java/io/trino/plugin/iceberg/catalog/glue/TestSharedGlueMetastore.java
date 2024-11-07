@@ -106,6 +106,9 @@ public class TestSharedGlueMetastore
         queryRunner.execute("CREATE SCHEMA " + tpchSchema + " WITH (location = '" + dataDirectory.toUri() + "')");
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, icebergSession, ImmutableList.of(TpchTable.NATION));
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, hiveSession, ImmutableList.of(TpchTable.REGION));
+        queryRunner.execute("CREATE MATERIALIZED VIEW iceberg." + tpchSchema + ".trino_iceberg_mv AS SELECT nationkey AS iceberg_mv FROM iceberg." + tpchSchema + ".nation");
+        queryRunner.execute("CREATE VIEW iceberg." + tpchSchema + ".trino_iceberg_view AS SELECT nationkey AS iceberg_col FROM iceberg." + tpchSchema + ".nation");
+        queryRunner.execute("CREATE VIEW hive." + tpchSchema + ".trino_hive_view AS SELECT regionkey AS hive_col FROM hive." + tpchSchema + ".region");
         queryRunner.execute("CREATE SCHEMA " + testSchema + " WITH (location = '" + dataDirectory.toUri() + "')");
 
         return queryRunner;

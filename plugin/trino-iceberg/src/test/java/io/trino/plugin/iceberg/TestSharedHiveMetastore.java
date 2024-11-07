@@ -91,6 +91,9 @@ public class TestSharedHiveMetastore
         queryRunner.execute("CREATE SCHEMA " + tpchSchema);
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, icebergSession, ImmutableList.of(TpchTable.NATION));
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, hiveSession, ImmutableList.of(TpchTable.REGION));
+        queryRunner.execute("CREATE MATERIALIZED VIEW iceberg." + tpchSchema + ".trino_iceberg_mv AS SELECT nationkey AS iceberg_mv FROM iceberg." + tpchSchema + ".nation");
+        queryRunner.execute("CREATE VIEW iceberg." + tpchSchema + ".trino_iceberg_view AS SELECT nationkey AS iceberg_col FROM iceberg." + tpchSchema + ".nation");
+        queryRunner.execute("CREATE VIEW hive." + tpchSchema + ".trino_hive_view AS SELECT regionkey AS hive_col FROM hive." + tpchSchema + ".region");
         queryRunner.execute("CREATE SCHEMA " + testSchema);
 
         return queryRunner;
@@ -101,6 +104,9 @@ public class TestSharedHiveMetastore
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS hive." + tpchSchema + ".region");
         assertQuerySucceeds("DROP TABLE IF EXISTS iceberg." + tpchSchema + ".nation");
+        assertQuerySucceeds("DROP MATERIALIZED VIEW IF EXISTS iceberg." + tpchSchema + ".trino_iceberg_mv");
+        assertQuerySucceeds("DROP VIEW IF EXISTS iceberg." + tpchSchema + ".trino_iceberg_view");
+        assertQuerySucceeds("DROP VIEW IF EXISTS hive." + tpchSchema + ".trino_hive_view");
         assertQuerySucceeds("DROP SCHEMA IF EXISTS hive." + tpchSchema);
         assertQuerySucceeds("DROP SCHEMA IF EXISTS hive." + testSchema);
     }

@@ -83,17 +83,27 @@ public abstract class BaseSharedMetastoreTest
                 .containsAll("VALUES '" + tpchSchema + "'");
 
         assertQuery("SELECT table_name, column_name from hive.information_schema.columns WHERE table_schema = '" + tpchSchema + "'",
-                "VALUES ('region', 'regionkey'), ('region', 'name'), ('region', 'comment')");
+                "VALUES ('region', 'regionkey'), ('region', 'name'), ('region', 'comment'), " +
+                        "('trino_iceberg_view', 'iceberg_col')," +
+                        "('trino_hive_view', 'hive_col')");
         assertQuery("SELECT table_name, column_name from iceberg.information_schema.columns WHERE table_schema = '" + tpchSchema + "'",
-                "VALUES ('nation', 'nationkey'), ('nation', 'name'), ('nation', 'regionkey'), ('nation', 'comment')");
+                "VALUES ('nation', 'nationkey'), ('nation', 'name'), ('nation', 'regionkey'), ('nation', 'comment'), " +
+                        "('trino_iceberg_mv', 'iceberg_mv')," +
+                        "('trino_iceberg_view', 'iceberg_col')," +
+                        "('trino_hive_view', 'hive_col')");
         assertQuery("SELECT table_name, column_name from hive_with_redirections.information_schema.columns WHERE table_schema = '" + tpchSchema + "'",
                 "VALUES" +
                         "('region', 'regionkey'), ('region', 'name'), ('region', 'comment'), " +
-                        "('nation', 'nationkey'), ('nation', 'name'), ('nation', 'regionkey'), ('nation', 'comment')");
+                        "('nation', 'nationkey'), ('nation', 'name'), ('nation', 'regionkey'), ('nation', 'comment')," +
+                        "('trino_iceberg_view', 'iceberg_col')," +
+                        "('trino_hive_view', 'hive_col')");
         assertQuery("SELECT table_name, column_name from iceberg_with_redirections.information_schema.columns WHERE table_schema = '" + tpchSchema + "'",
                 "VALUES" +
                         "('region', 'regionkey'), ('region', 'name'), ('region', 'comment'), " +
-                        "('nation', 'nationkey'), ('nation', 'name'), ('nation', 'regionkey'), ('nation', 'comment')");
+                        "('nation', 'nationkey'), ('nation', 'name'), ('nation', 'regionkey'), ('nation', 'comment')," +
+                        "('trino_iceberg_mv', 'iceberg_mv')," +
+                        "('trino_iceberg_view', 'iceberg_col')," +
+                        "('trino_hive_view', 'hive_col')");
     }
 
     @Test
@@ -113,10 +123,10 @@ public abstract class BaseSharedMetastoreTest
     @Test
     public void testShowTables()
     {
-        assertQuery("SHOW TABLES FROM iceberg." + tpchSchema, "VALUES 'region', 'nation'");
-        assertQuery("SHOW TABLES FROM hive." + tpchSchema, "VALUES 'region', 'nation'");
-        assertQuery("SHOW TABLES FROM hive_with_redirections." + tpchSchema, "VALUES 'region', 'nation'");
-        assertQuery("SHOW TABLES FROM iceberg_with_redirections." + tpchSchema, "VALUES 'region', 'nation'");
+        assertQuery("SHOW TABLES FROM iceberg." + tpchSchema, "VALUES 'region', 'nation', 'trino_iceberg_mv', 'trino_iceberg_view', 'trino_hive_view'");
+        assertQuery("SHOW TABLES FROM hive." + tpchSchema, "VALUES 'region', 'nation', 'trino_iceberg_mv', 'trino_iceberg_view', 'trino_hive_view'");
+        assertQuery("SHOW TABLES FROM hive_with_redirections." + tpchSchema, "VALUES 'region', 'nation', 'trino_iceberg_mv', 'trino_iceberg_view', 'trino_hive_view'");
+        assertQuery("SHOW TABLES FROM iceberg_with_redirections." + tpchSchema, "VALUES 'region', 'nation', 'trino_iceberg_mv', 'trino_iceberg_view', 'trino_hive_view'");
 
         assertThat(query("SHOW CREATE TABLE iceberg." + tpchSchema + ".region"))
                 .failure().hasMessageContaining("Not an Iceberg table");
