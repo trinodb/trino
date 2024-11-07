@@ -24,7 +24,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 
-import static java.lang.Math.ceilDiv;
+import static java.lang.Math.min;
 
 public class FakerSplitManager
         implements ConnectorSplitManager
@@ -41,13 +41,16 @@ public class FakerSplitManager
             Constraint constraint)
     {
         FakerTableHandle fakerTable = (FakerTableHandle) table;
-        long splitCount = ceilDiv(fakerTable.limit(), MAX_ROWS_PER_SPLIT);
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        for (long i = 0; i < splitCount - 1; i++) {
-            splits.add(new FakerSplit(i, MAX_ROWS_PER_SPLIT));
+
+        int splitNum = 0;
+        long remainingRows = fakerTable.limit();
+        while (remainingRows > 0) {
+            long splitSize = min(remainingRows, MAX_ROWS_PER_SPLIT);
+            splits.add(new FakerSplit(splitNum, splitSize));
+            remainingRows -= splitSize;
+            splitNum++;
         }
-        long limit = fakerTable.limit() % MAX_ROWS_PER_SPLIT;
-        splits.add(new FakerSplit(splitCount - 1, limit == 0 ? MAX_ROWS_PER_SPLIT : limit));
         return new FixedSplitSource(splits.build());
     }
 }
