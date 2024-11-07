@@ -436,7 +436,7 @@ public class IcebergPageSourceProvider
 
         return unenforcedPredicate
                 // Filter out partition columns domains from the dynamic filter because they should be irrelevant at data file level
-                .filter((columnHandle, domain) -> !partitionKeys.containsKey(columnHandle.getId()))
+                .filter((columnHandle, _) -> !partitionKeys.containsKey(columnHandle.getId()))
                 // remove domains from predicate that fully contain split data because they are irrelevant for filtering
                 .filter((handle, domain) -> !domain.contains(fileStatisticsDomain.getDomain(handle, domain.getType())));
     }
@@ -481,7 +481,7 @@ public class IcebergPageSourceProvider
                 .get();
     }
 
-    public ReaderPageSourceWithRowPositions createDataPageSource(
+    private ReaderPageSourceWithRowPositions createDataPageSource(
             ConnectorSession session,
             TrinoInputFile inputFile,
             long start,
@@ -880,7 +880,7 @@ public class IcebergPageSourceProvider
 
             List<org.apache.parquet.schema.Type> parquetFields = readBaseColumns.stream()
                     .map(column -> parquetIdToField.get(column.getId()))
-                    .collect(toList());
+                    .toList();
 
             MessageType requestedSchema = getMessageType(regularColumns, fileSchema.getName(), parquetIdToField);
             Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
@@ -1025,7 +1025,7 @@ public class IcebergPageSourceProvider
     private static MessageType getMessageType(List<IcebergColumnHandle> regularColumns, String fileSchemaName, Map<Integer, org.apache.parquet.schema.Type> parquetIdToField)
     {
         return projectSufficientColumns(regularColumns)
-                .map(readerColumns -> readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toUnmodifiableList()))
+                .map(readerColumns -> readerColumns.get().stream().map(IcebergColumnHandle.class::cast).toList())
                 .orElse(regularColumns)
                 .stream()
                 .map(column -> getColumnType(column, parquetIdToField))
@@ -1205,9 +1205,7 @@ public class IcebergPageSourceProvider
             }
 
             Map<Integer, List<List<Integer>>> dereferencesByField = fieldIdDereferences.stream()
-                    .collect(groupingBy(
-                            sequence -> sequence.get(0),
-                            mapping(sequence -> sequence.subList(1, sequence.size()), toUnmodifiableList())));
+                    .collect(groupingBy(List::getFirst, mapping(sequence -> sequence.subList(1, sequence.size()), toUnmodifiableList())));
 
             ImmutableMap.Builder<Integer, ProjectedLayout> fieldLayouts = ImmutableMap.builder();
             for (OrcColumn nestedColumn : root.getNestedColumns()) {
@@ -1231,7 +1229,7 @@ public class IcebergPageSourceProvider
     /**
      * Creates a mapping between the input {@code columns} and base columns if required.
      */
-    public static Optional<ReaderColumns> projectBaseColumns(List<IcebergColumnHandle> columns)
+    private static Optional<ReaderColumns> projectBaseColumns(List<IcebergColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
 
@@ -1292,7 +1290,7 @@ public class IcebergPageSourceProvider
 
         // Pick a covering column for every column
         for (IcebergColumnHandle columnHandle : columns) {
-            DereferenceChain dereferenceChain = dereferenceChains.inverse().get(columnHandle);
+            DereferenceChain dereferenceChain = requireNonNull(dereferenceChains.inverse().get(columnHandle));
             DereferenceChain chosenColumn = null;
 
             // Shortest existing prefix is chosen as the input.
@@ -1364,7 +1362,7 @@ public class IcebergPageSourceProvider
         effectivePredicate.getDomains().orElseThrow().forEach((columnHandle, domain) -> {
             ColumnIdentity columnIdentity = columnHandle.getColumnIdentity();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
-            if (PRIMITIVE.equals(columnIdentity.getTypeCategory())) {
+            if (PRIMITIVE == columnIdentity.getTypeCategory()) {
                 ColumnDescriptor descriptor = descriptorsById.get(columnHandle.getId());
                 if (descriptor != null) {
                     predicate.put(descriptor, domain);
