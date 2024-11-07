@@ -1199,6 +1199,83 @@ public class TestCassandraConnectorTest
     }
 
     @Test
+    void testPartitioningKeys()
+    {
+        try (TestCassandraTable table = testTable(
+                "test_partitioning_keys",
+                ImmutableList.of(generalColumn("data", "int"), partitionColumn("part", "int")),
+                ImmutableList.of("1, 10", "2, 20"))) {
+            assertThat(query("SELECT part FROM " + table.getTableName() + " WHERE part = 10"))
+                    .matches("VALUES 10");
+            assertThat(query("SELECT part FROM " + table.getTableName() + " WHERE data = 1"))
+                    .matches("VALUES 10");
+        }
+    }
+
+    @Test
+    void testSelectClusteringMaterializedView()
+    {
+        try (TestCassandraTable table = testTable(
+                "test_clustering_materialized_view_base",
+                ImmutableList.of(generalColumn("id", "int"), generalColumn("data", "int"), partitionColumn("key", "int")),
+                ImmutableList.of("1, 10, 100", "2, 20, 200", "3, 30, 300"))) {
+            String mvName = "test_clustering_mv" + randomNameSuffix();
+            onCassandra("CREATE MATERIALIZED VIEW tpch." + mvName + " AS " +
+                    "SELECT * FROM " + table.getTableName() + " WHERE id IS NOT NULL " +
+                    "PRIMARY KEY (id, key) " +
+                    "WITH CLUSTERING ORDER BY (id DESC)");
+
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+                    .row(mvName)
+                    .build(), new Duration(1, MINUTES));
+
+            // Materialized view may not return all results during the creation
+            assertContainsEventually(() -> computeActual("SELECT count(*) FROM tpch." + mvName), resultBuilder(getSession(), BIGINT)
+                    .row(3L)
+                    .build(), new Duration(1, MINUTES));
+
+            assertThat(query("SELECT MAX(id), SUM(key), AVG(data) FROM " + table.getTableName() + " WHERE key BETWEEN 100 AND 200"))
+                    .matches("VALUES (2, BIGINT '300', DOUBLE '15.0')");
+
+            assertThat(query("SELECT id, key, data FROM " + table.getTableName() + " ORDER BY id LIMIT 1"))
+                    .matches("VALUES (1, 100, 10)");
+
+            onCassandra("DROP MATERIALIZED VIEW tpch." + mvName);
+        }
+    }
+
+    @Test
+    void testSelectTupleTypeInPrimaryKey()
+    {
+        try (TestCassandraTable table = testTable(
+                "test_tuple_in_primary_key",
+                ImmutableList.of(partitionColumn("intkey", "int"), partitionColumn("tuplekey", "frozen<tuple<int, text, float>>")),
+                ImmutableList.of("1, (1, 'text-1', 1.11)"))) {
+            assertThat(query("SELECT * FROM " + table.getTableName()))
+                    .matches("VALUES (1, CAST(ROW(1, 'text-1', 1.11) AS ROW(integer, varchar, real)))");
+            assertThat(query("SELECT * FROM " + table.getTableName() + " WHERE intkey = 1 AND tuplekey = row(1, 'text-1', 1.11)"))
+                    .matches("VALUES (1, CAST(ROW(1, 'text-1', 1.11) AS ROW(integer, varchar, real)))");
+        }
+    }
+
+    @Test
+    void testSelectUserDefinedTypeInPrimaryKey()
+    {
+        String udtName = "type_user_defined_primary_key" + randomNameSuffix();
+        onCassandra("CREATE TYPE tpch." + udtName + " (field1 text)");
+        try (TestCassandraTable table = testTable(
+                "test_udt_in_primary_key",
+                ImmutableList.of(partitionColumn("intkey", "int"), partitionColumn("udtkey", "frozen<%s>".formatted(udtName))),
+                ImmutableList.of("1, {field1: 'udt-1'}"))) {
+            assertThat(query("SELECT * FROM " + table.getTableName()))
+                    .matches("VALUES (1, CAST(ROW('udt-1') AS ROW(field1 VARCHAR)))");
+            assertThat(query("SELECT * FROM " + table.getTableName() + " WHERE intkey = 1 AND udtkey = CAST(ROW('udt-1') AS ROW(x VARCHAR))"))
+                    .matches("VALUES (1, CAST(ROW('udt-1') AS ROW(field1 VARCHAR)))");
+        }
+        onCassandra("DROP TYPE tpch." + udtName);
+    }
+
+    @Test
     public void testUnsupportedColumnType()
     {
         // TODO currently all standard types are supported to some extent. We should add a test with custom type if possible.
