@@ -514,6 +514,38 @@ public class TestIcebergMigrateProcedure
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testMigrateTableWithHiddenFiles()
+            throws Exception
+    {
+        String tableName = "test_migrate_hidden_files_" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+        String icebergTableName = "iceberg.tpch." + tableName;
+
+        assertUpdate("CREATE TABLE " + hiveTableName + " AS SELECT 1 x", 1);
+
+        // Copy a file to hidden directory
+        Path tableLocation = Path.of("%s/tpch/%s".formatted(dataDirectory, tableName));
+        Path hiddenDirectory = tableLocation.resolve(".hidden");
+        Path nestedDirectory = tableLocation.resolve("nested");
+        try (Stream<Path> files = Files.list(tableLocation)) {
+            Path file = files.filter(path -> !path.getFileName().toString().startsWith(".")).collect(onlyElement());
+            Files.createDirectory(hiddenDirectory);
+            Files.createDirectory(nestedDirectory);
+            Files.copy(file, hiddenDirectory.resolve(file.getFileName()));
+            Files.copy(file, nestedDirectory.resolve(file.getFileName()));
+        }
+
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "', 'true')");
+
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1), (1)");
+
+        assertUpdate("INSERT INTO " + icebergTableName + " VALUES (2)", 1);
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1), (1), (2)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private String getColumnType(String tableName, String columnName)
     {
         return (String) computeScalar(format("SELECT data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '%s' AND column_name = '%s'",
