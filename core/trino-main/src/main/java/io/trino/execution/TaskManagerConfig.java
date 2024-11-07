@@ -100,7 +100,7 @@ public class TaskManagerConfig
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
      */
     private int taskConcurrency = clamp(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2, 32);
-    private int httpResponseThreads = 100;
+    private int httpResponseThreads = 1000;
     private int httpTimeoutThreads = 3;
 
     private int taskNotificationThreads = 5;

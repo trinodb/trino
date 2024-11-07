@@ -62,6 +62,8 @@ import org.weakref.jmx.Nested;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -122,7 +124,7 @@ public class TaskResource
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.pagesInputStreamFactory = requireNonNull(pagesInputStreamFactory, "pagesInputStreamFactory is null");
-        this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
+        this.responseExecutor = loggingExecutor(requireNonNull(responseExecutor, "responseExecutor is null"));
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.failureInjector = requireNonNull(failureInjector, "failureInjector is null");
     }
@@ -560,5 +562,26 @@ public class TaskResource
                 .entity((StreamingOutput) output ->
                         pagesInputStreamFactory.write(output, serializedPages))
                 .build();
+    }
+
+    private static Executor loggingExecutor(Executor delegate)
+    {
+        return command -> {
+            String uuid = UUID.randomUUID().toString().replace("-", "");
+            String delegateToString = delegate.toString();
+            CountDownLatch latch = new CountDownLatch(1);
+            try {
+                delegate.execute(() -> {
+                    command.run();
+                    latch.countDown();
+                });
+                if (!latch.await(15, SECONDS)) {
+                    log.info("[%s] Never completed new task to execute: %s on %s".formatted(uuid, command, delegateToString));
+                }
+            }
+            catch (Exception e) {
+                log.info("[%s] Never completed new task to execute: %s on %s".formatted(uuid, command, delegateToString));
+            }
+        };
     }
 }
