@@ -37,7 +37,7 @@ public class TestJmxStats
     public void testJmxStatsExposure()
             throws Exception
     {
-        Plugin plugin = new JdbcPlugin("base_jdbc", new TestingH2JdbcModule());
+        Plugin plugin = new JdbcPlugin("base_jdbc", TestingH2JdbcModule::new);
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create(
                 "test",

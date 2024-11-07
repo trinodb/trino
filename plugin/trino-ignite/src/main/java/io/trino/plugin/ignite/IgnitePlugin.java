@@ -20,6 +20,6 @@ public class IgnitePlugin
 {
     public IgnitePlugin()
     {
-        super("ignite", new IgniteClientModule());
+        super("ignite", IgniteClientModule::new);
     }
 }

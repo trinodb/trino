@@ -20,6 +20,6 @@ public class VerticaPlugin
 {
     public VerticaPlugin()
     {
-        super("vertica", new VerticaClientModule());
+        super("vertica", VerticaClientModule::new);
     }
 }

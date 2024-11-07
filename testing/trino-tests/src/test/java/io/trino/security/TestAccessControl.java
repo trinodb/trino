@@ -272,7 +272,7 @@ public class TestAccessControl
                 }))
                 .build()));
         queryRunner.createCatalog("mock", "mock");
-        queryRunner.installPlugin(new JdbcPlugin("base_jdbc", new TestingH2JdbcModule()));
+        queryRunner.installPlugin(new JdbcPlugin("base_jdbc", TestingH2JdbcModule::new));
         queryRunner.createCatalog("jdbc", "base_jdbc", TestingH2JdbcModule.createProperties());
         for (String tableName : ImmutableList.of("orders", "nation", "region", "lineitem")) {
             queryRunner.execute(format("CREATE TABLE %1$s AS SELECT * FROM tpch.tiny.%1$s WITH NO DATA", tableName));
