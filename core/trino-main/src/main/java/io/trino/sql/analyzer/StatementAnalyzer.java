@@ -3387,14 +3387,14 @@ class StatementAnalyzer
                     .collect(toImmutableMap(ColumnSchema::getName, Function.identity()));
 
             for (UpdateAssignment assignment : update.getAssignments()) {
-                String columnName = assignment.getName().getValue();
+                String columnName = assignment.getName().getValue().toLowerCase(ENGLISH);
                 if (!columns.containsKey(columnName)) {
                     throw semanticException(COLUMN_NOT_FOUND, assignment.getName(), "The UPDATE SET target column %s doesn't exist", columnName);
                 }
             }
 
             Set<String> assignmentTargets = update.getAssignments().stream()
-                    .map(assignment -> assignment.getName().getValue())
+                    .map(assignment -> assignment.getName().getValue().toLowerCase(ENGLISH))
                     .collect(toImmutableSet());
             accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, assignmentTargets);
 
@@ -3432,7 +3432,7 @@ class StatementAnalyzer
             ImmutableList.Builder<Type> expressionTypesBuilder = ImmutableList.builder();
             ImmutableMap.Builder<String, Set<SourceColumn>> sourceColumnsByColumnNameBuilder = ImmutableMap.builder();
             for (UpdateAssignment assignment : update.getAssignments()) {
-                String targetColumnName = assignment.getName().getValue();
+                String targetColumnName = assignment.getName().getValue().toLowerCase(ENGLISH);
                 Expression expression = assignment.getValue();
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, tableScope);
                 analysesBuilder.add(expressionAnalysis);
@@ -3450,7 +3450,7 @@ class StatementAnalyzer
             Map<String, Set<SourceColumn>> sourceColumnsByColumnName = sourceColumnsByColumnNameBuilder.buildOrThrow();
 
             List<Type> tableTypes = update.getAssignments().stream()
-                    .map(assignment -> requireNonNull(columns.get(assignment.getName().getValue())))
+                    .map(assignment -> requireNonNull(columns.get(assignment.getName().getValue().toLowerCase(ENGLISH))))
                     .map(ColumnSchema::getType)
                     .collect(toImmutableList());
 

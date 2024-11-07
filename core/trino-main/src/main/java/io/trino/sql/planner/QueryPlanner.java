@@ -174,6 +174,7 @@ import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 class QueryPlanner
@@ -597,7 +598,7 @@ class QueryPlanner
 
         io.trino.sql.tree.Expression[] orderedColumnValuesArray = new io.trino.sql.tree.Expression[updatedColumnHandles.size()];
         node.getAssignments().forEach(assignment -> {
-            String name = assignment.getName().getValue();
+            String name = assignment.getName().getValue().toLowerCase(ENGLISH);
             ColumnHandle handle = nameToHandle.get(name);
             int index = updatedColumnHandles.indexOf(handle);
             if (index >= 0) {

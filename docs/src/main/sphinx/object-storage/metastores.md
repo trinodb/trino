@@ -500,6 +500,9 @@ following properties:
 * - `iceberg.rest-catalog.vended-credentials-enabled`
   - Use credentials provided by the REST backend for file system access.
     Defaults to `false`.
+* - `iceberg.rest-catalog.nested-namespace-enabled`
+  - Support querying objects under nested namespace.
+    Defaults to `false`.
   :::
 
 The following example shows a minimal catalog configuration using an Iceberg

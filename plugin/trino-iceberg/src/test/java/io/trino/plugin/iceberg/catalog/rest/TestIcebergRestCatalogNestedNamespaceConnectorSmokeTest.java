@@ -13,12 +13,15 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
-import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
+import io.trino.plugin.iceberg.TestingIcebergPlugin;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
@@ -32,14 +35,18 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -82,18 +89,64 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
         testServer.start();
         closeAfterClass(testServer::stop);
 
-        return IcebergQueryRunner.builder("level_1.level_2")
-                .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
-                .addIcebergProperty("iceberg.file-format", format.name())
-                .addIcebergProperty("iceberg.catalog.type", "rest")
-                .addIcebergProperty("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
-                .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
-                .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
-                .setSchemaInitializer(SchemaInitializer.builder()
-                        .withSchemaName("level_1.level_2")
-                        .withClonedTpchTables(REQUIRED_TPCH_TABLES)
+        String nestedSchema = "level_1.level_2";
+        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
+                        .setCatalog(ICEBERG_CATALOG)
+                        .setSchema(nestedSchema)
                         .build())
+                .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
                 .build();
+
+        Map<String, String> nestedNamespaceDisabled = ImmutableMap.<String, String>builder()
+                .put("fs.hadoop.enabled", "true")
+                .put("iceberg.file-format", format.name())
+                .put("iceberg.catalog.type", "rest")
+                .put("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
+                .put("iceberg.register-table-procedure.enabled", "true")
+                .put("iceberg.writer-sort-buffer-size", "1MB")
+                .buildOrThrow();
+
+        Map<String, String> nestedNamespaceEnabled = ImmutableMap.<String, String>builder()
+                .putAll(nestedNamespaceDisabled)
+                .put("iceberg.rest-catalog.nested-namespace-enabled", "true")
+                .buildOrThrow();
+        try {
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
+
+            Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+            queryRunner.installPlugin(new TestingIcebergPlugin(dataDir));
+
+            queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", nestedNamespaceEnabled);
+            queryRunner.createCatalog("nested_namespace_disabled", "iceberg", nestedNamespaceDisabled);
+
+            SchemaInitializer.builder()
+                    .withSchemaName(nestedSchema)
+                    .withClonedTpchTables(REQUIRED_TPCH_TABLES)
+                    .build()
+                    .accept(queryRunner);
+
+            return queryRunner;
+        }
+        catch (Exception e) {
+            closeAllSuppress(e, queryRunner);
+            throw e;
+        }
+    }
+
+    @Test
+    void testNestedNamespaceDisabled()
+    {
+        // SHOW SCHEMAS returns only the top-level schema
+        assertThat(query("SHOW SCHEMAS FROM nested_namespace_disabled"))
+                .skippingTypesCheck()
+                .containsAll("VALUES 'level_1'");
+
+        // Other statements should fail
+        assertQueryFails("SHOW TABLES IN nested_namespace_disabled.\"level_1.level_2\"", "Nested namespace is not enabled for this catalog");
+        assertQueryFails("CREATE SCHEMA nested_namespace_disabled.\"level_1.level_2.level_3\"", "Nested namespace is not enabled for this catalog");
+        assertQueryFails("CREATE TABLE nested_namespace_disabled.\"level_1.level_2\".test_nested(x int)", "Nested namespace is not enabled for this catalog");
+        assertQueryFails("SELECT * FROM nested_namespace_disabled.\"level_1.level_2\".region", "Nested namespace is not enabled for this catalog");
     }
 
     @Test
