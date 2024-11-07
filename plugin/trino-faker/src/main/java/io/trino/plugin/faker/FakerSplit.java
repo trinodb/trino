@@ -15,5 +15,14 @@ package io.trino.plugin.faker;
 
 import io.trino.spi.connector.ConnectorSplit;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public record FakerSplit(long splitNumber, long rowsCount)
-        implements ConnectorSplit {}
+        implements ConnectorSplit
+{
+    public FakerSplit
+    {
+        checkArgument(splitNumber >= 0, "splitNumber is negative");
+        checkArgument(rowsCount >= 0, "rowsCount is negative");
+    }
+}
