@@ -293,8 +293,8 @@ public class FakerMetadata
         double tableNullProbability = (double) tableMetadata.getProperties().getOrDefault(TableInfo.NULL_PROBABILITY_PROPERTY, schemaNullProbability);
 
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
-        for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
-            ColumnMetadata column = tableMetadata.getColumns().get(i);
+        for (int columnId = 0; columnId < tableMetadata.getColumns().size(); columnId++) {
+            ColumnMetadata column = tableMetadata.getColumns().get(columnId);
             double nullProbability = 0;
             if (column.isNullable()) {
                 nullProbability = (double) column.getProperties().getOrDefault(ColumnInfo.NULL_PROBABILITY_PROPERTY, tableNullProbability);
@@ -305,7 +305,7 @@ public class FakerMetadata
             }
             columns.add(new ColumnInfo(
                     new FakerColumnHandle(
-                            i,
+                            columnId,
                             column.getName(),
                             column.getType(),
                             nullProbability,
