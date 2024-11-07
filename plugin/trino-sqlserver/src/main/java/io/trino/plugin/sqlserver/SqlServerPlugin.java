@@ -22,6 +22,6 @@ public class SqlServerPlugin
 {
     public SqlServerPlugin()
     {
-        super("sqlserver", combine(new SqlServerClientModule(), new SqlServerConnectionFactoryModule()));
+        super("sqlserver", () -> combine(new SqlServerClientModule(), new SqlServerConnectionFactoryModule()));
     }
 }

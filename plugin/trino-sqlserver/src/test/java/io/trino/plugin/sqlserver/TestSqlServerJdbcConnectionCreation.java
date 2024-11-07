@@ -59,7 +59,7 @@ public class TestSqlServerJdbcConnectionCreation
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new JdbcPlugin(
                             "counting_sqlserver",
-                            combine(new SqlServerClientModule(), new TestingSqlServerModule(connectionFactory))));
+                            () -> combine(new SqlServerClientModule(), new TestingSqlServerModule(connectionFactory))));
                     runner.createCatalog("counting_sqlserver", "counting_sqlserver", ImmutableMap.of(
                             "connection-url", sqlServer.getJdbcUrl(),
                             "connection-user", sqlServer.getUsername(),
