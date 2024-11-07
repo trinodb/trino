@@ -49,13 +49,13 @@ final class TestFakerSplitManager
                 .hasSize(6)
                 .map(split -> (FakerSplit) split)
                 .satisfies(splitsList -> assertThat(splitsList)
-                        .filteredOn(split -> split.limit() == MAX_ROWS_PER_SPLIT)
+                        .filteredOn(split -> split.rowsCount() == MAX_ROWS_PER_SPLIT)
                         .hasSize(5))
                 .satisfies(splitsList -> assertThat(splitsList)
-                        .filteredOn(split -> split.limit() == 123)
+                        .filteredOn(split -> split.rowsCount() == 123)
                         .hasSize(1));
 
-        long actualRows = splits.stream().mapToLong(split -> ((FakerSplit) split).limit()).sum();
+        long actualRows = splits.stream().mapToLong(split -> ((FakerSplit) split).rowsCount()).sum();
         assertThat(actualRows).isEqualTo(expectedRows);
     }
 }
