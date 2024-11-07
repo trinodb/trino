@@ -13,14 +13,13 @@
  */
 package io.trino.plugin.faker;
 
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record ColumnInfo(ColumnHandle handle, ColumnMetadata metadata)
+public record ColumnInfo(FakerColumnHandle handle, ColumnMetadata metadata)
 {
     public static final String NULL_PROBABILITY_PROPERTY = "null_probability";
     public static final String GENERATOR_PROPERTY = "generator";
