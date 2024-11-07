@@ -77,7 +77,6 @@ public class FakerMetadata
         implements ConnectorMetadata
 {
     public static final String SCHEMA_NAME = "default";
-    public static final String RANDOM_STRING_FUNCTION = "random_string";
 
     @GuardedBy("this")
     private final List<SchemaInfo> schemas = new ArrayList<>();
