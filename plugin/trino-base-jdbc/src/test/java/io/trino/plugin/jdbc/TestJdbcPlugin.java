@@ -49,7 +49,7 @@ public class TestJdbcPlugin
 
     private static ConnectorFactory getConnectorFactory()
     {
-        Plugin plugin = new JdbcPlugin("jdbc", new TestingH2JdbcModule());
+        Plugin plugin = new JdbcPlugin("jdbc", TestingH2JdbcModule::new);
         return getOnlyElement(plugin.getConnectorFactories());
     }
 }

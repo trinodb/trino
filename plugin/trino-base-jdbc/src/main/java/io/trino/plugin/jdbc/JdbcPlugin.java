@@ -19,6 +19,8 @@ import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
+import java.util.function.Supplier;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
@@ -28,13 +30,13 @@ public class JdbcPlugin
         implements Plugin
 {
     private final String name;
-    private final Module module;
+    private final Supplier<Module> moduleSupplier;
 
-    public JdbcPlugin(String name, Module module)
+    public JdbcPlugin(String name, Supplier<Module> moduleSupplier)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.module = requireNonNull(module, "module is null");
+        this.moduleSupplier = requireNonNull(moduleSupplier, "moduleSupplier is null");
     }
 
     @Override
@@ -42,9 +44,9 @@ public class JdbcPlugin
     {
         return ImmutableList.of(new JdbcConnectorFactory(
                 name,
-                combine(
+                () -> combine(
                         new CredentialProviderModule(),
                         new ExtraCredentialsBasedIdentityCacheMappingModule(),
-                        module)));
+                        moduleSupplier.get())));
     }
 }
