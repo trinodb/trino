@@ -66,7 +66,7 @@ public class FakerPageSourceProvider
         FakerTableHandle fakerTable = (FakerTableHandle) table;
         FakerSplit fakerSplit = (FakerSplit) split;
         Random random = random(fakerSplit.splitNumber());
-        return new FakerPageSource(new Faker(random), random, handles, fakerTable.constraint(), fakerSplit.rowsCount());
+        return new FakerPageSource(new Faker(random), random, handles, fakerTable.constraint(), fakerSplit.rowsOffset(), fakerSplit.rowsCount());
     }
 
     private Random random(long index)

@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Random;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.faker.FakerMetadata.ROW_ID_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -119,7 +120,13 @@ class FakerPageSource
 
     private boolean closed;
 
-    FakerPageSource(Faker faker, Random random, List<FakerColumnHandle> columns, TupleDomain<ColumnHandle> constraint, long limit)
+    FakerPageSource(
+            Faker faker,
+            Random random,
+            List<FakerColumnHandle> columns,
+            TupleDomain<ColumnHandle> constraint,
+            long offset,
+            long limit)
     {
         this.faker = requireNonNull(faker, "faker is null");
         this.random = requireNonNull(random, "random is null");
@@ -132,13 +139,27 @@ class FakerPageSource
 
         this.generators = columns
                 .stream()
-                .map(column -> getGenerator(column, constraint))
+                .map(column -> getGenerator(column, constraint, offset))
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(types);
     }
 
-    private Generator getGenerator(FakerColumnHandle column, TupleDomain<ColumnHandle> constraint)
+    private Generator getGenerator(
+            FakerColumnHandle column,
+            TupleDomain<ColumnHandle> constraint,
+            long offset)
     {
+        if (ROW_ID_COLUMN_NAME.equals(column.name())) {
+            return new Generator() {
+                long currentRowId = offset;
+                @Override
+                public void accept(BlockBuilder blockBuilder)
+                {
+                    BIGINT.writeLong(blockBuilder, currentRowId++);
+                }
+            };
+        }
+
         return constraintedValueGenerator(
                 column,
                 constraint.getDomains().get().getOrDefault(column, Domain.all(column.type())));
