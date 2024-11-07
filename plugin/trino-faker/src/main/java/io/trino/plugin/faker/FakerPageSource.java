@@ -132,11 +132,16 @@ class FakerPageSource
 
         this.generators = columns
                 .stream()
-                .map(column -> constraintedValueGenerator(
-                        column,
-                        constraint.getDomains().get().getOrDefault(column, Domain.all(column.type()))))
+                .map(column -> getGenerator(column, constraint))
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(types);
+    }
+
+    private Generator getGenerator(FakerColumnHandle column, TupleDomain<ColumnHandle> constraint)
+    {
+        return constraintedValueGenerator(
+                column,
+                constraint.getDomains().get().getOrDefault(column, Domain.all(column.type())));
     }
 
     @Override
