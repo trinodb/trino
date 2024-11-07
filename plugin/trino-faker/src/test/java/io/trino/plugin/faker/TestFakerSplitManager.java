@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.faker;
 
-import io.trino.client.NodeVersion;
-import io.trino.metadata.InternalNode;
-import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
@@ -23,11 +20,9 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingConnectorSession;
-import io.trino.testing.TestingNodeManager;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -40,15 +35,8 @@ final class TestFakerSplitManager
     void testSplits()
             throws ExecutionException, InterruptedException
     {
-        URI uriA = URI.create("http://a");
-        URI uriB = URI.create("http://b");
-        HostAddress hostA = HostAddress.fromUri(uriA);
-        HostAddress hostB = HostAddress.fromUri(uriB);
-        TestingNodeManager nodeManager = new TestingNodeManager(List.of(
-                new InternalNode("a", uriA, NodeVersion.UNKNOWN, false),
-                new InternalNode("b", uriB, NodeVersion.UNKNOWN, false)));
         long expectedRows = 123 + 5 * MAX_ROWS_PER_SPLIT;
-        ConnectorSplitSource splitSource = new FakerSplitManager(nodeManager).getSplits(
+        ConnectorSplitSource splitSource = new FakerSplitManager().getSplits(
                 TestingTransactionHandle.create(),
                 TestingConnectorSession.SESSION,
                 new FakerTableHandle(new SchemaTableName("schema", "table"), TupleDomain.all(), expectedRows),
@@ -62,9 +50,7 @@ final class TestFakerSplitManager
                 .map(split -> (FakerSplit) split)
                 .satisfies(splitsList -> assertThat(splitsList)
                         .filteredOn(split -> split.limit() == MAX_ROWS_PER_SPLIT)
-                        .hasSize(5)
-                        .extracting(ConnectorSplit::getAddresses)
-                        .containsOnly(List.of(hostA), List.of(hostB)))
+                        .hasSize(5))
                 .satisfies(splitsList -> assertThat(splitsList)
                         .filteredOn(split -> split.limit() == 123)
                         .hasSize(1));
