@@ -14,14 +14,11 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.filesystem.Location;
 import io.trino.metastore.HiveType;
-import io.trino.metastore.type.TypeInfo;
 import io.trino.plugin.hive.HivePageSourceProvider.BucketAdaptation;
 import io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.plugin.hive.coercions.TypeCoercer;
-import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -32,8 +29,6 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -44,28 +39,19 @@ import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.EMPTY;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
-import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucket;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HivePageSource
         implements ConnectorPageSource
 {
-    public static final int ORIGINAL_TRANSACTION_CHANNEL = 0;
-    public static final int BUCKET_CHANNEL = 1;
-    public static final int ROW_ID_CHANNEL = 2;
-
     private final List<ColumnMapping> columnMappings;
     private final Optional<BucketAdapter> bucketAdapter;
     private final Optional<BucketValidator> bucketValidator;
@@ -280,96 +266,6 @@ public class HivePageSource
             block = null;
 
             return loaded;
-        }
-    }
-
-    public static class BucketAdapter
-    {
-        private final int[] bucketColumns;
-        private final BucketingVersion bucketingVersion;
-        private final int bucketToKeep;
-        private final int tableBucketCount;
-        private final int partitionBucketCount; // for sanity check only
-        private final List<TypeInfo> typeInfoList;
-
-        public BucketAdapter(BucketAdaptation bucketAdaptation)
-        {
-            this.bucketColumns = bucketAdaptation.getBucketColumnIndices();
-            this.bucketingVersion = bucketAdaptation.getBucketingVersion();
-            this.bucketToKeep = bucketAdaptation.getBucketToKeep();
-            this.typeInfoList = bucketAdaptation.getBucketColumnHiveTypes().stream()
-                    .map(HiveType::getTypeInfo)
-                    .collect(toImmutableList());
-            this.tableBucketCount = bucketAdaptation.getTableBucketCount();
-            this.partitionBucketCount = bucketAdaptation.getPartitionBucketCount();
-        }
-
-        @Nullable
-        public Page filterPageToEligibleRowsOrDiscard(Page page)
-        {
-            IntArrayList ids = new IntArrayList(page.getPositionCount());
-            Page bucketColumnsPage = page.getColumns(bucketColumns);
-            for (int position = 0; position < page.getPositionCount(); position++) {
-                int bucket = getHiveBucket(bucketingVersion, tableBucketCount, typeInfoList, bucketColumnsPage, position);
-                if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
-                    throw new TrinoException(HIVE_INVALID_BUCKET_FILES, format(
-                            "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",
-                            bucket, bucketToKeep % partitionBucketCount, partitionBucketCount));
-                }
-                if (bucket == bucketToKeep) {
-                    ids.add(position);
-                }
-            }
-            int retainedRowCount = ids.size();
-            if (retainedRowCount == 0) {
-                return null;
-            }
-            if (retainedRowCount == page.getPositionCount()) {
-                return page;
-            }
-            return page.getPositions(ids.elements(), 0, retainedRowCount);
-        }
-    }
-
-    public static class BucketValidator
-    {
-        // validate every ~100 rows but using a prime number
-        public static final int VALIDATION_STRIDE = 97;
-
-        private final Location path;
-        private final int[] bucketColumnIndices;
-        private final List<TypeInfo> bucketColumnTypes;
-        private final BucketingVersion bucketingVersion;
-        private final int bucketCount;
-        private final int expectedBucket;
-
-        public BucketValidator(
-                Location path,
-                int[] bucketColumnIndices,
-                List<TypeInfo> bucketColumnTypes,
-                BucketingVersion bucketingVersion,
-                int bucketCount,
-                int expectedBucket)
-        {
-            this.path = requireNonNull(path, "path is null");
-            this.bucketColumnIndices = requireNonNull(bucketColumnIndices, "bucketColumnIndices is null");
-            this.bucketColumnTypes = requireNonNull(bucketColumnTypes, "bucketColumnTypes is null");
-            this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
-            this.bucketCount = bucketCount;
-            this.expectedBucket = expectedBucket;
-            checkArgument(bucketColumnIndices.length == bucketColumnTypes.size(), "indices and types counts mismatch");
-        }
-
-        public void validate(Page page)
-        {
-            Page bucketColumnsPage = page.getColumns(bucketColumnIndices);
-            for (int position = 0; position < page.getPositionCount(); position += VALIDATION_STRIDE) {
-                int bucket = getHiveBucket(bucketingVersion, bucketCount, bucketColumnTypes, bucketColumnsPage, position);
-                if (bucket != expectedBucket) {
-                    throw new TrinoException(HIVE_INVALID_BUCKET_FILES,
-                            format("Hive table is corrupt. File '%s' is for bucket %s, but contains a row for bucket %s.", path, expectedBucket, bucket));
-                }
-            }
         }
     }
 }
