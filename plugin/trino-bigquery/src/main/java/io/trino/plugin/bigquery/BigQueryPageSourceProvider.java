@@ -74,14 +74,14 @@ public class BigQueryPageSourceProvider
         log.debug("createPageSource(transaction=%s, session=%s, split=%s, table=%s, columns=%s)", transaction, session, split, table, columns);
         BigQuerySplit bigQuerySplit = (BigQuerySplit) split;
 
-        Set<String> projectedColumnNames = bigQuerySplit.getColumns().stream().map(BigQueryColumnHandle::name).collect(Collectors.toSet());
+        Set<String> projectedColumnNames = bigQuerySplit.columns().stream().map(BigQueryColumnHandle::name).collect(Collectors.toSet());
         // because we apply logic (download only parent columns - BigQueryMetadata.projectParentColumns)
         // columns and split columns could differ
         columns.stream()
                 .map(BigQueryColumnHandle.class::cast)
                 .forEach(column -> checkArgument(projectedColumnNames.contains(column.name()), "projected columns should contain all reader columns"));
         if (bigQuerySplit.representsEmptyProjection()) {
-            return new BigQueryEmptyProjectionPageSource(bigQuerySplit.getEmptyRowsToGenerate());
+            return new BigQueryEmptyProjectionPageSource(bigQuerySplit.emptyRowsToGenerate());
         }
 
         // not empty projection
@@ -98,9 +98,9 @@ public class BigQueryPageSourceProvider
             BigQuerySplit split,
             List<BigQueryColumnHandle> columnHandles)
     {
-        return switch (split.getMode()) {
+        return switch (split.mode()) {
             case STORAGE -> createStoragePageSource(session, split, columnHandles);
-            case QUERY -> createQueryPageSource(session, table, columnHandles, split.getFilter());
+            case QUERY -> createQueryPageSource(session, table, columnHandles, split.filter());
         };
     }
 
