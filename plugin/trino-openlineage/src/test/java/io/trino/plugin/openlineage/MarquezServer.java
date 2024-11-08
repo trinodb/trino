@@ -81,7 +81,7 @@ public class MarquezServer
                 .withDatabaseName(POSTGRES_DB)
                 .withUsername(POSTGRES_USER)
                 .withPassword(POSTGRES_PASSWORD)
-                .withStartupTimeout(Duration.ofSeconds(360));
+                .withStartupTimeout(Duration.ofMinutes(6));
 
         this.dockerContainerPostgres.start();
         closer.register(this.dockerContainerPostgres::close);
@@ -104,7 +104,7 @@ public class MarquezServer
                 .waitingFor(Wait.forHttp(MARQUEZ_HEALTCHECK_API)
                         .forPort(MARQUEZ_ADMIN_PORT)
                         .forStatusCode(200))
-                .withStartupTimeout(Duration.ofSeconds(360));
+                .withStartupTimeout(Duration.ofMinutes(6));
 
         this.dockerContainerAPI.start();
         closer.register(this.dockerContainerAPI::close);
@@ -115,7 +115,7 @@ public class MarquezServer
                 .dependsOn(this.dockerContainerAPI)
                 .withEnv("MARQUEZ_HOST", MARQUEZ_HOST)
                 .withEnv("MARQUEZ_PORT", String.valueOf(MARQUEZ_PORT))
-                .withStartupTimeout(Duration.ofSeconds(360));
+                .withStartupTimeout(Duration.ofMinutes(6));
         this.dockerWebUIContainerAPI.start();
         closer.register(this.dockerWebUIContainerAPI::close);
     }
