@@ -139,9 +139,10 @@ implementation is used:
 * - `iceberg.table-statistics-enabled`
   - Enable [](/optimizer/statistics). The equivalent [catalog session
     property](/sql/set-session) is `statistics_enabled` for session specific
-    use. Set to `false` to disable statistics. Disabling statistics means that
-    [](/optimizer/cost-based-optimizations) cannot make better decisions about
-    the query plan.
+    use. Set to `false` to prevent statistics usage by the
+    [](/optimizer/cost-based-optimizations) to make better decisions about the
+    query plan and therefore improve query processing performance. Setting to
+    `false` is not recommended and does not disable statistics gathering.
   - `true`
 * - `iceberg.extended-statistics.enabled`
   - Enable statistics collection with [](/sql/analyze) and use of extended
