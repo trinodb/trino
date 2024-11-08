@@ -478,7 +478,7 @@ public class BigQueryMetadata
     protected <T, R> Stream<R> processInParallel(List<T> list, Function<T, R> function)
     {
         if (list.size() == 1) {
-            return Stream.of(function.apply(list.get(0)));
+            return Stream.of(function.apply(list.getFirst()));
         }
 
         List<ListenableFuture<R>> futures = list.stream()
