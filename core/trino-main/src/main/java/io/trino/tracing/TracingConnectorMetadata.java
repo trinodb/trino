@@ -771,6 +771,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateCaseColumns, RetryMode retryMode)
+    {
+        Span span = startSpan("beginMerge", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.beginMerge(session, tableHandle, updateCaseColumns, retryMode);
+        }
+    }
+
+    @Override
     public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         Span span = startSpan("finishMerge", tableHandle.getTableHandle());

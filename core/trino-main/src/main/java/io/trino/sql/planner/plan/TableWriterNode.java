@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.Session;
 import io.trino.metadata.InsertTableHandle;
@@ -731,6 +732,7 @@ public class TableWriterNode
         private final SchemaTableName schemaTableName;
         private final MergeParadigmAndTypes mergeParadigmAndTypes;
         private final List<TableHandle> sourceTableHandles;
+        private final Multimap<Integer, ColumnHandle> updateCaseColumnHandles;
 
         @JsonCreator
         public MergeTarget(
@@ -738,13 +740,15 @@ public class TableWriterNode
                 @JsonProperty("mergeHandle") Optional<MergeHandle> mergeHandle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
                 @JsonProperty("mergeParadigmAndTypes") MergeParadigmAndTypes mergeParadigmAndTypes,
-                @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles)
+                @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles,
+                @JsonProperty("updateCaseColumnHandles") Multimap<Integer, ColumnHandle> updateCaseColumnHandles)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.mergeHandle = requireNonNull(mergeHandle, "mergeHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.mergeParadigmAndTypes = requireNonNull(mergeParadigmAndTypes, "mergeElements is null");
             this.sourceTableHandles = ImmutableList.copyOf(requireNonNull(sourceTableHandles, "sourceTableHandles is null"));
+            this.updateCaseColumnHandles = requireNonNull(updateCaseColumnHandles, "updateCaseColumnHandles is null");
         }
 
         @JsonProperty
@@ -799,6 +803,12 @@ public class TableWriterNode
         public List<TableHandle> getSourceTableHandles()
         {
             return sourceTableHandles;
+        }
+
+        @JsonProperty
+        public Multimap<Integer, ColumnHandle> getUpdateCaseColumnHandles()
+        {
+            return updateCaseColumnHandles;
         }
     }
 
