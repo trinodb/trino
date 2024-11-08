@@ -4147,14 +4147,6 @@ public abstract class BaseConnectorTest
             // comment deleted
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS NULL");
             assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo(null);
-
-            // comment set to non-empty value before verifying setting empty comment
-            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'updated comment'");
-            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo("updated comment");
-
-            // comment set to empty or deleted
-            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS ''");
-            assertThat(getTableComment(catalogName, schemaName, table.getName())).isIn("", null); // Some storages do not preserve empty comment
         }
 
         String tableName = "test_comment_" + randomNameSuffix();
@@ -4162,6 +4154,10 @@ public abstract class BaseConnectorTest
             // comment set when creating a table
             assertUpdate("CREATE TABLE " + tableName + "(key integer) COMMENT 'new table comment'");
             assertThat(getTableComment(catalogName, schemaName, tableName)).isEqualTo("new table comment");
+
+            // comment set to empty or deleted
+            assertUpdate("COMMENT ON TABLE " + tableName + " IS ''");
+            assertThat(getTableComment(catalogName, schemaName, tableName)).isIn("", null); // Some storages do not preserve empty comment
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
