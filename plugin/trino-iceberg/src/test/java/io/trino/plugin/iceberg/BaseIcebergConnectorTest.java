@@ -1062,7 +1062,7 @@ public abstract class BaseIcebergConnectorTest
                 "\\QUnable to parse partitioning value: Cannot partition by non-primitive source field: struct<3: child: optional string>");
         assertQueryFails(
                 "CREATE TABLE test_partitioned_table_nested_field_inside_array (parent ARRAY(ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"parent.child\"'])",
-                "\\QPartitioning field [parent.child] cannot be contained in a array");
+                "\\QPartitioning field [parent.element.child] cannot be contained in a array");
         assertQueryFails(
                 "CREATE TABLE test_partitioned_table_nested_field_inside_map (parent MAP(ROW(child INTEGER), ARRAY(VARCHAR))) WITH (partitioning = ARRAY['\"parent.key.child\"'])",
                 "\\QPartitioning field [parent.key.child] cannot be contained in a map");

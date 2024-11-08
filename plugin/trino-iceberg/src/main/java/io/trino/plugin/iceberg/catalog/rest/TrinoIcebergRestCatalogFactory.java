@@ -100,6 +100,7 @@ public class TrinoIcebergRestCatalogFactory
             prefix.ifPresent(prefix -> properties.put("prefix", prefix));
             properties.put("trino-version", trinoVersion);
             properties.putAll(securityProperties.get());
+            properties.put("view-endpoints-supported", "true");
 
             if (vendedCredentialsEnabled) {
                 properties.put("header.X-Iceberg-Access-Delegation", "vended-credentials");

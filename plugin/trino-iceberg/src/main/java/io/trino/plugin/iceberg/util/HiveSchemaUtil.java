@@ -41,6 +41,7 @@ public final class HiveSchemaUtil
             case DATE -> "date";
             case TIME, STRING, UUID -> "string";
             case TIMESTAMP -> "timestamp";
+            case TIMESTAMP_NANO -> throw new UnsupportedOperationException();
             case FIXED, BINARY -> "binary";
             case DECIMAL -> "decimal(%s,%s)".formatted(((DecimalType) type).precision(), ((DecimalType) type).scale());
             case LIST -> "array<%s>".formatted(convert(type.asListType().elementType()));
