@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
@@ -137,11 +136,7 @@ public class TestIcebergMinioOrcConnectorTest
             fileSystem.newOutputFile(Location.of(orcFilePath)).createOrOverwrite(orcFileData);
             fileSystem.deleteFiles(List.of(Location.of(orcFilePath.replaceAll("/([^/]*)$", ".$1.crc"))));
 
-            Session ignoreFileSizeFromMetadata = Session.builder(getSession())
-                    // The replaced and replacing file sizes may be different
-                    .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "use_file_size_from_metadata", "false")
-                    .build();
-            assertThat(query(ignoreFileSizeFromMetadata, "TABLE " + table.getName()))
+            assertThat(query("TABLE " + table.getName()))
                     .matches("VALUES NULL, " + expectedValue);
         }
     }

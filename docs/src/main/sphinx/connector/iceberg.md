@@ -107,12 +107,6 @@ implementation is used:
       * `ZSTD`
       * `GZIP`
   - `ZSTD`
-* - `iceberg.use-file-size-from-metadata`
-  - Read file sizes from metadata instead of file system. This property must
-    only be used as a workaround for [this
-    issue](https://github.com/apache/iceberg/issues/1980). The problem was fixed
-    in Iceberg version 0.11.0.
-  - `true`
 * - `iceberg.max-partitions-per-writer`
   - Maximum number of partitions handled per writer.
   - `100`

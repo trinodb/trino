@@ -88,6 +88,7 @@ public class TestIcebergAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("InputFile.length", DATA), 2)
                         .addCopies(new CacheOperation("Input.readFully", DATA), 2)
                         .addCopies(new CacheOperation("Alluxio.readCached", DATA), 2)
                         .addCopies(new CacheOperation("Alluxio.writeCache", DATA), 2)
@@ -105,6 +106,7 @@ public class TestIcebergAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("InputFile.length", DATA), 2)
                         .addCopies(new CacheOperation("Alluxio.readCached", DATA), 2)
                         .add(new CacheOperation("Alluxio.readCached", METADATA_JSON))
                         .add(new CacheOperation("InputFile.length", METADATA_JSON))
@@ -120,6 +122,7 @@ public class TestIcebergAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("InputFile.length", DATA), 5)
                         .addCopies(new CacheOperation("Input.readFully", DATA), 3)
                         .addCopies(new CacheOperation("Alluxio.readCached", DATA), 5)
                         .addCopies(new CacheOperation("Alluxio.writeCache", DATA), 3)
@@ -136,6 +139,7 @@ public class TestIcebergAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("InputFile.length", DATA), 5)
                         .addCopies(new CacheOperation("Alluxio.readCached", DATA), 5)
                         .addCopies(new CacheOperation("Alluxio.readCached", METADATA_JSON), 2)
                         .addCopies(new CacheOperation("Alluxio.readCached", SNAPSHOT), 2)

@@ -155,7 +155,6 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFilters
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetIgnoreStatistics;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetVectorizedDecodingEnabled;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergSplitSource.partitionMatchesPredicate;
@@ -338,9 +337,7 @@ public class IcebergPageSourceProvider
         }
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), fileIoProperties);
-        TrinoInputFile inputfile = isUseFileSizeFromMetadata(session)
-                ? fileSystem.newInputFile(Location.of(path), fileSize)
-                : fileSystem.newInputFile(Location.of(path));
+        TrinoInputFile inputfile = fileSystem.newInputFile(Location.of(path));
 
         try {
             if (effectivePredicate.isAll() &&

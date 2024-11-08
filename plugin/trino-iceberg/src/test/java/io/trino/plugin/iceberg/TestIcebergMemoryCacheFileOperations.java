@@ -82,6 +82,8 @@ public class TestIcebergMemoryCacheFileOperations
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("Input.readTail", DATA), 2)
+                        .addCopies(new CacheOperation("InputFile.length", DATA), 2)
+                        .addCopies(new CacheOperation("FileSystemCache.cacheLength", DATA), 2)
                         .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 2)
                         .add(new CacheOperation("Input.readTail", METADATA_JSON))
                         .add(new CacheOperation("InputFile.length", METADATA_JSON))
@@ -96,6 +98,7 @@ public class TestIcebergMemoryCacheFileOperations
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 2)
+                        .addCopies(new CacheOperation("FileSystemCache.cacheLength", DATA), 2)
                         .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
                         .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
@@ -110,7 +113,9 @@ public class TestIcebergMemoryCacheFileOperations
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("Input.readTail", DATA), 3)
+                        .addCopies(new CacheOperation("InputFile.length", DATA), 3)
                         .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 5)
+                        .addCopies(new CacheOperation("FileSystemCache.cacheLength", DATA), 5)
                         .add(new CacheOperation("Input.readTail", METADATA_JSON))
                         .add(new CacheOperation("InputFile.length", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
@@ -124,6 +129,7 @@ public class TestIcebergMemoryCacheFileOperations
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 5)
+                        .addCopies(new CacheOperation("FileSystemCache.cacheLength", DATA), 5)
                         .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
                         .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
@@ -146,7 +152,9 @@ public class TestIcebergMemoryCacheFileOperations
                         .add(new CacheOperation("FileSystemCache.cacheStream", MANIFEST))
                         .add(new CacheOperation("Input.readTail", MANIFEST))
                         .add(new CacheOperation("FileSystemCache.cacheInput", DATA))
+                        .add(new CacheOperation("FileSystemCache.cacheLength", DATA))
                         .add(new CacheOperation("Input.readTail", DATA))
+                        .add(new CacheOperation("InputFile.length", DATA))
                         .build());
 
         assertFileSystemAccesses(
@@ -157,6 +165,7 @@ public class TestIcebergMemoryCacheFileOperations
                         .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
                         .add(new CacheOperation("FileSystemCache.cacheStream", MANIFEST))
                         .add(new CacheOperation("FileSystemCache.cacheInput", DATA))
+                        .add(new CacheOperation("FileSystemCache.cacheLength", DATA))
                         .build());
     }
 
@@ -176,7 +185,9 @@ public class TestIcebergMemoryCacheFileOperations
                         .addCopies(new CacheOperation("Input.readTail", MANIFEST), 2)
                         .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 4)
                         .addCopies(new CacheOperation("Input.readTail", DATA), 2)
+                        .addCopies(new CacheOperation("InputFile.length", DATA), 2)
                         .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 2)
+                        .addCopies(new CacheOperation("FileSystemCache.cacheLength", DATA), 2)
                         .build());
 
         assertFileSystemAccesses("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
@@ -186,6 +197,7 @@ public class TestIcebergMemoryCacheFileOperations
                         .addCopies(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT), 2)
                         .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 4)
                         .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 2)
+                        .addCopies(new CacheOperation("FileSystemCache.cacheLength", DATA), 2)
                         .build());
     }
 

@@ -4533,16 +4533,7 @@ public abstract class BaseIcebergConnectorTest
         }
         fileSystem.newOutputFile(Location.of(manifestFile)).createOrOverwrite(out.toByteArray());
 
-        // Ignoring Iceberg provided file size makes the query succeed
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("iceberg", "use_file_size_from_metadata", "false")
-                .build();
-        assertQuery(session, "SELECT * FROM test_iceberg_file_size", "VALUES (123), (456), (758)");
-
-        // Using Iceberg provided file size fails the query
-        assertQueryFails(
-                "SELECT * FROM test_iceberg_file_size",
-                "(Malformed ORC file\\. Invalid file metadata.*)|(.*Malformed Parquet file.*)");
+        assertQuery("SELECT * FROM test_iceberg_file_size", "VALUES (123), (456), (758)");
 
         assertUpdate("DROP TABLE test_iceberg_file_size");
     }
