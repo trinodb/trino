@@ -61,7 +61,7 @@
         <dependency>
             <groupId>io.openlineage</groupId>
             <artifactId>openlineage-java</artifactId>
-            <version>1.23.0</version>
+            <version>1.24.2</version>
             <!-- the reason for exclusion is issue while building plugin manifesting -->
             <!-- in following error: -->
             <!-- Found duplicate and different classes in -->
