@@ -54,11 +54,6 @@ public class FileSlice
         return baseFile;
     }
 
-    public boolean isEmpty()
-    {
-        return (baseFile == null) && logFiles.isEmpty();
-    }
-
     @Override
     public String toString()
     {

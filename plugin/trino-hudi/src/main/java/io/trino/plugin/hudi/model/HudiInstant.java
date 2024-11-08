@@ -132,52 +132,50 @@ public class HudiInstant
                     : isRequested() ? HudiTimeline.makeRequestedCommitFileName(timestamp)
                     : HudiTimeline.makeCommitFileName(timestamp);
         }
-        else if (HudiTimeline.CLEAN_ACTION.equals(action)) {
+        if (HudiTimeline.CLEAN_ACTION.equals(action)) {
             return isInflight() ? HudiTimeline.makeInflightCleanerFileName(timestamp)
                     : isRequested() ? HudiTimeline.makeRequestedCleanerFileName(timestamp)
                     : HudiTimeline.makeCleanerFileName(timestamp);
         }
-        else if (HudiTimeline.ROLLBACK_ACTION.equals(action)) {
+        if (HudiTimeline.ROLLBACK_ACTION.equals(action)) {
             return isInflight() ? HudiTimeline.makeInflightRollbackFileName(timestamp)
                     : isRequested() ? HudiTimeline.makeRequestedRollbackFileName(timestamp)
                     : HudiTimeline.makeRollbackFileName(timestamp);
         }
-        else if (HudiTimeline.SAVEPOINT_ACTION.equals(action)) {
+        if (HudiTimeline.SAVEPOINT_ACTION.equals(action)) {
             return isInflight() ? HudiTimeline.makeInflightSavePointFileName(timestamp)
                     : HudiTimeline.makeSavePointFileName(timestamp);
         }
-        else if (HudiTimeline.DELTA_COMMIT_ACTION.equals(action)) {
+        if (HudiTimeline.DELTA_COMMIT_ACTION.equals(action)) {
             return isInflight() ? HudiTimeline.makeInflightDeltaFileName(timestamp)
                     : isRequested() ? HudiTimeline.makeRequestedDeltaFileName(timestamp)
                     : HudiTimeline.makeDeltaFileName(timestamp);
         }
-        else if (HudiTimeline.COMPACTION_ACTION.equals(action)) {
+        if (HudiTimeline.COMPACTION_ACTION.equals(action)) {
             if (isInflight()) {
                 return HudiTimeline.makeInflightCompactionFileName(timestamp);
             }
-            else if (isRequested()) {
+            if (isRequested()) {
                 return HudiTimeline.makeRequestedCompactionFileName(timestamp);
             }
-            else {
-                return HudiTimeline.makeCommitFileName(timestamp);
-            }
+            return HudiTimeline.makeCommitFileName(timestamp);
         }
-        else if (HudiTimeline.RESTORE_ACTION.equals(action)) {
+        if (HudiTimeline.RESTORE_ACTION.equals(action)) {
             return isInflight() ? HudiTimeline.makeInflightRestoreFileName(timestamp)
                     : isRequested() ? HudiTimeline.makeRequestedRestoreFileName(timestamp)
                     : HudiTimeline.makeRestoreFileName(timestamp);
         }
-        else if (HudiTimeline.REPLACE_COMMIT_ACTION.equals(action)) {
+        if (HudiTimeline.REPLACE_COMMIT_ACTION.equals(action)) {
             return isInflight() ? HudiTimeline.makeInflightReplaceFileName(timestamp)
                     : isRequested() ? HudiTimeline.makeRequestedReplaceFileName(timestamp)
                     : HudiTimeline.makeReplaceFileName(timestamp);
         }
-        else if (HudiTimeline.INDEXING_ACTION.equals(action)) {
+        if (HudiTimeline.INDEXING_ACTION.equals(action)) {
             return isInflight() ? HudiTimeline.makeInflightIndexFileName(timestamp)
                     : isRequested() ? HudiTimeline.makeRequestedIndexFileName(timestamp)
                     : HudiTimeline.makeIndexCommitFileName(timestamp);
         }
-        else if (HudiTimeline.SCHEMA_COMMIT_ACTION.equals(action)) {
+        if (HudiTimeline.SCHEMA_COMMIT_ACTION.equals(action)) {
             return isInflight() ? HudiTimeline.makeInflightSchemaFileName(timestamp)
                     : isRequested() ? HudiTimeline.makeRequestSchemaFileName(timestamp)
                     : HudiTimeline.makeSchemaFileName(timestamp);
