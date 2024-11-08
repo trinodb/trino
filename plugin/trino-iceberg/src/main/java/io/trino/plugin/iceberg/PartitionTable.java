@@ -48,11 +48,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
+import static io.trino.plugin.iceberg.PartitionTransforms.partitionNameTransform;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
@@ -166,15 +168,34 @@ public class PartitionTable
         if (fields.isEmpty()) {
             return Optional.empty();
         }
-        List<RowType.Field> partitionFields = fields.stream()
-                .map(field -> RowType.field(
-                        field.name(),
-                        toTrinoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)))
-                .collect(toImmutableList());
+
+        Map<Integer, String> fieldNames = TypeUtil.indexNameById(icebergTable.schema().asStruct());
+        ImmutableList.Builder<RowType.Field> fieldsBuilder = ImmutableList.builder();
+        Map<String, Integer> nameSuffix = new HashMap<>();
+        schema.columns().stream().map(NestedField::name).forEach(name -> nameSuffix.put(name, 1));
+
+        for (PartitionField field : fields) {
+            String sourceName = fieldNames.getOrDefault(field.sourceId(), field.name());
+            String targetName;
+            if (field.transform().isIdentity()) {
+                checkState(schema.findField(sourceName).fieldId() == field.sourceId(), "Partition field %s is not identity", field);
+                targetName = partitionNameTransform(field.transform(), sourceName);
+            }
+            else {
+                targetName = partitionNameTransform(field.transform(), sourceName);
+                int suffix = nameSuffix.compute(targetName, (_, v) -> v == null ? 1 : v + 1);
+                if (suffix > 1) {
+                    targetName = targetName + "_" + suffix;
+                }
+            }
+            io.trino.spi.type.Type type = toTrinoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager);
+            fieldsBuilder.add(RowType.field(targetName, type));
+        }
+
         List<Integer> fieldIds = fields.stream()
                 .map(PartitionField::fieldId)
                 .collect(toImmutableList());
-        return Optional.of(new IcebergPartitionColumn(RowType.from(partitionFields), fieldIds));
+        return Optional.of(new IcebergPartitionColumn(RowType.from(fieldsBuilder.build()), fieldIds));
     }
 
     private Optional<RowType> getMetricsColumnType(List<NestedField> columns)

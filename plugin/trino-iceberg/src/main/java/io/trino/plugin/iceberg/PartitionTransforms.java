@@ -28,6 +28,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.transforms.Transform;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
@@ -158,6 +159,41 @@ public final class PartitionTransforms
         }
 
         throw new UnsupportedOperationException("Unsupported partition transform: " + field);
+    }
+
+    public static String partitionNameTransform(Transform<?, ?> transform, String columnName)
+    {
+        String transformString = transform.toString();
+        switch (transformString) {
+            case "identity" -> {
+                return columnName;
+            }
+            case "void" -> {
+                return columnName + "_null";
+            }
+            case "year" -> {
+                return columnName + "_year";
+            }
+            case "month" -> {
+                return columnName + "_month";
+            }
+            case "day" -> {
+                return columnName + "_day";
+            }
+            case "hour" -> {
+                return columnName + "_hour";
+            }
+        }
+
+        Matcher matcher = BUCKET_PATTERN.matcher(transformString);
+        if (matcher.matches()) {
+            return columnName + "_bucket";
+        }
+        matcher = TRUNCATE_PATTERN.matcher(transformString);
+        if (matcher.matches()) {
+            return columnName + "_trunc";
+        }
+        throw new UnsupportedOperationException("Unsupported partition transform: " + transform);
     }
 
     private static ColumnTransform identity(Type type)

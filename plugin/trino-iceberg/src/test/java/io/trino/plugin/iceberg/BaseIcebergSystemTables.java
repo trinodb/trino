@@ -35,8 +35,14 @@ import java.util.function.Function;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -379,6 +385,73 @@ public abstract class BaseIcebergSystemTables
         assertQuery("SELECT count(*) FROM test_schema.\"test_table_with_delete$files\" WHERE content = " + FileContent.EQUALITY_DELETES.id(), "VALUES 0");
 
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_with_delete");
+    }
+
+    @Test
+    public void testPartitionRename()
+    {
+        String tableName = "test_partition_rename_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['par1', '\"par2.f1\"']) AS SELECT 1 as v, 11 as par1, CAST(ROW(21, 22) AS ROW(f1 integer, f2 integer)) as par2", 1);
+
+        assertQuerySucceeds("ALTER TABLE " + tableName + " RENAME COLUMN par1 to par1_renamed");
+        assertQuery("SELECT partition.par1_renamed FROM \"" + tableName + "$partitions\"", "VALUES 11");
+
+        assertQuerySucceeds("ALTER TABLE " + tableName + " RENAME COLUMN par2 to par2_renamed");
+        assertQuery("SELECT partition.\"par2_renamed.f1\" FROM \"" + tableName + "$partitions\"", "VALUES 21");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testBucketingRename()
+    {
+        String tableName = "test_bucketing_rename_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['bucket(par, 4)']) AS SELECT 1 as v, 11 as par", 1);
+
+        assertQuery("SELECT partition.par_bucket FROM \"" + tableName + "$partitions\"", "VALUES 3");
+        assertQuerySucceeds("ALTER TABLE " + tableName + " RENAME COLUMN par to par_renamed");
+        assertQuery("SELECT partition.par_renamed_bucket FROM \"" + tableName + "$partitions\"", "VALUES 3");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testPartitionColumns()
+    {
+        String tableName = "test_partition_columns_" + randomNameSuffix();
+        assertUpdate(String.format("""
+            CREATE TABLE %s WITH (partitioning = ARRAY[
+                'c1',
+                '"r1.f1"',
+                'year(d1)',
+                'month(d2)',
+                'day(d3)',
+                'hour(d4)',
+                'bucket(b1, 4)',
+                'truncate(t1, 2)']) AS
+            SELECT
+                CAST('c1' AS VARCHAR) as c1
+                , CAST(ROW(1, 2) AS ROW(f1 integer, f2 integer)) as r1
+                , CAST('2022-01-01 01:01:01' AS TIMESTAMP) as d1
+                , CAST('2022-01-01 01:01:01' AS TIMESTAMP) as d2
+                , CAST('2022-01-01 01:01:01' AS TIMESTAMP) as d3
+                , CAST('2022-01-01 01:01:01' AS TIMESTAMP) as d4
+                , 1 as b1
+                , CAST('12345678' AS VARCHAR) as t1""", tableName), 1);
+
+
+        assertThat(query("SELECT partition FROM \"" + tableName + "$partitions\""))
+                .result()
+                .hasTypes(ImmutableList.of(rowType(
+                        field("c1", VARCHAR),
+                        field("r1.f1", INTEGER),
+                        field("d1_year", INTEGER),
+                        field("d2_month", INTEGER),
+                        field("d3_day", DATE),
+                        field("d4_hour", INTEGER),
+                        field("b1_bucket", INTEGER),
+                        field("t1_trunc", VARCHAR))))
+                .matches("SELECT CAST(ROW('c1', 1, 52, 624, DATE '2022-01-01', 455833, 0, '12') AS ROW(c1 varchar, \"r1.f1\" integer, d1_year integer, d2_month integer, d3_day date, d4_hour integer, b1_bucket integer, t1_trunc varchar))");
     }
 
     private Long nanCount(long value)

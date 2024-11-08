@@ -17,6 +17,7 @@ import io.trino.spi.TrinoException;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.transforms.Transforms;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -25,6 +26,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.iceberg.PartitionTransforms.partitionNameTransform;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -97,31 +99,33 @@ public final class PartitionFields
                 }) ||
                 tryMatch(field, YEAR_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
-                    builder.year(column, column + "_year" + suffix);
+                    builder.year(column, partitionNameTransform(Transforms.year(), column) + suffix);
                 }) ||
                 tryMatch(field, MONTH_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
-                    builder.month(column, column + "_month" + suffix);
+                    builder.month(column, partitionNameTransform(Transforms.month(), column) + suffix);
                 }) ||
                 tryMatch(field, DAY_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
-                    builder.day(column, column + "_day" + suffix);
+                    builder.day(column, partitionNameTransform(Transforms.day(), column) + suffix);
                 }) ||
                 tryMatch(field, HOUR_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
-                    builder.hour(column, column + "_hour" + suffix);
+                    builder.hour(column, partitionNameTransform(Transforms.hour(), column) + suffix);
                 }) ||
                 tryMatch(field, BUCKET_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
-                    builder.bucket(column, parseInt(match.group(2)), column + "_bucket" + suffix);
+                    int bucketCount = parseInt(match.group(2));
+                    builder.bucket(column, bucketCount, partitionNameTransform(Transforms.bucket(bucketCount), column) + suffix);
                 }) ||
                 tryMatch(field, TRUNCATE_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
-                    builder.truncate(column, parseInt(match.group(2)), column + "_trunc" + suffix);
+                    int width = parseInt(match.group(2));
+                    builder.truncate(column, width, partitionNameTransform(Transforms.truncate(width), column) + suffix);
                 }) ||
                 tryMatch(field, VOID_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
-                    builder.alwaysNull(column, column + "_null" + suffix);
+                    builder.alwaysNull(column, partitionNameTransform(Transforms.alwaysNull(), column) + suffix);
                 });
         if (!matched) {
             throw new IllegalArgumentException("Invalid partition field declaration: " + field);
