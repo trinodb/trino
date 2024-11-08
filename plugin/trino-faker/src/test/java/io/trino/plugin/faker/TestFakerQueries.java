@@ -19,6 +19,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestFakerQueries
         extends AbstractTestQueryFramework
@@ -36,6 +37,31 @@ final class TestFakerQueries
         assertQuery("SHOW SCHEMAS FROM faker", "VALUES 'default', 'information_schema'");
         assertUpdate("CREATE TABLE faker.default.test (id INTEGER, name VARCHAR)");
         assertTableColumnNames("faker.default.test", "id", "name");
+    }
+
+    @Test
+    void testColumnComment()
+    {
+        assertUpdate("CREATE TABLE faker.default.comments (id INTEGER, name VARCHAR)");
+        assertUpdate("COMMENT ON COLUMN comments.name IS 'comment text'");
+
+        assertTableColumnNames("faker.default.comments", "id", "name");
+
+        assertUpdate("DROP TABLE faker.default.comments");
+    }
+
+    @Test
+    void testCannotCommentRowId()
+    {
+        assertUpdate("CREATE TABLE faker.default.cannot_comment (id INTEGER, name VARCHAR)");
+        @Language("SQL")
+        String testQuery = "COMMENT ON COLUMN \"cannot_comment\".\"$row_id\" IS 'comment text'";
+
+        assertThatThrownBy(() -> getQueryRunner().execute(testQuery))
+                .as("Query: " + testQuery)
+                .hasMessageContaining("Cannot set comment for $row_id column");
+
+        assertUpdate("DROP TABLE faker.default.cannot_comment");
     }
 
     @Test

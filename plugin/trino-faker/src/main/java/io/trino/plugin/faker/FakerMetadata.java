@@ -261,10 +261,10 @@ public class FakerMetadata
         TableInfo oldInfo = tables.get(tableName);
         List<ColumnInfo> columns = oldInfo.columns().stream()
                 .map(columnInfo -> {
-                    if (ROW_ID_COLUMN_NAME.equals(columnInfo.handle().name())) {
-                        throw new IllegalArgumentException(String.format("Cannot set comment for %s column", ROW_ID_COLUMN_NAME));
-                    }
                     if (columnInfo.handle().equals(column)) {
+                        if (ROW_ID_COLUMN_NAME.equals(columnInfo.handle().name())) {
+                            throw new IllegalArgumentException(String.format("Cannot set comment for %s column", ROW_ID_COLUMN_NAME));
+                        }
                         return columnInfo.withComment(comment);
                     }
                     return columnInfo;
