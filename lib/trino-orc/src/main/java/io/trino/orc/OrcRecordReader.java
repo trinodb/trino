@@ -62,6 +62,7 @@ import java.util.function.ObjLongConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
@@ -83,6 +84,7 @@ public class OrcRecordReader
 {
     private static final int INSTANCE_SIZE = instanceSize(OrcRecordReader.class);
 
+    private final List<OrcColumn> columns;
     private final OrcDataSource orcDataSource;
     private final boolean appendRowNumberColumn;
 
@@ -160,7 +162,7 @@ public class OrcRecordReader
             FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
-        requireNonNull(readColumns, "readColumns is null");
+        this.columns = requireNonNull(readColumns, "readColumns is null");
         checkArgument(readColumns.stream().distinct().count() == readColumns.size(), "readColumns contains duplicate entries");
         requireNonNull(readTypes, "readTypes is null");
         checkArgument(readColumns.size() == readTypes.size(), "readColumns and readTypes must have the same size");
@@ -311,11 +313,6 @@ public class OrcRecordReader
             }
         }
         return new CachingOrcDataSource(dataSource, createTinyStripesRangeFinder(stripes, maxMergeDistance, tinyStripeThreshold));
-    }
-
-    public int getColumnCount()
-    {
-        return columnReaders.length + (appendRowNumberColumn ? 1 : 0);
     }
 
     /**
@@ -744,6 +741,16 @@ public class OrcRecordReader
             stripeStatisticsValidation.get().addPage(page);
             fileStatisticsValidation.get().addPage(page);
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("orcDataSource", orcDataSource.getId())
+                .add("columns", columns)
+                .add("appendRowNumberColumn", appendRowNumberColumn)
+                .toString();
     }
 
     private static ColumnReader[] createColumnReaders(

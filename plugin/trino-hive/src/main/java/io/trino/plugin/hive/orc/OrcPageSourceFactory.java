@@ -39,17 +39,20 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.Schema;
+import io.trino.plugin.hive.TransformConnectorPageSource;
 import io.trino.plugin.hive.acid.AcidSchema;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.TypeCoercer;
-import io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -58,10 +61,12 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -69,6 +74,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.hive.formats.HiveClassNames.ORC_SERDE_CLASS;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -83,7 +89,10 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
-import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.trino.plugin.hive.HivePageSourceProvider.BUCKET_CHANNEL;
+import static io.trino.plugin.hive.HivePageSourceProvider.ORIGINAL_TRANSACTION_CHANNEL;
+import static io.trino.plugin.hive.HivePageSourceProvider.ROW_ID_CHANNEL;
+import static io.trino.plugin.hive.HivePageSourceProvider.getProjection;
 import static io.trino.plugin.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
 import static io.trino.plugin.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getOrcMaxMergeDistance;
@@ -93,11 +102,13 @@ import static io.trino.plugin.hive.HiveSessionProperties.getOrcTinyStripeThresho
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
-import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.mergedRowColumns;
+import static io.trino.plugin.hive.orc.OrcFileWriter.computeBucketValue;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
 import static io.trino.plugin.hive.orc.OrcTypeTranslator.createCoercer;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.block.RowBlock.fromFieldBlocks;
+import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
@@ -111,6 +122,7 @@ import static java.util.stream.Collectors.toList;
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
 {
+    private static final Block ORIGINAL_FILE_TRANSACTION_ID_BLOCK = nativeValueToBlock(BIGINT, 0L);
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final OrcReaderOptions orcReaderOptions;
     private final TrinoFileSystemFactory fileSystemFactory;
@@ -181,15 +193,6 @@ public class OrcPageSourceFactory
             return Optional.empty();
         }
 
-        List<HiveColumnHandle> readerColumnHandles = columns;
-
-        Optional<ReaderColumns> readerColumns = projectBaseColumns(columns);
-        if (readerColumns.isPresent()) {
-            readerColumnHandles = readerColumns.get().get().stream()
-                    .map(HiveColumnHandle.class::cast)
-                    .toList();
-        }
-
         ConnectorPageSource orcPageSource = createOrcPageSource(
                 session,
                 path,
@@ -197,7 +200,6 @@ public class OrcPageSourceFactory
                 length,
                 estimatedFileSize,
                 fileModifiedTime,
-                readerColumnHandles,
                 columns,
                 isUseOrcColumnNames(session) || schema.isFullAcidTable(),
                 schema.isFullAcidTable(),
@@ -218,7 +220,7 @@ public class OrcPageSourceFactory
                 transaction,
                 stats);
 
-        return Optional.of(new ReaderPageSource(orcPageSource, readerColumns));
+        return Optional.of(new ReaderPageSource(orcPageSource, Optional.empty()));
     }
 
     private ConnectorPageSource createOrcPageSource(
@@ -228,7 +230,6 @@ public class OrcPageSourceFactory
             long length,
             long estimatedFileSize,
             long fileModifiedTime,
-            List<HiveColumnHandle> baseColumns,
             List<HiveColumnHandle> columns,
             boolean useOrcColumnNames,
             boolean isFullAcid,
@@ -241,7 +242,7 @@ public class OrcPageSourceFactory
             AcidTransaction transaction,
             FileFormatDataSourceStats stats)
     {
-        for (HiveColumnHandle column : baseColumns) {
+        for (HiveColumnHandle column : columns) {
             checkArgument(column.getColumnType() == REGULAR, "column type must be regular: %s", column);
         }
         checkArgument(!effectivePredicate.isNone());
@@ -274,18 +275,17 @@ public class OrcPageSourceFactory
             }
 
             List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
-            int actualColumnCount = baseColumns.size() + (isFullAcid ? 3 : 0);
-            List<OrcColumn> fileReadColumns = new ArrayList<>(actualColumnCount);
-            List<Type> fileReadTypes = new ArrayList<>(actualColumnCount);
-            List<OrcReader.ProjectedLayout> fileReadLayouts = new ArrayList<>(actualColumnCount);
-            boolean originalFilesPresent = acidInfo.isPresent() && !acidInfo.get().getOriginalFiles().isEmpty();
+            List<OrcColumn> fileReadColumns = new ArrayList<>();
+            List<Type> fileReadTypes = new ArrayList<>();
+            List<OrcReader.ProjectedLayout> fileReadLayouts = new ArrayList<>();
+            boolean originalFilesPresent = acidInfo.isPresent() && hasOriginalFiles(acidInfo.get());
             if (isFullAcid && !originalFilesPresent) {
                 verifyAcidSchema(reader, path);
                 Map<String, OrcColumn> acidColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
 
                 fileColumns = ensureColumnNameConsistency(
                         requireNonNull(acidColumnsByName.get(AcidSchema.ACID_COLUMN_ROW_STRUCT.toLowerCase(ENGLISH))).getNestedColumns(),
-                        baseColumns);
+                        columns);
 
                 fileReadColumns.add(requireNonNull(acidColumnsByName.get(AcidSchema.ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH))));
                 fileReadTypes.add(BIGINT);
@@ -320,56 +320,111 @@ public class OrcPageSourceFactory
                     .setDomainCompactionThreshold(domainCompactionThreshold);
             Map<HiveColumnHandle, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                     .orElseThrow(() -> new IllegalArgumentException("Effective predicate is none"));
-            List<ColumnAdaptation> columnAdaptations = new ArrayList<>(baseColumns.size());
-            for (HiveColumnHandle baseColumn : baseColumns) {
-                OrcColumn orcColumn = null;
-                OrcReader.ProjectedLayout projectedLayout = null;
-                Map<Optional<HiveColumnProjectionInfo>, Domain> columnDomains = null;
+            TransformConnectorPageSource.Builder transforms = TransformConnectorPageSource.builder();
+            Map<Object, Integer> baseColumnKeyToOrdinal = new HashMap<>();
+            for (HiveColumnHandle column : columns) {
+                HiveColumnHandle baseColumn = column.getBaseColumn();
+                Integer ordinal = baseColumnKeyToOrdinal.get(useOrcColumnNames ? column.getBaseColumnName() : column.getBaseHiveColumnIndex());
+                if (ordinal == null) {
+                    OrcColumn orcBaseColumn = null;
+                    OrcReader.ProjectedLayout projectedLayout = null;
+                    Map<Optional<HiveColumnProjectionInfo>, Domain> columnDomains = null;
+                    if (useOrcColumnNames) {
+                        String columnName = baseColumn.getName().toLowerCase(ENGLISH);
+                        orcBaseColumn = fileColumnsByName.get(columnName);
+                        if (orcBaseColumn != null) {
+                            projectedLayout = createProjectedLayout(orcBaseColumn, projectionsByBaseColumnKey.get(columnName));
+                            columnDomains = effectivePredicateDomains.entrySet().stream()
+                                    .filter(columnDomain -> columnDomain.getKey().getBaseColumnName().toLowerCase(ENGLISH).equals(columnName))
+                                    .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Map.Entry::getValue));
+                        }
+                    }
+                    else if (baseColumn.getBaseHiveColumnIndex() < fileColumns.size()) {
+                        orcBaseColumn = fileColumns.get(baseColumn.getBaseHiveColumnIndex());
+                        if (orcBaseColumn != null) {
+                            projectedLayout = createProjectedLayout(orcBaseColumn, projectionsByBaseColumnKey.get(baseColumn.getBaseHiveColumnIndex()));
+                            columnDomains = effectivePredicateDomains.entrySet().stream()
+                                    .filter(columnDomain -> columnDomain.getKey().getBaseHiveColumnIndex() == baseColumn.getBaseHiveColumnIndex())
+                                    .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Map.Entry::getValue));
+                        }
+                    }
 
-                if (useOrcColumnNames) {
-                    String columnName = baseColumn.getName().toLowerCase(ENGLISH);
-                    orcColumn = fileColumnsByName.get(columnName);
-                    if (orcColumn != null) {
-                        projectedLayout = createProjectedLayout(orcColumn, projectionsByBaseColumnKey.get(columnName));
-                        columnDomains = effectivePredicateDomains.entrySet().stream()
-                                .filter(columnDomain -> columnDomain.getKey().getBaseColumnName().toLowerCase(ENGLISH).equals(columnName))
-                                .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Map.Entry::getValue));
+                    if (orcBaseColumn == null) {
+                        transforms.constantValue(column.getType().createNullBlock());
+                        continue;
+                    }
+
+                    ordinal = fileReadColumns.size();
+                    baseColumnKeyToOrdinal.put(useOrcColumnNames ? column.getBaseColumnName() : column.getBaseHiveColumnIndex(), ordinal);
+                    fileReadColumns.add(orcBaseColumn);
+                    fileReadLayouts.add(projectedLayout);
+                    // todo it should be possible to compute fileReadType without creating the coercer
+                    fileReadTypes.add(createCoercer(orcBaseColumn.getColumnType(), orcBaseColumn.getNestedColumns(), baseColumn.getType())
+                            .map(TypeCoercer::getFromType)
+                            .orElse(baseColumn.getType()));
+
+                    // Add predicates on top-level and nested columns
+                    for (Map.Entry<Optional<HiveColumnProjectionInfo>, Domain> columnDomain : columnDomains.entrySet()) {
+                        OrcColumn nestedColumn = getNestedColumn(orcBaseColumn, columnDomain.getKey());
+                        if (nestedColumn != null) {
+                            predicateBuilder.addColumn(nestedColumn.getColumnId(), columnDomain.getValue());
+                        }
                     }
                 }
-                else if (baseColumn.getBaseHiveColumnIndex() < fileColumns.size()) {
-                    orcColumn = fileColumns.get(baseColumn.getBaseHiveColumnIndex());
-                    if (orcColumn != null) {
-                        projectedLayout = createProjectedLayout(orcColumn, projectionsByBaseColumnKey.get(baseColumn.getBaseHiveColumnIndex()));
-                        columnDomains = effectivePredicateDomains.entrySet().stream()
-                                .filter(columnDomain -> columnDomain.getKey().getBaseHiveColumnIndex() == baseColumn.getBaseHiveColumnIndex())
-                                .collect(toImmutableMap(columnDomain -> columnDomain.getKey().getHiveColumnProjectionInfo(), Map.Entry::getValue));
-                    }
-                }
 
-                if (orcColumn == null) {
-                    columnAdaptations.add(ColumnAdaptation.nullColumn(baseColumn.getType()));
-                    continue;
-                }
-
-                int sourceIndex = fileReadColumns.size();
-                Optional<TypeCoercer<?, ?>> coercer = createCoercer(orcColumn.getColumnType(), orcColumn.getNestedColumns(), baseColumn.getType());
-                if (coercer.isPresent()) {
-                    fileReadTypes.add(coercer.get().getFromType());
-                    columnAdaptations.add(ColumnAdaptation.coercedColumn(sourceIndex, coercer.get()));
+                OrcColumn orcBaseColumn = fileReadColumns.get(ordinal);
+                if (column.isBaseColumn()) {
+                    Optional<TypeCoercer<?, ?>> coercer = createCoercer(orcBaseColumn.getColumnType(), orcBaseColumn.getNestedColumns(), column.getType());
+                    transforms.column(ordinal, coercer.map(identity()));
                 }
                 else {
-                    columnAdaptations.add(ColumnAdaptation.sourceColumn(sourceIndex));
-                    fileReadTypes.add(baseColumn.getType());
-                }
-                fileReadColumns.add(orcColumn);
-                fileReadLayouts.add(projectedLayout);
-
-                // Add predicates on top-level and nested columns
-                for (Map.Entry<Optional<HiveColumnProjectionInfo>, Domain> columnDomain : columnDomains.entrySet()) {
-                    OrcColumn nestedColumn = getNestedColumn(orcColumn, columnDomain.getKey());
-                    if (nestedColumn != null) {
-                        predicateBuilder.addColumn(nestedColumn.getColumnId(), columnDomain.getValue());
+                    // Dereference the nested column by name
+                    OrcColumn orcFieldColumn = orcBaseColumn;
+                    for (String fieldName : column.getHiveColumnProjectionInfo().orElseThrow().getDereferenceNames()) {
+                        Optional<OrcColumn> nestedField = orcFieldColumn.getNestedColumns().stream()
+                                .filter(field -> field.getColumnName().equalsIgnoreCase(fieldName))
+                                .collect(toOptional());
+                        if (nestedField.isEmpty()) {
+                            orcFieldColumn = null;
+                            break;
+                        }
+                        orcFieldColumn = nestedField.get();
                     }
+
+                    if (orcFieldColumn == null) {
+                        transforms.constantValue(column.getType().createNullBlock());
+                    }
+                    else {
+                        Optional<TypeCoercer<?, ?>> coercer = createCoercer(orcFieldColumn.getColumnType(), orcFieldColumn.getNestedColumns(), column.getType());
+                        transforms.dereferenceField(
+                                ImmutableList.<Integer>builder()
+                                        .add(ordinal)
+                                        .addAll(getProjection(column, baseColumn))
+                                        .build(),
+                                coercer.map(identity()));
+                    }
+                }
+            }
+
+            Optional<Long> originalFileRowId = acidInfo
+                    .filter(OrcPageSourceFactory::hasOriginalFiles)
+                    // TODO reduce number of file footer accesses. Currently this is quadratic to the number of original files.
+                    .map(_ -> OriginalFilesUtils.getPrecedingRowCount(
+                            acidInfo.get().getOriginalFiles(),
+                            path,
+                            fileSystemFactory,
+                            session.getIdentity(),
+                            options,
+                            stats));
+
+            boolean appendRowNumberColumn = false;
+            if (transaction.isMerge()) {
+                if (originalFile) {
+                    transforms.transform(new MergedRowAdaptationWithOriginalFiles(originalFileRowId.orElse(0L), bucketNumber.orElse(0)));
+                    appendRowNumberColumn = true;
+                }
+                else {
+                    transforms.transform(new MergedRowPageFunction());
                 }
             }
 
@@ -377,7 +432,7 @@ public class OrcPageSourceFactory
                     fileReadColumns,
                     fileReadTypes,
                     fileReadLayouts,
-                    false,
+                    appendRowNumberColumn,
                     predicateBuilder.build(),
                     start,
                     length,
@@ -397,37 +452,15 @@ public class OrcPageSourceFactory
                             bucketNumber,
                             memoryUsage));
 
-            Optional<Long> originalFileRowId = acidInfo
-                    .filter(OrcPageSourceFactory::hasOriginalFiles)
-                    // TODO reduce number of file footer accesses. Currently this is quadratic to the number of original files.
-                    .map(_ -> OriginalFilesUtils.getPrecedingRowCount(
-                            acidInfo.get().getOriginalFiles(),
-                            path,
-                            fileSystemFactory,
-                            session.getIdentity(),
-                            options,
-                            stats));
-
-            if (transaction.isMerge()) {
-                if (originalFile) {
-                    int bucket = bucketNumber.orElse(0);
-                    long startingRowId = originalFileRowId.orElse(0L);
-                    columnAdaptations.add(OrcPageSource.ColumnAdaptation.mergedRowColumnsWithOriginalFiles(startingRowId, bucket));
-                }
-                else {
-                    columnAdaptations.add(mergedRowColumns());
-                }
-            }
-
-            return new OrcPageSource(
+            ConnectorPageSource pageSource = new OrcPageSource(
                     recordReader,
-                    columnAdaptations,
                     orcDataSource,
                     deletedRows,
                     originalFileRowId,
                     memoryUsage,
                     stats,
                     reader.getCompressionKind());
+            return transforms.build(pageSource);
         }
         catch (Exception e) {
             try {
@@ -496,21 +529,22 @@ public class OrcPageSourceFactory
      * top-level columns, not nested columns.
      *
      * @param fileColumns All OrcColumns nested in the root column of the table.
-     * @param desiredColumns HiveColumnHandles for the metastore table columns.
+     * @param columns Columns from the Hive metastore that are being used
      * @return Return the fileColumns list with any OrcColumn corresponding to a desiredColumn renamed if
      * the names differ from those specified in the desiredColumns.
      */
-    private static List<OrcColumn> ensureColumnNameConsistency(List<OrcColumn> fileColumns, List<HiveColumnHandle> desiredColumns)
+    private static List<OrcColumn> ensureColumnNameConsistency(List<OrcColumn> fileColumns, List<HiveColumnHandle> columns)
     {
         int columnCount = fileColumns.size();
         ImmutableList.Builder<OrcColumn> builder = ImmutableList.builderWithExpectedSize(columnCount);
 
-        Map<Integer, HiveColumnHandle> desiredColumnsByNumber = desiredColumns.stream()
+        Map<Integer, HiveColumnHandle> baseColumnsByColumnIndex = columns.stream()
+                .map(HiveColumnHandle::getBaseColumn)
                 .collect(toImmutableMap(HiveColumnHandle::getBaseHiveColumnIndex, identity()));
 
         for (int index = 0; index < columnCount; index++) {
             OrcColumn column = fileColumns.get(index);
-            HiveColumnHandle handle = desiredColumnsByNumber.get(index);
+            HiveColumnHandle handle = baseColumnsByColumnIndex.get(index);
             if (handle != null && !column.getColumnName().equals(handle.getName())) {
                 column = new OrcColumn(column.getPath(), column.getColumnId(), handle.getName(), column.getColumnType(), column.getOrcDataSourceId(), column.getNestedColumns(), column.getAttributes());
             }
@@ -530,6 +564,66 @@ public class OrcPageSourceFactory
             throw new TrinoException(
                     HIVE_FILE_MISSING_COLUMN_NAMES,
                     "ORC file does not contain column names in the footer: " + path);
+        }
+    }
+
+    /*
+     * The rowId contains the ACID columns - - originalTransaction, rowId, bucket
+     */
+    private static final class MergedRowPageFunction
+            implements Function<SourcePage, Block>
+    {
+        @Override
+        public Block apply(SourcePage page)
+        {
+            return fromFieldBlocks(
+                    page.getPositionCount(),
+                    new Block[] {
+                            page.getBlock(ORIGINAL_TRANSACTION_CHANNEL),
+                            page.getBlock(BUCKET_CHANNEL),
+                            page.getBlock(ROW_ID_CHANNEL)
+                    });
+        }
+    }
+
+    /**
+     * The rowId contains the ACID columns - - originalTransaction, rowId, bucket,
+     * derived from the original file.  The transactionId is always zero,
+     * and the rowIds count up from the startingRowId.
+     */
+    private static final class MergedRowAdaptationWithOriginalFiles
+            implements Function<SourcePage, Block>
+    {
+        private final long startingRowId;
+        private final Block bucketBlock;
+
+        public MergedRowAdaptationWithOriginalFiles(long startingRowId, int bucketId)
+        {
+            this.startingRowId = startingRowId;
+            this.bucketBlock = nativeValueToBlock(INTEGER, (long) computeBucketValue(bucketId, 0));
+        }
+
+        @Override
+        public Block apply(SourcePage sourcePage)
+        {
+            int positionCount = sourcePage.getPositionCount();
+
+            LongArrayBlock rowNumberBlock = (LongArrayBlock) sourcePage.getBlock(sourcePage.getChannelCount() - 1);
+            if (startingRowId != 0) {
+                long[] newRowNumbers = new long[rowNumberBlock.getPositionCount()];
+                for (int index = 0; index < rowNumberBlock.getPositionCount(); index++) {
+                    newRowNumbers[index] = startingRowId + rowNumberBlock.getLong(index);
+                }
+                rowNumberBlock = new LongArrayBlock(rowNumberBlock.getPositionCount(), Optional.empty(), newRowNumbers);
+            }
+
+            return fromFieldBlocks(
+                    positionCount,
+                    new Block[] {
+                            RunLengthEncodedBlock.create(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
+                            RunLengthEncodedBlock.create(bucketBlock, positionCount),
+                            rowNumberBlock
+                    });
         }
     }
 
