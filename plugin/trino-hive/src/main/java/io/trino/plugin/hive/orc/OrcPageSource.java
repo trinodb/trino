@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.orc;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -25,52 +24,29 @@ import io.trino.orc.OrcRecordReader;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.base.metrics.LongCount;
-import io.trino.plugin.hive.coercions.TypeCoercer;
-import io.trino.plugin.hive.orc.OrcDeletedRows.MaskDeletedRowsFunction;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.LazyBlock;
-import io.trino.spi.block.LazyBlockLoader;
-import io.trino.spi.block.LongArrayBlock;
-import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
-import io.trino.spi.type.Type;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static io.trino.plugin.hive.HivePageSourceProvider.BUCKET_CHANNEL;
-import static io.trino.plugin.hive.HivePageSourceProvider.ORIGINAL_TRANSACTION_CHANNEL;
-import static io.trino.plugin.hive.HivePageSourceProvider.ROW_ID_CHANNEL;
-import static io.trino.plugin.hive.orc.OrcFileWriter.computeBucketValue;
-import static io.trino.spi.block.RowBlock.fromFieldBlocks;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OrcPageSource
         implements ConnectorPageSource
 {
-    private static final Block ORIGINAL_FILE_TRANSACTION_ID_BLOCK = nativeValueToBlock(BIGINT, 0L);
-    public static final String ORC_CODEC_METRIC_PREFIX = "OrcReaderCompressionFormat_";
+    private static final String ORC_CODEC_METRIC_PREFIX = "OrcReaderCompressionFormat_";
 
     private final OrcRecordReader recordReader;
-    private final List<ColumnAdaptation> columnAdaptations;
     private final OrcDataSource orcDataSource;
     private final Optional<OrcDeletedRows> deletedRows;
 
@@ -87,32 +63,10 @@ public class OrcPageSource
 
     private long completedPositions;
 
-    private Optional<Page> outstandingPage = Optional.empty();
+    private Optional<SourcePage> outstandingPage = Optional.empty();
 
     public OrcPageSource(
             OrcRecordReader recordReader,
-            OrcDataSource orcDataSource,
-            Optional<OrcDeletedRows> deletedRows,
-            Optional<Long> originalFileRowId,
-            AggregatedMemoryContext memoryContext,
-            FileFormatDataSourceStats stats,
-            CompressionKind compressionKind)
-    {
-        this(recordReader,
-                IntStream.range(0, recordReader.getColumnCount())
-                        .mapToObj(OrcPageSource.ColumnAdaptation::sourceColumn)
-                        .toList(),
-                orcDataSource,
-                deletedRows,
-                originalFileRowId,
-                memoryContext,
-                stats,
-                compressionKind);
-    }
-
-    public OrcPageSource(
-            OrcRecordReader recordReader,
-            List<ColumnAdaptation> columnAdaptations,
             OrcDataSource orcDataSource,
             Optional<OrcDeletedRows> deletedRows,
             Optional<Long> originalFileRowId,
@@ -121,7 +75,6 @@ public class OrcPageSource
             CompressionKind compressionKind)
     {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
-        this.columnAdaptations = ImmutableList.copyOf(requireNonNull(columnAdaptations, "columnAdaptations is null"));
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.deletedRows = requireNonNull(deletedRows, "deletedRows is null");
         this.stats = requireNonNull(stats, "stats is null");
@@ -156,9 +109,9 @@ public class OrcPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
-        Page page;
+        SourcePage page;
         try {
             if (outstandingPage.isPresent()) {
                 page = outstandingPage.get();
@@ -170,8 +123,7 @@ public class OrcPageSource
                 localMemoryContext.setBytes(0);
             }
             else {
-                SourcePage sourcePage = recordReader.nextPage();
-                page = sourcePage == null ? null : sourcePage.getPage();
+                page = recordReader.nextPage();
             }
         }
         catch (IOException | RuntimeException e) {
@@ -197,21 +149,10 @@ public class OrcPageSource
                 localMemoryContext.setBytes(page.getRetainedSizeInBytes());
                 return null; // return control to engine so it can update memory usage for query
             }
+            page = deletedRows.get().maskPage(page, startRowId);
         }
 
-        MaskDeletedRowsFunction maskDeletedRowsFunction = deletedRows
-                .map(deletedRows -> deletedRows.getMaskDeletedRowsFunction(page, startRowId))
-                .orElseGet(() -> MaskDeletedRowsFunction.noMaskForPage(page));
-        return getColumnAdaptationsPage(page, maskDeletedRowsFunction, recordReader.getFilePosition(), startRowId);
-    }
-
-    private Page getColumnAdaptationsPage(Page page, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
-    {
-        Block[] blocks = new Block[columnAdaptations.size()];
-        for (int i = 0; i < columnAdaptations.size(); i++) {
-            blocks[i] = columnAdaptations.get(i).block(page, maskDeletedRowsFunction, filePosition, startRowId);
-        }
-        return new Page(maskDeletedRowsFunction.getPositionCount(), blocks);
+        return page;
     }
 
     static TrinoException handleException(OrcDataSourceId dataSourceId, Exception exception)
@@ -259,8 +200,7 @@ public class OrcPageSource
     public String toString()
     {
         return toStringHelper(this)
-                .add("orcDataSource", orcDataSource.getId())
-                .add("columns", columnAdaptations)
+                .add("orcReader", recordReader)
                 .toString();
     }
 
@@ -274,244 +214,5 @@ public class OrcPageSource
     public Metrics getMetrics()
     {
         return new Metrics(ImmutableMap.of(ORC_CODEC_METRIC_PREFIX + compressionKind.name(), new LongCount(recordReader.getTotalDataLength())));
-    }
-
-    public interface ColumnAdaptation
-    {
-        Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId);
-
-        static ColumnAdaptation nullColumn(Type type)
-        {
-            return new NullColumn(type);
-        }
-
-        static ColumnAdaptation sourceColumn(int index)
-        {
-            return new SourceColumn(index);
-        }
-
-        static ColumnAdaptation coercedColumn(int index, TypeCoercer<?, ?> typeCoercer)
-        {
-            return new CoercedColumn(sourceColumn(index), typeCoercer);
-        }
-
-        static ColumnAdaptation constantColumn(Block singleValueBlock)
-        {
-            return new ConstantAdaptation(singleValueBlock);
-        }
-
-        static ColumnAdaptation positionColumn()
-        {
-            return new PositionAdaptation();
-        }
-
-        static ColumnAdaptation mergedRowColumns()
-        {
-            return new MergedRowAdaptation();
-        }
-
-        static ColumnAdaptation mergedRowColumnsWithOriginalFiles(long startingRowId, int bucketId)
-        {
-            return new MergedRowAdaptationWithOriginalFiles(startingRowId, bucketId);
-        }
-    }
-
-    private static class NullColumn
-            implements ColumnAdaptation
-    {
-        private final Type type;
-        private final Block nullBlock;
-
-        public NullColumn(Type type)
-        {
-            this.type = requireNonNull(type, "type is null");
-            this.nullBlock = type.createNullBlock();
-        }
-
-        @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
-        {
-            return RunLengthEncodedBlock.create(nullBlock, maskDeletedRowsFunction.getPositionCount());
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("type", type)
-                    .toString();
-        }
-    }
-
-    private static class SourceColumn
-            implements ColumnAdaptation
-    {
-        private final int index;
-
-        public SourceColumn(int index)
-        {
-            checkArgument(index >= 0, "index is negative");
-            this.index = index;
-        }
-
-        @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
-        {
-            return new LazyBlock(maskDeletedRowsFunction.getPositionCount(), new MaskingBlockLoader(maskDeletedRowsFunction, sourcePage.getBlock(index)));
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("index", index)
-                    .toString();
-        }
-
-        private static final class MaskingBlockLoader
-                implements LazyBlockLoader
-        {
-            private MaskDeletedRowsFunction maskDeletedRowsFunction;
-            private Block sourceBlock;
-
-            public MaskingBlockLoader(MaskDeletedRowsFunction maskDeletedRowsFunction, Block sourceBlock)
-            {
-                this.maskDeletedRowsFunction = requireNonNull(maskDeletedRowsFunction, "maskDeletedRowsFunction is null");
-                this.sourceBlock = requireNonNull(sourceBlock, "sourceBlock is null");
-            }
-
-            @Override
-            public Block load()
-            {
-                checkState(maskDeletedRowsFunction != null, "Already loaded");
-
-                Block resultBlock = maskDeletedRowsFunction.apply(sourceBlock.getLoadedBlock());
-
-                maskDeletedRowsFunction = null;
-                sourceBlock = null;
-
-                return resultBlock;
-            }
-        }
-    }
-
-    private static class CoercedColumn
-            implements ColumnAdaptation
-    {
-        private final ColumnAdaptation delegate;
-        private final TypeCoercer<?, ?> typeCoercer;
-
-        public CoercedColumn(ColumnAdaptation delegate, TypeCoercer<?, ?> typeCoercer)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-            this.typeCoercer = requireNonNull(typeCoercer, "typeCoercer is null");
-        }
-
-        @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
-        {
-            Block block = delegate.block(sourcePage, maskDeletedRowsFunction, filePosition, startRowId);
-            return new LazyBlock(block.getPositionCount(), () -> typeCoercer.apply(block.getLoadedBlock()));
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("delegate", delegate)
-                    .add("fromType", typeCoercer.getFromType())
-                    .add("toType", typeCoercer.getToType())
-                    .toString();
-        }
-    }
-
-    /*
-     * The rowId contains the ACID columns - - originalTransaction, rowId, bucket
-     */
-    private static final class MergedRowAdaptation
-            implements ColumnAdaptation
-    {
-        @Override
-        public Block block(Page page, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
-        {
-            requireNonNull(page, "page is null");
-            return maskDeletedRowsFunction.apply(fromFieldBlocks(
-                    page.getPositionCount(),
-                    new Block[] {
-                            page.getBlock(ORIGINAL_TRANSACTION_CHANNEL),
-                            page.getBlock(BUCKET_CHANNEL),
-                            page.getBlock(ROW_ID_CHANNEL)
-                    }));
-        }
-    }
-
-    /**
-     * The rowId contains the ACID columns - - originalTransaction, rowId, bucket,
-     * derived from the original file.  The transactionId is always zero,
-     * and the rowIds count up from the startingRowId.
-     */
-    private static final class MergedRowAdaptationWithOriginalFiles
-            implements ColumnAdaptation
-    {
-        private final long startingRowId;
-        private final Block bucketBlock;
-
-        public MergedRowAdaptationWithOriginalFiles(long startingRowId, int bucketId)
-        {
-            this.startingRowId = startingRowId;
-            this.bucketBlock = nativeValueToBlock(INTEGER, (long) computeBucketValue(bucketId, 0));
-        }
-
-        @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
-        {
-            int positionCount = sourcePage.getPositionCount();
-            return maskDeletedRowsFunction.apply(fromFieldBlocks(
-                    positionCount,
-                    new Block[] {
-                            RunLengthEncodedBlock.create(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
-                            RunLengthEncodedBlock.create(bucketBlock, positionCount),
-                            createRowNumberBlock(startingRowId, filePosition, positionCount)
-                    }));
-        }
-    }
-
-    private static class ConstantAdaptation
-            implements ColumnAdaptation
-    {
-        private final Block singleValueBlock;
-
-        public ConstantAdaptation(Block singleValueBlock)
-        {
-            requireNonNull(singleValueBlock, "singleValueBlock is null");
-            checkArgument(singleValueBlock.getPositionCount() == 1, "ConstantColumnAdaptation singleValueBlock may only contain one position");
-            this.singleValueBlock = singleValueBlock;
-        }
-
-        @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
-        {
-            return RunLengthEncodedBlock.create(singleValueBlock, sourcePage.getPositionCount());
-        }
-    }
-
-    private static class PositionAdaptation
-            implements ColumnAdaptation
-    {
-        @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
-        {
-            checkArgument(startRowId.isEmpty(), "startRowId should not be specified when using PositionAdaptation");
-            return createRowNumberBlock(0, filePosition, sourcePage.getPositionCount());
-        }
-    }
-
-    private static Block createRowNumberBlock(long startingRowId, long filePosition, int positionCount)
-    {
-        long[] translatedRowIds = new long[positionCount];
-        for (int index = 0; index < positionCount; index++) {
-            translatedRowIds[index] = startingRowId + filePosition + index;
-        }
-        return new LongArrayBlock(positionCount, Optional.empty(), translatedRowIds);
     }
 }
