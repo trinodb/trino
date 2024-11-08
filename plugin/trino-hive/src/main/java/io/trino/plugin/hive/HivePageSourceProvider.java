@@ -20,7 +20,6 @@ import io.trino.filesystem.Location;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.HiveTypeName;
 import io.trino.metastore.type.TypeInfo;
-import io.trino.plugin.hive.HivePageSource.BucketValidator;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -79,6 +78,9 @@ import static java.util.stream.Collectors.toList;
 public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    public static final int ORIGINAL_TRANSACTION_CHANNEL = 0;
+    public static final int BUCKET_CHANNEL = 1;
+    public static final int ROW_ID_CHANNEL = 2;
     // The original file path looks like this: /root/dir/nnnnnnn_m(_copy_ccc)?
     private static final Pattern ORIGINAL_FILE_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<filename>(?<bucketNumber>\\d+)_(?<rest>.*)?)$");
 
