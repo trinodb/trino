@@ -27,7 +27,6 @@ import io.trino.hive.formats.avro.HiveAvroTypeBlockHandler;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -56,7 +55,6 @@ import static io.trino.hive.formats.HiveClassNames.AVRO_SERDE_CLASS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectColumnDereferences;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
-import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.trino.plugin.hive.avro.AvroHiveFileUtils.getCanonicalToGivenFieldName;
 import static io.trino.plugin.hive.avro.AvroHiveFileUtils.wrapInUnionWithNull;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
@@ -78,7 +76,7 @@ public class AvroPageSourceFactory
     }
 
     @Override
-    public Optional<ReaderPageSource> createPageSource(
+    public Optional<ConnectorPageSource> createPageSource(
             ConnectorSession session,
             Location path,
             long start,
@@ -111,13 +109,10 @@ public class AvroPageSourceFactory
 
         // Split may be empty now that the correct file size is known
         if (actualSplitSize <= 0) {
-            return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
+            return Optional.of(new EmptyPageSource());
         }
 
-        ConnectorPageSource connectorPageSource = projectColumnDereferences(
-                columns,
-                baseColumns -> createPageSource(session, trinoFileSystem, inputFile, start, actualSplitSize, schema, baseColumns));
-        return Optional.of(new ReaderPageSource(connectorPageSource, Optional.empty()));
+        return Optional.of(projectColumnDereferences(columns, baseColumns -> createPageSource(session, trinoFileSystem, inputFile, start, actualSplitSize, schema, baseColumns)));
     }
 
     private static AvroPageSource createPageSource(

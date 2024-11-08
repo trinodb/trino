@@ -115,7 +115,6 @@ public class TestHivePageSource
                         columnMappings,
                         Optional.empty(),
                         bucketValidator,
-                        Optional.empty(),
                         TESTING_TYPE_MANAGER,
                         new CoercionUtils.CoercionContext(DEFAULT_PRECISION, PARQUET),
                         pageSource)) {

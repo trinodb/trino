@@ -45,7 +45,6 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.TransformConnectorPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -159,7 +158,7 @@ public class ParquetPageSourceFactory
     }
 
     @Override
-    public Optional<ReaderPageSource> createPageSource(
+    public Optional<ConnectorPageSource> createPageSource(
             ConnectorSession session,
             Location path,
             long start,
@@ -207,7 +206,7 @@ public class ParquetPageSourceFactory
     /**
      * This method is available for other callers to use directly.
      */
-    public static ReaderPageSource createPageSource(
+    public static ConnectorPageSource createPageSource(
             TrinoInputFile inputFile,
             long start,
             long length,
@@ -285,8 +284,7 @@ public class ParquetPageSourceFactory
                     // are not present in the Parquet files which are read with disjunct predicates.
                     parquetPredicates.size() == 1 ? Optional.of(parquetPredicates.get(0)) : Optional.empty(),
                     parquetWriteValidation);
-            ConnectorPageSource parquetPageSource = createParquetPageSource(columns, fileSchema, messageColumn, useColumnNames, parquetReaderProvider);
-            return new ReaderPageSource(parquetPageSource, Optional.empty());
+            return createParquetPageSource(columns, fileSchema, messageColumn, useColumnNames, parquetReaderProvider);
         }
         catch (Exception e) {
             try {

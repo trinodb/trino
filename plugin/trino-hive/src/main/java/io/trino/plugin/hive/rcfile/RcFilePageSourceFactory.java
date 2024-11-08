@@ -33,7 +33,6 @@ import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.TrinoException;
@@ -80,7 +79,7 @@ public class RcFilePageSourceFactory
     }
 
     @Override
-    public Optional<ReaderPageSource> createPageSource(
+    public Optional<ConnectorPageSource> createPageSource(
             ConnectorSession session,
             Location path,
             long start,
@@ -109,8 +108,7 @@ public class RcFilePageSourceFactory
 
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
-        ConnectorPageSource pageSource = projectColumnDereferences(columns, baseColumns -> createPageSource(session, path, start, length, estimatedFileSize, baseColumns, columnEncodingFactory));
-        return Optional.of(new ReaderPageSource(pageSource, Optional.empty()));
+        return Optional.of(projectColumnDereferences(columns, baseColumns -> createPageSource(session, path, start, length, estimatedFileSize, baseColumns, columnEncodingFactory)));
     }
 
     private ConnectorPageSource createPageSource(
