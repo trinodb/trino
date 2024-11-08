@@ -523,22 +523,26 @@ public class TestMultiSourcePartitionedScheduler
         Symbol symbol = new Symbol(VARCHAR, "column");
         Symbol buildSymbol = new Symbol(VARCHAR, "buildColumn");
 
-        TableScanNode tableScanOne = TableScanNode.newInstance(
+        TableScanNode tableScanOne = new TableScanNode(
                 TABLE_SCAN_1_NODE_ID,
                 firstTableHandle,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
         FilterNode filterNodeOne = new FilterNode(
                 new PlanNodeId("filter_node_id"),
                 tableScanOne,
                 createDynamicFilterExpression(createTestMetadataManager(), DYNAMIC_FILTER_ID, VARCHAR, symbol.toSymbolReference()));
-        TableScanNode tableScanTwo = TableScanNode.newInstance(
+        TableScanNode tableScanTwo = new TableScanNode(
                 TABLE_SCAN_2_NODE_ID,
                 secondTableHandle,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
         FilterNode filterNodeTwo = new FilterNode(
