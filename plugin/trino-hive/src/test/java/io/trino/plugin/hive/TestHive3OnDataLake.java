@@ -1982,6 +1982,20 @@ public class TestHive3OnDataLake
     }
 
     @Test
+    public void testUnsupportedCommentOnHiveView()
+    {
+        String viewName = HIVE_TEST_SCHEMA + ".test_unsupported_comment_on_hive_view_" + randomNameSuffix();
+
+        hiveMinioDataLake.getHiveHadoop().runOnHive("CREATE VIEW " + viewName + " AS SELECT 1 x");
+        try {
+            assertQueryFails("COMMENT ON COLUMN " + viewName + ".x IS NULL", "Hive views are not supported.*");
+        }
+        finally {
+            hiveMinioDataLake.getHiveHadoop().runOnHive("DROP VIEW " + viewName);
+        }
+    }
+
+    @Test
     public void testCreateFunction()
     {
         String name = "test_" + randomNameSuffix();
