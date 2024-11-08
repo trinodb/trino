@@ -185,6 +185,6 @@ final class TestClientRedirect
                 .source("test")
                 .timeZone(ZoneId.of("UTC"))
                 .build();
-        return newStatementClient(httpClient, session, "SELECT 1", Optional.empty());
+        return newStatementClient(httpClient, session, Optional.of("SELECT 1"), Optional.empty());
     }
 }

@@ -16,6 +16,7 @@ package io.trino.client;
 import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +26,7 @@ import java.util.Set;
 public interface StatementClient
         extends Closeable
 {
-    String getQuery();
+    Optional<String> getQuery();
 
     ZoneId getTimeZone();
 
@@ -36,6 +37,9 @@ public interface StatementClient
     boolean isClientError();
 
     boolean isFinished();
+
+    boolean validateCredentials(int timeout)
+            throws IOException;
 
     StatementStats getStats();
 

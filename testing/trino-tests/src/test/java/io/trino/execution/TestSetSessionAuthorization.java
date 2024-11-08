@@ -236,7 +236,7 @@ public class TestSetSessionAuthorization
     {
         OkHttpClient httpClient = new OkHttpClient();
         try {
-            try (StatementClient client = newStatementClient(httpClient, clientSession, query)) {
+            try (StatementClient client = newStatementClient(httpClient, clientSession, Optional.of(query))) {
                 // wait for query to be fully scheduled
                 while (client.isRunning() && !client.currentStatusInfo().getStats().isScheduled()) {
                     client.advance();
@@ -255,7 +255,7 @@ public class TestSetSessionAuthorization
     {
         OkHttpClient httpClient = new OkHttpClient();
         try {
-            try (StatementClient client = newStatementClient(httpClient, clientSession, query)) {
+            try (StatementClient client = newStatementClient(httpClient, clientSession, Optional.of(query))) {
                 while (client.isRunning() && !Thread.currentThread().isInterrupted()) {
                     data.addAll(client.currentRows());
                     client.advance();

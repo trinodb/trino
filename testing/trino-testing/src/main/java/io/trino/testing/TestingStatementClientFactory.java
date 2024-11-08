@@ -28,6 +28,6 @@ public interface TestingStatementClientFactory
 
     default StatementClient create(OkHttpClient httpClient, Session session, ClientSession clientSession, String query)
     {
-        return newStatementClient(httpClient, clientSession, query, Optional.of(session.getClientCapabilities()));
+        return newStatementClient(httpClient, clientSession, Optional.of(query), Optional.of(session.getClientCapabilities()));
     }
 }

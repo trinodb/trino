@@ -146,7 +146,7 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
                         .builder(clientSession)
                         .encoding(Optional.ofNullable(encoding))
                         .build();
-                return newStatementClient(httpClient, clientSessionSpooled, query, Optional.empty());
+                return newStatementClient(httpClient, clientSessionSpooled, Optional.of(query), Optional.empty());
             }
         }, session, new OkHttpClient());
     }

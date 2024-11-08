@@ -87,7 +87,7 @@ public class TestRetry
                 .setSocketPolicy(SocketPolicy.STALL_SOCKET_AT_START));
         server.enqueue(statusAndBody(HTTP_OK, newQueryResults("FINISHED")));
 
-        try (StatementClient client = newStatementClient(httpClient, session, "SELECT 1", Optional.empty())) {
+        try (StatementClient client = newStatementClient(httpClient, session, Optional.of("SELECT 1"), Optional.empty())) {
             while (client.advance()) {
                 // consume all client data
             }
@@ -118,7 +118,7 @@ public class TestRetry
                 .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY));
         server.enqueue(statusAndBody(HTTP_OK, newQueryResults("FINISHED")));
 
-        try (StatementClient client = newStatementClient(httpClient, session, "SELECT 1", Optional.empty())) {
+        try (StatementClient client = newStatementClient(httpClient, session, Optional.of("SELECT 1"), Optional.empty())) {
             while (client.advance()) {
                 // consume all client data
             }

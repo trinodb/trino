@@ -91,7 +91,7 @@ public class TestUserImpersonationAccessControl
                     .build();
 
             // start query
-            try (StatementClient client = newStatementClient(httpClient, clientSession, "SELECT * FROM tpch.tiny.nation")) {
+            try (StatementClient client = newStatementClient(httpClient, clientSession, Optional.of("SELECT * FROM tpch.tiny.nation"))) {
                 // wait for query to be fully scheduled
                 while (client.isRunning() && !client.currentStatusInfo().getStats().isScheduled()) {
                     client.advance();

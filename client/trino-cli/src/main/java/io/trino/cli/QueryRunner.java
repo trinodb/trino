@@ -20,6 +20,7 @@ import io.trino.client.uri.TrinoUri;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.client.ClientSession.stripTransactionId;
@@ -71,7 +72,7 @@ public class QueryRunner
 
     private StatementClient startInternalQuery(ClientSession session, String query)
     {
-        return newStatementClient(httpClient, segmentHttpClient, session, query);
+        return newStatementClient(httpClient, segmentHttpClient, session, Optional.of(query));
     }
 
     @Override

@@ -23,6 +23,7 @@ import io.airlift.log.Logging;
 import io.trino.client.ClientSelectedRole;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.hive.HivePlugin;
+import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -32,6 +33,8 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.BasicPrincipal;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -40,6 +43,12 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.io.File;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.Key;
+import java.security.Principal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -47,23 +56,31 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.io.Files.asCharSource;
+import static com.google.common.io.Resources.getResource;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Closeables.closeAll;
+import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.ALL_NODES;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.sql.Types.VARCHAR;
+import static java.util.Base64.getMimeDecoder;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.IntStream.range;
@@ -77,18 +94,47 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestJdbcConnection
 {
+    private static final String TEST_USER = "admin";
+    private static final String TEST_PASSWORD = "password";
+
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
 
     private TestingTrinoServer server;
+    private Key defaultKey;
+    private String sslTrustStorePath;
 
     @BeforeAll
     public void setupServer()
             throws Exception
     {
         Logging.initialize();
+
+        Path passwordConfigDummy = Files.createTempFile("passwordConfigDummy", "");
+        passwordConfigDummy.toFile().deleteOnExit();
+
+        URL resource = getClass().getClassLoader().getResource("33.privateKey");
+        assertThat(resource)
+                .describedAs("key directory not found")
+                .isNotNull();
+        File keyDir = new File(resource.toURI()).getAbsoluteFile().getParentFile();
+
+        defaultKey = hmacShaKeyFor(getMimeDecoder().decode(asCharSource(new File(keyDir, "default-key.key"), US_ASCII).read().getBytes(US_ASCII)));
+        sslTrustStorePath = new File(getResource("localhost.truststore").toURI()).getPath();
+
         Module systemTables = binder -> newSetBinder(binder, SystemTable.class)
                 .addBinding().to(ExtraCredentialsSystemTable.class).in(Scopes.SINGLETON);
+
         server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .put("http-server.authentication.type", "PASSWORD,JWT")
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
+                        .put("http-server.authentication.allow-insecure-over-http", "false")
+                        .put("http-server.process-forwarded", "true")
+                        .put("http-server.authentication.jwt.key-file", new File(keyDir, "${KID}.key").getPath())
+                        .put("http-server.https.enabled", "true")
+                        .put("http-server.https.keystore.path", new File(getResource("localhost.keystore").toURI()).getPath())
+                        .put("http-server.https.keystore.key", "changeit")
+                        .buildOrThrow())
                 .setAdditionalModule(systemTables)
                 .build();
         server.installPlugin(new HivePlugin());
@@ -98,6 +144,7 @@ public class TestJdbcConnection
                 .put("hive.security", "sql-standard")
                 .put("fs.hadoop.enabled", "true")
                 .buildOrThrow());
+        server.getInstance(com.google.inject.Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestJdbcConnection::authenticate);
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole", ImmutableMap.of());
 
@@ -113,6 +160,14 @@ public class TestJdbcConnection
                     "CREATE TABLE blackhole.default.delay(dummy bigint) " +
                             "WITH (split_count = 1, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '60s')");
         }
+    }
+
+    private static Principal authenticate(String user, String password)
+    {
+        if ((TEST_USER.equals(user) && TEST_PASSWORD.equals(password))) {
+            return new BasicPrincipal(user);
+        }
+        throw new AccessDeniedException("Invalid credentials");
     }
 
     @AfterAll
@@ -482,6 +537,50 @@ public class TestJdbcConnection
         testConcurrentCancellationOnConnectionClose(false);
     }
 
+    @Test
+    public void testIsValid()
+            throws Exception
+    {
+        String accessToken = newJwtBuilder()
+                .subject("test")
+                .signWith(defaultKey)
+                .compact();
+
+        // Valid token
+        try (Connection connection = createConnectionUsingAccessToken(accessToken)) {
+            assertThat(connection.isValid(10)).isTrue();
+        }
+
+        // Increase delay until a connection can be made, then wait the token to be expired
+        int delay = 50;
+        while (true) {
+            long expirationTime = System.currentTimeMillis() + delay;
+            accessToken = newJwtBuilder()
+                    .subject("test")
+                    .expiration(new Date(expirationTime))
+                    .signWith(defaultKey)
+                    .compact();
+
+            try (Connection connection = createConnectionUsingAccessToken(accessToken)) {
+                while (expirationTime <= System.currentTimeMillis()) {
+                    try {
+                        Thread.sleep(expirationTime - System.currentTimeMillis());
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                assertThat(connection.isValid(10)).isFalse();
+                break;
+            }
+            catch (SQLException e) {
+                // Connection failure because of token is about to expire
+            }
+
+            delay *= 2;
+        }
+    }
+
     private void testConcurrentCancellationOnConnectionClose(boolean autoCommit)
             throws Exception
     {
@@ -528,8 +627,26 @@ public class TestJdbcConnection
     private Connection createConnection(String extra)
             throws SQLException
     {
-        String url = format("jdbc:trino://%s/hive/default?%s", server.getAddress(), extra);
-        return DriverManager.getConnection(url, "admin", null);
+        String url = format("jdbc:trino://localhost:%s/hive/default?%s", server.getHttpsAddress().getPort(), extra);
+        Properties properties = new Properties();
+        properties.put("user", TEST_USER);
+        properties.put("password", TEST_PASSWORD);
+        properties.setProperty("SSL", "true");
+        properties.setProperty("SSLTrustStorePath", sslTrustStorePath);
+        properties.setProperty("SSLTrustStorePassword", "changeit");
+        return DriverManager.getConnection(url, properties);
+    }
+
+    private Connection createConnectionUsingAccessToken(String accessToken)
+            throws SQLException
+    {
+        String url = format("jdbc:trino://localhost:%s/hive/default", server.getHttpsAddress().getPort());
+        Properties properties = new Properties();
+        properties.put("accessToken", accessToken);
+        properties.setProperty("SSL", "true");
+        properties.setProperty("SSLTrustStorePath", sslTrustStorePath);
+        properties.setProperty("SSLTrustStorePassword", "changeit");
+        return DriverManager.getConnection(url, properties);
     }
 
     private static Set<String> listTables(Connection connection)

@@ -77,7 +77,7 @@ public class TestFinalQueryInfo
                     .build();
 
             // start query
-            StatementClient client = newStatementClient((Call.Factory) httpClient, clientSession, sql);
+            StatementClient client = newStatementClient((Call.Factory) httpClient, clientSession, Optional.of(sql));
 
             // wait for query to be fully scheduled
             while (client.isRunning() && !client.currentStatusInfo().getStats().isScheduled()) {
