@@ -563,6 +563,14 @@ directory.
 * - `iceberg.jdbc-catalog.schema-version`
   - JDBC catalog schema version.
     Valid values are `V0` or `V1`. Defaults to `V1`.
+* - `iceberg.jdbc-catalog.retryable-status-codes`
+  - On connection error to JDBC metastore, retry if
+    it is one of these JDBC status codes.
+    Valid value is a comma-separated list of status codes.
+    Note: JDBC catalog always retries the following status
+    codes: `08000,08003,08006,08007,40001`. Specify only
+    additional codes (such as `57000,57P03,57P04` if using
+    PostgreSQL driver) here.
 :::
 
 :::{warning}
