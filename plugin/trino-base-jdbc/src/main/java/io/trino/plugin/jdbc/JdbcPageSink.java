@@ -231,8 +231,7 @@ public class JdbcPageSink
     public void abort()
     {
         // rollback and close
-        try (Connection connection = this.connection;
-                PreparedStatement statement = this.statement) {
+        try (PreparedStatement statement = this.statement; Connection connection = this.connection) {
             // skip rollback if implicitly closed due to an error
             if (!connection.isClosed()) {
                 connection.rollback();
