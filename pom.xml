@@ -2818,6 +2818,7 @@
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
                                     -Xep:ByteBufferBackingArray:ERROR \
                                     -Xep:CacheLoaderNull:ERROR \
+                                    -Xep:CanonicalDuration:ERROR \
                                     -Xep:CatchAndPrintStackTrace:ERROR \
                                     -Xep:CatchFail:ERROR \
                                     -Xep:ClassCanBeStatic:ERROR \

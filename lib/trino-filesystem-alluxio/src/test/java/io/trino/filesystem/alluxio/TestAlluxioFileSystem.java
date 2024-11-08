@@ -153,7 +153,7 @@ public class TestAlluxioFileSystem
                 .withAccessToHost(true)
                 .waitingFor(new LogMessageWaitStrategy()
                         .withRegEx(".*Primary started*\n")
-                        .withStartupTimeout(Duration.ofSeconds(180L)));
+                        .withStartupTimeout(Duration.ofMinutes(3)));
         return container;
     }
 
