@@ -97,7 +97,7 @@ public class TestHivePageSource
 
         List<HiveColumnHandle> bucketColumns = columns.stream().filter(c -> c.getName().equals(bucketColumnName)).toList();
         Optional<HiveSplit.BucketValidation> bucketValidation = Optional.of(new HiveSplit.BucketValidation(BUCKETING_V1, 8, bucketColumns));
-        Optional<HivePageSource.BucketValidator> bucketValidator = createBucketValidator(
+        Optional<BucketValidator> bucketValidator = createBucketValidator(
                 Location.of("memory:///test"),
                 bucketValidation,
                 tableBucketNumber,
