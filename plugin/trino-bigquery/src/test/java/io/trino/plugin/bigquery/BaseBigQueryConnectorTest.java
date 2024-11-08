@@ -300,18 +300,17 @@ public abstract class BaseBigQueryConnectorTest
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        switch (dataMappingTestSetup.getTrinoTypeName()) {
-            case "real":
-            case "char(3)":
-            case "time":
-            case "time(3)":
-            case "time(6)":
-            case "timestamp":
-            case "timestamp(3)":
-            case "timestamp(3) with time zone":
-                return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-        return Optional.of(dataMappingTestSetup);
+        return switch (dataMappingTestSetup.getTrinoTypeName()) {
+            case "real",
+                 "char(3)",
+                 "time",
+                 "time(3)",
+                 "time(6)",
+                 "timestamp",
+                 "timestamp(3)",
+                 "timestamp(3) with time zone" -> Optional.of(dataMappingTestSetup.asUnsupported());
+            default -> Optional.of(dataMappingTestSetup);
+        };
     }
 
     @Override
@@ -615,17 +614,18 @@ public abstract class BaseBigQueryConnectorTest
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE bigquery.tpch.orders (\n" +
-                        "   orderkey bigint NOT NULL,\n" +
-                        "   custkey bigint NOT NULL,\n" +
-                        "   orderstatus varchar NOT NULL,\n" +
-                        "   totalprice double NOT NULL,\n" +
-                        "   orderdate date NOT NULL,\n" +
-                        "   orderpriority varchar NOT NULL,\n" +
-                        "   clerk varchar NOT NULL,\n" +
-                        "   shippriority bigint NOT NULL,\n" +
-                        "   comment varchar NOT NULL\n" +
-                        ")");
+                .isEqualTo("""
+                        CREATE TABLE bigquery.tpch.orders (
+                           orderkey bigint NOT NULL,
+                           custkey bigint NOT NULL,
+                           orderstatus varchar NOT NULL,
+                           totalprice double NOT NULL,
+                           orderdate date NOT NULL,
+                           orderpriority varchar NOT NULL,
+                           clerk varchar NOT NULL,
+                           shippriority bigint NOT NULL,
+                           comment varchar NOT NULL
+                        )""");
     }
 
     @Test
