@@ -212,7 +212,7 @@
         <dep.takari.version>2.2.0</dep.takari.version>
         <dep.tcnative.version>2.0.69.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
-        <dep.wire.version>4.9.9</dep.wire.version>
+        <dep.wire.version>4.9.11</dep.wire.version>
         <dep.zookeeper.version>3.9.3</dep.zookeeper.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
         <!--
