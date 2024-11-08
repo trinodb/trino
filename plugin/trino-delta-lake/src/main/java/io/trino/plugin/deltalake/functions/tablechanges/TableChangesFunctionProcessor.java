@@ -23,11 +23,11 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakePageSource;
-import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_TYPE_COLUMN_NAME;
@@ -193,7 +192,7 @@ public class TableChangesFunctionProcessor
             case DATA_FILE -> handle.columns();
         };
 
-        ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
+        ConnectorPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 inputFile,
                 0,
                 split.fileSize(),
@@ -207,15 +206,12 @@ public class TableChangesFunctionProcessor
                 domainCompactionThreshold,
                 OptionalLong.empty());
 
-        verify(pageSource.getReaderColumns().isEmpty(), "Unexpected reader columns: %s", pageSource.getReaderColumns().orElse(null));
-
         return new DeltaLakePageSource(
                 splitColumns,
                 ImmutableSet.of(),
                 partitionKeys,
                 Optional.empty(),
-                pageSource.get(),
-                Optional.empty(),
+                pageSource,
                 split.path(),
                 split.fileSize(),
                 0L,

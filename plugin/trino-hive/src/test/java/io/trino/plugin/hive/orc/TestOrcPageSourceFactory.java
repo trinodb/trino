@@ -25,7 +25,6 @@ import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.Schema;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
@@ -49,7 +48,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.LongPredicate;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -248,7 +246,7 @@ public class TestOrcPageSourceFactory
                 new FileFormatDataSourceStats(),
                 new HiveConfig());
 
-        Optional<ReaderPageSource> pageSourceWithProjections = pageSourceFactory.createPageSource(
+        ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
                 SESSION,
                 location,
                 0,
@@ -261,13 +259,8 @@ public class TestOrcPageSourceFactory
                 acidInfo,
                 OptionalInt.empty(),
                 false,
-                NO_ACID_TRANSACTION);
-
-        checkArgument(pageSourceWithProjections.isPresent());
-        checkArgument(pageSourceWithProjections.get().getReaderColumns().isEmpty(),
-                "projected columns not expected here");
-
-        ConnectorPageSource pageSource = pageSourceWithProjections.get().get();
+                NO_ACID_TRANSACTION)
+                .orElseThrow();
 
         int nationKeyColumn = columnNames.indexOf("n_nationkey");
         int nameColumn = columnNames.indexOf("n_name");

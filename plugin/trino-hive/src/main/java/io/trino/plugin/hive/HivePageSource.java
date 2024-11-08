@@ -58,7 +58,6 @@ public class HivePageSource
     private final Object[] prefilledValues;
     private final Type[] types;
     private final List<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers;
-    private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
 
     private final ConnectorPageSource delegate;
 
@@ -66,7 +65,6 @@ public class HivePageSource
             List<ColumnMapping> columnMappings,
             Optional<BucketAdaptation> bucketAdaptation,
             Optional<BucketValidator> bucketValidator,
-            Optional<ReaderProjectionsAdapter> projectionsAdapter,
             TypeManager typeManager,
             CoercionContext coercionContext,
             ConnectorPageSource delegate)
@@ -79,8 +77,6 @@ public class HivePageSource
         this.columnMappings = columnMappings;
         this.bucketAdapter = bucketAdaptation.map(BucketAdapter::new);
         this.bucketValidator = requireNonNull(bucketValidator, "bucketValidator is null");
-
-        this.projectionsAdapter = requireNonNull(projectionsAdapter, "projectionsAdapter is null");
 
         int size = columnMappings.size();
 
@@ -154,10 +150,6 @@ public class HivePageSource
             Page dataPage = delegate.getNextPage();
             if (dataPage == null) {
                 return null;
-            }
-
-            if (projectionsAdapter.isPresent()) {
-                dataPage = projectionsAdapter.get().adaptPage(dataPage);
             }
 
             if (bucketAdapter.isPresent()) {
