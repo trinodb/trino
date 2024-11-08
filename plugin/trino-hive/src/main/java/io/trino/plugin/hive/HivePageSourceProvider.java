@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -271,6 +272,40 @@ public class HivePageSourceProvider
                 readColumns,
                 column -> ((HiveColumnHandle) column).getType(),
                 HivePageSourceProvider::getProjection);
+    }
+
+    /**
+     * Create a page source using base columns and project the final shape from the base columns.
+     * This utility is used for page sources that do not handle column dereferences directly.
+     */
+    public static ConnectorPageSource projectColumnDereferences(List<HiveColumnHandle> columns, Function<List<HiveColumnHandle>, ConnectorPageSource> pageSourceFactory)
+    {
+        // determine base columns and create transform to project the final shape from the base columns
+        List<HiveColumnHandle> baseColumns = new ArrayList<>();
+        TransformConnectorPageSource.Builder transforms = TransformConnectorPageSource.builder();
+        Map<Integer, Integer> baseColumnOrdinalByColumnIndex = new HashMap<>();
+        for (HiveColumnHandle column : columns) {
+            HiveColumnHandle baseColumn = column.getBaseColumn();
+            Integer ordinal = baseColumnOrdinalByColumnIndex.get(baseColumn.getBaseHiveColumnIndex());
+            if (ordinal == null) {
+                ordinal = baseColumns.size();
+                baseColumnOrdinalByColumnIndex.put(baseColumn.getBaseHiveColumnIndex(), ordinal);
+                baseColumns.add(baseColumn);
+            }
+
+            if (column.isBaseColumn()) {
+                transforms.column(ordinal);
+            }
+            else {
+                transforms.dereferenceField(ImmutableList.<Integer>builder()
+                        .add(ordinal)
+                        .addAll(getProjection(column, baseColumn))
+                        .build());
+            }
+        }
+
+        ConnectorPageSource connectorPageSource = pageSourceFactory.apply(baseColumns);
+        return transforms.build(connectorPageSource);
     }
 
     public static List<Integer> getProjection(ColumnHandle expected, ColumnHandle read)
