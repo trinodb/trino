@@ -673,14 +673,6 @@ public class HivePageSourceProvider
      */
     public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns)
     {
-        return projectBaseColumns(columns, false);
-    }
-
-    /**
-     * Creates a mapping between the input {@code columns} and base columns based on baseHiveColumnIndex or baseColumnName if required.
-     */
-    public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns, boolean useColumnNames)
-    {
         requireNonNull(columns, "columns is null");
 
         // No projection is required if all columns are base columns
@@ -690,11 +682,11 @@ public class HivePageSourceProvider
 
         ImmutableList.Builder<ColumnHandle> projectedColumns = ImmutableList.builder();
         ImmutableList.Builder<Integer> outputColumnMapping = ImmutableList.builder();
-        Map<Object, Integer> mappedHiveBaseColumnKeys = new HashMap<>();
+        Map<Integer, Integer> mappedHiveBaseColumnKeys = new HashMap<>();
         int projectedColumnCount = 0;
 
         for (HiveColumnHandle column : columns) {
-            Object baseColumnKey = useColumnNames ? column.getBaseColumnName() : column.getBaseHiveColumnIndex();
+            Integer baseColumnKey = column.getBaseHiveColumnIndex();
             Integer mapped = mappedHiveBaseColumnKeys.get(baseColumnKey);
 
             if (mapped == null) {
