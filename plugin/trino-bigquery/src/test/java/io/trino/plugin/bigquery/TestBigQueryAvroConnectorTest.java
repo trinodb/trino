@@ -76,7 +76,7 @@ public class TestBigQueryAvroConnectorTest
                 assertThat(query("SELECT * FROM " + tableName))
                         .failure().hasMessageMatching("(Cannot create read|Invalid Avro schema).*(Illegal initial character|Invalid name).*");
                 assertThat(bigQuerySqlExecutor.executeQuery("SELECT * FROM " + tableName).getValues())
-                        .extracting(field -> field.get(0).getStringValue())
+                        .extracting(field -> field.getFirst().getStringValue())
                         .containsExactly("test value");
             }
             finally {
