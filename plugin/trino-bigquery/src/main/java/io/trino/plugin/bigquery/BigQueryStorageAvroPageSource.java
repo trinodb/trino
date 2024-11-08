@@ -114,8 +114,8 @@ public class BigQueryStorageAvroPageSource
         this.executor = requireNonNull(executor, "executor is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         requireNonNull(split, "split is null");
-        this.streamName = split.getStreamName();
-        this.avroSchema = parseSchema(split.getSchemaString());
+        this.streamName = split.streamName();
+        this.avroSchema = parseSchema(split.schemaString());
         this.columns = requireNonNull(columns, "columns is null");
         this.pageBuilder = new PageBuilder(columns.stream()
                 .map(BigQueryColumnHandle::trinoType)

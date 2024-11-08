@@ -77,13 +77,13 @@ public class BigQueryStorageArrowPageSource
         this.bigQueryReadClient = requireNonNull(bigQueryReadClient, "bigQueryReadClient is null");
         this.executor = requireNonNull(executor, "executor is null");
         requireNonNull(split, "split is null");
-        this.streamName = split.getStreamName();
+        this.streamName = split.streamName();
         requireNonNull(columns, "columns is null");
-        Schema schema = deserializeSchema(split.getSchemaString());
-        log.debug("Starting to read from %s", split.getStreamName());
-        responses = new ReadRowsHelper(bigQueryReadClient, split.getStreamName(), maxReadRowsRetries).readRows();
+        Schema schema = deserializeSchema(split.schemaString());
+        log.debug("Starting to read from %s", split.streamName());
+        responses = new ReadRowsHelper(bigQueryReadClient, split.streamName(), maxReadRowsRetries).readRows();
         nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
-        this.streamBufferAllocator = allocator.newChildAllocator(split.getStreamName(), 1024, Long.MAX_VALUE);
+        this.streamBufferAllocator = allocator.newChildAllocator(split.streamName(), 1024, Long.MAX_VALUE);
         this.bigQueryArrowToPageConverter = new BigQueryArrowToPageConverter(typeManager, streamBufferAllocator, schema, columns);
         this.pageBuilder = new PageBuilder(columns.stream()
                 .map(BigQueryColumnHandle::trinoType)
