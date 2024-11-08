@@ -25,7 +25,6 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
-import static io.trino.plugin.hive.HivePageSourceProvider.projectSufficientColumns;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_PRIMITIVES;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_ROW_AND_PRIMITIVES;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
@@ -56,14 +55,7 @@ public class TestReaderColumns
     public void testNoProjections()
     {
         List<HiveColumnHandle> columns = new ArrayList<>(TEST_FULL_COLUMNS.values());
-        Optional<ReaderColumns> mapping;
-
-        mapping = projectBaseColumns(columns);
-        assertThat(mapping.isEmpty())
-                .describedAs("Full columns should not require any adaptation")
-                .isTrue();
-
-        mapping = projectSufficientColumns(columns);
+        Optional<ReaderColumns> mapping = projectBaseColumns(columns);
         assertThat(mapping.isEmpty())
                 .describedAs("Full columns should not require any adaptation")
                 .isTrue();
@@ -95,41 +87,5 @@ public class TestReaderColumns
             assertThat(column.getBaseColumn()).isEqualTo(readerColumn);
             assertThat(readerColumns.get(readerIndex)).isEqualTo(readerColumn);
         }
-    }
-
-    @Test
-    public void testProjectSufficientColumns()
-    {
-        List<HiveColumnHandle> columns = ImmutableList.of(
-                createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col_struct_of_primitives"), ImmutableList.of(0)),
-                createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col_struct_of_primitives"), ImmutableList.of(1)),
-                createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col_bigint"), ImmutableList.of()),
-                createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col_struct_of_non_primitives"), ImmutableList.of(0, 1)),
-                createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col_struct_of_non_primitives"), ImmutableList.of(0)));
-
-        Optional<ReaderColumns> readerProjections = projectSufficientColumns(columns);
-        assertThat(readerProjections.isPresent())
-                .describedAs("expected readerProjections to be present")
-                .isTrue();
-
-        assertThat(readerProjections.get().getForColumnAt(0)).isEqualTo(columns.get(0));
-        assertThat(readerProjections.get().getForColumnAt(1)).isEqualTo(columns.get(1));
-        assertThat(readerProjections.get().getForColumnAt(2)).isEqualTo(columns.get(2));
-        assertThat(readerProjections.get().getForColumnAt(3)).isEqualTo(columns.get(4));
-        assertThat(readerProjections.get().getForColumnAt(4)).isEqualTo(columns.get(4));
-
-        assertThat(readerProjections.get().getPositionForColumnAt(0)).isEqualTo(0);
-        assertThat(readerProjections.get().getPositionForColumnAt(1)).isEqualTo(1);
-        assertThat(readerProjections.get().getPositionForColumnAt(2)).isEqualTo(2);
-        assertThat(readerProjections.get().getPositionForColumnAt(3)).isEqualTo(3);
-        assertThat(readerProjections.get().getPositionForColumnAt(4)).isEqualTo(3);
-
-        List<HiveColumnHandle> readerColumns = readerProjections.get().get().stream()
-                .map(HiveColumnHandle.class::cast)
-                .collect(toImmutableList());
-        assertThat(readerColumns.get(0)).isEqualTo(columns.get(0));
-        assertThat(readerColumns.get(1)).isEqualTo(columns.get(1));
-        assertThat(readerColumns.get(2)).isEqualTo(columns.get(2));
-        assertThat(readerColumns.get(3)).isEqualTo(columns.get(4));
     }
 }
