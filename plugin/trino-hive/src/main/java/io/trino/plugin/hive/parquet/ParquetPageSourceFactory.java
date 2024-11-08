@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.hive.parquet;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -63,6 +66,8 @@ import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -72,6 +77,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -87,7 +93,6 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
-import static io.trino.plugin.hive.HivePageSourceProvider.projectSufficientColumns;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetSmallFileThreshold;
@@ -321,11 +326,7 @@ public class ParquetPageSourceFactory
 
     public static Optional<MessageType> getParquetMessageType(List<HiveColumnHandle> columns, boolean useColumnNames, MessageType fileSchema)
     {
-        Optional<MessageType> message = projectSufficientColumns(columns)
-                .map(projection -> projection.get().stream()
-                        .map(HiveColumnHandle.class::cast)
-                        .collect(toUnmodifiableList()))
-                .orElse(columns).stream()
+        Optional<MessageType> message = projectSufficientColumns(columns).stream()
                 .filter(column -> column.getColumnType() == REGULAR)
                 .map(column -> getColumnType(column, fileSchema, useColumnNames))
                 .filter(Optional::isPresent)
@@ -333,6 +334,58 @@ public class ParquetPageSourceFactory
                 .map(type -> new MessageType(fileSchema.getName(), type))
                 .reduce(MessageType::union);
         return message;
+    }
+
+    /**
+     * Creates a set of sufficient columns for the input projected columns and prepares a mapping between the two. For example,
+     * if input columns include columns "a.b" and "a.b.c", then they will be projected from a single column "a.b".
+     */
+    @VisibleForTesting
+    static List<HiveColumnHandle> projectSufficientColumns(List<HiveColumnHandle> columns)
+    {
+        requireNonNull(columns, "columns is null");
+
+        if (columns.stream().allMatch(HiveColumnHandle::isBaseColumn)) {
+            return columns;
+        }
+
+        ImmutableBiMap.Builder<DereferenceChain, HiveColumnHandle> dereferenceChainsBuilder = ImmutableBiMap.builder();
+
+        for (HiveColumnHandle column : columns) {
+            List<Integer> indices = column.getHiveColumnProjectionInfo()
+                    .map(HiveColumnProjectionInfo::getDereferenceIndices)
+                    .orElse(ImmutableList.of());
+
+            DereferenceChain dereferenceChain = new DereferenceChain(column.getBaseColumnName(), indices);
+            dereferenceChainsBuilder.put(dereferenceChain, column);
+        }
+
+        BiMap<DereferenceChain, HiveColumnHandle> dereferenceChains = dereferenceChainsBuilder.build();
+
+        List<HiveColumnHandle> sufficientColumns = new ArrayList<>();
+        Set<DereferenceChain> chosenColumns = new HashSet<>();
+
+        // Pick a covering column for every column
+        for (HiveColumnHandle columnHandle : columns) {
+            DereferenceChain column = requireNonNull(dereferenceChains.inverse().get(columnHandle));
+            List<DereferenceChain> orderedPrefixes = column.getOrderedPrefixes();
+
+            // Shortest existing prefix is chosen as the input.
+            DereferenceChain chosenColumn = null;
+            for (DereferenceChain prefix : orderedPrefixes) {
+                if (dereferenceChains.containsKey(prefix)) {
+                    chosenColumn = prefix;
+                    break;
+                }
+            }
+            checkState(chosenColumn != null, "chosenColumn is null");
+
+            if (chosenColumns.add(chosenColumn)) {
+                sufficientColumns.add(dereferenceChains.get(chosenColumn));
+            }
+        }
+
+        return sufficientColumns;
     }
 
     public static Optional<org.apache.parquet.schema.Type> getColumnType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
@@ -505,5 +558,28 @@ public class ParquetPageSourceFactory
         }
 
         return Optional.of(typeBuilder.build());
+    }
+
+    private record DereferenceChain(String name, List<Integer> indices)
+    {
+        private DereferenceChain
+        {
+            requireNonNull(name, "name is null");
+            indices = ImmutableList.copyOf(requireNonNull(indices, "indices is null"));
+        }
+
+        /**
+         * Get Prefixes of this Dereference chain in increasing order of lengths
+         */
+        public List<DereferenceChain> getOrderedPrefixes()
+        {
+            ImmutableList.Builder<DereferenceChain> prefixes = ImmutableList.builder();
+
+            for (int prefixLen = 0; prefixLen <= indices.size(); prefixLen++) {
+                prefixes.add(new DereferenceChain(name, indices.subList(0, prefixLen)));
+            }
+
+            return prefixes.build();
+        }
     }
 }
