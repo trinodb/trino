@@ -173,11 +173,16 @@ public final class ReusableConnectionFactory
                 return;
             }
             closed = true;
-            if (dirty) {
-                delegate.close();
+            try {
+                if (dirty) {
+                    delegate.close();
+                }
+                else if (!delegate.isClosed()) {
+                    connections.put(queryId, delegate);
+                }
             }
-            else if (!delegate.isClosed()) {
-                connections.put(queryId, delegate);
+            catch (SQLException _) {
+                // Suppress closing errors
             }
         }
     }
