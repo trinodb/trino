@@ -34,7 +34,7 @@ public class TestBigQueryType
     public void testTimeToStringConverter()
     {
         assertThat(BigQueryTypeManager.timeToStringConverter(
-                Long.valueOf(303497217825L)))
+                303497217825L))
                 .isEqualTo("'00:00:00.303497'");
     }
 
@@ -53,7 +53,7 @@ public class TestBigQueryType
     public void testDateToStringConverter()
     {
         assertThat(BigQueryTypeManager.dateToStringConverter(
-                Long.valueOf(18352)))
+                18352L))
                 .isEqualTo("'2020-03-31'");
     }
 
