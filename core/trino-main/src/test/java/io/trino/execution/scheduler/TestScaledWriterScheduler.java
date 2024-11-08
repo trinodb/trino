@@ -34,6 +34,7 @@ import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
@@ -385,11 +386,13 @@ public class TestScaledWriterScheduler
         Symbol symbol = new Symbol(UNKNOWN, "column");
 
         // table scan with splitCount splits
-        TableScanNode tableScan = TableScanNode.newInstance(
+        TableScanNode tableScan = new TableScanNode(
                 TABLE_SCAN_NODE_ID,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingMetadata.TestingColumnHandle("column")),
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
 

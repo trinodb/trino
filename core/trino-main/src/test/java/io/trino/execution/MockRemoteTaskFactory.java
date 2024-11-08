@@ -45,6 +45,7 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -110,11 +111,13 @@ public class MockRemoteTaskFactory
         PlanNodeId sourceId = new PlanNodeId("sourceId");
         PlanFragment testFragment = new PlanFragment(
                 new PlanFragmentId("test"),
-                TableScanNode.newInstance(
+                new TableScanNode(
                         sourceId,
                         TEST_TABLE_HANDLE,
                         ImmutableList.of(symbol),
                         ImmutableMap.of(symbol, new TestingColumnHandle("column")),
+                        TupleDomain.all(),
+                        Optional.empty(),
                         false,
                         Optional.empty()),
                 ImmutableSet.of(symbol),

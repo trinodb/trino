@@ -1023,11 +1023,13 @@ public class TestDynamicFilterService
         Symbol buildSymbol = new Symbol(VARCHAR, "buildColumn");
 
         PlanNodeId tableScanNodeId = new PlanNodeId("plan_id");
-        TableScanNode tableScan = TableScanNode.newInstance(
+        TableScanNode tableScan = new TableScanNode(
                 tableScanNodeId,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingMetadata.TestingColumnHandle("column")),
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
         FilterNode filterNode = new FilterNode(

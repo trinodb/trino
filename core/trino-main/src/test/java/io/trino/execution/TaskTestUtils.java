@@ -42,6 +42,7 @@ import io.trino.operator.index.IndexManager;
 import io.trino.server.protocol.spooling.QueryDataEncoders;
 import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceManager;
@@ -95,11 +96,13 @@ public final class TaskTestUtils
 
     public static final PlanFragment PLAN_FRAGMENT = new PlanFragment(
             new PlanFragmentId("fragment"),
-            TableScanNode.newInstance(
+            new TableScanNode(
                     TABLE_SCAN_NODE_ID,
                     TEST_TABLE_HANDLE,
                     ImmutableList.of(SYMBOL),
                     ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT)),
+                    TupleDomain.all(),
+                    Optional.empty(),
                     false,
                     Optional.empty()),
             ImmutableSet.of(SYMBOL),
@@ -119,11 +122,13 @@ public final class TaskTestUtils
             new PlanFragmentId("fragment"),
             new DynamicFilterSourceNode(
                     new PlanNodeId("dynamicFilterSource"),
-                    TableScanNode.newInstance(
+                    new TableScanNode(
                             TABLE_SCAN_NODE_ID,
                             TEST_TABLE_HANDLE,
                             ImmutableList.of(SYMBOL),
                             ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT)),
+                            TupleDomain.all(),
+                            Optional.empty(),
                             false,
                             Optional.empty()),
                     ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, SYMBOL)),
