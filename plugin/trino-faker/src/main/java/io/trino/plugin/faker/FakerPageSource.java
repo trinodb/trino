@@ -230,6 +230,10 @@ class FakerPageSource
     {
         if (domain.isSingleValue()) {
             ObjectWriter singleValueWriter = objectWriter(handle.type());
+            if (domain.getType() instanceof VarcharType) {
+                String valueAsString = ((Slice) domain.getSingleValue()).toStringUtf8();
+                return (blockBuilder) -> VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(faker.expression(valueAsString)));
+            }
             return (blockBuilder) -> singleValueWriter.accept(blockBuilder, domain.getSingleValue());
         }
         if (domain.getValues().isDiscreteSet()) {

@@ -19,6 +19,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
+import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestFakerQueries
         extends AbstractTestQueryFramework
@@ -268,6 +269,25 @@ final class TestFakerQueries
         @Language("SQL")
         String testQuery = "SELECT count(name) FILTER (WHERE LENGTH(name) - LENGTH(REPLACE(name, ' ', '')) = 1) FROM generators";
         assertQuery(testQuery, "VALUES (1000)");
+
+        assertUpdate("DROP TABLE faker.default.generators");
+    }
+
+    @Test
+    void testSelectGeneratorInQuery()
+    {
+        @Language("SQL")
+        String tableQuery = "CREATE TABLE faker.default.generators (" +
+                "name VARCHAR NOT NULL, " +
+                "age_years INTEGER NOT NULL" +
+                ")";
+        assertUpdate(tableQuery);
+
+        @Language("SQL")
+        String testQuery = "SELECT name FROM generators WHERE name='#{Name.first_name} Bond' limit 1";
+
+        String resultText = getQueryRunner().execute(testQuery).getMaterializedRows().getFirst().toString();
+        assertThat(resultText).contains("Bond").matches(s -> s.length() - s.replace(" ", "").length() == 1);
 
         assertUpdate("DROP TABLE faker.default.generators");
     }
