@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule.test;
 
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
@@ -795,7 +796,8 @@ public class PlanBuilder
                 Optional.empty(),
                 schemaTableName,
                 mergeParadigmAndTypes,
-                List.of());
+                List.of(),
+                ImmutableListMultimap.of());
     }
 
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)

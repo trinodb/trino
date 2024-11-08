@@ -157,7 +157,7 @@ public class PhoenixMergeSink
     @Override
     public void storeMergedRows(Page page)
     {
-        checkArgument(page.getChannelCount() == 2 + columnCount, "The page size should be 2 + columnCount (%s), but is %s", columnCount, page.getChannelCount());
+        checkArgument(page.getChannelCount() == 3 + columnCount, "The page size should be 3 + columnCount (%s), but is %s", columnCount, page.getChannelCount());
         int positionCount = page.getPositionCount();
         Block operationBlock = page.getBlock(columnCount);
 
@@ -194,7 +194,7 @@ public class PhoenixMergeSink
             insertSink.appendPage(dataPage.getPositions(insertPositions, 0, insertPositionCount));
         }
 
-        List<Block> rowIdFields = RowBlock.getRowFieldsFromBlock(page.getBlock(columnCount + 1));
+        List<Block> rowIdFields = RowBlock.getRowFieldsFromBlock(page.getBlock(columnCount + 2));
         if (deletePositionCount > 0) {
             Block[] deleteBlocks = new Block[rowIdFields.size()];
             for (int field = 0; field < rowIdFields.size(); field++) {

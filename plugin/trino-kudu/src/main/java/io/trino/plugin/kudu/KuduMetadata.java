@@ -431,7 +431,7 @@ public class KuduMetadata
     }
 
     @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateCaseColumns, RetryMode retryMode)
     {
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
         KuduTable table = kuduTableHandle.getTable(clientSession);

@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
@@ -452,8 +453,10 @@ public interface Metadata
 
     /**
      * Begin merge query
+     *
+     * @param updateCaseColumnHandles The merge update case number to the assignment target columns mapping
      */
-    MergeHandle beginMerge(Session session, TableHandle tableHandle);
+    MergeHandle beginMerge(Session session, TableHandle tableHandle, Multimap<Integer, ColumnHandle> updateCaseColumnHandles);
 
     /**
      * Finish merge query
