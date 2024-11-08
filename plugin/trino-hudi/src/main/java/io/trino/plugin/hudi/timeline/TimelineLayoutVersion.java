@@ -13,11 +13,9 @@
  */
 package io.trino.plugin.hudi.timeline;
 
-import java.util.Objects;
-
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class TimelineLayoutVersion
+public record TimelineLayoutVersion(Integer version)
         implements Comparable<TimelineLayoutVersion>
 {
     public static final Integer VERSION_0 = 0; // pre 0.5.1  version format
@@ -26,37 +24,10 @@ public class TimelineLayoutVersion
     private static final Integer CURRENT_VERSION = VERSION_1;
     public static final TimelineLayoutVersion CURRENT_LAYOUT_VERSION = new TimelineLayoutVersion(CURRENT_VERSION);
 
-    private final Integer version;
-
-    public TimelineLayoutVersion(Integer version)
+    public TimelineLayoutVersion
     {
         checkArgument(version <= CURRENT_VERSION);
         checkArgument(version >= VERSION_0);
-        this.version = version;
-    }
-
-    public Integer getVersion()
-    {
-        return version;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        TimelineLayoutVersion that = (TimelineLayoutVersion) o;
-        return Objects.equals(version, that.version);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(version);
     }
 
     @Override

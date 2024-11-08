@@ -79,7 +79,7 @@ public class HudiFileGroup
 
     public String getPartitionPath()
     {
-        return fileGroupId.getPartitionPath();
+        return fileGroupId.partitionPath();
     }
 
     public HudiFileGroupId getFileGroupId()

@@ -56,7 +56,7 @@ public class CompactionOperation
 
     public String getPartitionPath()
     {
-        return id.getPartitionPath();
+        return id.partitionPath();
     }
 
     public HudiFileGroupId getFileGroupId()
