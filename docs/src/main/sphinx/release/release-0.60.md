@@ -15,7 +15,7 @@ anymore.
 The {doc}`/client/cli` now supports `USE CATALOG` and
 `USE SCHEMA`.
 
-## TPCH connector
+## TPC-H connector
 
 We have added a new connector that will generate synthetic data following the
 TPC-H specification. This connector makes it easy to generate large datasets for

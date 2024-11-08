@@ -164,7 +164,7 @@ Trino contains [many built-in connectors](/connector):
   [Prometheus](/connector/prometheus), [SingleStore](/connector/singlestore),
   and [Snowflake](/connector/snowflake) connectors.
 * A number of other utility connectors such as the [JMX](/connector/jmx),
-  [System](/connector/system), and [TPCH](/connector/tpch) connectors.
+  [System](/connector/system), and [TPC-H](/connector/tpch) connectors.
 
 Every catalog uses a specific connector. If you examine a catalog configuration
 file, you see that each contains a mandatory property `connector.name` with the

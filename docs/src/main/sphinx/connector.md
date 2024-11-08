@@ -43,8 +43,8 @@ Snowflake       <connector/snowflake>
 SQL Server      <connector/sqlserver>
 System          <connector/system>
 Thrift          <connector/thrift>
-TPCDS           <connector/tpcds>
-TPCH            <connector/tpch>
+TPC-DS           <connector/tpcds>
+TPC-H            <connector/tpch>
 Vertica         <connector/vertica>
 ```
 
