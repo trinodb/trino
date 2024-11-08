@@ -33,7 +33,6 @@ import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -51,13 +50,11 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveClassNames.COLUMNAR_SERDE_CLASS;
 import static io.trino.hive.formats.HiveClassNames.LAZY_BINARY_COLUMNAR_SERDE_CLASS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
-import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
+import static io.trino.plugin.hive.HivePageSourceProvider.projectColumnDereferences;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -112,15 +109,19 @@ public class RcFilePageSourceFactory
 
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
-        List<HiveColumnHandle> projectedReaderColumns = columns;
-        Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
+        ConnectorPageSource pageSource = projectColumnDereferences(columns, baseColumns -> createPageSource(session, path, start, length, estimatedFileSize, baseColumns, columnEncodingFactory));
+        return Optional.of(new ReaderPageSource(pageSource, Optional.empty()));
+    }
 
-        if (readerProjections.isPresent()) {
-            projectedReaderColumns = readerProjections.get().get().stream()
-                    .map(HiveColumnHandle.class::cast)
-                    .collect(toImmutableList());
-        }
-
+    private ConnectorPageSource createPageSource(
+            ConnectorSession session,
+            Location path,
+            long start,
+            long length,
+            long estimatedFileSize,
+            List<HiveColumnHandle> columns,
+            ColumnEncodingFactory columnEncodingFactory)
+    {
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
         TrinoInputFile inputFile = trinoFileSystem.newInputFile(path);
         try {
@@ -144,12 +145,12 @@ public class RcFilePageSourceFactory
 
         // Split may be empty now that the correct file size is known
         if (length <= 0) {
-            return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
+            return new EmptyPageSource();
         }
 
         try {
             ImmutableMap.Builder<Integer, Type> readColumns = ImmutableMap.builder();
-            for (HiveColumnHandle column : projectedReaderColumns) {
+            for (HiveColumnHandle column : columns) {
                 readColumns.put(column.getBaseHiveColumnIndex(), column.getType());
             }
 
@@ -160,8 +161,7 @@ public class RcFilePageSourceFactory
                     start,
                     length);
 
-            ConnectorPageSource pageSource = new RcFilePageSource(rcFileReader, projectedReaderColumns);
-            return Optional.of(new ReaderPageSource(pageSource, readerProjections));
+            return new RcFilePageSource(rcFileReader, columns);
         }
         catch (TrinoException e) {
             throw e;

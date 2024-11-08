@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.rcfile;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CheckReturnValue;
 import io.airlift.units.DataSize;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.rcfile.RcFileReader;
@@ -21,14 +22,16 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.LazyBlock;
-import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -36,6 +39,7 @@ import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static java.lang.String.format;
+import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
 public class RcFilePageSource
@@ -108,6 +112,13 @@ public class RcFilePageSource
     @Override
     public Page getNextPage()
     {
+        SourcePage sourcePage = getNextSourcePage();
+        return sourcePage == null ? null : sourcePage.getPage();
+    }
+
+    @Override
+    public SourcePage getNextSourcePage()
+    {
         try {
             // advance in the current batch
             pageId++;
@@ -119,17 +130,7 @@ public class RcFilePageSource
                 return null;
             }
 
-            Block[] blocks = new Block[hiveColumnIndexes.length];
-            for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                if (constantBlocks[fieldId] != null) {
-                    blocks[fieldId] = RunLengthEncodedBlock.create(constantBlocks[fieldId], currentPageSize);
-                }
-                else {
-                    blocks[fieldId] = createBlock(currentPageSize, fieldId);
-                }
-            }
-
-            return new Page(currentPageSize, blocks);
+            return new RcFileSourcePage(currentPageSize);
         }
         catch (TrinoException e) {
             closeAllSuppress(e, this);
@@ -173,46 +174,136 @@ public class RcFilePageSource
         return GUESSED_MEMORY_USAGE;
     }
 
-    private Block createBlock(int currentPageSize, int fieldId)
-    {
-        int hiveColumnIndex = hiveColumnIndexes[fieldId];
-
-        return new LazyBlock(
-                currentPageSize,
-                new RcFileBlockLoader(hiveColumnIndex));
-    }
-
-    private final class RcFileBlockLoader
-            implements LazyBlockLoader
+    private final class RcFileSourcePage
+            implements SourcePage
     {
         private final int expectedBatchId = pageId;
-        private final int columnIndex;
-        private boolean loaded;
+        private final Block[] blocks = new Block[hiveColumnIndexes.length];
+        private SelectedPositions selectedPositions;
 
-        public RcFileBlockLoader(int columnIndex)
+        private long sizeInBytes;
+        private long retainedSizeInBytes;
+
+        public RcFileSourcePage(int positionCount)
         {
-            this.columnIndex = columnIndex;
+            selectedPositions = new SelectedPositions(positionCount, null);
         }
 
         @Override
-        public Block load()
+        public int getPositionCount()
         {
-            checkState(!loaded, "Already loaded");
+            return selectedPositions.positionCount();
+        }
+
+        @Override
+        public long getSizeInBytes()
+        {
+            return sizeInBytes;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return retainedSizeInBytes;
+        }
+
+        @Override
+        public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+        {
+            for (Block block : blocks) {
+                if (block != null) {
+                    block.retainedBytesForEachPart(consumer);
+                }
+            }
+        }
+
+        @Override
+        public int getChannelCount()
+        {
+            return blocks.length;
+        }
+
+        @Override
+        public Block getBlock(int channel)
+        {
             checkState(pageId == expectedBatchId);
-
-            Block block;
-            try {
-                block = rcFileReader.readBlock(columnIndex);
+            Block block = blocks[channel];
+            if (block == null) {
+                if (constantBlocks[channel] != null) {
+                    block = RunLengthEncodedBlock.create(constantBlocks[channel], selectedPositions.positionCount());
+                }
+                else {
+                    try {
+                        // todo use selected positions to improve read performance
+                        block = rcFileReader.readBlock(hiveColumnIndexes[channel]);
+                    }
+                    catch (FileCorruptionException e) {
+                        throw new TrinoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getFileLocation()), e);
+                    }
+                    catch (IOException | RuntimeException e) {
+                        throw new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getFileLocation()), e);
+                    }
+                    block = selectedPositions.apply(block);
+                }
+                blocks[channel] = block;
+                sizeInBytes += block.getSizeInBytes();
+                retainedSizeInBytes += block.getRetainedSizeInBytes();
             }
-            catch (FileCorruptionException e) {
-                throw new TrinoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getFileLocation()), e);
-            }
-            catch (IOException | RuntimeException e) {
-                throw new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getFileLocation()), e);
-            }
-
-            loaded = true;
             return block;
+        }
+
+        @Override
+        public Page getPage()
+        {
+            // ensure all blocks are loaded
+            for (int i = 0; i < blocks.length; i++) {
+                getBlock(i);
+            }
+            return new Page(selectedPositions.positionCount(), blocks);
+        }
+
+        @Override
+        public void selectPositions(int[] positions, int offset, int size)
+        {
+            selectedPositions = selectedPositions.selectPositions(positions, offset, size);
+            retainedSizeInBytes = 0;
+            for (int i = 0; i < blocks.length; i++) {
+                Block block = blocks[i];
+                if (block != null) {
+                    block = selectedPositions.apply(block);
+                    retainedSizeInBytes += block.getRetainedSizeInBytes();
+                    blocks[i] = block;
+                }
+            }
+        }
+    }
+
+    private record SelectedPositions(int positionCount, @Nullable int[] positions)
+    {
+        @CheckReturnValue
+        public Block apply(Block block)
+        {
+            if (positions == null) {
+                return block;
+            }
+            return block.getPositions(positions, 0, positionCount);
+        }
+
+        @CheckReturnValue
+        public SelectedPositions selectPositions(int[] positions, int offset, int size)
+        {
+            if (this.positions == null) {
+                for (int i = 0; i < size; i++) {
+                    checkIndex(offset + i, positionCount);
+                }
+                return new SelectedPositions(size, Arrays.copyOfRange(positions, offset, offset + size));
+            }
+
+            int[] newPositions = new int[size];
+            for (int i = 0; i < size; i++) {
+                newPositions[i] = this.positions[positions[offset + i]];
+            }
+            return new SelectedPositions(size, newPositions);
         }
     }
 }
