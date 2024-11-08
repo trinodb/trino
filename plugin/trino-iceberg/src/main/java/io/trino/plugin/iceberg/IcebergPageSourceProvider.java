@@ -1024,10 +1024,7 @@ public class IcebergPageSourceProvider
 
     private static MessageType getMessageType(List<IcebergColumnHandle> regularColumns, String fileSchemaName, Map<Integer, org.apache.parquet.schema.Type> parquetIdToField)
     {
-        return projectSufficientColumns(regularColumns)
-                .map(readerColumns -> readerColumns.get().stream().map(IcebergColumnHandle.class::cast).toList())
-                .orElse(regularColumns)
-                .stream()
+        return projectSufficientColumns(regularColumns).stream()
                 .map(column -> getColumnType(column, parquetIdToField))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -1266,12 +1263,12 @@ public class IcebergPageSourceProvider
      * For example, if input columns include columns "a.b" and "a.b.c", then they will be projected
      * from a single column "a.b".
      */
-    private static Optional<ReaderColumns> projectSufficientColumns(List<IcebergColumnHandle> columns)
+    private static List<IcebergColumnHandle> projectSufficientColumns(List<IcebergColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
 
         if (columns.stream().allMatch(IcebergColumnHandle::isBaseColumn)) {
-            return Optional.empty();
+            return columns;
         }
 
         ImmutableBiMap.Builder<DereferenceChain, IcebergColumnHandle> dereferenceChainsBuilder = ImmutableBiMap.builder();
@@ -1283,8 +1280,7 @@ public class IcebergPageSourceProvider
 
         BiMap<DereferenceChain, IcebergColumnHandle> dereferenceChains = dereferenceChainsBuilder.build();
 
-        List<ColumnHandle> sufficientColumns = new ArrayList<>();
-        ImmutableList.Builder<Integer> outputColumnMapping = ImmutableList.builder();
+        List<IcebergColumnHandle> sufficientColumns = new ArrayList<>();
 
         Map<DereferenceChain, Integer> pickedColumns = new HashMap<>();
 
@@ -1302,23 +1298,15 @@ public class IcebergPageSourceProvider
             }
 
             checkState(chosenColumn != null, "chosenColumn is null");
-            int inputBlockIndex;
 
-            if (pickedColumns.containsKey(chosenColumn)) {
-                // Use already picked column
-                inputBlockIndex = pickedColumns.get(chosenColumn);
-            }
-            else {
+            if (!pickedColumns.containsKey(chosenColumn)) {
                 // Add a new column for the reader
                 sufficientColumns.add(dereferenceChains.get(chosenColumn));
                 pickedColumns.put(chosenColumn, sufficientColumns.size() - 1);
-                inputBlockIndex = sufficientColumns.size() - 1;
             }
-
-            outputColumnMapping.add(inputBlockIndex);
         }
 
-        return Optional.of(new ReaderColumns(sufficientColumns, outputColumnMapping.build()));
+        return sufficientColumns;
     }
 
     private static Optional<org.apache.parquet.schema.Type> getColumnType(IcebergColumnHandle column, Map<Integer, org.apache.parquet.schema.Type> parquetIdToField)
