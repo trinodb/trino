@@ -36,9 +36,6 @@ import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
-import io.trino.plugin.hive.HivePageSourceProvider;
-import io.trino.plugin.hive.ReaderPageSource;
-import io.trino.plugin.hive.ReaderProjectionsAdapter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
@@ -203,7 +200,6 @@ public class DeltaLakePageSourceProvider
                     partitionKeys,
                     partitionValues,
                     generatePages(split.getFileRowCount().get(), onlyRowIdColumn(regularColumns)),
-                    Optional.empty(),
                     split.getPath(),
                     split.getFileSize(),
                     split.getFileModifiedTime(),
@@ -239,7 +235,7 @@ public class DeltaLakePageSourceProvider
 
         TupleDomain<HiveColumnHandle> parquetPredicate = getParquetTupleDomain(filteredSplitPredicate.simplify(domainCompactionThreshold), columnMappingMode, parquetFieldIdToName);
 
-        ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
+        ConnectorPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 inputFile,
                 split.getStart(),
                 split.getLength(),
@@ -252,13 +248,6 @@ public class DeltaLakePageSourceProvider
                 Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.of(split.getFileSize()));
-
-        Optional<ReaderProjectionsAdapter> projectionsAdapter = pageSource.getReaderColumns().map(readerColumns ->
-                new ReaderProjectionsAdapter(
-                        hiveColumnHandles.build(),
-                        readerColumns,
-                        column -> ((HiveColumnHandle) column).getType(),
-                        HivePageSourceProvider::getProjection));
 
         Supplier<Optional<PageFilter>> deletePredicate = Suppliers.memoize(() -> {
             if (split.getDeletionVector().isEmpty()) {
@@ -278,8 +267,7 @@ public class DeltaLakePageSourceProvider
                 missingColumnNames.build(),
                 partitionKeys,
                 partitionValues,
-                pageSource.get(),
-                projectionsAdapter,
+                pageSource,
                 split.getPath(),
                 split.getFileSize(),
                 split.getFileModifiedTime(),

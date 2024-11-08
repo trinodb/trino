@@ -103,8 +103,7 @@ final class ParquetUtil
                         OptionalInt.empty(),
                         false,
                         NO_ACID_TRANSACTION)
-                .orElseThrow()
-                .get();
+                .orElseThrow();
     }
 
     private static List<HiveColumnHandle> getBaseColumns(List<String> columnNames, List<Type> columnTypes)

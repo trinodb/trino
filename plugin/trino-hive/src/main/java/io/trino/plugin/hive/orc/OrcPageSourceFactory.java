@@ -39,7 +39,6 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.TransformConnectorPageSource;
 import io.trino.plugin.hive.acid.AcidSchema;
@@ -174,7 +173,7 @@ public class OrcPageSourceFactory
     }
 
     @Override
-    public Optional<ReaderPageSource> createPageSource(
+    public Optional<ConnectorPageSource> createPageSource(
             ConnectorSession session,
             Location path,
             long start,
@@ -193,7 +192,7 @@ public class OrcPageSourceFactory
             return Optional.empty();
         }
 
-        ConnectorPageSource orcPageSource = createOrcPageSource(
+        return Optional.of(createOrcPageSource(
                 session,
                 path,
                 start,
@@ -218,9 +217,7 @@ public class OrcPageSourceFactory
                 bucketNumber,
                 originalFile,
                 transaction,
-                stats);
-
-        return Optional.of(new ReaderPageSource(orcPageSource, Optional.empty()));
+                stats));
     }
 
     private ConnectorPageSource createOrcPageSource(

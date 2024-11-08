@@ -32,7 +32,6 @@ import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.delete.RoaringBitmapArray;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
-import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
@@ -367,7 +366,7 @@ public class DeltaLakeMergeSink
         deletedRows.or(rowsDeletedByUpdate);
 
         if (cdfEnabled) {
-            try (ConnectorPageSource connectorPageSource = createParquetPageSource(Location.of(path.toStringUtf8())).get()) {
+            try (ConnectorPageSource connectorPageSource = createParquetPageSource(Location.of(path.toStringUtf8()))) {
                 readConnectorPageSource(
                         connectorPageSource,
                         rowsDeletedByDelete,
@@ -542,7 +541,7 @@ public class DeltaLakeMergeSink
     {
         RoaringBitmapArray rowsDeletedByDelete = deletion.rowsDeletedByDelete();
         RoaringBitmapArray rowsDeletedByUpdate = deletion.rowsDeletedByUpdate();
-        try (ConnectorPageSource connectorPageSource = createParquetPageSource(path).get()) {
+        try (ConnectorPageSource connectorPageSource = createParquetPageSource(path)) {
             readConnectorPageSource(
                     connectorPageSource,
                     rowsDeletedByDelete,
@@ -655,7 +654,7 @@ public class DeltaLakeMergeSink
         }
     }
 
-    private ReaderPageSource createParquetPageSource(Location path)
+    private ConnectorPageSource createParquetPageSource(Location path)
             throws IOException
     {
         TrinoInputFile inputFile = fileSystem.newInputFile(path);

@@ -200,7 +200,7 @@ public class HivePageSourceProvider
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, typeManager, coercionContext);
 
-            Optional<ReaderPageSource> readerWithProjections = pageSourceFactory.createPageSource(
+            Optional<ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     session,
                     path,
                     start,
@@ -215,23 +215,14 @@ public class HivePageSourceProvider
                     originalFile,
                     transaction);
 
-            if (readerWithProjections.isPresent()) {
-                ConnectorPageSource pageSource = readerWithProjections.get().get();
-
-                Optional<ReaderColumns> readerProjections = readerWithProjections.get().getReaderColumns();
-                Optional<ReaderProjectionsAdapter> adapter = Optional.empty();
-                if (readerProjections.isPresent()) {
-                    adapter = Optional.of(hiveProjectionsAdapter(desiredColumns, readerProjections.get()));
-                }
-
+            if (pageSource.isPresent()) {
                 return Optional.of(new HivePageSource(
                         columnMappings,
                         bucketAdaptation,
                         bucketValidator,
-                        adapter,
                         typeManager,
                         coercionContext,
-                        pageSource));
+                        pageSource.get()));
             }
         }
 
@@ -265,15 +256,6 @@ public class HivePageSourceProvider
             }
         }
         return false;
-    }
-
-    private static ReaderProjectionsAdapter hiveProjectionsAdapter(List<HiveColumnHandle> expectedColumns, ReaderColumns readColumns)
-    {
-        return new ReaderProjectionsAdapter(
-                expectedColumns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
-                readColumns,
-                column -> ((HiveColumnHandle) column).getType(),
-                HivePageSourceProvider::getProjection);
     }
 
     /**
@@ -666,40 +648,5 @@ public class HivePageSourceProvider
                     validation.bucketCount(),
                     bucketNumber.orElseThrow()));
         });
-    }
-
-    /**
-     * Creates a mapping between the input {@code columns} and base columns based on baseHiveColumnIndex if required.
-     */
-    public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns)
-    {
-        requireNonNull(columns, "columns is null");
-
-        // No projection is required if all columns are base columns
-        if (columns.stream().allMatch(HiveColumnHandle::isBaseColumn)) {
-            return Optional.empty();
-        }
-
-        ImmutableList.Builder<ColumnHandle> projectedColumns = ImmutableList.builder();
-        ImmutableList.Builder<Integer> outputColumnMapping = ImmutableList.builder();
-        Map<Integer, Integer> mappedHiveBaseColumnKeys = new HashMap<>();
-        int projectedColumnCount = 0;
-
-        for (HiveColumnHandle column : columns) {
-            Integer baseColumnKey = column.getBaseHiveColumnIndex();
-            Integer mapped = mappedHiveBaseColumnKeys.get(baseColumnKey);
-
-            if (mapped == null) {
-                projectedColumns.add(column.getBaseColumn());
-                mappedHiveBaseColumnKeys.put(baseColumnKey, projectedColumnCount);
-                outputColumnMapping.add(projectedColumnCount);
-                projectedColumnCount++;
-            }
-            else {
-                outputColumnMapping.add(mapped);
-            }
-        }
-
-        return Optional.of(new ReaderColumns(projectedColumns.build(), outputColumnMapping.build()));
     }
 }
