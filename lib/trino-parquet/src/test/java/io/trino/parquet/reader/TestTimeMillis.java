@@ -18,8 +18,8 @@ import com.google.common.io.Resources;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.ParquetMetadata;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
@@ -63,7 +63,7 @@ public class TestTimeMillis
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames);
 
-        Page page = reader.nextPage();
+        SourcePage page = reader.nextPage();
         Block block = page.getBlock(0).getLoadedBlock();
         assertThat(block.getPositionCount()).isEqualTo(1);
         // TIME '15:03:00'

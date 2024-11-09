@@ -30,6 +30,7 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -166,8 +167,15 @@ public class OrcDeleteDeltaPageSource
     @Override
     public Page getNextPage()
     {
+        SourcePage sourcePage = getNextSourcePage();
+        return sourcePage == null ? null : sourcePage.getPage();
+    }
+
+    @Override
+    public SourcePage getNextSourcePage()
+    {
         try {
-            Page page = recordReader.nextPage();
+            SourcePage page = recordReader.nextPage();
             if (page == null) {
                 close();
             }

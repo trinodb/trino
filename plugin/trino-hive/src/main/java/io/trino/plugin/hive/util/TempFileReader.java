@@ -21,6 +21,7 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 
 import java.io.IOException;
@@ -67,13 +68,13 @@ public class TempFileReader
                 throw new InterruptedIOException();
             }
 
-            Page page = reader.nextPage();
+            SourcePage page = reader.nextPage();
             if (page == null) {
                 return endOfData();
             }
 
             // eagerly load the page
-            return page.getLoadedPage();
+            return page.getPage().getLoadedPage();
         }
         catch (IOException e) {
             throw handleException(e);

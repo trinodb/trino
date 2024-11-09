@@ -241,7 +241,7 @@ public class BenchmarkColumnarFilterParquetData
     {
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), columnTypes, columnNames);
         LocalMemoryContext context = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
-        Page inputPage = reader.nextPage();
+        SourcePage inputPage = reader.nextPage();
         long outputRows = 0;
         while (inputPage != null) {
             WorkProcessor<Page> workProcessor = compiledProcessor.createWorkProcessor(
@@ -249,7 +249,7 @@ public class BenchmarkColumnarFilterParquetData
                     new DriverYieldSignal(),
                     context,
                     new PageProcessorMetrics(),
-                    SourcePage.create(inputPage));
+                    inputPage);
             if (workProcessor.process() && !workProcessor.isFinished()) {
                 outputRows += workProcessor.getResult().getPositionCount();
             }

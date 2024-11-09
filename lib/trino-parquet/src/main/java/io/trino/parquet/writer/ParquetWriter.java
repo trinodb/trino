@@ -32,6 +32,7 @@ import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.parquet.writer.ColumnWriter.BufferData;
 import io.trino.spi.Page;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -242,9 +243,9 @@ public class ParquetWriter
         try {
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(input, Optional.of(writeValidation));
             try (ParquetReader parquetReader = createParquetReader(input, parquetMetadata, writeValidation)) {
-                for (Page page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
+                for (SourcePage page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
                     // fully load the page
-                    page.getLoadedPage();
+                    page.getPage();
                 }
             }
         }
