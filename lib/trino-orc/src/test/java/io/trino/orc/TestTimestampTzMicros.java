@@ -48,6 +48,7 @@ public class TestTimestampTzMicros
         try (OrcRecordReader reader = orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(timestampTzType, TimestampType.createTimestampType(6)),
+                false,
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,
                 newSimpleAggregatedMemoryContext(),

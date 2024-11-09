@@ -430,6 +430,7 @@ public class BenchmarkColumnReaders
             return orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     types,
+                    false,
                     OrcPredicate.TRUE,
                     UTC, // arbitrary
                     newSimpleAggregatedMemoryContext(),

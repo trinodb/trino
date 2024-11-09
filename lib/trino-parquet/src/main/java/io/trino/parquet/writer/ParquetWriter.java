@@ -287,6 +287,7 @@ public class ParquetWriter
         return new ParquetReader(
                 Optional.ofNullable(fileMetaData.getCreatedBy()),
                 columnFields.build(),
+                false,
                 rowGroupInfoBuilder.build(),
                 input,
                 parquetTimeZone.orElseThrow(),

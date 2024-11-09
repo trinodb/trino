@@ -60,6 +60,7 @@ public class TestOrcLz4
         try (OrcRecordReader reader = orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(BIGINT, INTEGER, BIGINT),
+                false,
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,
                 newSimpleAggregatedMemoryContext(),

@@ -115,6 +115,7 @@ public final class IcebergTestUtils
             try (OrcRecordReader recordReader = orcReader.createRecordReader(
                     List.of(sortColumn),
                     List.of(sortColumnType),
+                    false,
                     OrcPredicate.TRUE,
                     UTC,
                     newSimpleAggregatedMemoryContext(),
