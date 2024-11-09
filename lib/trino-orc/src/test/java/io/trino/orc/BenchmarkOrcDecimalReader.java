@@ -14,8 +14,8 @@
 package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDecimal;
 import org.joda.time.DateTimeZone;
@@ -71,8 +71,8 @@ public class BenchmarkOrcDecimalReader
     {
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
-        for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-            blocks.add(page.getBlock(0).getLoadedBlock());
+        for (SourcePage page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+            blocks.add(page.getBlock(0));
         }
         return blocks;
     }

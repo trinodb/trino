@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveTimestampPrecision;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -146,7 +146,7 @@ public class TestTimestamp
         Iterator<?> expected = expectedValues.iterator();
         try (ConnectorPageSource pageSource = ParquetUtil.createPageSource(session, tempFile.getFile(), columnNames, ImmutableList.of(type), dateTimeZone)) {
             // skip a page to exercise the decoder's skip() logic
-            Page firstPage = pageSource.getNextPage();
+            SourcePage firstPage = pageSource.getNextSourcePage();
             assertThat(firstPage.getPositionCount() > 0)
                     .describedAs("Expected first page to have at least 1 row")
                     .isTrue();
@@ -157,7 +157,7 @@ public class TestTimestamp
 
             int pageCount = 1;
             while (!pageSource.isFinished()) {
-                Page page = pageSource.getNextPage();
+                SourcePage page = pageSource.getNextSourcePage();
                 if (page == null) {
                     continue;
                 }
