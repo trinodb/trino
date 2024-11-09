@@ -14,162 +14,115 @@
 package io.trino.plugin.hudi;
 
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hudi.reader.HudiTrinoReaderContext;
+import io.trino.plugin.hudi.util.HudiAvroSerializer;
+import io.trino.plugin.hudi.util.SynthesizedColumnHandler;
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
+import org.apache.avro.generic.IndexedRecord;
+import org.apache.hudi.common.table.read.HoodieFileGroupReader;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.base.util.Closables.closeAllSuppress;
-import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
-import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_TYPE_SIGNATURE;
-import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
-import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_TYPE_SIGNATURE;
-import static io.trino.plugin.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
-import static io.trino.plugin.hive.HiveColumnHandle.PARTITION_TYPE_SIGNATURE;
-import static io.trino.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
-import static io.trino.plugin.hive.HiveColumnHandle.PATH_TYPE;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Preconditions.checkState;
 
-public class HudiPageSource
-        implements ConnectorPageSource
-{
-    private final Block[] prefilledBlocks;
-    private final int[] delegateIndexes;
-    private final ConnectorPageSource dataPageSource;
+public class HudiPageSource implements ConnectorPageSource {
+
+    HoodieFileGroupReader<IndexedRecord> fileGroupReader;
+    // TODO: Remove pageSource here, Hudi doesn't use this page source to read
+    ConnectorPageSource pageSource;
+    HudiTrinoReaderContext readerContext;
+    PageBuilder pageBuilder;
+    HudiAvroSerializer avroSerializer;
+    List<HiveColumnHandle> columnHandles;
 
     public HudiPageSource(
-            String partitionName,
+            ConnectorPageSource pageSource,
+            HoodieFileGroupReader<IndexedRecord> fileGroupReader,
+            HudiTrinoReaderContext readerContext,
             List<HiveColumnHandle> columnHandles,
-            Map<String, Block> partitionBlocks,
-            ConnectorPageSource dataPageSource,
-            String path,
-            long fileSize,
-            long fileModifiedTime)
-    {
-        requireNonNull(columnHandles, "columnHandles is null");
-        this.dataPageSource = requireNonNull(dataPageSource, "dataPageSource is null");
-
-        int size = columnHandles.size();
-        this.prefilledBlocks = new Block[size];
-        this.delegateIndexes = new int[size];
-
-        int outputIndex = 0;
-        int delegateIndex = 0;
-
-        for (HiveColumnHandle column : columnHandles) {
-            if (partitionBlocks.containsKey(column.getName())) {
-                Block partitionValue = partitionBlocks.get(column.getName());
-                prefilledBlocks[outputIndex] = partitionValue;
-                delegateIndexes[outputIndex] = -1;
-            }
-            else if (column.getName().equals(PARTITION_COLUMN_NAME)) {
-                prefilledBlocks[outputIndex] = nativeValueToBlock(PARTITION_TYPE_SIGNATURE, utf8Slice(partitionName));
-                delegateIndexes[outputIndex] = -1;
-            }
-            else if (column.getName().equals(PATH_COLUMN_NAME)) {
-                prefilledBlocks[outputIndex] = nativeValueToBlock(PATH_TYPE, utf8Slice(path));
-                delegateIndexes[outputIndex] = -1;
-            }
-            else if (column.getName().equals(FILE_SIZE_COLUMN_NAME)) {
-                prefilledBlocks[outputIndex] = nativeValueToBlock(FILE_SIZE_TYPE_SIGNATURE, fileSize);
-                delegateIndexes[outputIndex] = -1;
-            }
-            else if (column.getName().equals(FILE_MODIFIED_TIME_COLUMN_NAME)) {
-                long packedTimestamp = packDateTimeWithZone(fileModifiedTime, UTC_KEY);
-                prefilledBlocks[outputIndex] = nativeValueToBlock(FILE_MODIFIED_TIME_TYPE_SIGNATURE, packedTimestamp);
-                delegateIndexes[outputIndex] = -1;
-            }
-            else {
-                delegateIndexes[outputIndex] = delegateIndex;
-                delegateIndex++;
-            }
-            outputIndex++;
-        }
+            SynthesizedColumnHandler synthesizedColumnHandler) {
+        this.pageSource = pageSource;
+        this.fileGroupReader = fileGroupReader;
+        this.initFileGroupReader();
+        this.readerContext = readerContext;
+        this.columnHandles = columnHandles;
+        this.pageBuilder = new PageBuilder(columnHandles.stream().map(HiveColumnHandle::getType).toList());
+        this.avroSerializer = new HudiAvroSerializer(columnHandles, synthesizedColumnHandler);
     }
 
     @Override
-    public long getCompletedBytes()
-    {
-        return dataPageSource.getCompletedBytes();
+    public long getCompletedBytes() {
+        return pageSource.getCompletedBytes();
     }
 
     @Override
-    public long getReadTimeNanos()
-    {
-        return dataPageSource.getReadTimeNanos();
+    public OptionalLong getCompletedPositions() {
+        return pageSource.getCompletedPositions();
     }
 
     @Override
-    public boolean isFinished()
-    {
-        return dataPageSource.isFinished();
+    public long getReadTimeNanos() {
+        return pageSource.getReadTimeNanos();
     }
 
     @Override
-    public CompletableFuture<?> isBlocked()
-    {
-        return dataPageSource.isBlocked();
-    }
-
-    @Override
-    public OptionalLong getCompletedPositions()
-    {
-        return dataPageSource.getCompletedPositions();
-    }
-
-    @Override
-    public Metrics getMetrics()
-    {
-        return dataPageSource.getMetrics();
-    }
-
-    @Override
-    public Page getNextPage()
-    {
+    public boolean isFinished() {
         try {
-            Page page = dataPageSource.getNextPage();
-            if (page == null) {
-                return null;
-            }
-            int positionCount = page.getPositionCount();
-            Block[] blocks = new Block[prefilledBlocks.length];
-            for (int i = 0; i < prefilledBlocks.length; i++) {
-                if (prefilledBlocks[i] != null) {
-                    blocks[i] = RunLengthEncodedBlock.create(prefilledBlocks[i], positionCount);
-                }
-                else {
-                    blocks[i] = page.getBlock(delegateIndexes[i]);
-                }
-            }
-            return new Page(positionCount, blocks);
-        }
-        catch (RuntimeException e) {
-            closeAllSuppress(e, this);
-            throw e;
+            return !fileGroupReader.hasNext();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return dataPageSource.getMemoryUsage();
+    public SourcePage getNextSourcePage() {
+        checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
+        try {
+            while(fileGroupReader.hasNext()) {
+                avroSerializer.buildRecordInPage(pageBuilder, fileGroupReader.next());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        Page newPage = pageBuilder.build();
+        pageBuilder.reset();
+        return SourcePage.create(newPage);
     }
 
     @Override
-    public void close()
-            throws IOException
-    {
-        dataPageSource.close();
+    public long getMemoryUsage() {
+        return pageSource.getMemoryUsage();
+    }
+
+    @Override
+    public void close() throws IOException {
+        fileGroupReader.close();
+        pageSource.close();
+    }
+
+    @Override
+    public CompletableFuture<?> isBlocked() {
+        return pageSource.isBlocked();
+    }
+
+    @Override
+    public Metrics getMetrics() {
+        return pageSource.getMetrics();
+    }
+
+    protected void initFileGroupReader() {
+        try {
+            this.fileGroupReader.initRecordIterators();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to initialize file group reader!", e);
+        }
     }
 }

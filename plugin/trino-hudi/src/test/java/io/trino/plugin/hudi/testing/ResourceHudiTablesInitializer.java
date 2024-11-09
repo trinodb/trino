@@ -167,6 +167,9 @@ public class ResourceHudiTablesInitializer
         HUDI_COW_PT_TBL(multiPartitionRegularColumns(), multiPartitionColumns(), multiPartitions()),
         STOCK_TICKS_COW(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
         STOCK_TICKS_MOR(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
+        HUDI_STOCK_TICKS_COW(hudiStockTicksRegularColumns(), hudiStockTicksPartitionColumns(), hudiStockTicksPartitions()),
+        HUDI_STOCK_TICKS_MOR(hudiStockTicksRegularColumns(), hudiStockTicksPartitionColumns(), hudiStockTicksPartitions()),
+        HUDI_MULTI_FG_PT_MOR(hudiMultiFgRegularColumns(), hudiMultiFgPartitionsColumn(), hudiMultiFgPartitions())
         /**/;
 
         private static final List<Column> HUDI_META_COLUMNS = ImmutableList.of(
@@ -254,6 +257,32 @@ public class ResourceHudiTablesInitializer
             return ImmutableMap.of("dt=2018-08-31", "2018/08/31");
         }
 
+        private static List<Column> hudiStockTicksRegularColumns()
+        {
+            return ImmutableList.of(
+                    column("volume", HIVE_LONG),
+                    column("ts", HIVE_STRING),
+                    column("symbol", HIVE_STRING),
+                    column("year", HIVE_INT),
+                    column("month", HIVE_STRING),
+                    column("high", HIVE_DOUBLE),
+                    column("low", HIVE_DOUBLE),
+                    column("key", HIVE_STRING),
+                    column("close", HIVE_DOUBLE),
+                    column("open", HIVE_DOUBLE),
+                    column("day", HIVE_STRING));
+        }
+
+        private static List<Column> hudiStockTicksPartitionColumns()
+        {
+            return ImmutableList.of(column("date", HIVE_STRING));
+        }
+
+        private static Map<String, String> hudiStockTicksPartitions()
+        {
+            return ImmutableMap.of("date=2018-08-31", "2018/08/31");
+        }
+
         private static List<Column> multiPartitionRegularColumns()
         {
             return ImmutableList.of(
@@ -274,6 +303,30 @@ public class ResourceHudiTablesInitializer
             return ImmutableMap.of(
                     "dt=2021-12-09/hh=10", "dt=2021-12-09/hh=10",
                     "dt=2021-12-09/hh=11", "dt=2021-12-09/hh=11");
+        }
+
+        private static List<Column> hudiMultiFgRegularColumns()
+        {
+            return ImmutableList.of(
+                    column("id", HIVE_INT),
+                    column("name", HIVE_STRING),
+                    column("price", HIVE_DOUBLE),
+                    column("ts", HIVE_LONG)
+            );
+        }
+
+        private static List<Column> hudiMultiFgPartitionsColumn()
+        {
+            return ImmutableList.of(
+                    column("country", HIVE_STRING)
+            );
+        }
+
+        private static Map<String, String> hudiMultiFgPartitions()
+        {
+            return ImmutableMap.of(
+                    "country=SG", "country=SG",
+                    "country=US", "country=US");
         }
     }
 }

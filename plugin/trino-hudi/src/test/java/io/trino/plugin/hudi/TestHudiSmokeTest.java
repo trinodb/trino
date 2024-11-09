@@ -20,6 +20,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,10 @@ import org.junit.jupiter.api.Test;
 import java.time.ZonedDateTime;
 
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MULTI_FG_PT_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_COW;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,14 +59,65 @@ public class TestHudiSmokeTest
     @Test
     public void testReadPartitionedTables()
     {
-        //assertQuery("SELECT symbol, max(ts) FROM " + STOCK_TICKS_COW + " GROUP BY symbol HAVING symbol = 'GOOG'",
-        //        "SELECT * FROM VALUES ('GOOG', '2018-08-31 10:59:00')");
+        assertQuery("SELECT symbol, max(ts) FROM " + STOCK_TICKS_COW + " GROUP BY symbol HAVING symbol = 'GOOG'",
+                "SELECT * FROM VALUES ('GOOG', '2018-08-31 10:59:00')");
 
-        //assertQuery("SELECT symbol, max(ts) FROM " + STOCK_TICKS_MOR + " GROUP BY symbol HAVING symbol = 'GOOG'",
-        //        "SELECT * FROM VALUES ('GOOG', '2018-08-31 10:59:00')");
+        assertQuery("SELECT symbol, max(ts) FROM " + STOCK_TICKS_MOR + " GROUP BY symbol HAVING symbol = 'GOOG'",
+                "SELECT * FROM VALUES ('GOOG', '2018-08-31 10:59:00')");
+                System.out.println(getQueryRunner().execute(getSession(), "EXPLAIN ANALYZE SELECT * FROM " + HUDI_STOCK_TICKS_COW).toString());
 
+        System.out.println("test start");
+        getQueryRunner().execute(getSession(), "SET SESSION hudi.metadata_enabled=true");
+        String res = getQueryRunner().execute(getSession(), "SELECT * FROM " + HUDI_STOCK_TICKS_COW).toString();
+        System.out.println(res);
         assertQuery("SELECT dt, count(1) FROM " + STOCK_TICKS_MOR + " GROUP BY dt",
                 "SELECT * FROM VALUES ('2018-08-31', '99')");
+    }
+
+    @Test
+    public void testReadPartitionedCOWTableVer8()
+    {
+        String res = getQueryRunner().execute(getSession(), "SELECT * FROM " + HUDI_STOCK_TICKS_COW).toString();
+        System.out.println(res);
+        assertQuery("SELECT date FROM " + HUDI_STOCK_TICKS_COW + " GROUP BY date",
+                "SELECT * FROM VALUES ('2018-08-31')");
+        assertQuery("SELECT date, count(1) FROM " + HUDI_STOCK_TICKS_COW + " GROUP BY date",
+                "SELECT * FROM VALUES ('2018-08-31', '99')");
+    }
+
+    @Test
+    public void testReadPartitionedMORTableVer8()
+    {
+        getQueryRunner().execute(getSession(), "SET SESSION hudi.metadata_enabled=true");
+        String res = getQueryRunner().execute(getSession(), "SELECT * FROM " + HUDI_STOCK_TICKS_COW).toString();
+        System.out.println(res);
+        assertQuery("SELECT date FROM " + HUDI_STOCK_TICKS_MOR + " GROUP BY date",
+                "SELECT * FROM VALUES ('2018-08-31')");
+        assertQuery("SELECT date, count(1) FROM " + HUDI_STOCK_TICKS_COW + " GROUP BY date",
+                "SELECT * FROM VALUES ('2018-08-31', '99')");
+    }
+
+    @Test
+    public void testReadMultiFgPartitionedMORTableVer8()
+    {
+        // Stopgap to enable MDT
+        Session session = withMdtEnabled(getSession());
+        getQueryRunner().execute(session, "SET SESSION hudi.metadata_enabled=true");
+        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR);
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR + " WHERE country='SG'");
+        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
+        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
+        assertThat(prunedSplits).isLessThan(totalSplits);
+        assertThat(prunedSplits).isEqualTo(2);
+    }
+
+    @Test
+    public void testReadPartitionedMORTables()
+    {
+        System.out.println("test start");
+        getQueryRunner().execute(getSession(), "SET SESSION hudi.metadata_enabled=true");
+        String res = getQueryRunner().execute(getSession(), "SELECT * FROM " + HUDI_STOCK_TICKS_MOR).toString();
+        System.out.println(res);
     }
 
     @Test
@@ -138,8 +193,10 @@ public class TestHudiSmokeTest
     public void testPathColumn()
             throws Exception
     {
-        String path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
-        assertThat(toInputFile(path).exists()).isTrue();
+        String path1 = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
+        assertThat(toInputFile(path1).exists()).isTrue();
+        String path2 = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_STOCK_TICKS_MOR + " WHERE volume = 6794");
+        assertThat(toInputFile(path2).exists()).isTrue();
     }
 
     @Test
@@ -363,6 +420,13 @@ public class TestHudiSmokeTest
     {
         return Session.builder(session)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "query_partition_filter_required", "true")
+                .build();
+    }
+
+    private static Session withMdtEnabled(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "metadata_enabled", "true")
                 .build();
     }
 

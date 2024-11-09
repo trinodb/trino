@@ -1,11 +1,27 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.hudi;
 
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
+import io.trino.plugin.hudi.file.HudiLogFile;
 import io.trino.plugin.hudi.util.HudiAvroSerializer;
+import io.trino.plugin.hudi.util.SynthesizedColumnHandler;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.IndexedRecord;
@@ -72,14 +88,15 @@ public class HudiSnapshotPageSource
         this.columnHandles = columnHandles;
         this.readerSchema = constructSchema(columnHandles.stream().map(HiveColumnHandle::getName).toList(),
                 columnHandles.stream().map(HiveColumnHandle::getHiveType).toList(), false);
-        this.pageBuilder = new PageBuilder(dataHandles.stream().map(HiveColumnHandle::getType).toList());
+        this.pageBuilder = new PageBuilder(dataHandles.stream().
+                map(HiveColumnHandle::getType).toList());
         Map<String, String> nameToPartitionValueMap = partitionKeyList.stream().collect(
                 Collectors.toMap(e -> e.name(), e -> e.value()));
         this.partitionValueMap = new HashMap<>();
         for (int i = 0; i < dataHandles.size(); i++) {
             HiveColumnHandle handle = dataHandles.get(i);
             if (handle.isPartitionKey()) {
-                partitionValueMap.put(i + HOODIE_META_COLUMNS.size(), nameToPartitionValueMap.get(handle.getName()));
+                partitionValueMap.put(i, nameToPartitionValueMap.get(handle.getName()));
             }
         }
         this.avroSerializer = new HudiAvroSerializer(columnHandles);
@@ -132,7 +149,7 @@ public class HudiSnapshotPageSource
     }
 
     @Override
-    public Page getNextPage() {
+    public SourcePage getNextSourcePage() {
         if (logRecordMap == null) {
             try (HoodieMergedLogRecordScanner logScanner = getMergedLogRecordScanner(storage, basePath, split, readerSchema)) {
                 logRecordMap = logScanner.getRecords();
@@ -145,29 +162,29 @@ public class HudiSnapshotPageSource
 
         int size = columnHandles.size();
         if (baseFilePageSource.isPresent()) {
-            Page page = baseFilePageSource.get().getNextPage();
-            if (page != null) {
+            SourcePage sourcePage = baseFilePageSource.get().getNextSourcePage();
+            if (sourcePage != null) {
                 try {
                     // Merge records from the page with log records
-                    for (int pos = 0; pos < page.getPositionCount(); pos++) {
-                        String recordKey = (String) avroSerializer.getValue(page, recordKeyFieldPos, pos);
+                    for (int pos = 0; pos < sourcePage.getPositionCount(); pos++) {
+                        String recordKey = (String) avroSerializer.getValue(sourcePage, recordKeyFieldPos, pos);
                         HoodieRecord logRecord = logRecordMap.remove(recordKey);
                         if (logRecord != null) {
                             // Merging base and log
-                            IndexedRecord baseRecord = avroSerializer.serialize(page, pos);
+                            IndexedRecord baseRecord = avroSerializer.serialize(sourcePage, pos);
                             Option<HoodieAvroIndexedRecord> mergedRecord = mergeRecord(baseRecord, logRecord);
                             if (mergedRecord.isEmpty()) {
                                 continue;
                             }
                             avroSerializer.buildRecordInPage(pageBuilder, mergedRecord.get().getData(), partitionValueMap, true);
                         } else {
-                            avroSerializer.buildRecordInPage(pageBuilder, page, pos, partitionValueMap, true);
+                            avroSerializer.buildRecordInPage(pageBuilder, sourcePage, pos, partitionValueMap, false);
                         }
                     }
 
                     Page newPage = pageBuilder.build();
                     pageBuilder.reset();
-                    return newPage;
+                    return SourcePage.create(newPage);
                 } catch (IOException e) {
                     throw new HoodieIOException("Cannot merge record in split " + split);
                 }
@@ -187,7 +204,7 @@ public class HudiSnapshotPageSource
         logRecordMap.clear();
         Page newPage = pageBuilder.build();
         pageBuilder.reset();
-        return newPage;
+        return SourcePage.create(newPage);
     }
 
     @Override
@@ -207,7 +224,7 @@ public class HudiSnapshotPageSource
         return HoodieMergedLogRecordScanner.newBuilder()
                 .withStorage(storage)
                 .withBasePath(basePath)
-                .withLogFilePaths(split.getLogFiles())
+                .withLogFilePaths(split.getLogFiles().stream().map(HudiLogFile::getPath).collect(Collectors.toList()))
                 .withReaderSchema(readerSchema)
                 .withLatestInstantTime(split.getCommitTime())
                 .withMaxMemorySizeInBytes(1 * 1024 * 1024L)

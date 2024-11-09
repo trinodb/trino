@@ -16,8 +16,6 @@ package io.trino.plugin.hudi;
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Table;
-import io.trino.plugin.hudi.model.HudiInstant;
-import io.trino.plugin.hudi.table.HudiTableMetaClient;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -85,7 +83,7 @@ public class TimelineTable
     private List<Object> getRecord(HoodieInstant hudiInstant)
     {
         List<Object> columns = new ArrayList<>();
-        columns.add(hudiInstant.getTimestamp());
+        columns.add(hudiInstant.requestedTime());
         columns.add(hudiInstant.getAction());
         columns.add(hudiInstant.getState().toString());
         checkArgument(columns.size() == types.size(), "Expected %s types in row, but got %s values", types.size(), columns.size());

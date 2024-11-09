@@ -1,3 +1,16 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.hudi.util;
 
 import io.airlift.slice.Slice;
@@ -9,6 +22,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -56,6 +70,7 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.apache.hudi.common.model.HoodieRecord.FILENAME_METADATA_FIELD;
 import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
 
 public class HudiAvroSerializer {
@@ -73,6 +88,7 @@ public class HudiAvroSerializer {
     };
 
     private static final AvroDecimalConverter DECIMAL_CONVERTER = new AvroDecimalConverter();
+    private final SynthesizedColumnHandler synthesizedColumnHandler;
 
     private final List<HiveColumnHandle> columnHandles;
     private final List<Type> columnTypes;
@@ -81,21 +97,32 @@ public class HudiAvroSerializer {
     public HudiAvroSerializer(List<HiveColumnHandle> columnHandles) {
         this.columnHandles = columnHandles;
         this.columnTypes = columnHandles.stream().map(HiveColumnHandle::getType).toList();
-        this.schema = constructSchema(columnHandles.stream().map(HiveColumnHandle::getName).toList(),
-                columnHandles.stream().map(HiveColumnHandle::getHiveType).toList(), false);
+        // Fetches projected schema
+        this.schema = constructSchema(columnHandles.stream().filter(ch -> !ch.isHidden()).map(HiveColumnHandle::getName).toList(),
+                columnHandles.stream().filter(ch -> !ch.isHidden()).map(HiveColumnHandle::getHiveType).toList(), false);
+        this.synthesizedColumnHandler = null;
     }
 
-    public IndexedRecord serialize(Page page, int position) {
+  public HudiAvroSerializer(List<HiveColumnHandle> columnHandles, SynthesizedColumnHandler synthesizedColumnHandler) {
+        this.columnHandles = columnHandles;
+        this.columnTypes = columnHandles.stream().map(HiveColumnHandle::getType).toList();
+        // Fetches projected schema
+        this.schema = constructSchema(columnHandles.stream().filter(ch -> !ch.isHidden()).map(HiveColumnHandle::getName).toList(),
+                columnHandles.stream().filter(ch -> !ch.isHidden()).map(HiveColumnHandle::getHiveType).toList(), false);
+        this.synthesizedColumnHandler = synthesizedColumnHandler;
+    }
+
+    public IndexedRecord serialize(SourcePage sourcePage, int position) {
         IndexedRecord record = new GenericData.Record(schema);
         for (int i = 0; i < columnTypes.size(); i++) {
-            Object value = getValue(page, i, position);
+            Object value = getValue(sourcePage, i, position);
             record.put(i, value);
         }
         return record;
     }
 
-    public Object getValue(Page page, int channel, int position) {
-        return columnTypes.get(channel).getObjectValue(null, page.getBlock(channel), position);
+    public Object getValue(SourcePage sourcePage, int channel, int position) {
+        return columnTypes.get(channel).getObjectValue(null, sourcePage.getBlock(channel), position);
     }
 
     public void buildRecordInPage(PageBuilder pageBuilder, IndexedRecord record,
@@ -115,7 +142,23 @@ public class HudiAvroSerializer {
         }
     }
 
-    public void buildRecordInPage(PageBuilder pageBuilder, Page page, int position,
+    public void buildRecordInPage(PageBuilder pageBuilder, IndexedRecord record) {
+        pageBuilder.declarePosition();
+        int blockSeq = 0;
+        for (int channel = 0; channel < columnTypes.size(); channel++, blockSeq++) {
+            BlockBuilder output = pageBuilder.getBlockBuilder(blockSeq);
+            HiveColumnHandle columnHandle = columnHandles.get(channel);
+            if (synthesizedColumnHandler.isSynthesizedColumn(columnHandle)) {
+                synthesizedColumnHandler.getColumnStrategy(columnHandle).appendToBlock(output);
+            } else {
+                // Record may not be projected, get index from it
+                int fieldPosInSchema = record.getSchema().getField(columnHandle.getName()).pos();
+                appendTo(columnTypes.get(channel), record.get(fieldPosInSchema), output);
+            }
+        }
+    }
+
+    public void buildRecordInPage(PageBuilder pageBuilder, SourcePage sourcePage, int position,
                                   Map<Integer, String> partitionValueMap, boolean SkipMetaColumns) {
         pageBuilder.declarePosition();
         int startChannel = SkipMetaColumns ? HOODIE_META_COLUMNS.size() : 0;
@@ -126,7 +169,7 @@ public class HudiAvroSerializer {
             if (partitionValueMap.containsKey(channel)) {
                 appendTo(VarcharType.VARCHAR, partitionValueMap.get(channel), output);
             } else {
-                appendTo(columnTypes.get(nonPartitionChannel), getValue(page, nonPartitionChannel, position), output);
+                appendTo(columnTypes.get(nonPartitionChannel), getValue(sourcePage, nonPartitionChannel, position), output);
                 nonPartitionChannel++;
             }
         }

@@ -49,7 +49,6 @@ import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMinimumAssignedSplitWeight;
 import static io.trino.plugin.hudi.HudiSessionProperties.getSplitGeneratorParallelism;
 import static io.trino.plugin.hudi.HudiSessionProperties.getStandardSplitWeightSize;
-import static io.trino.plugin.hudi.HudiSessionProperties.isIgnoreAbsentPartitions;
 import static io.trino.plugin.hudi.HudiSessionProperties.isHudiMetadataTableEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
@@ -81,7 +80,7 @@ public class HudiSplitSource
                 .getCommitsTimeline()
                 .filterCompletedInstants()
                 .lastInstant()
-                .map(HoodieInstant::getTimestamp)
+                .map(HoodieInstant::requestedTime)
                 .orElseThrow(() -> new TrinoException(HudiErrorCode.HUDI_NO_VALID_COMMIT, "Table has no valid commits"));
         List<HiveColumnHandle> partitionColumnHandles = table.getPartitionColumns().stream()
                 .map(column -> partitionColumnHandleMap.get(column.getName())).collect(toList());
@@ -94,8 +93,7 @@ public class HudiSplitSource
                 table,
                 partitionColumnHandles,
                 partitions,
-                latestCommitTime,
-                !tableHandle.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session));
+                latestCommitTime);
 
         this.queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
         HudiBackgroundSplitLoader splitLoader = new HudiBackgroundSplitLoader(

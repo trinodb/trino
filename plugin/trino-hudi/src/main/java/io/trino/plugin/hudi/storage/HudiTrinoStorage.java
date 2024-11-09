@@ -1,3 +1,16 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.hudi.storage;
 
 import io.airlift.units.DataSize;
@@ -6,7 +19,6 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hudi.io.TrinoSeekableDataInputStream;
 import org.apache.hudi.io.SeekableDataInputStream;
 import org.apache.hudi.storage.HoodieStorage;
@@ -143,10 +155,15 @@ public class HudiTrinoStorage extends HoodieStorage
 
     @Override
     public List<StoragePathInfo> listDirectEntries(StoragePath path) throws IOException {
-        FileIterator fileIterator = fileSystem.listFiles(convertToLocation(path));
+        // TrinoFileSystem#listFiles lists recursively, we need to limit the result to only the direct children
+        Location location = convertToLocation(path);
+        FileIterator fileIterator = fileSystem.listFiles(location);
         List<StoragePathInfo> fileList = new ArrayList<>();
         while (fileIterator.hasNext()) {
-            fileList.add(convertToPathInfo(fileIterator.next()));
+            FileEntry entry = fileIterator.next();
+            if (entry.location().parentDirectory().path().equals(location.path())) {
+                fileList.add(convertToPathInfo(entry));
+            }
         }
         return fileList;
     }
@@ -163,11 +180,14 @@ public class HudiTrinoStorage extends HoodieStorage
 
     @Override
     public List<StoragePathInfo> listDirectEntries(StoragePath path, StoragePathFilter filter) throws IOException {
-        FileIterator fileIterator = fileSystem.listFiles(convertToLocation(path));
+        // TrinoFileSystem#listFiles lists recursively, we need to limit the result to only the direct children
+        Location location = convertToLocation(path);
+        FileIterator fileIterator = fileSystem.listFiles(location);
         List<StoragePathInfo> fileList = new ArrayList<>();
         while (fileIterator.hasNext()) {
             FileEntry entry = fileIterator.next();
-            if (filter.accept(new StoragePath(entry.location().toString()))) {
+            if (filter.accept(new StoragePath(entry.location().toString()))
+                    && entry.location().parentDirectory().path().equals(location.path())) {
                 fileList.add(convertToPathInfo(entry));
             }
         }
@@ -195,6 +215,12 @@ public class HudiTrinoStorage extends HoodieStorage
     public boolean deleteFile(StoragePath path) throws IOException {
         fileSystem.deleteFile(convertToLocation(path));
         return true;
+    }
+
+    @Override
+    public void setModificationTime(StoragePath path, long modificationTime) throws IOException {
+        Location sameLocation = convertToLocation(path);
+        fileSystem.renameFile(sameLocation, sameLocation);
     }
 
     @Override

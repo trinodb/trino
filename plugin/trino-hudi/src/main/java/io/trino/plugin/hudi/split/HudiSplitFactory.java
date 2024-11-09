@@ -20,6 +20,7 @@ import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.HudiSplit;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.file.HudiBaseFile;
+import io.trino.plugin.hudi.file.HudiLogFile;
 import io.trino.spi.TrinoException;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieBaseFile;
@@ -28,6 +29,7 @@ import org.apache.hudi.common.util.Option;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -106,7 +108,7 @@ public class HudiSplitFactory
         return Collections.singletonList(
                 new HudiSplit(
                         baseFileOption.isPresent() ? HudiBaseFile.of(baseFileOption.get()) : null,
-                        fileSlice.getLogFiles().map(e -> e.getPath().toString()).toList(),
+                        fileSlice.getLogFiles().map(HudiLogFile::of).toList(),
                         commitTime,
                         hudiTableHandle.getRegularPredicates(),
                         partitionKeys,
