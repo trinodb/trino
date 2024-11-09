@@ -34,7 +34,7 @@ import io.trino.orc.metadata.PostScript;
 import io.trino.orc.metadata.PostScript.HiveWriterVersion;
 import io.trino.orc.stream.OrcChunkLoader;
 import io.trino.orc.stream.OrcInputStream;
-import io.trino.spi.Page;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
@@ -424,9 +424,9 @@ public class OrcReader
                         throwIfUnchecked(exception);
                         return new RuntimeException(exception);
                     })) {
-                for (Page page = orcRecordReader.nextPage(); page != null; page = orcRecordReader.nextPage()) {
+                for (SourcePage page = orcRecordReader.nextPage(); page != null; page = orcRecordReader.nextPage()) {
                     // fully load the page
-                    page.getLoadedPage();
+                    page.getPage();
                 }
             }
         }

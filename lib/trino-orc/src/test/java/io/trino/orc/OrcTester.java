@@ -32,6 +32,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -497,7 +498,7 @@ public class OrcTester
             boolean isFirst = true;
             int rowsProcessed = 0;
             Iterator<?> iterator = expectedValues.iterator();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+            for (SourcePage page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
                 int batchSize = page.getPositionCount();
                 if (skipStripe && rowsProcessed < 10000) {
                     assertThat(advance(iterator, batchSize)).isEqualTo(batchSize);

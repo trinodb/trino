@@ -147,7 +147,7 @@ public class OrcPageSource
                 localMemoryContext.setBytes(0);
             }
             else {
-                page = recordReader.nextPage();
+                page = recordReader.nextPage().getPage();
             }
         }
         catch (IOException | RuntimeException e) {

@@ -119,7 +119,7 @@ public class TestHivePageSource
                         TESTING_TYPE_MANAGER,
                         new CoercionUtils.CoercionContext(DEFAULT_PRECISION, PARQUET),
                         pageSource)) {
-            hivePageSource.getNextPage();
+            hivePageSource.getNextSourcePage();
         }
     }
 }

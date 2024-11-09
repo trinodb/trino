@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -40,7 +41,9 @@ import io.trino.orc.reader.ColumnReader;
 import io.trino.orc.stream.InputStreamSources;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
@@ -54,6 +57,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
+import java.util.function.ObjLongConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -70,6 +74,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparingLong;
+import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
 public class OrcRecordReader
@@ -406,7 +411,7 @@ public class OrcRecordReader
         }
     }
 
-    public Page nextPage()
+    public SourcePage nextPage()
             throws IOException
     {
         // update position for current row group (advancing resets them)
@@ -447,19 +452,138 @@ public class OrcRecordReader
         // create a lazy page
         blockFactory.nextPage();
         Arrays.fill(currentBytesPerCell, 0);
-        Block[] blocks = new Block[columnReaders.length];
-        for (int i = 0; i < columnReaders.length; i++) {
-            int columnIndex = i;
-            blocks[columnIndex] = blockFactory.createBlock(
-                    currentBatchSize,
-                    columnReaders[columnIndex]::readBlock,
-                    false);
-            listenForLoads(blocks[columnIndex], block -> blockLoaded(columnIndex, block));
-        }
-
-        Page page = new Page(currentBatchSize, blocks);
+        SourcePage page = new OrcSourcePage(currentBatchSize);
         validateWritePageChecksum(page);
         return page;
+    }
+
+    private class OrcSourcePage
+            implements SourcePage
+    {
+        private final Block[] blocks = new Block[columnReaders.length];
+        private SelectedPositions selectedPositions;
+
+        public OrcSourcePage(int positionCount)
+        {
+            selectedPositions = new SelectedPositions(positionCount, null);
+        }
+
+        @Override
+        public int getPositionCount()
+        {
+            return selectedPositions.positionCount();
+        }
+
+        @Override
+        public long getSizeInBytes()
+        {
+            long sizeInBytes = 0;
+            for (Block block : blocks) {
+                if (block != null) {
+                    sizeInBytes += block.getSizeInBytes();
+                }
+            }
+            return sizeInBytes;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            long retainedSizeInBytes = 0;
+            for (Block block : blocks) {
+                if (block != null) {
+                    retainedSizeInBytes += block.getRetainedSizeInBytes();
+                }
+            }
+            return retainedSizeInBytes;
+        }
+
+        @Override
+        public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+        {
+            for (Block block : blocks) {
+                if (block != null) {
+                    block.retainedBytesForEachPart(consumer);
+                }
+            }
+        }
+
+        @Override
+        public int getChannelCount()
+        {
+            return blocks.length;
+        }
+
+        @Override
+        public Block getBlock(int channel)
+        {
+            checkIndex(channel, blocks.length);
+
+            Block block = blocks[channel];
+            if (block == null) {
+                // todo use selected positions to improve read performance
+                block = blockFactory.createBlock(
+                        currentBatchSize,
+                        columnReaders[channel]::readBlock,
+                        false);
+                listenForLoads(block, nestedBlock -> blockLoaded(channel, nestedBlock));
+                block = selectedPositions.apply(block);
+                blocks[channel] = block;
+            }
+            return block;
+        }
+
+        @Override
+        public Page getPage()
+        {
+            // ensure all blocks are loaded
+            for (int i = 0; i < blocks.length; i++) {
+                getBlock(i);
+            }
+            return new Page(selectedPositions.positionCount(), blocks);
+        }
+
+        @Override
+        public void selectPositions(int[] positions, int offset, int size)
+        {
+            selectedPositions = selectedPositions.selectPositions(positions, offset, size);
+            for (int i = 0; i < blocks.length; i++) {
+                Block block = blocks[i];
+                if (block != null) {
+                    block = selectedPositions.apply(block);
+                    blocks[i] = block;
+                }
+            }
+        }
+    }
+
+    private record SelectedPositions(int positionCount, @Nullable int[] positions)
+    {
+        @CheckReturnValue
+        public Block apply(Block block)
+        {
+            if (positions == null) {
+                return block;
+            }
+            return block.getPositions(positions, 0, positionCount);
+        }
+
+        @CheckReturnValue
+        public SelectedPositions selectPositions(int[] positions, int offset, int size)
+        {
+            if (this.positions == null) {
+                for (int i = 0; i < size; i++) {
+                    checkIndex(offset + i, positionCount);
+                }
+                return new SelectedPositions(size, Arrays.copyOfRange(positions, offset, offset + size));
+            }
+
+            int[] newPositions = new int[size];
+            for (int i = 0; i < size; i++) {
+                newPositions[i] = this.positions[positions[offset + i]];
+            }
+            return new SelectedPositions(size, newPositions);
+        }
     }
 
     private void blockLoaded(int columnIndex, Block block)
@@ -586,10 +710,10 @@ public class OrcRecordReader
         writeChecksumBuilder.ifPresent(builder -> builder.addStripe(rowCount));
     }
 
-    private void validateWritePageChecksum(Page page)
+    private void validateWritePageChecksum(SourcePage sourcePage)
     {
         if (writeChecksumBuilder.isPresent()) {
-            page = page.getLoadedPage();
+            Page page = sourcePage.getPage();
             writeChecksumBuilder.get().addPage(page);
             rowGroupStatisticsValidation.get().addPage(page);
             stripeStatisticsValidation.get().addPage(page);

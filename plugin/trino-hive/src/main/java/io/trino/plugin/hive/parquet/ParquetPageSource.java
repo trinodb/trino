@@ -26,6 +26,7 @@ import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 
@@ -100,9 +101,12 @@ public class ParquetPageSource
     @Override
     public Page getNextPage()
     {
-        Page page;
+        Page page = null;
         try {
-            page = getColumnAdaptationsPage(parquetReader.nextPage());
+            SourcePage sourcePage = parquetReader.nextPage();
+            if (sourcePage != null) {
+                page = getColumnAdaptationsPage(sourcePage.getPage());
+            }
         }
         catch (IOException | RuntimeException e) {
             closeAllSuppress(e, this);

@@ -272,7 +272,7 @@ public class TestStructColumnReader
                 OrcReader.INITIAL_BATCH_SIZE,
                 RuntimeException::new);
 
-        RowBlock block = (RowBlock) recordReader.nextPage().getLoadedPage().getBlock(0);
+        RowBlock block = (RowBlock) recordReader.nextPage().getBlock(0).getLoadedBlock();
         recordReader.close();
         return block;
     }

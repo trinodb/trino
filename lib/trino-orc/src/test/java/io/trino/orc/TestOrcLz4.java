@@ -15,8 +15,8 @@ package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.SourcePage;
 import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
@@ -67,11 +67,10 @@ public class TestOrcLz4
                 RuntimeException::new)) {
             int rows = 0;
             while (true) {
-                Page page = reader.nextPage();
+                SourcePage page = reader.nextPage();
                 if (page == null) {
                     break;
                 }
-                page = page.getLoadedPage();
                 rows += page.getPositionCount();
 
                 Block xBlock = page.getBlock(0);

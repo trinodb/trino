@@ -19,6 +19,7 @@ import io.trino.orc.metadata.CompressionKind;
 import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestamp;
@@ -328,8 +329,8 @@ public class BenchmarkColumnReaders
     {
         List<Page> pages = new ArrayList<>();
         try (OrcRecordReader recordReader = data.createRecordReader()) {
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                pages.add(page.getLoadedPage());
+            for (SourcePage page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                pages.add(page.getPage());
             }
         }
         return pages;
@@ -375,7 +376,7 @@ public class BenchmarkColumnReaders
             throws IOException
     {
         List<Block> blocks = new ArrayList<>();
-        for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+        for (SourcePage page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
             blocks.add(page.getBlock(0).getLoadedBlock());
         }
         return blocks;
