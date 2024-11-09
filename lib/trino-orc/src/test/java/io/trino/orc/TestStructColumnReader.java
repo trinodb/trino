@@ -266,6 +266,7 @@ public class TestStructColumnReader
         OrcRecordReader recordReader = orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(readerType),
+                false,
                 OrcPredicate.TRUE,
                 UTC,
                 newSimpleAggregatedMemoryContext(),

@@ -387,6 +387,7 @@ public class OrcPageSourceFactory
                     fileReadColumns,
                     fileReadTypes,
                     fileReadLayouts,
+                    false,
                     predicateBuilder.build(),
                     start,
                     length,

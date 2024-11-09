@@ -49,6 +49,7 @@ public class TempFileReader
             reader = orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     types,
+                    false,
                     OrcPredicate.TRUE,
                     UTC,
                     newSimpleAggregatedMemoryContext(),

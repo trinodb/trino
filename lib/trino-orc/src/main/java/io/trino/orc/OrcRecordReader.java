@@ -41,6 +41,7 @@ import io.trino.orc.reader.ColumnReader;
 import io.trino.orc.stream.InputStreamSources;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
@@ -83,6 +84,7 @@ public class OrcRecordReader
     private static final int INSTANCE_SIZE = instanceSize(OrcRecordReader.class);
 
     private final OrcDataSource orcDataSource;
+    private final boolean appendRowNumberColumn;
 
     private final ColumnReader[] columnReaders;
     private final long[] currentBytesPerCell;
@@ -134,6 +136,7 @@ public class OrcRecordReader
             List<OrcColumn> readColumns,
             List<Type> readTypes,
             List<OrcReader.ProjectedLayout> readLayouts,
+            boolean appendRowNumberColumn,
             OrcPredicate predicate,
             long numberOfRows,
             List<StripeInformation> fileStripes,
@@ -173,6 +176,7 @@ public class OrcRecordReader
         requireNonNull(userMetadata, "userMetadata is null");
         requireNonNull(memoryUsage, "memoryUsage is null");
         requireNonNull(exceptionTransform, "exceptionTransform is null");
+        this.appendRowNumberColumn = appendRowNumberColumn;
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(orcTypes, readTypes));
@@ -307,6 +311,11 @@ public class OrcRecordReader
             }
         }
         return new CachingOrcDataSource(dataSource, createTinyStripesRangeFinder(stripes, maxMergeDistance, tinyStripeThreshold));
+    }
+
+    public int getColumnCount()
+    {
+        return columnReaders.length + (appendRowNumberColumn ? 1 : 0);
     }
 
     /**
@@ -460,7 +469,8 @@ public class OrcRecordReader
     private class OrcSourcePage
             implements SourcePage
     {
-        private final Block[] blocks = new Block[columnReaders.length];
+        private final Block[] blocks = new Block[columnReaders.length + (appendRowNumberColumn ? 1 : 0)];
+        private final int rowNumberColumnIndex = appendRowNumberColumn ? columnReaders.length : -1;
         private SelectedPositions selectedPositions;
 
         public OrcSourcePage(int positionCount)
@@ -521,13 +531,18 @@ public class OrcRecordReader
 
             Block block = blocks[channel];
             if (block == null) {
-                // todo use selected positions to improve read performance
-                block = blockFactory.createBlock(
-                        currentBatchSize,
-                        columnReaders[channel]::readBlock,
-                        false);
-                listenForLoads(block, nestedBlock -> blockLoaded(channel, nestedBlock));
-                block = selectedPositions.apply(block);
+                if (channel == rowNumberColumnIndex) {
+                    block = selectedPositions.createRowNumberBlock(filePosition);
+                }
+                else {
+                    // todo use selected positions to improve read performance
+                    block = blockFactory.createBlock(
+                            currentBatchSize,
+                            columnReaders[channel]::readBlock,
+                            false);
+                    listenForLoads(block, nestedBlock -> blockLoaded(channel, nestedBlock));
+                    block = selectedPositions.apply(block);
+                }
                 blocks[channel] = block;
             }
             return block;
@@ -566,6 +581,16 @@ public class OrcRecordReader
                 return block;
             }
             return block.getPositions(positions, 0, positionCount);
+        }
+
+        public Block createRowNumberBlock(long filePosition)
+        {
+            long[] rowNumbers = new long[positionCount];
+            for (int i = 0; i < positionCount; i++) {
+                int position = positions == null ? i : positions[i];
+                rowNumbers[i] = filePosition + position;
+            }
+            return new LongArrayBlock(positionCount, Optional.empty(), rowNumbers);
         }
 
         @CheckReturnValue

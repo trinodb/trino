@@ -135,6 +135,7 @@ public class TestReadBloomFilter
         return orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(type),
+                false,
                 predicate,
                 HIVE_STORAGE_TIME_ZONE,
                 newSimpleAggregatedMemoryContext(),

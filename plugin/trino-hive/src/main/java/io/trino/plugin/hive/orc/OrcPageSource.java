@@ -35,6 +35,7 @@ import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 
@@ -43,6 +44,7 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -86,6 +88,27 @@ public class OrcPageSource
     private long completedPositions;
 
     private Optional<Page> outstandingPage = Optional.empty();
+
+    public OrcPageSource(
+            OrcRecordReader recordReader,
+            OrcDataSource orcDataSource,
+            Optional<OrcDeletedRows> deletedRows,
+            Optional<Long> originalFileRowId,
+            AggregatedMemoryContext memoryContext,
+            FileFormatDataSourceStats stats,
+            CompressionKind compressionKind)
+    {
+        this(recordReader,
+                IntStream.range(0, recordReader.getColumnCount())
+                        .mapToObj(OrcPageSource.ColumnAdaptation::sourceColumn)
+                        .toList(),
+                orcDataSource,
+                deletedRows,
+                originalFileRowId,
+                memoryContext,
+                stats,
+                compressionKind);
+    }
 
     public OrcPageSource(
             OrcRecordReader recordReader,
@@ -147,7 +170,8 @@ public class OrcPageSource
                 localMemoryContext.setBytes(0);
             }
             else {
-                page = recordReader.nextPage().getPage();
+                SourcePage sourcePage = recordReader.nextPage();
+                page = sourcePage == null ? null : sourcePage.getPage();
             }
         }
         catch (IOException | RuntimeException e) {

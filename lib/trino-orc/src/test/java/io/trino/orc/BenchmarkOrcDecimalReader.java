@@ -118,6 +118,7 @@ public class BenchmarkOrcDecimalReader
             return orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     ImmutableList.of(DECIMAL_TYPE),
+                    false,
                     OrcPredicate.TRUE,
                     DateTimeZone.UTC, // arbitrary
                     newSimpleAggregatedMemoryContext(),

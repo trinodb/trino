@@ -42,6 +42,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -183,7 +184,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             keyColumnHandle,
                             Domain.singleValue(INTEGER, 1L)));
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(splitPruningPredicate))) {
-                assertThat(emptyPageSource.getNextPage()).isNull();
+                assertThat(emptyPageSource.getNextSourcePage()).isNull();
             }
 
             TupleDomain<ColumnHandle> nonSelectivePredicate = TupleDomain.withColumnDomains(
@@ -191,7 +192,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             keyColumnHandle,
                             Domain.singleValue(INTEGER, (long) keyColumnValue)));
             try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(nonSelectivePredicate))) {
-                Page page = nonEmptyPageSource.getNextPage();
+                SourcePage page = nonEmptyPageSource.getNextSourcePage();
                 assertThat(page).isNotNull();
                 assertThat(page.getPositionCount()).isEqualTo(1);
                 assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(keyColumnValue);
@@ -240,11 +241,11 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     transaction);
 
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(splitPruningPredicate))) {
-                assertThat(emptyPageSource.getNextPage()).isNull();
+                assertThat(emptyPageSource.getNextSourcePage()).isNull();
             }
 
             try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(nonSelectivePredicate))) {
-                Page page = nonEmptyPageSource.getNextPage();
+                SourcePage page = nonEmptyPageSource.getNextSourcePage();
                 assertThat(page).isNotNull();
                 assertThat(page.getPositionCount()).isEqualTo(1);
                 assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(keyColumnValue);
@@ -369,7 +370,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         tableHandle,
                         ImmutableList.of(dateColumnHandle, receiptColumnHandle, amountColumnHandle),
                         getDynamicFilter(partitionPredicate))) {
-                    assertThat(emptyPageSource.getNextPage()).isNull();
+                    assertThat(emptyPageSource.getNextSourcePage()).isNull();
                 }
             }
 
@@ -389,7 +390,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         tableHandle,
                         ImmutableList.of(dateColumnHandle, receiptColumnHandle, amountColumnHandle),
                         getDynamicFilter(partitionPredicate))) {
-                    Page page = nonEmptyPageSource.getNextPage();
+                    SourcePage page = nonEmptyPageSource.getNextSourcePage();
                     assertThat(page).isNotNull();
                     assertThat(page.getPositionCount()).isEqualTo(1);
                     assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(dateColumnValue);
@@ -532,7 +533,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         tableHandle,
                         ImmutableList.of(yearColumnHandle, monthColumnHandle, receiptColumnHandle, amountColumnHandle),
                         getDynamicFilter(partitionPredicate))) {
-                    assertThat(emptyPageSource.getNextPage()).isNull();
+                    assertThat(emptyPageSource.getNextSourcePage()).isNull();
                 }
             }
 
@@ -554,7 +555,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         tableHandle,
                         ImmutableList.of(yearColumnHandle, monthColumnHandle, receiptColumnHandle, amountColumnHandle),
                         getDynamicFilter(partitionPredicate))) {
-                    Page page = nonEmptyPageSource.getNextPage();
+                    SourcePage page = nonEmptyPageSource.getNextSourcePage();
                     assertThat(page).isNotNull();
                     assertThat(page.getPositionCount()).isEqualTo(1);
                     assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(2023L);

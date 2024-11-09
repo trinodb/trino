@@ -201,6 +201,7 @@ public class TestCachingOrcDataSource
         OrcRecordReader orcRecordReader = orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(VARCHAR),
+                false,
                 (numberOfRows, statisticsByColumnIndex) -> true,
                 HIVE_STORAGE_TIME_ZONE,
                 newSimpleAggregatedMemoryContext(),

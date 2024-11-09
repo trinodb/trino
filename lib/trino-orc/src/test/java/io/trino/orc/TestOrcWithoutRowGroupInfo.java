@@ -67,6 +67,7 @@ public class TestOrcWithoutRowGroupInfo
         OrcRecordReader reader = orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(INTEGER, BIGINT, INTEGER, BIGINT, BIGINT, rowType),
+                false,
                 orcPredicate,
                 DateTimeZone.UTC,
                 newSimpleAggregatedMemoryContext(),
