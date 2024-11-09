@@ -15,11 +15,12 @@ package io.trino.plugin.faker;
 
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestFakerQueries
         extends AbstractTestQueryFramework
@@ -42,26 +43,20 @@ final class TestFakerQueries
     @Test
     void testColumnComment()
     {
-        assertUpdate("CREATE TABLE faker.default.comments (id INTEGER, name VARCHAR)");
-        assertUpdate("COMMENT ON COLUMN comments.name IS 'comment text'");
-
-        assertTableColumnNames("faker.default.comments", "id", "name");
-
-        assertUpdate("DROP TABLE faker.default.comments");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "comment", "(id INTEGER, name VARCHAR)")) {
+            assertUpdate("COMMENT ON COLUMN %s.name IS 'comment text'".formatted(table.getName()));
+            assertQuery("SHOW COLUMNS FROM " + table.getName(), "VALUES ('id', 'integer', '', ''), ('name', 'varchar', '', 'comment text')");
+        }
     }
 
     @Test
     void testCannotCommentRowId()
     {
-        assertUpdate("CREATE TABLE faker.default.cannot_comment (id INTEGER, name VARCHAR)");
-        @Language("SQL")
-        String testQuery = "COMMENT ON COLUMN \"cannot_comment\".\"$row_id\" IS 'comment text'";
-
-        assertThatThrownBy(() -> getQueryRunner().execute(testQuery))
-                .as("Query: " + testQuery)
-                .hasMessageContaining("Cannot set comment for $row_id column");
-
-        assertUpdate("DROP TABLE faker.default.cannot_comment");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "cannot_comment", "(id INTEGER, name VARCHAR)")) {
+            assertThat(query("COMMENT ON COLUMN \"%s\".\"$row_id\" IS 'comment text'".formatted(table.getName())))
+                    .nonTrinoExceptionFailure()
+                    .hasMessageContaining("Cannot set comment for $row_id column");
+        }
     }
 
     @Test
@@ -212,90 +207,67 @@ final class TestFakerQueries
     @Test
     void testSelectLimit()
     {
-        assertUpdate("CREATE TABLE faker.default.single_column (rnd_bigint bigint NOT NULL)");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "single_column", "(rnd_bigint bigint NOT NULL)")) {
+            assertQuery("SELECT count(rnd_bigint) FROM (SELECT rnd_bigint FROM %s LIMIT 5) a".formatted(table.getName()),
+                    "VALUES (5)");
 
-        assertQuery("SELECT count(rnd_bigint) FROM (SELECT rnd_bigint FROM single_column LIMIT 5) a",
-                "VALUES (5)");
+            assertQuery("""
+                            SELECT count(rnd_bigint)
+                            FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), 2 * MAX_ROWS_PER_SPLIT),
+                    "VALUES (%d)".formatted(2 * MAX_ROWS_PER_SPLIT));
 
-        assertQuery("""
-                    SELECT count(rnd_bigint)
-                    FROM (SELECT rnd_bigint FROM single_column LIMIT %d) a""".formatted(2 * MAX_ROWS_PER_SPLIT),
-                "VALUES (%d)".formatted(2 * MAX_ROWS_PER_SPLIT));
+            assertQuery("SELECT count(distinct rnd_bigint) FROM %s LIMIT 5".formatted(table.getName()),
+                    "VALUES (1000)");
 
-        assertQuery("SELECT count(distinct rnd_bigint) FROM single_column LIMIT 5",
-                "VALUES (1000)");
+            assertQuery("""
+                            SELECT count(rnd_bigint)
+                            FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), MAX_ROWS_PER_SPLIT),
+                    "VALUES (%d)".formatted(MAX_ROWS_PER_SPLIT));
 
-        assertQuery("""
-                    SELECT count(rnd_bigint)
-                    FROM (SELECT rnd_bigint FROM single_column LIMIT %d) a""".formatted(MAX_ROWS_PER_SPLIT),
-                "VALUES (%d)".formatted(MAX_ROWS_PER_SPLIT));
+            // generating data should be deterministic
+            String testQuery = """
+                    SELECT to_hex(checksum(rnd_bigint))
+                    FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), 3 * MAX_ROWS_PER_SPLIT);
+            assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
+            assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
+            assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
 
-        // generating data should be deterministic
-        String testQuery = """
-                           SELECT to_hex(checksum(rnd_bigint))
-                           FROM (SELECT rnd_bigint FROM single_column LIMIT %d) a""".formatted(3 * MAX_ROWS_PER_SPLIT);
-        assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
-        assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
-        assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
-
-        // there should be no overlap between data generated from different splits
-        assertQuery("""
-                    SELECT count(1)
-                    FROM (SELECT rnd_bigint FROM single_column LIMIT %d) a
-                    JOIN (SELECT rnd_bigint FROM single_column LIMIT %d) b ON a.rnd_bigint = b.rnd_bigint""".formatted(2 * MAX_ROWS_PER_SPLIT, 5 * MAX_ROWS_PER_SPLIT),
-                "VALUES (%d)".formatted(2 * MAX_ROWS_PER_SPLIT));
-
-        assertUpdate("DROP TABLE faker.default.single_column");
+            // there should be no overlap between data generated from different splits
+            assertQuery("""
+                            SELECT count(1)
+                            FROM (SELECT rnd_bigint FROM %s LIMIT %d) a
+                            JOIN (SELECT rnd_bigint FROM %s LIMIT %d) b ON a.rnd_bigint = b.rnd_bigint""".formatted(table.getName(), 2 * MAX_ROWS_PER_SPLIT, table.getName(), 5 * MAX_ROWS_PER_SPLIT),
+                    "VALUES (%d)".formatted(2 * MAX_ROWS_PER_SPLIT));
+        }
     }
 
     @Test
     void testSelectDefaultTableLimit()
     {
-        @Language("SQL")
-        String tableQuery = "CREATE TABLE faker.default.default_table_limit (rnd_bigint bigint NOT NULL) WITH (default_limit = 100)";
-        assertUpdate(tableQuery);
-
-        @Language("SQL")
-        String testQuery = "SELECT count(distinct rnd_bigint) FROM default_table_limit";
-        assertQuery(testQuery, "VALUES (100)");
-
-        assertUpdate("DROP TABLE faker.default.default_table_limit");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "default_table_limit", "(rnd_bigint bigint NOT NULL) WITH (default_limit = 100)")) {
+            assertQuery("SELECT count(distinct rnd_bigint) FROM " + table.getName(), "VALUES (100)");
+        }
     }
 
     @Test
     public void selectOnlyNulls()
     {
-        @Language("SQL")
-        String tableQuery = "CREATE TABLE faker.default.only_nulls (rnd_bigint bigint) WITH (null_probability = 1.0)";
-        assertUpdate(tableQuery);
-        tableQuery = "CREATE TABLE faker.default.only_nulls_column (rnd_bigint bigint WITH (null_probability = 1.0))";
-        assertUpdate(tableQuery);
-
-        @Language("SQL")
-        String testQuery = "SELECT count(distinct rnd_bigint) FROM only_nulls";
-        assertQuery(testQuery, "VALUES (0)");
-        testQuery = "SELECT count(distinct rnd_bigint) FROM only_nulls_column";
-        assertQuery(testQuery, "VALUES (0)");
-
-        assertUpdate("DROP TABLE faker.default.only_nulls");
-        assertUpdate("DROP TABLE faker.default.only_nulls_column");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "only_nulls", "(rnd_bigint bigint) WITH (null_probability = 1.0)")) {
+            assertQuery("SELECT count(distinct rnd_bigint) FROM " + table.getName(), "VALUES (0)");
+        }
     }
 
     @Test
     void testSelectGenerator()
     {
-        @Language("SQL")
-        String tableQuery = "CREATE TABLE faker.default.generators (" +
-                "name VARCHAR NOT NULL WITH (generator = '#{Name.first_name} #{Name.last_name}'), " +
-                "age_years INTEGER NOT NULL" +
-                ")";
-        assertUpdate(tableQuery);
-
-        @Language("SQL")
-        String testQuery = "SELECT count(name) FILTER (WHERE LENGTH(name) - LENGTH(REPLACE(name, ' ', '')) = 1) FROM generators";
-        assertQuery(testQuery, "VALUES (1000)");
-
-        assertUpdate("DROP TABLE faker.default.generators");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "generators", """
+            (
+                name VARCHAR NOT NULL WITH (generator = '#{Name.first_name} #{Name.last_name}'),
+                age_years INTEGER NOT NULL
+            )
+            """)) {
+            assertQuery("SELECT count(name) FILTER (WHERE LENGTH(name) - LENGTH(REPLACE(name, ' ', '')) = 1) FROM " + table.getName(), "VALUES (1000)");
+        }
     }
 
     @Test
