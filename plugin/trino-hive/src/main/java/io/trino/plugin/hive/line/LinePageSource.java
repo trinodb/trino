@@ -21,6 +21,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 
 import java.io.IOException;
 import java.util.OptionalLong;
@@ -57,6 +58,13 @@ public class LinePageSource
     @Override
     public Page getNextPage()
     {
+        SourcePage sourcePage = getNextSourcePage();
+        return sourcePage == null ? null : sourcePage.getPage();
+    }
+
+    @Override
+    public SourcePage getNextSourcePage()
+    {
         try {
             while (!pageBuilder.isFull() && lineReader.readLine(lineBuffer)) {
                 deserializer.deserialize(lineBuffer, pageBuilder);
@@ -64,7 +72,7 @@ public class LinePageSource
             Page page = pageBuilder.build();
             completedPositions += page.getPositionCount();
             pageBuilder.reset();
-            return page;
+            return SourcePage.create(page);
         }
         catch (TrinoException e) {
             closeAllSuppress(e, this);

@@ -29,11 +29,11 @@ import io.trino.hive.formats.line.LineReaderFactory;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
@@ -48,8 +48,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.line.LineDeserializer.EMPTY_LINE_DESERIALIZER;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
-import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
+import static io.trino.plugin.hive.HivePageSourceProvider.projectColumnDereferences;
 import static io.trino.plugin.hive.util.HiveUtil.getFooterCount;
 import static io.trino.plugin.hive.util.HiveUtil.getHeaderCount;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
@@ -98,7 +97,20 @@ public abstract class LinePageSourceFactory
 
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
-        // get header and footer count
+        ConnectorPageSource pageSource = projectColumnDereferences(columns, baseColumns -> createPageSource(session, path, start, length, estimatedFileSize, schema, baseColumns));
+        return Optional.of(new ReaderPageSource(pageSource, Optional.empty()));
+    }
+
+    private ConnectorPageSource createPageSource(
+            ConnectorSession session,
+            Location path,
+            long start,
+            long length,
+            long estimatedFileSize,
+            Schema schema,
+            List<HiveColumnHandle> columns)
+    {
+        // get header and footer counts
         int headerCount = getHeaderCount(schema.serdeProperties());
         if (headerCount > 1) {
             checkArgument(start == 0, "Multiple header rows are not supported for a split file");
@@ -108,20 +120,11 @@ public abstract class LinePageSourceFactory
             checkArgument(start == 0, "Footer not supported for a split file");
         }
 
-        // setup projected columns
-        List<HiveColumnHandle> projectedReaderColumns = columns;
-        Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
-        if (readerProjections.isPresent()) {
-            projectedReaderColumns = readerProjections.get().get().stream()
-                    .map(HiveColumnHandle.class::cast)
-                    .collect(toImmutableList());
-        }
-
         // create deserializer
         LineDeserializer lineDeserializer = EMPTY_LINE_DESERIALIZER;
         if (!columns.isEmpty()) {
             lineDeserializer = lineDeserializerFactory.create(
-                    projectedReaderColumns.stream()
+                    columns.stream()
                             .map(column -> new Column(column.getName(), column.getType(), column.getBaseHiveColumnIndex()))
                             .collect(toImmutableList()),
                     schema.serdeProperties());
@@ -141,16 +144,15 @@ public abstract class LinePageSourceFactory
 
             // Skip empty inputs
             if (length <= 0) {
-                return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
+                return new EmptyPageSource();
             }
 
             LineReader lineReader = lineReaderFactory.createLineReader(inputFile, start, length, headerCount, footerCount);
             // Split may be empty after discovering the real file size and skipping headers
             if (lineReader.isClosed()) {
-                return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
+                return new EmptyPageSource();
             }
-            LinePageSource pageSource = new LinePageSource(lineReader, lineDeserializer, lineReaderFactory.createLineBuffer(), path);
-            return Optional.of(new ReaderPageSource(pageSource, readerProjections));
+            return new LinePageSource(lineReader, lineDeserializer, lineReaderFactory.createLineBuffer(), path);
         }
         catch (TrinoException e) {
             throw e;
