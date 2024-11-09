@@ -54,6 +54,13 @@ public class ParquetPageSource
     private boolean closed;
     private long completedPositions;
 
+    public ParquetPageSource(ParquetReader parquetReader)
+    {
+        this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
+        this.columnAdaptations = ImmutableList.of();
+        this.isColumnAdaptationRequired = false;
+    }
+
     private ParquetPageSource(
             ParquetReader parquetReader,
             List<ColumnAdaptation> columnAdaptations)

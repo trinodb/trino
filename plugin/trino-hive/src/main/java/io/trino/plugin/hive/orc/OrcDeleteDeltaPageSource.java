@@ -136,6 +136,7 @@ public class OrcDeleteDeltaPageSource
                 rowIdColumns,
                 ImmutableList.of(BIGINT, INTEGER, BIGINT),
                 ImmutableList.of(fullyProjectedLayout(), fullyProjectedLayout(), fullyProjectedLayout()),
+                false,
                 OrcPredicate.TRUE,
                 0,
                 fileSize,

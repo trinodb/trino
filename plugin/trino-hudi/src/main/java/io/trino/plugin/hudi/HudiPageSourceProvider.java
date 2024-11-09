@@ -237,6 +237,7 @@ public class HudiPageSourceProvider
             ParquetReaderProvider parquetReaderProvider = fields -> new ParquetReader(
                     Optional.ofNullable(fileMetaData.getCreatedBy()),
                     fields,
+                    false,
                     rowGroups,
                     finalDataSource,
                     timeZone,
