@@ -467,6 +467,13 @@ public class FakerMetadata
         Map<String, Object> maximums = maximumsBuilder.buildOrThrow();
         Map<String, Long> distinctValues = distinctValuesBuilder.buildOrThrow();
 
+        if (!info.properties().containsKey(TableInfo.DEFAULT_LIMIT_PROPERTY) && rowCount != null) {
+            info = info.withProperties(ImmutableMap.<String, Object>builder()
+                    .putAll(info.properties())
+                    .put(TableInfo.DEFAULT_LIMIT_PROPERTY, rowCount)
+                    .buildOrThrow());
+        }
+
         if (minimums.isEmpty() && distinctValues.isEmpty()) {
             return info;
         }
