@@ -51,7 +51,7 @@ public class FakerPageSinkProvider
         @Override
         public CompletableFuture<?> appendPage(Page page)
         {
-            throw new UnsupportedOperationException("The faker connector does not support writes");
+            return NOT_BLOCKED;
         }
 
         @Override
@@ -63,7 +63,6 @@ public class FakerPageSinkProvider
         @Override
         public void abort()
         {
-            throw new UnsupportedOperationException("The faker connector does not support writes");
         }
     }
 }

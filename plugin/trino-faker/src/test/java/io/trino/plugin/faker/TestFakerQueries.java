@@ -820,4 +820,221 @@ final class TestFakerQueries
 
         assertUpdate("DROP TABLE faker.default.all_types_in");
     }
+
+    @Test
+    void testCreateTableAsSelect()
+    {
+        assertUpdate("CREATE TABLE faker.default.limited_range WITH (null_probability = 0, default_limit = 50) AS " +
+                "SELECT * FROM (VALUES -1, 3, 5) t(id)", 3);
+
+        assertQuery("SELECT count(id) FROM (SELECT id FROM limited_range) a",
+                "VALUES (50)");
+        assertQuery("SELECT count(id), min(id), max(id) FROM (SELECT id FROM faker.default.limited_range_view) a",
+                "VALUES (50, -1, 5)");
+
+        assertUpdate("DROP TABLE faker.default.limited_range");
+
+        @Language("SQL")
+        String tableQuery =
+                """
+                CREATE TABLE faker.default.ctas_all_types_range (
+                seq_bigint bigint NOT NULL,
+                rnd_bigint bigint NOT NULL,
+                rnd_integer integer NOT NULL,
+                rnd_smallint smallint NOT NULL,
+                rnd_tinyint tinyint NOT NULL,
+                rnd_boolean boolean NOT NULL,
+                rnd_date date NOT NULL,
+                rnd_decimal1 decimal NOT NULL,
+                rnd_decimal2 decimal(18,5) NOT NULL,
+                rnd_decimal3 decimal(38,0) NOT NULL,
+                rnd_decimal4 decimal(38,38) NOT NULL,
+                rnd_decimal5 decimal(5,2) NOT NULL,
+                rnd_real real NOT NULL,
+                rnd_double double NOT NULL,
+                rnd_interval_day_time interval day to second NOT NULL,
+                rnd_interval_year interval year to month NOT NULL,
+                rnd_timestamp timestamp NOT NULL,
+                rnd_timestamp0 timestamp(0) NOT NULL,
+                rnd_timestamp6 timestamp(6) NOT NULL,
+                rnd_timestamp9 timestamp(9) NOT NULL,
+                rnd_timestamptz timestamp with time zone NOT NULL,
+                rnd_timestamptz0 timestamp(0) with time zone NOT NULL,
+                rnd_timestamptz6 timestamp(6) with time zone NOT NULL,
+                rnd_timestamptz9 timestamp(9) with time zone NOT NULL,
+                rnd_time time NOT NULL,
+                rnd_time0 time(0) NOT NULL,
+                rnd_time6 time(6) NOT NULL,
+                rnd_time9 time(9) NOT NULL,
+                rnd_timetz time with time zone NOT NULL,
+                rnd_timetz0 time(0) with time zone NOT NULL,
+                rnd_timetz6 time(6) with time zone NOT NULL,
+                rnd_timetz9 time(9) with time zone NOT NULL,
+                rnd_timetz12 time(12) with time zone NOT NULL,
+                rnd_varbinary varbinary NOT NULL,
+                rnd_varchar varchar NOT NULL,
+                rnd_nvarchar varchar(1000) NOT NULL,
+                rnd_char char NOT NULL,
+                rnd_nchar char(1000) NOT NULL,
+                rnd_ipaddress ipaddress NOT NULL,
+                rnd_uuid uuid NOT NULL)""";
+        assertUpdate(tableQuery);
+
+        tableQuery =
+                """
+                CREATE TABLE faker.default.limited_range WITH (null_probability = 0, default_limit = 1000) AS
+                SELECT
+                  "$row_id" as seq_bigint,
+                  rnd_bigint,
+                  rnd_integer,
+                  rnd_smallint,
+                  rnd_tinyint,
+                  rnd_date,
+                  rnd_decimal1,
+                  rnd_decimal2,
+                  rnd_decimal3,
+                  rnd_decimal4,
+                  rnd_decimal5,
+                  rnd_real,
+                  rnd_double,
+                  rnd_interval_day_time,
+                  rnd_interval_year,
+                  rnd_timestamp,
+                  rnd_timestamp0,
+                  rnd_timestamp6,
+                  rnd_timestamp9,
+                  rnd_timestamptz,
+                  rnd_timestamptz0,
+                  rnd_timestamptz6,
+                  rnd_timestamptz9,
+                  rnd_time,
+                  rnd_time0,
+                  rnd_time6,
+                  rnd_time9,
+                  rnd_timetz,
+                  rnd_timetz0,
+                  rnd_timetz6,
+                  rnd_timetz9
+                FROM ctas_all_types_range
+                WHERE 1=1
+                AND rnd_bigint BETWEEN 0 AND 1
+                AND rnd_integer BETWEEN 0 AND 1
+                AND rnd_smallint BETWEEN 0 AND 1
+                AND rnd_tinyint BETWEEN 0 AND 1
+                AND rnd_date BETWEEN DATE '2022-03-01' AND DATE '2022-03-02'
+                AND rnd_decimal1 BETWEEN 0 AND 1
+                AND rnd_decimal2 BETWEEN 0.00000 AND 0.00001
+                AND rnd_decimal3 BETWEEN 0 AND 1
+                AND rnd_decimal4 BETWEEN DECIMAL '0.00000000000000000000000000000000000000' AND  DECIMAL '0.00000000000000000000000000000000000001'
+                AND rnd_decimal5 BETWEEN 0.00 AND 0.01
+                AND rnd_real BETWEEN REAL '0.0' AND REAL '1.4E-45'
+                AND rnd_double BETWEEN DOUBLE '0.0' AND DOUBLE '4.9E-324'
+                AND rnd_interval_day_time BETWEEN INTERVAL '0.000' SECOND AND INTERVAL '0.001' SECOND
+                AND rnd_interval_year BETWEEN INTERVAL '0' MONTH AND INTERVAL '1' MONTH
+                AND rnd_timestamp BETWEEN TIMESTAMP '2022-03-21 00:00:00.000' AND  TIMESTAMP '2022-03-21 00:00:00.001'
+                AND rnd_timestamp0 BETWEEN TIMESTAMP '2022-03-21 00:00:00' AND  TIMESTAMP '2022-03-21 00:00:01'
+                AND rnd_timestamp6 BETWEEN TIMESTAMP '2022-03-21 00:00:00.000000' AND  TIMESTAMP '2022-03-21 00:00:00.000001'
+                AND rnd_timestamp9 BETWEEN TIMESTAMP '2022-03-21 00:00:00.000000000' AND  TIMESTAMP '2022-03-21 00:00:00.000000001'
+                AND rnd_timestamptz BETWEEN TIMESTAMP '2022-03-21 00:00:00.000 +01:00' AND  TIMESTAMP '2022-03-21 00:00:00.001 +01:00'
+                AND rnd_timestamptz0 BETWEEN TIMESTAMP '2022-03-21 00:00:00 +01:00' AND  TIMESTAMP '2022-03-21 00:00:01 +01:00'
+                AND rnd_timestamptz6 BETWEEN TIMESTAMP '2022-03-21 00:00:00.000000 +01:00' AND  TIMESTAMP '2022-03-21 00:00:00.000001 +01:00'
+                AND rnd_timestamptz9 BETWEEN TIMESTAMP '2022-03-21 00:00:00.000000000 +01:00' AND  TIMESTAMP '2022-03-21 00:00:00.000000001 +01:00'
+                AND rnd_time BETWEEN TIME '01:02:03.456' AND  TIME '01:02:03.457'
+                AND rnd_time0 BETWEEN TIME '01:02:03' AND  TIME '01:02:04'
+                AND rnd_time6 BETWEEN TIME '01:02:03.000456' AND  TIME '01:02:03.000457'
+                AND rnd_time9 BETWEEN TIME '01:02:03.000000456' AND  TIME '01:02:03.000000457'
+                AND rnd_timetz BETWEEN TIME '01:02:03.456 +01:00' AND  TIME '01:02:03.457 +01:00'
+                AND rnd_timetz0 BETWEEN TIME '01:02:03 +01:00' AND  TIME '01:02:04 +01:00'
+                AND rnd_timetz6 BETWEEN TIME '01:02:03.000456 +01:00' AND  TIME '01:02:03.000457 +01:00'
+                AND rnd_timetz9 BETWEEN TIME '01:02:03.000000456 +01:00' AND  TIME '01:02:03.000000457 +01:00'""";
+        assertUpdate(tableQuery, 1000);
+
+        @Language("SQL")
+        String testQuery;
+
+        testQuery =
+                """
+                SELECT
+                count(distinct seq_bigint),
+                count(distinct rnd_bigint),
+                count(distinct rnd_integer),
+                count(distinct rnd_smallint),
+                count(distinct rnd_tinyint),
+                count(distinct rnd_date),
+                count(distinct rnd_decimal1),
+                count(distinct rnd_decimal2),
+                count(distinct rnd_decimal3),
+                count(distinct rnd_decimal4),
+                count(distinct rnd_decimal5),
+                count(distinct rnd_real),
+                count(distinct rnd_double),
+                count(distinct rnd_interval_day_time),
+                count(distinct rnd_interval_year),
+                count(distinct rnd_timestamp),
+                count(distinct rnd_timestamp0),
+                count(distinct rnd_timestamp6),
+                count(distinct rnd_timestamp9),
+                count(distinct rnd_timestamptz),
+                count(distinct rnd_timestamptz0),
+                count(distinct rnd_timestamptz6),
+                count(distinct rnd_timestamptz9),
+                count(distinct rnd_time),
+                count(distinct rnd_time0),
+                count(distinct rnd_time6),
+                count(distinct rnd_time9),
+                count(distinct rnd_timetz),
+                count(distinct rnd_timetz0),
+                count(distinct rnd_timetz6),
+                count(distinct rnd_timetz9)
+                FROM limited_range_view
+                """;
+        assertQuery(testQuery,
+                """
+                VALUES (
+                -- sequential integers
+                1000,
+                -- random integers
+                2,
+                2,
+                2,
+                2,
+                -- date
+                2,
+                -- decimal
+                2,
+                2,
+                2,
+                2,
+                2,
+                -- real, double
+                2,
+                2,
+                -- intervals
+                2,
+                2,
+                -- timestamps
+                2,
+                2,
+                2,
+                2,
+                -- timestamps with time zone
+                2,
+                2,
+                2,
+                2,
+                -- time
+                2,
+                2,
+                2,
+                2,
+                -- time with time zone
+                2,
+                2,
+                2,
+                2)
+                """);
+
+        assertUpdate("DROP TABLE faker.default.ctas_all_types_range");
+        assertUpdate("DROP TABLE faker.default.limited_range");
+    }
 }

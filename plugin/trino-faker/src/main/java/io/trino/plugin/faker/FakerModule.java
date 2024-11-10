@@ -18,6 +18,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.trino.spi.NodeManager;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.type.TypeManager;
 import jakarta.inject.Inject;
 
@@ -29,12 +30,14 @@ public class FakerModule
 {
     private final NodeManager nodeManager;
     private final TypeManager typeManager;
+    private final String catalogName;
 
     @Inject
-    public FakerModule(NodeManager nodeManager, TypeManager typeManager)
+    public FakerModule(NodeManager nodeManager, TypeManager typeManager, String catalogName)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     @Override
@@ -50,5 +53,7 @@ public class FakerModule
         binder.bind(FakerPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(FakerFunctionProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(FakerConfig.class);
+
+        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
     }
 }

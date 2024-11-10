@@ -51,7 +51,8 @@ public class FakerConnectorFactory
         Bootstrap app = new Bootstrap(
                 new FakerModule(
                         context.getNodeManager(),
-                        context.getTypeManager()));
+                        context.getTypeManager(),
+                        catalogName));
 
         Injector injector = app
                 .doNotInitializeLogging()

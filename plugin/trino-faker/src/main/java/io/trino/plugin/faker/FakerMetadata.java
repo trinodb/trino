@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -47,9 +48,12 @@ import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.statistics.ColumnStatisticMetadata;
+import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.ComputedStatistics;
-import io.trino.spi.type.BigintType;
+import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.inject.Inject;
@@ -58,19 +62,25 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.filterKeys;
+import static io.trino.plugin.faker.LiteralFormatter.formatLiteral;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
@@ -80,20 +90,26 @@ import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class FakerMetadata
         implements ConnectorMetadata
 {
     public static final String SCHEMA_NAME = "default";
     public static final String ROW_ID_COLUMN_NAME = "$row_id";
+    private static final String VIEW_SUFFIX = "_view";
 
     @GuardedBy("this")
     private final List<SchemaInfo> schemas = new ArrayList<>();
     private final double nullProbability;
     private final long defaultLimit;
     private final FakerFunctionProvider functionsProvider;
+    private final CatalogName catalogName;
 
     @GuardedBy("this")
     private final Map<SchemaTableName, TableInfo> tables = new HashMap<>();
@@ -101,12 +117,13 @@ public class FakerMetadata
     private final Map<SchemaTableName, ConnectorViewDefinition> views = new HashMap<>();
 
     @Inject
-    public FakerMetadata(FakerConfig config, FakerFunctionProvider functionProvider)
+    public FakerMetadata(FakerConfig config, FakerFunctionProvider functionProvider, CatalogName catalogName)
     {
         this.schemas.add(new SchemaInfo(SCHEMA_NAME, Map.of()));
         this.nullProbability = config.getNullProbability();
         this.defaultLimit = config.getDefaultLimit();
         this.functionsProvider = requireNonNull(functionProvider, "functionProvider is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     @Override
@@ -240,7 +257,10 @@ public class FakerMetadata
     public synchronized void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         FakerTableHandle handle = (FakerTableHandle) tableHandle;
-        tables.remove(handle.schemaTableName());
+        SchemaTableName tableName = handle.schemaTableName();
+        tables.remove(tableName);
+        SchemaTableName viewName = new SchemaTableName(tableName.getSchemaName(), tableName.getTableName() + VIEW_SUFFIX);
+        views.remove(viewName);
     }
 
     @Override
@@ -353,12 +373,12 @@ public class FakerMetadata
                 new FakerColumnHandle(
                         columnId,
                         ROW_ID_COLUMN_NAME,
-                        BigintType.BIGINT,
+                        BIGINT,
                         0,
                         ""),
                 ColumnMetadata.builder()
                         .setName(ROW_ID_COLUMN_NAME)
-                        .setType(BigintType.BIGINT)
+                        .setType(BIGINT)
                         .setHidden(true)
                         .setNullable(false)
                         .build()));
@@ -413,8 +433,108 @@ public class FakerMetadata
         requireNonNull(info, "info is null");
 
         tables.put(tableName, new TableInfo(info.columns(), info.properties(), info.comment()));
+        createViewWithPredicates(session, tableName, info.columns(), computedStatistics);
 
         return Optional.empty();
+    }
+
+    private synchronized void createViewWithPredicates(ConnectorSession session, SchemaTableName tableName, List<ColumnInfo> columns, Collection<ComputedStatistics> computedStatistics)
+    {
+        Map<String, Object> minimums = new LinkedHashMap<>();
+        Map<String, Object> maximums = new HashMap<>();
+        Map<String, Long> distinctValues = new HashMap<>();
+        Map<String, Type> types = columns.stream().collect(Collectors.toMap(ColumnInfo::name, ColumnInfo::type));
+        AtomicLong rowCount = new AtomicLong(1);
+        computedStatistics.forEach(statistic -> {
+            rowCount.set((long) firstNonNull(readNativeValue(BIGINT, statistic.getTableStatistics().get(ROW_COUNT), 0), 0));
+            statistic.getColumnStatistics().forEach((metadata, block) -> {
+                checkState(block.getPositionCount() == 1, "Expected a single position in aggregation result block");
+                String columnName = metadata.getColumnName();
+                Type type = types.get(columnName);
+                if (metadata.getStatisticType().equals(ColumnStatisticType.MIN_VALUE)) {
+                    // TODO overwrite, or compare?
+                    minimums.put(columnName, readNativeValue(type, block, 0));
+                }
+                else if (metadata.getStatisticType().equals(ColumnStatisticType.MAX_VALUE)) {
+                    maximums.put(columnName, readNativeValue(type, block, 0));
+                }
+                else if (metadata.getStatisticType().equals(ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES)) {
+                    distinctValues.put(columnName, (long) firstNonNull(readNativeValue(BIGINT, block, 0), 0));
+                }
+                else {
+                    throw new IllegalArgumentException("Unexpected column statistic type: " + metadata.getStatisticType());
+                }
+            });
+        });
+
+        if (minimums.isEmpty()) {
+            return;
+        }
+        List<String> viewColumns = columns.stream()
+                .filter(column -> !ROW_ID_COLUMN_NAME.equals(column.name()))
+                .map(column -> {
+                    String name = column.name();
+                    Type type = types.get(name);
+                    if (!type.equals(BIGINT) || !minimums.containsKey(name)) {
+                        return quoted(name);
+                    }
+                    // distinct values is an approximation
+                    if ((double) distinctValues.get(name) / rowCount.get() < 0.98) {
+                        return quoted(name);
+                    }
+                    return "\"$row_id\" + " + formatLiteral(type, minimums.get(name)) + " AS " + quoted(name);
+                })
+                .collect(toImmutableList());
+        String whereClause = minimums.isEmpty() ? "" : "WHERE " + columns.stream()
+                .map(ColumnInfo::name)
+                .filter(minimums::containsKey)
+                .map(column -> "%s BETWEEN %s AND %s".formatted(
+                        column,
+                        formatLiteral(types.get(column), minimums.get(column)),
+                        formatLiteral(types.get(column), maximums.get(column))))
+                .collect(joining("\nAND "));
+        String viewSql = "SELECT\n  %s\nFROM %s.%s %s".formatted(
+                String.join(",\n  ", viewColumns).stripTrailing(),
+                catalogName,
+                tableName,
+                whereClause);
+
+        SchemaTableName viewName = new SchemaTableName(tableName.getSchemaName(), tableName.getTableName() + VIEW_SUFFIX);
+        ConnectorViewDefinition definition = new ConnectorViewDefinition(
+                viewSql,
+                Optional.empty(),
+                Optional.empty(),
+                columns.stream()
+                        .filter(column -> !ROW_ID_COLUMN_NAME.equals(column.name()))
+                        .map(column -> new ConnectorViewDefinition.ViewColumn(
+                                column.name(),
+                                column.type().getTypeId(),
+                                Optional.empty()))
+                        .collect(toImmutableList()),
+                Optional.empty(),
+                Optional.empty(),
+                true,
+                List.of());
+        createView(session, viewName, definition, Map.of(), false);
+    }
+
+    private static String quoted(String name)
+    {
+        return "\"" + name.replace("\"", "\"\"") + "\"";
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        return new TableStatisticsMetadata(
+                tableMetadata.getColumns().stream()
+                        .flatMap(column -> Stream.of(
+                                new ColumnStatisticMetadata(column.getName(), ColumnStatisticType.MIN_VALUE),
+                                new ColumnStatisticMetadata(column.getName(), ColumnStatisticType.MAX_VALUE),
+                                new ColumnStatisticMetadata(column.getName(), ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES)))
+                        .collect(toImmutableSet()),
+                Set.of(ROW_COUNT),
+                List.of());
     }
 
     @Override

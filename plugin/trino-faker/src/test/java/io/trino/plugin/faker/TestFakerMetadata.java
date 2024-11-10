@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -341,6 +342,6 @@ public class TestFakerMetadata
 
     private static FakerMetadata createMetadata()
     {
-        return new FakerMetadata(new FakerConfig(), new FakerFunctionProvider());
+        return new FakerMetadata(new FakerConfig(), new FakerFunctionProvider(), new CatalogName("test"));
     }
 }
