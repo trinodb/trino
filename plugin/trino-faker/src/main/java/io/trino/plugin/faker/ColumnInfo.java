@@ -13,9 +13,11 @@
  */
 package io.trino.plugin.faker;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -55,6 +57,18 @@ public record ColumnInfo(FakerColumnHandle handle, ColumnMetadata metadata)
     {
         return new ColumnInfo(handle, ColumnMetadata.builderFrom(metadata)
                 .setComment(comment)
+                .build());
+    }
+
+    public ColumnInfo withHandle(FakerColumnHandle handle)
+    {
+        return new ColumnInfo(handle, metadata);
+    }
+
+    public ColumnInfo withProperties(Map<String, Object> properties)
+    {
+        return new ColumnInfo(handle, ColumnMetadata.builderFrom(metadata)
+                .setProperties(ImmutableMap.copyOf(properties))
                 .build());
     }
 }

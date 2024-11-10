@@ -30,7 +30,8 @@ final class TestFakerConfig
         assertRecordedDefaults(recordDefaults(FakerConfig.class)
                 .setNullProbability(0.5)
                 .setDefaultLimit(1000L)
-                .setLocale("en"));
+                .setLocale("en")
+                .setSequenceDetectionEnabled(true));
     }
 
     @Test
@@ -40,12 +41,14 @@ final class TestFakerConfig
                 .put("faker.null-probability", "1.0")
                 .put("faker.default-limit", "10")
                 .put("faker.locale", "pl-PL")
+                .put("faker.sequence-detection-enabled", "false")
                 .buildOrThrow();
 
         FakerConfig expected = new FakerConfig()
                 .setNullProbability(1.0)
                 .setDefaultLimit(10L)
-                .setLocale("pl-PL");
+                .setLocale("pl-PL")
+                .setSequenceDetectionEnabled(false);
 
         assertFullMapping(properties, expected);
     }

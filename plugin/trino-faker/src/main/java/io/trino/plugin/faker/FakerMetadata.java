@@ -46,8 +46,13 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
-import io.trino.spi.type.BigintType;
+import io.trino.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 import jakarta.inject.Inject;
 
 import java.util.ArrayList;
@@ -59,14 +64,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.filterKeys;
+import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -75,6 +85,15 @@ import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
+import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
+import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -83,11 +102,13 @@ public class FakerMetadata
 {
     public static final String SCHEMA_NAME = "default";
     public static final String ROW_ID_COLUMN_NAME = "$row_id";
+    public static final double MIN_SEQUENCE_RATIO = 0.98;
 
     @GuardedBy("this")
     private final List<SchemaInfo> schemas = new ArrayList<>();
     private final double nullProbability;
     private final long defaultLimit;
+    private final boolean isSequenceDetectionEnabled;
     private final FakerFunctionProvider functionsProvider;
 
     @GuardedBy("this")
@@ -101,6 +122,7 @@ public class FakerMetadata
         this.schemas.add(new SchemaInfo(SCHEMA_NAME, Map.of()));
         this.nullProbability = config.getNullProbability();
         this.defaultLimit = config.getDefaultLimit();
+        this.isSequenceDetectionEnabled = config.isSequenceDetectionEnabled();
         this.functionsProvider = requireNonNull(functionProvider, "functionProvider is null");
     }
 
@@ -264,7 +286,7 @@ public class FakerMetadata
                         properties.entrySet().stream()
                                 .filter(entry -> entry.getValue().isPresent())
                                 .map(entry -> Map.entry(entry.getKey(), entry.getValue().get())))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         tables.put(tableName, oldInfo.withProperties(newProperties));
     }
 
@@ -336,14 +358,14 @@ public class FakerMetadata
                 new FakerColumnHandle(
                         columnId,
                         ROW_ID_COLUMN_NAME,
-                        BigintType.BIGINT,
+                        BIGINT,
                         0,
                         "",
-                        Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BigintType.BIGINT, 0L)), false),
-                        ValueSet.of(BigintType.BIGINT, 1L)),
+                        Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 0L)), false),
+                        ValueSet.of(BIGINT, 1L)),
                 ColumnMetadata.builder()
                         .setName(ROW_ID_COLUMN_NAME)
-                        .setType(BigintType.BIGINT)
+                        .setType(BIGINT)
                         .setHidden(true)
                         .setNullable(false)
                         .build()));
@@ -354,6 +376,16 @@ public class FakerMetadata
                 tableMetadata.getComment()));
 
         return new FakerOutputTableHandle(tableName);
+    }
+
+    private static boolean isNotRangeType(Type type)
+    {
+        return type instanceof CharType || type instanceof VarcharType || type instanceof VarbinaryType;
+    }
+
+    private static boolean isSequenceType(Type type)
+    {
+        return BIGINT.equals(type) || INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type);
     }
 
     private synchronized void checkSchemaExists(String schemaName)
@@ -392,9 +424,102 @@ public class FakerMetadata
         TableInfo info = tables.get(tableName);
         requireNonNull(info, "info is null");
 
-        tables.put(tableName, new TableInfo(info.columns(), info.properties(), info.comment()));
+        tables.put(tableName, createTableInfoFromStats(tableName, info, computedStatistics));
 
         return Optional.empty();
+    }
+
+    private synchronized TableInfo createTableInfoFromStats(SchemaTableName tableName, TableInfo info, Collection<ComputedStatistics> computedStatistics)
+    {
+        if (computedStatistics.isEmpty()) {
+            return info;
+        }
+        ImmutableMap.Builder<String, Object> minimumsBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Object> maximumsBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Long> distinctValuesBuilder = ImmutableMap.builder();
+        List<ColumnInfo> columns = info.columns();
+        Map<String, Type> types = columns.stream().collect(toImmutableMap(ColumnInfo::name, ColumnInfo::type));
+        Long rowCount = null;
+        Optional<ComputedStatistics> optionalStatistic = computedStatistics.stream().reduce((_, _) -> {
+            throw new IllegalStateException("Found more than one computed statistic");
+        });
+        if (optionalStatistic.isPresent()) {
+            ComputedStatistics statistic = optionalStatistic.get();
+            if (!statistic.getTableStatistics().get(ROW_COUNT).isNull(0)) {
+                rowCount = BIGINT.getLong(statistic.getTableStatistics().get(ROW_COUNT), 0);
+            }
+            statistic.getColumnStatistics().forEach((metadata, block) -> {
+                checkState(block.getPositionCount() == 1, "Expected a single position in aggregation result block");
+                String columnName = metadata.getColumnName();
+                Type type = types.get(columnName);
+                if (block.isNull(0) || type == null) {
+                    return;
+                }
+                switch (metadata.getStatisticType()) {
+                    case MIN_VALUE -> minimumsBuilder.put(columnName, requireNonNull(readNativeValue(type, block, 0)));
+                    case MAX_VALUE -> maximumsBuilder.put(columnName, requireNonNull(readNativeValue(type, block, 0)));
+                    case NUMBER_OF_DISTINCT_VALUES -> distinctValuesBuilder.put(columnName, BIGINT.getLong(block, 0));
+                    default -> throw new IllegalArgumentException("Unexpected column statistic type: " + metadata.getStatisticType());
+                }
+            });
+        }
+        Map<String, Object> minimums = minimumsBuilder.buildOrThrow();
+        Map<String, Object> maximums = maximumsBuilder.buildOrThrow();
+        Map<String, Long> distinctValues = distinctValuesBuilder.buildOrThrow();
+
+        if (minimums.isEmpty() && distinctValues.isEmpty()) {
+            return info;
+        }
+
+        long finalRowCount = firstNonNull(rowCount, 1L);
+        SchemaInfo schema = getSchema(tableName.getSchemaName());
+        boolean isSchemaSequenceDetectionEnabled = (boolean) schema.properties().getOrDefault(SchemaInfo.SEQUENCE_DETECTION_ENABLED, isSequenceDetectionEnabled);
+        boolean isTableSequenceDetectionEnabled = (boolean) info.properties().getOrDefault(TableInfo.SEQUENCE_DETECTION_ENABLED, isSchemaSequenceDetectionEnabled);
+        return info.withColumns(columns.stream().map(column -> createColumnInfoFromStats(
+                        column,
+                        minimums.get(column.name()),
+                        maximums.get(column.name()),
+                        requireNonNull(distinctValues.getOrDefault(column.name(), 0L)),
+                        finalRowCount,
+                        isTableSequenceDetectionEnabled))
+                .collect(toImmutableList()));
+    }
+
+    private static ColumnInfo createColumnInfoFromStats(ColumnInfo column, Object min, Object max, long distinctValues, long rowCount, boolean isSequenceDetectionEnabled)
+    {
+        if (isNotRangeType(column.type()) || min == null || max == null) {
+            return column;
+        }
+        FakerColumnHandle handle = column.handle();
+        Map<String, Object> properties = new HashMap<>(column.metadata().getProperties());
+        handle = handle.withDomain(Domain.create(ValueSet.ofRanges(Range.range(column.type(), min, true, max, true)), false));
+        properties.put(MIN_PROPERTY, Literal.format(column.type(), min));
+        properties.put(MAX_PROPERTY, Literal.format(column.type(), max));
+        // Only include types that support generating sequences in FakerPageSource,
+        // but don't include types with configurable precision, dates, or intervals.
+        // The number of distinct values is an approximation, so compare it with a margin.
+        if (isSequenceDetectionEnabled && isSequenceType(column.type()) && (double) distinctValues / rowCount >= MIN_SEQUENCE_RATIO) {
+            handle = handle.withStep(ValueSet.of(column.type(), 1L));
+            properties.put(STEP_PROPERTY, "1");
+        }
+        return column
+                .withHandle(handle)
+                .withProperties(properties);
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        return new TableStatisticsMetadata(
+                tableMetadata.getColumns().stream()
+                        .filter(column -> !column.isHidden())
+                        .flatMap(column -> Stream.of(
+                                new ColumnStatisticMetadata(column.getName(), MIN_VALUE),
+                                new ColumnStatisticMetadata(column.getName(), MAX_VALUE),
+                                new ColumnStatisticMetadata(column.getName(), NUMBER_OF_DISTINCT_VALUES)))
+                        .collect(toImmutableSet()),
+                Set.of(ROW_COUNT),
+                List.of());
     }
 
     @Override
