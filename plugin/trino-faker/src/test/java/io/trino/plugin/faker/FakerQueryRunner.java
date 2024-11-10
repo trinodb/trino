@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
@@ -66,6 +67,9 @@ public class FakerQueryRunner
             try {
                 queryRunner.installPlugin(new FakerPlugin());
                 queryRunner.createCatalog(CATALOG, "faker", properties);
+
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
 
                 return queryRunner;
             }
