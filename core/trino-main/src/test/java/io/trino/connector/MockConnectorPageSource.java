@@ -61,6 +61,7 @@ public class MockConnectorPageSource
     }
 
     @Override
+    @SuppressWarnings("removal")
     public Page getNextPage()
     {
         return delegate.getNextPage();
