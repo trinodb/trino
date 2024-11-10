@@ -180,8 +180,6 @@ public class DictionaryAwarePageProjection
 
         private void setupDictionaryBlockProjection()
         {
-            block = block.getLoadedBlock();
-
             Optional<Block> dictionary = Optional.empty();
             if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
                 dictionary = Optional.of(runLengthEncodedBlock.getValue());

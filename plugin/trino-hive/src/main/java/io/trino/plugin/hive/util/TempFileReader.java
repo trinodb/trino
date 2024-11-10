@@ -74,8 +74,7 @@ public class TempFileReader
                 return endOfData();
             }
 
-            // eagerly load the page
-            return page.getPage().getLoadedPage();
+            return page.getPage();
         }
         catch (IOException e) {
             throw handleException(e);

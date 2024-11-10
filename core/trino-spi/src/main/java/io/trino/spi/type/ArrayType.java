@@ -19,7 +19,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
@@ -443,8 +442,6 @@ public class ArrayType
     private static int writeFlatElements(Type elementType, MethodHandle elementWriteFlat, int elementFixedSize, boolean elementVariableWidth, Block array, byte[] slice, int offset)
             throws Throwable
     {
-        array = array.getLoadedBlock();
-
         int positionCount = array.getPositionCount();
         // variable width data starts after fixed width data
         // there is one extra byte per position for the null flag
@@ -471,7 +468,6 @@ public class ArrayType
                     offset += 1 + elementFixedSize;
                 }
             }
-            case LazyBlock _ -> throw new IllegalStateException("Did not expect LazyBlock after loading " + array.getClass().getSimpleName());
         }
         return writeVariableWidthOffset;
     }
@@ -504,9 +500,6 @@ public class ArrayType
             return false;
         }
 
-        leftArray = leftArray.getLoadedBlock();
-        rightArray = rightArray.getLoadedBlock();
-
         ValueBlock leftValues = leftArray.getUnderlyingValueBlock();
         ValueBlock rightValues = rightArray.getUnderlyingValueBlock();
 
@@ -536,8 +529,6 @@ public class ArrayType
     private static long hashOperator(MethodHandle hashOperator, Block array)
             throws Throwable
     {
-        array = array.getLoadedBlock();
-
         if (array instanceof ValueBlock valuesBlock) {
             long hash = 0;
             for (int index = 0; index < valuesBlock.getPositionCount(); index++) {
@@ -585,9 +576,6 @@ public class ArrayType
             return false;
         }
 
-        leftArray = leftArray.getLoadedBlock();
-        rightArray = rightArray.getLoadedBlock();
-
         ValueBlock leftValues = leftArray.getUnderlyingValueBlock();
         ValueBlock rightValues = rightArray.getUnderlyingValueBlock();
 
@@ -619,8 +607,6 @@ public class ArrayType
         if (isNull) {
             return true;
         }
-
-        array = array.getLoadedBlock();
 
         if (array instanceof ValueBlock valuesBlock) {
             for (int index = 0; index < valuesBlock.getPositionCount(); index++) {
@@ -665,9 +651,6 @@ public class ArrayType
     private static long comparisonOperator(MethodHandle comparisonOperator, Block leftArray, Block rightArray)
             throws Throwable
     {
-        leftArray = leftArray.getLoadedBlock();
-        rightArray = rightArray.getLoadedBlock();
-
         ValueBlock leftValues = leftArray.getUnderlyingValueBlock();
         ValueBlock rightValues = rightArray.getUnderlyingValueBlock();
 
