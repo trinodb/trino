@@ -432,6 +432,15 @@ public class FakerMetadata
         TableInfo info = tables.get(tableName);
         requireNonNull(info, "info is null");
 
+        if (!computedStatistics.isEmpty() && !info.properties().containsKey(TableInfo.DEFAULT_LIMIT_PROPERTY)) {
+            ComputedStatistics statistic = computedStatistics.stream().findFirst().orElseThrow();
+            long rowCount = (long) firstNonNull(readNativeValue(BIGINT, statistic.getTableStatistics().get(ROW_COUNT), 0), 0);
+            info = info.withProperties(ImmutableMap.<String, Object>builder()
+                    .putAll(info.properties())
+                    .put(TableInfo.DEFAULT_LIMIT_PROPERTY, rowCount)
+                    .buildOrThrow());
+        }
+
         tables.put(tableName, new TableInfo(info.columns(), info.properties(), info.comment()));
         createViewWithPredicates(session, tableName, info.columns(), computedStatistics);
 
