@@ -37,6 +37,7 @@ public class EmptyPageSource
     }
 
     @Override
+    @SuppressWarnings("removal")
     public Page getNextPage()
     {
         return null;
