@@ -135,7 +135,6 @@ public class RowBlockBuilder
 
     private static void appendToField(Block fieldBlock, int position, BlockBuilder fieldBlockBuilder)
     {
-        fieldBlock = fieldBlock.getLoadedBlock();
         if (fieldBlock instanceof RunLengthEncodedBlock rleBlock) {
             fieldBlockBuilder.append(rleBlock.getValue(), 0);
         }
@@ -188,7 +187,6 @@ public class RowBlockBuilder
 
     private static void appendRangeToField(Block fieldBlock, int offset, int length, BlockBuilder fieldBlockBuilder)
     {
-        fieldBlock = fieldBlock.getLoadedBlock();
         if (fieldBlock instanceof RunLengthEncodedBlock rleBlock) {
             fieldBlockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
         }
@@ -240,7 +238,6 @@ public class RowBlockBuilder
 
     private static void appendRepeatedToField(Block fieldBlock, int position, int count, BlockBuilder fieldBlockBuilder)
     {
-        fieldBlock = fieldBlock.getLoadedBlock();
         if (fieldBlock instanceof RunLengthEncodedBlock rleBlock) {
             fieldBlockBuilder.appendRepeated(rleBlock.getValue(), 0, count);
         }
@@ -293,7 +290,6 @@ public class RowBlockBuilder
 
     private static void appendPositionsToField(Block fieldBlock, int[] positions, int offset, int length, BlockBuilder fieldBlockBuilder)
     {
-        fieldBlock = fieldBlock.getLoadedBlock();
         if (fieldBlock instanceof RunLengthEncodedBlock rleBlock) {
             fieldBlockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
         }

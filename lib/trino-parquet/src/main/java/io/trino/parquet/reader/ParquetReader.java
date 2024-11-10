@@ -589,7 +589,6 @@ public class ParquetReader
         }
         // if there are no null positions, append a null to the end of the block
         if (nullIndex == -1) {
-            fieldBlock = fieldBlock.getLoadedBlock();
             nullIndex = fieldBlock.getPositionCount();
             fieldBlock = fieldBlock.copyWithAppendedNull();
         }

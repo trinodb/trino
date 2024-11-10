@@ -585,8 +585,6 @@ class Query
                 }
 
                 Page page = deserializer.deserialize(serializedPage);
-                // page should already be loaded since it was just deserialized
-                page = page.getLoadedPage();
                 bytes += estimateJsonSize(page);
                 resultBuilder.addPage(page);
             }

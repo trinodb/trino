@@ -19,7 +19,6 @@ import io.trino.operator.Work;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
@@ -255,8 +254,6 @@ public class TestDictionaryAwarePageProjection
     {
         testProjectRange(block, expectedResultType, createProjection(), forceYield);
         testProjectList(block, expectedResultType, createProjection(), forceYield);
-        testProjectRange(lazyWrapper(block), expectedResultType, createProjection(), forceYield);
-        testProjectList(lazyWrapper(block), expectedResultType, createProjection(), forceYield);
     }
 
     private static void testProjectFails(Block block, Class<? extends Block> expectedResultType, boolean forceYield)
@@ -265,12 +262,6 @@ public class TestDictionaryAwarePageProjection
                 .isInstanceOf(NegativeValueException.class)
                 .hasMessageContaining("value is negative");
         assertThatThrownBy(() -> testProjectList(block, expectedResultType, createProjection(), forceYield))
-                .isInstanceOf(NegativeValueException.class)
-                .hasMessageContaining("value is negative");
-        assertThatThrownBy(() -> testProjectRange(lazyWrapper(block), expectedResultType, createProjection(), forceYield))
-                .isInstanceOf(NegativeValueException.class)
-                .hasMessageContaining("value is negative");
-        assertThatThrownBy(() -> testProjectList(lazyWrapper(block), expectedResultType, createProjection(), forceYield))
                 .isInstanceOf(NegativeValueException.class)
                 .hasMessageContaining("value is negative");
     }
@@ -340,11 +331,6 @@ public class TestDictionaryAwarePageProjection
         return new DictionaryAwarePageProjection(
                 new TestPageProjection(),
                 _ -> randomDictionaryId());
-    }
-
-    private static LazyBlock lazyWrapper(Block block)
-    {
-        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
     }
 
     private static class TestPageProjection

@@ -47,8 +47,9 @@ public class TestingSourcePage
     public long getSizeInBytes()
     {
         long sizeInBytes = 0;
-        for (Block block : blocks) {
-            if (block != null) {
+        for (int i = 0; i < blocks.length; i++) {
+            Block block = blocks[i];
+            if (loaded[i] && block != null) {
                 sizeInBytes += block.getSizeInBytes();
             }
         }

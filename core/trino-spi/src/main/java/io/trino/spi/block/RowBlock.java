@@ -29,7 +29,6 @@ import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.BlockUtil.ensureBlocksAreLoaded;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -70,12 +69,9 @@ public final class RowBlock
 
             for (int fieldIndex = 0; fieldIndex < fieldBlocks.length; fieldIndex++) {
                 Block field = fieldBlocks[fieldIndex];
-                // LazyBlock may not have loaded the field yet
-                if (!(field instanceof LazyBlock lazyBlock) || lazyBlock.isLoaded()) {
-                    for (int position = 0; position < positionCount; position++) {
-                        if (rowIsNull[position] && !field.isNull(position)) {
-                            throw new IllegalArgumentException(format("Field value for null row must be null: field %s, position %s", fieldIndex, position));
-                        }
+                for (int position = 0; position < positionCount; position++) {
+                    if (rowIsNull[position] && !field.isNull(position)) {
+                        throw new IllegalArgumentException(format("Field value for null row must be null: field %s, position %s", fieldIndex, position));
                     }
                 }
             }
@@ -185,16 +181,10 @@ public final class RowBlock
         }
 
         long sizeInBytes = Byte.BYTES * (long) positionCount;
-        boolean hasUnloadedBlocks = false;
-
         for (Block fieldBlock : fieldBlocks) {
             sizeInBytes += fieldBlock.getSizeInBytes();
-            hasUnloadedBlocks = hasUnloadedBlocks || !fieldBlock.isLoaded();
         }
-
-        if (!hasUnloadedBlocks) {
-            this.sizeInBytes = sizeInBytes;
-        }
+        this.sizeInBytes = sizeInBytes;
         return sizeInBytes;
     }
 
@@ -224,28 +214,6 @@ public final class RowBlock
     public String toString()
     {
         return format("RowBlock{fieldCount=%d, positionCount=%d}", fieldBlocks.length, positionCount);
-    }
-
-    @Override
-    public boolean isLoaded()
-    {
-        for (Block fieldBlock : fieldBlocks) {
-            if (!fieldBlock.isLoaded()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
-    public Block getLoadedBlock()
-    {
-        Block[] loadedFieldBlocks = ensureBlocksAreLoaded(fieldBlocks);
-        if (loadedFieldBlocks == fieldBlocks) {
-            // All blocks are already loaded
-            return this;
-        }
-        return new RowBlock(positionCount, rowIsNull, loadedFieldBlocks, fixedSizePerRow);
     }
 
     @Override
@@ -408,17 +376,12 @@ public final class RowBlock
     }
 
     /**
-     * Returns the row fields from the specified block. The block maybe a LazyBlock, RunLengthEncodedBlock, or
+     * Returns the row fields from the specified block. The block maybe a RunLengthEncodedBlock, or
      * DictionaryBlock, but the underlying block must be a RowBlock. The returned field blocks will be the same
      * length as the specified block, which means they are not null suppressed.
      */
     public static List<Block> getRowFieldsFromBlock(Block block)
     {
-        // if the block is lazy, be careful to not materialize the nested blocks
-        if (block instanceof LazyBlock lazyBlock) {
-            block = lazyBlock.getBlock();
-        }
-
         if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
             RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
             return rowBlock.fieldBlocksList.stream()
@@ -438,17 +401,12 @@ public final class RowBlock
     }
 
     /**
-     * Returns the row fields from the specified block with null rows suppressed. The block maybe a LazyBlock, RunLengthEncodedBlock, or
+     * Returns the row fields from the specified block with null rows suppressed. The block maybe a RunLengthEncodedBlock, or
      * DictionaryBlock, but the underlying block must be a RowBlock. The returned field blocks will not be the same
      * length as the specified block if it contains null rows.
      */
     public static List<Block> getNullSuppressedRowFieldsFromBlock(Block block)
     {
-        // if the block is lazy, be careful to not materialize the nested blocks
-        if (block instanceof LazyBlock lazyBlock) {
-            block = lazyBlock.getBlock();
-        }
-
         if (!block.mayHaveNull()) {
             return getRowFieldsFromBlock(block);
         }

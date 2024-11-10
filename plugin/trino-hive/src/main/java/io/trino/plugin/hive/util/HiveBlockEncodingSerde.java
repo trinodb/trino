@@ -26,7 +26,6 @@ import io.trino.spi.block.DictionaryBlockEncoding;
 import io.trino.spi.block.Fixed12BlockEncoding;
 import io.trino.spi.block.Int128ArrayBlockEncoding;
 import io.trino.spi.block.IntArrayBlockEncoding;
-import io.trino.spi.block.LazyBlockEncoding;
 import io.trino.spi.block.LongArrayBlockEncoding;
 import io.trino.spi.block.MapBlockEncoding;
 import io.trino.spi.block.RowBlockEncoding;
@@ -80,7 +79,6 @@ public final class HiveBlockEncodingSerde
         addBlockEncoding(new MapBlockEncoding());
         addBlockEncoding(new RowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
-        addBlockEncoding(new LazyBlockEncoding());
     }
 
     private void addBlockEncoding(BlockEncoding blockEncoding)
