@@ -648,7 +648,7 @@ public class TestPageProcessor
         @Override
         public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
         {
-            return new CompletedWork<>(page.getBlock(0).getLoadedBlock());
+            return new CompletedWork<>(page.getBlock(0));
         }
     }
 

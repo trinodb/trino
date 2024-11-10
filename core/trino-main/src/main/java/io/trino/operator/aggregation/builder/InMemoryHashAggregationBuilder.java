@@ -158,10 +158,10 @@ public class InMemoryHashAggregationBuilder
     public Work<?> processPage(Page page)
     {
         if (groupedAggregators.isEmpty()) {
-            return new MeasuredGroupByHashWork<>(groupByHash.addPage(page.getLoadedPage(groupByChannels)), aggregationMetrics);
+            return new MeasuredGroupByHashWork<>(groupByHash.addPage(page.getColumns(groupByChannels)), aggregationMetrics);
         }
         return new TransformWork<>(
-                new MeasuredGroupByHashWork<>(groupByHash.getGroupIds(page.getLoadedPage(groupByChannels)), aggregationMetrics),
+                new MeasuredGroupByHashWork<>(groupByHash.getGroupIds(page.getColumns(groupByChannels)), aggregationMetrics),
                 groupByIdBlock -> {
                     int groupCount = groupByHash.getGroupCount();
                     for (GroupedAggregator groupedAggregator : groupedAggregators) {

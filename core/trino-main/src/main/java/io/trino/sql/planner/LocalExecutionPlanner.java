@@ -660,7 +660,7 @@ public class LocalExecutionPlanner
 
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session), context);
 
-        Function<Page, Page> pagePreprocessor = session.getQueryDataEncoding().isPresent() ? PageChannelSelector.identitySelection() : enforceLoadedLayoutProcessor(outputLayout, physicalOperation.getLayout());
+        Function<Page, Page> pagePreprocessor = session.getQueryDataEncoding().isPresent() ? Function.identity() : enforceLoadedLayoutProcessor(outputLayout, physicalOperation.getLayout());
 
         List<Type> outputTypes = outputLayout.stream()
                 .map(Symbol::type)
@@ -4278,8 +4278,7 @@ public class LocalExecutionPlanner
                 .toArray();
 
         if (Arrays.equals(channels, range(0, inputLayout.size()).toArray())) {
-            // this is an identity mapping, simply ensuring that the page is fully loaded is sufficient
-            return PageChannelSelector.identitySelection();
+            return Function.identity();
         }
 
         return new PageChannelSelector(channels);

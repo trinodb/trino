@@ -101,10 +101,10 @@ public class TestHivePageSource
                 nativeValueToBlock(VARCHAR, utf8Slice("a")),
                 nativeValueToBlock(BIGINT, 1L)
         };
-        Page page = new Page(1, blocks);
+        SourcePage page = SourcePage.create(new Page(1, blocks));
 
         try (
-                ConnectorPageSource pageSource = new TestScanFilterAndProjectOperator.SinglePagePageSource(SourcePage.create(page));
+                ConnectorPageSource pageSource = new TestScanFilterAndProjectOperator.SinglePagePageSource(page);
                 ConnectorPageSource hivePageSource = createHivePageSource(
                         columnMappings,
                         Optional.empty(),

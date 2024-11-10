@@ -342,8 +342,6 @@ public final class DeltaLakeWriter
         @Override
         public Block apply(Block block)
         {
-            block = block.getLoadedBlock();
-
             if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
                 RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
                 RowBlock newRowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(

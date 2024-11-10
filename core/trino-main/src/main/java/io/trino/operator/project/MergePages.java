@@ -178,7 +178,7 @@ public final class MergePages
             }
 
             // TODO: merge low cardinality blocks lazily
-            if (inputPage.getPositionCount() >= minRowCount || !isLoaded(inputPage) || inputPage.getSizeInBytes() >= minPageSizeInBytes) {
+            if (inputPage.getPositionCount() >= minRowCount || inputPage.getSizeInBytes() >= minPageSizeInBytes) {
                 if (pageBuilder.isEmpty()) {
                     return ofResult(inputPage);
                 }
@@ -207,7 +207,7 @@ public final class MergePages
             for (int channel = 0; channel < types.size(); channel++) {
                 appendBlock(
                         types.get(channel),
-                        page.getBlock(channel).getLoadedBlock(),
+                        page.getBlock(channel),
                         pageBuilder.getBlockBuilder(channel));
             }
         }
@@ -225,19 +225,6 @@ public final class MergePages
             pageBuilder.reset();
             memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
             return output;
-        }
-
-        private static boolean isLoaded(Page page)
-        {
-            // TODO: provide better heuristics there, e.g. check if last produced page was materialized
-            for (int channel = 0; channel < page.getChannelCount(); ++channel) {
-                Block block = page.getBlock(channel);
-                if (!block.isLoaded()) {
-                    return false;
-                }
-            }
-
-            return true;
         }
     }
 }

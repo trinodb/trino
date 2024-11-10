@@ -318,7 +318,6 @@ public class PageProcessor
                     blocks[i] = previouslyComputedResults[i];
                 }
 
-                blocks[i] = blocks[i].getLoadedBlock();
                 pageSize += blocks[i].getSizeInBytes();
             }
             return ProcessBatchResult.processBatchSuccess(new Page(positionsBatch.size(), blocks));
