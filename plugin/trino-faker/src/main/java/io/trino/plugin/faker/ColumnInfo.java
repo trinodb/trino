@@ -14,6 +14,7 @@
 package io.trino.plugin.faker;
 
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.Type;
 
 import java.util.Optional;
 
@@ -33,6 +34,11 @@ public record ColumnInfo(FakerColumnHandle handle, ColumnMetadata metadata)
     public String name()
     {
         return metadata.getName();
+    }
+
+    public Type type()
+    {
+        return metadata.getType();
     }
 
     @Override
