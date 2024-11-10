@@ -55,7 +55,10 @@ public interface ConnectorPageSource
 
     /**
      * Gets the next page of data.  This method is allowed to return null.
+     *
+     * @deprecated Use {@link #getNextSourcePage()} instead
      */
+    @Deprecated(forRemoval = true)
     default Page getNextPage()
     {
         throw new UnsupportedOperationException();
