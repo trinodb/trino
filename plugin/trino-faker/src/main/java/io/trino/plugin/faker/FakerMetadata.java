@@ -15,6 +15,7 @@
 package io.trino.plugin.faker;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
@@ -28,15 +29,16 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SaveMode;
-import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.connector.TableColumnsMetadata;
+import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
@@ -59,14 +61,20 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Maps.filterKeys;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
@@ -85,11 +93,12 @@ public class FakerMetadata
     private final List<SchemaInfo> schemas = new ArrayList<>();
     private final double nullProbability;
     private final long defaultLimit;
+    private final FakerFunctionProvider functionsProvider;
 
     @GuardedBy("this")
     private final Map<SchemaTableName, TableInfo> tables = new HashMap<>();
-
-    private final FakerFunctionProvider functionsProvider;
+    @GuardedBy("this")
+    private final Map<SchemaTableName, ConnectorViewDefinition> views = new HashMap<>();
 
     @Inject
     public FakerMetadata(FakerConfig config, FakerFunctionProvider functionProvider)
@@ -168,7 +177,7 @@ public class FakerMetadata
     @Override
     public synchronized List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return tables.keySet().stream()
+        return Stream.concat(tables.keySet().stream(), views.keySet().stream())
                 .filter(table -> schemaName.map(table.getSchemaName()::contentEquals).orElse(true))
                 .collect(toImmutableList());
     }
@@ -197,13 +206,33 @@ public class FakerMetadata
     }
 
     @Override
-    public synchronized Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public synchronized Iterator<RelationColumnsMetadata> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
-        return tables.entrySet().stream()
+        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new HashMap<>();
+
+        SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new)
+                .orElseGet(SchemaTablePrefix::new);
+        tables.entrySet().stream()
                 .filter(entry -> prefix.matches(entry.getKey()))
-                .map(entry -> TableColumnsMetadata.forTable(
-                        entry.getKey(),
-                        entry.getValue().columns().stream().map(ColumnInfo::metadata).collect(toImmutableList())))
+                .forEach(entry -> {
+                    SchemaTableName name = entry.getKey();
+                    RelationColumnsMetadata columns = RelationColumnsMetadata.forTable(
+                            name,
+                            entry.getValue().columns().stream()
+                                    .map(ColumnInfo::metadata)
+                                    .collect(toImmutableList()));
+                    relationColumns.put(name, columns);
+                });
+
+        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
+            relationColumns.put(entry.getKey(), RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns()));
+        }
+
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
                 .iterator();
     }
 
@@ -219,12 +248,12 @@ public class FakerMetadata
     {
         checkSchemaExists(newTableName.getSchemaName());
         checkTableNotExists(newTableName);
+        checkViewNotExists(newTableName);
 
         FakerTableHandle handle = (FakerTableHandle) tableHandle;
         SchemaTableName oldTableName = handle.schemaTableName();
 
-        tables.remove(oldTableName);
-        tables.put(newTableName, tables.get(oldTableName));
+        tables.put(newTableName, tables.remove(oldTableName));
     }
 
     @Override
@@ -293,6 +322,7 @@ public class FakerMetadata
         SchemaTableName tableName = tableMetadata.getTable();
         SchemaInfo schema = getSchema(tableName.getSchemaName());
         checkTableNotExists(tableMetadata.getTable());
+        checkViewNotExists(tableMetadata.getTable());
 
         double schemaNullProbability = (double) schema.properties().getOrDefault(SchemaInfo.NULL_PROBABILITY_PROPERTY, nullProbability);
         double tableNullProbability = (double) tableMetadata.getProperties().getOrDefault(TableInfo.NULL_PROBABILITY_PROPERTY, schemaNullProbability);
@@ -349,7 +379,7 @@ public class FakerMetadata
     private synchronized void checkSchemaExists(String schemaName)
     {
         if (schemas.stream().noneMatch(schema -> schema.name().equals(schemaName))) {
-            throw new SchemaNotFoundException(schemaName);
+            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
         }
     }
 
@@ -360,8 +390,19 @@ public class FakerMetadata
         }
     }
 
+    private synchronized void checkViewNotExists(SchemaTableName viewName)
+    {
+        if (views.containsKey(viewName)) {
+            throw new TrinoException(ALREADY_EXISTS, format("View '%s' already exists", viewName));
+        }
+    }
+
     @Override
-    public synchronized Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public synchronized Optional<ConnectorOutputMetadata> finishCreateTable(
+            ConnectorSession session,
+            ConnectorOutputTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
     {
         requireNonNull(tableHandle, "tableHandle is null");
         FakerOutputTableHandle fakerOutputHandle = (FakerOutputTableHandle) tableHandle;
@@ -371,10 +412,106 @@ public class FakerMetadata
         TableInfo info = tables.get(tableName);
         requireNonNull(info, "info is null");
 
-        // TODO ensure fragments is empty?
-
         tables.put(tableName, new TableInfo(info.columns(), info.properties(), info.comment()));
+
         return Optional.empty();
+    }
+
+    @Override
+    public synchronized List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return views.keySet().stream()
+                .filter(table -> schemaName.map(table.getSchemaName()::equals).orElse(true))
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public synchronized Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new);
+        return ImmutableMap.copyOf(filterKeys(views, prefix::matches));
+    }
+
+    @Override
+    public synchronized Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.ofNullable(views.get(viewName));
+    }
+
+    @Override
+    public synchronized void createView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorViewDefinition definition,
+            Map<String, Object> viewProperties,
+            boolean replace)
+    {
+        checkArgument(viewProperties.isEmpty(), "This connector does not support creating views with properties");
+        checkSchemaExists(viewName.getSchemaName());
+        checkTableNotExists(viewName);
+
+        if (replace) {
+            views.put(viewName, definition);
+        }
+        else if (views.putIfAbsent(viewName, definition) != null) {
+            throw new TrinoException(ALREADY_EXISTS, "View '%s' already exists".formatted(viewName));
+        }
+    }
+
+    @Override
+    public synchronized void setViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        ConnectorViewDefinition view = getView(session, viewName).orElseThrow(() -> new ViewNotFoundException(viewName));
+        views.put(viewName, new ConnectorViewDefinition(
+                view.getOriginalSql(),
+                view.getCatalog(),
+                view.getSchema(),
+                view.getColumns(),
+                comment,
+                view.getOwner(),
+                view.isRunAsInvoker(),
+                view.getPath()));
+    }
+
+    @Override
+    public synchronized void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        ConnectorViewDefinition view = getView(session, viewName).orElseThrow(() -> new ViewNotFoundException(viewName));
+        views.put(viewName, new ConnectorViewDefinition(
+                view.getOriginalSql(),
+                view.getCatalog(),
+                view.getSchema(),
+                view.getColumns().stream()
+                        .map(currentViewColumn -> columnName.equals(currentViewColumn.getName()) ?
+                                new ConnectorViewDefinition.ViewColumn(currentViewColumn.getName(), currentViewColumn.getType(), comment)
+                                : currentViewColumn)
+                        .collect(toImmutableList()),
+                view.getComment(),
+                view.getOwner(),
+                view.isRunAsInvoker(),
+                view.getPath()));
+    }
+
+    @Override
+    public synchronized void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        checkSchemaExists(target.getSchemaName());
+        if (!views.containsKey(source)) {
+            throw new TrinoException(NOT_FOUND, "View not found: " + source);
+        }
+        checkTableNotExists(target);
+
+        if (views.putIfAbsent(target, views.remove(source)) != null) {
+            throw new TrinoException(ALREADY_EXISTS, "View '%s' already exists".formatted(target));
+        }
+    }
+
+    @Override
+    public synchronized void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        if (views.remove(viewName) == null) {
+            throw new ViewNotFoundException(viewName);
+        }
     }
 
     @Override
