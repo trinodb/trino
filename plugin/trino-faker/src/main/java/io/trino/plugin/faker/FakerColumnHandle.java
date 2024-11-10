@@ -174,4 +174,19 @@ public record FakerColumnHandle(
                 .map(String.class::cast)
                 .collect(toImmutableList());
     }
+
+    public FakerColumnHandle withNullProbability(double nullProbability)
+    {
+        return new FakerColumnHandle(columnIndex, name, type, nullProbability, generator, domain, step);
+    }
+
+    public FakerColumnHandle withDomain(Domain domain)
+    {
+        return new FakerColumnHandle(columnIndex, name, type, nullProbability, generator, domain, step);
+    }
+
+    public FakerColumnHandle withStep(ValueSet step)
+    {
+        return new FakerColumnHandle(columnIndex, name, type, nullProbability, generator, domain, step);
+    }
 }

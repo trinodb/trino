@@ -27,6 +27,7 @@ public record TableInfo(List<ColumnInfo> columns, Map<String, Object> properties
 {
     public static final String NULL_PROBABILITY_PROPERTY = "null_probability";
     public static final String DEFAULT_LIMIT_PROPERTY = "default_limit";
+    public static final String SEQUENCE_DETECTION_ENABLED = "sequence_detection_enabled";
 
     public TableInfo
     {
