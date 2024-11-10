@@ -74,7 +74,6 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
@@ -149,7 +148,6 @@ public class CheckpointEntryIterator
     private final TupleDomain<DeltaLakeColumnHandle> partitionConstraint;
     private final Optional<RowType> txnType;
     private final Optional<RowType> addType;
-    private final Optional<RowType> addPartitionValuesType;
     private final Optional<RowType> addDeletionVectorType;
     private final Optional<RowType> addParsedStatsFieldType;
     private final Optional<RowType> removeType;
@@ -213,10 +211,6 @@ public class CheckpointEntryIterator
             HiveColumnHandle column = buildColumnHandle(field, checkpointSchemaManager, this.metadataEntry, this.protocolEntry, addStatsMinMaxColumnFilter).toHiveColumnHandle();
             columnsBuilder.add(column);
             disjunctDomainsBuilder.add(buildTupleDomainColumnHandle(field, column));
-            if (field == ADD) {
-                Type addEntryPartitionValuesType = checkpointSchemaManager.getAddEntryPartitionValuesType();
-                columnsBuilder.add(new DeltaLakeColumnHandle("add", addEntryPartitionValuesType, OptionalInt.empty(), "add", addEntryPartitionValuesType, REGULAR, Optional.empty()).toHiveColumnHandle());
-            }
         }
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
@@ -243,7 +237,6 @@ public class CheckpointEntryIterator
                     .collect(toImmutableList());
             txnType = getParquetType(fields, TRANSACTION);
             addType = getAddParquetTypeContainingField(fields, "path");
-            addPartitionValuesType = getAddParquetTypeContainingField(fields, "partitionValues");
             addDeletionVectorType = addType.flatMap(type -> getOptionalFieldType(type, "deletionVector"));
             addParsedStatsFieldType = addType.flatMap(type -> getOptionalFieldType(type, "stats_parsed"));
             removeType = getParquetType(fields, REMOVE);
@@ -259,7 +252,7 @@ public class CheckpointEntryIterator
             }
             catch (Exception _) {
             }
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while initilizing the checkpoint entry iterator for the file %s".formatted(checkpoint.location()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while initilizing the checkpoint entry iterator for the file %s".formatted(checkpoint.location()), e);
         }
     }
 
@@ -305,17 +298,17 @@ public class CheckpointEntryIterator
     private CheckpointFieldExtractor createCheckpointFieldExtractor(EntryType entryType)
     {
         return switch (entryType) {
-            case TRANSACTION -> (session, pagePosition, blocks) -> buildTxnEntry(session, pagePosition, blocks[0]);
+            case TRANSACTION -> this::buildTxnEntry;
             case ADD -> new AddFileEntryExtractor();
-            case REMOVE -> (session, pagePosition, blocks) -> buildRemoveEntry(session, pagePosition, blocks[0]);
-            case METADATA -> (session, pagePosition, blocks) -> buildMetadataEntry(session, pagePosition, blocks[0]);
-            case PROTOCOL -> (session, pagePosition, blocks) -> buildProtocolEntry(session, pagePosition, blocks[0]);
-            case COMMIT -> (session, pagePosition, blocks) -> buildCommitInfoEntry(session, pagePosition, blocks[0]);
-            case SIDECAR -> (session, pagePosition, blocks) -> buildSidecarEntry(session, pagePosition, blocks[0]);
+            case REMOVE -> this::buildRemoveEntry;
+            case METADATA -> this::buildMetadataEntry;
+            case PROTOCOL -> this::buildProtocolEntry;
+            case COMMIT -> this::buildCommitInfoEntry;
+            case SIDECAR -> this::buildSidecarEntry;
         };
     }
 
-    private DeltaLakeColumnHandle buildColumnHandle(
+    private static DeltaLakeColumnHandle buildColumnHandle(
             EntryType entryType,
             CheckpointSchemaManager schemaManager,
             MetadataEntry metadataEntry,
@@ -324,7 +317,7 @@ public class CheckpointEntryIterator
     {
         Type type = switch (entryType) {
             case TRANSACTION -> schemaManager.getTxnEntryType();
-            case ADD -> schemaManager.getAddEntryType(metadataEntry, protocolEntry, addStatsMinMaxColumnFilter.orElseThrow(), true, true, false);
+            case ADD -> schemaManager.getAddEntryType(metadataEntry, protocolEntry, addStatsMinMaxColumnFilter.orElseThrow(), true, true, true);
             case REMOVE -> schemaManager.getRemoveEntryType();
             case METADATA -> schemaManager.getMetadataEntryType();
             case PROTOCOL -> schemaManager.getProtocolEntryType(true, true);
@@ -584,22 +577,10 @@ public class CheckpointEntryIterator
     {
         @Nullable
         @Override
-        public DeltaLakeTransactionLogEntry getEntry(ConnectorSession session, int pagePosition, Block... blocks)
+        public DeltaLakeTransactionLogEntry getEntry(ConnectorSession session, int pagePosition, Block addBlock)
         {
-            checkState(blocks.length == getRequiredChannels(), "Unexpected amount of blocks: %s", blocks.length);
-            Block addBlock = blocks[0];
-            Block addPartitionValuesBlock = blocks[1];
             log.debug("Building add entry from %s pagePosition %d", addBlock, pagePosition);
             if (addBlock.isNull(pagePosition)) {
-                return null;
-            }
-
-            checkState(!addPartitionValuesBlock.isNull(pagePosition), "Inconsistent blocks provided while building the add file entry");
-            SqlRow addPartitionValuesRow = getRow(addPartitionValuesBlock, pagePosition);
-            CheckpointFieldReader addPartitionValuesReader = new CheckpointFieldReader(session, addPartitionValuesRow, addPartitionValuesType.orElseThrow());
-            Map<String, String> partitionValues = addPartitionValuesReader.getMap(stringMap, "partitionValues");
-            Map<String, Optional<String>> canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
-            if (!partitionConstraint.isAll() && !partitionMatchesPredicate(canonicalPartitionValues, partitionConstraint.getDomains().orElseThrow())) {
                 return null;
             }
 
@@ -608,6 +589,12 @@ public class CheckpointEntryIterator
             SqlRow addEntryRow = getRow(addBlock, pagePosition);
             log.debug("Block %s has %s fields", addBlock, addEntryRow.getFieldCount());
             CheckpointFieldReader addReader = new CheckpointFieldReader(session, addEntryRow, addType.orElseThrow());
+
+            Map<String, String> partitionValues = addReader.getMap(stringMap, "partitionValues");
+            Map<String, Optional<String>> canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
+            if (!partitionConstraint.isAll() && !partitionMatchesPredicate(canonicalPartitionValues, partitionConstraint.getDomains().orElseThrow())) {
+                return null;
+            }
 
             String path = addReader.getString("path");
             long size = addReader.getLong("size");
@@ -643,15 +630,9 @@ public class CheckpointEntryIterator
             log.debug("Result: %s", result);
             return DeltaLakeTransactionLogEntry.addFileEntry(result);
         }
-
-        @Override
-        public int getRequiredChannels()
-        {
-            return 2;
-        }
     }
 
-    private DeletionVectorEntry parseDeletionVectorFromParquet(ConnectorSession session, SqlRow row, RowType type)
+    private static DeletionVectorEntry parseDeletionVectorFromParquet(ConnectorSession session, SqlRow row, RowType type)
     {
         checkArgument(row.getFieldCount() == 5, "Deletion vector entry must have 5 fields");
 
@@ -806,7 +787,7 @@ public class CheckpointEntryIterator
             return false;
         }
         if (isFirstPage) {
-            int requiredExtractorChannels = extractors.stream().mapToInt(CheckpointFieldExtractor::getRequiredChannels).sum();
+            int requiredExtractorChannels = extractors.size();
             if (page.getChannelCount() != requiredExtractorChannels) {
                 throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
                         format("Expected page in %s to contain %d channels, but found %d",
@@ -838,9 +819,7 @@ public class CheckpointEntryIterator
                 DeltaLakeTransactionLogEntry entry;
                 if (extractor instanceof AddFileEntryExtractor) {
                     // Avoid unnecessary loading of the block in case there is a partition predicate mismatch for this add entry
-                    Block addBlock = page.getBlock(blockIndex);
-                    Block addPartitionValuesBlock = page.getBlock(blockIndex + 1);
-                    entry = extractor.getEntry(session, pagePosition, addBlock, addPartitionValuesBlock.getLoadedBlock());
+                    entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex));
                 }
                 else {
                     entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex).getLoadedBlock());
@@ -848,7 +827,7 @@ public class CheckpointEntryIterator
                 if (entry != null) {
                     nextEntries.add(entry);
                 }
-                blockIndex += extractor.getRequiredChannels();
+                blockIndex++;
             }
             pagePosition++;
         }
@@ -876,12 +855,7 @@ public class CheckpointEntryIterator
          * checkpoint filter criteria.
          */
         @Nullable
-        DeltaLakeTransactionLogEntry getEntry(ConnectorSession session, int pagePosition, Block... blocks);
-
-        default int getRequiredChannels()
-        {
-            return 1;
-        }
+        DeltaLakeTransactionLogEntry getEntry(ConnectorSession session, int pagePosition, Block block);
     }
 
     private static SqlRow getRow(Block block, int position)
