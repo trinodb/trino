@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
+import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -54,6 +56,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.inject.Inject;
+import net.datafaker.Faker;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -61,9 +64,12 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 import java.util.function.UnaryOperator;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -74,6 +80,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.filterKeys;
+import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
@@ -103,13 +110,18 @@ public class FakerMetadata
     public static final String SCHEMA_NAME = "default";
     public static final String ROW_ID_COLUMN_NAME = "$row_id";
     public static final double MIN_SEQUENCE_RATIO = 0.98;
+    public static final long MAX_DICTIONARY_SIZE = 1000L;
 
     @GuardedBy("this")
     private final List<SchemaInfo> schemas = new ArrayList<>();
     private final double nullProbability;
     private final long defaultLimit;
     private final boolean isSequenceDetectionEnabled;
+    private final boolean isDictionaryDetectionEnabled;
     private final FakerFunctionProvider functionsProvider;
+
+    private final Random random;
+    private final Faker faker;
 
     @GuardedBy("this")
     private final Map<SchemaTableName, TableInfo> tables = new HashMap<>();
@@ -123,7 +135,10 @@ public class FakerMetadata
         this.nullProbability = config.getNullProbability();
         this.defaultLimit = config.getDefaultLimit();
         this.isSequenceDetectionEnabled = config.isSequenceDetectionEnabled();
+        this.isDictionaryDetectionEnabled = config.isDictionaryDetectionEnabled();
         this.functionsProvider = requireNonNull(functionProvider, "functionProvider is null");
+        this.random = new Random(1);
+        this.faker = new Faker(random);
     }
 
     @Override
@@ -482,26 +497,36 @@ public class FakerMetadata
         SchemaInfo schema = getSchema(tableName.getSchemaName());
         boolean isSchemaSequenceDetectionEnabled = (boolean) schema.properties().getOrDefault(SchemaInfo.SEQUENCE_DETECTION_ENABLED, isSequenceDetectionEnabled);
         boolean isTableSequenceDetectionEnabled = (boolean) info.properties().getOrDefault(TableInfo.SEQUENCE_DETECTION_ENABLED, isSchemaSequenceDetectionEnabled);
+        Map<String, List<Object>> columnValues = getColumnValues(tableName, info, distinctValues, minimums, maximums);
         return info.withColumns(columns.stream().map(column -> createColumnInfoFromStats(
                         column,
                         minimums.get(column.name()),
                         maximums.get(column.name()),
                         requireNonNull(distinctValues.getOrDefault(column.name(), 0L)),
                         finalRowCount,
-                        isTableSequenceDetectionEnabled))
+                        isTableSequenceDetectionEnabled,
+                        columnValues.get(column.name())))
                 .collect(toImmutableList()));
     }
 
-    private static ColumnInfo createColumnInfoFromStats(ColumnInfo column, Object min, Object max, long distinctValues, long rowCount, boolean isSequenceDetectionEnabled)
+    private static ColumnInfo createColumnInfoFromStats(ColumnInfo column, Object min, Object max, long distinctValues, long rowCount, boolean isSequenceDetectionEnabled, List<Object> allowedValues)
     {
         if (isNotRangeType(column.type()) || min == null || max == null) {
             return column;
         }
         FakerColumnHandle handle = column.handle();
         Map<String, Object> properties = new HashMap<>(column.metadata().getProperties());
-        handle = handle.withDomain(Domain.create(ValueSet.ofRanges(Range.range(column.type(), min, true, max, true)), false));
-        properties.put(MIN_PROPERTY, Literal.format(column.type(), min));
-        properties.put(MAX_PROPERTY, Literal.format(column.type(), max));
+        if (allowedValues != null) {
+            handle = handle.withDomain(Domain.create(ValueSet.copyOf(column.type(), allowedValues), false));
+            properties.put(ALLOWED_VALUES_PROPERTY, allowedValues.stream()
+                    .map(value -> Literal.format(column.type(), value))
+                    .collect(toImmutableList()));
+        }
+        else {
+            handle = handle.withDomain(Domain.create(ValueSet.ofRanges(Range.range(column.type(), min, true, max, true)), false));
+            properties.put(MIN_PROPERTY, Literal.format(column.type(), min));
+            properties.put(MAX_PROPERTY, Literal.format(column.type(), max));
+        }
         // Only include types that support generating sequences in FakerPageSource,
         // but don't include types with configurable precision, dates, or intervals.
         // The number of distinct values is an approximation, so compare it with a margin.
@@ -512,6 +537,49 @@ public class FakerMetadata
         return column
                 .withHandle(handle)
                 .withProperties(properties);
+    }
+
+    private Map<String, List<Object>> getColumnValues(SchemaTableName tableName, TableInfo info, Map<String, Long> distinctValues, Map<String, Object> minimums, Map<String, Object> maximums)
+    {
+        boolean schemaDictionaryDetectionEnabled = (boolean) getSchema(tableName.getSchemaName()).properties().getOrDefault(SchemaInfo.DICTIONARY_DETECTION_ENABLED, isDictionaryDetectionEnabled);
+        boolean tableDictionaryDetectionEnabled = (boolean) info.properties().getOrDefault(TableInfo.DICTIONARY_DETECTION_ENABLED, schemaDictionaryDetectionEnabled);
+        if (!tableDictionaryDetectionEnabled || distinctValues.isEmpty()) {
+            return ImmutableMap.of();
+        }
+        List<ColumnInfo> columns = info.columns();
+        Map<String, FakerColumnHandle> columnHandles = info.columns().stream()
+                .collect(toImmutableMap(ColumnInfo::name, column -> column.handle().withNullProbability(0)));
+        List<FakerColumnHandle> dictionaryColumns = distinctValues.entrySet().stream()
+                .filter(entry -> entry.getValue() <= MAX_DICTIONARY_SIZE)
+                .map(entry -> columnHandles.get(entry.getKey()))
+                .filter(Objects::nonNull)
+                .map(column -> !minimums.containsKey(column.name()) ? column : column.withDomain(Domain.create(ValueSet.ofRanges(Range.range(
+                        column.type(),
+                        minimums.get(column.name()),
+                        true,
+                        maximums.get(column.name()),
+                        true)), false)))
+                .collect(toImmutableList());
+        ImmutableMap.Builder<String, List<Object>> columnValues = ImmutableMap.builder();
+        try (FakerPageSource pageSource = new FakerPageSource(faker, random, dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
+            Page page = null;
+            while (page == null) {
+                page = pageSource.getNextPage();
+            }
+            Map<String, Type> types = columns.stream().collect(toImmutableMap(ColumnInfo::name, ColumnInfo::type));
+            for (int channel = 0; channel < dictionaryColumns.size(); channel++) {
+                String column = dictionaryColumns.get(channel).name();
+                Block block = page.getBlock(channel);
+                Type type = types.get(column);
+                List<Object> values = IntStream.range(0, page.getPositionCount())
+                        .mapToObj(position -> readNativeValue(type, block, position))
+                        .distinct()
+                        .limit(distinctValues.get(column))
+                        .collect(toImmutableList());
+                columnValues.put(column, values);
+            }
+        }
+        return columnValues.buildOrThrow();
     }
 
     @Override
