@@ -641,4 +641,183 @@ final class TestFakerQueries
 
         assertUpdate("DROP TABLE faker.default.all_types_range");
     }
+
+    @Test
+    void testSelectIn()
+    {
+        @Language("SQL")
+        String tableQuery =
+                """
+                CREATE TABLE faker.default.all_types_in (
+                rnd_bigint bigint NOT NULL,
+                rnd_integer integer NOT NULL,
+                rnd_smallint smallint NOT NULL,
+                rnd_tinyint tinyint NOT NULL,
+                rnd_boolean boolean NOT NULL,
+                rnd_date date NOT NULL,
+                rnd_decimal1 decimal NOT NULL,
+                rnd_decimal2 decimal(18,5) NOT NULL,
+                rnd_decimal3 decimal(38,0) NOT NULL,
+                rnd_decimal4 decimal(38,38) NOT NULL,
+                rnd_decimal5 decimal(5,2) NOT NULL,
+                rnd_real real NOT NULL,
+                rnd_double double NOT NULL,
+                rnd_interval_day_time interval day to second NOT NULL,
+                rnd_interval_year interval year to month NOT NULL,
+                rnd_timestamp timestamp NOT NULL,
+                rnd_timestamp0 timestamp(0) NOT NULL,
+                rnd_timestamp6 timestamp(6) NOT NULL,
+                rnd_timestamp9 timestamp(9) NOT NULL,
+                rnd_timestamptz timestamp with time zone NOT NULL,
+                rnd_timestamptz0 timestamp(0) with time zone NOT NULL,
+                rnd_timestamptz6 timestamp(6) with time zone NOT NULL,
+                rnd_timestamptz9 timestamp(9) with time zone NOT NULL,
+                rnd_time time NOT NULL,
+                rnd_time0 time(0) NOT NULL,
+                rnd_time6 time(6) NOT NULL,
+                rnd_time9 time(9) NOT NULL,
+                rnd_timetz time with time zone NOT NULL,
+                rnd_timetz0 time(0) with time zone NOT NULL,
+                rnd_timetz6 time(6) with time zone NOT NULL,
+                rnd_timetz9 time(9) with time zone NOT NULL,
+                rnd_timetz12 time(12) with time zone NOT NULL,
+                rnd_varbinary varbinary NOT NULL,
+                rnd_varchar varchar NOT NULL,
+                rnd_nvarchar varchar(1000) NOT NULL,
+                rnd_ipaddress ipaddress NOT NULL,
+                rnd_uuid uuid NOT NULL)""";
+        assertUpdate(tableQuery);
+
+        @Language("SQL")
+        String testQuery;
+
+        // inclusive ranges (BETWEEN) that produce only 2 values
+        // obtained using `Math.nextUp((float) 0.0)`
+        testQuery =
+                """
+                SELECT
+                count(distinct rnd_bigint),
+                count(distinct rnd_integer),
+                count(distinct rnd_smallint),
+                count(distinct rnd_tinyint),
+                count(distinct rnd_date),
+                count(distinct rnd_decimal1),
+                count(distinct rnd_decimal2),
+                count(distinct rnd_decimal3),
+                count(distinct rnd_decimal4),
+                count(distinct rnd_decimal5),
+                count(distinct rnd_real),
+                count(distinct rnd_double),
+                count(distinct rnd_interval_day_time),
+                count(distinct rnd_interval_year),
+                count(distinct rnd_timestamp),
+                count(distinct rnd_timestamp0),
+                count(distinct rnd_timestamp6),
+                count(distinct rnd_timestamp9),
+                count(distinct rnd_timestamptz),
+                count(distinct rnd_timestamptz0),
+                count(distinct rnd_timestamptz6),
+                count(distinct rnd_timestamptz9),
+                count(distinct rnd_time),
+                count(distinct rnd_time0),
+                count(distinct rnd_time6),
+                count(distinct rnd_time9),
+                count(distinct rnd_timetz),
+                count(distinct rnd_timetz0),
+                count(distinct rnd_timetz6),
+                count(distinct rnd_timetz9),
+                count(distinct rnd_varbinary),
+                count(distinct rnd_varchar),
+                count(distinct rnd_nvarchar),
+                count(distinct rnd_ipaddress),
+                count(distinct rnd_uuid)
+                FROM all_types_in
+                WHERE 1=1
+                AND rnd_bigint IN (0, 1)
+                AND rnd_integer IN (0, 1)
+                AND rnd_smallint IN (0, 1)
+                AND rnd_tinyint IN (0, 1)
+                AND rnd_date IN (DATE '2022-03-01', DATE '2022-03-02')
+                AND rnd_decimal1 IN (0, 1)
+                AND rnd_decimal2 IN (0.00000, 0.00001)
+                AND rnd_decimal3 IN (0, 1)
+                AND rnd_decimal4 IN (DECIMAL '0.00000000000000000000000000000000000000',  DECIMAL '0.00000000000000000000000000000000000001')
+                AND rnd_decimal5 IN (0.00, 0.01)
+                AND rnd_real IN (REAL '0.0', REAL '1.4E-45')
+                AND rnd_double IN (DOUBLE '0.0', DOUBLE '4.9E-324')
+                AND rnd_interval_day_time IN (INTERVAL '0.000' SECOND, INTERVAL '0.001' SECOND)
+                AND rnd_interval_year IN (INTERVAL '0' MONTH, INTERVAL '1' MONTH)
+                AND rnd_timestamp IN (TIMESTAMP '2022-03-21 00:00:00.000',  TIMESTAMP '2022-03-21 00:00:00.001')
+                AND rnd_timestamp0 IN (TIMESTAMP '2022-03-21 00:00:00',  TIMESTAMP '2022-03-21 00:00:01')
+                AND rnd_timestamp6 IN (TIMESTAMP '2022-03-21 00:00:00.000000',  TIMESTAMP '2022-03-21 00:00:00.000001')
+                AND rnd_timestamp9 IN (TIMESTAMP '2022-03-21 00:00:00.000000000',  TIMESTAMP '2022-03-21 00:00:00.000000001')
+                AND rnd_timestamptz IN (TIMESTAMP '2022-03-21 00:00:00.000 +01:00',  TIMESTAMP '2022-03-21 00:00:00.001 +01:00')
+                AND rnd_timestamptz0 IN (TIMESTAMP '2022-03-21 00:00:00 +01:00',  TIMESTAMP '2022-03-21 00:00:01 +01:00')
+                AND rnd_timestamptz6 IN (TIMESTAMP '2022-03-21 00:00:00.000000 +01:00',  TIMESTAMP '2022-03-21 00:00:00.000001 +01:00')
+                AND rnd_timestamptz9 IN (TIMESTAMP '2022-03-21 00:00:00.000000000 +01:00',  TIMESTAMP '2022-03-21 00:00:00.000000001 +01:00')
+                AND rnd_time IN (TIME '01:02:03.456',  TIME '01:02:03.457')
+                AND rnd_time0 IN (TIME '01:02:03',  TIME '01:02:04')
+                AND rnd_time6 IN (TIME '01:02:03.000456',  TIME '01:02:03.000457')
+                AND rnd_time9 IN (TIME '01:02:03.000000456',  TIME '01:02:03.000000457')
+                AND rnd_timetz IN (TIME '01:02:03.456 +01:00',  TIME '01:02:03.457 +01:00')
+                AND rnd_timetz0 IN (TIME '01:02:03 +01:00',  TIME '01:02:04 +01:00')
+                AND rnd_timetz6 IN (TIME '01:02:03.000456 +01:00',  TIME '01:02:03.000457 +01:00')
+                AND rnd_timetz9 IN (TIME '01:02:03.000000456 +01:00',  TIME '01:02:03.000000457 +01:00')
+                AND rnd_varbinary IN (x'ff', x'00')
+                AND rnd_varchar IN ('aa', 'bb')
+                AND rnd_nvarchar IN ('aa', 'bb')
+                AND rnd_ipaddress IN (IPADDRESS '0.0.0.0', IPADDRESS '1.2.3.4')
+                AND rnd_uuid IN (UUID '1fc74d96-0216-449b-a145-455578a9eaa5', UUID '3ee49ede-0026-45e4-ba06-08404f794557')
+                """;
+        assertQuery(testQuery,
+                """
+                VALUES (2,
+                2,
+                2,
+                2,
+                -- date
+                2,
+                -- decimal
+                2,
+                2,
+                2,
+                2,
+                2,
+                -- real, double
+                2,
+                2,
+                -- intervals
+                2,
+                2,
+                -- timestamps
+                2,
+                2,
+                2,
+                2,
+                -- timestamps with time zone
+                2,
+                2,
+                2,
+                2,
+                -- time
+                2,
+                2,
+                2,
+                2,
+                -- time with time zone
+                2,
+                2,
+                2,
+                2,
+                -- character types
+                2,
+                2,
+                2,
+                -- ip, uuid
+                2,
+                2)
+                """);
+
+        assertUpdate("DROP TABLE faker.default.all_types_in");
+    }
 }
