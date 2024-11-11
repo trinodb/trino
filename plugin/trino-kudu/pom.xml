@@ -14,7 +14,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <kudu.version>1.17.0</kudu.version>
+        <kudu.version>1.17.1</kudu.version>
     </properties>
 
     <dependencies>
