@@ -38,8 +38,10 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import io.trino.type.IpAddressType;
 import net.datafaker.Faker;
 
 import java.math.BigInteger;
@@ -234,11 +236,8 @@ class FakerPageSource
         }
         if (domain.getValues().isDiscreteSet()) {
             List<Object> values = domain.getValues().getDiscreteSet();
-            if (domain.getValues().getDiscreteValues().isInclusive()) {
-                ObjectWriter singleValueWriter = objectWriter(handle.type());
-                return (blockBuilder) -> singleValueWriter.accept(blockBuilder, values.get(random.nextInt(values.size())));
-            }
-            throw new TrinoException(INVALID_ROW_FILTER, "Generating random values for an exclusive discrete set is not supported");
+            ObjectWriter singleValueWriter = objectWriter(handle.type());
+            return (blockBuilder) -> singleValueWriter.accept(blockBuilder, values.get(random.nextInt(values.size())));
         }
         if (domain.getValues().getRanges().getRangeCount() > 1) {
             // this would require calculating weights for each range to retain uniform distribution
@@ -341,11 +340,11 @@ class FakerPageSource
             return (blockBuilder) -> charType.writeSlice(blockBuilder, Slices.utf8Slice(faker.lorem().maxLengthSentence(charType.getLength())));
         }
         // not supported: ROW, ARRAY, MAP, JSON
-        if (IPADDRESS.equals(type)) {
+        if (type instanceof IpAddressType) {
             return generateIpV4(range);
         }
         // not supported: GEOMETRY
-        if (UUID.equals(type)) {
+        if (type instanceof UuidType) {
             return generateUUID(range);
         }
 
@@ -381,8 +380,11 @@ class FakerPageSource
                 return decimalType::writeObject;
             }
         }
-        if (REAL.equals(type) || DOUBLE.equals(type)) {
-            return (blockBuilder, value) -> REAL.writeDouble(blockBuilder, (Double) value);
+        if (REAL.equals(type)) {
+            return (blockBuilder, value) -> REAL.writeLong(blockBuilder, (Long) value);
+        }
+        if (DOUBLE.equals(type)) {
+            return (blockBuilder, value) -> DOUBLE.writeDouble(blockBuilder, (Double) value);
         }
         // not supported: HYPER_LOG_LOG, QDIGEST, TDIGEST, P4_HYPER_LOG_LOG
         if (INTERVAL_DAY_TIME.equals(type)) {
@@ -428,11 +430,11 @@ class FakerPageSource
             return (blockBuilder, value) -> charType.writeSlice(blockBuilder, (Slice) value);
         }
         // not supported: ROW, ARRAY, MAP, JSON
-        if (IPADDRESS.equals(type)) {
+        if (type instanceof IpAddressType) {
             return (blockBuilder, value) -> IPADDRESS.writeSlice(blockBuilder, (Slice) value);
         }
         // not supported: GEOMETRY
-        if (UUID.equals(type)) {
+        if (type instanceof UuidType) {
             return (blockBuilder, value) -> UUID.writeSlice(blockBuilder, (Slice) value);
         }
 
