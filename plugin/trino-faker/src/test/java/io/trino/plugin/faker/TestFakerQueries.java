@@ -20,6 +20,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestFakerQueries
@@ -54,7 +55,8 @@ final class TestFakerQueries
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "cannot_comment", "(id INTEGER, name VARCHAR)")) {
             assertThat(query("COMMENT ON COLUMN \"%s\".\"$row_id\" IS 'comment text'".formatted(table.getName())))
-                    .nonTrinoExceptionFailure()
+                    .failure()
+                    .hasErrorCode(INVALID_COLUMN_REFERENCE)
                     .hasMessageContaining("Cannot set comment for $row_id column");
         }
     }

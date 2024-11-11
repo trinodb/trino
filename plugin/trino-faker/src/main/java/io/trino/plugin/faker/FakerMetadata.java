@@ -66,6 +66,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
@@ -263,7 +264,7 @@ public class FakerMetadata
                 .map(columnInfo -> {
                     if (columnInfo.handle().equals(column)) {
                         if (ROW_ID_COLUMN_NAME.equals(columnInfo.handle().name())) {
-                            throw new IllegalArgumentException(String.format("Cannot set comment for %s column", ROW_ID_COLUMN_NAME));
+                            throw new TrinoException(INVALID_COLUMN_REFERENCE, "Cannot set comment for %s column".formatted(ROW_ID_COLUMN_NAME));
                         }
                         return columnInfo.withComment(comment);
                     }
