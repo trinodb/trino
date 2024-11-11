@@ -26,6 +26,7 @@ public class FakerConfig
     private double nullProbability = 0.5;
     private long defaultLimit = 1000L;
     private Locale locale = Locale.ENGLISH;
+    private long maxDictionarySize = 1000L;
 
     @Max(1)
     @Min(0)
@@ -66,6 +67,23 @@ public class FakerConfig
     public FakerConfig setLocale(String value)
     {
         this.locale = new Locale.Builder().setLanguageTag(value).build();
+        return this;
+    }
+
+    @Min(0)
+    public long getMaxDictionarySize()
+    {
+        return maxDictionarySize;
+    }
+
+    @Config("faker.max-dictionary-size")
+    @ConfigDescription(
+            """
+            Maximum size of randomly generated dictionaries to pick values from, used for columns with low number of approximate distinct values
+            observed during table creation using existing data. Set to zero to disable using dictionaries""")
+    public FakerConfig setMaxDictionarySize(long value)
+    {
+        this.maxDictionarySize = value;
         return this;
     }
 }

@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
+import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -55,6 +57,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.inject.Inject;
+import net.datafaker.Faker;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -63,10 +66,13 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.UnaryOperator;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -77,6 +83,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.filterKeys;
+import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
@@ -108,7 +115,11 @@ public class FakerMetadata
     private final List<SchemaInfo> schemas = new ArrayList<>();
     private final double nullProbability;
     private final long defaultLimit;
+    private final long maxDictionarySize;
     private final FakerFunctionProvider functionsProvider;
+
+    private final Random random;
+    private final Faker faker;
 
     @GuardedBy("this")
     private final Map<SchemaTableName, TableInfo> tables = new HashMap<>();
@@ -121,7 +132,10 @@ public class FakerMetadata
         this.schemas.add(new SchemaInfo(SCHEMA_NAME, Map.of()));
         this.nullProbability = config.getNullProbability();
         this.defaultLimit = config.getDefaultLimit();
+        this.maxDictionarySize = config.getMaxDictionarySize();
         this.functionsProvider = requireNonNull(functionProvider, "functionProvider is null");
+        this.random = new Random(1);
+        this.faker = new Faker(random);
     }
 
     @Override
@@ -431,12 +445,12 @@ public class FakerMetadata
                     .buildOrThrow());
         }
 
-        tables.put(tableName, getTableUsingStats(info, computedStatistics));
+        tables.put(tableName, getTableUsingStats(tableName, info, computedStatistics));
 
         return Optional.empty();
     }
 
-    private synchronized TableInfo getTableUsingStats(TableInfo info, Collection<ComputedStatistics> computedStatistics)
+    private synchronized TableInfo getTableUsingStats(SchemaTableName tableName, TableInfo info, Collection<ComputedStatistics> computedStatistics)
     {
         if (computedStatistics.isEmpty()) {
             return info;
@@ -479,17 +493,27 @@ public class FakerMetadata
             return info;
         }
 
+        Map<String, List<Object>> columnValues = getColumnValues(tableName, info, distinctValues, minimums, maximums);
         return info.withColumns(columns.stream().map(column -> {
             if (isCharacterType(column.type()) || !minimums.containsKey(column.name())) {
                 return column;
             }
             FakerColumnHandle handle = column.handle();
             Map<String, Object> properties = new HashMap<>(column.metadata().getProperties());
-            Object min = minimums.get(column.name());
-            Object max = maximums.get(column.name());
-            handle = handle.withDomain(Domain.create(ValueSet.ofRanges(Range.range(column.type(), min, true, max, true)), false));
-            properties.put(MIN_PROPERTY, Literal.format(column.type(), min));
-            properties.put(MAX_PROPERTY, Literal.format(column.type(), max));
+            if (columnValues.containsKey(column.name())) {
+                List<Object> allowedValues = columnValues.get(column.name());
+                handle = handle.withDomain(Domain.create(ValueSet.copyOf(column.type(), allowedValues), false));
+                properties.put(ALLOWED_VALUES_PROPERTY, columnValues.get(column.name()).stream()
+                        .map(value -> Literal.format(column.type(), value))
+                        .collect(toImmutableList()));
+            }
+            else {
+                Object min = minimums.get(column.name());
+                Object max = maximums.get(column.name());
+                handle = handle.withDomain(Domain.create(ValueSet.ofRanges(Range.range(column.type(), min, true, max, true)), false));
+                properties.put(MIN_PROPERTY, Literal.format(column.type(), min));
+                properties.put(MAX_PROPERTY, Literal.format(column.type(), max));
+            }
             // Only include types that support generating sequences in FakerPageSource,
             // but don't include types with configurable precision, dates, or intervals.
             // The number of distinct values is an approximation, so compare it with a margin.
@@ -501,6 +525,58 @@ public class FakerMetadata
                     .withHandle(handle)
                     .withProperties(properties);
         }).collect(toImmutableList()));
+    }
+
+    private Map<String, List<Object>> getColumnValues(SchemaTableName tableName, TableInfo info, Map<String, Long> distinctValues, Map<String, Object> minimums, Map<String, Object> maximums)
+    {
+        long schemaDictionarySize = (long) getSchema(tableName.getSchemaName()).properties().getOrDefault(SchemaInfo.MAX_DICTIONARY_SIZE, maxDictionarySize);
+        long maxDictionarySize = (long) info.properties().getOrDefault(TableInfo.MAX_DICTIONARY_SIZE, schemaDictionarySize);
+        if (maxDictionarySize == 0) {
+            return Map.of();
+        }
+        List<ColumnInfo> columns = info.columns();
+        Map<String, Type> types = columns.stream().collect(toMap(ColumnInfo::name, ColumnInfo::type));
+        List<String> dictionaryColumns = distinctValues.entrySet().stream()
+                .filter(entry -> entry.getValue() <= maxDictionarySize)
+                .map(Map.Entry::getKey)
+                .collect(toImmutableList());
+        ImmutableMap<String, FakerColumnHandle> columnHandles = info.columns().stream()
+                .collect(toImmutableMap(ColumnInfo::name, column -> column.handle().withNullProbability(0)));
+        ImmutableMap.Builder<String, List<Object>> builder = ImmutableMap.builder();
+        try (FakerPageSource pageSource = new FakerPageSource(
+                faker,
+                random,
+                dictionaryColumns.stream()
+                        .map(columnHandles::get)
+                        .filter(Objects::nonNull)
+                        .map(column -> !minimums.containsKey(column.name()) ? column : column.withDomain(Domain.create(ValueSet.ofRanges(Range.range(
+                                column.type(),
+                                minimums.get(column.name()),
+                                true,
+                                maximums.get(column.name()),
+                                true)), false)))
+                        .collect(toImmutableList()),
+                0,
+                maxDictionarySize * 2)) {
+            // TODO support reading values from multiple pages
+            Page page = null;
+            while (page == null) {
+                page = pageSource.getNextPage();
+            }
+            checkState(maxDictionarySize <= page.getPositionCount(), "Max dictionary size cannot be greater than %d".formatted(page.getPositionCount()));
+            for (int channel = 0; channel < dictionaryColumns.size(); channel++) {
+                String column = dictionaryColumns.get(channel);
+                Block block = page.getBlock(channel);
+                Type type = types.get(column);
+                List<Object> values = IntStream.range(0, page.getPositionCount())
+                        .mapToObj(position -> readNativeValue(type, block, position))
+                        .distinct()
+                        .limit(maxDictionarySize)
+                        .collect(toImmutableList());
+                builder.put(column, values);
+            }
+        }
+        return builder.buildOrThrow();
     }
 
     @Override
