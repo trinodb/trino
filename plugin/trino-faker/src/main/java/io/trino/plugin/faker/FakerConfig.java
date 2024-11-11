@@ -27,6 +27,7 @@ public class FakerConfig
     private long defaultLimit = 1000L;
     private Locale locale = Locale.ENGLISH;
     private boolean sequenceDetectionEnabled = true;
+    private boolean dictionaryDetectionEnabled = true;
 
     @Max(1)
     @Min(0)
@@ -83,6 +84,22 @@ public class FakerConfig
     public FakerConfig setSequenceDetectionEnabled(boolean value)
     {
         this.sequenceDetectionEnabled = value;
+        return this;
+    }
+
+    public boolean isDictionaryDetectionEnabled()
+    {
+        return dictionaryDetectionEnabled;
+    }
+
+    @Config("faker.dictionary-detection-enabled")
+    @ConfigDescription(
+            """
+            If true, when creating a table using existing data, columns with a low number of distinct values
+            will have the allowed_values column property populated with random values""")
+    public FakerConfig setDictionaryDetectionEnabled(boolean value)
+    {
+        this.dictionaryDetectionEnabled = value;
         return this;
     }
 }
