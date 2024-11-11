@@ -118,6 +118,14 @@ public class FakerConnector
                         "Default limit of rows returned from any table in this schema, if not specified in the query",
                         null,
                         defaultLimit -> checkProperty(1 <= defaultLimit, INVALID_SCHEMA_PROPERTY, "default_limit value must be equal or greater than 1"),
+                        false),
+                longProperty(
+                        SchemaInfo.MAX_DICTIONARY_SIZE,
+                        """
+                                Maximum size of randomly generated dictionaries to pick values from, used for columns with low number of approximate distinct values
+                                observed during table created in this schema using existing data. Set to zero to disable using dictionaries""",
+                        null,
+                        maxDictionarySize -> checkProperty(0 <= maxDictionarySize, INVALID_SCHEMA_PROPERTY, "max_dictionary_size value must be equal or greater than 0"),
                         false));
     }
 
@@ -136,6 +144,14 @@ public class FakerConnector
                         "Default limit of rows returned from this table if not specified in the query",
                         null,
                         defaultLimit -> checkProperty(1 <= defaultLimit, INVALID_TABLE_PROPERTY, "default_limit value must be equal or greater than 1"),
+                        false),
+                longProperty(
+                        TableInfo.MAX_DICTIONARY_SIZE,
+                        """
+                                Maximum size of randomly generated dictionaries to pick values from, used for columns with low number of approximate distinct values
+                                observed during table creation using existing data. Set to zero to disable using dictionaries""",
+                        null,
+                        maxDictionarySize -> checkProperty(0 <= maxDictionarySize, INVALID_TABLE_PROPERTY, "max_dictionary_size value must be equal or greater than 0"),
                         false));
     }
 

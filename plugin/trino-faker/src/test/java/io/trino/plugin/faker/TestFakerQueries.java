@@ -824,7 +824,7 @@ final class TestFakerQueries
     @Test
     void testCreateTableAsSelect()
     {
-        assertUpdate("CREATE TABLE faker.default.limited_range WITH (null_probability = 0, default_limit = 50) AS " +
+        assertUpdate("CREATE TABLE faker.default.limited_range WITH (null_probability = 0, default_limit = 50, max_dictionary_size = 0) AS " +
                 "SELECT * FROM (VALUES -1, 3, 5) t(id)", 3);
 
         assertQuery("SELECT count(id) FROM (SELECT id FROM limited_range) a",
@@ -882,7 +882,7 @@ final class TestFakerQueries
 
         tableQuery =
                 """
-                CREATE TABLE faker.default.limited_range WITH (null_probability = 0, default_limit = 1000) AS
+                CREATE TABLE faker.default.limited_range WITH (null_probability = 0, default_limit = 1000, max_dictionary_size = 0) AS
                 SELECT
                   "$row_id" as seq_bigint,
                   rnd_bigint,

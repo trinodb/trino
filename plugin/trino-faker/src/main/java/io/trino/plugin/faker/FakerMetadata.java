@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
+import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -46,7 +48,9 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
@@ -57,6 +61,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.inject.Inject;
+import net.datafaker.Faker;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -66,10 +71,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -93,9 +99,11 @@ import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toMap;
 
 public class FakerMetadata
         implements ConnectorMetadata
@@ -108,8 +116,12 @@ public class FakerMetadata
     private final List<SchemaInfo> schemas = new ArrayList<>();
     private final double nullProbability;
     private final long defaultLimit;
+    private final long maxDictionarySize;
     private final FakerFunctionProvider functionsProvider;
     private final CatalogName catalogName;
+
+    private final Random random;
+    private final Faker faker;
 
     @GuardedBy("this")
     private final Map<SchemaTableName, TableInfo> tables = new HashMap<>();
@@ -122,8 +134,12 @@ public class FakerMetadata
         this.schemas.add(new SchemaInfo(SCHEMA_NAME, Map.of()));
         this.nullProbability = config.getNullProbability();
         this.defaultLimit = config.getDefaultLimit();
+        this.maxDictionarySize = config.getMaxDictionarySize();
         this.functionsProvider = requireNonNull(functionProvider, "functionProvider is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+
+        this.random = new Random(1);
+        this.faker = new Faker(random);
     }
 
     @Override
@@ -288,7 +304,7 @@ public class FakerMetadata
                                 .filter(entry -> !properties.containsKey(entry.getKey())),
                         properties.entrySet().stream()
                                 .filter(entry -> entry.getValue().isPresent()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
         tables.put(tableName, oldInfo.withProperties(newProperties));
     }
 
@@ -356,7 +372,7 @@ public class FakerMetadata
                 nullProbability = (double) column.getProperties().getOrDefault(ColumnInfo.NULL_PROBABILITY_PROPERTY, tableNullProbability);
             }
             String generator = (String) column.getProperties().get(ColumnInfo.GENERATOR_PROPERTY);
-            if (generator != null && !isCharacterColumn(column)) {
+            if (generator != null && !isCharacterType(column.getType())) {
                 throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `generator` property can only be set for CHAR, VARCHAR or VARBINARY columns");
             }
             columns.add(new ColumnInfo(
@@ -391,9 +407,9 @@ public class FakerMetadata
         return new FakerOutputTableHandle(tableName);
     }
 
-    private boolean isCharacterColumn(ColumnMetadata column)
+    private static boolean isCharacterType(Type type)
     {
-        return column.getType() instanceof CharType || column.getType() instanceof VarcharType || column.getType() instanceof VarbinaryType;
+        return type instanceof CharType || type instanceof VarcharType || type instanceof VarbinaryType;
     }
 
     private synchronized void checkSchemaExists(String schemaName)
@@ -441,18 +457,19 @@ public class FakerMetadata
                     .buildOrThrow());
         }
 
-        tables.put(tableName, new TableInfo(info.columns(), info.properties(), info.comment()));
-        createViewWithPredicates(session, tableName, info.columns(), computedStatistics);
+        tables.put(tableName, info);
+        createViewWithPredicates(session, tableName, info, computedStatistics);
 
         return Optional.empty();
     }
 
-    private synchronized void createViewWithPredicates(ConnectorSession session, SchemaTableName tableName, List<ColumnInfo> columns, Collection<ComputedStatistics> computedStatistics)
+    private synchronized void createViewWithPredicates(ConnectorSession session, SchemaTableName tableName, TableInfo info, Collection<ComputedStatistics> computedStatistics)
     {
         Map<String, Object> minimums = new LinkedHashMap<>();
         Map<String, Object> maximums = new HashMap<>();
         Map<String, Long> distinctValues = new HashMap<>();
-        Map<String, Type> types = columns.stream().collect(Collectors.toMap(ColumnInfo::name, ColumnInfo::type));
+        List<ColumnInfo> columns = info.columns();
+        Map<String, Type> types = columns.stream().collect(toMap(ColumnInfo::name, ColumnInfo::type));
         AtomicLong rowCount = new AtomicLong(1);
         computedStatistics.forEach(statistic -> {
             rowCount.set((long) firstNonNull(readNativeValue(BIGINT, statistic.getTableStatistics().get(ROW_COUNT), 0), 0));
@@ -484,29 +501,37 @@ public class FakerMetadata
                 .map(column -> {
                     String name = column.name();
                     Type type = types.get(name);
-                    if (!type.equals(BIGINT) || !minimums.containsKey(name)) {
+                    if (!type.equals(BIGINT)) {
                         return quoted(name);
                     }
                     // distinct values is an approximation
                     if ((double) distinctValues.get(name) / rowCount.get() < 0.98) {
                         return quoted(name);
                     }
+                    if (!minimums.containsKey(name)) {
+                        return "\"$row_id\" AS " + quoted(name);
+                    }
                     return "\"$row_id\" + " + formatLiteral(type, minimums.get(name)) + " AS " + quoted(name);
                 })
                 .collect(toImmutableList());
-        String whereClause = minimums.isEmpty() ? "" : "WHERE " + columns.stream()
-                .map(ColumnInfo::name)
-                .filter(minimums::containsKey)
-                .map(column -> "%s BETWEEN %s AND %s".formatted(
-                        column,
-                        formatLiteral(types.get(column), minimums.get(column)),
-                        formatLiteral(types.get(column), maximums.get(column))))
-                .collect(joining("\nAND "));
+
+        List<String> predicates = Stream.concat(
+                        columns.stream()
+                                .filter(column -> !isCharacterType(column.type()))
+                                .map(ColumnInfo::name)
+                                .filter(minimums::containsKey)
+                                .map(column -> "%s BETWEEN %s AND %s".formatted(
+                                        column,
+                                        formatLiteral(types.get(column), minimums.get(column)),
+                                        formatLiteral(types.get(column), maximums.get(column)))),
+                        getDictionaryPredicates(tableName, info, distinctValues, minimums, maximums).stream())
+                .collect(toImmutableList());
+
         String viewSql = "SELECT\n  %s\nFROM %s.%s %s".formatted(
                 String.join(",\n  ", viewColumns).stripTrailing(),
                 catalogName,
                 tableName,
-                whereClause);
+                predicates.isEmpty() ? "" : "WHERE " + String.join("\nAND ", predicates));
 
         SchemaTableName viewName = new SchemaTableName(tableName.getSchemaName(), tableName.getTableName() + VIEW_SUFFIX);
         ConnectorViewDefinition definition = new ConnectorViewDefinition(
@@ -530,6 +555,61 @@ public class FakerMetadata
     private static String quoted(String name)
     {
         return "\"" + name.replace("\"", "\"\"") + "\"";
+    }
+
+    private List<String> getDictionaryPredicates(SchemaTableName tableName, TableInfo info, Map<String, Long> distinctValues, Map<String, Object> minimums, Map<String, Object> maximums)
+    {
+        long schemaDictionarySize = (long) getSchema(tableName.getSchemaName()).properties().getOrDefault(SchemaInfo.MAX_DICTIONARY_SIZE, maxDictionarySize);
+        long maxDictionarySize = (long) info.properties().getOrDefault(TableInfo.MAX_DICTIONARY_SIZE, schemaDictionarySize);
+        if (maxDictionarySize == 0) {
+            return List.of();
+        }
+        List<ColumnInfo> columns = info.columns();
+        Map<String, Type> types = columns.stream().collect(toMap(ColumnInfo::name, ColumnInfo::type));
+        List<String> dictionaryColumns = distinctValues.entrySet().stream()
+                .filter(entry -> entry.getValue() <= maxDictionarySize)
+                .map(Map.Entry::getKey)
+                .collect(toImmutableList());
+        ImmutableMap<String, FakerColumnHandle> columnHandles = info.columns().stream()
+                .collect(toImmutableMap(ColumnInfo::name, ColumnInfo::handle));
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        try (FakerPageSource pageSource = new FakerPageSource(
+                faker,
+                random,
+                dictionaryColumns.stream()
+                        .map(columnHandles::get)
+                        .collect(toImmutableList()),
+                TupleDomain.withColumnDomains(dictionaryColumns.stream()
+                        .collect(toMap(
+                                columnHandles::get,
+                                column -> Domain.create(
+                                        ValueSet.ofRanges(Range.range(
+                                                types.get(column),
+                                                minimums.get(column),
+                                                true,
+                                                maximums.get(column),
+                                                true)),
+                                        false)))),
+                0,
+                maxDictionarySize)) {
+            // TODO support reading values from multiple pages
+            Page page = null;
+            while (page == null) {
+                page = pageSource.getNextPage();
+            }
+            checkState(maxDictionarySize <= page.getPositionCount(), "Max dictionary size cannot be greater than %d".formatted(page.getPositionCount()));
+            for (int channel = 0; channel < dictionaryColumns.size(); channel++) {
+                String column = dictionaryColumns.get(channel);
+                Block block = page.getBlock(channel);
+                Type type = types.get(column);
+                String values = IntStream.range(0, toIntExact(distinctValues.get(column)))
+                        .mapToObj(position -> readNativeValue(type, block, position))
+                        .map(value -> formatLiteral(types.get(column), value))
+                        .collect(joining(", "));
+                builder.add("%s IN (%s)".formatted(column, values));
+            }
+        }
+        return builder.build();
     }
 
     @Override
