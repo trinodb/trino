@@ -137,7 +137,7 @@ public final class SplitsMapping
                         PlanNodeId::getRetainedSizeInBytes,
                         planNodeSplits -> estimatedSizeOf(
                                 planNodeSplits,
-                                partitionId -> INTEGER_INSTANCE_SIZE,
+                                _ -> INTEGER_INSTANCE_SIZE,
                                 splitList -> estimatedSizeOf(splitList, Split::getRetainedSizeInBytes)));
     }
 
