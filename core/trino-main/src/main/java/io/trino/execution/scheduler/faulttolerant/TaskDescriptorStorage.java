@@ -278,7 +278,7 @@ public class TaskDescriptorStorage
 
         private long reservedBytes;
         private final Map<StageId, AtomicLong> stagesReservedBytes = new HashMap<>();
-        private RuntimeException failure;
+        private TrinoException failure;
 
         public void put(StageId stageId, int partitionId, TaskDescriptor descriptor)
         {
@@ -365,7 +365,7 @@ public class TaskDescriptorStorage
                     splitsDebugInfo);
         }
 
-        private void fail(RuntimeException failure)
+        private void fail(TrinoException failure)
         {
             if (this.failure == null) {
                 descriptors.clear();
@@ -377,7 +377,8 @@ public class TaskDescriptorStorage
         private void throwIfFailed()
         {
             if (failure != null) {
-                throw failure;
+                // add caller stack trace to the exception
+                throw new TrinoException(failure::getErrorCode, failure.getMessage(), failure);
             }
         }
 
