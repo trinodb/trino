@@ -49,6 +49,7 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -145,7 +146,7 @@ public class IonDecoderFactory
                     .forEach(position -> {
                         RowType.Field field = fields.get(position);
                         decoderBuilder.add(decoderForType(field.getType()));
-                        fieldPositionBuilder.put(field.getName().get(), position);
+                        fieldPositionBuilder.put(field.getName().get().toLowerCase(Locale.ROOT), position);
                     });
 
             return new RowDecoder(fieldPositionBuilder.buildOrThrow(), decoderBuilder.build());
@@ -181,7 +182,7 @@ public class IonDecoderFactory
 
             while (ionReader.next() != null) {
                 // todo: case insensitivity
-                final Integer fieldIndex = fieldPositions.get(ionReader.getFieldName());
+                final Integer fieldIndex = fieldPositions.get(ionReader.getFieldName().toLowerCase(Locale.ROOT));
                 if (fieldIndex == null) {
                     continue;
                 }

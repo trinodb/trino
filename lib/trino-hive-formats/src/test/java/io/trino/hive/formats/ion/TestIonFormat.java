@@ -66,6 +66,32 @@ public class TestIonFormat
     }
 
     @Test
+    public void testCaseInsensitivityOfKeys()
+            throws IOException
+    {
+        assertValues(
+                RowType.rowType(
+                        field("Foo", INTEGER),
+                        field("BAR", VARCHAR)),
+                "{ Bar: baz, foo: 31 }",
+                List.of(31, "baz"));
+    }
+
+    @Test
+    public void testCaseInsensitivityOfDuplicateKeys()
+            throws IOException
+    {
+        // this test asserts that duplicate key behavior works as expected(i.e. capturing the last value),
+        // for duplicate keys with different casing.
+        assertValues(
+                RowType.rowType(
+                        field("Foo", INTEGER),
+                        field("BAR", VARCHAR)),
+                "{ bar: baz, Foo: 31, foo: 5 }",
+                List.of(5, "baz"));
+    }
+
+    @Test
     public void testStructWithNullAndMissingValues()
             throws IOException
     {
