@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
+import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -53,6 +54,7 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
+import static io.trino.plugin.cassandra.CassandraClientConfig.CassandraAuthenticationType.PASSWORD;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraClientModule
@@ -88,6 +90,11 @@ public class CassandraClientModule
                 CassandraClientConfig.class,
                 CassandraClientConfig::isTlsEnabled,
                 new CassandraTlsModule()));
+
+        install(conditionalModule(
+                CassandraClientConfig.class,
+                config -> config.getAuthenticationType() == PASSWORD,
+                new PasswordAuthenticationModule()));
 
         jsonCodecBinder(binder).bindListJsonCodec(ExtraColumnMetadata.class);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
@@ -130,10 +137,6 @@ public class CassandraClientModule
 
         List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
         checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
-
-        if (config.getUsername() != null && config.getPassword() != null) {
-            cqlSessionBuilder.withAuthCredentials(config.getUsername(), config.getPassword());
-        }
 
         for (CassandraSessionConfigurator sessionConfigurator : sessionConfigurators) {
             sessionConfigurator.configure(cqlSessionBuilder);
@@ -201,6 +204,23 @@ public class CassandraClientModule
 
             builder.withConfigLoader(driverConfigLoaderBuilder.build());
         };
+    }
+
+    private static class PasswordAuthenticationModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            configBinder(binder).bindConfig(CassandraPasswordConfig.class);
+        }
+
+        @ProvidesIntoSet
+        @Singleton
+        public CassandraSessionConfigurator passwordAuthenticationConfigurator(CassandraPasswordConfig config)
+        {
+            return builder -> builder.withAuthCredentials(config.getUsername(), config.getPassword());
+        }
     }
 
     private static InetSocketAddress createInetSocketAddress(String contactPoint, int port)

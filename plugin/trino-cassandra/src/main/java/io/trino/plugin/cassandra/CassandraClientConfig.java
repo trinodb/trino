@@ -20,7 +20,6 @@ import com.datastax.oss.driver.api.core.ProtocolVersion;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
@@ -33,6 +32,7 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.cassandra.CassandraClientConfig.CassandraAuthenticationType.NONE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -53,6 +53,13 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 })
 public class CassandraClientConfig
 {
+    public enum CassandraAuthenticationType
+    {
+        NONE,
+        PASSWORD,
+        /**/
+    }
+
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
@@ -62,8 +69,6 @@ public class CassandraClientConfig
     private int batchSize = 100;
     private Long splitsPerNode;
     private boolean allowDropTable;
-    private String username;
-    private String password;
     private Duration clientReadTimeout = new Duration(12_000, MILLISECONDS);
     private Duration clientConnectTimeout = new Duration(5_000, MILLISECONDS);
     private Integer clientSoLinger;
@@ -77,6 +82,7 @@ public class CassandraClientConfig
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
     private ProtocolVersion protocolVersion;
     private boolean tlsEnabled;
+    private CassandraAuthenticationType authenticationType = NONE;
 
     @NotNull
     @Size(min = 1)
@@ -192,31 +198,6 @@ public class CassandraClientConfig
     public CassandraClientConfig setAllowDropTable(boolean allowDropTable)
     {
         this.allowDropTable = allowDropTable;
-        return this;
-    }
-
-    public String getUsername()
-    {
-        return username;
-    }
-
-    @Config("cassandra.username")
-    public CassandraClientConfig setUsername(String username)
-    {
-        this.username = username;
-        return this;
-    }
-
-    public String getPassword()
-    {
-        return password;
-    }
-
-    @Config("cassandra.password")
-    @ConfigSecuritySensitive
-    public CassandraClientConfig setPassword(String password)
-    {
-        this.password = password;
         return this;
     }
 
@@ -383,6 +364,18 @@ public class CassandraClientConfig
     public CassandraClientConfig setTlsEnabled(boolean tlsEnabled)
     {
         this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
+    public CassandraAuthenticationType getAuthenticationType()
+    {
+        return authenticationType;
+    }
+
+    @Config("cassandra.security")
+    public CassandraClientConfig setAuthenticationType(CassandraAuthenticationType authenticationType)
+    {
+        this.authenticationType = authenticationType;
         return this;
     }
 }
