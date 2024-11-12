@@ -733,17 +733,16 @@ public class InternalResourceGroup
         synchronized (root) {
             runningQueries.put(query, new ResourceUsage(0, 0));
             InternalResourceGroup group = this;
+            group.getStartedQueries().update(1);
             while (group.parent.isPresent()) {
-                group.parent.get().descendantRunningQueries++;
-                group.parent.get().dirtySubGroups.add(group);
-                group = group.parent.get();
+                InternalResourceGroup parent = group.parent.get();
+                parent.descendantRunningQueries++;
+                parent.dirtySubGroups.add(group);
+                parent.getStartedQueries().update(1);
+                group = parent;
             }
             updateEligibility();
             executor.execute(query::startWaitingForResources);
-        }
-        // mark the time when the query was started for this group and all ancestors
-        for (InternalResourceGroup group = this; group != null; group = group.parent.orElse(null)) {
-            group.getStartedQueries().update(1);
         }
     }
 
