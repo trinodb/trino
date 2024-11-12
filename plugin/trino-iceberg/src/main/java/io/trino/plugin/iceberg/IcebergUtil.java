@@ -47,6 +47,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
@@ -72,6 +73,7 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.TypeUtil;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StructType;
 
@@ -438,6 +440,33 @@ public final class IcebergUtil
             }
         }
         return columns.buildOrThrow();
+    }
+
+    public static List<Types.NestedField> primitiveFields(Schema schema)
+    {
+        return primitiveFields(schema.columns())
+                .collect(toImmutableList());
+    }
+
+    private static Stream<Types.NestedField> primitiveFields(List<NestedField> nestedFields)
+    {
+        return nestedFields.stream()
+                .flatMap(IcebergUtil::primitiveFields);
+    }
+
+    private static Stream<Types.NestedField> primitiveFields(NestedField nestedField)
+    {
+        org.apache.iceberg.types.Type type = nestedField.type();
+        if (type.isPrimitiveType()) {
+            return Stream.of(nestedField);
+        }
+
+        if (type.isNestedType()) {
+            return primitiveFields(type.asNestedType().fields())
+                    .map(field -> Types.NestedField.of(field.fieldId(), field.isOptional(), nestedField.name() + "." + field.name(), field.type(), field.doc()));
+        }
+
+        throw new IllegalStateException("Unsupported field type: " + nestedField);
     }
 
     public static Map<Integer, PrimitiveType> primitiveFieldTypes(Schema schema)
@@ -1091,5 +1120,34 @@ public final class IcebergUtil
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to get file modification time: " + path, e);
         }
+    }
+
+    public static Optional<IcebergPartitionColumn> getPartitionColumnType(List<PartitionField> fields, Schema schema, TypeManager typeManager)
+    {
+        if (fields.isEmpty()) {
+            return Optional.empty();
+        }
+        List<RowType.Field> partitionFields = fields.stream()
+                .map(field -> RowType.field(
+                        field.name(),
+                        toTrinoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)))
+                .collect(toImmutableList());
+        List<Integer> fieldIds = fields.stream()
+                .map(PartitionField::fieldId)
+                .collect(toImmutableList());
+        return Optional.of(new IcebergPartitionColumn(RowType.from(partitionFields), fieldIds));
+    }
+
+    public static List<org.apache.iceberg.types.Type> partitionTypes(
+            List<PartitionField> partitionFields,
+            Map<Integer, org.apache.iceberg.types.Type.PrimitiveType> idToPrimitiveTypeMapping)
+    {
+        ImmutableList.Builder<org.apache.iceberg.types.Type> partitionTypeBuilder = ImmutableList.builder();
+        for (PartitionField partitionField : partitionFields) {
+            org.apache.iceberg.types.Type.PrimitiveType sourceType = idToPrimitiveTypeMapping.get(partitionField.sourceId());
+            org.apache.iceberg.types.Type type = partitionField.transform().getResultType(sourceType);
+            partitionTypeBuilder.add(type);
+        }
+        return partitionTypeBuilder.build();
     }
 }
