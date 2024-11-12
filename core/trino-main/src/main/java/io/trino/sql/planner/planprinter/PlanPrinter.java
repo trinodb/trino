@@ -1383,11 +1383,17 @@ public class PlanPrinter
         public Void visitUnnest(UnnestNode node, Context context)
         {
             String name;
+
             if (node.getJoinType() == INNER) {
-                name = "CrossJoin Unnest";
+                if (node.getReplicateSymbols().isEmpty()) {
+                    name = "Unnest";
+                }
+                else {
+                    name = "CrossJoin Unnest";
+                }
             }
             else {
-                name = node.getJoinType().getJoinLabel() + " Unnest";
+                name = node.getJoinType().getJoinLabel() + " Unnest on true";
             }
 
             List<Symbol> unnestInputs = node.getMappings().stream()

@@ -76,6 +76,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.planprinter.PlanPrinter.formatAggregation;
 import static java.lang.String.format;
 
@@ -408,11 +409,17 @@ public final class GraphvizPrinter
         public Void visitUnnest(UnnestNode node, Void context)
         {
             StringBuilder label = new StringBuilder();
-            if (!node.getReplicateSymbols().isEmpty()) {
-                label.append("CrossJoin Unnest");
+            if (node.getJoinType() == INNER) {
+                if (node.getReplicateSymbols().isEmpty()) {
+                    label.append("Unnest");
+                }
+                else {
+                    label.append("CrossJoin Unnest");
+                }
             }
             else {
-                label.append("Unnest");
+                label.append(node.getJoinType().getJoinLabel())
+                        .append(" Unnest on true");
             }
 
             List<Symbol> unnestInputs = node.getMappings().stream()
