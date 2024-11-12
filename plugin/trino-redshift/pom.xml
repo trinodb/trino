@@ -340,6 +340,8 @@
                                 <!-- JDBC operations performed on the ephemeral AWS Redshift cluster.  -->
                                 <include>**/TestRedshiftCastPushdown.java</include>
                                 <include>**/TestRedshiftConnectorSmokeTest.java</include>
+                                <include>**/TestRedshiftUnloadTypeMapping.java</include>
+                                <include>**/TestRedshiftUnloadConnectorTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
