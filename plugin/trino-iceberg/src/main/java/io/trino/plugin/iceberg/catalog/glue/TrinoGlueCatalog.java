@@ -92,6 +92,7 @@ import org.apache.iceberg.io.FileIO;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -99,6 +100,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
@@ -116,6 +120,7 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.metastore.Table.TABLE_COMMENT;
+import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
@@ -182,6 +187,7 @@ public class TrinoGlueCatalog
     private final GlueMetastoreStats stats;
     private final boolean hideMaterializedViewStorageTable;
     private final boolean isUsingSystemSecurity;
+    private final Executor metadataFetchingExecutor;
 
     private final Cache<SchemaTableName, com.amazonaws.services.glue.model.Table> glueTableCache = EvictableCacheBuilder.newBuilder()
             // Even though this is query-scoped, this still needs to be bounded. information_schema queries can access large number of tables.
@@ -210,7 +216,8 @@ public class TrinoGlueCatalog
             boolean isUsingSystemSecurity,
             Optional<String> defaultSchemaLocation,
             boolean useUniqueTableLocation,
-            boolean hideMaterializedViewStorageTable)
+            boolean hideMaterializedViewStorageTable,
+            Executor metadataFetchingExecutor)
     {
         super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, useUniqueTableLocation);
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
@@ -221,6 +228,7 @@ public class TrinoGlueCatalog
         this.isUsingSystemSecurity = isUsingSystemSecurity;
         this.defaultSchemaLocation = requireNonNull(defaultSchemaLocation, "defaultSchemaLocation is null");
         this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
+        this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
     }
 
     @Override
@@ -366,12 +374,26 @@ public class TrinoGlueCatalog
     @Override
     public List<TableInfo> listTables(ConnectorSession session, Optional<String> namespace)
     {
-        return listNamespaces(session, namespace).stream()
-                .flatMap(glueNamespace -> getGlueTablesWithExceptionHandling(glueNamespace)
-                        .map(table -> new TableInfo(
-                                new SchemaTableName(glueNamespace, table.getName()),
-                                TableInfo.ExtendedRelationType.fromTableTypeAndComment(getTableType(table), getTableParameters(table).get(TABLE_COMMENT)))))
+        List<Callable<List<TableInfo>>> tasks = listNamespaces(session, namespace).stream()
+                .map(glueNamespace -> (Callable<List<TableInfo>>) () -> getGlueTablesWithExceptionHandling(glueNamespace)
+                        .map(table -> mapToTableInfo(glueNamespace, table))
+                        .collect(toImmutableList()))
                 .collect(toImmutableList());
+        try {
+            return processWithAdditionalThreads(tasks, metadataFetchingExecutor).stream()
+                    .flatMap(Collection::stream)
+                    .collect(toImmutableList());
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause());
+        }
+    }
+
+    private TableInfo mapToTableInfo(String glueNamespace, com.amazonaws.services.glue.model.Table table)
+    {
+        return new TableInfo(
+                new SchemaTableName(glueNamespace, table.getName()),
+                TableInfo.ExtendedRelationType.fromTableTypeAndComment(getTableType(table), getTableParameters(table).get(TABLE_COMMENT)));
     }
 
     @Override
