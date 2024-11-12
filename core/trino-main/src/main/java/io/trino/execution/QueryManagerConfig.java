@@ -62,6 +62,7 @@ public class QueryManagerConfig
     public static final int MAX_TASK_RETRY_ATTEMPTS = 126;
     public static final int FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT = 1000;
     public static final int DISPATCHER_THREADPOOL_MAX_SIZE = max(50, getRuntime().availableProcessors() * 10);
+
     private int scheduleSplitBatchSize = 1000;
     private int minScheduleSplitBatchSize = 100;
     private int maxConcurrentQueries = 1000;
