@@ -35,6 +35,8 @@ import io.trino.metadata.Split;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.sql.planner.plan.PlanNodeId;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -46,6 +48,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -59,6 +62,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.math.Quantiles.percentiles;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY;
@@ -66,10 +70,12 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class TaskDescriptorStorage
 {
     private static final Logger log = Logger.get(TaskDescriptorStorage.class);
+    public static final int SINGLE_STEP_COMPRESSION_LIMIT = 1000;
 
     private final long maxMemoryInBytes;
     private final long compressingHighWaterMark;
@@ -98,6 +104,8 @@ public class TaskDescriptorStorage
     @GuardedBy("this")
 
     private boolean compressing;
+    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-descriptor-storage"));
+    private volatile boolean running;
 
     @Inject
     public TaskDescriptorStorage(
@@ -126,6 +134,66 @@ public class TaskDescriptorStorage
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "taskDescriptorJsonCodec is null");
         this.splitJsonCodec = requireNonNull(splitJsonCodec, "splitJsonCodec is null");
         this.storageStats = new StorageStats(Suppliers.memoizeWithExpiration(this::computeStats, 1, TimeUnit.SECONDS));
+    }
+
+    @PostConstruct
+    public void start()
+    {
+        running = true;
+        executor.schedule(this::compressTaskDescriptorsJob, 10, TimeUnit.SECONDS);
+    }
+
+    private void compressTaskDescriptorsJob()
+    {
+        if (!running) {
+            return;
+        }
+        int delaySeconds = 10;
+        try {
+            if (!compressTaskDescriptorsStep()) {
+                delaySeconds = 0;
+            }
+        }
+        catch (Throwable e) {
+            log.error(e, "Error in compressTaskDescriptorsJob");
+        }
+        finally {
+            executor.schedule(this::compressTaskDescriptorsJob, delaySeconds, TimeUnit.SECONDS);
+        }
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        running = false;
+        executor.shutdownNow();
+    }
+
+    private boolean compressTaskDescriptorsStep()
+    {
+        int limit = SINGLE_STEP_COMPRESSION_LIMIT;
+        synchronized (this) {
+            if (!compressing) {
+                return true;
+            }
+
+            for (Map.Entry<QueryId, TaskDescriptors> entry : storages.entrySet()) {
+                if (limit <= 0) {
+                    return false;
+                }
+                TaskDescriptors storage = entry.getValue();
+                if (!storage.isFullyCompressed()) {
+                    var holder = new Object()
+                    {
+                        int limitDelta;
+                    };
+                    int limitFinal = limit;
+                    runAndUpdateMemory(storage, () -> holder.limitDelta = storage.compress(limitFinal), false);
+                    limit -= holder.limitDelta;
+                }
+            }
+        }
+        return limit > 0;
     }
 
     /**
@@ -404,6 +472,7 @@ public class TaskDescriptorStorage
     private class TaskDescriptors
     {
         private final Table<StageId, Integer /* partitionId */, TaskDescriptorHolder> descriptors = HashBasedTable.create();
+        public boolean fullyCompressed;
 
         /* tracking of memory usage; see top level comment in TaskDescriptorStorage for meaning */
         private long reservedUncompressedBytes;
@@ -424,6 +493,9 @@ public class TaskDescriptorStorage
 
             if (compressing) {
                 descriptorHolder.compress();
+            }
+            else {
+                fullyCompressed = false;
             }
             descriptors.put(stageId, partitionId, descriptorHolder);
 
@@ -577,6 +649,36 @@ public class TaskDescriptorStorage
         {
             return stagesOriginalCompressedBytes.values().stream()
                     .map(AtomicLong::get);
+        }
+
+        public boolean isFullyCompressed()
+        {
+            return fullyCompressed;
+        }
+
+        @GuardedBy("TaskDescriptorStorage.this")
+        public int compress(int limit)
+        {
+            if (fullyCompressed) {
+                return 0;
+            }
+            List<TaskDescriptorHolder> selectedForCompresssion = descriptors.values().stream()
+                    .filter(descriptor -> !descriptor.isCompressed())
+                    .limit(limit)
+                    .collect(toImmutableList());
+
+            for (TaskDescriptorHolder holder : selectedForCompresssion) {
+                long uncompressedSize = holder.getUncompressedSize();
+                holder.compress();
+                reservedUncompressedBytes -= uncompressedSize;
+                originalCompressedBytes += uncompressedSize;
+                reservedCompressedBytes += holder.getCompressedSize();
+                checkStatsNotNegative();
+            }
+            if (selectedForCompresssion.size() < limit) {
+                fullyCompressed = true;
+            }
+            return selectedForCompresssion.size();
         }
     }
 
