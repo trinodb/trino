@@ -49,6 +49,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.IntFunction;
 
@@ -59,7 +60,7 @@ public class IonEncoderFactory
     public static IonEncoder buildEncoder(List<Column> columns)
     {
         return RowEncoder.forFields(columns.stream()
-                .map(c -> new RowType.Field(Optional.of(c.name()), c.type()))
+                .map(c -> new RowType.Field(Optional.of(c.name().toLowerCase(Locale.ROOT)), c.type()))
                 .toList());
     }
 
@@ -112,7 +113,7 @@ public class IonEncoderFactory
             ImmutableList.Builder<BlockEncoder> fieldEncodersBuilder = ImmutableList.builder();
 
             for (RowType.Field field : fields) {
-                fieldNamesBuilder.add(field.getName().get());
+                fieldNamesBuilder.add(field.getName().get().toLowerCase(Locale.ROOT));
                 fieldEncodersBuilder.add(wrapEncoder(encoderForType(field.getType())));
             }
 
