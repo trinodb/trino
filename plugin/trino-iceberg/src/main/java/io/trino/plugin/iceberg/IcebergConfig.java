@@ -92,6 +92,7 @@ public class IcebergConfig
     private boolean incrementalRefreshEnabled = true;
     private boolean metadataCacheEnabled = true;
     private boolean objectStoreEnabled;
+    private int metadataParallelism = 8;
 
     public CatalogType getCatalogType()
     {
@@ -531,6 +532,20 @@ public class IcebergConfig
     public IcebergConfig setObjectStoreEnabled(boolean objectStoreEnabled)
     {
         this.objectStoreEnabled = objectStoreEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getMetadataParallelism()
+    {
+        return metadataParallelism;
+    }
+
+    @ConfigDescription("Limits metadata enumeration calls parallelism")
+    @Config("iceberg.metadata.parallelism")
+    public IcebergConfig setMetadataParallelism(int metadataParallelism)
+    {
+        this.metadataParallelism = metadataParallelism;
         return this;
     }
 }
