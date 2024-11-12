@@ -1302,17 +1302,20 @@ public class TestResourceGroups
                 // No op to allow the test fine-grained control about when to trigger the next query.
             }
         };
-        var rootA = root.getOrCreateSubGroup("a");
-        var rootA1 = rootA.getOrCreateSubGroup("1");
-        var rootB = root.getOrCreateSubGroup("b");
+        InternalResourceGroup rootA = root.getOrCreateSubGroup("a");
+        InternalResourceGroup rootA1 = rootA.getOrCreateSubGroup("1");
+        InternalResourceGroup rootB = root.getOrCreateSubGroup("b");
 
-        var allGroups = List.of(root, rootB, rootA, rootA1);
+        List<InternalResourceGroup> allGroups = List.of(root, rootB, rootA, rootA1);
         allGroups.forEach(group -> {
             group.setHardConcurrencyLimit(2);
             group.setMaxQueuedQueries(100);
         });
 
-        var queries = Stream.generate(() -> new MockManagedQueryExecutionBuilder().build()).limit(4).toArray(MockManagedQueryExecution[]::new);
+        MockManagedQueryExecution[] queries = Stream
+                .generate(() -> new MockManagedQueryExecutionBuilder().build())
+                .limit(4)
+                .toArray(MockManagedQueryExecution[]::new);
 
         rootB.run(queries[0]);
         // no values yet since there is no previous start time to compare against
