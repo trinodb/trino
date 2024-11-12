@@ -34,6 +34,7 @@ public class LongDecimalStatisticsBuilder
     private long nonNullValueCount;
     private BigDecimal minimum;
     private BigDecimal maximum;
+    private boolean hasNull;
 
     @Override
     public void addBlock(Type type, Block block)
@@ -43,6 +44,8 @@ public class LongDecimalStatisticsBuilder
             if (!block.isNull(position)) {
                 Int128 value = (Int128) type.getObject(block, position);
                 addValue(new BigDecimal(value.toBigInteger(), scale));
+            } else {
+                setHasNull(true);
             }
         }
     }
@@ -70,6 +73,8 @@ public class LongDecimalStatisticsBuilder
         requireNonNull(value.getMax(), "value.getMax() is null");
 
         nonNullValueCount += valueCount;
+        hasNull |= value.hasNull();
+
         if (minimum == null) {
             minimum = value.getMin();
             maximum = value.getMax();
@@ -86,7 +91,7 @@ public class LongDecimalStatisticsBuilder
             return Optional.empty();
         }
         checkState(minimum != null && maximum != null);
-        return Optional.of(new DecimalStatistics(minimum, maximum, LONG_DECIMAL_VALUE_BYTES));
+        return Optional.of(new DecimalStatistics(minimum, maximum, LONG_DECIMAL_VALUE_BYTES, hasNull));
     }
 
     @Override
@@ -106,6 +111,11 @@ public class LongDecimalStatisticsBuilder
                 decimalStatistics.orElse(null),
                 null,
                 null);
+    }
+
+    @Override
+    public void setHasNull(boolean hasNull) {
+        this.hasNull = hasNull;
     }
 
     public static Optional<DecimalStatistics> mergeDecimalStatistics(List<ColumnStatistics> stats)

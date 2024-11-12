@@ -27,6 +27,7 @@ public class BooleanStatisticsBuilder
 {
     private long nonNullValueCount;
     private long trueValueCount;
+    private boolean hasNull;
 
     @Override
     public void addBlock(Type type, Block block)
@@ -34,8 +35,15 @@ public class BooleanStatisticsBuilder
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 addValue(type.getBoolean(block, position));
+            } else {
+                hasNull = true;
             }
         }
+    }
+
+    @Override
+    public void setHasNull(boolean hasNull) {
+        this.hasNull = hasNull;
     }
 
     public void addValue(boolean value)
@@ -52,6 +60,7 @@ public class BooleanStatisticsBuilder
 
         nonNullValueCount += valueCount;
         trueValueCount += value.getTrueValueCount();
+        hasNull |= value.hasNull();
     }
 
     private Optional<BooleanStatistics> buildBooleanStatistics()
@@ -59,7 +68,7 @@ public class BooleanStatisticsBuilder
         if (nonNullValueCount == 0) {
             return Optional.empty();
         }
-        return Optional.of(new BooleanStatistics(trueValueCount));
+        return Optional.of(new BooleanStatistics(trueValueCount, hasNull));
     }
 
     @Override

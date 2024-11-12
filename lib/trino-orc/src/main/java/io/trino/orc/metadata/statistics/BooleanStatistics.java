@@ -30,14 +30,22 @@ public class BooleanStatistics
 
     private final long trueValueCount;
 
-    public BooleanStatistics(long trueValueCount)
+    private final boolean hasNull;
+
+    public BooleanStatistics(long trueValueCount, boolean hasNull)
     {
         this.trueValueCount = trueValueCount;
+        this.hasNull = hasNull;
     }
 
     public long getTrueValueCount()
     {
         return trueValueCount;
+    }
+
+    public boolean hasNull()
+    {
+        return hasNull;
     }
 
     public long getRetainedSizeInBytes()
@@ -55,13 +63,13 @@ public class BooleanStatistics
             return false;
         }
         BooleanStatistics that = (BooleanStatistics) o;
-        return trueValueCount == that.trueValueCount;
+        return trueValueCount == that.trueValueCount && hasNull == that.hasNull;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(trueValueCount);
+        return Objects.hash(trueValueCount, hasNull);
     }
 
     @Override
@@ -69,6 +77,7 @@ public class BooleanStatistics
     {
         return toStringHelper(this)
                 .add("trueValueCount", trueValueCount)
+                .add("hasNull", hasNull)
                 .toString();
     }
 

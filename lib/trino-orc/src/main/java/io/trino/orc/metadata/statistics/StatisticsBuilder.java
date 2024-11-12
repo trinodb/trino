@@ -21,4 +21,6 @@ public interface StatisticsBuilder
     void addBlock(Type type, Block block);
 
     ColumnStatistics buildColumnStatistics();
+
+    void setHasNull(boolean hasNull);
 }

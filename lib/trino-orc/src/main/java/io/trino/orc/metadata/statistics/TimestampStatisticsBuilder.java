@@ -31,6 +31,7 @@ public class TimestampStatisticsBuilder
     }
 
     private long nonNullValueCount;
+    private boolean hasNull;
     private long minimum = Long.MAX_VALUE;
     private long maximum = Long.MIN_VALUE;
     private final BloomFilterBuilder bloomFilterBuilder;
@@ -84,7 +85,7 @@ public class TimestampStatisticsBuilder
         if (nonNullValueCount == 0) {
             return Optional.empty();
         }
-        return Optional.of(new TimestampStatistics(minimum, maximum));
+        return Optional.of(new TimestampStatistics(minimum, maximum, hasNull));
     }
 
     @Override
@@ -104,6 +105,11 @@ public class TimestampStatisticsBuilder
                 null,
                 null,
                 bloomFilterBuilder.buildBloomFilter());
+    }
+
+    @Override
+    public void setHasNull(boolean hasNull) {
+        this.hasNull = hasNull;
     }
 
     public static Optional<TimestampStatistics> mergeTimestampStatistics(List<ColumnStatistics> stats)

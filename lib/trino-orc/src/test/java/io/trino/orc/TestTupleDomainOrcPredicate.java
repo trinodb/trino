@@ -98,7 +98,7 @@ public class TestTupleDomainOrcPredicate
     {
         BooleanStatistics booleanStatistics = null;
         if (trueValueCount != null) {
-            booleanStatistics = new BooleanStatistics(trueValueCount);
+            booleanStatistics = new BooleanStatistics(trueValueCount, true);
         }
         return new ColumnStatistics(numberOfValues, 2L, booleanStatistics, null, null, null, null, null, null, null, null, null);
     }
@@ -129,7 +129,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics integerColumnStats(Long numberOfValues, Long minimum, Long maximum)
     {
-        return new ColumnStatistics(numberOfValues, 9L, null, new IntegerStatistics(minimum, maximum, null), null, null, null, null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 9L, null, new IntegerStatistics(minimum, maximum, null, true), null, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -158,7 +158,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics doubleColumnStats(Long numberOfValues, Double minimum, Double maximum)
     {
-        return new ColumnStatistics(numberOfValues, 9L, null, null, new DoubleStatistics(minimum, maximum), null, null, null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 9L, null, null, new DoubleStatistics(minimum, maximum, true), null, null, null, null, null, null, null);
     }
 
     @Test
@@ -248,7 +248,7 @@ public class TestTupleDomainOrcPredicate
         Slice minimumSlice = minimum == null ? null : utf8Slice(minimum);
         Slice maximumSlice = maximum == null ? null : utf8Slice(maximum);
         // sum and minAverageValueSizeInBytes are not used in this test; they could be arbitrary numbers
-        return new ColumnStatistics(numberOfValues, 10L, null, null, null, null, new StringStatistics(minimumSlice, maximumSlice, 100L), null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 10L, null, null, null, null, new StringStatistics(minimumSlice, maximumSlice, 100L, true), null, null, null, null, null);
     }
 
     @Test
@@ -277,7 +277,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics dateColumnStats(Long numberOfValues, Integer minimum, Integer maximum)
     {
-        return new ColumnStatistics(numberOfValues, 5L, null, null, null, null, null, new DateStatistics(minimum, maximum), null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 5L, null, null, null, null, null, new DateStatistics(minimum, maximum, true), null, null, null, null);
     }
 
     @Test
@@ -529,7 +529,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics timeStampColumnStats(Long numberOfValues, Long minimum, Long maximum)
     {
-        return new ColumnStatistics(numberOfValues, 5L, null, null, null, null, null, null, new TimestampStatistics(minimum, maximum), null, null, null);
+        return new ColumnStatistics(numberOfValues, 5L, null, null, null, null, null, null, new TimestampStatistics(minimum, maximum, true), null, null, null);
     }
 
     @Test
@@ -571,7 +571,7 @@ public class TestTupleDomainOrcPredicate
     {
         BigDecimal minimumDecimal = minimum == null ? null : new BigDecimal(minimum);
         BigDecimal maximumDecimal = maximum == null ? null : new BigDecimal(maximum);
-        return new ColumnStatistics(numberOfValues, 9L, null, null, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal, SHORT_DECIMAL_VALUE_BYTES), null, null);
+        return new ColumnStatistics(numberOfValues, 9L, null, null, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal, SHORT_DECIMAL_VALUE_BYTES, true), null, null);
     }
 
     @Test
@@ -593,7 +593,7 @@ public class TestTupleDomainOrcPredicate
     private static ColumnStatistics binaryColumnStats(Long numberOfValues)
     {
         // sum and minAverageValueSizeInBytes are not used in this test; they could be arbitrary numbers
-        return new ColumnStatistics(numberOfValues, 10L, null, null, null, null, null, null, null, null, new BinaryStatistics(100L), null);
+        return new ColumnStatistics(numberOfValues, 10L, null, null, null, null, null, null, null, null, new BinaryStatistics(100L, true), null);
     }
 
     private static Long shortDecimal(String value)

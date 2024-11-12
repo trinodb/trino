@@ -27,6 +27,7 @@ public class BinaryStatisticsBuilder
 {
     private long nonNullValueCount;
     private long sum;
+    private boolean hasNull;
 
     @Override
     public void addValue(Slice value)
@@ -37,12 +38,17 @@ public class BinaryStatisticsBuilder
         nonNullValueCount++;
     }
 
+    @Override
+    public void setHasNull(boolean hasNull) {
+        this.hasNull = hasNull;
+    }
+
     private Optional<BinaryStatistics> buildBinaryStatistics()
     {
         if (nonNullValueCount == 0) {
             return Optional.empty();
         }
-        return Optional.of(new BinaryStatistics(sum));
+        return Optional.of(new BinaryStatistics(sum, hasNull));
     }
 
     private void addBinaryStatistics(long valueCount, BinaryStatistics value)
@@ -51,6 +57,7 @@ public class BinaryStatisticsBuilder
 
         nonNullValueCount += valueCount;
         sum += value.getSum();
+        hasNull |= value.hasNull();
     }
 
     @Override
