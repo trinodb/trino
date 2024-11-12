@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.base.util;
 
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -31,7 +31,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
-final class ExecutorUtil
+public final class ExecutorUtil
 {
     private ExecutorUtil() {}
 
