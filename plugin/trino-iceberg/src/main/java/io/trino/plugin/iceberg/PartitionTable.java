@@ -134,7 +134,7 @@ public class PartitionTable
         return connectorTableMetadata;
     }
 
-    private static List<PartitionField> getAllPartitionFields(Table icebergTable)
+    static List<PartitionField> getAllPartitionFields(Table icebergTable)
     {
         Set<Integer> existingColumnsIds = TypeUtil.indexById(icebergTable.schema().asStruct()).keySet();
 

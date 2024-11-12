@@ -1241,6 +1241,13 @@ The output of the query has the following columns:
 * - `file_format`
   - `VARCHAR`
   - The format of the data file.
+* - `spec_id`
+  - `INTEGER`
+  - Spec ID used to track the file containing a row.
+* - `partition`
+  - `ROW(...)`
+  - A row that contains the mapping of the partition column names to the
+    partition column values.
 * - `record_count`
   - `BIGINT`
   - The number of entries contained in the data file.
@@ -1280,6 +1287,12 @@ The output of the query has the following columns:
 * - `equality_ids`
   - `array(INTEGER)`
   - The set of field IDs used for equality comparison in equality delete files.
+* - `sort_order_id`
+  - `INTEGER`
+  - ID representing sort order for this file.
+* - `readable_metrics`
+  - `JSON`
+  - File metrics in human-readable form.
 :::
 
 ##### `$refs` table
