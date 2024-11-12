@@ -37,6 +37,7 @@ import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Optional;
 
@@ -46,6 +47,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -310,6 +312,43 @@ public class TestTaskDescriptorStorage
                 .isEqualTo(0);
         assertThat(manager.getOriginalCompressedBytes())
                 .isEqualTo(0);
+    }
+
+    @Test
+    @Timeout(20)
+    public void testBackgroundCompression()
+    {
+        TaskDescriptorStorage manager = createTaskDescriptorStorage(DataSize.of(15, KILOBYTE), DataSize.of(10, KILOBYTE), DataSize.of(8, KILOBYTE));
+        manager.initialize(QUERY_1);
+        manager.initialize(QUERY_2);
+
+        manager.put(QUERY_1_STAGE_1, createTaskDescriptor(0, DataSize.of(1, KILOBYTE), "catalog1"));
+        manager.put(QUERY_1_STAGE_2, createTaskDescriptor(0, DataSize.of(2, KILOBYTE), "catalog1"));
+        manager.put(QUERY_2_STAGE_1, createTaskDescriptor(0, DataSize.of(2, KILOBYTE), "catalog1"));
+        manager.put(QUERY_1_STAGE_1, createTaskDescriptor(1, DataSize.of(4, KILOBYTE), "catalog1"));
+        manager.put(QUERY_1_STAGE_1, createTaskDescriptor(2, DataSize.of(4, KILOBYTE), "catalog1"));
+        manager.put(QUERY_2_STAGE_1, createTaskDescriptor(1, DataSize.of(4, KILOBYTE), "catalog1"));
+        manager.put(QUERY_2_STAGE_1, createTaskDescriptor(2, DataSize.of(4, KILOBYTE), "catalog1"));
+
+        // some descriptors are not compressed and some are compressed for both Q1 and Q2
+        assertThat(manager.getReservedUncompressedBytes())
+                .isGreaterThan(0);
+        assertThat(manager.getReservedCompressedBytes())
+                .isGreaterThan(0);
+        assertThat(manager.getOriginalCompressedBytes())
+                .isGreaterThan(0);
+
+        manager.start();
+        assertEventually(
+                () -> {
+                    assertThat(manager.getReservedUncompressedBytes())
+                            .isEqualTo(0);
+                    assertThat(manager.getReservedCompressedBytes())
+                            .isGreaterThan(0);
+                    assertThat(manager.getOriginalCompressedBytes())
+                            .isGreaterThan(0);
+                });
+        manager.stop();
     }
 
     private static TaskDescriptorStorage createTaskDescriptorStorage(DataSize maxMemory, DataSize compressingHighWaterMark, DataSize compressingLowWaterMark)
