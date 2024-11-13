@@ -30,14 +30,22 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.ParquetReader;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
@@ -57,7 +65,11 @@ import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -66,18 +78,26 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.SqlDecimal.decimal;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -268,6 +288,105 @@ public class TestDeltaLakeBasic
         assertThat(thirdMetadata.getSchemaString())
                 .containsPattern("(delta\\.columnMapping\\.id.*?){11}")
                 .containsPattern("(delta\\.columnMapping\\.physicalName.*?){11}");
+    }
+
+    @Test // regression test for https://github.com/trinodb/trino/issues/24121
+    void testPartitionValuesParsedCheckpoint()
+            throws Exception
+    {
+        for (ColumnMappingMode mode : List.of(ColumnMappingMode.ID, ColumnMappingMode.NAME, ColumnMappingMode.NONE)) {
+            testPartitionValuesParsedCheckpoint(mode, "boolean", ImmutableList.of("true", "false"), ImmutableList.of(true, false));
+            testPartitionValuesParsedCheckpoint(mode, "tinyint", ImmutableList.of("10", "20"), ImmutableList.of(Byte.valueOf("10"), Byte.valueOf("20")));
+            testPartitionValuesParsedCheckpoint(mode, "smallint", ImmutableList.of("100", "200"), ImmutableList.of((short) 100, (short) 200));
+            testPartitionValuesParsedCheckpoint(mode, "integer", ImmutableList.of("1000", "2000"), ImmutableList.of(1000, 2000));
+            testPartitionValuesParsedCheckpoint(mode, "bigint", ImmutableList.of("10000", "20000"), ImmutableList.of(10000L, 20000L));
+            testPartitionValuesParsedCheckpoint(mode, "real", ImmutableList.of("REAL '1.23'", "REAL '4.56'"), ImmutableList.of(1.23f, 4.56f));
+            testPartitionValuesParsedCheckpoint(mode, "double", ImmutableList.of("DOUBLE '12.34'", "DOUBLE '56.78'"), ImmutableList.of(12.34d, 56.78d));
+            testPartitionValuesParsedCheckpoint(
+                    mode,
+                    "decimal(3,2)",
+                    ImmutableList.of("0.12", "3.45"),
+                    ImmutableList.of(decimal("0.12", createDecimalType(3, 2)), decimal("3.45", createDecimalType(3, 2))));
+            testPartitionValuesParsedCheckpoint(mode, "varchar", ImmutableList.of("'alice'", "'bob'"), ImmutableList.of("alice", "bob"));
+            // TODO https://github.com/trinodb/trino/issues/24155 Cannot insert varbinary values into partitioned columns
+            testPartitionValuesParsedCheckpoint(
+                    mode,
+                    "date",
+                    ImmutableList.of("DATE '1970-01-01'", "DATE '9999-12-31'"),
+                    ImmutableList.of(new SqlDate((int) LocalDate.of(1970, 1, 1).toEpochDay()), new SqlDate((int) LocalDate.of(9999, 12, 31).toEpochDay())));
+            testPartitionValuesParsedCheckpoint(
+                    mode,
+                    "timestamp",
+                    ImmutableList.of("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-02 00:00:00'"),
+                    ImmutableList.of(SqlTimestamp.newInstance(3, 0, 0), SqlTimestamp.newInstance(3, 86400000000L, 0)));
+            ZonedDateTime epochPlus1Day = LocalDateTime.of(1970, 1, 2, 0, 0, 0).atZone(UTC);
+            long epochPlus1DayMillis = packDateTimeWithZone(epochPlus1Day.toInstant().toEpochMilli(), UTC_KEY);
+            testPartitionValuesParsedCheckpoint(
+                    mode,
+                    "timestamp with time zone",
+                    ImmutableList.of("TIMESTAMP '1970-01-01 00:00:00 +00:00'", "TIMESTAMP '1970-01-02 00:00:00 +00:00'"),
+                    ImmutableList.of(SqlTimestamp.newInstance(3, 0, 0), SqlTimestamp.newInstance(3, epochPlus1DayMillis, 0)));
+            // array, map, row types are unsupported as partition column type. This is tested in TestDeltaLakeConnectorTest.testCreateTableWithUnsupportedPartitionType.
+        }
+    }
+
+    private void testPartitionValuesParsedCheckpoint(ColumnMappingMode columnMappingMode, String inputType, List<String> inputValues, List<Object> expectedPartitionValuesParsed)
+            throws Exception
+    {
+        checkArgument(inputValues.size() == 2, "inputValues size must be 2");
+        checkArgument(expectedPartitionValuesParsed.size() == 2, "expectedPartitionValuesParsed size must be 2");
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_values_parsed_checkpoint",
+                "(x int, part " + inputType + ") WITH (checkpoint_interval = 2, column_mapping_mode = '" + columnMappingMode + "', partitioned_by = ARRAY['part'])")) {
+            for (String inputValue : inputValues) {
+                assertUpdate("INSERT INTO " + table.getName() + " VALUES (" + inputValues.indexOf(inputValue) + ", " + inputValue + ")", 1);
+            }
+            assertQuery("SELECT x FROM " + table.getName() + " WHERE part = " + inputValues.getFirst(), "VALUES 0");
+
+            Path tableLocation = Path.of(getTableLocation(table.getName()).replace("file://", ""));
+            Path checkpoint = tableLocation.resolve("_delta_log/00000000000000000002.checkpoint.parquet");
+
+            MetadataEntry metadataEntry = loadMetadataEntry(0, tableLocation);
+            ProtocolEntry protocolEntry = loadProtocolEntry(0, tableLocation);
+
+            DeltaLakeColumnHandle partitionColumn = extractPartitionColumns(metadataEntry, protocolEntry, TESTING_TYPE_MANAGER).stream().collect(onlyElement());
+            String physicalColumnName = partitionColumn.basePhysicalColumnName();
+            if (columnMappingMode == ColumnMappingMode.ID || columnMappingMode == ColumnMappingMode.NAME) {
+                assertThat(physicalColumnName).matches(PHYSICAL_COLUMN_NAME_PATTERN);
+            }
+            else {
+                assertThat(physicalColumnName).isEqualTo("part");
+            }
+
+            int partitionValuesParsedFieldPosition = 6;
+            RowType addEntryType = new CheckpointSchemaManager(TESTING_TYPE_MANAGER).getAddEntryType(metadataEntry, protocolEntry, _ -> true, true, true, true);
+
+            RowType.Field partitionValuesParsedField = addEntryType.getFields().get(partitionValuesParsedFieldPosition);
+            assertThat(partitionValuesParsedField.getName().orElseThrow()).matches("partitionValues_parsed");
+            RowType partitionValuesParsedType = (RowType) partitionValuesParsedField.getType();
+            assertThat(partitionValuesParsedType.getFields().stream().collect(onlyElement()).getName().orElseThrow()).isEqualTo(physicalColumnName);
+
+            TrinoParquetDataSource dataSource = new TrinoParquetDataSource(new LocalInputFile(checkpoint.toFile()), new ParquetReaderOptions(), new FileFormatDataSourceStats());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, ImmutableList.of(addEntryType), List.of("add"))) {
+                List<Object> actual = new ArrayList<>();
+                Page page = reader.nextPage();
+                while (page != null) {
+                    Block block = page.getBlock(0);
+                    for (int i = 0; i < block.getPositionCount(); i++) {
+                        List<?> add = (List<?>) addEntryType.getObjectValue(SESSION, block, i);
+                        if (add == null) {
+                            continue;
+                        }
+                        actual.add(((List<?>) add.get(partitionValuesParsedFieldPosition)).stream().collect(onlyElement()));
+                    }
+                    page = reader.nextPage();
+                }
+                assertThat(actual).containsExactlyInAnyOrderElementsOf(expectedPartitionValuesParsed);
+            }
+        }
     }
 
     /**
@@ -2134,6 +2253,16 @@ public class TestDeltaLakeBasic
                 .filter(log -> log.getMetaData() != null)
                 .collect(onlyElement());
         return transactionLog.getMetaData();
+    }
+
+    private static ProtocolEntry loadProtocolEntry(long entryNumber, Path tableLocation)
+            throws IOException
+    {
+        TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
+        DeltaLakeTransactionLogEntry transactionLog = getEntriesFromJson(entryNumber, tableLocation.resolve("_delta_log").toString(), fileSystem).orElseThrow().stream()
+                .filter(log -> log.getProtocol() != null)
+                .collect(onlyElement());
+        return transactionLog.getProtocol();
     }
 
     private String getTableLocation(String tableName)
