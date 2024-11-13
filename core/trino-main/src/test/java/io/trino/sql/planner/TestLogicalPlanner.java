@@ -166,6 +166,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.symbol;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -2629,6 +2630,30 @@ public class TestLogicalPlanner
         assertPlan("SELECT count() OVER() c FROM (SELECT 1 WHERE false)",
                 output(
                         values("c")));
+    }
+
+    @Test
+    public void testCrossJoinUnnest()
+    {
+        assertPlan(
+                """
+                WITH RECURSIVE recursive_call (level) AS (
+                    SELECT 1 AS level
+                    FROM (SELECT ARRAY[] AS array) AS t1 CROSS JOIN UNNEST(array) AS t2 (x)
+                    UNION ALL
+                    SELECT recursive_call.level + 1 AS level
+                    FROM recursive_call INNER JOIN nation AS c ON recursive_call.level <= 1
+                )
+                SELECT * FROM recursive_call
+                """,
+                output(exchange(
+                        LOCAL,
+                        any(unnest(values("array"))),
+                        any(join(
+                                INNER,
+                                builder -> builder
+                                        .left(any(unnest(values("array"))))
+                                        .right(exchange(tableScan("nation"))))))));
     }
 
     private Session noJoinReordering()
