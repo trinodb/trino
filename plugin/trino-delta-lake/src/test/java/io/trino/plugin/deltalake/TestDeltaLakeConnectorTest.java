@@ -1665,6 +1665,29 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    void testPartitionPredicateOnCheckpointWithColumnMappingMode()
+    {
+        testPartitionPredicateOnCheckpointWithColumnMappingMode(ColumnMappingMode.ID);
+        testPartitionPredicateOnCheckpointWithColumnMappingMode(ColumnMappingMode.NAME);
+        testPartitionPredicateOnCheckpointWithColumnMappingMode(ColumnMappingMode.NONE);
+    }
+
+    private void testPartitionPredicateOnCheckpointWithColumnMappingMode(ColumnMappingMode mode)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_checkpoint_with_column_mapping_mode",
+                "(x int, part int) WITH (column_mapping_mode='" + mode + "', checkpoint_interval = 3, partitioned_by = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 20)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 30)", 1);
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE part = 10"))
+                    .matches("VALUES (1, 10)");
+        }
+    }
+
+    @Test
     public void testSpecialCharacterColumnNamesWithColumnMappingMode()
     {
         testSpecialCharacterColumnNamesWithColumnMappingMode(ColumnMappingMode.ID);
