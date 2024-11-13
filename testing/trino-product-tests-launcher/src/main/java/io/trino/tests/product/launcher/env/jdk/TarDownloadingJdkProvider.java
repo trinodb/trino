@@ -79,6 +79,7 @@ public abstract class TarDownloadingJdkProvider
     {
         ensureDownloadPathExists();
         String javaHome = getJavaHome();
+        log.info("Setting JAVA_HOME to: %s for container: %s", javaHome, container.getLogicalName());
         return container
                 .withCreateContainerCmdModifier(cmd -> {
                     DockerArchitectureInfo architecture = getDockerArchitectureInfo(DockerImageName.parse(container.getDockerImageName()));
