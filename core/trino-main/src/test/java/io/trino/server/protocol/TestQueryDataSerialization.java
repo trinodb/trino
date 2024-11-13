@@ -208,6 +208,8 @@ public class TestQueryDataSerialization
     {
         testSerializationRoundTrip(queryData, expectedDataRepresentation);
         assertEquals(deserialize(serialize(queryData)), queryData);
+
+        assertThat(serialize(deserialize(serialize(queryData)))).isEqualToIgnoringWhitespace(queryResultsJson(expectedDataRepresentation));
     }
 
     private void testSerializationRoundTrip(QueryData queryData, String expectedDataRepresentation)

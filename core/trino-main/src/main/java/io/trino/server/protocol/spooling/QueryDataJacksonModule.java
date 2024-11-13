@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+import io.trino.client.JsonQueryData;
 import io.trino.client.QueryData;
 import io.trino.client.TypedQueryData;
 import io.trino.client.spooling.EncodedQueryData;
@@ -67,6 +68,7 @@ public class QueryDataJacksonModule
         {
             switch (value) {
                 case null -> provider.defaultSerializeNull(generator);
+                case JsonQueryData jsonQueryData -> generator.writeTree(jsonQueryData.getNode());
                 case JsonBytesQueryData jsonBytes -> jsonBytes.writeTo(generator);
                 case TypedQueryData typedQueryData -> provider.defaultSerializeValue(typedQueryData.getIterable(), generator); // serialize as list of lists of objects
                 case EncodedQueryData encoded -> createSerializer(provider, provider.constructType(EncodedQueryData.class)).serialize(encoded, generator, provider);

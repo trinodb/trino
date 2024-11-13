@@ -28,6 +28,11 @@ public class JsonQueryData
         this.node = requireNonNull(node, "node is null");
     }
 
+    public JsonNode getNode()
+    {
+        return node;
+    }
+
     public JsonParser getJsonParser()
     {
         return node.traverse();
