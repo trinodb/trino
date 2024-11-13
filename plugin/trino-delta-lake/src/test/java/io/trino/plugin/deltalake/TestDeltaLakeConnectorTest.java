@@ -384,6 +384,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateTableWithUnsupportedPartitionType()
     {
+        // Update TestDeltaLakeBasic.testPartitionValuesParsedCheckpoint() when the connector supports these types as partition columns
         String tableName = "test_create_table_unsupported_partition_types_" + randomNameSuffix();
         assertQueryFails(
                 "CREATE TABLE " + tableName + "(a INT, part ARRAY(INT)) WITH (partitioned_by = ARRAY['part'])",
@@ -394,6 +395,19 @@ public class TestDeltaLakeConnectorTest
         assertQueryFails(
                 "CREATE TABLE " + tableName + "(a INT, part ROW(field INT)) WITH (partitioned_by = ARRAY['part'])",
                 "Using array, map or row type on partitioned columns is unsupported");
+    }
+
+    @Test
+    public void testInsertIntoUnsupportedVarbinaryPartitionType()
+    {
+        // TODO https://github.com/trinodb/trino/issues/24155 Cannot insert varbinary values into partitioned columns
+        // Update TestDeltaLakeBasic.testPartitionValuesParsedCheckpoint() when fixing this issue
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_varbinary_partition",
+                "(x int, part varbinary) WITH (partitioned_by = ARRAY['part'])")) {
+            assertQueryFails("INSERT INTO " + table.getName() + " VALUES (1, X'01')", "Unsupported type for partition: varbinary");
+        }
     }
 
     @Test
