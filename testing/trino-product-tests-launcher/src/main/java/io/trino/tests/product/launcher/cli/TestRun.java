@@ -305,7 +305,7 @@ public final class TestRun
                         .collect(toImmutableList());
                 testsContainer.dependsOn(environmentContainers);
 
-                log.info("Starting environment '%s' with config '%s' and options '%s'. Trino will be started using JAVA_HOME: %s.", this.environment, environmentConfig.getConfigName(), extraOptions, jdkProvider.getJavaHome());
+                log.info("Starting environment '%s' with config '%s' and options '%s'.", this.environment, environmentConfig.getConfigName(), extraOptions);
                 environment.start();
             }
             else {
@@ -345,7 +345,6 @@ public final class TestRun
                         .withFileSystemBind(testJar.getPath(), "/docker/test.jar", READ_ONLY)
                         .withFileSystemBind(cliJar.getPath(), "/docker/trino-cli", READ_ONLY)
                         .withCopyFileToContainer(forClasspathResource("docker/trino-product-tests/common/standard/set-trino-cli.sh"), "/etc/profile.d/set-trino-cli.sh")
-                        .withEnv("JAVA_HOME", jdkProvider.getJavaHome())
                         .withCommand(ImmutableList.<String>builder()
                                 .add(
                                         jdkProvider.getJavaHome() + "/bin/java",
