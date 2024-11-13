@@ -17,7 +17,6 @@ import com.google.common.base.CaseFormat;
 import com.google.common.reflect.ClassPath;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.Environments;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.suite.Suite;
 
@@ -35,7 +34,7 @@ public final class Configurations
     public static List<Class<? extends EnvironmentProvider>> findEnvironmentsByBasePackage(String packageName)
     {
         try {
-            return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
+            return ClassPath.from(Configurations.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
                     .map(ClassPath.ClassInfo::load)
                     .filter(clazz -> clazz.isAnnotationPresent(TestsEnvironment.class))
                     .map(clazz -> (Class<? extends EnvironmentProvider>) clazz.asSubclass(EnvironmentProvider.class))
@@ -49,7 +48,7 @@ public final class Configurations
     public static List<Class<? extends EnvironmentConfig>> findConfigsByBasePackage(String packageName)
     {
         try {
-            return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
+            return ClassPath.from(Configurations.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
                     .map(ClassPath.ClassInfo::load)
                     .filter(clazz -> !isAbstract(clazz.getModifiers()))
                     .filter(EnvironmentConfig.class::isAssignableFrom)
@@ -64,7 +63,7 @@ public final class Configurations
     public static List<Class<? extends Suite>> findSuitesByPackageName(String packageName)
     {
         try {
-            return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
+            return ClassPath.from(Configurations.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
                     .map(ClassPath.ClassInfo::load)
                     .filter(clazz -> !isAbstract(clazz.getModifiers()))
                     .filter(Suite.class::isAssignableFrom)
