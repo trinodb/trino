@@ -119,7 +119,7 @@ class TestAsyncResultIterator
         }
 
         @Override
-        public Optional<String> getQuery()
+        public String getQuery()
         {
             throw new UnsupportedOperationException();
         }
@@ -150,12 +150,6 @@ class TestAsyncResultIterator
 
         @Override
         public boolean isFinished()
-        {
-            return true;
-        }
-
-        @Override
-        public boolean validateCredentials(int timeout)
         {
             return true;
         }

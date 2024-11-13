@@ -528,20 +528,32 @@ public class TrinoConnection
             throws SQLException
     {
         if (timeout < 0) {
-            throw new SQLException("Timeout is less than 0.");
+            throw new SQLException("Timeout is negative.");
         }
 
         if (isClosed()) {
             return false;
         }
 
+        StatementClient stmtClient = createStatementClient(null, Collections.emptyMap());
+        int effectiveTimeout = 0;
+        if (timeout == 0) {
+            effectiveTimeout = networkTimeoutMillis.get() / 1000;
+        }
+        else {
+            effectiveTimeout = Math.min(CONNECTION_TIMEOUT, networkTimeoutMillis.get() / 1000);
+        }
+
         try {
-            String sql = null;
-            StatementClient stmtClient = createStatementClient(Optional.ofNullable(sql), Collections.emptyMap());
-            return stmtClient.validateCredentials(timeout);
+            return stmtClient.validateCredentials(effectiveTimeout);
+        }
+        catch (UnsupportedOperationException e) {
+            // Backward compatible with older Trino server
+            logger.log(Level.FINE, "Remote server does not support validating connection, return false.", e);
+            return true;
         }
         catch (IOException e) {
-            logger.log(Level.FINE, "Validate connection failed, returning false.", e);
+            logger.log(Level.FINE, "Validating connection failed, return false.", e);
             return false;
         }
     }
@@ -759,7 +771,7 @@ public class TrinoConnection
     {
         requireNonNull(sql, "sql is null.");
 
-        StatementClient stmtClient = createStatementClient(Optional.of(sql), sessionPropertiesOverride);
+        StatementClient stmtClient = createStatementClient(sql, sessionPropertiesOverride);
         return stmtClient;
     }
 
@@ -883,7 +895,7 @@ public class TrinoConnection
         return source;
     }
 
-    private StatementClient createStatementClient(Optional<String> sql, Map<String, String> sessionPropertiesOverride)
+    private StatementClient createStatementClient(String sql, Map<String, String> sessionPropertiesOverride)
     {
         String source = getActualSource();
 

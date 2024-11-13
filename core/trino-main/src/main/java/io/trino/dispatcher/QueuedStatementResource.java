@@ -157,7 +157,7 @@ public class QueuedStatementResource
 
     @ResourceSecurity(AUTHENTICATED_USER)
     @HEAD
-    @Produces(APPLICATION_JSON) // to match the POST route
+    @Produces(APPLICATION_JSON)
     public Response validateConnection()
     {
         return Response.ok().build();

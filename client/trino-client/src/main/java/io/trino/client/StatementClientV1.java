@@ -84,7 +84,7 @@ class StatementClientV1
 
     private final Call.Factory httpCallFactory;
     private final ClientSession session;
-    private final Optional<String> query;
+    private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final AtomicReference<ResultRows> currentRows = new AtomicReference<>();
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
@@ -111,7 +111,7 @@ class StatementClientV1
     // Data accessor for raw and encoded data
     private final ResultRowsDecoder resultRowsDecoder;
 
-    public StatementClientV1(Call.Factory httpCallFactory, Call.Factory segmentHttpCallFactory, ClientSession session, Optional<String> query, Optional<Set<String>> clientCapabilities)
+    public StatementClientV1(Call.Factory httpCallFactory, Call.Factory segmentHttpCallFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
     {
         requireNonNull(httpCallFactory, "httpCallFactory is null");
         requireNonNull(session, "session is null");
@@ -136,16 +136,98 @@ class StatementClientV1
 
         this.resultRowsDecoder = new ResultRowsDecoder(new OkHttpSegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null")));
 
-        if (query.isPresent()) {
-            Request request = buildQueryRequest(query.get());
+        if (query != null) {
+            Request request = buildQueryRequest(query);
             // Pass empty as materializedJsonSizeLimit to always materialize the first response
             // to avoid losing the response body if the initial response parsing fails
             executeRequest(request, "starting query", OptionalLong.empty(), this::isTransient);
         }
     }
 
+    private Request buildQueryRequest(String query)
+    {
+        Request.Builder builder = createRequestBuilder();
+        builder.post(RequestBody.create(query, MEDIA_TYPE_TEXT));
+
+        return builder.build();
+    }
+
+    private Request buildValidationRequest()
+    {
+        Request.Builder builder = createRequestBuilder();
+        builder.head();
+
+        return builder.build();
+    }
+
+    private Request.Builder createRequestBuilder()
+    {
+        HttpUrl url = HttpUrl.get(session.getServer());
+        if (url == null) {
+            throw new ClientException("Invalid server URL: " + session.getServer());
+        }
+        url = url.newBuilder().encodedPath("/v1/statement").build();
+
+        Request.Builder builder = prepareRequest(url);
+
+        if (session.getSource() != null) {
+            builder.addHeader(TRINO_HEADERS.requestSource(), session.getSource());
+        }
+
+        session.getTraceToken().ifPresent(token -> builder.addHeader(TRINO_HEADERS.requestTraceToken(), token));
+
+        if (session.getClientTags() != null && !session.getClientTags().isEmpty()) {
+            builder.addHeader(TRINO_HEADERS.requestClientTags(), Joiner.on(",").join(session.getClientTags()));
+        }
+        if (session.getClientInfo() != null) {
+            builder.addHeader(TRINO_HEADERS.requestClientInfo(), session.getClientInfo());
+        }
+        session.getCatalog().ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestCatalog(), value));
+        session.getSchema().ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestSchema(), value));
+        if (session.getPath() != null && !session.getPath().isEmpty()) {
+            builder.addHeader(TRINO_HEADERS.requestPath(), Joiner.on(",").join(session.getPath()));
+        }
+        builder.addHeader(TRINO_HEADERS.requestTimeZone(), session.getTimeZone().getId());
+        if (session.getLocale() != null) {
+            builder.addHeader(TRINO_HEADERS.requestLanguage(), session.getLocale().toLanguageTag());
+        }
+
+        Map<String, String> property = session.getProperties();
+        for (Entry<String, String> entry : property.entrySet()) {
+            builder.addHeader(TRINO_HEADERS.requestSession(), entry.getKey() + "=" + urlEncode(entry.getValue()));
+        }
+
+        Map<String, String> resourceEstimates = session.getResourceEstimates();
+        for (Entry<String, String> entry : resourceEstimates.entrySet()) {
+            builder.addHeader(TRINO_HEADERS.requestResourceEstimate(), entry.getKey() + "=" + urlEncode(entry.getValue()));
+        }
+
+        Map<String, ClientSelectedRole> roles = session.getRoles();
+        for (Entry<String, ClientSelectedRole> entry : roles.entrySet()) {
+            builder.addHeader(TRINO_HEADERS.requestRole(), entry.getKey() + '=' + urlEncode(entry.getValue().toString()));
+        }
+
+        Map<String, String> extraCredentials = session.getExtraCredentials();
+        for (Entry<String, String> entry : extraCredentials.entrySet()) {
+            builder.addHeader(TRINO_HEADERS.requestExtraCredential(), entry.getKey() + "=" + urlEncode(entry.getValue()));
+        }
+
+        Map<String, String> statements = session.getPreparedStatements();
+        for (Entry<String, String> entry : statements.entrySet()) {
+            builder.addHeader(TRINO_HEADERS.requestPreparedStatement(), urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
+        }
+
+        builder.addHeader(TRINO_HEADERS.requestTransactionId(), session.getTransactionId() == null ? "NONE" : session.getTransactionId());
+
+        builder.addHeader(TRINO_HEADERS.requestClientCapabilities(), clientCapabilities);
+
+        session.getEncoding().ifPresent(encoding -> builder.addHeader(TRINO_HEADERS.requestQueryDataEncoding(), encoding));
+
+        return builder;
+    }
+
     @Override
-    public Optional<String> getQuery()
+    public String getQuery()
     {
         return query;
     }
@@ -190,7 +272,7 @@ class StatementClientV1
 
         Request request = buildValidationRequest();
         Exception cause = null;
-        Duration timeoutNano = new Duration(timeout, TimeUnit.SECONDS);
+        Duration timeoutDuration = new Duration(timeout, TimeUnit.SECONDS);
         long start = System.nanoTime();
         long attempts = 0;
 
@@ -201,7 +283,7 @@ class StatementClientV1
 
             if (attempts > 0) {
                 Duration sinceStart = Duration.nanosSince(start);
-                if (sinceStart.compareTo(timeoutNano) > 0) {
+                if (sinceStart.compareTo(timeoutDuration) > 0) {
                     throw new IOException(format("ValidateCredentials timed out after %s. Last error: %s.", sinceStart,
                             cause == null ? "null" : cause.getClass().getName()), cause);
                 }
@@ -222,7 +304,7 @@ class StatementClientV1
                     case HTTP_UNAUTHORIZED:
                         return false;
                     case HTTP_BAD_METHOD:
-                        throw new IOException("Target server does not support HEAD ./v1/statement");
+                        throw new UnsupportedOperationException("Target server does not support HEAD ./v1/statement");
                     default:
                         throw new IOException(String.format("Unexpected HTTP status code %d returned from HEAD " +
                                 "./v1/statement", response.code()));
@@ -570,88 +652,6 @@ class StatementClientV1
         catch (IOException ignored) {
             // callers expect this method not to throw
         }
-    }
-
-    private Request buildQueryRequest(String query)
-    {
-        Request.Builder builder = createRequestBuilder();
-        builder.post(RequestBody.create(query, MEDIA_TYPE_TEXT));
-
-        return builder.build();
-    }
-
-    private Request buildValidationRequest()
-    {
-        Request.Builder builder = createRequestBuilder();
-        builder.head();
-
-        return builder.build();
-    }
-
-    private Request.Builder createRequestBuilder()
-    {
-        HttpUrl url = HttpUrl.get(session.getServer());
-        if (url == null) {
-            throw new ClientException("Invalid server URL: " + session.getServer());
-        }
-        url = url.newBuilder().encodedPath("/v1/statement").build();
-
-        Request.Builder builder = prepareRequest(url);
-
-        if (session.getSource() != null) {
-            builder.addHeader(TRINO_HEADERS.requestSource(), session.getSource());
-        }
-
-        session.getTraceToken().ifPresent(token -> builder.addHeader(TRINO_HEADERS.requestTraceToken(), token));
-
-        if (session.getClientTags() != null && !session.getClientTags().isEmpty()) {
-            builder.addHeader(TRINO_HEADERS.requestClientTags(), Joiner.on(",").join(session.getClientTags()));
-        }
-        if (session.getClientInfo() != null) {
-            builder.addHeader(TRINO_HEADERS.requestClientInfo(), session.getClientInfo());
-        }
-        session.getCatalog().ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestCatalog(), value));
-        session.getSchema().ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestSchema(), value));
-        if (session.getPath() != null && !session.getPath().isEmpty()) {
-            builder.addHeader(TRINO_HEADERS.requestPath(), Joiner.on(",").join(session.getPath()));
-        }
-        builder.addHeader(TRINO_HEADERS.requestTimeZone(), session.getTimeZone().getId());
-        if (session.getLocale() != null) {
-            builder.addHeader(TRINO_HEADERS.requestLanguage(), session.getLocale().toLanguageTag());
-        }
-
-        Map<String, String> property = session.getProperties();
-        for (Entry<String, String> entry : property.entrySet()) {
-            builder.addHeader(TRINO_HEADERS.requestSession(), entry.getKey() + "=" + urlEncode(entry.getValue()));
-        }
-
-        Map<String, String> resourceEstimates = session.getResourceEstimates();
-        for (Entry<String, String> entry : resourceEstimates.entrySet()) {
-            builder.addHeader(TRINO_HEADERS.requestResourceEstimate(), entry.getKey() + "=" + urlEncode(entry.getValue()));
-        }
-
-        Map<String, ClientSelectedRole> roles = session.getRoles();
-        for (Entry<String, ClientSelectedRole> entry : roles.entrySet()) {
-            builder.addHeader(TRINO_HEADERS.requestRole(), entry.getKey() + '=' + urlEncode(entry.getValue().toString()));
-        }
-
-        Map<String, String> extraCredentials = session.getExtraCredentials();
-        for (Entry<String, String> entry : extraCredentials.entrySet()) {
-            builder.addHeader(TRINO_HEADERS.requestExtraCredential(), entry.getKey() + "=" + urlEncode(entry.getValue()));
-        }
-
-        Map<String, String> statements = session.getPreparedStatements();
-        for (Entry<String, String> entry : statements.entrySet()) {
-            builder.addHeader(TRINO_HEADERS.requestPreparedStatement(), urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
-        }
-
-        builder.addHeader(TRINO_HEADERS.requestTransactionId(), session.getTransactionId() == null ? "NONE" : session.getTransactionId());
-
-        builder.addHeader(TRINO_HEADERS.requestClientCapabilities(), clientCapabilities);
-
-        session.getEncoding().ifPresent(encoding -> builder.addHeader(TRINO_HEADERS.requestQueryDataEncoding(), encoding));
-
-        return builder;
     }
 
     private static String urlEncode(String value)

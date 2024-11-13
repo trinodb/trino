@@ -26,7 +26,7 @@ import java.util.Set;
 public interface StatementClient
         extends Closeable
 {
-    Optional<String> getQuery();
+    String getQuery();
 
     ZoneId getTimeZone();
 
@@ -38,8 +38,11 @@ public interface StatementClient
 
     boolean isFinished();
 
-    boolean validateCredentials(int timeout)
-            throws IOException;
+    default boolean validateCredentials(int timeout)
+            throws IOException
+    {
+        return true;
+    }
 
     StatementStats getStats();
 

@@ -386,8 +386,8 @@ public class Query
         if (debug && (error.getFailureInfo() != null)) {
             error.getFailureInfo().toException().printStackTrace(out);
         }
-        if (client.getQuery().isPresent() && error.getErrorLocation() != null) {
-            renderErrorLocation(client.getQuery().get(), error.getErrorLocation(), out);
+        if (client.getQuery() != null && error.getErrorLocation() != null) {
+            renderErrorLocation(client.getQuery(), error.getErrorLocation(), out);
         }
         out.println();
     }
