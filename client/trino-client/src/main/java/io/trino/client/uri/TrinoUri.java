@@ -98,6 +98,7 @@ import static io.trino.client.uri.ConnectionProperties.TIMEOUT;
 import static io.trino.client.uri.ConnectionProperties.TIMEZONE;
 import static io.trino.client.uri.ConnectionProperties.TRACE_TOKEN;
 import static io.trino.client.uri.ConnectionProperties.USER;
+import static io.trino.client.uri.ConnectionProperties.VALIDATE_CONNECTION;
 import static io.trino.client.uri.LoggingLevel.NONE;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
@@ -459,6 +460,11 @@ public class TrinoUri
     public LoggingLevel getHttpLoggingLevel()
     {
         return resolveWithDefault(HTTP_LOGGING_LEVEL, NONE);
+    }
+
+    public boolean isValidateConnection()
+    {
+        return resolveWithDefault(VALIDATE_CONNECTION, false);
     }
 
     private Map<String, String> getResourceEstimates()
@@ -1045,6 +1051,11 @@ public class TrinoUri
         public Builder setPath(List<String> path)
         {
             return setProperty(SQL_PATH, requireNonNull(path, "path is null"));
+        }
+
+        public Builder setValidateConnection(boolean value)
+        {
+            return setProperty(VALIDATE_CONNECTION, value);
         }
 
         <V, T> Builder setProperty(ConnectionProperty<V, T> connectionProperty, T value)

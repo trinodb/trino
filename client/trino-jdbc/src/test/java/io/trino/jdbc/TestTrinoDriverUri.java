@@ -479,6 +479,18 @@ public class TestTrinoDriverUri
         assertThat(secureUri.getHttpUri()).isEqualTo(URI.create("https://localhost:443"));
     }
 
+    @Test
+    public void testAValidateConnection()
+            throws SQLException
+    {
+        TrinoDriverUri uri = createDriverUri("jdbc:trino://localhost:8080");
+        assertThat(uri.isValidateConnection()).isFalse();
+        uri = createDriverUri("jdbc:trino://localhost:8080?validateConnection=true");
+        assertThat(uri.isValidateConnection()).isTrue();
+        uri = createDriverUri("jdbc:trino://localhost:8080?validateConnection=false");
+        assertThat(uri.isValidateConnection()).isFalse();
+    }
+
     private static void assertUriPortScheme(TrinoDriverUri parameters, int port, String scheme)
     {
         URI uri = parameters.getHttpUri();
