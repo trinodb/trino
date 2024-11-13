@@ -100,6 +100,7 @@ public class TrinoConnection
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
     private final AtomicLong nextStatementId = new AtomicLong(1);
     private final AtomicReference<Optional<String>> sessionUser = new AtomicReference<>();
+    private final int connectionTimeout = 30; // Not configurable
 
     private final URI jdbcUri;
     private final URI httpUri;
@@ -121,8 +122,10 @@ public class TrinoConnection
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
     private boolean useExplicitPrepare = true;
     private boolean assumeNullCatalogMeansCurrentCatalog;
+    private final boolean validateConnection;
 
     TrinoConnection(TrinoDriverUri uri, Call.Factory httpCallFactory, Call.Factory segmentHttpCallFactory)
+            throws SQLException
     {
         requireNonNull(uri, "uri is null");
         this.jdbcUri = uri.getUri();
@@ -158,6 +161,21 @@ public class TrinoConnection
 
         uri.getExplicitPrepare().ifPresent(value -> this.useExplicitPrepare = value);
         uri.getAssumeNullCatalogMeansCurrentCatalog().ifPresent(value -> this.assumeNullCatalogMeansCurrentCatalog = value);
+
+        this.validateConnection = uri.isValidateConnection();
+        if (this.validateConnection) {
+            try {
+                String sql = null;
+                StatementClient stmtClient = createStatementClient(Optional.ofNullable(sql), Collections.emptyMap());
+                if (!stmtClient.validateCredentials(connectionTimeout)) {
+                    throw new SQLException("Invalid authorization specialization.", "28000");
+                }
+            }
+            catch (IOException e) {
+                throw new SQLException(String.format("Unable to connect, caused by: %s.", e.getClass().getName()),
+                        "08001", e);
+            }
+        }
     }
 
     @Override

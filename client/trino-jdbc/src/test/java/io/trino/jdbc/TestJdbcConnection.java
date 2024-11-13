@@ -85,7 +85,9 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -581,6 +583,32 @@ public class TestJdbcConnection
         }
     }
 
+    @Test
+    public void testValidateConnection()
+    {
+        // Invalid host
+        assertThatCode(() -> createConnectionUsingInvalidHost(""))
+                .doesNotThrowAnyException();
+
+        SQLException e = catchThrowableOfType(() -> createConnectionUsingInvalidHost("validateConnection=true"),
+                SQLException.class);
+        assertThat(e.getSQLState().equals("08001")).isTrue();
+
+        assertThatCode(() -> createConnectionUsingInvalidHost("validateConnection=false"))
+                .doesNotThrowAnyException();
+
+        // Invalid password
+        assertThatCode(() -> createConnectionUsingInvalidPassword(""))
+                .doesNotThrowAnyException();
+
+        e = catchThrowableOfType(() -> createConnectionUsingInvalidPassword("validateConnection=true"),
+                SQLException.class);
+        assertThat(e.getSQLState().equals("28000")).isTrue();
+
+        assertThatCode(() -> createConnectionUsingInvalidPassword("validateConnection=false"))
+                .doesNotThrowAnyException();
+    }
+
     private void testConcurrentCancellationOnConnectionClose(boolean autoCommit)
             throws Exception
     {
@@ -631,6 +659,32 @@ public class TestJdbcConnection
         Properties properties = new Properties();
         properties.put("user", TEST_USER);
         properties.put("password", TEST_PASSWORD);
+        properties.setProperty("SSL", "true");
+        properties.setProperty("SSLTrustStorePath", sslTrustStorePath);
+        properties.setProperty("SSLTrustStorePassword", "changeit");
+        return DriverManager.getConnection(url, properties);
+    }
+
+    private Connection createConnectionUsingInvalidHost(String extra)
+            throws SQLException
+    {
+        String url = format("jdbc:trino://invalidhost:%s/hive/default?%s", server.getHttpsAddress().getPort(), extra);
+        Properties properties = new Properties();
+        properties.put("user", TEST_USER);
+        properties.put("password", TEST_PASSWORD);
+        properties.setProperty("SSL", "true");
+        properties.setProperty("SSLTrustStorePath", sslTrustStorePath);
+        properties.setProperty("SSLTrustStorePassword", "changeit");
+        return DriverManager.getConnection(url, properties);
+    }
+
+    private Connection createConnectionUsingInvalidPassword(String extra)
+            throws SQLException
+    {
+        String url = format("jdbc:trino://localhost:%s/hive/default?%s", server.getHttpsAddress().getPort(), extra);
+        Properties properties = new Properties();
+        properties.put("user", TEST_USER);
+        properties.put("password", "invalid_" + TEST_PASSWORD);
         properties.setProperty("SSL", "true");
         properties.setProperty("SSLTrustStorePath", sslTrustStorePath);
         properties.setProperty("SSLTrustStorePassword", "changeit");
