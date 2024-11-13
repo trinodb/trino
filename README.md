@@ -117,6 +117,16 @@ IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 If `VM options` doesn't exist in the dialog, you need to select `Modify options`
 and enable `Add VM options`.
 
+To adjust which plugins are enabled for the development server, adjust the value of
+`plugin.bundles` in `config.properties`. Each entry in this list must represent a plugin
+specified by one of the following options:
+* A path to a `pom.xml` or `*.pom` file describing a Maven project that produces a plugin.
+* Maven coordinates, in the form `<groupId>:<artifactId>[:<extension>[:<classifier>]]:<version>`. The plugin will be loaded via Maven and therefore must be available in your local repository or a remote repository.
+* A path to a plugin directory containing JAR files. See [Deploying a custom plugin](https://trino.io/docs/current/develop/spi-overview.html#deploying-a-custom-plugin) for more details.
+
+If you want to use a plugin in a catalog, you must add a corresponding
+`<catalog_name>.properties` file to `testing/trino-server-dev/etc/catalog`.
+
 ### Running the CLI
 
 Start the CLI to connect to the server and run SQL queries:
