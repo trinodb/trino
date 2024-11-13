@@ -21,13 +21,17 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Map;
+import java.util.Set;
+
 import static java.util.Objects.requireNonNull;
 
 public record PhoenixMergeTableHandle(
         JdbcTableHandle tableHandle,
         PhoenixOutputTableHandle phoenixOutputTableHandle,
         JdbcColumnHandle mergeRowIdColumnHandle,
-        TupleDomain<ColumnHandle> primaryKeysDomain)
+        TupleDomain<ColumnHandle> primaryKeysDomain,
+        Map<Integer, Set<Integer>> updateCaseColumns)
         implements ConnectorMergeTableHandle
 {
     @JsonCreator
@@ -35,12 +39,14 @@ public record PhoenixMergeTableHandle(
             @JsonProperty("tableHandle") JdbcTableHandle tableHandle,
             @JsonProperty("phoenixOutputTableHandle") PhoenixOutputTableHandle phoenixOutputTableHandle,
             @JsonProperty("mergeRowIdColumnHandle") JdbcColumnHandle mergeRowIdColumnHandle,
-            @JsonProperty("primaryKeysDomain") TupleDomain<ColumnHandle> primaryKeysDomain)
+            @JsonProperty("primaryKeysDomain") TupleDomain<ColumnHandle> primaryKeysDomain,
+            @JsonProperty("updateCaseColumns") Map<Integer, Set<Integer>> updateCaseColumns)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.phoenixOutputTableHandle = requireNonNull(phoenixOutputTableHandle, "phoenixOutputTableHandle is null");
         this.mergeRowIdColumnHandle = requireNonNull(mergeRowIdColumnHandle, "mergeRowIdColumnHandle is null");
         this.primaryKeysDomain = requireNonNull(primaryKeysDomain, "primaryKeysDomain is null");
+        this.updateCaseColumns = requireNonNull(updateCaseColumns, "updateCaseColumns is null");
     }
 
     @JsonProperty
@@ -69,5 +75,12 @@ public record PhoenixMergeTableHandle(
     public TupleDomain<ColumnHandle> primaryKeysDomain()
     {
         return primaryKeysDomain;
+    }
+
+    @Override
+    @JsonProperty
+    public Map<Integer, Set<Integer>> updateCaseColumns()
+    {
+        return updateCaseColumns;
     }
 }
