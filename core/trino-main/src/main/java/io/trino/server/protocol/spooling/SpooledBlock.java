@@ -36,9 +36,10 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
-public record SpooledBlock(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers, DataAttributes attributes)
+public record SpooledBlock(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers, DataAttributes attributes, boolean explicitAck)
 {
     private static final JsonCodec<Map<String, List<String>>> HEADERS_CODEC = mapJsonCodec(String.class, listJsonCodec(String.class));
     private static final JsonCodec<DataAttributes> ATTRIBUTES_CODEC = JsonCodec.jsonCodec(DataAttributes.class);
@@ -47,7 +48,8 @@ public record SpooledBlock(Slice identifier, Optional<URI> directUri, Map<String
             new RowType.Field(Optional.of("identifier"), VARCHAR),
             new RowType.Field(Optional.of("directLocation"), VARCHAR),
             new RowType.Field(Optional.of("headers"), VARCHAR),
-            new RowType.Field(Optional.of("metadata"), VARCHAR)));
+            new RowType.Field(Optional.of("metadata"), VARCHAR),
+            new RowType.Field(Optional.of("explicitAck"), BOOLEAN)));
 
     public static final String SPOOLING_METADATA_COLUMN_NAME = "$spooling:metadata$";
     public static final Symbol SPOOLING_METADATA_SYMBOL = new Symbol(SPOOLING_METADATA_TYPE, SPOOLING_METADATA_COLUMN_NAME);
@@ -63,29 +65,33 @@ public record SpooledBlock(Slice identifier, Optional<URI> directUri, Map<String
                     VARCHAR.getSlice(row.getRawFieldBlock(0), 0),
                     Optional.empty(), // Not a direct location
                     HEADERS_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(2), 0).toStringUtf8()),
-                    ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(3), 0).toStringUtf8()));
+                    ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(3), 0).toStringUtf8()),
+                    BOOLEAN.getBoolean(row.getRawFieldBlock(4), 0));
         }
 
         return new SpooledBlock(
                 VARCHAR.getSlice(row.getRawFieldBlock(0), 0),
                 Optional.of(URI.create(VARCHAR.getSlice(row.getRawFieldBlock(1), 0).toStringUtf8())),
                 HEADERS_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(2), 0).toStringUtf8()),
-                ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(3), 0).toStringUtf8()));
+                ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(3), 0).toStringUtf8()),
+                BOOLEAN.getBoolean(row.getRawFieldBlock(4), 0));
     }
 
-    public static SpooledBlock forLocation(SpooledLocation location, DataAttributes attributes)
+    public static SpooledBlock forLocation(SpooledLocation location, DataAttributes attributes, boolean explicitAck)
     {
         return switch (location) {
             case DirectLocation directLocation -> new SpooledBlock(
                     directLocation.identifier(),
                     Optional.of(directLocation.directUri()),
                     directLocation.headers(),
-                    attributes);
+                    attributes,
+                    explicitAck);
             case CoordinatorLocation coordinatorLocation -> new SpooledBlock(
                     coordinatorLocation.identifier(),
                     Optional.empty(),
                     coordinatorLocation.headers(),
-                    attributes);
+                    attributes,
+                    explicitAck);
         };
     }
 
@@ -109,6 +115,7 @@ public record SpooledBlock(Slice identifier, Optional<URI> directUri, Map<String
             }
             VARCHAR.writeSlice(rowEntryBuilder.get(2), utf8Slice(HEADERS_CODEC.toJson(headers)));
             VARCHAR.writeSlice(rowEntryBuilder.get(3), utf8Slice(ATTRIBUTES_CODEC.toJson(attributes)));
+            BOOLEAN.writeBoolean(rowEntryBuilder.get(4), explicitAck);
         });
     }
 

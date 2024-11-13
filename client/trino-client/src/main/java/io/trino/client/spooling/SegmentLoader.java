@@ -26,6 +26,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -55,7 +56,7 @@ public class SegmentLoader
         return loadFromURI(segment.getDataUri(), segment.getAckUri(), segment.getHeaders());
     }
 
-    public InputStream loadFromURI(URI segmentUri, URI ackUri, Map<String, List<String>> headers)
+    public InputStream loadFromURI(URI segmentUri, Optional<URI> ackUri, Map<String, List<String>> headers)
             throws IOException
     {
         Headers requestHeaders = toHeaders(headers);
@@ -99,7 +100,7 @@ public class SegmentLoader
         });
     }
 
-    private InputStream delegatingInputStream(Response response, InputStream delegate, URI ackUri, Headers headers)
+    private InputStream delegatingInputStream(Response response, InputStream delegate, Optional<URI> ackUri, Headers headers)
     {
         return new FilterInputStream(delegate)
         {
@@ -108,7 +109,7 @@ public class SegmentLoader
                     throws IOException
             {
                 try (Response ignored = response; InputStream ignored2 = delegate) {
-                    acknowledge(ackUri, headers);
+                    ackUri.ifPresent(uri -> acknowledge(uri, headers));
                 }
             }
         };

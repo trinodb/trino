@@ -55,7 +55,7 @@ class TestSpooledBlock
 
     public void verifySerializationRoundTrip(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
     {
-        SpooledBlock metadata = new SpooledBlock(identifier, directUri, headers, createDataAttributes(10, 1200));
+        SpooledBlock metadata = new SpooledBlock(identifier, directUri, headers, createDataAttributes(10, 1200), true);
         Page page = new Page(metadata.serialize());
         SpooledBlock retrieved = SpooledBlock.deserialize(page);
         assertThat(metadata).isEqualTo(retrieved);
@@ -63,7 +63,7 @@ class TestSpooledBlock
 
     private void verifySerializationRoundTripWithNonEmptyPage(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
     {
-        SpooledBlock metadata = new SpooledBlock(identifier, directUri, headers, createDataAttributes(10, 1100));
+        SpooledBlock metadata = new SpooledBlock(identifier, directUri, headers, createDataAttributes(10, 1100), false);
         Page page = new Page(blockWithPositions(1, true), metadata.serialize());
         SpooledBlock retrieved = SpooledBlock.deserialize(page);
         assertThat(metadata).isEqualTo(retrieved);
@@ -71,7 +71,7 @@ class TestSpooledBlock
 
     private void verifyThrowsErrorOnNonNullPositions(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
     {
-        SpooledBlock metadata = new SpooledBlock(identifier, directUri, headers, createDataAttributes(20, 1200));
+        SpooledBlock metadata = new SpooledBlock(identifier, directUri, headers, createDataAttributes(20, 1200), true);
 
         assertThatThrownBy(() -> SpooledBlock.deserialize(new Page(blockWithPositions(1, false), metadata.serialize())))
                 .hasMessage("Spooling metadata block must have all but last channels null");
@@ -79,7 +79,7 @@ class TestSpooledBlock
 
     private void verifyThrowsErrorOnMultiplePositions(Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
     {
-        SpooledBlock metadata = new SpooledBlock(identifier, directUri, headers, createDataAttributes(30, 1300));
+        SpooledBlock metadata = new SpooledBlock(identifier, directUri, headers, createDataAttributes(30, 1300), false);
         RowBlockBuilder rowBlockBuilder = SPOOLING_METADATA_TYPE.createBlockBuilder(null, 2);
         metadata.serialize(rowBlockBuilder);
         metadata.serialize(rowBlockBuilder);
