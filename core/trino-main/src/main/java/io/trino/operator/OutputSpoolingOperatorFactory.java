@@ -135,6 +135,7 @@ public class OutputSpoolingOperatorFactory
             implements Operator
     {
         private final OutputSpoolingController controller;
+        private final boolean explicitAck;
 
         enum State
         {
@@ -165,6 +166,7 @@ public class OutputSpoolingOperatorFactory
                     spoolingConfig.getMaximumSegmentSize().toBytes(),
                     spoolingConfig.getInitialSegmentSize().toBytes(),
                     spoolingConfig.getMaximumSegmentSize().toBytes());
+            this.explicitAck = spoolingConfig.isExplicitAck();
             this.userMemoryContext = operatorContext.newLocalUserMemoryContext(OutputSpoolingOperator.class.getSimpleName());
             this.queryDataEncoder = requireNonNull(queryDataEncoder, "queryDataEncoder is null");
             this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
@@ -278,7 +280,7 @@ public class OutputSpoolingOperatorFactory
                 controller.recordEncoded(attributes.get(SEGMENT_SIZE, Integer.class));
 
                 // This page is small (hundreds of bytes) so there is no point in tracking its memory usage
-                return emptySingleRowPage(SpooledBlock.forLocation(spoolingManager.location(segmentHandle), attributes).serialize());
+                return emptySingleRowPage(SpooledBlock.forLocation(spoolingManager.location(segmentHandle), attributes, explicitAck).serialize());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);

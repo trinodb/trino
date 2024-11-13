@@ -44,7 +44,8 @@ class TestSpoolingConfig
                 .setMaximumSegmentSize(DataSize.of(16, MEGABYTE))
                 .setMaximumInlinedRows(1000)
                 .setMaximumInlinedSize(DataSize.of(128, KILOBYTE))
-                .setAllowInlining(true));
+                .setAllowInlining(true)
+                .setExplicitAck(true));
     }
 
     @Test
@@ -57,6 +58,7 @@ class TestSpoolingConfig
                 .put("protocol.spooling.retrieval-mode", "coordinator_storage_redirect")
                 .put("protocol.spooling.coordinator-storage-redirect-ttl", "60s")
                 .put("protocol.spooling.inlining.enabled", "false")
+                .put("protocol.spooling.explicit-ack.enabled", "false")
                 .put("protocol.spooling.initial-segment-size", "1kB")
                 .put("protocol.spooling.maximum-segment-size", "8kB")
                 .put("protocol.spooling.inlining.max-rows", "1024")
@@ -71,7 +73,8 @@ class TestSpoolingConfig
                 .setMaximumSegmentSize(DataSize.of(8, KILOBYTE))
                 .setMaximumInlinedRows(1024)
                 .setMaximumInlinedSize(DataSize.of(1, MEGABYTE))
-                .setAllowInlining(false);
+                .setAllowInlining(false)
+                .setExplicitAck(false);
 
         assertFullMapping(properties, expected);
     }

@@ -38,6 +38,7 @@ public class SpoolingConfig
     private Optional<Duration> storageRedirectTtl = Optional.empty();
 
     private boolean allowInlining = true;
+    private boolean explicitAck = true;
     private long maximumInlinedRows = 1000;
     private DataSize maximumInlinedSize = DataSize.of(128, KILOBYTE);
     private DataSize initialSegmentSize = DataSize.of(8, MEGABYTE);
@@ -120,6 +121,19 @@ public class SpoolingConfig
     public SpoolingConfig setAllowInlining(boolean allowInlining)
     {
         this.allowInlining = allowInlining;
+        return this;
+    }
+
+    public boolean isExplicitAck()
+    {
+        return explicitAck;
+    }
+
+    @ConfigDescription("Allow client to acknowledge segment retrieval and its eager removal")
+    @Config("protocol.spooling.explicit-ack.enabled")
+    public SpoolingConfig setExplicitAck(boolean explicitAck)
+    {
+        this.explicitAck = explicitAck;
         return this;
     }
 

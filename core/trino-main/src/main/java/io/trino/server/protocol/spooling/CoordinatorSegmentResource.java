@@ -53,12 +53,14 @@ public class CoordinatorSegmentResource
     private final SpoolingManager spoolingManager;
     private final SegmentRetrievalMode retrievalMode;
     private final InternalNodeManager nodeManager;
+    private final boolean explicitAck;
 
     @Inject
     public CoordinatorSegmentResource(SpoolingManager spoolingManager, SpoolingConfig config, InternalNodeManager nodeManager)
     {
         this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
         this.retrievalMode = requireNonNull(config, "config is null").getRetrievalMode();
+        this.explicitAck = config.isExplicitAck();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
@@ -97,6 +99,12 @@ public class CoordinatorSegmentResource
     public Response acknowledge(@PathParam("identifier") String identifier, @Context HttpHeaders headers)
             throws IOException
     {
+        if (!explicitAck) {
+            return Response.status(Response.Status.NOT_ACCEPTABLE)
+                    .entity("Explicit segment acknowledgment is disabled")
+                    .build();
+        }
+
         try {
             spoolingManager.acknowledge(handle(identifier, headers));
             return Response.ok().build();
