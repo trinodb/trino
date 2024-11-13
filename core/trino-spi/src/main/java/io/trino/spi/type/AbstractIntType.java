@@ -103,13 +103,13 @@ public abstract class AbstractIntType
         return ((IntArrayBlockBuilder) blockBuilder).writeInt(value);
     }
 
-    protected static void checkValueValid(long value)
+    protected void checkValueValid(long value)
     {
         if (value > Integer.MAX_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT", value));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT for type %s", value, getTypeSignature()));
         }
         if (value < Integer.MIN_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_INT", value));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_INT for type %s", value, getTypeSignature()));
         }
     }
 

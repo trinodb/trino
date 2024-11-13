@@ -231,6 +231,13 @@
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.method.noLongerStatic</code>
+                                    <old>method void io.trino.spi.type.AbstractIntType::checkValueValid(long)</old>
+                                    <new>method void io.trino.spi.type.AbstractIntType::checkValueValid(long)</new>
+                                    <justification>allows for more descriptive message</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.class.removed</code>
                                     <old>interface io.trino.spi.protocol.SpooledLocation</old>
                                     <justification>Spooling SPI marked as experimental</justification>
