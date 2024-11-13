@@ -348,7 +348,7 @@ public final class TestRun
                         .withEnv("JAVA_HOME", jdkProvider.getJavaHome())
                         .withCommand(ImmutableList.<String>builder()
                                 .add(
-                                        jdkProvider.getJavaCommand(),
+                                        jdkProvider.getJavaHome() + "/bin/java",
                                         "-Xmx1g",
                                         "-Djava.util.logging.config.file=/docker/trino-product-tests/conf/tempto/logging.properties",
                                         "-Duser.timezone=Asia/Kathmandu",
