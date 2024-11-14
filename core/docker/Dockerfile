@@ -37,8 +37,7 @@ COPY --from=jdk-download $JAVA_HOME $JAVA_HOME
 RUN \
     set -xeu && \
     microdnf update -y && \
-    microdnf install -y tar less python3 shadow-utils && \
-    update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
+    microdnf install -y tar less shadow-utils && \
     groupadd trino --gid 1000 && \
     useradd trino --uid 1000 --gid 1000 --create-home && \
     mkdir -p /usr/lib/trino /data/trino && \

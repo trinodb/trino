@@ -84,7 +84,7 @@ public class ServerIT
         String rpm = "/" + new File(rpmHostPath).getName();
         String command =
                 """
-                microdnf install -y tar gzip python sudo shadow-utils
+                microdnf install -y tar gzip sudo shadow-utils
                 %s
                 rpm -i %s
                 mkdir /etc/trino/catalog
@@ -106,7 +106,10 @@ public class ServerIT
             container.withExposedPorts(8080)
                     // the RPM is hundreds MB and file system bind is much more efficient
                     .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
+                    .withPrivilegedMode(true)
                     .withCommand("sh", "-xeuc", command)
+                    .withCreateContainerCmdModifier(modifier -> modifier
+                            .withHostConfig(modifier.getHostConfig().withInit(true)))
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
                     .start();
             QueryRunner queryRunner = new QueryRunner(container.getHost(), container.getMappedPort(8080));
@@ -125,7 +128,7 @@ public class ServerIT
         String rpm = "/" + new File(rpmHostPath).getName();
         String installAndStartTrino =
                 """
-                microdnf install -y tar gzip python sudo shadow-utils
+                microdnf install -y tar gzip sudo shadow-utils
                 %s
                 rpm -i %s
                 /etc/init.d/trino start
@@ -135,11 +138,16 @@ public class ServerIT
         try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE)) {
             container.withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
                     .withCommand("sh", "-xeuc", installAndStartTrino)
+                    .withCreateContainerCmdModifier(modifier -> modifier
+                            .withHostConfig(modifier.getHostConfig().withInit(true)))
+                    .withPrivilegedMode(true)
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
                     .start();
             String uninstallTrino =
                     """
+                    echo "Before stop"
                     /etc/init.d/trino stop
+                    echo "After stop"
                     rpm -e trino-server-rpm
                     """;
             container.execInContainer("sh", "-xeuc", uninstallTrino);
@@ -171,7 +179,12 @@ public class ServerIT
             assertThatPaths(files)
                     .exists("/usr/lib/trino/bin")
                     .path("/usr/lib/trino/bin/launcher").isOwnerExecutable()
-                    .path("/usr/lib/trino/bin/launcher.py").isOwnerExecutable()
+                    .path("/usr/lib/trino/bin/linux-amd64/launcher").isOwnerExecutable()
+                    .path("/usr/lib/trino/bin/linux-arm64/launcher").isOwnerExecutable()
+                    .path("/usr/lib/trino/bin/linux-ppc64le/launcher").isOwnerExecutable()
+                    .exists("/usr/lib/trino/bin/linux-amd64/libprocname.so")
+                    .exists("/usr/lib/trino/bin/linux-arm64/libprocname.so")
+                    .exists("/usr/lib/trino/bin/linux-ppc64le/libprocname.so")
                     .path("/etc/init.d/trino").isOwnerExecutable()
                     .exists("/usr/lib/trino/bin/launcher.properties");
 
