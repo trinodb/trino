@@ -12,10 +12,10 @@
 
     <!-- Launcher -->
     <artifactSet to="bin">
-        <artifact id="io.airlift:launcher:tar.gz:bin:${dep.packaging.version}">
+        <artifact id="io.airlift:launcher:tar.gz:bin:${dep.launcher.version}">
             <unpack />
         </artifact>
-        <artifact id="io.airlift:launcher:tar.gz:properties:${dep.packaging.version}">
+        <artifact id="io.airlift:launcher:tar.gz:properties:${dep.launcher.version}">
             <unpack filter="true" />
         </artifact>
     </artifactSet>
@@ -27,7 +27,7 @@
 
     <!-- Configuration Plugins -->
     <artifactSet to="secrets-plugin/keystore-secrets-plugin">
-        <artifact id="io.airlift:secrets-keystore-plugin:zip:${dep.packaging.version}">
+        <artifact id="io.airlift:secrets-keystore-plugin:zip:${dep.airlift.version}">
             <unpack />
         </artifact>
     </artifactSet>
