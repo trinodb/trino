@@ -856,6 +856,8 @@ public class TestTrinoDriver
         assertThat(DriverManager.getConnection(jdbcUrl(),
                 toProperties(ImmutableMap.<String, String>builder()
                         .put("user", "test")
+                        .put("SSL", "true")
+                        .put("SSLVerification", "NONE")
                         .put("assumeLiteralNamesInMetadataCallsForNonConformingClients", "true")
                         .buildOrThrow())))
                 .isNotNull();
@@ -863,6 +865,8 @@ public class TestTrinoDriver
         assertThat(DriverManager.getConnection(jdbcUrl(),
                 toProperties(ImmutableMap.<String, String>builder()
                         .put("user", "test")
+                        .put("SSL", "true")
+                        .put("SSLVerification", "NONE")
                         .put("assumeLiteralUnderscoreInMetadataCallsForNonConformingClients", "true")
                         .buildOrThrow())))
                 .isNotNull();

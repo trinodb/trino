@@ -87,6 +87,8 @@ public class TrinoConnection
 {
     private static final Logger logger = Logger.getLogger(TrinoConnection.class.getPackage().getName());
 
+    private static final int CONNECTION_TIMEOUT = 30; // Not configurable
+
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
     private final AtomicInteger isolationLevel = new AtomicInteger(TRANSACTION_READ_UNCOMMITTED);
@@ -100,7 +102,6 @@ public class TrinoConnection
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
     private final AtomicLong nextStatementId = new AtomicLong(1);
     private final AtomicReference<Optional<String>> sessionUser = new AtomicReference<>();
-    private final int connectionTimeout = 30; // Not configurable
 
     private final URI jdbcUri;
     private final URI httpUri;
@@ -163,17 +164,17 @@ public class TrinoConnection
         uri.getAssumeNullCatalogMeansCurrentCatalog().ifPresent(value -> this.assumeNullCatalogMeansCurrentCatalog = value);
 
         this.validateConnection = uri.isValidateConnection();
-        if (this.validateConnection) {
+        if (validateConnection) {
+            StatementClient stmtClient = createStatementClient(null, Collections.emptyMap());
+            int timeout = Math.min(CONNECTION_TIMEOUT, networkTimeoutMillis.get() / 1000);
+
             try {
-                String sql = null;
-                StatementClient stmtClient = createStatementClient(Optional.ofNullable(sql), Collections.emptyMap());
-                if (!stmtClient.validateCredentials(connectionTimeout)) {
-                    throw new SQLException("Invalid authorization specialization.", "28000");
+                if (!stmtClient.validateCredentials(timeout)) {
+                    throw new SQLException("Invalid authorization specification.", "28000");
                 }
             }
-            catch (IOException e) {
-                throw new SQLException(String.format("Unable to connect, caused by: %s.", e.getClass().getName()),
-                        "08001", e);
+            catch (UnsupportedOperationException | IOException e) {
+                throw new SQLException("Unable to connect.", "08001", e);
             }
         }
     }
