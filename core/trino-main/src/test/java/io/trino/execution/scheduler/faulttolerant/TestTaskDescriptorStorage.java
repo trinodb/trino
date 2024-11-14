@@ -203,31 +203,31 @@ public class TestTaskDescriptorStorage
     @Test
     public void testCompression()
     {
-        TaskDescriptorStorage manager = createTaskDescriptorStorage(DataSize.of(15, KILOBYTE), DataSize.of(10, KILOBYTE), DataSize.of(8, KILOBYTE));
+        TaskDescriptorStorage manager = createTaskDescriptorStorage(DataSize.of(150, KILOBYTE), DataSize.of(100, KILOBYTE), DataSize.of(80, KILOBYTE));
         manager.initialize(QUERY_1);
         manager.initialize(QUERY_2);
 
-        manager.put(QUERY_1_STAGE_1, createTaskDescriptor(0, DataSize.of(1, KILOBYTE), "catalog1"));
-        manager.put(QUERY_1_STAGE_1, createTaskDescriptor(1, DataSize.of(1, KILOBYTE), "catalog2"));
-        manager.put(QUERY_1_STAGE_2, createTaskDescriptor(0, DataSize.of(2, KILOBYTE), "catalog3"));
+        manager.put(QUERY_1_STAGE_1, createTaskDescriptor(0, DataSize.of(20, KILOBYTE), "catalog1"));
+        manager.put(QUERY_1_STAGE_1, createTaskDescriptor(1, DataSize.of(20, KILOBYTE), "catalog2"));
+        manager.put(QUERY_1_STAGE_2, createTaskDescriptor(0, DataSize.of(20, KILOBYTE), "catalog3"));
         long q1Bytes = manager.getReservedUncompressedBytes();
 
-        manager.put(QUERY_2_STAGE_1, createTaskDescriptor(2, DataSize.of(1, KILOBYTE), "catalog4"));
-        manager.put(QUERY_2_STAGE_2, createTaskDescriptor(0, DataSize.of(2, KILOBYTE), "catalog5"));
+        manager.put(QUERY_2_STAGE_1, createTaskDescriptor(2, DataSize.of(10, KILOBYTE), "catalog4"));
+        manager.put(QUERY_2_STAGE_2, createTaskDescriptor(0, DataSize.of(20, KILOBYTE), "catalog5"));
 
         // we are below compression threshold
         assertThat(manager.getReservedUncompressedBytes())
-                .isGreaterThanOrEqualTo(toBytes(9, KILOBYTE))
-                .isLessThanOrEqualTo(toBytes(10, KILOBYTE));
+                .isGreaterThanOrEqualTo(toBytes(90, KILOBYTE))
+                .isLessThanOrEqualTo(toBytes(100, KILOBYTE));
         assertThat(manager.getReservedCompressedBytes())
                 .isEqualTo(0);
         assertThat(manager.getOriginalCompressedBytes())
                 .isEqualTo(0);
 
         // this one pushes us above the threshold
-        manager.put(QUERY_2_STAGE_2, createTaskDescriptor(1, DataSize.of(2, KILOBYTE), "catalog3"));
+        manager.put(QUERY_2_STAGE_2, createTaskDescriptor(1, DataSize.of(20, KILOBYTE), "catalog3"));
         assertThat(manager.getReservedUncompressedBytes())
-                .isGreaterThanOrEqualTo(toBytes(10, KILOBYTE));
+                .isGreaterThanOrEqualTo(toBytes(100, KILOBYTE));
         assertThat(manager.getReservedCompressedBytes())
                 .isEqualTo(0);
         assertThat(manager.getOriginalCompressedBytes())
@@ -235,39 +235,39 @@ public class TestTaskDescriptorStorage
         long reservedUncompressedBytesOnHighWater = manager.getReservedUncompressedBytes();
 
         // next one gets compressed
-        manager.put(QUERY_2_STAGE_2, createTaskDescriptor(2, DataSize.of(2, KILOBYTE), "catalog3"));
+        manager.put(QUERY_2_STAGE_2, createTaskDescriptor(2, DataSize.of(20, KILOBYTE), "catalog3"));
         assertThat(manager.getReservedUncompressedBytes())
                 .isEqualTo(reservedUncompressedBytesOnHighWater);
         assertThat(manager.getReservedCompressedBytes())
                 .isGreaterThan(0);
         assertThat(manager.getOriginalCompressedBytes())
-                .isGreaterThan(toBytes(2, KILOBYTE));
+                .isGreaterThan(toBytes(20, KILOBYTE));
 
         long singleTaskCompressedSize = manager.getReservedCompressedBytes();
 
         // create a couple more so we would be over max if not compression
-        manager.put(QUERY_2_STAGE_2, createTaskDescriptor(3, DataSize.of(20, KILOBYTE), "catalog3"));
-        manager.put(QUERY_2_STAGE_2, createTaskDescriptor(4, DataSize.of(20, KILOBYTE), "catalog3"));
+        manager.put(QUERY_2_STAGE_2, createTaskDescriptor(3, DataSize.of(200, KILOBYTE), "catalog3"));
+        manager.put(QUERY_2_STAGE_2, createTaskDescriptor(4, DataSize.of(200, KILOBYTE), "catalog3"));
         assertThat(manager.getReservedUncompressedBytes())
                 .isEqualTo(reservedUncompressedBytesOnHighWater);
         assertThat(manager.getReservedCompressedBytes())
                 .isGreaterThan(0);
         assertThat(manager.getOriginalCompressedBytes())
-                .isGreaterThan(toBytes(42, KILOBYTE));
+                .isGreaterThan(toBytes(420, KILOBYTE));
 
         // stress it until we get to the threshold
         int i = 5;
         // cross the threshold
         while (true) {
-            boolean lastRun = manager.getReservedCompressedBytes() + manager.getReservedUncompressedBytes() + singleTaskCompressedSize > DataSize.of(15, KILOBYTE).toBytes();
-            manager.put(QUERY_2_STAGE_2, createTaskDescriptor(i++, DataSize.of(1, KILOBYTE), "catalog3"));
+            boolean lastRun = manager.getReservedCompressedBytes() + manager.getReservedUncompressedBytes() + singleTaskCompressedSize > DataSize.of(150, KILOBYTE).toBytes();
+            manager.put(QUERY_2_STAGE_2, createTaskDescriptor(i++, DataSize.of(10, KILOBYTE), "catalog3"));
             if (lastRun) {
                 break;
             }
         }
 
         // next operation on Q2 should fail
-        assertThatThrownBy(() -> manager.put(QUERY_2_STAGE_2, createTaskDescriptor(1001, DataSize.of(1, KILOBYTE), "catalog3")))
+        assertThatThrownBy(() -> manager.put(QUERY_2_STAGE_2, createTaskDescriptor(1001, DataSize.of(10, KILOBYTE), "catalog3")))
                 .hasMessageContaining("Task descriptor storage capacity has been exceeded");
 
         // memory for Q2 should be released
@@ -279,7 +279,7 @@ public class TestTaskDescriptorStorage
                 .isEqualTo(0);
 
         // we are below low water mark here so we should create uncompressed task descriptors again
-        manager.put(QUERY_1_STAGE_2, createTaskDescriptor(1, DataSize.of(2, KILOBYTE), "catalog3")); // bump partition 1 to 1KB -> 2KB
+        manager.put(QUERY_1_STAGE_2, createTaskDescriptor(1, DataSize.of(20, KILOBYTE), "catalog3")); // bump partition 1 to 1KB -> 2KB
         assertThat(manager.getReservedUncompressedBytes())
                 .isGreaterThan(q1Bytes);
         assertThat(manager.getReservedCompressedBytes())
@@ -288,9 +288,9 @@ public class TestTaskDescriptorStorage
                 .isEqualTo(0);
 
         // cross the threshold again
-        manager.put(QUERY_1_STAGE_2, createTaskDescriptor(2, DataSize.of(5, KILOBYTE), "catalog3"));
-        manager.put(QUERY_1_STAGE_2, createTaskDescriptor(3, DataSize.of(5, KILOBYTE), "catalog3"));
-        manager.put(QUERY_1_STAGE_2, createTaskDescriptor(4, DataSize.of(5, KILOBYTE), "catalog3"));
+        manager.put(QUERY_1_STAGE_2, createTaskDescriptor(2, DataSize.of(50, KILOBYTE), "catalog3"));
+        manager.put(QUERY_1_STAGE_2, createTaskDescriptor(3, DataSize.of(50, KILOBYTE), "catalog3"));
+        manager.put(QUERY_1_STAGE_2, createTaskDescriptor(4, DataSize.of(50, KILOBYTE), "catalog3"));
         assertThat(manager.getReservedUncompressedBytes())
                 .isGreaterThan(0);
         assertThat(manager.getReservedCompressedBytes())
@@ -318,17 +318,17 @@ public class TestTaskDescriptorStorage
     @Timeout(20)
     public void testBackgroundCompression()
     {
-        TaskDescriptorStorage manager = createTaskDescriptorStorage(DataSize.of(15, KILOBYTE), DataSize.of(10, KILOBYTE), DataSize.of(8, KILOBYTE));
+        TaskDescriptorStorage manager = createTaskDescriptorStorage(DataSize.of(150, KILOBYTE), DataSize.of(100, KILOBYTE), DataSize.of(80, KILOBYTE));
         manager.initialize(QUERY_1);
         manager.initialize(QUERY_2);
 
-        manager.put(QUERY_1_STAGE_1, createTaskDescriptor(0, DataSize.of(1, KILOBYTE), "catalog1"));
-        manager.put(QUERY_1_STAGE_2, createTaskDescriptor(0, DataSize.of(2, KILOBYTE), "catalog1"));
-        manager.put(QUERY_2_STAGE_1, createTaskDescriptor(0, DataSize.of(2, KILOBYTE), "catalog1"));
-        manager.put(QUERY_1_STAGE_1, createTaskDescriptor(1, DataSize.of(4, KILOBYTE), "catalog1"));
-        manager.put(QUERY_1_STAGE_1, createTaskDescriptor(2, DataSize.of(4, KILOBYTE), "catalog1"));
-        manager.put(QUERY_2_STAGE_1, createTaskDescriptor(1, DataSize.of(4, KILOBYTE), "catalog1"));
-        manager.put(QUERY_2_STAGE_1, createTaskDescriptor(2, DataSize.of(4, KILOBYTE), "catalog1"));
+        manager.put(QUERY_1_STAGE_1, createTaskDescriptor(0, DataSize.of(10, KILOBYTE), "catalog1"));
+        manager.put(QUERY_1_STAGE_2, createTaskDescriptor(0, DataSize.of(20, KILOBYTE), "catalog1"));
+        manager.put(QUERY_2_STAGE_1, createTaskDescriptor(0, DataSize.of(20, KILOBYTE), "catalog1"));
+        manager.put(QUERY_1_STAGE_1, createTaskDescriptor(1, DataSize.of(40, KILOBYTE), "catalog1"));
+        manager.put(QUERY_1_STAGE_1, createTaskDescriptor(2, DataSize.of(40, KILOBYTE), "catalog1"));
+        manager.put(QUERY_2_STAGE_1, createTaskDescriptor(1, DataSize.of(40, KILOBYTE), "catalog1"));
+        manager.put(QUERY_2_STAGE_1, createTaskDescriptor(2, DataSize.of(40, KILOBYTE), "catalog1"));
 
         // some descriptors are not compressed and some are compressed for both Q1 and Q2
         assertThat(manager.getReservedUncompressedBytes())
