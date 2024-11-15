@@ -31,6 +31,7 @@ public class FileSystemSpoolingConfig
     private Layout layout = SIMPLE;
     private Duration ttl = new Duration(12, HOURS);
     private boolean encryptionEnabled = true;
+    private boolean explicitAckEnabled = true;
     private boolean pruningEnabled = true;
     private Duration pruningInterval = new Duration(5, MINUTES);
     private long pruningBatchSize = 250;
@@ -119,6 +120,19 @@ public class FileSystemSpoolingConfig
     public FileSystemSpoolingConfig setEncryptionEnabled(boolean encryptionEnabled)
     {
         this.encryptionEnabled = encryptionEnabled;
+        return this;
+    }
+
+    public boolean isExplicitAckEnabled()
+    {
+        return explicitAckEnabled;
+    }
+
+    @ConfigDescription("Enables deletion of segments on client acknowledgment")
+    @Config("fs.segment.explicit-ack")
+    public FileSystemSpoolingConfig setExplicitAckEnabled(boolean explicitAckEnabled)
+    {
+        this.explicitAckEnabled = explicitAckEnabled;
         return this;
     }
 

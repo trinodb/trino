@@ -73,12 +73,9 @@ public class OkHttpSegmentLoader
     @Override
     public void acknowledge(SpooledSegment segment)
     {
-        if (!segment.getAckUri().isPresent()) {
-            return;
-        }
         Request ackRequest = new Request.Builder()
                 .get()
-                .url(segment.getAckUri().get().toString())
+                .url(segment.getAckUri().toString())
                 .headers(toHeaders(segment.getHeaders()))
                 .build();
 

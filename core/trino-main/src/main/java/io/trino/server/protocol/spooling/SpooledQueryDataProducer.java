@@ -29,7 +29,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
@@ -79,7 +78,7 @@ public class SpooledQueryDataProducer
                     builder.withSegment(spooled(
                             metadata.directUri()
                                     .orElseGet(() -> buildSegmentDownloadURI(uriBuilder, metadata.identifier())),
-                            metadata.explicitAck() ? Optional.of(buildSegmentAckURI(uriBuilder, metadata.identifier())) : Optional.empty(),
+                            buildSegmentAckURI(uriBuilder, metadata.identifier()),
                             attributes,
                             metadata.headers()));
                     currentOffset += attributes.get(ROWS_COUNT, Long.class);
