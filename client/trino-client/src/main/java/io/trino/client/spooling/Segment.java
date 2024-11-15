@@ -87,7 +87,7 @@ public abstract class Segment
         return new InlineSegment(data, attributes);
     }
 
-    public static Segment spooled(URI retrieveUri, Optional<URI> ackUri, DataAttributes attributes, Map<String, List<String>> headers)
+    public static Segment spooled(URI retrieveUri, URI ackUri, DataAttributes attributes, Map<String, List<String>> headers)
     {
         return new SpooledSegment(retrieveUri, ackUri, attributes, headers);
     }

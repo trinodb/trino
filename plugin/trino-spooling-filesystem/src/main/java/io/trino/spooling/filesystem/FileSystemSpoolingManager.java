@@ -67,6 +67,7 @@ public class FileSystemSpoolingManager
     private final FileSystemLayout fileSystemLayout;
     private final Duration ttl;
     private final boolean encryptionEnabled;
+    private final boolean explicitAckEnabled;
     private final Random random = ThreadLocalRandom.current();
 
     @Inject
@@ -80,6 +81,7 @@ public class FileSystemSpoolingManager
         this.encryptionHeadersTranslator = encryptionHeadersTranslator(location);
         this.ttl = config.getTtl();
         this.encryptionEnabled = config.isEncryptionEnabled();
+        this.explicitAckEnabled = config.isExplicitAckEnabled();
     }
 
     @Override
@@ -138,6 +140,9 @@ public class FileSystemSpoolingManager
     public void acknowledge(SpooledSegmentHandle handle)
             throws IOException
     {
+        if (!explicitAckEnabled) {
+            return; // Let the segment pruning do the magic
+        }
         fileSystem.deleteFile(fileSystemLayout.location(location, (FileSystemSpooledSegmentHandle) handle));
     }
 

@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Test;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
 
@@ -139,11 +138,11 @@ public class TestQueryDataSerialization
                         inlined("super".getBytes(UTF_8), dataAttributes(0, 100, 5)),
                         spooled(
                                 URI.create("http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/1"),
-                                Optional.of(URI.create("http://localhost:8080/v1/ack/20160128_214710_00012_rk68b/segments/1")),
+                                URI.create("http://localhost:8080/v1/ack/20160128_214710_00012_rk68b/segments/1"),
                                 dataAttributes(100, 100, 1024), Map.of("x-amz-server-side-encryption", List.of("AES256"))),
                         spooled(
                                 URI.create("http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/2"),
-                                Optional.empty(),
+                                URI.create("http://localhost:8080/v1/ack/20160128_214710_00012_rk68b/segments/2"),
                                 dataAttributes(200, 100, 1024), Map.of("x-amz-server-side-encryption", List.of("AES256")))))
                 .withAttributes(DataAttributes.builder()
                         .set(SCHEMA, "serializedSchema")
@@ -180,6 +179,7 @@ public class TestQueryDataSerialization
                     {
                       "type": "spooled",
                       "uri": "http://localhost:8080/v1/download/20160128_214710_00012_rk68b/segments/2",
+                      "ackUri": "http://localhost:8080/v1/ack/20160128_214710_00012_rk68b/segments/2",
                       "metadata": {
                         "rowOffset": 200,
                         "rowsCount": 100,
@@ -199,15 +199,9 @@ public class TestQueryDataSerialization
 
         EncodedQueryData spooledQueryData = new EncodedQueryData("json+zstd", ImmutableMap.of("decryption_key", "secret"), ImmutableList.of(spooled(
                 URI.create("http://coordinator:8080/v1/segments/uuid"),
-                Optional.of(URI.create("http://coordinator:8080/v1/segments/uuid")),
-                dataAttributes(10, 2, 1256), headers())));
-        assertThat(spooledQueryData.toString()).isEqualTo("EncodedQueryData{encoding=json+zstd, segments=[SpooledSegment{offset=10, rows=2, size=1256, headers=[x-amz-server-side-encryption], ack=true}], metadata=[decryption_key]}");
-
-        EncodedQueryData spooledQueryDataWithoutAck = new EncodedQueryData("json+zstd", ImmutableMap.of("decryption_key", "secret"), ImmutableList.of(spooled(
                 URI.create("http://coordinator:8080/v1/segments/uuid"),
-                Optional.empty(),
                 dataAttributes(10, 2, 1256), headers())));
-        assertThat(spooledQueryDataWithoutAck.toString()).isEqualTo("EncodedQueryData{encoding=json+zstd, segments=[SpooledSegment{offset=10, rows=2, size=1256, headers=[x-amz-server-side-encryption], ack=false}], metadata=[decryption_key]}");
+        assertThat(spooledQueryData.toString()).isEqualTo("EncodedQueryData{encoding=json+zstd, segments=[SpooledSegment{offset=10, rows=2, size=1256, headers=[x-amz-server-side-encryption]}], metadata=[decryption_key]}");
     }
 
     private void testRoundTrip(QueryData queryData, String expectedDataRepresentation)

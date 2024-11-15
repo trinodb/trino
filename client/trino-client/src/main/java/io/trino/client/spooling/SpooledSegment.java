@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.String.format;
@@ -31,20 +30,20 @@ public final class SpooledSegment
         extends Segment
 {
     private final URI dataUri;
-    private final Optional<URI> ackUri;
+    private final URI ackUri;
     private final Map<String, List<String>> headers;
 
     @JsonCreator
     public SpooledSegment(
             @JsonProperty("uri") URI dataUri,
-            @JsonProperty("ackUri") Optional<URI> ackUri,
+            @JsonProperty("ackUri") URI ackUri,
             @JsonProperty("metadata") Map<String, Object> metadata,
             @JsonProperty("headers") Map<String, List<String>> headers)
     {
         this(dataUri, ackUri, new DataAttributes(metadata), headers);
     }
 
-    SpooledSegment(URI dataUri, Optional<URI> ackUri, DataAttributes metadata, Map<String, List<String>> headers)
+    SpooledSegment(URI dataUri, URI ackUri, DataAttributes metadata, Map<String, List<String>> headers)
     {
         super(metadata);
         this.dataUri = requireNonNull(dataUri, "dataUri is null");
@@ -59,7 +58,7 @@ public final class SpooledSegment
     }
 
     @JsonProperty("ackUri")
-    public Optional<URI> getAckUri()
+    public URI getAckUri()
     {
         return ackUri;
     }
@@ -74,6 +73,6 @@ public final class SpooledSegment
     @Override
     public String toString()
     {
-        return format("SpooledSegment{offset=%d, rows=%d, size=%d, headers=%s, ack=%b}", getOffset(), getRowsCount(), getSegmentSize(), headers.keySet(), ackUri.isPresent());
+        return format("SpooledSegment{offset=%d, rows=%d, size=%d, headers=%s}", getOffset(), getRowsCount(), getSegmentSize(), headers.keySet());
     }
 }

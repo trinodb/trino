@@ -31,7 +31,6 @@ import java.net.URI;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
@@ -295,6 +294,6 @@ class TestResultRowsDecoder
 
     private static Segment spooledSegment()
     {
-        return spooled(URI.create("http://localhost"), Optional.empty(), DataAttributes.empty(), ImmutableMap.of());
+        return spooled(URI.create("http://localhost"), URI.create("http://localhost"), DataAttributes.empty(), ImmutableMap.of());
     }
 }
