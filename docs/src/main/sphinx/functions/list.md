@@ -340,6 +340,7 @@
 - {func}`radians`
 - {func}`rand`
 - {func}`random`
+- {func}`random_string`, catalog function of the [](/connector/faker)
 - {func}`rank`
 - {func}`reduce`
 - {func}`reduce_agg`
