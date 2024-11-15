@@ -16,6 +16,7 @@ package io.trino.client;
 import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.CountingInputStream;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
 import io.trino.client.spooling.Segment;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 
 import static io.trino.client.JsonResultRows.createJsonFactory;
 import static io.trino.client.spooling.Segment.inlined;
@@ -84,6 +86,32 @@ class TestResultRowsDecoder
     }
 
     @Test
+    public void testEagerInlineJsonNodeScanningMaterialization()
+            throws Exception
+    {
+        CountingInputStream stream = new CountingInputStream(new ByteArrayInputStream("[[2137], [1337]]".getBytes(UTF_8)));
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = createJsonFactory().createParser(stream)) {
+            Iterator<List<Object>> iterator = decoder.toRows(fromQueryData(new JsonQueryData(parser.readValueAsTree()))).iterator();
+            assertThat(stream.getCount()).isEqualTo(16);
+            iterator.next();
+            assertThat(stream.getCount()).isEqualTo(16);
+        }
+    }
+
+    @Test
+    public void testLazyInlineJsonNodeScanningMaterialization()
+            throws Exception
+    {
+        CountingInputStream stream = new CountingInputStream(new ByteArrayInputStream("[[2137], [1337]]".getBytes(UTF_8)));
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = createJsonFactory().createParser(stream)) {
+            Iterator<List<Object>> iterator = decoder.toRows(fromQueryData(new JsonQueryData(parser.readValueAsTree()))).iterator();
+            assertThat(stream.getCount()).isEqualTo(16);
+            iterator.next();
+            assertThat(stream.getCount()).isEqualTo(16);
+        }
+    }
+
+    @Test
     public void testSpooledJsonMaterialization()
             throws Exception
     {
@@ -110,6 +138,34 @@ class TestResultRowsDecoder
                     .containsExactly(ImmutableList.of(2137), ImmutableList.of(1337), ImmutableList.of(2137), ImmutableList.of(1337));
         }
         assertThat(loaded.get()).isEqualTo(2);
+    }
+
+    @Test
+    public void testSpooledJsonNodeScanningMaterialization()
+            throws Exception
+    {
+        String data = IntStream.range(0, 2500)
+                .mapToObj(Integer::toString)
+                .reduce("[", (a, b) -> a + "[" + b + "],", String::concat) + "[1337]]";
+        CountingInputStream stream = new CountingInputStream(new ByteArrayInputStream(data.getBytes(UTF_8)));
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(loaderFromStream(stream))) {
+            Iterator<List<Object>> iterator = decoder.toRows(fromSegments(spooledSegment())).iterator();
+            assertThat(stream.getCount()).isEqualTo(0);
+            iterator.next();
+            assertThat(stream.getCount()).isEqualTo(8000); // Jackson reads data in 8K chunks
+            for (int i = 0; i < 1200; i++) {
+                iterator.next();
+            }
+            assertThat(stream.getCount()).isEqualTo(8000);
+            for (int i = 0; i < 1200; i++) {
+                iterator.next();
+            }
+            assertThat(stream.getCount()).isEqualTo(16000);
+            for (int i = 0; i < 100; i++) {
+                iterator.next();
+            }
+            assertThat(stream.getCount()).isEqualTo(data.length());
+        }
     }
 
     @Test
@@ -186,6 +242,27 @@ class TestResultRowsDecoder
     private static List<List<Object>> eagerlyMaterialize(Iterable<List<Object>> values)
     {
         return ImmutableList.copyOf(values);
+    }
+
+    private static SegmentLoader loaderFromStream(InputStream stream)
+    {
+        return new SegmentLoader() {
+            @Override
+            public InputStream load(SpooledSegment segment)
+            {
+                return stream;
+            }
+
+            @Override
+            public void acknowledge(SpooledSegment segment)
+            {
+            }
+
+            @Override
+            public void close()
+            {
+            }
+        };
     }
 
     private static QueryResults fromQueryData(QueryData queryData)
