@@ -6421,12 +6421,12 @@ public class TestAnalyzer
 
         analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(t1) ORDER BY \"a\"))");
 
-        // TODO Fix failure when partitioning by a nested field
+        // table function arguments can only be partitioned by their top-level fields
         assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT CAST(ROW(1) AS ROW(x BIGINT)) a) PARTITION BY a.x))")
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:120: Column a.x is not present in the input relation");
 
-        // TODO Fix failure when ordering by a nested field
+        // table function arguments can only be partitioned by their top-level fields
         assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT CAST(ROW(1) AS ROW(x BIGINT)) a) ORDER BY a.x))")
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:116: Column a.x is not present in the input relation");
