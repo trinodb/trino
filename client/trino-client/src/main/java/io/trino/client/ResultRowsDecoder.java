@@ -13,7 +13,7 @@
  */
 package io.trino.client;
 
-import com.google.common.collect.Iterators;
+import com.google.common.collect.Iterables;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
 import io.trino.client.spooling.InlineSegment;
@@ -21,6 +21,7 @@ import io.trino.client.spooling.Segment;
 import io.trino.client.spooling.SegmentLoader;
 import io.trino.client.spooling.SpooledSegment;
 import io.trino.client.spooling.encoding.QueryDataDecoders;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -31,8 +32,10 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Iterables.transform;
 import static io.trino.client.ResultRows.NULL_ROWS;
+import static io.trino.client.ResultRows.fromIterableRows;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -103,13 +106,7 @@ public class ResultRowsDecoder
         if (data instanceof EncodedQueryData) {
             EncodedQueryData encodedData = (EncodedQueryData) data;
             setEncoding(columns, encodedData.getEncoding());
-
-            List<ResultRows> resultRows = encodedData.getSegments()
-                    .stream()
-                    .map(this::segmentToRows)
-                    .collect(toImmutableList());
-
-            return concat(resultRows);
+            return concat(transform(encodedData.getSegments(), this::segmentToRows));
         }
 
         throw new UnsupportedOperationException("Unsupported data type: " + data.getClass().getName());
@@ -156,13 +153,9 @@ public class ResultRowsDecoder
         loader.close();
     }
 
-    private static ResultRows concat(List<ResultRows> resultRows)
+    @SuppressModernizer
+    private static ResultRows concat(Iterable<ResultRows> resultRows)
     {
-        return () -> Iterators.concat(resultRows
-                .stream()
-                .filter(rows -> !rows.isNull())
-                .map(ResultRows::iterator)
-                .collect(toImmutableList())
-                .iterator());
+        return fromIterableRows(Iterables.concat(filter(resultRows, rows -> !rows.isNull())));
     }
 }
