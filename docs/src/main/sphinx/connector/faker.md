@@ -125,12 +125,19 @@ See the Datafaker's documentation for more information about
 [the expression](https://www.datafaker.net/documentation/expressions/) syntax
 and [available providers](https://www.datafaker.net/documentation/providers/).
 
+:::{function} random_string(expression_string) -> string
+
+Create a random output `string` with the provided input `expression_string`. The
+expression must use the [syntax from
+Datafaker](https://www.datafaker.net/documentation/expressions/).
+
 Use the `random_string` function from the `default` schema of the `generator`
 catalog to test a generator expression:
 
 ```sql
 SELECT generator.default.random_string('#{Name.first_name}');
 ```
+:::
 
 ### Non-character types
 
