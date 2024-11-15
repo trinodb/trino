@@ -16,6 +16,7 @@ package io.trino.client;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.io.Closer;
@@ -160,9 +161,10 @@ public final class JsonResultRows
     }
 
     @SuppressModernizer // There is no JsonFactory in the client module
-    private static JsonFactory createJsonFactory()
+    static JsonFactory createJsonFactory()
     {
         return new JsonFactory()
+                .setCodec(new ObjectMapper())
                 .enable(USE_FAST_DOUBLE_PARSER)
                 .enable(USE_FAST_BIG_NUMBER_PARSER)
                 .disable(AUTO_CLOSE_SOURCE); // We want to close source explicitly
