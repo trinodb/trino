@@ -49,7 +49,7 @@ public class ResultRowsDecoder
 
     public ResultRowsDecoder()
     {
-        this(new SegmentLoader());
+        this(new OkHttpSegmentLoader());
     }
 
     public ResultRowsDecoder(SegmentLoader loader)
