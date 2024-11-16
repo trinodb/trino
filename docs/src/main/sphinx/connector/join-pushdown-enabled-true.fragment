@@ -24,6 +24,11 @@ join pushdown:
     session property](session-properties-definition) is
     `join_pushdown_enabled`.
   - `true`
+* - `join-pushdown.with-expressions`
+  - Enable [join pushdown](join-pushdown) with complex expressions.
+    Equivalent [catalog session property](session-properties-definition) is
+    `complex_join_pushdown_enabled`.
+  - `true`
 * - `join-pushdown.strategy`
   - Strategy used to evaluate whether join operations are pushed down. Set to
     `AUTOMATIC` to enable cost-based join pushdown, or `EAGER` to
