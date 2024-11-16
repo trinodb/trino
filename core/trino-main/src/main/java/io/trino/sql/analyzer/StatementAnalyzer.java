@@ -271,6 +271,7 @@ import io.trino.sql.tree.WindowSpecification;
 import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.StreamType;
 import io.trino.type.TypeCoercion;
 
 import java.math.RoundingMode;
@@ -4865,6 +4866,9 @@ class StatementAnalyzer
                         "DISTINCT can only be applied to comparable types (actual: %s): %s",
                         type,
                         expression);
+            }
+            if (type instanceof StreamType) {
+                throw semanticException(TYPE_MISMATCH, node.getSelect(), "Stream type is not allowed in output");
             }
         }
 

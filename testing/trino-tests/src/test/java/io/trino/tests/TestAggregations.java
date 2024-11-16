@@ -163,6 +163,94 @@ public class TestAggregations
                 plan -> assertAggregationNodeCount(plan, 4));
     }
 
+    @Test
+    public void testStreamMinMax()
+    {
+        assertQuery("SELECT max(a) FROM (VALUES ARRAY[1], ARRAY[2], ARRAY[3]) t(a)", "VALUES ARRAY[3]");
+        assertQuery("SELECT max(stream(a)) FROM (VALUES ARRAY[1], ARRAY[2, 4], ARRAY[3, 5, 0]) t(a)", "VALUES ARRAY[5]");
+        assertQuery("SELECT max(stream(a)) FROM (VALUES ARRAY['a'], ARRAY['b'], ARRAY['c']) t(a)", "VALUES ARRAY['c']");
+
+        assertQuery("SELECT min(stream(a)) FROM (VALUES ARRAY[1], ARRAY[2], ARRAY[3]) t(a)", "VALUES ARRAY[1]");
+        assertQuery("SELECT min(stream(a)) FROM (VALUES ARRAY[1], ARRAY[2, 4], ARRAY[3, 5, 0]) t(a)", "VALUES ARRAY[0]");
+
+        assertQuery("SELECT max(stream(repeat(nationkey, 3))) FROM nation", "SELECT max(nationkey) FROM nation");
+    }
+
+    @Test
+    public void testStreamApproxDistinct()
+    {
+        assertQuery("SELECT approx_distinct(a) FROM (VALUES ARRAY[1, 2, 3], ARRAY[4, 5], ARRAY[6]) t(a)", "VALUES 3");
+        assertQuery("SELECT approx_distinct(stream(a)) FROM (VALUES ARRAY[1, 2, 3], ARRAY[4, 5], ARRAY[6]) t(a)", "VALUES 6");
+    }
+
+    @Test
+    public void testSumStream()
+    {
+        assertQuery("SELECT SUM(a) OVER (PARTITION BY b) FROM (VALUES (1, 1), (2, 1), (3, 2), (4, 2)) t(a, b)", "VALUES (3), (3), (7), (7)");
+        assertQuery("SELECT SUM(stream(a)) FROM (VALUES ARRAY[1, 2, 3], ARRAY[4, 5], ARRAY[6]) t(a)", "VALUES 21");
+    }
+
+    @Test
+    public void testStreamSumWindow()
+    {
+        assertQuery("""
+                SELECT SUM(stream(a)) OVER (PARTITION BY b)
+                FROM (VALUES (ARRAY[CAST(1 AS BIGINT), CAST(2 AS BIGINT), CAST(3 AS BIGINT)], 1), (ARRAY[CAST(4 AS BIGINT), CAST(5 AS BIGINT)], 1), (ARRAY[CAST(6 AS BIGINT)], 2)) t(a, b)""",
+                "VALUES (15), (15), (6)");
+
+        assertQuery("""
+                SELECT SUM(stream(transform(a, x -> x + 1))) OVER (PARTITION BY b)
+                FROM (VALUES (ARRAY[1, 2, 3], 1), (ARRAY[4, 5], 1), (ARRAY[6], 2)) t(a, b)""",
+                "VALUES (20), (20), (7)");
+
+        assertQuery("""
+                SELECT SUM(stream(filter(a, x -> x >= 5))) OVER (PARTITION BY b)
+                FROM (VALUES (ARRAY[1, 2, 3], 1), (ARRAY[4, 5], 1), (ARRAY[6], 2)) t(a, b)""",
+                "VALUES (5), (5), (6)");
+    }
+
+    @Test
+    public void testStreamMapKey()
+    {
+        assertQuery("""
+            SELECT
+                approx_distinct(stream(map_keys(a)))
+                , SUM(stream(map_values(a)))
+            FROM (VALUES
+                MAP_FROM_ENTRIES(ARRAY[ROW('a', 1)]),
+                MAP_FROM_ENTRIES(ARRAY[ROW('b', 2), ROW('x', 21)]),
+                MAP_FROM_ENTRIES(ARRAY[ROW('c', 3), ROW('d', 4), ROW('0', -9)])
+            ) t(a)""",
+                "VALUES (6, 22)");
+
+        assertQuery("""
+            SELECT
+                CAST(approx_most_frequent(3, stream(map_keys(a)), 10) AS JSON)
+            FROM (VALUES
+                MAP_FROM_ENTRIES(ARRAY[ROW(CAST('a' AS VARCHAR), 1)]),
+                MAP_FROM_ENTRIES(ARRAY[ROW(CAST('b' AS VARCHAR), 2), ROW(CAST('x' AS VARCHAR), 21)]),
+                MAP_FROM_ENTRIES(ARRAY[ROW(CAST('c' AS VARCHAR), 3), ROW(CAST('d' AS VARCHAR), 4), ROW(CAST('0' AS VARCHAR), -9)])
+            ) t(a)""",
+                "VALUES '{\"a\":1,\"b\":1,\"x\":1}'");
+    }
+
+    @Test
+    public void testNestedArrayStream()
+    {
+        assertQuery("SELECT CAST(max(stream(a)) AS JSON) FROM (VALUES ARRAY[ARRAY[1, 2]], ARRAY[ARRAY[2, 3]], ARRAY[ARRAY[3, 4]]) t(a)", "VALUES '[[3, 4]]'");
+        assertQuery("SELECT CAST(max(stream(ARRAY[ARRAY[nationkey, nationkey + 1]])) AS JSON) FROM nation", "VALUES '[[24, 25]]'");
+
+        assertQuery("SELECT CAST(max(stream(stream(a))) AS JSON) FROM (VALUES ARRAY[ARRAY[1]], ARRAY[ARRAY[2]], ARRAY[ARRAY[3]]) t(a)", "VALUES '[[3]]'");
+    }
+
+    @Test
+    public void testApproxMostFrequent()
+    {
+        assertQuery("SELECT CAST(approx_most_frequent(2, a, 2) AS JSON) FROM (VALUES (1), (2), (3), (4), (5), (6), (6)) t(a)", "VALUES '{\"5\":3,\"6\":4}'");
+        assertQuery("SELECT CAST(approx_most_frequent(2, stream(a), 2) AS JSON) FROM (VALUES ARRAY[1, 2, 3], ARRAY[4, 5, 6], ARRAY[6]) t(a)", "VALUES '{\"5\":3,\"6\":4}'");
+        assertQuery("SELECT CAST(approx_most_frequent(2, stream(a), 2) AS JSON) FROM (VALUES ARRAY[CAST(1 AS BIGINT), CAST(2 AS BIGINT), CAST(3 AS BIGINT)], ARRAY[CAST(4 AS BIGINT), CAST(5 AS BIGINT), CAST(6 AS BIGINT)], ARRAY[CAST(6 AS BIGINT)]) t(a)", "VALUES '{\"5\":3,\"6\":4}'");
+    }
+
     private void assertAggregationNodeCount(Plan plan, int count)
     {
         assertThat(countOfMatchingNodes(plan, AggregationNode.class::isInstance)).isEqualTo(count);

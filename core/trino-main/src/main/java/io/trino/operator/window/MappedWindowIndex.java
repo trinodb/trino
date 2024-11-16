@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
@@ -105,6 +106,12 @@ public class MappedWindowIndex
     public int getRawBlockPosition(int position)
     {
         return delegate.getRawBlockPosition(position);
+    }
+
+    @Override
+    public Type getType(int channel)
+    {
+        return delegate.getType(toDelegateChannel(channel));
     }
 
     private int toDelegateChannel(int channel)

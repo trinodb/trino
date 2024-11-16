@@ -275,6 +275,7 @@ import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.FunctionType;
+import io.trino.type.StreamType;
 import org.objectweb.asm.MethodTooLargeException;
 
 import java.util.AbstractMap.SimpleEntry;
@@ -3916,6 +3917,9 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
             Type intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
             Type finalType = resolvedFunction.signature().getReturnType();
+            if (finalType instanceof StreamType streamType) {
+                finalType = streamType.getArrayType();
+            }
 
             OptionalInt maskChannel = aggregation.getMask().stream()
                     .mapToInt(value -> source.getLayout().get(value))

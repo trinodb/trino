@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.trino.operator.PagesIndex;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -121,5 +122,11 @@ public class PagesWindowIndex
         return toStringHelper(this)
                 .add("size", size)
                 .toString();
+    }
+
+    @Override
+    public Type getType(int channel)
+    {
+        return pagesIndex.getType(channel);
     }
 }

@@ -100,6 +100,7 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static io.trino.type.MapParametricType.MAP;
 import static io.trino.type.RowParametricType.ROW;
+import static io.trino.type.StreamParametricType.STREAM;
 import static io.trino.type.TDigestType.TDIGEST;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.type.setdigest.SetDigestType.SET_DIGEST;
@@ -162,6 +163,7 @@ public final class TypeRegistry
         addParametricType(MAP);
         addParametricType(FUNCTION);
         addParametricType(QDIGEST);
+        addParametricType(STREAM);
         addParametricType(TIMESTAMP);
         addParametricType(TIMESTAMP_WITH_TIME_ZONE);
         addParametricType(TIME);

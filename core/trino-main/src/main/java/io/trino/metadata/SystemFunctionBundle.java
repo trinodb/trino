@@ -167,6 +167,7 @@ import io.trino.operator.scalar.SequenceFunction;
 import io.trino.operator.scalar.SessionFunctions;
 import io.trino.operator.scalar.SplitToMapFunction;
 import io.trino.operator.scalar.SplitToMultimapFunction;
+import io.trino.operator.scalar.StreamFunction;
 import io.trino.operator.scalar.StringFunctions;
 import io.trino.operator.scalar.TDigestFunctions;
 import io.trino.operator.scalar.TryFunction;
@@ -518,6 +519,7 @@ public final class SystemFunctionBundle
                 .scalar(ConcatWsFunction.ConcatArrayWs.class)
                 .scalar(DynamicFilters.Function.class)
                 .scalar(DynamicFilters.NullableFunction.class)
+                .scalar(StreamFunction.class)
                 .functions(ZIP_WITH_FUNCTION, MAP_ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
                 .scalars(ArrayJoin.class)

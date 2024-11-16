@@ -35,6 +35,7 @@ import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Type;
 import io.trino.sql.gen.IsolatedClass;
 import org.junit.jupiter.api.Test;
 
@@ -220,6 +221,12 @@ public class TestAccumulatorCompiler
         public int getRawBlockPosition(int position)
         {
             return 0;
+        }
+
+        @Override
+        public Type getType(int channel)
+        {
+            return BIGINT;
         }
     }
 }

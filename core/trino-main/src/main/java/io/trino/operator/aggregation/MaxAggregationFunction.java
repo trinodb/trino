@@ -29,6 +29,8 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.Type;
+import io.trino.type.StreamType;
 
 import java.lang.invoke.MethodHandle;
 
@@ -45,6 +47,7 @@ public final class MaxAggregationFunction
     @InputFunction
     @TypeParameter("T")
     public static void input(
+            @TypeParameter("T") Type type,
             @OperatorDependency(
                     operator = OperatorType.COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"T", "T"},
@@ -55,8 +58,17 @@ public final class MaxAggregationFunction
             @BlockIndex int position)
             throws Throwable
     {
-        if (state.isNull() || ((long) compare.invokeExact(block, position, state)) > 0) {
-            state.set(block, position);
+        if (type instanceof StreamType streamType) {
+            for (ValueBlock sub : streamType.arrayIterable(block, position)) {
+                if (state.isNull() || ((long) compare.invokeExact(sub, 0, state)) > 0) {
+                    state.set(sub, 0);
+                }
+            }
+        }
+        else {
+            if (state.isNull() || ((long) compare.invokeExact(block, position, state)) > 0) {
+                state.set(block, position);
+            }
         }
     }
 

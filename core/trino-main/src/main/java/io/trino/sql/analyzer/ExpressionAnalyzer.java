@@ -152,6 +152,7 @@ import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
 import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.StreamType;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 import jakarta.annotation.Nullable;
@@ -1422,6 +1423,9 @@ public class ExpressionAnalyzer
             }
 
             Type type = signature.getReturnType();
+            if (isAggregation && type instanceof StreamType streamType) {
+                type = streamType.getArrayType();
+            }
             return setExpressionType(node, type);
         }
 

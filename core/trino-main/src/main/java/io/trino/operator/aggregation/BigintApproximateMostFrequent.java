@@ -13,6 +13,8 @@
  */
 package io.trino.operator.aggregation;
 
+import com.google.common.collect.Streams;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.function.AccumulatorState;
@@ -27,6 +29,8 @@ import io.trino.spi.type.BigintType;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.StandardTypes.BIGINT;
+import static io.trino.type.StreamType.STREAM_BIGINT;
+import static io.trino.type.StreamType.STREAM_INTEGER;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
@@ -57,21 +61,42 @@ public final class BigintApproximateMostFrequent
         void set(ApproximateMostFrequentHistogram<Long> value);
     }
 
-    @InputFunction
-    public static void input(@AggregationState State state, @SqlType(BIGINT) long buckets, @SqlType(BIGINT) long value, @SqlType(BIGINT) long capacity)
+    private static ApproximateMostFrequentHistogram<Long> getHistogram(State state, long buckets, long capacity)
     {
-        ApproximateMostFrequentHistogram<Long> histogram = state.get();
-        if (histogram == null) {
-            checkCondition(buckets >= 2, INVALID_FUNCTION_ARGUMENT, "approx_most_frequent bucket count must be greater than one");
-            histogram = new ApproximateMostFrequentHistogram<Long>(
+        checkCondition(buckets >= 2, INVALID_FUNCTION_ARGUMENT, "approx_most_frequent bucket count must be greater than one");
+        if (state.get() == null) {
+            state.set(new ApproximateMostFrequentHistogram<Long>(
                     toIntExact(buckets),
                     toIntExact(capacity),
                     LongApproximateMostFrequentStateSerializer::serializeBucket,
-                    LongApproximateMostFrequentStateSerializer::deserializeBucket);
-            state.set(histogram);
+                    LongApproximateMostFrequentStateSerializer::deserializeBucket));
         }
+        return state.get();
+    }
 
+    @InputFunction
+    public static void input(@AggregationState State state, @SqlType(BIGINT) long buckets, @SqlType(BIGINT) long value, @SqlType(BIGINT) long capacity)
+    {
+        ApproximateMostFrequentHistogram<Long> histogram = getHistogram(state, buckets, capacity);
         histogram.add(value);
+    }
+
+    @InputFunction
+    public static void inputStreamInteger(@AggregationState State state, @SqlType(BIGINT) long buckets, @SqlType("stream(array(integer))") Block value, @SqlType(BIGINT) long capacity)
+    {
+        ApproximateMostFrequentHistogram<Long> histogram = getHistogram(state, buckets, capacity);
+        Streams.stream(STREAM_INTEGER.valueIterable(value))
+                .map(Long.class::cast)
+                .forEach(histogram::add);
+    }
+
+    @InputFunction
+    public static void inputStreamLong(@AggregationState State state, @SqlType(BIGINT) long buckets, @SqlType("stream(array(bigint))") Block value, @SqlType(BIGINT) long capacity)
+    {
+        ApproximateMostFrequentHistogram<Long> histogram = getHistogram(state, buckets, capacity);
+        Streams.stream(STREAM_BIGINT.valueIterable(value))
+                .map(Long.class::cast)
+                .forEach(histogram::add);
     }
 
     @CombineFunction
