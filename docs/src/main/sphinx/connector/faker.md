@@ -21,6 +21,7 @@ For example, to generate data in the `generator` catalog, create the file
 connector.name=faker
 faker.null-probability=0.1
 faker.default-limit=1000
+faker.locale=pl-PL
 ```
 
 Create tables in the `default` schema, or create different schemas first. Tables
@@ -46,6 +47,9 @@ The following table details all general configuration properties:
     that allows them. Defaults to `0.5`.
 * - `faker.default-limit`
   - Default number of rows in a table. Defaults to `1000`.
+* - `faker.locale`
+  - Default locale for generating character based data, specified as a IETF BCP
+    47 language tag string. Defaults to `en`.
 :::
 
 The following table details all supported schema properties. If they're not

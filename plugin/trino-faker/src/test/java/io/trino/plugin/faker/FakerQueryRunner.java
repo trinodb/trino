@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.faker;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -39,12 +40,20 @@ public class FakerQueryRunner
     public static class Builder
             extends DistributedQueryRunner.Builder<Builder>
     {
+        private Map<String, String> properties = ImmutableMap.of();
+
         protected Builder()
         {
             super(testSessionBuilder()
                     .setCatalog(CATALOG)
                     .setSchema("default")
                     .build());
+        }
+
+        public Builder setFakerProperties(Map<String, String> properties)
+        {
+            this.properties = ImmutableMap.copyOf(properties);
+            return this;
         }
 
         @Override
@@ -56,7 +65,7 @@ public class FakerQueryRunner
 
             try {
                 queryRunner.installPlugin(new FakerPlugin());
-                queryRunner.createCatalog(CATALOG, "faker");
+                queryRunner.createCatalog(CATALOG, "faker", properties);
 
                 return queryRunner;
             }

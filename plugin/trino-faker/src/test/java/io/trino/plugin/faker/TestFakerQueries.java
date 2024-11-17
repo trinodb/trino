@@ -14,10 +14,14 @@
 package io.trino.plugin.faker;
 
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.H2QueryRunner;
+import io.trino.testing.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+
+import java.util.Map;
 
 import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
@@ -269,7 +273,32 @@ final class TestFakerQueries
                     age_years INTEGER NOT NULL
                 )
                 """)) {
-            assertQuery("SELECT count(name) FILTER (WHERE LENGTH(name) - LENGTH(REPLACE(name, ' ', '')) = 1) FROM " + table.getName(), "VALUES (1000)");
+            assertQuery("SELECT name FROM " + table.getName() + " LIMIT 1", "VALUES ('Bev Runolfsson')");
+        }
+    }
+
+    @Test
+    void testSelectLocale()
+            throws Exception
+    {
+        try (
+                QueryRunner queryRunner = FakerQueryRunner.builder().setFakerProperties(Map.of("faker.locale", "pl-PL")).build();
+                H2QueryRunner h2QueryRunner = new H2QueryRunner();
+                TestTable table = new TestTable(queryRunner::execute, "locale",
+                        """
+                        (
+                            name VARCHAR NOT NULL WITH (generator = '#{Name.first_name} #{Name.last_name}'),
+                            age_years INTEGER NOT NULL
+                        )
+                        """)) {
+            QueryAssertions.assertQuery(
+                    queryRunner,
+                    getSession(),
+                    "SELECT name FROM " + table.getName() + " LIMIT 1",
+                    h2QueryRunner,
+                    "VALUES ('Eugeniusz Szczepanik')",
+                    false,
+                    false);
         }
     }
 
