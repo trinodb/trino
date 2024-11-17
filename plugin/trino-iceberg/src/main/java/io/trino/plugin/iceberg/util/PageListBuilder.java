@@ -22,6 +22,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 
@@ -89,6 +90,11 @@ public final class PageListBuilder
     public void appendNull()
     {
         nextColumn().appendNull();
+    }
+
+    public void appendBoolean(boolean value)
+    {
+        BooleanType.BOOLEAN.writeBoolean(nextColumn(), value);
     }
 
     public void appendInteger(int value)
