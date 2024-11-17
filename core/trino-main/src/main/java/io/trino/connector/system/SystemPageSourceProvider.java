@@ -115,12 +115,19 @@ public class SystemPageSourceProvider
                             systemTable,
                             session,
                             newConstraint,
-                            requiredColumns.build()),
+                            requiredColumns.build(),
+                            systemSplit),
                     userToSystemFieldIndex.build()));
         }
     }
 
-    private static RecordSet toRecordSet(ConnectorTransactionHandle sourceTransaction, SystemTable table, ConnectorSession session, TupleDomain<Integer> constraint, Set<Integer> requiredColumns)
+    private static RecordSet toRecordSet(
+            ConnectorTransactionHandle sourceTransaction,
+            SystemTable table,
+            ConnectorSession session,
+            TupleDomain<Integer> constraint,
+            Set<Integer> requiredColumns,
+            ConnectorSplit split)
     {
         return new RecordSet()
         {
@@ -137,7 +144,7 @@ public class SystemPageSourceProvider
             @Override
             public RecordCursor cursor()
             {
-                return table.cursor(sourceTransaction, session, constraint, requiredColumns);
+                return table.cursor(sourceTransaction, session, constraint, requiredColumns, split);
             }
         };
     }
