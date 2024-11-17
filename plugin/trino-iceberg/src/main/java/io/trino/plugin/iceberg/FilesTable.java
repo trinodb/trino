@@ -123,7 +123,7 @@ public class FilesTable
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
-        List<PartitionField> partitionFields = PartitionTable.getAllPartitionFields(icebergTable);
+        List<PartitionField> partitionFields = PartitionsTable.getAllPartitionFields(icebergTable);
         partitionColumnType = getPartitionColumnType(partitionFields, icebergTable.schema(), typeManager);
         idToPrimitiveTypeMapping = IcebergUtil.primitiveFieldTypes(icebergTable.schema());
         primitiveFields = IcebergUtil.primitiveFields(icebergTable.schema()).stream()
@@ -194,7 +194,7 @@ public class FilesTable
                 columnNameToPosition,
                 typeManager,
                 partitionColumnType,
-                PartitionTable.getAllPartitionFields(icebergTable),
+                PartitionsTable.getAllPartitionFields(icebergTable),
                 idToPrimitiveTypeMapping);
         return planFilesIterable.cursor();
     }

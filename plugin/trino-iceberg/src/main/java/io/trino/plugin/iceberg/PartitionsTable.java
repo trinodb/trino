@@ -61,7 +61,7 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
-public class PartitionTable
+public class PartitionsTable
         implements SystemTable
 {
     private final TypeManager typeManager;
@@ -76,7 +76,7 @@ public class PartitionTable
     private final List<io.trino.spi.type.Type> resultTypes;
     private final ConnectorTableMetadata connectorTableMetadata;
 
-    public PartitionTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
+    public PartitionsTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
