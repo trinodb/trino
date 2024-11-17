@@ -214,31 +214,31 @@ final class TestFakerQueries
                     "VALUES (5)");
 
             assertQuery("""
-                            SELECT count(rnd_bigint)
-                            FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), 2 * MAX_ROWS_PER_SPLIT),
+                        SELECT count(rnd_bigint)
+                        FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), 2 * MAX_ROWS_PER_SPLIT),
                     "VALUES (%d)".formatted(2 * MAX_ROWS_PER_SPLIT));
 
             assertQuery("SELECT count(distinct rnd_bigint) FROM %s LIMIT 5".formatted(table.getName()),
                     "VALUES (1000)");
 
             assertQuery("""
-                            SELECT count(rnd_bigint)
-                            FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), MAX_ROWS_PER_SPLIT),
+                        SELECT count(rnd_bigint)
+                        FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), MAX_ROWS_PER_SPLIT),
                     "VALUES (%d)".formatted(MAX_ROWS_PER_SPLIT));
 
             // generating data should be deterministic
             String testQuery = """
-                    SELECT to_hex(checksum(rnd_bigint))
-                    FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), 3 * MAX_ROWS_PER_SPLIT);
+                               SELECT to_hex(checksum(rnd_bigint))
+                               FROM (SELECT rnd_bigint FROM %s LIMIT %d) a""".formatted(table.getName(), 3 * MAX_ROWS_PER_SPLIT);
             assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
             assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
             assertQuery(testQuery, "VALUES ('1FB3289AC3A44EEA')");
 
             // there should be no overlap between data generated from different splits
             assertQuery("""
-                            SELECT count(1)
-                            FROM (SELECT rnd_bigint FROM %s LIMIT %d) a
-                            JOIN (SELECT rnd_bigint FROM %s LIMIT %d) b ON a.rnd_bigint = b.rnd_bigint""".formatted(table.getName(), 2 * MAX_ROWS_PER_SPLIT, table.getName(), 5 * MAX_ROWS_PER_SPLIT),
+                        SELECT count(1)
+                        FROM (SELECT rnd_bigint FROM %s LIMIT %d) a
+                        JOIN (SELECT rnd_bigint FROM %s LIMIT %d) b ON a.rnd_bigint = b.rnd_bigint""".formatted(table.getName(), 2 * MAX_ROWS_PER_SPLIT, table.getName(), 5 * MAX_ROWS_PER_SPLIT),
                     "VALUES (%d)".formatted(2 * MAX_ROWS_PER_SPLIT));
         }
     }
@@ -262,12 +262,13 @@ final class TestFakerQueries
     @Test
     void testSelectGenerator()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "generators", """
-            (
-                name VARCHAR NOT NULL WITH (generator = '#{Name.first_name} #{Name.last_name}'),
-                age_years INTEGER NOT NULL
-            )
-            """)) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "generators",
+                """
+                (
+                    name VARCHAR NOT NULL WITH (generator = '#{Name.first_name} #{Name.last_name}'),
+                    age_years INTEGER NOT NULL
+                )
+                """)) {
             assertQuery("SELECT count(name) FILTER (WHERE LENGTH(name) - LENGTH(REPLACE(name, ' ', '')) = 1) FROM " + table.getName(), "VALUES (1000)");
         }
     }
