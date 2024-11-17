@@ -116,6 +116,7 @@ public class FakerMetadata
     private final List<SchemaInfo> schemas = new ArrayList<>();
     private final double nullProbability;
     private final long defaultLimit;
+    private final double sequenceMinDistinctValuesRatio;
     private final long maxDictionarySize;
     private final FakerFunctionProvider functionsProvider;
     private final CatalogName catalogName;
@@ -134,6 +135,7 @@ public class FakerMetadata
         this.schemas.add(new SchemaInfo(SCHEMA_NAME, Map.of()));
         this.nullProbability = config.getNullProbability();
         this.defaultLimit = config.getDefaultLimit();
+        this.sequenceMinDistinctValuesRatio = config.getSequenceMinDistinctValuesRatio();
         this.maxDictionarySize = config.getMaxDictionarySize();
         this.functionsProvider = requireNonNull(functionProvider, "functionProvider is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
@@ -496,6 +498,9 @@ public class FakerMetadata
         if (minimums.isEmpty()) {
             return;
         }
+        SchemaInfo schema = getSchema(tableName.getSchemaName());
+        double schemaMinSequenceRatio = (double) schema.properties().getOrDefault(SchemaInfo.SEQUENCE_MIN_DISTINCT_VALUES_RATIO, sequenceMinDistinctValuesRatio);
+        double tableMinSequenceRatio = (double) info.properties().getOrDefault(TableInfo.SEQUENCE_MIN_DISTINCT_VALUES_RATIO, schemaMinSequenceRatio);
         List<String> viewColumns = columns.stream()
                 .filter(column -> !ROW_ID_COLUMN_NAME.equals(column.name()))
                 .map(column -> {
@@ -505,7 +510,7 @@ public class FakerMetadata
                         return quoted(name);
                     }
                     // distinct values is an approximation
-                    if ((double) distinctValues.get(name) / rowCount.get() < 0.98) {
+                    if ((double) distinctValues.get(name) / rowCount.get() <= tableMinSequenceRatio) {
                         return quoted(name);
                     }
                     if (!minimums.containsKey(name)) {

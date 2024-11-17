@@ -23,6 +23,7 @@ public class FakerConfig
 {
     private double nullProbability = 0.5;
     private long defaultLimit = 1000L;
+    private double sequenceMinDistinctValuesRatio = 0.98;
     private long maxDictionarySize = 1000L;
 
     @Max(1)
@@ -51,6 +52,24 @@ public class FakerConfig
     public FakerConfig setDefaultLimit(long value)
     {
         this.defaultLimit = value;
+        return this;
+    }
+
+    @Max(2)
+    @Min(0)
+    public double getSequenceMinDistinctValuesRatio()
+    {
+        return sequenceMinDistinctValuesRatio;
+    }
+
+    @Config("faker.sequence-min-distinct-values-ratio")
+    @ConfigDescription(
+            """
+            Minimum ratio of distinct values of a column to total number of rows in a table to treat the columns as a sequence
+            when creating a table using existing data. Set to a value greater than 1 to disable using sequences""")
+    public FakerConfig setSequenceMinDistinctValuesRatio(double value)
+    {
+        this.sequenceMinDistinctValuesRatio = value;
         return this;
     }
 

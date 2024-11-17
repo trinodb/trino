@@ -119,6 +119,17 @@ public class FakerConnector
                         null,
                         defaultLimit -> checkProperty(1 <= defaultLimit, INVALID_SCHEMA_PROPERTY, "default_limit value must be equal or greater than 1"),
                         false),
+                doubleProperty(
+                        SchemaInfo.SEQUENCE_MIN_DISTINCT_VALUES_RATIO,
+                        """
+                                Minimum ratio of distinct values of a column to total number of rows in a table to treat the columns as a sequence
+                                when creating a table in this schema using existing data. Set to a value greater than 1 to disable using sequences""",
+                        null,
+                        sequenceMinDistinctValuesRatio -> checkProperty(
+                                0 <= sequenceMinDistinctValuesRatio && sequenceMinDistinctValuesRatio <= 2,
+                                INVALID_SCHEMA_PROPERTY,
+                                SchemaInfo.SEQUENCE_MIN_DISTINCT_VALUES_RATIO + " value must be between 0 and 2, inclusive"),
+                        false),
                 longProperty(
                         SchemaInfo.MAX_DICTIONARY_SIZE,
                         """
@@ -144,6 +155,17 @@ public class FakerConnector
                         "Default limit of rows returned from this table if not specified in the query",
                         null,
                         defaultLimit -> checkProperty(1 <= defaultLimit, INVALID_TABLE_PROPERTY, "default_limit value must be equal or greater than 1"),
+                        false),
+                doubleProperty(
+                        TableInfo.SEQUENCE_MIN_DISTINCT_VALUES_RATIO,
+                        """
+                                Minimum ratio of distinct values of a column to total number of rows in a table to treat the columns as a sequence
+                                when creating a table using existing data. Set to a value greater than 1 to disable using sequences""",
+                        null,
+                        sequenceMinDistinctValuesRatio -> checkProperty(
+                                0 <= sequenceMinDistinctValuesRatio && sequenceMinDistinctValuesRatio <= 2,
+                                INVALID_TABLE_PROPERTY,
+                                TableInfo.SEQUENCE_MIN_DISTINCT_VALUES_RATIO + " value must be between 0 and 2, inclusive"),
                         false),
                 longProperty(
                         TableInfo.MAX_DICTIONARY_SIZE,
