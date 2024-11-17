@@ -10,8 +10,9 @@ myst:
 <img src="../_static/img/vertica.png" class="connector-logo">
 ```
 
-The Vertica connector allows querying a [Vertica](https://www.vertica.com/)
-database as an external data source.
+The Vertica connector allows querying a [Vertica database, also known as OpenText
+Analytics Database](https://www.opentext.com/products/analytics-database), as an
+external data source.
 
 ## Requirements
 
