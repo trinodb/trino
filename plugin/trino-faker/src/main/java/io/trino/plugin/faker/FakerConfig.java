@@ -19,10 +19,13 @@ import io.airlift.configuration.ConfigDescription;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
+import java.util.Locale;
+
 public class FakerConfig
 {
     private double nullProbability = 0.5;
     private long defaultLimit = 1000L;
+    private Locale locale = Locale.ENGLISH;
 
     @Max(1)
     @Min(0)
@@ -50,6 +53,19 @@ public class FakerConfig
     public FakerConfig setDefaultLimit(long value)
     {
         this.defaultLimit = value;
+        return this;
+    }
+
+    public Locale getLocale()
+    {
+        return locale;
+    }
+
+    @Config("faker.locale")
+    @ConfigDescription("Default locale for generating character based data, specified as a IETF BCP 47 language tag string")
+    public FakerConfig setLocale(String value)
+    {
+        this.locale = new Locale.Builder().setLanguageTag(value).build();
         return this;
     }
 }
