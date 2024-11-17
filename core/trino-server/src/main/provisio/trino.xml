@@ -201,6 +201,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/lancedb">
+        <artifact id="${project.groupId}:trino-lancedb:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/mariadb">
         <artifact id="${project.groupId}:trino-mariadb:zip:${project.version}">
             <unpack />
