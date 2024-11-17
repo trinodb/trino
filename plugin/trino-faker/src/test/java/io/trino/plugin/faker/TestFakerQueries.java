@@ -495,14 +495,14 @@ final class TestFakerQueries
 
         for (TestDataType testCase : testCases) {
             try (TestTable sourceTable = new TestTable(getQueryRunner()::execute, "ctas_src_" + testCase.name(), "(%s) WITH (null_probability = 0, default_limit = 1000)".formatted(testCase.columnSchema()));
-                    TestTable table = new TestTable(getQueryRunner()::execute, "ctas_" + testCase.name(), "WITH (null_probability = 0, default_limit = 1000, max_dictionary_size = 0) AS SELECT %s FROM %s".formatted(testCase.name(), sourceTable.getName()))) {
+                    TestTable table = new TestTable(getQueryRunner()::execute, "ctas_" + testCase.name(), "WITH (null_probability = 0, default_limit = 1000, max_dictionary_size = 0, sequence_min_distinct_values_ratio = 2) AS SELECT %s FROM %s".formatted(testCase.name(), sourceTable.getName()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
 
         for (TestDataType testCase : testCases) {
             try (TestTable sourceTable = new TestTable(getQueryRunner()::execute, "ctas_src_" + testCase.name(), "(%s) WITH (null_probability = 0, default_limit = 2)".formatted(testCase.name() + " " + testCase.type()));
-                    TestTable table = new TestTable(getQueryRunner()::execute, "ctas_" + testCase.name(), "WITH (null_probability = 0, default_limit = 1000, max_dictionary_size = 2) AS SELECT %s FROM %s".formatted(testCase.name(), sourceTable.getName()))) {
+                    TestTable table = new TestTable(getQueryRunner()::execute, "ctas_" + testCase.name(), "WITH (null_probability = 0, default_limit = 1000, max_dictionary_size = 2, sequence_min_distinct_values_ratio = 2) AS SELECT %s FROM %s".formatted(testCase.name(), sourceTable.getName()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }

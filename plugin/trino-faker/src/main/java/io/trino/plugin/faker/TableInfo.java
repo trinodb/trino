@@ -27,6 +27,7 @@ public record TableInfo(List<ColumnInfo> columns, Map<String, Object> properties
 {
     public static final String NULL_PROBABILITY_PROPERTY = "null_probability";
     public static final String DEFAULT_LIMIT_PROPERTY = "default_limit";
+    public static final String SEQUENCE_MIN_DISTINCT_VALUES_RATIO = "sequence_min_distinct_values_ratio";
     public static final String MAX_DICTIONARY_SIZE = "max_dictionary_size";
 
     public TableInfo
