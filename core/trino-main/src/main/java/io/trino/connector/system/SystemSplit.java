@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
@@ -24,11 +25,13 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -39,21 +42,24 @@ public class SystemSplit
 
     private final List<HostAddress> addresses;
     private final TupleDomain<ColumnHandle> constraint;
+    private final Optional<String> catalogName;
 
-    public SystemSplit(HostAddress address, TupleDomain<ColumnHandle> constraint)
+    public SystemSplit(HostAddress address, TupleDomain<ColumnHandle> constraint, Optional<String> catalogName)
     {
-        this(ImmutableList.of(requireNonNull(address, "address is null")), constraint);
+        this(ImmutableList.of(requireNonNull(address, "address is null")), constraint, catalogName);
     }
 
     @JsonCreator
     public SystemSplit(
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("catalogName") Optional<String> catalogName)
     {
         requireNonNull(addresses, "addresses is null");
         checkArgument(!addresses.isEmpty(), "addresses is empty");
         this.addresses = ImmutableList.copyOf(addresses);
         this.constraint = requireNonNull(constraint, "constraint is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     @Override
@@ -75,6 +81,12 @@ public class SystemSplit
         return constraint;
     }
 
+    @JsonProperty
+    public Optional<String> getCatalogName()
+    {
+        return catalogName;
+    }
+
     @Override
     public Map<String, String> getSplitInfo()
     {
@@ -86,7 +98,8 @@ public class SystemSplit
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
-                + constraint.getRetainedSizeInBytes(columnHandle -> ((SystemColumnHandle) columnHandle).getRetainedSizeInBytes());
+                + constraint.getRetainedSizeInBytes(columnHandle -> ((SystemColumnHandle) columnHandle).getRetainedSizeInBytes())
+                + sizeOf(catalogName, SizeOf::estimatedSizeOf);
     }
 
     @Override

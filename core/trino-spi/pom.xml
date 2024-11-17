@@ -212,6 +212,11 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.connector.RecordCursor io.trino.spi.connector.SystemTable::cursor(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.predicate.TupleDomain&lt;java.lang.Integer&gt;, java.util.Set&lt;java.lang.Integer&gt;)</old>
+                                    <new>method io.trino.spi.connector.RecordCursor io.trino.spi.connector.SystemTable::cursor(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.predicate.TupleDomain&lt;java.lang.Integer&gt;, java.util.Set&lt;java.lang.Integer&gt;, io.trino.spi.connector.ConnectorSplit)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
