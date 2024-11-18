@@ -91,7 +91,7 @@ public class TestAdaptivePlanner
                         new PlanFragmentId("1"), createRuntimeStats(ImmutableLongArray.of(10000L, 10000L, 10000L), 10000),
                         new PlanFragmentId("2"), createRuntimeStats(ImmutableLongArray.of(200L, 2000L, 1000L), 500)),
                 matcher,
-                false);
+                true);
     }
 
     @Test
@@ -162,7 +162,7 @@ public class TestAdaptivePlanner
                         new PlanFragmentId("3"), createRuntimeStats(ImmutableLongArray.of(10000L, 10000L, 10000L), 10000),
                         new PlanFragmentId("2"), createRuntimeStats(ImmutableLongArray.of(200L, 2000L, 1000L), 500)),
                 matcher,
-                false);
+                true);
     }
 
     @Test
@@ -273,7 +273,7 @@ public class TestAdaptivePlanner
                         // Since the runtime stats are accurate, adaptivePlanner will not change this subplan
                         new PlanFragmentId("0"), createRuntimeStats(ImmutableLongArray.of(10000L, 10000L, 10000L), 10000)),
                 matcher,
-                false);
+                true);
     }
 
     @Test
@@ -342,7 +342,7 @@ public class TestAdaptivePlanner
                         new PlanFragmentId("4"), createRuntimeStats(ImmutableLongArray.of(10000L, 10000L, 10000L), 10000),
                         new PlanFragmentId("2"), createRuntimeStats(ImmutableLongArray.of(200L, 2000L, 1000L), 500)),
                 matcher,
-                false);
+                true);
     }
 
     @Test
@@ -400,7 +400,7 @@ public class TestAdaptivePlanner
                                         .fragmentId(2)
                                         .planPattern(node(ProjectNode.class, node(TableScanNode.class)))))
                         .build(),
-                false);
+                true);
     }
 
     private OutputStatsEstimateResult createRuntimeStats(ImmutableLongArray partitionDataSizes, long outputRowCountEstimate)
