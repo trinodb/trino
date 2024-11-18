@@ -225,6 +225,11 @@ public abstract class BaseHiveConnectorTest
                 // Make weighted split scheduling more conservative to avoid OOMs in test
                 .addHiveProperty("hive.minimum-assigned-split-weight", "0.5")
                 .addHiveProperty("hive.partition-projection-enabled", "true")
+                // This is needed for Ion native trino support as the implementation is in progress and can be
+                // backwards incompatible. It requires explicitly opting to use this feature.
+                // TODO: In future this property should change to `true` as default and then the following statement can
+                //  be removed.
+                .addHiveProperty("hive.ion.nativetrino", "true")
                 // This is needed for e2e scale writers test otherwise 50% threshold of
                 // bufferSize won't get exceeded for scaling to happen.
                 .addExtraProperty("task.max-local-exchange-buffer-size", "32MB")
