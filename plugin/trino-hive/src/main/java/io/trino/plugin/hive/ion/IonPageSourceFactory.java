@@ -28,6 +28,7 @@ import io.trino.hive.formats.ion.IonDecoderFactory;
 import io.trino.hive.formats.line.Column;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
@@ -57,11 +58,14 @@ public class IonPageSourceFactory
         implements HivePageSourceFactory
 {
     private final TrinoFileSystemFactory trinoFileSystemFactory;
+    // this is used as a feature flag to enable Ion native trino integration
+    private final boolean nativeTrinoEnabled;
 
     @Inject
-    public IonPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory)
+    public IonPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, HiveConfig hiveConfig)
     {
         this.trinoFileSystemFactory = trinoFileSystemFactory;
+        this.nativeTrinoEnabled = hiveConfig.getIonNativeTrinoEnabled();
     }
 
     @Override
@@ -80,6 +84,11 @@ public class IonPageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
+        if (!this.nativeTrinoEnabled) {
+            // this allows user to defer to a legacy hive implementation(like ion-hive-serde) or throw an error based
+            // on their use case
+            return Optional.empty();
+        }
         if (!ION_SERDE_CLASS.equals(schema.serializationLibraryName())) {
             return Optional.empty();
         }
