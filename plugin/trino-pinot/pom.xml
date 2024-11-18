@@ -158,6 +158,10 @@
             <version>${dep.pinot.version}</version>
             <exclusions>
                 <exclusion>
+                    <groupId>jakarta.activation</groupId>
+                    <artifactId>jakarta.activation-api</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>jakarta.servlet</groupId>
                     <artifactId>jakarta.servlet-api</artifactId>
                 </exclusion>
