@@ -1141,6 +1141,8 @@ public class LocalExecutionPlanner
                     sortKeyChannelForEndComparison = Optional.of(source.getLayout().get(frame.getSortKeyCoercedForFrameEndComparison().get()));
                 }
                 if (node.getOrderingScheme().isPresent()) {
+                    // the following fields are only used for frame type RANGE
+                    // in such case, there is a single sort channel
                     sortKeyChannel = Optional.of(sortChannels.get(0));
                     ordering = Optional.of(sortOrder.get(0).isAscending() ? ASCENDING : DESCENDING);
                 }
