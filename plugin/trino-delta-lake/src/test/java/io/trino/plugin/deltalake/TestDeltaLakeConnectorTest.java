@@ -1517,6 +1517,35 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    void testCreateTableWithColumnMappingModeAndTimestampNtz()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_column_mapping", "(x int) WITH (column_mapping_mode = 'NAME')")) {
+            assertThat(query("SELECT * FROM \"" + table.getName() + "$properties\""))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "('delta.enableDeletionVectors', 'false')," +
+                            "('delta.columnMapping.mode', 'name')," +
+                            "('delta.columnMapping.maxColumnId', '1')," +
+                            "('delta.minReaderVersion', '2')," +
+                            "('delta.minWriterVersion', '5')");
+        }
+
+        // timestamp type requires reader version 3 and writer version 7
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_column_mapping", "(x timestamp) WITH (column_mapping_mode = 'NAME')")) {
+            assertThat(query("SELECT * FROM \"" + table.getName() + "$properties\""))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "('delta.enableDeletionVectors', 'false')," +
+                            "('delta.columnMapping.mode', 'name')," +
+                            "('delta.columnMapping.maxColumnId', '1')," +
+                            "('delta.minReaderVersion', '3')," +
+                            "('delta.minWriterVersion', '7')," +
+                            "('delta.feature.columnMapping', 'supported')," +
+                            "('delta.feature.timestampNtz', 'supported')");
+        }
+    }
+
+    @Test
     public void testDropAndAddColumnShowStatsForColumnMappingMode()
     {
         testDropAndAddColumnShowStatsForColumnMappingMode(ColumnMappingMode.ID);
