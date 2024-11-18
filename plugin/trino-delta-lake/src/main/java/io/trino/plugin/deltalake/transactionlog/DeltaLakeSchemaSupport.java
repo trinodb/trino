@@ -110,7 +110,7 @@ public final class DeltaLakeSchemaSupport
     private static final String APPEND_ONLY_FEATURE_NAME = "appendOnly";
     public static final String CHANGE_DATA_FEED_FEATURE_NAME = "changeDataFeed";
     private static final String CHECK_CONSTRAINTS_FEATURE_NAME = "checkConstraints";
-    private static final String COLUMN_MAPPING_FEATURE_NAME = "columnMapping";
+    public static final String COLUMN_MAPPING_FEATURE_NAME = "columnMapping";
     public static final String DELETION_VECTORS_FEATURE_NAME = "deletionVectors";
     private static final String ICEBERG_COMPATIBILITY_V1_FEATURE_NAME = "icebergCompatV1";
     private static final String ICEBERG_COMPATIBILITY_V2_FEATURE_NAME = "icebergCompatV2";
