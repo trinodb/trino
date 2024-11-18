@@ -4115,7 +4115,15 @@ public class TestArrayOperators
                 .hasType(new ArrayType(INTEGER))
                 .isEqualTo(ImmutableList.of(1, 1, 1, 1, 1));
 
+        assertThat(assertions.function("repeat", "1", "BIGINT '5'"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of(1, 1, 1, 1, 1));
+
         assertThat(assertions.function("repeat", "'varchar'", "3"))
+                .hasType(new ArrayType(createVarcharType(7)))
+                .isEqualTo(ImmutableList.of("varchar", "varchar", "varchar"));
+
+        assertThat(assertions.function("repeat", "'varchar'", "BIGINT '3'"))
                 .hasType(new ArrayType(createVarcharType(7)))
                 .isEqualTo(ImmutableList.of("varchar", "varchar", "varchar"));
 
@@ -4123,13 +4131,29 @@ public class TestArrayOperators
                 .hasType(new ArrayType(BOOLEAN))
                 .isEqualTo(ImmutableList.of(true));
 
+        assertThat(assertions.function("repeat", "true", "BIGINT '1'"))
+                .hasType(new ArrayType(BOOLEAN))
+                .isEqualTo(ImmutableList.of(true));
+
         assertThat(assertions.function("repeat", "0.5E0", "4"))
+                .hasType(new ArrayType(DOUBLE))
+                .isEqualTo(ImmutableList.of(0.5, 0.5, 0.5, 0.5));
+
+        assertThat(assertions.function("repeat", "0.5E0", "BIGINT '4'"))
                 .hasType(new ArrayType(DOUBLE))
                 .isEqualTo(ImmutableList.of(0.5, 0.5, 0.5, 0.5));
 
         assertThat(assertions.function("repeat", "array[1]", "4"))
                 .hasType(new ArrayType(new ArrayType(INTEGER)))
                 .isEqualTo(ImmutableList.of(ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1)));
+
+        assertThat(assertions.function("repeat", "array[1]", "BIGINT '4'"))
+                .hasType(new ArrayType(new ArrayType(INTEGER)))
+                .isEqualTo(ImmutableList.of(ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1)));
+
+        assertThat(assertions.function("repeat", "array[NULL]", "BIGINT '4'"))
+                .hasType(new ArrayType(new ArrayType(UNKNOWN)))
+                .isEqualTo(ImmutableList.of(singletonList(null), singletonList(null), singletonList(null), singletonList(null)));
 
         // null values
         assertThat(assertions.function("repeat", "null", "4"))
