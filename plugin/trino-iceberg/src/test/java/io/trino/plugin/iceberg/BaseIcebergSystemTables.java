@@ -15,13 +15,19 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.HiveMetastore;
 import io.trino.spi.type.ArrayType;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileContent;
+import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.Table;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -37,9 +43,12 @@ import java.util.function.Function;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -49,6 +58,8 @@ public abstract class BaseIcebergSystemTables
         extends AbstractTestQueryFramework
 {
     private final IcebergFileFormat format;
+    private HiveMetastore metastore;
+    private TrinoFileSystemFactory fileSystemFactory;
 
     protected BaseIcebergSystemTables(IcebergFileFormat format)
     {
@@ -59,9 +70,12 @@ public abstract class BaseIcebergSystemTables
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.builder()
+        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.of("iceberg.file-format", format.name()))
                 .build();
+        metastore = getHiveMetastore(queryRunner);
+        fileSystemFactory = getFileSystemFactory(queryRunner);
+        return queryRunner;
     }
 
     @BeforeAll
@@ -549,6 +563,85 @@ public abstract class BaseIcebergSystemTables
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_with_delete");
     }
 
+    @Test
+    void testEntriesTable()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_entries", "AS SELECT 1 id, DATE '2014-01-01' dt")) {
+            assertQuery("SHOW COLUMNS FROM \"" + table.getName() + "$entries\"",
+                    "VALUES ('status', 'integer', '', '')," +
+                            "('snapshot_id', 'bigint', '', '')," +
+                            "('sequence_number', 'bigint', '', '')," +
+                            "('file_sequence_number', 'bigint', '', '')," +
+                            "('data_file', 'row(content integer, file_path varchar, file_format varchar, spec_id integer, record_count bigint, file_size_in_bytes bigint, " +
+                            "column_sizes map(integer, bigint), value_counts map(integer, bigint), null_value_counts map(integer, bigint), nan_value_counts map(integer, bigint), " +
+                            "lower_bounds map(integer, varchar), upper_bounds map(integer, varchar), key_metadata varbinary, split_offsets array(bigint), " +
+                            "equality_ids array(integer), sort_order_id integer)', '', '')," +
+                            "('readable_metrics', 'json', '', '')");
+
+            Table icebergTable = loadTable(table.getName());
+            Snapshot snapshot = icebergTable.currentSnapshot();
+            long snapshotId = snapshot.snapshotId();
+            long sequenceNumber = snapshot.sequenceNumber();
+
+            assertThat(computeScalar("SELECT status FROM \"" + table.getName() + "$entries\""))
+                    .isEqualTo(1);
+            assertThat(computeScalar("SELECT snapshot_id FROM \"" + table.getName() + "$entries\""))
+                    .isEqualTo(snapshotId);
+            assertThat(computeScalar("SELECT sequence_number FROM \"" + table.getName() + "$entries\""))
+                    .isEqualTo(sequenceNumber);
+            assertThat(computeScalar("SELECT file_sequence_number FROM \"" + table.getName() + "$entries\""))
+                    .isEqualTo(1L);
+
+            MaterializedRow dataFile = (MaterializedRow) computeScalar("SELECT data_file FROM \"" + table.getName() + "$entries\"");
+            assertThat(dataFile.getFieldCount()).isEqualTo(16);
+            assertThat(dataFile.getField(0)).isEqualTo(0); // content
+            assertThat((String) dataFile.getField(1)).endsWith(format.toString().toLowerCase(ENGLISH)); // file_path
+            assertThat(dataFile.getField(2)).isEqualTo(format.toString()); // file_format
+            assertThat(dataFile.getField(3)).isEqualTo(0); // spec_id
+            assertThat(dataFile.getField(4)).isEqualTo(1L); // record_count
+            assertThat((long) dataFile.getField(5)).isPositive(); // file_size_in_bytes
+            assertThat(dataFile.getField(6)).isEqualTo(value(Map.of(1, 36L, 2, 36L), null)); // column_sizes
+            assertThat(dataFile.getField(7)).isEqualTo(Map.of(1, 1L, 2, 1L)); // value_counts
+            assertThat(dataFile.getField(8)).isEqualTo(Map.of(1, 0L, 2, 0L)); // null_value_counts
+            assertThat(dataFile.getField(9)).isEqualTo(value(Map.of(), null)); // nan_value_counts
+            assertThat(dataFile.getField(10)).isEqualTo(Map.of(1, "1", 2, "2014-01-01")); // lower_bounds
+            assertThat(dataFile.getField(11)).isEqualTo(Map.of(1, "1", 2, "2014-01-01")); // upper_bounds
+            assertThat(dataFile.getField(12)).isNull(); // key_metadata
+            assertThat(dataFile.getField(13)).isEqualTo(List.of(value(4L, 3L))); // split_offsets
+            assertThat(dataFile.getField(14)).isNull(); // equality_ids
+            assertThat(dataFile.getField(15)).isEqualTo(0); // sort_order_id
+
+            assertThat(computeScalar("SELECT readable_metrics FROM \"" + table.getName() + "$entries\""))
+                    .isEqualTo("{" +
+                            "\"dt\":{\"column_size\":" + value(36, null) + ",\"value_count\":1,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":\"2014-01-01\",\"upper_bound\":\"2014-01-01\"}," +
+                            "\"id\":{\"column_size\":" + value(36, null) + ",\"value_count\":1,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":1,\"upper_bound\":1}" +
+                            "}");
+        }
+    }
+
+    @Test
+    void testEntriesPartitionTable()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_entries_partition",
+                "WITH (partitioning = ARRAY['dt']) AS SELECT 1 id, DATE '2014-01-01' dt")) {
+            assertQuery("SHOW COLUMNS FROM \"" + table.getName() + "$entries\"",
+                    "VALUES ('status', 'integer', '', '')," +
+                            "('snapshot_id', 'bigint', '', '')," +
+                            "('sequence_number', 'bigint', '', '')," +
+                            "('file_sequence_number', 'bigint', '', '')," +
+                            "('data_file', 'row(content integer, file_path varchar, file_format varchar, spec_id integer, partition row(dt date), record_count bigint, file_size_in_bytes bigint, " +
+                            "column_sizes map(integer, bigint), value_counts map(integer, bigint), null_value_counts map(integer, bigint), nan_value_counts map(integer, bigint), " +
+                            "lower_bounds map(integer, varchar), upper_bounds map(integer, varchar), key_metadata varbinary, split_offsets array(bigint), " +
+                            "equality_ids array(integer), sort_order_id integer)', '', '')," +
+                            "('readable_metrics', 'json', '', '')");
+
+            assertThat(query("SELECT data_file.partition FROM \"" + table.getName() + "$entries\""))
+                    .matches("SELECT CAST(ROW(DATE '2014-01-01') AS ROW(dt date))");
+        }
+    }
+
     private Long nanCount(long value)
     {
         // Parquet does not have nan count metrics
@@ -564,5 +657,10 @@ public abstract class BaseIcebergSystemTables
     private Object value(Object parquet, Object orc)
     {
         return format == PARQUET ? parquet : orc;
+    }
+
+    private BaseTable loadTable(String tableName)
+    {
+        return IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, "hive", "tpch");
     }
 }
