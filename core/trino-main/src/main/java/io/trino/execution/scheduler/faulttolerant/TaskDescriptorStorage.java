@@ -392,23 +392,24 @@ public class TaskDescriptorStorage
                 reservedUncompressedBytes,
                 TaskDescriptors::getReservedUncompressedBytes,
                 TaskDescriptors::getStagesReservedUncompressedBytes);
-        StorageStatsValue originalCompressedStats = getStorageStatsValue(
-                queriesCount,
-                stagesCount,
-                originalCompressedBytes,
-                TaskDescriptors::getOriginalCompressedBytes,
-                TaskDescriptors::getStagesOriginalCompressedBytes);
         StorageStatsValue compressedReservedStats = getStorageStatsValue(
                 queriesCount,
                 stagesCount,
                 reservedCompressedBytes,
                 TaskDescriptors::getReservedCompressedBytes,
                 TaskDescriptors::getStagesReservedCompressedBytes);
+        StorageStatsValue originalCompressedStats = getStorageStatsValue(
+                queriesCount,
+                stagesCount,
+                originalCompressedBytes,
+                TaskDescriptors::getOriginalCompressedBytes,
+                TaskDescriptors::getStagesOriginalCompressedBytes);
         return new StorageStatsValues(
                 queriesCount,
                 stagesCount,
                 uncompressedReservedStats,
-                compressedReservedStats, originalCompressedStats);
+                compressedReservedStats,
+                originalCompressedStats);
     }
 
     @GuardedBy("this")
