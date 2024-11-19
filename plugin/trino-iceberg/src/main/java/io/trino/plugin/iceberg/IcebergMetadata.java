@@ -700,6 +700,7 @@ public class IcebergMetadata
             case ALL_MANIFESTS -> Optional.of(new AllManifestsTable(tableName, table, executor));
             case MANIFESTS -> Optional.of(new ManifestsTable(tableName, table, getCurrentSnapshotId(table)));
             case FILES -> Optional.of(new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table), executor));
+            case ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, executor));
             case PROPERTIES -> Optional.of(new PropertiesTable(tableName, table));
             case REFS -> Optional.of(new RefsTable(tableName, table, executor));
         };
