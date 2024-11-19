@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.procedure;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
@@ -42,6 +43,7 @@ import io.trino.spi.connector.SchemaTableName;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionSpec;
@@ -50,6 +52,7 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.avro.Avro;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.types.Types;
@@ -69,6 +72,7 @@ import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveMetadata.extractHiveStorageFormat;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -272,6 +276,18 @@ public final class MigrationUtils
                 .map(Types.NestedField::fieldId)
                 .collect(toImmutableSet());
 
+        ImmutableSet.Builder<String> existingFilesBuilder = ImmutableSet.builder();
+        try (CloseableIterable<FileScanTask> iterator = table.newScan().planFiles()) {
+            for (FileScanTask fileScanTask : iterator) {
+                DataFile dataFile = fileScanTask.file();
+                existingFilesBuilder.add(dataFile.path().toString());
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        Set<String> existingFiles = existingFilesBuilder.build();
+
         if (!requiredFields.isEmpty()) {
             for (DataFile dataFile : dataFiles) {
                 Map<Integer, Long> nullValueCounts = firstNonNull(dataFile.nullValueCounts(), Map.of());
@@ -295,7 +311,12 @@ public final class MigrationUtils
             }
             log.debug("Append data %d data files", dataFiles.size());
             AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
-            dataFiles.forEach(appendFiles::appendFile);
+            for (DataFile dataFile : dataFiles) {
+                if (existingFiles.contains(dataFile.path().toString())) {
+                    throw new TrinoException(ALREADY_EXISTS, "File already exists: " + dataFile.path());
+                }
+                appendFiles.appendFile(dataFile);
+            }
             appendFiles.commit();
             transaction.commitTransaction();
             log.debug("Successfully added files to %s table", table.name());

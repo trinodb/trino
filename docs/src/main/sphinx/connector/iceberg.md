@@ -603,10 +603,6 @@ location, to an existing Iceberg table.
  
 The data files must be the Parquet, ORC, or Avro file format.
 
-:::{warning}
-The procedure does not check if files are already present in the target table.
-:::
-
 The procedure adds the files to the target table, specified after `ALTER TABLE`,
 and loads them from the source table specified with the required parameters
 `schema_name` and `table_name`. The source table must be accessible in the same

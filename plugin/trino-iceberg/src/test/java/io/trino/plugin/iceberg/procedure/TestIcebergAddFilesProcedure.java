@@ -574,7 +574,30 @@ final class TestIcebergAddFilesProcedure
     @Test
     void testAddDuplicatedFiles()
     {
-        // TODO Consider adding 'check_duplicate_files' option like Spark
+        String hiveTableName = "test_add_files_" + randomNameSuffix();
+        String icebergTableName = "test_add_files_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " AS SELECT 1 x", 1);
+        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " AS SELECT 2 x", 1);
+        String path = (String) computeScalar("SELECT \"$path\" FROM hive.tpch." + hiveTableName);
+
+        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'ORC')");
+
+        assertQueryFails(
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'ORC')",
+                ".*File already exists.*");
+        assertQueryFails(
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files(location=>'" + path + "', format=>'ORC')",
+                ".*File already exists.*");
+        assertQuery("SELECT * FROM iceberg.tpch." + icebergTableName, "VALUES 1, 2");
+
+        assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
+        assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
+    }
+
+    @Test
+    void testAddDuplicatedFilesFromTable()
+    {
         String hiveTableName = "test_add_files_" + randomNameSuffix();
         String icebergTableName = "test_add_files_" + randomNameSuffix();
 
@@ -582,9 +605,14 @@ final class TestIcebergAddFilesProcedure
         assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " AS SELECT 2 x", 1);
 
         assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')");
-        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')");
 
-        assertQuery("SELECT * FROM iceberg.tpch." + icebergTableName, "VALUES 1, 2, 1");
+        assertQueryFails(
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')",
+                ".*File already exists.*");
+        assertQueryFails(
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table(schema_name=>'tpch', table_name=>'" + hiveTableName + "')",
+                ".*File already exists.*");
+        assertQuery("SELECT * FROM iceberg.tpch." + icebergTableName, "VALUES 1, 2");
 
         assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
         assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
