@@ -376,10 +376,13 @@ public class DispatchManager
                 });
     }
 
-    public void cancelQuery(QueryId queryId)
+    public boolean cancelQuery(QueryId queryId)
     {
-        queryTracker.tryGetQuery(queryId)
-                .ifPresent(DispatchQuery::cancel);
+        return queryTracker.tryGetQuery(queryId)
+                .map(dispatchQuery -> {
+                    dispatchQuery.cancel();
+                    return true;
+                }).orElse(false);
     }
 
     public void failQuery(QueryId queryId, Throwable cause)
