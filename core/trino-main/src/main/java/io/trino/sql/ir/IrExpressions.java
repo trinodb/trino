@@ -40,6 +40,14 @@ public class IrExpressions
             builtinFunctionName("try_cast"),
             builtinFunctionName("$not"),
             builtinFunctionName("substring"),
+            builtinFunctionName("trim"),
+            builtinFunctionName("ltrim"),
+            builtinFunctionName("rtrim"),
+            builtinFunctionName("replace"),
+            builtinFunctionName("reverse"),
+            builtinFunctionName("lower"),
+            builtinFunctionName("upper"),
+            builtinFunctionName("to_utf8"),
             builtinFunctionName(LIKE_FUNCTION_NAME));
 
     private IrExpressions() {}
