@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>199</version>
+        <version>200</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -2815,6 +2815,7 @@
                             <failOnWarning>false</failOnWarning>
                             <compilerArgs>
                                 <arg>-XDcompilePolicy=simple</arg>
+                                <arg>--should-stop=ifError=FLOW</arg>
                                 <arg>
                                     -Xplugin:ErrorProne \
                                     -Xep:AlmostJavadoc:ERROR \

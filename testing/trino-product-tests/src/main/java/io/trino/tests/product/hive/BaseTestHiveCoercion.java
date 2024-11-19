@@ -1040,10 +1040,6 @@ public abstract class BaseTestHiveCoercion
             assertThatThrownBy(() -> assertQueryResults(Engine.HIVE, subfieldQueryLowerCase, expectedNestedFieldTrino, expectedColumns, 2))
                     .hasMessageContaining("org.apache.hadoop.hive.ql.metadata.HiveException");
         }
-        else if (isFormat.test("parquet")) {
-            assertQueryResults(Engine.HIVE, subfieldQueryUpperCase, expectedNestedFieldHive, expectedColumns, 2);
-            assertQueryResults(Engine.HIVE, subfieldQueryLowerCase, expectedNestedFieldHive, expectedColumns, 2);
-        }
         else {
             assertQueryResults(Engine.HIVE, subfieldQueryUpperCase, expectedNestedFieldHive, expectedColumns, 2);
             assertQueryResults(Engine.HIVE, subfieldQueryLowerCase, expectedNestedFieldHive, expectedColumns, 2);
@@ -1375,8 +1371,6 @@ public abstract class BaseTestHiveCoercion
 
     private static void alterTableColumnTypes(String tableName)
     {
-        String floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "float" : "float";
-
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN row_to_row row_to_row struct<keep:string, ti2si:smallint, si2int:int, int2bi:bigint, bi2vc:string, LOWER2UPPERCASE:bigint>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN list_to_list list_to_list array<struct<ti2int:int, si2bi:bigint, bi2vc:string>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN map_to_map map_to_map map<int,struct<ti2bi:bigint, int2bi:bigint, float2double:double, add:tinyint>>", tableName));
@@ -1415,7 +1409,7 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_string float_to_string string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_bounded_varchar float_to_bounded_varchar varchar(12)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_infinity_to_string float_infinity_to_string string", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_float double_to_float %s", tableName, floatType));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_float double_to_float float", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_string double_to_string string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_bounded_varchar double_to_bounded_varchar varchar(12)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_infinity_to_string double_infinity_to_string string", tableName));
@@ -1435,7 +1429,7 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_bigint shortdecimal_to_bigint BIGINT", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_decimal float_to_decimal DECIMAL(10,5)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_decimal double_to_decimal DECIMAL(10,5)", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_float decimal_to_float %s", tableName, floatType));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_float decimal_to_float float", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_double decimal_to_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN short_decimal_to_varchar short_decimal_to_varchar string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN long_decimal_to_varchar long_decimal_to_varchar string", tableName));
@@ -1455,10 +1449,10 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN date_to_string date_to_string string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN date_to_bounded_varchar date_to_bounded_varchar varchar(12)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_distant_date varchar_to_distant_date date", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_float varchar_to_float %s", tableName, floatType));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_float string_to_float %s", tableName, floatType));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_float_infinity varchar_to_float_infinity %s", tableName, floatType));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_special_float varchar_to_special_float %s", tableName, floatType));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_float varchar_to_float float", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_float string_to_float float", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_float_infinity varchar_to_float_infinity float", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_special_float varchar_to_special_float float", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_double varchar_to_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_double string_to_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_double_infinity varchar_to_double_infinity double", tableName));
