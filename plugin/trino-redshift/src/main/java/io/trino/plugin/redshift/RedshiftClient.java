@@ -667,7 +667,7 @@ public class RedshiftClient
                         RedshiftClient::writeChar));
 
             case Types.VARCHAR: {
-                int length = type.columnSize().orElse(REDSHIFT_MAX_VARCHAR);
+                int length = type.columnSize().orElse(VarcharType.MAX_LENGTH);
                 return Optional.of(varcharColumnMapping(
                         length < VarcharType.MAX_LENGTH
                                 ? createVarcharType(length)

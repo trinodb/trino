@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
-import static io.trino.plugin.redshift.RedshiftClient.REDSHIFT_MAX_VARCHAR;
 import static java.sql.Types.BIGINT;
 import static java.sql.Types.BIT;
 import static java.sql.Types.CHAR;
@@ -79,7 +78,7 @@ public class RewriteCast
             case CharType _ -> CHAR == sourceType.jdbcType();
             // char -> varchar is not supported as Redshift doesn't pad char value with blanks whereas Trino pads char value with blanks.
             // cast to unbounded varchar is unsupported as Redshift doesn't support unbounded varchar
-            case VarcharType varcharType -> VARCHAR == sourceType.jdbcType() && !varcharType.isUnbounded() && varcharType.getBoundedLength() <= REDSHIFT_MAX_VARCHAR;
+            case VarcharType _ -> VARCHAR == sourceType.jdbcType();
             default -> false;
         };
     }
