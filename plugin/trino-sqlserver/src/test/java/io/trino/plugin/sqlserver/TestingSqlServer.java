@@ -63,8 +63,7 @@ public final class TestingSqlServer
             .build();
 
     private static final DockerImageName IMAGE_NAME = DockerImageName.parse("mcr.microsoft.com/mssql/server");
-    public static final String DEFAULT_VERSION = "2017-latest";
-    public static final String LATEST_VERSION = "2019-CU13-ubuntu-20.04";
+    public static final String LATEST_VERSION = "2019-CU28-ubuntu-20.04";
 
     private final MSSQLServerContainer<?> container;
     private final String databaseName;
@@ -72,7 +71,7 @@ public final class TestingSqlServer
 
     public TestingSqlServer()
     {
-        this(DEFAULT_VERSION, DEFAULT_DATABASE_SETUP);
+        this(LATEST_VERSION, DEFAULT_DATABASE_SETUP);
     }
 
     public TestingSqlServer(String version)
@@ -82,7 +81,7 @@ public final class TestingSqlServer
 
     public TestingSqlServer(BiConsumer<SqlExecutor, String> databaseSetUp)
     {
-        this(DEFAULT_VERSION, databaseSetUp);
+        this(LATEST_VERSION, databaseSetUp);
     }
 
     public TestingSqlServer(String version, BiConsumer<SqlExecutor, String> databaseSetUp)

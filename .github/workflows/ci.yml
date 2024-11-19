@@ -481,7 +481,7 @@ jobs:
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-snowflake }
             - { modules: plugin/trino-snowflake, profile: cloud-tests }
-            - { modules: plugin/trino-sqlserver, runson: ubuntu-20.04 }
+            - { modules: plugin/trino-sqlserver }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
@@ -493,7 +493,7 @@ jobs:
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
 
   test:
-    runs-on: ${{ matrix.runson || 'ubuntu-latest' }}
+    runs-on: 'ubuntu-latest'
     needs: build-test-matrix
     if: needs.build-test-matrix.outputs.matrix != '{}'
     strategy:
@@ -870,6 +870,7 @@ jobs:
             # suite-4 does not exist
             - suite-5
             - suite-6-non-generic
+            - suite-7-non-generic
             - suite-hive-transactional
             - suite-azure
             - suite-delta-lake-databricks91
@@ -957,10 +958,6 @@ jobs:
             # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
             - config: apache-hive3
               suite: suite-hms-only
-            # Workaround for https://github.com/microsoft/mssql-docker/issues/899
-            - config: default
-              suite: suite-7-non-generic
-              runson: ubuntu-20.04
           EOF
       - name: Build PT matrix (all)
         if: |
@@ -1017,7 +1014,7 @@ jobs:
           echo "matrix=$(cat matrix.json)" >> $GITHUB_OUTPUT
 
   pt:
-    runs-on: ${{ matrix.runson || 'ubuntu-latest' }}
+    runs-on: 'ubuntu-latest'
     # explicitly define the name to avoid adding the value of the `ignore exclusion if` matrix item
     name: pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
     if: needs.build-pt.outputs.matrix != '{}'
