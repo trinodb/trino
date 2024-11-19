@@ -47,9 +47,9 @@ configured above is forwarded to `CaseSensitiveName.tablex`, and a query on
 
 By default, when a change is made to the mapping configuration file, Trino must
 be restarted to load the changes. Optionally, you can set the
-`case-insensitive-name-mapping.refresh-period` to have Trino refresh the
-properties without requiring a restart:
+`case-insensitive-name-matching.config-file.refresh-period` to have Trino
+refresh the properties without requiring a restart:
 
 ```properties
-case-insensitive-name-mapping.refresh-period=30s
+case-insensitive-name-matching.config-file.refresh-period=30s
 ```
