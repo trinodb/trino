@@ -35,7 +35,6 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
-import static io.trino.plugin.sqlserver.TestingSqlServer.LATEST_VERSION;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
@@ -52,7 +51,7 @@ public class TestSqlServerJdbcConnectionAccesses
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingSqlServer sqlServer = closeAfterClass(new TestingSqlServer(LATEST_VERSION));
+        TestingSqlServer sqlServer = closeAfterClass(new TestingSqlServer());
         this.connectionFactory = getConnectionCountingConnectionFactory(sqlServer);
         DistributedQueryRunner queryRunner = SqlServerQueryRunner.builder(sqlServer)
                 // to make sure we always open connections in the same way
