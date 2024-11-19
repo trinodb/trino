@@ -101,8 +101,8 @@ public class TaskDescriptorStorage
     private long reservedCompressedBytes;
     @GuardedBy("this")
     private long originalCompressedBytes;
-    @GuardedBy("this")
 
+    @GuardedBy("this")
     private boolean compressing;
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-descriptor-storage"));
     private volatile boolean running;
