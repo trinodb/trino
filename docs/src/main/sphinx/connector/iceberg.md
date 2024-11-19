@@ -594,12 +594,12 @@ nested directories, or `false` to ignore them.
 (iceberg-add-files)=
 #### Add files
 
-The connector can add files from tables or locations to an existing table if
-`iceberg.add-files-procedure.enabled` is set to `true` for the catalog.
+The connector can add files from tables or locations to an existing Iceberg
+table if `iceberg.add-files-procedure.enabled` is set to `true` for the catalog.
 
-Use the procedure `system.add_files_from_table` to add existing files from a
-Hive table or `system.add_files` to add existing files from a specified location
-to an existing table.
+Use the procedure `add_files_from_table` to add existing files from a Hive table
+in the current catalog, or `add_files` to add existing files from a specified
+location, to an existing Iceberg table.
  
 The data files must be the Parquet, ORC, or Avro file format.
 
@@ -607,38 +607,43 @@ The data files must be the Parquet, ORC, or Avro file format.
 The procedure does not check if files are already present in the target table.
 :::
 
-The procedure must be called for a specific catalog `example` with the
-relevant schema and table names supplied with the required parameters
-`schema_name` and `table_name`:
+The procedure adds the files to the target table, specified after `ALTER TABLE`,
+and loads them from the source table specified with the required parameters
+`schema_name` and `table_name`. The source table must be accessible in the same
+catalog as the target table and use the Hive format. The target table must use
+the Iceberg format. The catalog must use the Iceberg connector.
+
+The following examples copy data from the Hive table `hive_customer_orders` in
+the `legacy` schema of the `example` catalog into the Iceberg table
+`iceberg_customer_orders` in the `lakehouse` schema of the `example` catalog:
 
 ```sql
-ALTER TABLE testdb.iceberg_customer_orders 
-EXECUTE example.system.add_files_from_table(
-    schema_name => 'testdb',
-    table_name => 'hive_customer_orders')
+ALTER TABLE example.lakehouse.iceberg_customer_orders 
+EXECUTE add_files_from_table(
+    schema_name => 'legacy',
+    table_name => 'customer_orders')
 ```
 
 Alternatively, you can set the current catalog and schema with a `USE`
-statement, and omit catalog and schema information, including the `system`
-schema for the procedure from any following `ALTER TABLE` statements:
+statement, and omit catalog and schema information:
 
 ```sql
-USE example.testdb;
+USE example.lakehouse;
 ALTER TABLE iceberg_customer_orders 
 EXECUTE add_files_from_table(
-    schema_name => 'testdb',
-    table_name => 'hive_customer_orders')
+    schema_name => 'legacy',
+    table_name => 'customer_orders')
 ```
 
-Use a `partition_filter` argument to add files from specified partitions.
-The following example adds files from a partition where the `region` is `ASIA` and
+Use a `partition_filter` argument to add files from specified partitions. The
+following example adds files from a partition where the `region` is `ASIA` and
 `country` is `JAPAN`:
 
 ```sql
-ALTER TABLE testdb.iceberg_customer_orders 
-EXECUTE example.system.add_files_from_table(
-    schema_name => 'testdb',
-    table_name => 'hive_customer_orders',
+ALTER TABLE example.lakehouse.iceberg_customer_orders 
+EXECUTE add_files_from_table(
+    schema_name => 'legacy',
+    table_name => 'customer_orders',
     partition_filter => map(ARRAY['region', 'country'], ARRAY['ASIA', 'JAPAN']))
 ```
 
@@ -646,24 +651,32 @@ In addition, you can provide a `recursive_directory` argument to migrate a
 Hive table that contains subdirectories:
 
 ```sql
-ALTER TABLE testdb.iceberg_customer_orders 
-EXECUTE example.system.add_files_from_table(
-    schema_name => 'testdb',
-    table_name => 'hive_customer_orders',
+ALTER TABLE example.lakehouse.iceberg_customer_orders 
+EXECUTE add_files_from_table(
+    schema_name => 'legacy',
+    table_name => 'customer_orders',
     recursive_directory => 'true')
 ```
 
-The default value of `recursive_directory` is `fail`, which causes the procedure 
-to throw an exception if subdirectories are found. Set the value to `true` to add 
-files from nested directories, or `false` to ignore them.
+The default value of `recursive_directory` is `fail`, which causes the procedure
+to throw an exception if subdirectories are found. Set the value to `true` to
+add files from nested directories, or `false` to ignore them.
 
-The `add_files` procedure supports adding files from a specified location.
-The procedure does not validate file schemas for compatibility with
-the target Iceberg table. The `location` property is supported for partitioned tables.
+The `add_files` procedure supports adding files, and therefore the contained
+data, to a target table, specified after `ALTER TABLE`. It loads the files from
+a object storage path specified with the required `location` parameter. The
+files must use the specified `format`, with `ORC` and `PARQUET` as valid values.
+The target Iceberg table must use the same format as the added files. The
+procedure does not validate file schemas for compatibility with the target
+Iceberg table. The `location` property is supported for partitioned tables.
+
+The following examples copy `ORC`-format files from the location
+`s3://my-bucket/a/path` into the Iceberg table `iceberg_customer_orders` in the
+`lakehouse` schema of the `example` catalog:
 
 ```sql
-ALTER TABLE testdb.iceberg_customer_orders 
-EXECUTE example.system.add_files(
+ALTER TABLE example.lakehouse.iceberg_customer_orders 
+EXECUTE add_files(
     location => 's3://my-bucket/a/path',
     format => 'ORC')
 ```
