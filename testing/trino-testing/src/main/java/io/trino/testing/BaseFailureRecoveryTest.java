@@ -119,6 +119,9 @@ public abstract class BaseFailureRecoveryTest
                         // to trigger spilling
                         .put("exchange.deduplication-buffer-size", "1kB")
                         .put("fault-tolerant-execution-task-memory", "1GB")
+                        // test task compression aggressively
+                        .put("fault-tolerant-execution-task-descriptor-storage-high-water-mark", "1kB")
+                        .put("fault-tolerant-execution-task-descriptor-storage-low-water-mark", "200B")
                         .buildOrThrow(),
                 ImmutableMap.of(
                         // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time

@@ -39,6 +39,9 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 .put("fault-tolerant-execution-standard-split-size", "2.5MB")
                 .put("fault-tolerant-execution-hash-distribution-compute-task-to-node-min-ratio", "0.0")
                 .put("fault-tolerant-execution-hash-distribution-write-task-to-node-min-ratio", "0.0")
+                // test task compression aggressively
+                .put("fault-tolerant-execution-task-descriptor-storage-high-water-mark", "1kB")
+                .put("fault-tolerant-execution-task-descriptor-storage-low-water-mark", "200B")
                 // to trigger spilling
                 .put("exchange.deduplication-buffer-size", "1kB")
                 .put("fault-tolerant-execution-task-memory", "1GB")
