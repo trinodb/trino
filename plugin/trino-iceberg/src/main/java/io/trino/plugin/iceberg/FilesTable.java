@@ -356,78 +356,10 @@ public class FilesTable
             columns.add(structLike.get(columnNameToPosition.get(SORT_ORDER_ID_COLUMN_NAME), Integer.class));
 
             ReadableMetricsStruct readableMetrics = structLike.get(columnNameToPosition.get(READABLE_METRICS_COLUMN_NAME), ReadableMetricsStruct.class);
-            columns.add(toJson(readableMetrics));
+            columns.add(toJson(readableMetrics, primitiveFields));
 
             checkArgument(columns.size() == types.size(), "Expected %s types in row, but got %s values", types.size(), columns.size());
             return columns;
-        }
-
-        private String toJson(ReadableMetricsStruct readableMetrics)
-        {
-            StringWriter writer = new StringWriter();
-            try {
-                JsonGenerator generator = JSON_FACTORY.createGenerator(writer);
-                generator.writeStartObject();
-
-                for (int i = 0; i < readableMetrics.size(); i++) {
-                    Types.NestedField field = primitiveFields.get(i);
-                    generator.writeFieldName(field.name());
-
-                    generator.writeStartObject();
-                    ReadableColMetricsStruct columnMetrics = readableMetrics.get(i, ReadableColMetricsStruct.class);
-
-                    generator.writeFieldName("column_size");
-                    Long columnSize = columnMetrics.get(0, Long.class);
-                    if (columnSize == null) {
-                        generator.writeNull();
-                    }
-                    else {
-                        generator.writeNumber(columnSize);
-                    }
-
-                    generator.writeFieldName("value_count");
-                    Long valueCount = columnMetrics.get(1, Long.class);
-                    if (valueCount == null) {
-                        generator.writeNull();
-                    }
-                    else {
-                        generator.writeNumber(valueCount);
-                    }
-
-                    generator.writeFieldName("null_value_count");
-                    Long nullValueCount = columnMetrics.get(2, Long.class);
-                    if (nullValueCount == null) {
-                        generator.writeNull();
-                    }
-                    else {
-                        generator.writeNumber(nullValueCount);
-                    }
-
-                    generator.writeFieldName("nan_value_count");
-                    Long nanValueCount = columnMetrics.get(3, Long.class);
-                    if (nanValueCount == null) {
-                        generator.writeNull();
-                    }
-                    else {
-                        generator.writeNumber(nanValueCount);
-                    }
-
-                    generator.writeFieldName("lower_bound");
-                    SingleValueParser.toJson(field.type(), columnMetrics.get(4, Object.class), generator);
-
-                    generator.writeFieldName("upper_bound");
-                    SingleValueParser.toJson(field.type(), columnMetrics.get(5, Object.class), generator);
-
-                    generator.writeEndObject();
-                }
-
-                generator.writeEndObject();
-                generator.flush();
-                return writer.toString();
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException("JSON conversion failed for: " + readableMetrics, e);
-            }
         }
 
         private SqlMap getIntegerBigintSqlMap(Map<Integer, Long> value)
@@ -506,7 +438,75 @@ public class FilesTable
         }
     }
 
-    private static Map<Integer, Type> getIcebergIdToTypeMapping(Schema schema)
+    static String toJson(ReadableMetricsStruct readableMetrics, List<Types.NestedField> primitiveFields)
+    {
+        StringWriter writer = new StringWriter();
+        try {
+            JsonGenerator generator = JSON_FACTORY.createGenerator(writer);
+            generator.writeStartObject();
+
+            for (int i = 0; i < readableMetrics.size(); i++) {
+                Types.NestedField field = primitiveFields.get(i);
+                generator.writeFieldName(field.name());
+
+                generator.writeStartObject();
+                ReadableColMetricsStruct columnMetrics = readableMetrics.get(i, ReadableColMetricsStruct.class);
+
+                generator.writeFieldName("column_size");
+                Long columnSize = columnMetrics.get(0, Long.class);
+                if (columnSize == null) {
+                    generator.writeNull();
+                }
+                else {
+                    generator.writeNumber(columnSize);
+                }
+
+                generator.writeFieldName("value_count");
+                Long valueCount = columnMetrics.get(1, Long.class);
+                if (valueCount == null) {
+                    generator.writeNull();
+                }
+                else {
+                    generator.writeNumber(valueCount);
+                }
+
+                generator.writeFieldName("null_value_count");
+                Long nullValueCount = columnMetrics.get(2, Long.class);
+                if (nullValueCount == null) {
+                    generator.writeNull();
+                }
+                else {
+                    generator.writeNumber(nullValueCount);
+                }
+
+                generator.writeFieldName("nan_value_count");
+                Long nanValueCount = columnMetrics.get(3, Long.class);
+                if (nanValueCount == null) {
+                    generator.writeNull();
+                }
+                else {
+                    generator.writeNumber(nanValueCount);
+                }
+
+                generator.writeFieldName("lower_bound");
+                SingleValueParser.toJson(field.type(), columnMetrics.get(4, Object.class), generator);
+
+                generator.writeFieldName("upper_bound");
+                SingleValueParser.toJson(field.type(), columnMetrics.get(5, Object.class), generator);
+
+                generator.writeEndObject();
+            }
+
+            generator.writeEndObject();
+            generator.flush();
+            return writer.toString();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("JSON conversion failed for: " + readableMetrics, e);
+        }
+    }
+
+    static Map<Integer, Type> getIcebergIdToTypeMapping(Schema schema)
     {
         ImmutableMap.Builder<Integer, Type> icebergIdToTypeMapping = ImmutableMap.builder();
         for (Types.NestedField field : schema.columns()) {
