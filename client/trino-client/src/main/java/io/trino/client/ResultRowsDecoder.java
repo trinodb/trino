@@ -27,6 +27,7 @@ import io.trino.client.spooling.encoding.QueryDataDecoders;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayDeque;
@@ -35,7 +36,6 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -50,6 +50,7 @@ import static com.google.common.collect.Streams.forEachPair;
 import static io.trino.client.ResultRows.NULL_ROWS;
 import static io.trino.client.ResultRows.fromIterableRows;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
@@ -151,7 +152,7 @@ public class ResultRowsDecoder
 
                 if (segment instanceof InlineSegment) {
                     InlineSegment inlineSegment = (InlineSegment) segment;
-                    return CompletableFuture.completedFuture(new ByteArrayInputStream(inlineSegment.getData()));
+                    return completedFuture(new ByteArrayInputStream(inlineSegment.getData()));
                 }
 
                 if (segment instanceof SpooledSegment) {
@@ -182,7 +183,16 @@ public class ResultRowsDecoder
                         finally {
                             lock.unlock();
                         }
-                        return loader.load(spooledSegment);
+                        // download whole segment
+                        InputStream segmentInputStream = loader.load(spooledSegment);
+                        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                        byte[] off = new byte[1024];
+                        int bytesRead;
+                        while ((bytesRead = segmentInputStream.read(off, 0, off.length)) != -1) {
+                            buffer.write(off, 0, bytesRead);
+                        }
+                        buffer.flush();
+                        return new ByteArrayInputStream(buffer.toByteArray());
                     });
                 }
 
@@ -191,39 +201,42 @@ public class ResultRowsDecoder
 
             List<ResultRows> resultRows = new ArrayList<>();
             forEachPair(futures.stream(), segments.stream(), (future, segment) -> {
-                resultRows.add(ResultRows.fromIterableRows(new DeferredIterable(decoderExecutorService.submit(() -> {
-                    try {
-                        // block decode if segment is not yet downloaded
-                        InputStream input = future.get();
-                        return decoder.decode(input, segment.getMetadata());
-                    }
-                    catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                    catch (ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-                    catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                }), new Callable<Void>() {
-                    @Override
-                    public Void call()
-                            throws Exception
-                    {
-                        // the data has been read, so we can free up the buffer
-                        lock.lock();
-                        try {
-                            int segmentSize = segment.getSegmentSize();
-                            currentSizeInBytes -= segmentSize;
-                            sizeCondition.signalAll();
-                        }
-                        finally {
-                            lock.unlock();
-                        }
-                        return null;
-                    }
-                })));
+                resultRows.add(ResultRows.fromIterableRows(new DeferredIterable(
+                        decoderExecutorService.submit(() -> {
+                            try {
+                                // block decode if segment is not yet downloaded
+                                InputStream input = future.get();
+                                return decoder.decode(input, segment.getMetadata());
+                            }
+                            catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                            catch (ExecutionException e) {
+                                throw new RuntimeException(e);
+                            }
+                            catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }),
+                        segment.getRowsCount(),
+                        new Callable<Void>() {
+                            @Override
+                            public Void call()
+                                    throws Exception
+                            {
+                                // the data has been read, so we can free up the buffer
+                                lock.lock();
+                                try {
+                                    int segmentSize = segment.getSegmentSize();
+                                    currentSizeInBytes -= segmentSize;
+                                    sizeCondition.signalAll();
+                                }
+                                finally {
+                                    lock.unlock();
+                                }
+                                return null;
+                            }
+                        })));
             });
 
             return concat(resultRows);

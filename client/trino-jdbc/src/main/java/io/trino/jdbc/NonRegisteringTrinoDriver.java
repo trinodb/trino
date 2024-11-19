@@ -35,7 +35,7 @@ import static io.trino.jdbc.DriverInfo.DRIVER_NAME;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MAJOR;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MINOR;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 public class NonRegisteringTrinoDriver
@@ -53,8 +53,9 @@ public class NonRegisteringTrinoDriver
         this.pool = new ConnectionPool();
         this.decoder = newSingleThreadExecutor(
                 new ThreadFactoryBuilder().setNameFormat("Decoder-%s").setDaemon(true).build());
-        this.segmentLoader = newCachedThreadPool(
-            new ThreadFactoryBuilder().setNameFormat("Segment loader worker-%s").setDaemon(true).build());
+        this.segmentLoader = newFixedThreadPool(
+                5,
+                new ThreadFactoryBuilder().setNameFormat("Segment loader worker-%s").setDaemon(true).build());
     }
 
     @Override
