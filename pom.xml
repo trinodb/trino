@@ -172,7 +172,8 @@
              Force bigger region size in attempt to help G1 utilize heap fully. -->
         <air.test.jvm.additional-arguments.default>
             -XX:G1HeapRegionSize=32M
-            -XX:+UnlockDiagnosticVMOptions
+            -XX:+UnlockExperimentalVMOptions
+            -XX:+UseCompactObjectHeaders
             <!-- # Allow loading dynamic agent used by JOL -->
             -XX:+EnableDynamicAgentLoading
             ${extraJavaVectorArgs}
