@@ -80,6 +80,14 @@ are also available. They are discussed later in this topic.
 * - `hive.metastore-refresh-max-threads`
   - Maximum threads used to refresh cached metastore data.
   - `10`
+* - `hive.user-metastore-cache-ttl`
+  - [Duration](prop-type-duration) of how long cached metastore statistics, which are user specific
+    in user impersonation scenarios, are considered valid.
+  - `10s`
+* - `hive.user-metastore-cache-maximum-size`
+  - Maximum number of metastore data objects in the Hive metastore cache,
+    which are user specific in user impersonation scenarios.
+  - `1000`
 * - `hive.hide-delta-lake-tables`
   - Controls whether to hide Delta Lake tables in table listings. Currently
     applies only when using the AWS Glue metastore.
