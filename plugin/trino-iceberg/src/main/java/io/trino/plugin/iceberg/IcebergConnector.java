@@ -22,6 +22,7 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.plugin.iceberg.functions.IcebergBucketFunction;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
@@ -168,6 +169,12 @@ public class IcebergConnector
     public Set<ConnectorTableFunction> getTableFunctions()
     {
         return tableFunctions;
+    }
+
+    @Override
+    public Set<Class<?>> getFunctions()
+    {
+        return ImmutableSet.of(IcebergBucketFunction.class);
     }
 
     @Override
