@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.client.direct.DirectTrinoClient;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.dispatcher.DispatchQuery;
 import io.trino.execution.QueryInfo;
