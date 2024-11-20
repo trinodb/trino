@@ -2,7 +2,7 @@
 
 ## General
 
-* {{breaking}} Require JDK 23 to run Trino. ({issue}`21316`)
+* {{breaking}} Require JDK 23 to run Trino, including updated [](jvm-config). ({issue}`21316`)
 * Add the [](/connector/faker) for easy generation of data. ({issue}`23691`)
 * Add the [](/connector/vertica). ({issue}`23948`)
 * Rename the
