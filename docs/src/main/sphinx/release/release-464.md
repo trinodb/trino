@@ -53,3 +53,7 @@
   ({issue}`23906`)
 * Fix incorrect column constraints when using the `migrate` procedure on tables
   that contain `NULL` values. ({issue}`23928`)
+
+## Phoenix connector
+
+* {{breaking}} Require JVM configuration to allow the Java security manager. ({issue}`24207`)
