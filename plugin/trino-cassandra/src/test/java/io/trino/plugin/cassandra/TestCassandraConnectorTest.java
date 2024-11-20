@@ -581,7 +581,7 @@ public class TestCassandraConnectorTest
         String materializedViewName = "test_insert_into_mv" + randomNameSuffix();
         onCassandra("CREATE MATERIALIZED VIEW tpch." + materializedViewName + " AS " +
                 "SELECT * FROM tpch.nation " +
-                "WHERE nationkey IS NOT NULL " +
+                "WHERE id IS NOT NULL AND nationkey IS NOT NULL " +
                 "PRIMARY KEY (id, nationkey)");
 
         assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
@@ -1744,7 +1744,7 @@ public class TestCassandraConnectorTest
         assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (1)'))"))
                 .failure()
                 .hasMessage("Cannot get column definition")
-                .hasStackTraceContaining("unconfigured table");
+                .hasStackTraceContaining(tableName + " does not exist");
     }
 
     @Test
@@ -1812,7 +1812,7 @@ public class TestCassandraConnectorTest
     @Test
     void testExecuteProcedureWithInvalidQuery()
     {
-        assertQueryFails("CALL system.execute('SELECT 1')", "(?s).*no viable alternative at input.*");
+        assertQueryFails("CALL system.execute('SELECT 1')", "(?s).*-1 mismatched input '<EOF>' expecting K_FROM.*");
         assertQueryFails("CALL system.execute('invalid')", "(?s).*no viable alternative at input.*");
     }
 
@@ -1831,13 +1831,13 @@ public class TestCassandraConnectorTest
     @Override
     protected OptionalInt maxTableNameLength()
     {
-        return OptionalInt.of(48);
+        return OptionalInt.of(222);
     }
 
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Table names shouldn't be more than 48 characters long");
+        assertThat(e).hasMessageContaining("Lost connection to remote peer");
     }
 
     @Test
@@ -1862,7 +1862,7 @@ public class TestCassandraConnectorTest
     public void testProtocolVersion()
     {
         assertQuery("SELECT native_protocol_version FROM system.local",
-                "VALUES 4");
+                "VALUES 5");
     }
 
     private void assertSelect(String tableName)
