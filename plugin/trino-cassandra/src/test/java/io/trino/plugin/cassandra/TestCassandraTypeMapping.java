@@ -79,9 +79,6 @@ public class TestCassandraTypeMapping
     private final LocalDateTime afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
 
     private final ZoneId jvmZone = ZoneId.systemDefault();
-    private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
-    private final LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
-    private final LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
 
     // no DST in 1970, but has DST in later years (e.g. 2018)
     private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
@@ -101,10 +98,6 @@ public class TestCassandraTypeMapping
     @BeforeAll
     public void setUp()
     {
-        checkIsGap(jvmZone, timeGapInJvmZone1);
-        checkIsGap(jvmZone, timeGapInJvmZone2);
-        checkIsDoubled(jvmZone, timeDoubledInJvmZone);
-
         LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
         checkIsGap(vilnius, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
         LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
@@ -582,10 +575,7 @@ public class TestCassandraTypeMapping
                     .addRoundTrip(inputType, inputLiteralFactory.apply(beforeEpoch, zoneId), TIMESTAMP_TZ_MILLIS, expectedLiteralFactory.apply(beforeEpoch, zoneId))
                     .addRoundTrip(inputType, inputLiteralFactory.apply(epoch, zoneId), TIMESTAMP_TZ_MILLIS, expectedLiteralFactory.apply(epoch, zoneId))
                     .addRoundTrip(inputType, inputLiteralFactory.apply(afterEpoch, zoneId), TIMESTAMP_TZ_MILLIS, expectedLiteralFactory.apply(afterEpoch, zoneId))
-                    .addRoundTrip(inputType, inputLiteralFactory.apply(timeDoubledInJvmZone, zoneId), TIMESTAMP_TZ_MILLIS, expectedLiteralFactory.apply(timeDoubledInJvmZone, zoneId))
                     .addRoundTrip(inputType, inputLiteralFactory.apply(timeDoubledInVilnius, zoneId), TIMESTAMP_TZ_MILLIS, expectedLiteralFactory.apply(timeDoubledInVilnius, zoneId))
-                    .addRoundTrip(inputType, inputLiteralFactory.apply(timeGapInJvmZone1, zoneId), TIMESTAMP_TZ_MILLIS, expectedLiteralFactory.apply(timeGapInJvmZone1, zoneId))
-                    .addRoundTrip(inputType, inputLiteralFactory.apply(timeGapInJvmZone2, zoneId), TIMESTAMP_TZ_MILLIS, expectedLiteralFactory.apply(timeGapInJvmZone2, zoneId))
                     .addRoundTrip(inputType, inputLiteralFactory.apply(timeGapInVilnius, zoneId), TIMESTAMP_TZ_MILLIS, expectedLiteralFactory.apply(timeGapInVilnius, zoneId))
                     .addRoundTrip(inputType, inputLiteralFactory.apply(timeGapInKathmandu, zoneId), TIMESTAMP_TZ_MILLIS, expectedLiteralFactory.apply(timeGapInKathmandu, zoneId));
         }

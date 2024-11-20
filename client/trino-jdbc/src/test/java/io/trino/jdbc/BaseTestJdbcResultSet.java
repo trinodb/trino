@@ -273,28 +273,6 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getString(column)).isEqualTo(localDate.toString());
             });
 
-            // date which midnight does not exist in test JVM zone
-            checkRepresentation(connectedStatement.getStatement(), "DATE '1970-01-01'", Types.DATE, (rs, column) -> {
-                LocalDate localDate = LocalDate.of(1970, 1, 1);
-
-                System.out.println(localDate);
-
-                Date sqlDate = Date.valueOf(localDate);
-
-                assertThat(rs.getObject(column).toString()).isEqualTo(sqlDate.toString()); // We don't want to compare time component because of time zone
-                assertThat(rs.getObject(column, Date.class).toString()).isEqualTo(sqlDate.toString()); // We don't want to compare time component because of time zone
-                assertThat(rs.getObject(column, LocalDate.class)).isEqualTo(localDate);
-                assertThat(rs.getDate(column).toString()).isEqualTo(sqlDate.toString()); // We don't want to compare time component because of time zone
-                assertThatThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class)
-                        .hasMessage("Expected column to be a time type but is date");
-                assertThatThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class)
-                        .hasMessage("Expected column to be a timestamp type but is date");
-
-                assertThat(rs.getString(column)).isEqualTo(localDate.toString());
-            });
-
             // the Julian-Gregorian calendar "default cut-over"
             checkRepresentation(connectedStatement.getStatement(), "DATE '1582-10-04'", Types.DATE, (rs, column) -> {
                 LocalDate localDate = LocalDate.of(1582, 10, 4);
