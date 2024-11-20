@@ -140,6 +140,7 @@ import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimes
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildColumnMappings;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.CSV;
@@ -156,6 +157,8 @@ import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.plugin.hive.ion.IonWriterOptions.ION_ENCODING_PROPERTY;
+import static io.trino.plugin.hive.ion.IonWriterOptions.TEXT_ENCODING;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
@@ -231,6 +234,7 @@ public final class TestHiveFileFormats
     private static final FileFormatDataSourceStats STATS = new FileFormatDataSourceStats();
     private static final ConnectorSession PARQUET_SESSION = getHiveSession(createParquetHiveConfig(false));
     private static final ConnectorSession PARQUET_SESSION_USE_NAME = getHiveSession(createParquetHiveConfig(true));
+    private static final String ERROR_ENCODING = "error_encoding";
 
     @DataProvider(name = "rowCount")
     public static Object[][] rowCountProvider()
@@ -369,7 +373,7 @@ public final class TestHiveFileFormats
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")
-    public void testIon(int rowCount, long fileSizePadding)
+    public void testIonWithBinaryEncoding(int rowCount, long fileSizePadding)
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
@@ -388,6 +392,54 @@ public final class TestHiveFileFormats
                 .withFileSizePadding(fileSizePadding)
                 .withFileWriterFactory(fileSystemFactory -> new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .isReadableByPageSource(fileSystemFactory -> new IonPageSourceFactory(fileSystemFactory, hiveConfig));
+    }
+
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testIonWithTextEncoding(int rowCount, long fileSizePadding)
+            throws Exception
+    {
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                // todo: add support for maps to trino impl
+                .filter(tc -> !(tc.type instanceof MapType))
+                .collect(toList());
+
+        HiveConfig hiveConfig = new HiveConfig();
+        // enable Ion native trino integration for testing while the implementation is in progress
+        // TODO: In future this flag should change to `true` as default and then the following statement can be removed.
+        hiveConfig.setIonNativeTrinoEnabled(true);
+
+        assertThatFileFormat(ION)
+                .withColumns(testColumns)
+                .withRowsCount(rowCount)
+                .withFileSizePadding(fileSizePadding)
+                .withTableProperties(ImmutableMap.of(ION_ENCODING_PROPERTY, TEXT_ENCODING))
+                .withFileWriterFactory(fileSystemFactory -> new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
+                .isReadableByPageSource(fileSystemFactory -> new IonPageSourceFactory(fileSystemFactory, hiveConfig));
+    }
+
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testInvalidIonEncoding(int rowCount, long fileSizePadding)
+            throws Exception
+    {
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                // todo: add support for maps to trino impl
+                .filter(tc -> !(tc.type instanceof MapType))
+                .collect(toList());
+
+        HiveConfig hiveConfig = new HiveConfig();
+        // enable Ion native trino integration for testing while the implementation is in progress
+        // TODO: In future this flag should change to `true` as default and then the following statement can be removed.
+        hiveConfig.setIonNativeTrinoEnabled(true);
+
+        assertTrinoExceptionThrownBy(() -> assertThatFileFormat(ION)
+                .withColumns(testColumns)
+                .withRowsCount(rowCount)
+                .withFileSizePadding(fileSizePadding)
+                .withTableProperties(ImmutableMap.of(ION_ENCODING_PROPERTY, ERROR_ENCODING))
+                .withFileWriterFactory(fileSystemFactory -> new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
+                .isReadableByPageSource(fileSystemFactory -> new IonPageSourceFactory(fileSystemFactory, hiveConfig)))
+                .hasErrorCode(HIVE_WRITER_OPEN_ERROR)
+                .hasMessage("Error creating Ion Output");
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")
@@ -1223,6 +1275,7 @@ public final class TestHiveFileFormats
         private boolean skipGenericWrite;
         private HiveFileWriterFactory fileWriterFactory;
         private long fileSizePadding;
+        private Map<String, String> customTableProperties = ImmutableMap.of();
 
         private final TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
 
@@ -1277,6 +1330,12 @@ public final class TestHiveFileFormats
         public FileFormatAssertion withRowsCount(int rowsCount)
         {
             this.rowsCount = rowsCount;
+            return this;
+        }
+
+        public FileFormatAssertion withTableProperties(Map<String, String> tableProperties)
+        {
+            this.customTableProperties = requireNonNull(tableProperties, "customTableProperties is null");
             return this;
         }
 
@@ -1338,7 +1397,7 @@ public final class TestHiveFileFormats
                         if (fileWriterFactory == null) {
                             continue;
                         }
-                        createTestFileTrino(location, storageFormat, compressionCodec, writeColumns, session, rowsCount, fileWriterFactory);
+                        createTestFileTrino(location, storageFormat, compressionCodec, writeColumns, session, rowsCount, fileWriterFactory, customTableProperties);
                     }
                     else {
                         if (skipGenericWrite) {
@@ -1368,7 +1427,8 @@ public final class TestHiveFileFormats
             List<TestColumn> testColumns,
             ConnectorSession session,
             int numRows,
-            HiveFileWriterFactory fileWriterFactory)
+            HiveFileWriterFactory fileWriterFactory,
+            Map<String, String> customTableProperties)
     {
         // filter out partition keys, which are not written to the file
         testColumns = testColumns.stream()
@@ -1393,6 +1453,7 @@ public final class TestHiveFileFormats
         Map<String, String> tableProperties = ImmutableMap.<String, String>builder()
                 .put(LIST_COLUMNS, testColumns.stream().map(TestColumn::name).collect(Collectors.joining(",")))
                 .put(LIST_COLUMN_TYPES, testColumns.stream().map(TestColumn::type).map(HiveTypeTranslator::toHiveType).map(HiveType::toString).collect(Collectors.joining(",")))
+                .putAll(customTableProperties)
                 .buildOrThrow();
 
         Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(

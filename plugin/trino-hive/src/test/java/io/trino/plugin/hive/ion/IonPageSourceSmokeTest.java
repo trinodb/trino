@@ -22,11 +22,17 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.metastore.HiveType;
+import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceProvider;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.Schema;
+import io.trino.plugin.hive.WriterKind;
+import io.trino.spi.Page;
+import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
@@ -40,6 +46,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,6 +59,9 @@ import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.projectedColumn;
 import static io.trino.plugin.hive.HiveTestUtils.toHiveBaseColumnHandle;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.plugin.hive.ion.IonWriterOptions.BINARY_ENCODING;
+import static io.trino.plugin.hive.ion.IonWriterOptions.ION_ENCODING_PROPERTY;
+import static io.trino.plugin.hive.ion.IonWriterOptions.TEXT_ENCODING;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -59,12 +69,18 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Most basic test to reflect PageSource-fu is wired up correctly.
  */
 public class IonPageSourceSmokeTest
 {
+    // In the Ion binary format, a value stream is always start with binary version marker. This help distinguish Ion binary
+    // data from other formats, including Ion text format.
+    private static final byte[] BINARY_VERSION_MARKER = {(byte) 0xE0, (byte) 0x01, (byte) 0x00, (byte) 0XEA};
+    private static final String EXPECTED_TEXT = "{foo:3,bar:6}";
+
     public static final String TEST_ION_LOCATION = "memory:///test.ion";
 
     @Test
@@ -118,6 +134,50 @@ public class IonPageSourceSmokeTest
     }
 
     @Test
+    public void testTextEncoding()
+            throws IOException
+    {
+        List<HiveColumnHandle> tableColumns = List.of(
+                toHiveBaseColumnHandle("foo", INTEGER, 0),
+                toHiveBaseColumnHandle("bar", INTEGER, 0));
+
+        assertEncoding(tableColumns, TEXT_ENCODING);
+    }
+
+    @Test
+    public void testBinaryEncoding()
+            throws IOException
+    {
+        List<HiveColumnHandle> tableColumns = List.of(
+                toHiveBaseColumnHandle("foo", INTEGER, 0),
+                toHiveBaseColumnHandle("bar", INTEGER, 0));
+
+        assertEncoding(tableColumns, BINARY_ENCODING);
+    }
+
+    private void assertEncoding(List<HiveColumnHandle> tableColumns,
+                                String encoding)
+            throws IOException
+    {
+        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
+        Location location = Location.of(TEST_ION_LOCATION);
+        ConnectorSession session = getHiveSession(new HiveConfig());
+        writeTestData(session, fileSystemFactory, location, encoding, tableColumns);
+        byte[] inputStreamBytes = fileSystemFactory.create(session)
+                .newInputFile(location)
+                .newStream()
+                .readAllBytes();
+
+        if (encoding.equals(BINARY_ENCODING)) {
+            // Check if the first 4 bytes is binary version marker
+            Assertions.assertArrayEquals(Arrays.copyOfRange(inputStreamBytes, 0, 4), BINARY_VERSION_MARKER);
+        }
+        else {
+            Assertions.assertEquals(new String(inputStreamBytes, StandardCharsets.UTF_8), EXPECTED_TEXT);
+        }
+    }
+
+    @Test
     public void testPageSourceWithNativeTrinoDisabled()
             throws IOException
     {
@@ -161,6 +221,31 @@ public class IonPageSourceSmokeTest
             final MaterializedResult result = MaterializedResult.materializeSourceDataStream(session, pageSource, projectedColumns.stream().map(HiveColumnHandle::getType).toList());
             Assertions.assertEquals(rowCount, result.getRowCount());
         }
+    }
+
+    /**
+     * todo: At some point, we might need to combine writeIonTextFile with this method and add logic to write iontext to Page.
+     */
+    private static void writeTestData(ConnectorSession session, TrinoFileSystemFactory fileSystemFactory, Location location, String encoding, List<HiveColumnHandle> tableColumns)
+            throws IOException
+    {
+        FileWriter ionFileWriter = new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER)
+                .createFileWriter(
+                        location,
+                        tableColumns.stream().map(HiveColumnHandle::getName).collect(toList()),
+                        ION.toStorageFormat(),
+                        HiveCompressionCodec.NONE,
+                        getTablePropertiesWithEncoding(tableColumns, encoding),
+                        session,
+                        OptionalInt.empty(),
+                        NO_ACID_TRANSACTION,
+                        false,
+                        WriterKind.INSERT)
+                .orElseThrow();
+        ionFileWriter.appendRows(new Page(
+                RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.empty(), new int[] {3}), 1),
+                RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.empty(), new int[] {6}), 1)));
+        ionFileWriter.commit();
     }
 
     private int writeIonTextFile(String ionText, Location location, TrinoFileSystem fileSystem)
@@ -261,13 +346,21 @@ public class IonPageSourceSmokeTest
                 length,
                 nowMillis);
 
-        final Map<String, String> tableProperties = ImmutableMap.<String, String>builder()
-                .put(LIST_COLUMNS, tableColumns.stream().map(HiveColumnHandle::getName).collect(Collectors.joining(",")))
-                .put(LIST_COLUMN_TYPES, tableColumns.stream().map(HiveColumnHandle::getHiveType).map(HiveType::toString).collect(Collectors.joining(",")))
-                .buildOrThrow();
-        return new PageSourceParameters(factory, length, nowMillis, columnMappings, tableProperties);
+        return new PageSourceParameters(factory, length, nowMillis, columnMappings, getTablePropertiesWithEncoding(tableColumns, BINARY_ENCODING));
     }
 
     private record PageSourceParameters(IonPageSourceFactory factory, long length, long nowMillis, List<HivePageSourceProvider.ColumnMapping> columnMappings, Map<String, String> tableProperties)
     { }
+
+    /**
+     * Creates table properties for IonFileWriter with encoding flag.
+     */
+    private static Map<String, String> getTablePropertiesWithEncoding(List<HiveColumnHandle> tableColumns, String encoding)
+    {
+        return ImmutableMap.<String, String>builder()
+                .put(LIST_COLUMNS, tableColumns.stream().map(HiveColumnHandle::getName).collect(Collectors.joining(",")))
+                .put(LIST_COLUMN_TYPES, tableColumns.stream().map(HiveColumnHandle::getHiveType).map(HiveType::toString).collect(Collectors.joining(",")))
+                .put(ION_ENCODING_PROPERTY, encoding)
+                .buildOrThrow();
+    }
 }

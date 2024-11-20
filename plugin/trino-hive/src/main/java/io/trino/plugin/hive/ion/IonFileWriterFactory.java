@@ -42,6 +42,7 @@ import static io.trino.hive.formats.HiveClassNames.ION_OUTPUT_FORMAT;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
+import static io.trino.plugin.hive.ion.IonWriterOptions.getIonEncoding;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
@@ -101,6 +102,7 @@ public class IonFileWriterFactory
                     rollbackAction,
                     typeManager,
                     compressionCodec.getHiveCompressionKind(),
+                    getIonEncoding(schema),
                     columns));
         }
         catch (Exception e) {
