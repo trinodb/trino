@@ -20,6 +20,9 @@
   <a href="https://trino.io/trino-the-definitive-guide.html"  style="text-decoration: none">
     <img src="https://img.shields.io/badge/Trino%3A%20The%20Definitive%20Guide-download-brightgreen" alt="Trino: The Definitive Guide book download" />
   </a>
+  <a href="https://gurubase.io/g/trino" style="text-decoration: none">
+    <img src="https://img.shields.io/badge/Gurubase-Ask%20Trino%20Guru-006BFF" alt="Gurubase" />
+  </a>
 </p>
 
 ## Development
