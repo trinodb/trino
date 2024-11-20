@@ -321,12 +321,17 @@ An array of the given component type.
 
 Example: `ARRAY[1, 2, 3]`
 
+More information in [](/functions/array).
+
 (map-type)=
 ### `MAP`
 
-A map between the given component types.
+A map between the given component types. A map is a collection of key-value
+pairs, where each key is associated with a single value.
 
 Example: `MAP(ARRAY['foo', 'bar'], ARRAY[1, 2])`
+
+More information in [](/functions/map).
 
 (row-type)=
 ### `ROW`
