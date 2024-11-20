@@ -671,7 +671,7 @@ public class BackgroundHiveSplitLoader
     private static void checkPartitionLocationExists(TrinoFileSystem fileSystem, Location location)
     {
         try {
-            if (!fileSystem.directoryExists(location).orElse(true)) {
+            if (!fileSystem.directoryExists(location).orElse(!ignoreAbsentPartitions)) {
                 throw new TrinoException(HIVE_FILE_NOT_FOUND, "Partition location does not exist: " + location);
             }
         }
