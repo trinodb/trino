@@ -64,10 +64,10 @@ are also available. They are discussed later in this topic.
     missing to prevent future metastore calls.
   - `false`
 * - `hive.metastore-cache-ttl`
-  - Duration of how long cached metastore data is considered valid.
+  - [Duration](prop-type-duration) of how long cached metastore data is considered valid.
   - `0s`
 * - `hive.metastore-stats-cache-ttl`
-  - Duration of how long cached metastore statistics are considered valid.
+  - [Duration](prop-type-duration) of how long cached metastore statistics are considered valid.
   - `5m`
 * - `hive.metastore-cache-maximum-size`
   - Maximum number of metastore data objects in the Hive metastore cache.
