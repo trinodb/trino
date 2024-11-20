@@ -2,7 +2,8 @@
 
 ## General
 
-* {{breaking}} Require JDK 21.0.1 to run Trino. ({issue}`20010`)
+* {{breaking}} Require JDK 21.0.1 to run Trino, including updated
+  [](jvm-config). ({issue}`20010`)
 * Improve performance by not generating redundant predicates. ({issue}`16520`)
 * Fix query failure when invoking the `json_table` function. ({issue}`20122`)
 * Fix query hang when a [SQL routine](/routines) dereferences a row field. ({issue}`19997`).
