@@ -20,6 +20,7 @@ jobs:
         displayName: Create required directories
 
   - job: ContainerBuild
+    timeoutInMinutes: 120
     dependsOn:
       - PrepareNode
     displayName: Maven Build (Container)
