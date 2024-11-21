@@ -35,10 +35,8 @@ public interface SpoolingManager
     InputStream openInputStream(SpooledSegmentHandle handle)
             throws IOException;
 
-    default void acknowledge(SpooledSegmentHandle handle)
-            throws IOException
-    {
-    }
+    void acknowledge(SpooledSegmentHandle handle)
+            throws IOException;
 
     default Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
             throws IOException
