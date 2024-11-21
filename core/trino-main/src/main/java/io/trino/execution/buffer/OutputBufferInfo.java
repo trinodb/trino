@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -178,34 +177,6 @@ public final class OutputBufferInfo
                 pipelinedBufferStates,
                 utilization,
                 Optional.empty());
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        OutputBufferInfo that = (OutputBufferInfo) o;
-        return Objects.equals(type, that.type) &&
-                canAddBuffers == that.canAddBuffers &&
-                canAddPages == that.canAddPages &&
-                totalBufferedBytes == that.totalBufferedBytes &&
-                totalBufferedPages == that.totalBufferedPages &&
-                totalRowsSent == that.totalRowsSent &&
-                totalPagesSent == that.totalPagesSent &&
-                state == that.state &&
-                Objects.equals(pipelinedBufferStates, that.pipelinedBufferStates) &&
-                Objects.equals(utilization, that.utilization);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalRowsSent, totalPagesSent, pipelinedBufferStates, utilization);
     }
 
     @Override
