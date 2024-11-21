@@ -32,7 +32,6 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static io.opentelemetry.api.common.AttributeKey.longKey;
 import static io.opentelemetry.api.common.AttributeKey.stringKey;
@@ -91,10 +90,10 @@ public class TracingSpoolingManager
     }
 
     @Override
-    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle, OptionalInt ttlSeconds)
+    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
             throws IOException
     {
-        return withTracing(span(tracer, handle, "directLocation"), () -> delegate.directLocation(handle, ttlSeconds));
+        return withTracing(span(tracer, handle, "directLocation"), () -> delegate.directLocation(handle));
     }
 
     @Override

@@ -30,6 +30,7 @@ public class FileSystemSpoolingConfig
     private String location;
     private Layout layout = SIMPLE;
     private Duration ttl = new Duration(12, HOURS);
+    private Duration directAccessTtl = new Duration(1, HOURS);
     private boolean encryptionEnabled = true;
     private boolean explicitAckEnabled = true;
     private boolean pruningEnabled = true;
@@ -107,6 +108,19 @@ public class FileSystemSpoolingConfig
     public FileSystemSpoolingConfig setTtl(Duration ttl)
     {
         this.ttl = ttl;
+        return this;
+    }
+
+    public Duration getDirectAccessTtl()
+    {
+        return directAccessTtl;
+    }
+
+    @ConfigDescription("Maximum duration for the client to retrieve spooled segment from the direct URI")
+    @Config("fs.segment.direct.ttl")
+    public FileSystemSpoolingConfig setDirectAccessTtl(Duration directAccessTtl)
+    {
+        this.directAccessTtl = directAccessTtl;
         return this;
     }
 
