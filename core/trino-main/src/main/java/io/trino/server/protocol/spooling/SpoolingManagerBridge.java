@@ -21,6 +21,7 @@ import io.trino.spi.protocol.SpooledLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
 import io.trino.spi.protocol.SpoolingContext;
 import io.trino.spi.protocol.SpoolingManager;
+import jakarta.ws.rs.ServiceUnavailableException;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -95,7 +96,7 @@ public class SpoolingManagerBridge
     {
         return switch (retrievalMode) {
             case STORAGE -> toUri(secretKey, directLocation(handle)
-                    .orElseThrow(() -> new IllegalStateException("Retrieval mode is DIRECT but cannot generate pre-signed URI")));
+                    .orElseThrow(() -> new ServiceUnavailableException("Retrieval mode is DIRECT but cannot generate pre-signed URI")));
             case COORDINATOR_STORAGE_REDIRECT, WORKER_PROXY, COORDINATOR_PROXY -> switch (delegate().location(handle)) {
                 case DirectLocation _ -> throw new IllegalStateException("Expected coordinator location but got direct one");
                 case CoordinatorLocation coordinatorLocation ->

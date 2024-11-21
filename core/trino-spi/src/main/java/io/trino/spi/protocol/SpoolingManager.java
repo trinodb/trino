@@ -38,11 +38,8 @@ public interface SpoolingManager
     void acknowledge(SpooledSegmentHandle handle)
             throws IOException;
 
-    default Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
-            throws IOException
-    {
-        throw new UnsupportedOperationException("Not implemented");
-    }
+    Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
+            throws IOException;
 
     // Converts the handle to a location that client will be redirected to
     SpooledLocation location(SpooledSegmentHandle handle)
