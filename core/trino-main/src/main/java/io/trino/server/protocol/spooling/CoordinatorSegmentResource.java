@@ -36,7 +36,6 @@ import jakarta.ws.rs.core.UriInfo;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.OptionalInt;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Verify.verify;
@@ -85,7 +84,7 @@ public class CoordinatorSegmentResource
             }
             case COORDINATOR_STORAGE_REDIRECT -> Response
                     .seeOther(spoolingManager
-                            .directLocation(handle, OptionalInt.empty()).orElseThrow(() -> new ServiceUnavailableException("Could not generate pre-signed URI"))
+                            .directLocation(handle).orElseThrow(() -> new ServiceUnavailableException("Could not generate pre-signed URI"))
                             .directUri())
                     .build();
         };

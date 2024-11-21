@@ -23,7 +23,6 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 @Experimental(eta = "2025-05-31")
 public interface SpoolingManager
@@ -41,7 +40,7 @@ public interface SpoolingManager
     {
     }
 
-    default Optional<DirectLocation> directLocation(SpooledSegmentHandle handle, OptionalInt ttlSeconds)
+    default Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
             throws IOException
     {
         throw new UnsupportedOperationException("Not implemented");
