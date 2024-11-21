@@ -34,7 +34,7 @@ public class TestSymbolAllocator
                 .add(allocator.newSymbol("foo", BigintType.BIGINT))
                 .build();
 
-        assertThat(symbols.size()).isEqualTo(4);
+        assertThat(symbols).hasSize(4);
     }
 
     @Test

@@ -30,7 +30,7 @@ public class Delete
 
     public Delete(NodeLocation location, Table table, Optional<Expression> where)
     {
-        super(Optional.of(location));
+        super(location);
         this.table = requireNonNull(table, "table is null");
         this.where = requireNonNull(where, "where is null");
     }

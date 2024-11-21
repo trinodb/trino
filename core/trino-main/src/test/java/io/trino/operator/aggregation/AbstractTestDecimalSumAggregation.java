@@ -32,7 +32,7 @@ public abstract class AbstractTestDecimalSumAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = getDecimalType().createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = getDecimalType().createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             writeDecimalToBlock(getBigDecimalForCounter(i), blockBuilder);
         }

@@ -100,7 +100,7 @@ public class TestPinotSplitManager
 
     private void assertSplits(List<PinotSplit> splits, int numSplitsExpected, PinotSplit.SplitType splitType)
     {
-        assertThat(splits.size()).isEqualTo(numSplitsExpected);
+        assertThat(splits).hasSize(numSplitsExpected);
         splits.forEach(s -> assertThat(s.getSplitType()).isEqualTo(splitType));
     }
 

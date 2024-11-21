@@ -74,7 +74,7 @@ public class TestHeartbeatFailureDetector
                 .initialize();
 
         ServiceSelector selector = injector.getInstance(Key.get(ServiceSelector.class, serviceType("trino")));
-        assertThat(selector.selectAllServices().size()).isEqualTo(1);
+        assertThat(selector.selectAllServices()).hasSize(1);
 
         HeartbeatFailureDetector detector = injector.getInstance(HeartbeatFailureDetector.class);
         detector.updateMonitoredServices();

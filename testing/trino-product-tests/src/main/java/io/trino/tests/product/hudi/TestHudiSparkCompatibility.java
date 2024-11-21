@@ -76,25 +76,26 @@ public class TestHudiSparkCompatibility
                             tableName));
             String lastCommitTimeSync = (String) onHudi().executeQuery("show TBLPROPERTIES " + tableName + " ('last_commit_time_sync')").project(2).getOnlyValue();
             assertThat((String) onHudi().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
-                    .isEqualTo(format("""
-                                    CREATE TABLE default.%s (
-                                      _hoodie_commit_time STRING,
-                                      _hoodie_commit_seqno STRING,
-                                      _hoodie_record_key STRING,
-                                      _hoodie_partition_path STRING,
-                                      _hoodie_file_name STRING,
-                                      id BIGINT,
-                                      name STRING,
-                                      price INT,
-                                      ts BIGINT)
-                                    USING hudi
-                                    LOCATION 's3://%s/%s'
-                                    TBLPROPERTIES (
-                                      'last_commit_time_sync' = '%s',
-                                      'preCombineField' = 'ts',
-                                      'primaryKey' = 'id',
-                                      'type' = 'cow')
-                                    """,
+                    .isEqualTo(format(
+                            """
+                            CREATE TABLE default.%s (
+                              _hoodie_commit_time STRING,
+                              _hoodie_commit_seqno STRING,
+                              _hoodie_record_key STRING,
+                              _hoodie_partition_path STRING,
+                              _hoodie_file_name STRING,
+                              id BIGINT,
+                              name STRING,
+                              price INT,
+                              ts BIGINT)
+                            USING hudi
+                            LOCATION 's3://%s/%s'
+                            TBLPROPERTIES (
+                              'last_commit_time_sync' = '%s',
+                              'preCombineField' = 'ts',
+                              'primaryKey' = 'id',
+                              'type' = 'cow')
+                            """,
                             tableName,
                             bucketName,
                             tableName,
@@ -326,15 +327,15 @@ public class TestHudiSparkCompatibility
         String tableName = "test_hudi_cow_replace_commits_select_" + randomNameSuffix();
 
         onHudi().executeQuery("CREATE TABLE default." + tableName +
-                              "(id bigint, name string, ts bigint)" +
-                              "USING hudi " +
-                              "TBLPROPERTIES (" +
-                              " type = 'cow'," +
-                              " primaryKey = 'id'," +
-                              " preCombineField = 'ts'," +
-                              " hoodie.clustering.inline = 'true'," +
-                              " hoodie.clustering.inline.max.commits = '1')" +
-                              "LOCATION 's3://" + bucketName + "/" + tableName + "'");
+                "(id bigint, name string, ts bigint)" +
+                "USING hudi " +
+                "TBLPROPERTIES (" +
+                " type = 'cow'," +
+                " primaryKey = 'id'," +
+                " preCombineField = 'ts'," +
+                " hoodie.clustering.inline = 'true'," +
+                " hoodie.clustering.inline.max.commits = '1')" +
+                "LOCATION 's3://" + bucketName + "/" + tableName + "'");
 
         try {
             onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 'a1', 1000), (2, 'a2', 2000)");
@@ -350,17 +351,18 @@ public class TestHudiSparkCompatibility
     {
         onHudi().executeQuery(format(
                 """
-                        CREATE TABLE default.%s (
-                          id bigint,
-                          name string,
-                          price int,
-                          ts bigint)
-                        USING hudi
-                        TBLPROPERTIES (
-                          type = '%s',
-                          primaryKey = 'id',
-                          preCombineField = 'ts')
-                        LOCATION 's3://%s/%s'""",
+                CREATE TABLE default.%s (
+                  id bigint,
+                  name string,
+                  price int,
+                  ts bigint)
+                USING hudi
+                TBLPROPERTIES (
+                  type = '%s',
+                  primaryKey = 'id',
+                  preCombineField = 'ts')
+                LOCATION 's3://%s/%s'
+                """,
                 tableName,
                 tableType,
                 bucketName,
@@ -373,19 +375,20 @@ public class TestHudiSparkCompatibility
     {
         onHudi().executeQuery(format(
                 """
-                        CREATE TABLE default.%s (
-                          id bigint,
-                          name string,
-                          ts bigint,
-                          dt string,
-                          hh string)
-                        USING hudi
-                        TBLPROPERTIES (
-                          type = '%s',
-                          primaryKey = 'id',
-                          preCombineField = 'ts')
-                        PARTITIONED BY (dt, hh)
-                        LOCATION 's3://%s/%s'""",
+                CREATE TABLE default.%s (
+                  id bigint,
+                  name string,
+                  ts bigint,
+                  dt string,
+                  hh string)
+                USING hudi
+                TBLPROPERTIES (
+                  type = '%s',
+                  primaryKey = 'id',
+                  preCombineField = 'ts')
+                PARTITIONED BY (dt, hh)
+                LOCATION 's3://%s/%s'
+                """,
                 tableName,
                 tableType,
                 bucketName,

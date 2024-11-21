@@ -114,7 +114,7 @@ public class TestDeltaLakeSchemaSupport
         List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE, List.of()).stream()
                 .map(DeltaLakeColumnMetadata::columnMetadata)
                 .collect(toImmutableList());
-        assertThat(schema.size()).isEqualTo(1);
+        assertThat(schema).hasSize(1);
         assertThat(schema.get(0)).isEqualTo(metadata);
     }
 
@@ -144,7 +144,7 @@ public class TestDeltaLakeSchemaSupport
         List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE, List.of()).stream()
                 .map(DeltaLakeColumnMetadata::columnMetadata)
                 .collect(toImmutableList());
-        assertThat(schema.size()).isEqualTo(5);
+        assertThat(schema).hasSize(5);
         // asserting on the string representations, since they're more readable
         assertThat(schema.get(0).toString()).isEqualTo("ColumnMetadata{name='a', type=integer, nullable}");
         assertThat(schema.get(1).toString()).isEqualTo("ColumnMetadata{name='b', type=row(b1 integer, b2 row(b21 varchar, b22 boolean)), nullable}");

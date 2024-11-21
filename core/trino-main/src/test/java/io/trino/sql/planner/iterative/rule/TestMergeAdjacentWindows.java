@@ -224,6 +224,7 @@ public class TestMergeAdjacentWindows
                 Arrays.stream(symbols)
                         .map(Symbol::toSymbolReference)
                         .collect(Collectors.toList()),
+                Optional.empty(),
                 DEFAULT_FRAME,
                 false);
     }
@@ -235,6 +236,7 @@ public class TestMergeAdjacentWindows
                 Arrays.stream(symbols)
                         .map(name -> new Reference(DOUBLE, name))
                         .collect(Collectors.toList()),
+                Optional.empty(),
                 DEFAULT_FRAME,
                 false);
     }

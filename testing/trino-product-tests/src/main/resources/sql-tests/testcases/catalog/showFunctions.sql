@@ -1,2 +1,2 @@
--- database: presto; groups: base_sql; queryType: SELECT
+-- database: trino; groups: base_sql; queryType: SELECT
 show functions

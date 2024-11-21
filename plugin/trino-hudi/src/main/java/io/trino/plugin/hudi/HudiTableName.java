@@ -23,14 +23,11 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class HudiTableName
+public record HudiTableName(String tableName, TableType tableType)
 {
     private static final Pattern TABLE_PATTERN = Pattern.compile("" +
             "(?<table>[^$@]+)" +
             "(?:\\$(?<type>[^@]+))?");
-
-    private final String tableName;
-    private final TableType tableType;
 
     public HudiTableName(String tableName, TableType tableType)
     {
@@ -38,17 +35,7 @@ public class HudiTableName
         this.tableType = requireNonNull(tableType, "tableType is null");
     }
 
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    public TableType getTableType()
-    {
-        return tableType;
-    }
-
-    public String getTableNameWithType()
+    public String tableNameWithType()
     {
         return tableName + "$" + tableType.name().toLowerCase(ENGLISH);
     }
@@ -56,7 +43,7 @@ public class HudiTableName
     @Override
     public String toString()
     {
-        return getTableNameWithType();
+        return tableNameWithType();
     }
 
     public static HudiTableName from(String name)

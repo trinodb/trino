@@ -40,6 +40,7 @@ import static com.google.common.base.StandardSystemProperty.USER_HOME;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.trino.cli.ClientOptions.DEBUG_OPTION_NAME;
+import static io.trino.client.spooling.encoding.QueryDataDecoders.getPreferredEncodings;
 import static io.trino.client.spooling.encoding.QueryDataDecoders.getSupportedEncodings;
 import static java.lang.System.getenv;
 import static java.util.Collections.enumeration;
@@ -138,6 +139,7 @@ public final class Trino
         {
             this.variables = ImmutableMap.<String, String>builder()
                     .put("ENCODINGS", Joiner.on(", ").join(getSupportedEncodings()))
+                    .put("PREFERRED_ENCODINGS", getPreferredEncodings())
                     .buildOrThrow();
         }
 

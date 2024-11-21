@@ -183,7 +183,7 @@ public class CheckpointSchemaManager
             List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(metadataEntry, protocolEntry, typeManager);
             if (!partitionColumns.isEmpty()) {
                 List<RowType.Field> partitionValuesParsed = partitionColumns.stream()
-                        .map(column -> RowType.field(column.columnName(), typeManager.getType(getTypeSignature(DeltaHiveTypeTranslator.toHiveType(column.type())))))
+                        .map(column -> RowType.field(column.basePhysicalColumnName(), typeManager.getType(getTypeSignature(DeltaHiveTypeTranslator.toHiveType(column.type())))))
                         .collect(toImmutableList());
                 addFields.add(RowType.field("partitionValues_parsed", RowType.from(partitionValuesParsed)));
             }

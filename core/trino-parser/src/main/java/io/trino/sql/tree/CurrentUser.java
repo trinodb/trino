@@ -16,14 +16,13 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 public class CurrentUser
         extends Expression
 {
     public CurrentUser(NodeLocation location)
     {
-        super(Optional.of(location));
+        super(location);
     }
 
     @Override

@@ -15,6 +15,9 @@ package io.trino.sql.gen;
 
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.MethodDefinition;
+import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
@@ -28,8 +31,12 @@ import io.trino.spi.type.Type;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import static io.airlift.bytecode.Access.PUBLIC;
+import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
@@ -48,6 +55,9 @@ public class RowConstructorCodeGenerator
     private final List<RowExpression> arguments;
     // Arbitrary value chosen to balance the code size vs performance trade off. Not perf tested.
     private static final int MEGAMORPHIC_FIELD_COUNT = 64;
+
+    // number of fields to initialize in a single method for large rows
+    private static final int LARGE_ROW_BATCH_SIZE = 100;
 
     public RowConstructorCodeGenerator(SpecialForm specialForm)
     {
@@ -109,18 +119,58 @@ public class RowConstructorCodeGenerator
         BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for " + rowType);
         CallSiteBinder binder = context.getCallSiteBinder();
         Scope scope = context.getScope();
-        List<Type> types = rowType.getTypeParameters();
 
         Variable fieldBuilders = scope.getOrCreateTempVariable(BlockBuilder[].class);
         block.append(fieldBuilders.set(invokeStatic(RowConstructorCodeGenerator.class, "createFieldBlockBuildersForSingleRow", BlockBuilder[].class, constantType(binder, rowType))));
 
         Variable blockBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
-        for (int i = 0; i < arguments.size(); ++i) {
+        for (int i = 0; i < arguments.size(); i += LARGE_ROW_BATCH_SIZE) {
+            MethodDefinition partialRowConstructor = generatePartialRowConstructor(i, Math.min(i + LARGE_ROW_BATCH_SIZE, arguments.size()), context);
+            block.getVariable(scope.getThis());
+            for (Parameter argument : context.getContextArguments()) {
+                block.getVariable(argument);
+            }
+            block.getVariable(fieldBuilders);
+            block.invokeVirtual(partialRowConstructor);
+        }
+        scope.releaseTempVariableForReuse(blockBuilder);
+
+        block.append(invokeStatic(RowConstructorCodeGenerator.class, "createSqlRowFromFieldBuildersForSingleRow", SqlRow.class, fieldBuilders));
+        scope.releaseTempVariableForReuse(fieldBuilders);
+        block.append(context.wasNull().set(constantFalse()));
+        return block;
+    }
+
+    private MethodDefinition generatePartialRowConstructor(int start, int end, BytecodeGeneratorContext parentContext)
+    {
+        ClassDefinition classDefinition = parentContext.getClassDefinition();
+        CallSiteBinder binder = parentContext.getCallSiteBinder();
+
+        Parameter fieldBuilders = arg("fieldBuilders", BlockBuilder[].class);
+
+        List<Parameter> parameters = new ArrayList<>(parentContext.getContextArguments());
+        parameters.add(fieldBuilders);
+
+        MethodDefinition methodDefinition = classDefinition.declareMethod(
+                a(PUBLIC),
+                "partialRowConstructor" + System.identityHashCode(this) + "_" + start,
+                type(void.class),
+                parameters);
+
+        Scope scope = methodDefinition.getScope();
+        BytecodeBlock block = methodDefinition.getBody();
+        scope.declareVariable("wasNull", block, constantFalse());
+
+        BytecodeGeneratorContext context = new BytecodeGeneratorContext(parentContext.getRowExpressionCompiler(), scope, binder, parentContext.getCachedInstanceBinder(), parentContext.getFunctionManager(), classDefinition, parentContext.getContextArguments());
+        Variable blockBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
+        List<Type> types = rowType.getTypeParameters();
+        for (int i = start; i < end; i++) {
             Type fieldType = types.get(i);
 
             block.append(blockBuilder.set(fieldBuilders.getElement(constantInt(i))));
 
             block.comment("Clean wasNull and Generate + " + i + "-th field of row");
+
             block.append(context.wasNull().set(constantFalse()));
             block.append(context.generate(arguments.get(i)));
             Variable field = scope.getOrCreateTempVariable(fieldType.getJavaType());
@@ -131,12 +181,9 @@ public class RowConstructorCodeGenerator
                     .ifFalse(constantType(binder, fieldType).writeValue(blockBuilder, field).pop()));
             scope.releaseTempVariableForReuse(field);
         }
-        scope.releaseTempVariableForReuse(blockBuilder);
 
-        block.append(invokeStatic(RowConstructorCodeGenerator.class, "createSqlRowFromFieldBuildersForSingleRow", SqlRow.class, fieldBuilders));
-        scope.releaseTempVariableForReuse(fieldBuilders);
-        block.append(context.wasNull().set(constantFalse()));
-        return block;
+        block.ret();
+        return methodDefinition;
     }
 
     @UsedByGeneratedCode

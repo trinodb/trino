@@ -54,6 +54,7 @@ import static com.google.common.io.Files.createParentDirs;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.Session.SessionBuilder;
+import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
@@ -108,7 +109,8 @@ public abstract class BaseCostBasedPlanTest
                 .setSystemProperty("filter_conjunction_independence_factor", "0.750000001")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name());
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, "false");
         PlanTester planTester = PlanTester.create(sessionBuilder.build(), 8);
         planTester.createCatalog(
                 CATALOG_NAME,

@@ -28,6 +28,7 @@ import io.trino.spi.resourcegroups.SelectionCriteria;
 import io.trino.spi.session.ResourceEstimates;
 import org.h2.jdbc.JdbcException;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -36,6 +37,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
@@ -43,6 +46,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.resourcegroups.InternalResourceGroup.DEFAULT_WEIGHT;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.FAIR;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,22 +83,22 @@ public class TestDbResourceGroupConfigurationManager
         // check the prod configuration
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(listener -> {}, new DbResourceGroupConfig(), daoProvider.get(), prodEnvironment);
         List<ResourceGroupSpec> groups = manager.getRootGroups();
-        assertThat(groups.size()).isEqualTo(1);
+        assertThat(groups).hasSize(1);
         InternalResourceGroup prodGlobal = new InternalResourceGroup("prod_global", (group, export) -> {}, directExecutor());
         manager.configure(prodGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("prod_global")));
         assertEqualsResourceGroup(prodGlobal, "10MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1));
-        assertThat(manager.getSelectors().size()).isEqualTo(1);
+        assertThat(manager.getSelectors()).hasSize(1);
         ResourceGroupSelector prodSelector = manager.getSelectors().get(0);
         ResourceGroupId prodResourceGroupId = prodSelector.match(new SelectionCriteria(true, "prod_user", ImmutableSet.of(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
         assertThat(prodResourceGroupId.toString()).isEqualTo("prod_global");
 
         // check the dev configuration
         manager = new DbResourceGroupConfigurationManager(listener -> {}, new DbResourceGroupConfig(), daoProvider.get(), devEnvironment);
-        assertThat(groups.size()).isEqualTo(1);
+        assertThat(groups).hasSize(1);
         InternalResourceGroup devGlobal = new InternalResourceGroup("dev_global", (group, export) -> {}, directExecutor());
         manager.configure(devGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("dev_global")));
         assertEqualsResourceGroup(devGlobal, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1));
-        assertThat(manager.getSelectors().size()).isEqualTo(1);
+        assertThat(manager.getSelectors()).hasSize(1);
         ResourceGroupSelector devSelector = manager.getSelectors().get(0);
         ResourceGroupId devResourceGroupId = devSelector.match(new SelectionCriteria(true, "dev_user", ImmutableSet.of(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
         assertThat(devResourceGroupId.toString()).isEqualTo("dev_global");
@@ -211,7 +215,7 @@ public class TestDbResourceGroupConfigurationManager
         do {
             MILLISECONDS.sleep(500);
         }
-        while (globalSub.getMaxQueuedQueries() != 0 || globalSub.getHardConcurrencyLimit() != 0);
+        while (!globalSub.isDisabled());
     }
 
     @Test
@@ -231,13 +235,13 @@ public class TestDbResourceGroupConfigurationManager
         config.setExactMatchSelectorEnabled(true);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(listener -> {}, config, daoProvider.get(), ENVIRONMENT);
         manager.load();
-        assertThat(manager.getSelectors().size()).isEqualTo(2);
+        assertThat(manager.getSelectors()).hasSize(2);
         assertThat(manager.getSelectors().get(0)).isInstanceOf(DbSourceExactMatchSelector.class);
 
         config.setExactMatchSelectorEnabled(false);
         manager = new DbResourceGroupConfigurationManager(listener -> {}, config, daoProvider.get(), ENVIRONMENT);
         manager.load();
-        assertThat(manager.getSelectors().size()).isEqualTo(1);
+        assertThat(manager.getSelectors()).hasSize(1);
         assertThat(manager.getSelectors().get(0) instanceof DbSourceExactMatchSelector).isFalse();
     }
 
@@ -272,7 +276,7 @@ public class TestDbResourceGroupConfigurationManager
         manager.load();
 
         List<ResourceGroupSelector> selectors = manager.getSelectors();
-        assertThat(selectors.size()).isEqualTo(expectedUsers.size());
+        assertThat(selectors).hasSize(expectedUsers.size());
 
         // when we load the selectors we expect the selector list to be ordered by priority
         expectedUsers.sort(Comparator.<String>comparingInt(Integer::parseInt).reversed());
@@ -377,6 +381,61 @@ public class TestDbResourceGroupConfigurationManager
         assertThat(manager.match(userAndUserGroupsSelectionCriteria("Matching user", "Matching group")))
                 .map(SelectionContext::getContext)
                 .isEqualTo(Optional.of(new ResourceGroupIdTemplate("group")));
+    }
+
+    @RepeatedTest(10)
+    public void testConfigurationUpdateIsNotLost()
+    {
+        // This test attempts to reproduce the following sequence:
+        // 1. Load resource group configuration C1, which includes template T1.
+        // 2. For query Q1, select template T1 and expand it into resource group R1.
+        // 3. For query Q1, obtain C1 in DbResourceGroupConfigurationManager#configure.
+        // 4. Load resource group configuration C2 with modified parameters for T1.
+        //
+        // If everything works correctly, C2 should eventually be applied to R1.
+        // We want to avoid the following scenarios:
+        // - C1, obtained in step 3, overwrites C2 applied to R1 in step 4, and no subsequent
+        //   'load' applies C2 again.
+        // - The 'load' in step 4 doesn't apply C2 to R1 because 'configure' hasn't created a
+        //   mapping between T1 and R1 yet, and no subsequent 'load' detects the configuration change for T1.
+
+        H2DaoProvider daoProvider = setup("test_lost_update");
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsGlobalPropertiesTable();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.insertResourceGroup(1, "global", "80%", 10, null, 1, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertSelector(1, 1, null, "userGroup", null, null, null, null);
+        DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
+
+        Optional<SelectionContext<ResourceGroupIdTemplate>> userGroup = manager.match(userGroupsSelectionCriteria("userGroup"));
+        assertThat(userGroup.isPresent()).isTrue();
+        SelectionContext<ResourceGroupIdTemplate> selectionContext = userGroup.get();
+
+        InternalResourceGroup resourceGroup = new InternalResourceGroup("global", (_, _) -> {}, directExecutor());
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            dao.updateResourceGroup(1, "global", "80%", 10, null, 10, null, null, null, null, null, null, ENVIRONMENT);
+
+            executor.submit(() -> {
+                synchronized (resourceGroup) {
+                    // Wait while holding the lock to increase the likelihood that 'load' and 'configure'
+                    // will attempt to update the configuration simultaneously. Both need to acquire this
+                    // lock to update the resource group.
+                    Thread.sleep(10);
+                }
+                return null;
+            });
+
+            executor.submit(manager::load);
+
+            manager.configure(resourceGroup, selectionContext);
+
+            assertEventually(() -> {
+                manager.load();
+                assertThat(resourceGroup.getHardConcurrencyLimit()).isEqualTo(10);
+            });
+        }
     }
 
     private static void assertEqualsResourceGroup(

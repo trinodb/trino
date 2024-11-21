@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.ignite;
 
-import io.trino.testing.ResourcePresence;
 import io.trino.testing.SharedResource;
 
 import java.sql.Connection;
@@ -63,11 +62,5 @@ public class TestingIgniteServer
     public void close()
     {
         dockerContainer.stop();
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return dockerContainer.getContainerId() != null;
     }
 }

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -36,7 +35,7 @@ public final class SetProperties
 
     public SetProperties(NodeLocation location, Type type, QualifiedName name, List<Property> properties)
     {
-        super(Optional.of(location));
+        super(location);
         this.type = requireNonNull(type, "type is null");
         this.name = requireNonNull(name, "name is null");
         this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));

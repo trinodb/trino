@@ -14,12 +14,15 @@
 package io.trino.tests.product.launcher.env;
 
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeSqlserver;
+import io.trino.tests.product.launcher.env.jdk.BuiltInJdkProvider;
 import io.trino.tests.product.launcher.suite.suites.Suite1;
 import io.trino.tests.product.launcher.suite.suites.Suite6NonGeneric;
 import io.trino.tests.product.launcher.suite.suites.SuiteTpcds;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.tests.product.launcher.Configurations.canonicalEnvironmentName;
+import static io.trino.tests.product.launcher.Configurations.canonicalJdkProviderName;
+import static io.trino.tests.product.launcher.Configurations.nameForJdkProviderName;
 import static io.trino.tests.product.launcher.Configurations.nameForSuiteClass;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -53,5 +56,13 @@ public class TestConfigurations
         assertThat(nameForSuiteClass(SuiteTpcds.class)).isEqualTo("suite-tpcds");
         // suite name with a number  and then a word
         assertThat(nameForSuiteClass(Suite6NonGeneric.class)).isEqualTo("suite-6-non-generic");
+    }
+
+    @Test
+    public void testJdkProviderName()
+    {
+        assertThat(nameForJdkProviderName(BuiltInJdkProvider.class)).isEqualTo("builtin");
+        assertThat(canonicalJdkProviderName("BuiltIN")).isEqualTo("builtin");
+        assertThat(canonicalJdkProviderName("built-IN")).isEqualTo("builtin");
     }
 }

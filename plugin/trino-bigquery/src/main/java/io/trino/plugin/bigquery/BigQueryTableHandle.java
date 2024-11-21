@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public record BigQueryTableHandle(
         BigQueryRelationHandle relationHandle,
@@ -71,6 +72,24 @@ public record BigQueryTableHandle(
     public boolean isQueryRelation()
     {
         return relationHandle instanceof BigQueryQueryRelationHandle;
+    }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append(relationHandle);
+        if (constraint.isNone()) {
+            builder.append(" constraint=FALSE");
+        }
+        else if (!constraint.isAll()) {
+            builder.append(" constraint on ");
+            builder.append(constraint.getDomains().orElseThrow().keySet().stream()
+                    .map(columnHandle -> ((BigQueryColumnHandle) columnHandle).name())
+                    .collect(joining(", ", "[", "]")));
+        }
+        projectedColumns.ifPresent(columns -> builder.append(" columns=").append(columns));
+        return builder.toString();
     }
 
     public BigQueryNamedRelationHandle asPlainTable()

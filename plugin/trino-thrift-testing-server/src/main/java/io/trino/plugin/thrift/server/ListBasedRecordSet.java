@@ -104,9 +104,7 @@ public class ListBasedRecordSet
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
 
         @Override
         public boolean getBoolean(int field)

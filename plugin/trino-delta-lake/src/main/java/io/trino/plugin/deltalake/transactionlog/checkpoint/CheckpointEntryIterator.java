@@ -388,6 +388,7 @@ public class CheckpointEntryIterator
 
     private static HiveColumnHandle toPartitionValuesParsedField(HiveColumnHandle addColumn, DeltaLakeColumnHandle partitionColumn)
     {
+        checkArgument(partitionColumn.isBaseColumn(), "partitionColumn must be a base column: %s", partitionColumn);
         return new HiveColumnHandle(
                 addColumn.getBaseColumnName(),
                 addColumn.getBaseHiveColumnIndex(),
@@ -395,7 +396,7 @@ public class CheckpointEntryIterator
                 addColumn.getBaseType(),
                 Optional.of(new HiveColumnProjectionInfo(
                         ImmutableList.of(0, 0), // hiveColumnIndex; we provide fake value because we always find columns by name
-                        ImmutableList.of("partitionvalues_parsed", partitionColumn.columnName()),
+                        ImmutableList.of("partitionvalues_parsed", partitionColumn.basePhysicalColumnName()),
                         DeltaHiveTypeTranslator.toHiveType(partitionColumn.type()),
                         partitionColumn.type())),
                 HiveColumnHandle.ColumnType.REGULAR,

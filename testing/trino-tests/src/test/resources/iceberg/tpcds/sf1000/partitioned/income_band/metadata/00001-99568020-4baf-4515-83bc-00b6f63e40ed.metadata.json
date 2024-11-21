@@ -89,6 +89,37 @@
     "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/income_band/metadata/snap-2915181097642837852-1-9b3490b7-e1c2-467a-8a2a-0731a236ef94.avro",
     "schema-id" : 0
   } ],
+  "statistics" : [ {
+    "snapshot-id" : 2915181097642837852,
+    "statistics-path" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/income_band/metadata/20240320_234902_02768_t6z6k-ff08d68e-3606-458d-8b46-ed1d7c159e49.stats",
+    "file-size-in-bytes" : 1228,
+    "file-footer-size-in-bytes" : 657,
+    "blob-metadata" : [ {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2915181097642837852,
+      "sequence-number" : 2,
+      "fields" : [ 1 ],
+      "properties" : {
+        "ndv" : "20"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2915181097642837852,
+      "sequence-number" : 2,
+      "fields" : [ 2 ],
+      "properties" : {
+        "ndv" : "20"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 2915181097642837852,
+      "sequence-number" : 2,
+      "fields" : [ 3 ],
+      "properties" : {
+        "ndv" : "20"
+      }
+    } ]
+  } ],
   "snapshot-log" : [ {
     "timestamp-ms" : 1648084890945,
     "snapshot-id" : 2915181097642837852

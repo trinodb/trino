@@ -141,7 +141,7 @@ clusters with TLS enabled.
 
 If your cluster uses globally-trusted certificates, you only need to
 enable TLS. If you require custom configuration for certificates, the connector
-supports key stores and trust stores in PEM or Java Key Store (JKS) format.
+supports key stores and trust stores in P12 (PKCS) or Java Key Store (JKS) format.
 
 The available configuration values are listed in the following table:
 
@@ -154,10 +154,10 @@ The available configuration values are listed in the following table:
 * - `opensearch.tls.enabled`
   - Enable TLS security. Defaults to `false`.
 * - `opensearch.tls.keystore-path`
-  - The path to the [PEM](/security/inspect-pem) or [JKS](/security/inspect-jks)
+  - The path to the P12 (PKCS) or [JKS](/security/inspect-jks)
     key store.
 * - `opensearch.tls.truststore-path`
-  - The path to [PEM](/security/inspect-pem) or [JKS](/security/inspect-jks)
+  - The path to P12 (PKCS) or [JKS](/security/inspect-jks)
     trust store.
 * - `opensearch.tls.keystore-password`
   - The password for the key store specified by

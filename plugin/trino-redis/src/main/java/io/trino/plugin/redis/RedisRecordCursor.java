@@ -331,9 +331,7 @@ public class RedisRecordCursor
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 
     private ScanParams setScanParams()
     {

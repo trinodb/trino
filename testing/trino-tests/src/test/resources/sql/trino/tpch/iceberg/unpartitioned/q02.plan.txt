@@ -2,52 +2,50 @@ remote exchange (GATHER, SINGLE, [])
     local exchange (GATHER, UNKNOWN, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             cross join:
-                join (LEFT, PARTITIONED):
-                    remote exchange (REPARTITION, HASH, [partkey])
-                        join (INNER, REPLICATED):
-                            join (INNER, REPLICATED):
-                                join (INNER, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, [suppkey_5])
-                                        join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, [partkey])
-                                                dynamic filter (partkey::EQUAL)
-                                                    scan part
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [partkey_4])
-                                                    dynamic filter (suppkey_5::EQUAL)
-                                                        scan partsupp
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, [suppkey])
-                                            dynamic filter (nationkey::EQUAL)
-                                                scan supplier
-                                local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
-                                        dynamic filter (regionkey::EQUAL)
-                                            scan nation
-                            local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
-                                    scan region
+                join (RIGHT, PARTITIONED):
                     final aggregation over (partkey_19)
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [partkey_19])
                                 partial aggregation over (partkey_19)
                                     join (INNER, REPLICATED):
-                                        join (INNER, REPLICATED):
-                                            join (INNER, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, [suppkey_20])
-                                                    dynamic filter (suppkey_20::EQUAL)
-                                                        scan partsupp
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, [suppkey_26])
-                                                        dynamic filter (nationkey_29::EQUAL)
-                                                            scan supplier
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                    dynamic filter (regionkey_37::EQUAL)
-                                                        scan nation
+                                        dynamic filter (partkey_19::EQUAL, suppkey_20::EQUAL)
+                                            scan partsupp
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan region
+                                                join (INNER, REPLICATED):
+                                                    dynamic filter (nationkey_29::EQUAL)
+                                                        scan supplier
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            join (INNER, REPLICATED):
+                                                                dynamic filter (regionkey_37::EQUAL)
+                                                                    scan nation
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        scan region
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, [partkey_4])
+                            join (INNER, PARTITIONED):
+                                remote exchange (REPARTITION, HASH, [suppkey_5])
+                                    join (INNER, REPLICATED):
+                                        dynamic filter (partkey_4::EQUAL, suppkey_5::EQUAL)
+                                            scan partsupp
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan part
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, [suppkey])
+                                        join (INNER, REPLICATED):
+                                            dynamic filter (nationkey::EQUAL)
+                                                scan supplier
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    join (INNER, REPLICATED):
+                                                        dynamic filter (regionkey::EQUAL)
+                                                            scan nation
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                scan region
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPLICATE, BROADCAST, [])
                         single aggregation over ()

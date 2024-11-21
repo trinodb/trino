@@ -31,6 +31,7 @@ import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.NodeUtils;
 import io.trino.sql.PlannerContext;
@@ -173,6 +174,7 @@ import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 class QueryPlanner
@@ -313,7 +315,7 @@ class QueryPlanner
         NodeAndMappings checkConvergenceStep = copy(recursionStep, mappings);
         Symbol countSymbol = symbolAllocator.newSymbol("count", BIGINT);
         ResolvedFunction function = plannerContext.getMetadata().resolveBuiltinFunction("count", ImmutableList.of());
-        WindowNode.Function countFunction = new WindowNode.Function(function, ImmutableList.of(), DEFAULT_FRAME, false);
+        WindowNode.Function countFunction = new WindowNode.Function(function, ImmutableList.of(), Optional.empty(), DEFAULT_FRAME, false);
 
         WindowNode windowNode = new WindowNode(
                 idAllocator.getNextId(),
@@ -596,7 +598,7 @@ class QueryPlanner
 
         io.trino.sql.tree.Expression[] orderedColumnValuesArray = new io.trino.sql.tree.Expression[updatedColumnHandles.size()];
         node.getAssignments().forEach(assignment -> {
-            String name = assignment.getName().getValue();
+            String name = assignment.getName().getValue().toLowerCase(ENGLISH);
             ColumnHandle handle = nameToHandle.get(name);
             int index = updatedColumnHandles.indexOf(handle);
             if (index >= 0) {
@@ -861,17 +863,16 @@ class QueryPlanner
             }
         }
 
-        // Build the "else" clause for the SearchedCaseExpression
-        ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
-        dataColumnSchemas.forEach(columnSchema ->
-                rowBuilder.add(new Constant(columnSchema.getType(), null)));
-        rowBuilder.add(not(metadata, new IsNull(presentColumn.toSymbolReference())));
-        // The operation number
-        rowBuilder.add(new Constant(TINYINT, -1L));
-        // The case number
-        rowBuilder.add(new Constant(INTEGER, -1L));
-
-        Case caseExpression = new Case(whenClauses.build(), new Row(rowBuilder.build()));
+        Case caseExpression = new Case(
+                whenClauses.build(),
+                new Constant(
+                        RowType.anonymous(ImmutableList.<Type>builder()
+                        .addAll(dataColumnSchemas.stream().map(ColumnSchema::getType).collect(toImmutableList()))
+                        .add(BOOLEAN)
+                        .add(TINYINT)
+                        .add(INTEGER)
+                        .build()),
+                        null));
 
         Symbol mergeRowSymbol = symbolAllocator.newSymbol("merge_row", mergeAnalysis.getMergeRowType());
         Symbol caseNumberSymbol = symbolAllocator.newSymbol("case_number", INTEGER);
@@ -1457,6 +1458,9 @@ class QueryPlanner
                 inputsBuilder.addAll(windowFunction.getArguments().stream()
                                 .filter(argument -> !(argument instanceof LambdaExpression)) // lambda expression is generated at execution time
                                 .collect(Collectors.toList()));
+                inputsBuilder.addAll(getSortItemsFromOrderBy(windowFunction.getOrderBy()).stream()
+                        .map(SortItem::getSortKey)
+                        .iterator());
             }
 
             List<io.trino.sql.tree.Expression> inputs = inputsBuilder.build();
@@ -1778,6 +1782,7 @@ class QueryPlanner
                                 return coercions.get(argument).toSymbolReference();
                             })
                             .collect(toImmutableList()),
+                    windowFunction.getOrderBy().map(orderBy -> translateOrderingScheme(orderBy.getSortItems(), coercions::get)),
                     frame,
                     nullTreatment == NullTreatment.IGNORE);
 
@@ -1859,6 +1864,7 @@ class QueryPlanner
                                 return coercions.get(argument).toSymbolReference();
                             })
                             .collect(toImmutableList()),
+                    Optional.empty(),
                     baseFrame,
                     nullTreatment == NullTreatment.IGNORE);
 

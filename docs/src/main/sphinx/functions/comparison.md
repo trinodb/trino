@@ -284,13 +284,17 @@ SELECT * FROM region WHERE name NOT IN ('AMERICA', 'EUROPE');
 ```
 
 When using a subquery to determine the values to use in the comparison, the
-subquery must return a single column and one or more rows.
+subquery must return a single column and one or more rows. For example, the
+following query returns nation name of countries in regions starting with the
+letter `A`, specifically Africa, America, and Asia:
 
 ```sql
-SELECT name
+SELECT nation.name
 FROM nation
 WHERE regionkey IN (
-    SELECT starts_with(regionkey,"A") AS regionkey
-    FROM region
-);
+  SELECT regionkey
+  FROM region
+  WHERE starts_with(name, 'A')
+)
+ORDER by nation.name;
 ```

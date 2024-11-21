@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.prometheus;
 
-import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
@@ -46,14 +45,14 @@ public class PrometheusServer
         this.dockerContainer = new GenericContainer<>("prom/prometheus:" + version)
                 .withExposedPorts(PROMETHEUS_PORT)
                 .waitingFor(Wait.forHttp(PROMETHEUS_QUERY_API).forResponsePredicate(response -> response.contains("\"values\"")))
-                .withStartupTimeout(Duration.ofSeconds(360));
+                .withStartupTimeout(Duration.ofMinutes(6));
         // Basic authentication was introduced in v2.24.0
         if (enableBasicAuth) {
             this.dockerContainer
                     .withCommand("--config.file=/etc/prometheus/prometheus.yml", "--web.config.file=/etc/prometheus/web.yml")
                     .withCopyFileToContainer(forClasspathResource("web.yml"), "/etc/prometheus/web.yml")
                     .waitingFor(Wait.forHttp(PROMETHEUS_QUERY_API).forResponsePredicate(response -> response.contains("\"values\"")).withBasicCredentials(USER, PASSWORD))
-                    .withStartupTimeout(Duration.ofSeconds(360));
+                    .withStartupTimeout(Duration.ofMinutes(6));
         }
         this.dockerContainer.start();
     }
@@ -67,11 +66,5 @@ public class PrometheusServer
     public void close()
     {
         dockerContainer.close();
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return dockerContainer.getContainerId() != null;
     }
 }

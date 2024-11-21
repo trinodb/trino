@@ -253,7 +253,8 @@ public class TestJsonObjectFunction
     @Test
     public void testNestedAggregation()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT json_object(key 'x' value max(a))
                 FROM (VALUES ('abc'), ('def')) t(a)
                 """))

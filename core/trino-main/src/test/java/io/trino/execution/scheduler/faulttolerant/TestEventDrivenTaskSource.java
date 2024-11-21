@@ -671,7 +671,7 @@ public class TestEventDrivenTaskSource
             AssignmentResult.Builder result = AssignmentResult.builder();
             Multimaps.asMap(splitsMap).forEach((partition, splits) -> {
                 if (partitions.add(partition)) {
-                    result.addPartition(new Partition(partition, new NodeRequirements(Optional.empty(), ImmutableSet.of(), true)));
+                    result.addPartition(new Partition(partition, new NodeRequirements(Optional.empty(), Optional.empty(), true)));
                     for (PlanNodeId finishedSource : finishedSources) {
                         result.updatePartition(new PartitionUpdate(partition, finishedSource, false, ImmutableListMultimap.of(), true));
                     }
@@ -706,16 +706,11 @@ public class TestEventDrivenTaskSource
             if (partitions.isEmpty()) {
                 partitions.add(0);
                 result
-                        .addPartition(new Partition(0, new NodeRequirements(Optional.empty(), ImmutableSet.of(), true)))
+                        .addPartition(new Partition(0, new NodeRequirements(Optional.empty(), Optional.empty(), true)))
                         .sealPartition(0);
             }
             return result.setNoMorePartitions()
                     .build();
-        }
-
-        public boolean isFinished()
-        {
-            return finished;
         }
     }
 }

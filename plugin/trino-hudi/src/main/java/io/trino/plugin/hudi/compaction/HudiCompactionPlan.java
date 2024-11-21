@@ -76,14 +76,10 @@ public class HudiCompactionPlan
     public Object get(int field)
     {
         return switch (field) {
-            case 0:
-                yield operations;
-            case 1:
-                yield extraMetadata;
-            case 2:
-                yield version;
-            default:
-                throw new IndexOutOfBoundsException("Invalid index: " + field);
+            case 0 -> operations;
+            case 1 -> extraMetadata;
+            case 2 -> version;
+            default -> throw new IndexOutOfBoundsException("Invalid index: " + field);
         };
     }
 

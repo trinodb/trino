@@ -76,7 +76,7 @@ public class TestRealAverageAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = REAL.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = REAL.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             REAL.writeLong(blockBuilder, floatToRawIntBits((float) i));
         }
@@ -111,7 +111,7 @@ public class TestRealAverageAggregation
 
     protected Block[] getSequenceBlocksForRealNaNTest(int start, int length)
     {
-        BlockBuilder blockBuilder = REAL.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = REAL.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length - 5; i++) {
             REAL.writeLong(blockBuilder, floatToRawIntBits((float) i));
         }
@@ -124,7 +124,7 @@ public class TestRealAverageAggregation
 
     protected Block[] getSequenceBlocksForRealInfinityTest(int start, int length)
     {
-        BlockBuilder blockBuilder = REAL.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = REAL.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length - 5; i++) {
             REAL.writeLong(blockBuilder, floatToRawIntBits((float) i));
         }

@@ -14,7 +14,6 @@
 package io.trino.spi.protocol;
 
 import io.trino.spi.Experimental;
-import io.trino.spi.QueryId;
 
 import java.time.Instant;
 
@@ -24,8 +23,6 @@ import java.time.Instant;
 @Experimental(eta = "2025-05-31")
 public interface SpooledSegmentHandle
 {
-    QueryId queryId();
-
     String identifier();
 
     String encoding();

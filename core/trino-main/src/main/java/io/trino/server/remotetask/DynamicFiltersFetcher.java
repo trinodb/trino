@@ -183,7 +183,7 @@ class DynamicFiltersFetcher
         @Override
         public void success(VersionedDynamicFilterDomains newDynamicFilterDomains)
         {
-            try (SetThreadName _ = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("DynamicFiltersFetcher-" + taskId)) {
                 updateStats(requestStartNanos);
                 if (newDynamicFilterDomains.getVersion() < requestedDynamicFiltersVersion) {
                     // Receiving older dynamic filter shouldn't happen unless
@@ -208,7 +208,7 @@ class DynamicFiltersFetcher
         @Override
         public void failed(Throwable cause)
         {
-            try (SetThreadName _ = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("DynamicFiltersFetcher-" + taskId)) {
                 updateStats(requestStartNanos);
                 errorTracker.requestFailed(cause);
                 fetchDynamicFiltersIfNecessary();
@@ -230,7 +230,7 @@ class DynamicFiltersFetcher
         @Override
         public void fatal(Throwable cause)
         {
-            try (SetThreadName _ = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
+            try (SetThreadName _ = new SetThreadName("DynamicFiltersFetcher-" + taskId)) {
                 updateStats(requestStartNanos);
                 stop();
                 onFail.accept(cause);

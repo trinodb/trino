@@ -18,11 +18,10 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.errorprone.annotations.DoNotCall;
+import io.airlift.slice.Slice;
 import io.trino.client.JsonCodec;
 import io.trino.spi.Plugin;
-import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledLocation;
-import io.trino.spi.protocol.SpooledLocation.CoordinatorLocation;
 import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
 import io.trino.spi.protocol.SpoolingContext;
@@ -42,6 +41,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -72,10 +72,7 @@ public class LocalSpoolingManager
     @Override
     public SpooledSegmentHandle create(SpoolingContext context)
     {
-        return new LocalSpooledSegmentHandle(
-                context.encoding(),
-                context.queryId(),
-                rootPath.resolve(context.queryId().getId() + "-" + segmentId.incrementAndGet() + "-" + UUID.randomUUID() + "." + context.encoding()));
+        return new LocalSpooledSegmentHandle(context.encoding(), rootPath.resolve(segmentId.incrementAndGet() + "-" + UUID.randomUUID() + "." + context.encoding()));
     }
 
     @Override
@@ -98,13 +95,10 @@ public class LocalSpoolingManager
     }
 
     @Override
-    public SpooledSegmentHandle handle(SpooledLocation location)
+    public SpooledSegmentHandle handle(Slice identifier, Map<String, List<String>> headers)
     {
-        if (!(location instanceof CoordinatorLocation coordinatorLocation)) {
-            throw new IllegalArgumentException("Cannot convert direct location to handle");
-        }
         try {
-            return HANDLE_CODEC.fromJson(coordinatorLocation.identifier().toStringUtf8());
+            return HANDLE_CODEC.fromJson(identifier.toStringUtf8());
         }
         catch (JsonProcessingException e) {
             throw new UncheckedIOException(e);
@@ -131,7 +125,7 @@ public class LocalSpoolingManager
     }
 
     @Override
-    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
+    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle, OptionalInt ttlSeconds)
     {
         throw new UnsupportedOperationException();
     }
@@ -177,13 +171,11 @@ public class LocalSpoolingManager
             implements SpooledSegmentHandle
     {
         private final String encoding;
-        private final QueryId queryId;
         private final Path path;
 
-        public LocalSpooledSegmentHandle(String encoding, QueryId queryId, Path path)
+        public LocalSpooledSegmentHandle(String encoding, Path path)
         {
             this.encoding = requireNonNull(encoding, "encoding is null");
-            this.queryId = requireNonNull(queryId, "queryId is null");
             this.path = requireNonNull(path, "path is null");
         }
 
@@ -192,13 +184,6 @@ public class LocalSpoolingManager
         public Instant expirationTime()
         {
             return Instant.MAX;
-        }
-
-        @JsonProperty
-        @Override
-        public QueryId queryId()
-        {
-            return queryId;
         }
 
         @JsonIgnore
@@ -232,7 +217,6 @@ public class LocalSpoolingManager
         {
             return toStringHelper(this)
                     .add("encoding", encoding)
-                    .add("queryId", queryId)
                     .add("path", path)
                     .toString();
         }
@@ -241,10 +225,9 @@ public class LocalSpoolingManager
         @JsonCreator
         public static LocalSpooledSegmentHandle create(
                 @JsonProperty("encoding") String encoding,
-                @JsonProperty("queryId") String queryId,
                 @JsonProperty("path") String path)
         {
-            return new LocalSpooledSegmentHandle(encoding, QueryId.valueOf(queryId), Paths.get(path));
+            return new LocalSpooledSegmentHandle(encoding, Paths.get(path));
         }
     }
 }

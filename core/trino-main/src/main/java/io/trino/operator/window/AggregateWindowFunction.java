@@ -24,7 +24,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
-class AggregateWindowFunction
+public class AggregateWindowFunction
         implements WindowFunction
 {
     private final Supplier<WindowAccumulator> accumulatorFactory;

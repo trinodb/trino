@@ -52,10 +52,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
@@ -404,7 +404,13 @@ public abstract class AbstractDeltaLakePageSink
 
     private String getRelativeFilePath(Optional<String> partitionName, String fileName)
     {
-        return getPathPrefix() + partitionName.map(partition -> appendPath(partition, fileName)).orElse(fileName);
+        return getPathPrefix() + partitionName
+                .map(partition -> {
+                    // partition is escaped by makePartName
+                    checkArgument(!partition.endsWith("/"), "Partition name should not end with '/'");
+                    return partition + "/" + fileName;
+                })
+                .orElse(fileName);
     }
 
     protected void closeWriter(int writerIndex)

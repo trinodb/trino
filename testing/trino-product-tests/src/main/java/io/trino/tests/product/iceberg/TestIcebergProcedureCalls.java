@@ -59,6 +59,82 @@ public class TestIcebergProcedureCalls
         onTrino().executeQuery("DROP TABLE IF EXISTS " + icebergTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testMigrateTimestampHiveTableWithOrc()
+    {
+        testMigrateTimestampHiveTable(
+                "MILLISECONDS",
+                "2021-01-01 10:11:12.123",
+                "2021-01-01 10:11:12.123000",
+                "2021-01-01 10:11:12.123",
+                "ORC");
+
+        testMigrateTimestampHiveTable(
+                "MICROSECONDS",
+                "2021-01-01 10:11:12.123456",
+                "2021-01-01 10:11:12.123456",
+                "2021-01-01 10:11:12.123456",
+                "ORC");
+
+        testMigrateTimestampHiveTable(
+                "NANOSECONDS",
+                "2021-01-01 10:11:12.123456789",
+                "2021-01-01 10:11:12.123457",
+                "2021-01-01 10:11:12.123456",
+                "ORC");
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testMigrateTimestampHiveTableWithParquet()
+    {
+        testMigrateTimestampHiveTable(
+                "MILLISECONDS",
+                "2021-01-01 10:11:12.123",
+                "2021-01-01 10:11:12.123000 UTC",
+                "2021-01-01 10:11:12.123",
+                "PARQUET");
+
+        testMigrateTimestampHiveTable(
+                "MICROSECONDS",
+                "2021-01-01 10:11:12.123456",
+                "2021-01-01 10:11:12.123456 UTC",
+                "2021-01-01 10:11:12.123456",
+                "PARQUET");
+
+        testMigrateTimestampHiveTable(
+                "NANOSECONDS",
+                "2021-01-01 10:11:12.123456789",
+                "2021-01-01 10:11:12.123457 UTC",
+                "2021-01-01 10:11:12.123456",
+                "PARQUET");
+    }
+
+    private void testMigrateTimestampHiveTable(String precisionName, String inputValue, String expectedValueInTrino, String expectedValueInSpark, String format)
+    {
+        String tableName = "test_migrate_timestamp_" + randomNameSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+        String sparkTableName = "iceberg_test.default." + tableName;
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+        onTrino().executeQuery("SET SESSION hive.timestamp_precision = '" + precisionName + "'");
+        onTrino().executeQuery("CREATE TABLE " + hiveTableName + " WITH (format='" + format + "') AS SELECT TIMESTAMP '" + inputValue + "' x ");
+
+        assertThat(onHive().executeQuery("SELECT CAST(x AS string) FROM default." + tableName))
+                .containsOnly(row(inputValue));
+        assertThat(onTrino().executeQuery("SELECT CAST(x AS varchar) FROM " + hiveTableName))
+                .containsOnly(row(inputValue));
+
+        onTrino().executeQuery("CALL iceberg.system.migrate('default', '" + tableName + "')");
+
+        assertThat(onTrino().executeQuery("SELECT CAST(x AS varchar) FROM " + icebergTableName))
+                .containsOnly(row(expectedValueInTrino));
+        assertThat(onSpark().executeQuery("SELECT CAST(x AS string) FROM " + sparkTableName))
+                .containsOnly(row(expectedValueInSpark));
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "fileFormats")
     public void testMigrateHiveTableWithTinyintType(String fileFormat)
     {

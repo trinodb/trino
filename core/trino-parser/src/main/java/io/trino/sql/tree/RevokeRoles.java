@@ -41,7 +41,7 @@ public class RevokeRoles
             Optional<GrantorSpecification> grantor,
             Optional<Identifier> catalog)
     {
-        super(Optional.of(location));
+        super(location);
         this.roles = ImmutableSet.copyOf(requireNonNull(roles, "roles is null"));
         this.grantees = ImmutableSet.copyOf(requireNonNull(grantees, "grantees is null"));
         this.adminOption = adminOption;

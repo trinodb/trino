@@ -19,7 +19,7 @@ between two different SQL Server instances.
 
 To connect to SQL Server, you need:
 
-- SQL Server 2012 or higher, or Azure SQL Database.
+- SQL Server 2019 or higher, or Azure SQL Database.
 - Network access from the Trino coordinator and workers to SQL Server.
   Port 1433 is the default port.
 

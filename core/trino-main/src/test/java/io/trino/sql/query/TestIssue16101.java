@@ -46,7 +46,8 @@ public class TestIssue16101
         runner.createCatalog("local", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
 
         try (QueryAssertions assertions = new QueryAssertions(runner)) {
-            assertThat(assertions.query("""
+            assertThat(assertions.query(
+                    """
                     SELECT orderkey, orderstatus, x
                     FROM (
                         SELECT orderkey, orderstatus, orderstatus = 'O' AS x
@@ -55,7 +56,8 @@ public class TestIssue16101
                     ON a.orderkey = b.k
                     WHERE orderstatus = 'O'
                     """))
-                    .matches("""
+                    .matches(
+                            """
                             VALUES
                                 (BIGINT '1', 'O', true),
                                 (BIGINT '2', 'O', true),

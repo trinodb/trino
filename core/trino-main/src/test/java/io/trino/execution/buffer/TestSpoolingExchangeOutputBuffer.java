@@ -423,8 +423,6 @@ public class TestSpoolingExchangeOutputBuffer
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
     }
 }

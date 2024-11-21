@@ -14,12 +14,15 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.base.Throwables;
+import com.google.inject.Binder;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
+import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.trino.plugin.jdbc.RetryingConnectionFactory.RetryStrategy;
+import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
+import io.trino.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -156,21 +159,15 @@ public class TestRetryingConnectionFactory
 
     private static Injector createInjector(MockConnectorFactory.Action... actions)
     {
-        return Guice.createInjector(binder -> {
+        return Guice.createInjector(new TestingRetryingModule(), binder -> {
             binder.bind(MockConnectorFactory.Action[].class).toInstance(actions);
-            binder.bind(MockConnectorFactory.class).in(Scopes.SINGLETON);
-            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(Key.get(MockConnectorFactory.class));
-            binder.install(new RetryingConnectionFactoryModule());
         });
     }
 
     private static Injector createInjectorWithAdditionalStrategy(MockConnectorFactory.Action... actions)
     {
-        return Guice.createInjector(binder -> {
+        return Guice.createInjector(new TestingRetryingModule(), binder -> {
             binder.bind(MockConnectorFactory.Action[].class).toInstance(actions);
-            binder.bind(MockConnectorFactory.class).in(Scopes.SINGLETON);
-            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(Key.get(MockConnectorFactory.class));
-            binder.install(new RetryingConnectionFactoryModule());
             newSetBinder(binder, RetryStrategy.class).addBinding().to(AdditionalRetryStrategy.class).in(Scopes.SINGLETON);
         });
     }
@@ -241,6 +238,27 @@ public class TestRetryingConnectionFactory
             THROW_WRAPPED_SQL_TRANSIENT_EXCEPTION,
             THROW_NPE,
             RETURN,
+        }
+    }
+
+    private static class TestingRetryingModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            binder.bind(MockConnectorFactory.class).in(Scopes.SINGLETON);
+            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(Key.get(MockConnectorFactory.class));
+            binder.bind(StatisticsAwareConnectionFactory.class).in(Scopes.SINGLETON);
+            binder.bind(StatisticsAwareJdbcClient.class).toInstance(new StatisticsAwareJdbcClient(new ForwardingJdbcClient()
+            {
+                @Override
+                protected JdbcClient delegate()
+                {
+                    throw new UnsupportedOperationException();
+                }
+            }));
+            binder.install(new RetryingModule());
         }
     }
 }

@@ -23,22 +23,19 @@ import io.trino.server.protocol.OutputColumn;
 import io.trino.server.protocol.QueryResultRows;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
-import io.trino.spi.protocol.SpooledLocation.CoordinatorLocation;
-import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 import jakarta.ws.rs.core.UriBuilder;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.ROW_OFFSET;
 import static io.trino.client.spooling.Segment.inlined;
 import static io.trino.client.spooling.Segment.spooled;
-import static io.trino.server.protocol.spooling.SegmentResource.spooledSegmentUriBuilder;
+import static io.trino.server.protocol.spooling.CoordinatorSegmentResource.spooledSegmentUriBuilder;
 import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -46,7 +43,7 @@ public class SpooledQueryDataProducer
         implements QueryDataProducer
 {
     private final QueryDataEncoder.Factory encoderFactory;
-    private final AtomicBoolean metadataWritten = new AtomicBoolean(false);
+    private QueryDataEncoder encoder;
 
     private long currentOffset;
 
@@ -62,30 +59,28 @@ public class SpooledQueryDataProducer
             return null;
         }
 
+        EncodedQueryData.Builder builder = EncodedQueryData.builder(encoderFactory.encoding());
         UriBuilder uriBuilder = spooledSegmentUriBuilder(uriInfo);
-        QueryDataEncoder encoder = encoderFactory.create(session, rows.getOutputColumns().orElseThrow());
-        EncodedQueryData.Builder builder = EncodedQueryData.builder(encoder.encoding());
-        List<OutputColumn> outputColumns = rows.getOutputColumns().orElseThrow();
-
-        if (metadataWritten.compareAndSet(false, true)) {
-            // Attributes are emitted only once for the first segment
+        if (encoder == null) {
+            encoder = encoderFactory.create(session, rows.getOutputColumns().orElseThrow());
             builder.withAttributes(encoder.attributes());
         }
 
+        List<OutputColumn> outputColumns = rows.getOutputColumns().orElseThrow();
+
         try {
             for (Page page : rows.getPages()) {
-                if (hasSpoolingMetadata(page, outputColumns)) {
+                if (hasSpoolingMetadata(page, outputColumns.size())) {
                     SpooledBlock metadata = SpooledBlock.deserialize(page);
                     DataAttributes attributes = metadata.attributes().toBuilder()
                             .set(ROW_OFFSET, currentOffset)
                             .build();
-
-                    builder.withSegment(switch (metadata.location()) {
-                        case CoordinatorLocation coordinatorLocation ->
-                                spooled(buildSegmentURI(uriBuilder, coordinatorLocation.identifier()), attributes, coordinatorLocation.headers());
-                        case DirectLocation directLocation ->
-                                spooled(directLocation.uri(), attributes, directLocation.headers());
-                    });
+                    builder.withSegment(spooled(
+                            metadata.directUri()
+                                    .orElseGet(() -> buildSegmentDownloadURI(uriBuilder, metadata.identifier())),
+                            buildSegmentAckURI(uriBuilder, metadata.identifier()),
+                            attributes,
+                            metadata.headers()));
                     currentOffset += attributes.get(ROWS_COUNT, Long.class);
                 }
                 else {
@@ -110,14 +105,19 @@ public class SpooledQueryDataProducer
         return builder.build();
     }
 
-    private URI buildSegmentURI(UriBuilder builder, Slice identifier)
+    private URI buildSegmentDownloadURI(UriBuilder builder, Slice identifier)
     {
-        return builder.clone().build(identifier.toStringUtf8());
+        return builder.clone().path("download/{identifier}").build(identifier.toStringUtf8());
     }
 
-    private boolean hasSpoolingMetadata(Page page, List<OutputColumn> outputColumns)
+    private URI buildSegmentAckURI(UriBuilder builder, Slice identifier)
     {
-        return page.getChannelCount() == outputColumns.size() + 1 && page.getPositionCount() == 1 && !page.getBlock(outputColumns.size()).isNull(0);
+        return builder.clone().path("ack/{identifier}").build(identifier.toStringUtf8());
+    }
+
+    private boolean hasSpoolingMetadata(Page page, int outputColumnsSize)
+    {
+        return page.getChannelCount() == outputColumnsSize + 1 && page.getPositionCount() == 1 && !page.getBlock(outputColumnsSize).isNull(0);
     }
 
     public static QueryDataProducer createSpooledQueryDataProducer(QueryDataEncoder.Factory encoder)

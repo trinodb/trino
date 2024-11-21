@@ -33,9 +33,7 @@ final class BlockUtil
     // Two additional positions are reserved for a spare null position and offset position
     static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8 - 2;
 
-    private BlockUtil()
-    {
-    }
+    private BlockUtil() {}
 
     static void checkArrayRange(int[] array, int offset, int length)
     {

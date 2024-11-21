@@ -28,13 +28,13 @@ local exchange (GATHER, SINGLE, [])
                                                                             scan date_dim
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan store
+                                                                        scan promotion
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan item
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan promotion
+                                                                scan store
                                     final aggregation over (cp_catalog_page_id)
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [cp_catalog_page_id])
@@ -56,13 +56,13 @@ local exchange (GATHER, SINGLE, [])
                                                                             scan date_dim
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan catalog_page
+                                                                        scan promotion
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan item
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan promotion
+                                                                scan catalog_page
                                     final aggregation over (web_site_id)
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [web_site_id])
@@ -84,10 +84,10 @@ local exchange (GATHER, SINGLE, [])
                                                                             scan date_dim
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan web_site
+                                                                        scan promotion
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan item
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan promotion
+                                                                scan web_site

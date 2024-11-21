@@ -43,7 +43,7 @@ public class CreateMaterializedView
             List<Property> properties,
             Optional<String> comment)
     {
-        super(Optional.of(location));
+        super(location);
         this.name = requireNonNull(name, "name is null");
         this.query = requireNonNull(query, "query is null");
         this.replace = replace;

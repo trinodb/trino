@@ -26,13 +26,11 @@ import io.trino.client.ProtocolHeaders;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.QueryManager;
 import io.trino.operator.DirectExchangeClientSupplier;
-import io.trino.server.DisconnectionAwareAsyncResponse;
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.ForStatementResource;
 import io.trino.server.ServerConfig;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoders;
-import io.trino.server.protocol.spooling.RawQueryDataProducer;
 import io.trino.server.protocol.spooling.SpooledQueryDataProducer;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
@@ -46,6 +44,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -61,8 +60,9 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.server.DisconnectionAwareAsyncResponse.bindDisconnectionAwareAsyncResponse;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -167,7 +167,7 @@ public class ExecutingStatementResource
             @QueryParam("maxWait") Duration maxWait,
             @QueryParam("targetResultSize") DataSize targetResultSize,
             @BeanParam ExternalUriInfo externalUriInfo,
-            @Suspended @BeanParam DisconnectionAwareAsyncResponse asyncResponse)
+            @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
         asyncQueryResults(query, token, maxWait, targetResultSize, externalUriInfo, asyncResponse);
@@ -206,7 +206,7 @@ public class ExecutingStatementResource
                 queryManager,
                 encoderFactory
                         .map(SpooledQueryDataProducer::createSpooledQueryDataProducer)
-                        .orElseGet(RawQueryDataProducer::new),
+                        .orElseGet(JsonBytesQueryDataProducer::new),
                 queryInfoUrlFactory.getQueryInfoUrl(queryId),
                 directExchangeClientSupplier,
                 exchangeManagerRegistry,
@@ -222,7 +222,7 @@ public class ExecutingStatementResource
             Duration maxWait,
             DataSize targetResultSize,
             ExternalUriInfo externalUriInfo,
-            DisconnectionAwareAsyncResponse asyncResponse)
+            AsyncResponse asyncResponse)
     {
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
         if (targetResultSize == null) {
@@ -233,12 +233,13 @@ public class ExecutingStatementResource
         }
         ListenableFuture<QueryResultsResponse> queryResultsFuture = query.waitForResults(token, externalUriInfo, wait, targetResultSize);
 
-        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, this::toResponse, directExecutor());
+        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, results ->
+                toResponse(results, query.getQueryInfo().getSession().getQueryDataEncoding()), directExecutor());
 
-        bindDisconnectionAwareAsyncResponse(asyncResponse, response, responseExecutor);
+        bindAsyncResponse(asyncResponse, response, responseExecutor);
     }
 
-    private Response toResponse(QueryResultsResponse resultsResponse)
+    private Response toResponse(QueryResultsResponse resultsResponse, Optional<String> queryDataEncoding)
     {
         ResponseBuilder response = Response.ok(resultsResponse.queryResults());
 
@@ -287,6 +288,9 @@ public class ExecutingStatementResource
         if (!compressionEnabled) {
             response.encoding("identity");
         }
+
+        queryDataEncoding
+                .ifPresent(encoding -> response.header(TRINO_HEADERS.responseQueryDataEncoding(), encoding));
 
         return response.build();
     }

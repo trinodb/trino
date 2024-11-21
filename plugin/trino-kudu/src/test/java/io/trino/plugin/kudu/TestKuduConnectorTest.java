@@ -153,16 +153,12 @@ public class TestKuduConnectorTest
     @Test
     @Disabled
     @Override
-    public void testAddAndDropColumnName()
-    {
-    }
+    public void testAddAndDropColumnName() {}
 
     @Test
     @Disabled
     @Override
-    public void testRenameColumnName()
-    {
-    }
+    public void testRenameColumnName() {}
 
     @Override
     protected MaterializedResult getDescribeOrdersResult()
@@ -980,6 +976,15 @@ public class TestKuduConnectorTest
                     .matches("SELECT CASE regionkey WHEN 2 THEN 2*(nationkey+100) + 1000 WHEN 3 THEN nationkey * 2 + 1000 ELSE nationkey END nationkey, name, regionkey, comment FROM tpch.tiny.nation");
         });
     }
+
+    /**
+     * This test fails intermittently because Kudu doesn't have strong enough
+     * semantics to support writing from multiple threads.
+     */
+    @Test
+    @Disabled
+    @Override
+    public void testUpdateCaseSensitivity() {}
 
     @Test
     @Override

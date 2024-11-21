@@ -483,7 +483,7 @@ public final class BlockAssertions
 
     public static ValueBlock createBooleansBlock(Iterable<Boolean> values)
     {
-        BlockBuilder builder = BOOLEAN.createBlockBuilder(null, 100);
+        BlockBuilder builder = BOOLEAN.createFixedSizeBlockBuilder(100);
 
         for (Boolean value : values) {
             if (value == null) {
@@ -507,7 +507,7 @@ public final class BlockAssertions
     public static ValueBlock createShortDecimalsBlock(Iterable<String> values)
     {
         DecimalType shortDecimalType = DecimalType.createDecimalType(1);
-        BlockBuilder builder = shortDecimalType.createBlockBuilder(null, 100);
+        BlockBuilder builder = shortDecimalType.createFixedSizeBlockBuilder(100);
 
         for (String value : values) {
             if (value == null) {
@@ -531,7 +531,7 @@ public final class BlockAssertions
     public static ValueBlock createLongDecimalsBlock(Iterable<String> values)
     {
         DecimalType longDecimalType = DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1);
-        BlockBuilder builder = longDecimalType.createBlockBuilder(null, 100);
+        BlockBuilder builder = longDecimalType.createFixedSizeBlockBuilder(100);
 
         for (String value : values) {
             if (value == null) {
@@ -553,7 +553,7 @@ public final class BlockAssertions
 
     public static ValueBlock createLongTimestampBlock(TimestampType type, Iterable<LongTimestamp> values)
     {
-        BlockBuilder builder = type.createBlockBuilder(null, 100);
+        BlockBuilder builder = type.createFixedSizeBlockBuilder(100);
 
         for (LongTimestamp value : values) {
             if (value == null) {
@@ -665,7 +665,7 @@ public final class BlockAssertions
     // This method makes it easy to create blocks without having to add an L to every value
     public static ValueBlock createLongsBlock(int... values)
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(null, 100);
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(100);
 
         for (int value : values) {
             BIGINT.writeLong(builder, value);
@@ -717,7 +717,7 @@ public final class BlockAssertions
     {
         checkArgument(dictionarySize > 0, "dictionarySize must be greater than 0");
 
-        BlockBuilder builder = BIGINT.createBlockBuilder(null, dictionarySize);
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(dictionarySize);
         for (int i = start; i < start + dictionarySize; i++) {
             BIGINT.writeLong(builder, i);
         }
@@ -775,7 +775,7 @@ public final class BlockAssertions
 
     public static ValueBlock createBlockOfReals(Iterable<Float> values)
     {
-        BlockBuilder builder = REAL.createBlockBuilder(null, 100);
+        BlockBuilder builder = REAL.createFixedSizeBlockBuilder(100);
         for (Float value : values) {
             if (value == null) {
                 builder.appendNull();
@@ -895,7 +895,7 @@ public final class BlockAssertions
 
     public static ValueBlock createColorSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = COLOR.createBlockBuilder(null, end - start);
+        BlockBuilder builder = COLOR.createFixedSizeBlockBuilder(end - start);
         for (int i = start; i < end; ++i) {
             COLOR.writeLong(builder, i);
         }
@@ -904,14 +904,14 @@ public final class BlockAssertions
 
     public static Block createRepeatedValuesBlock(double value, int positionCount)
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = DOUBLE.createFixedSizeBlockBuilder(1);
         DOUBLE.writeDouble(blockBuilder, value);
         return RunLengthEncodedBlock.create(blockBuilder.build(), positionCount);
     }
 
     public static Block createRepeatedValuesBlock(long value, int positionCount)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(1);
         BIGINT.writeLong(blockBuilder, value);
         return RunLengthEncodedBlock.create(blockBuilder.build(), positionCount);
     }

@@ -15,6 +15,7 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import dev.failsafe.RetryPolicy;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SchemaTableName;
@@ -181,6 +182,6 @@ public class TestJdbcRecordSet
 
     private JdbcRecordSet createRecordSet(List<JdbcColumnHandle> columnHandles)
     {
-        return new JdbcRecordSet(jdbcClient, executor, SESSION, split, table, columnHandles);
+        return new JdbcRecordSet(jdbcClient, executor, SESSION, RetryPolicy.ofDefaults(), split, table, columnHandles);
     }
 }

@@ -242,6 +242,25 @@ public class TestCassandraConnectorTest
     }
 
     @Test
+    public void testSelectWithFilterOnPartitioningKey()
+    {
+        try (TestCassandraTable table = testTable(
+                "table_filter_on_partition_key",
+                ImmutableList.of(generalColumn("id", "int"), partitionColumn("part", "int")),
+                ImmutableList.of("1, 10", "2, 20"))) {
+            // predicate on partition column
+            assertThat(query("SELECT id FROM " + table.getTableName() + " WHERE part > 10"))
+                    .matches("VALUES 2");
+
+            // predicate on non-partition column
+            assertThat(query("SELECT id FROM " + table.getTableName() + " WHERE id = 1"))
+                    .matches("VALUES 1");
+            assertThat(query("SELECT id FROM " + table.getTableName() + " WHERE id < 2"))
+                    .matches("VALUES 1");
+        }
+    }
+
+    @Test
     public void testPushdownAllTypesPartitionKeyPredicate()
     {
         // TODO partition key predicate pushdown for decimal types does not work https://github.com/trinodb/trino/issues/10927
@@ -327,7 +346,7 @@ public class TestCassandraConnectorTest
                 ImmutableList.of("'2', 0"))) {
             String sql = "SELECT 1 FROM " + testCassandraTable.getTableName() + " WHERE id = '1' AND trino_filter_col = 0";
 
-            assertThat(computeActual(sql).getMaterializedRows().size()).isEqualTo(0);
+            assertThat(computeActual(sql).getMaterializedRows()).isEmpty();
         }
     }
 
@@ -891,6 +910,43 @@ public class TestCassandraConnectorTest
     }
 
     @Test
+    void testMultiColumnKey()
+    {
+        try (TestCassandraTable table = testTable(
+                "test_multi_column_key",
+                ImmutableList.of(
+                        partitionColumn("user_id", "text"),
+                        partitionColumn("key", "text"),
+                        partitionColumn("updated_at", "timestamp"),
+                        generalColumn("value", "text")),
+                ImmutableList.of(
+                        "'Alice', 'a1', '2015-01-01 01:01:01', 'Test value 1'",
+                        "'Bob', 'b1', '2014-02-02 03:04:05', 'Test value 2'"))) {
+            // equality filter on clustering key
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE key = 'a1'", "VALUES 'Test value 1'");
+
+            // equality filter on primary and clustering keys
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'Alice' and key = 'a1' and updated_at = TIMESTAMP '2015-01-01 01:01:01Z'",
+                    "VALUES 'Test value 1'");
+
+            // mixed filter on primary and clustering keys
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'Alice' and key < 'b' and updated_at >= TIMESTAMP '2015-01-01 01:01:01Z'",
+                    "VALUES 'Test value 1'");
+
+            // filter on primary key doesn't match
+            assertQueryReturnsEmptyResult("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'George'");
+
+            // filter on prefix of clustering key
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'Bob' and key = 'b1'",
+                    "VALUES 'Test value 2'");
+
+            // filter on second clustering key
+            assertQuery("SELECT value FROM " + table.getTableName() + " WHERE user_id = 'Bob' and updated_at = TIMESTAMP '2014-02-02 03:04:05Z'",
+                    "VALUES 'Test value 2'");
+        }
+    }
+
+    @Test
     public void testSelectWithSecondaryIndex()
     {
         testSelectWithSecondaryIndex(true);
@@ -1140,6 +1196,83 @@ public class TestCassandraConnectorTest
 
         session.execute("DROP TABLE tpch." + tableName);
         session.execute("DROP TYPE tpch." + userDefinedTypeName);
+    }
+
+    @Test
+    void testPartitioningKeys()
+    {
+        try (TestCassandraTable table = testTable(
+                "test_partitioning_keys",
+                ImmutableList.of(generalColumn("data", "int"), partitionColumn("part", "int")),
+                ImmutableList.of("1, 10", "2, 20"))) {
+            assertThat(query("SELECT part FROM " + table.getTableName() + " WHERE part = 10"))
+                    .matches("VALUES 10");
+            assertThat(query("SELECT part FROM " + table.getTableName() + " WHERE data = 1"))
+                    .matches("VALUES 10");
+        }
+    }
+
+    @Test
+    void testSelectClusteringMaterializedView()
+    {
+        try (TestCassandraTable table = testTable(
+                "test_clustering_materialized_view_base",
+                ImmutableList.of(generalColumn("id", "int"), generalColumn("data", "int"), partitionColumn("key", "int")),
+                ImmutableList.of("1, 10, 100", "2, 20, 200", "3, 30, 300"))) {
+            String mvName = "test_clustering_mv" + randomNameSuffix();
+            onCassandra("CREATE MATERIALIZED VIEW tpch." + mvName + " AS " +
+                    "SELECT * FROM " + table.getTableName() + " WHERE id IS NOT NULL " +
+                    "PRIMARY KEY (id, key) " +
+                    "WITH CLUSTERING ORDER BY (id DESC)");
+
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+                    .row(mvName)
+                    .build(), new Duration(1, MINUTES));
+
+            // Materialized view may not return all results during the creation
+            assertContainsEventually(() -> computeActual("SELECT count(*) FROM tpch." + mvName), resultBuilder(getSession(), BIGINT)
+                    .row(3L)
+                    .build(), new Duration(1, MINUTES));
+
+            assertThat(query("SELECT MAX(id), SUM(key), AVG(data) FROM " + table.getTableName() + " WHERE key BETWEEN 100 AND 200"))
+                    .matches("VALUES (2, BIGINT '300', DOUBLE '15.0')");
+
+            assertThat(query("SELECT id, key, data FROM " + table.getTableName() + " ORDER BY id LIMIT 1"))
+                    .matches("VALUES (1, 100, 10)");
+
+            onCassandra("DROP MATERIALIZED VIEW tpch." + mvName);
+        }
+    }
+
+    @Test
+    void testSelectTupleTypeInPrimaryKey()
+    {
+        try (TestCassandraTable table = testTable(
+                "test_tuple_in_primary_key",
+                ImmutableList.of(partitionColumn("intkey", "int"), partitionColumn("tuplekey", "frozen<tuple<int, text, float>>")),
+                ImmutableList.of("1, (1, 'text-1', 1.11)"))) {
+            assertThat(query("SELECT * FROM " + table.getTableName()))
+                    .matches("VALUES (1, CAST(ROW(1, 'text-1', 1.11) AS ROW(integer, varchar, real)))");
+            assertThat(query("SELECT * FROM " + table.getTableName() + " WHERE intkey = 1 AND tuplekey = row(1, 'text-1', 1.11)"))
+                    .matches("VALUES (1, CAST(ROW(1, 'text-1', 1.11) AS ROW(integer, varchar, real)))");
+        }
+    }
+
+    @Test
+    void testSelectUserDefinedTypeInPrimaryKey()
+    {
+        String udtName = "type_user_defined_primary_key" + randomNameSuffix();
+        onCassandra("CREATE TYPE tpch." + udtName + " (field1 text)");
+        try (TestCassandraTable table = testTable(
+                "test_udt_in_primary_key",
+                ImmutableList.of(partitionColumn("intkey", "int"), partitionColumn("udtkey", "frozen<%s>".formatted(udtName))),
+                ImmutableList.of("1, {field1: 'udt-1'}"))) {
+            assertThat(query("SELECT * FROM " + table.getTableName()))
+                    .matches("VALUES (1, CAST(ROW('udt-1') AS ROW(field1 VARCHAR)))");
+            assertThat(query("SELECT * FROM " + table.getTableName() + " WHERE intkey = 1 AND udtkey = CAST(ROW('udt-1') AS ROW(x VARCHAR))"))
+                    .matches("VALUES (1, CAST(ROW('udt-1') AS ROW(field1 VARCHAR)))");
+        }
+        onCassandra("DROP TYPE tpch." + udtName);
     }
 
     @Test
@@ -1669,6 +1802,31 @@ public class TestCassandraConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageContaining("Table names shouldn't be more than 48 characters long");
+    }
+
+    @Test
+    public void testNationJoinNation()
+    {
+        assertQuery("SELECT n1.name, n2.regionkey " +
+                        "FROM nation n1 JOIN nation n2 ON n1.nationkey = n2.regionkey " +
+                        "WHERE n1.nationkey = 3",
+                "VALUES ('CANADA', 3), ('CANADA', 3), ('CANADA', 3), ('CANADA', 3), ('CANADA', 3)");
+    }
+
+    @Test
+    public void testNationJoinRegion()
+    {
+        assertQuery("SELECT c.name, t.name " +
+                        "FROM nation c JOIN tpch.tiny.region t ON c.regionkey = t.regionkey " +
+                        "WHERE c.nationkey = 3",
+                "VALUES ('CANADA', 'AMERICA')");
+    }
+
+    @Test
+    public void testProtocolVersion()
+    {
+        assertQuery("SELECT native_protocol_version FROM system.local",
+                "VALUES 4");
     }
 
     private void assertSelect(String tableName)

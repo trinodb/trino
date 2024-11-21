@@ -27,6 +27,7 @@ import io.trino.metastore.Partition;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.Table;
 import io.trino.plugin.base.util.UncheckedCloseable;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -69,7 +70,6 @@ public class SyncPartitionMetadataProcedure
         ADD, DROP, FULL
     }
 
-    private static final int PARTITION_NAMES_BATCH_SIZE = 1000;
     private static final MethodHandle SYNC_PARTITION_METADATA;
 
     static {
@@ -83,14 +83,17 @@ public class SyncPartitionMetadataProcedure
 
     private final TransactionalMetadataFactory hiveMetadataFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final int maxPartitionBatchSize;
 
     @Inject
     public SyncPartitionMetadataProcedure(
             TransactionalMetadataFactory hiveMetadataFactory,
-            TrinoFileSystemFactory fileSystemFactory)
+            TrinoFileSystemFactory fileSystemFactory,
+            HiveConfig config)
     {
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        maxPartitionBatchSize = config.getMaxPartitionBatchSize();
     }
 
     @Override
@@ -146,7 +149,7 @@ public class SyncPartitionMetadataProcedure
             String tableStorageLocation = table.getStorage().getLocation();
             Set<String> canonicalPartitionNamesInMetastore = partitionNamesInMetastore;
             if (!caseSensitive) {
-                canonicalPartitionNamesInMetastore = Lists.partition(ImmutableList.copyOf(partitionNamesInMetastore), PARTITION_NAMES_BATCH_SIZE).stream()
+                canonicalPartitionNamesInMetastore = Lists.partition(ImmutableList.copyOf(partitionNamesInMetastore), maxPartitionBatchSize).stream()
                         .flatMap(partitionNames -> metastore.getPartitionsByNames(schemaName, tableName, partitionNames).values().stream())
                         .flatMap(Optional::stream) // disregard partitions which disappeared in the meantime since listing the partition names
                         // Disregard the partitions which do not have a canonical Hive location (e.g. `ALTER TABLE ... ADD PARTITION (...) LOCATION '...'`)

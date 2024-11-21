@@ -32,7 +32,7 @@ public interface QueryDao
             "  trace_token VARCHAR(255) NULL,\n" +
             "  remote_client_address VARCHAR(255) NULL,\n" +
             "  user_agent VARCHAR(255) NULL,\n" +
-            "  client_info VARCHAR(255) NULL,\n" +
+            "  client_info MEDIUMTEXT NULL,\n" +
             "  client_tags_json MEDIUMTEXT NOT NULL,\n" +
             "  source VARCHAR(255) NULL,\n" +
             "  catalog VARCHAR(255) NULL,\n" +

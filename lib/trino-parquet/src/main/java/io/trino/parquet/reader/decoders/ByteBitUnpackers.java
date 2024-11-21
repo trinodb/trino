@@ -55,9 +55,7 @@ public final class ByteBitUnpackers
         return UNPACKERS[bitWidth - 1];
     }
 
-    private ByteBitUnpackers()
-    {
-    }
+    private ByteBitUnpackers() {}
 
     private static final class Unpacker1
             implements ByteBitUnpacker

@@ -67,7 +67,7 @@ public class TestBooleanType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(15);
         BOOLEAN.writeBoolean(blockBuilder, true);
         BOOLEAN.writeBoolean(blockBuilder, true);
         BOOLEAN.writeBoolean(blockBuilder, true);

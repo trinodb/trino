@@ -428,7 +428,8 @@ public class TestPreAggregateCaseAggregations
     @Test
     public void testDoesNotFireIfAggregationsAreNotReduced()
     {
-        assertThatDoesNotFire("""
+        assertThatDoesNotFire(
+                """
                 SELECT
                     SUM(IF(col_varchar != 'V', col_bigint + col_decimal)),
                     SUM(IF(col_varchar != 'V', col_decimal + col_tinyint)),

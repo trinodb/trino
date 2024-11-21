@@ -110,7 +110,7 @@ public class TestMetadataManager
         @Language("SQL") String sql = "SELECT * FROM nation";
         queryRunner.execute(sql);
 
-        assertThat(metadataManager.getActiveQueryIds().size()).isEqualTo(0);
+        assertThat(metadataManager.getActiveQueryIds()).isEmpty();
     }
 
     @Test
@@ -121,7 +121,7 @@ public class TestMetadataManager
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Division by zero");
 
-        assertThat(metadataManager.getActiveQueryIds().size()).isEqualTo(0);
+        assertThat(metadataManager.getActiveQueryIds()).isEmpty();
     }
 
     @Test
@@ -165,7 +165,7 @@ public class TestMetadataManager
 
         // cancel query
         dispatchManager.cancelQuery(queryId);
-        assertThat(metadataManager.getActiveQueryIds().size()).isEqualTo(0);
+        assertThat(metadataManager.getActiveQueryIds()).isEmpty();
     }
 
     @Test

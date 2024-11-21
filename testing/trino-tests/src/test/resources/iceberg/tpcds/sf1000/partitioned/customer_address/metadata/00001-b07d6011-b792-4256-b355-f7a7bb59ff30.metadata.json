@@ -158,20 +158,7 @@
     "fields" : [ ]
   } ],
   "properties" : {
-    "trino.stats.ndv.2.ndv" : "5976963",
-    "trino.stats.ndv.7.ndv" : "980",
-    "trino.stats.ndv.4.ndv" : "8279",
-    "trino.stats.ndv.5.ndv" : "20",
-    "trino.stats.ndv.9.ndv" : "51",
-    "trino.stats.ndv.12.ndv" : "6",
-    "trino.stats.ndv.10.ndv" : "9232",
-    "trino.stats.ndv.8.ndv" : "1815",
-    "trino.stats.ndv.1.ndv" : "5947530",
-    "trino.stats.ndv.6.ndv" : "75",
-    "trino.stats.ndv.3.ndv" : "1019",
-    "write.format.default" : "PARQUET",
-    "trino.stats.ndv.13.ndv" : "3",
-    "trino.stats.ndv.11.ndv" : "1"
+    "write.format.default" : "PARQUET"
   },
   "current-snapshot-id" : 3308787911813009439,
   "refs" : {
@@ -198,6 +185,117 @@
     },
     "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/customer_address/metadata/snap-3308787911813009439-1-e4e9211a-0cd9-4034-9266-c7722c1b7559.avro",
     "schema-id" : 0
+  } ],
+  "statistics" : [ {
+    "snapshot-id" : 3308787911813009439,
+    "statistics-path" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/customer_address/metadata/20240320_234846_02761_t6z6k-ffbf4a3e-e39d-42a2-8085-c70fefcb7d53.stats",
+    "file-size-in-bytes" : 161428,
+    "file-footer-size-in-bytes" : 2579,
+    "blob-metadata" : [ {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3308787911813009439,
+      "sequence-number" : 2,
+      "fields" : [ 1 ],
+      "properties" : {
+        "ndv" : "6043919"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3308787911813009439,
+      "sequence-number" : 2,
+      "fields" : [ 2 ],
+      "properties" : {
+        "ndv" : "6133651"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3308787911813009439,
+      "sequence-number" : 2,
+      "fields" : [ 3 ],
+      "properties" : {
+        "ndv" : "1000"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3308787911813009439,
+      "sequence-number" : 2,
+      "fields" : [ 4 ],
+      "properties" : {
+        "ndv" : "8294"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3308787911813009439,
+      "sequence-number" : 2,
+      "fields" : [ 5 ],
+      "properties" : {
+        "ndv" : "20"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3308787911813009439,
+      "sequence-number" : 2,
+      "fields" : [ 6 ],
+      "properties" : {
+        "ndv" : "75"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3308787911813009439,
+      "sequence-number" : 2,
+      "fields" : [ 7 ],
+      "properties" : {
+        "ndv" : "986"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3308787911813009439,
+      "sequence-number" : 2,
+      "fields" : [ 8 ],
+      "properties" : {
+        "ndv" : "1846"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3308787911813009439,
+      "sequence-number" : 2,
+      "fields" : [ 9 ],
+      "properties" : {
+        "ndv" : "51"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3308787911813009439,
+      "sequence-number" : 2,
+      "fields" : [ 10 ],
+      "properties" : {
+        "ndv" : "9283"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3308787911813009439,
+      "sequence-number" : 2,
+      "fields" : [ 11 ],
+      "properties" : {
+        "ndv" : "1"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3308787911813009439,
+      "sequence-number" : 2,
+      "fields" : [ 12 ],
+      "properties" : {
+        "ndv" : "6"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 3308787911813009439,
+      "sequence-number" : 2,
+      "fields" : [ 13 ],
+      "properties" : {
+        "ndv" : "3"
+      }
+    } ]
   } ],
   "snapshot-log" : [ {
     "timestamp-ms" : 1648081228935,

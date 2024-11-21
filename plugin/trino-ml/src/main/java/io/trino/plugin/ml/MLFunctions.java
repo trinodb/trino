@@ -36,9 +36,7 @@ public final class MLFunctions
     private static final NonEvictableCache<HashCode, Model> MODEL_CACHE = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(5));
     private static final String MAP_BIGINT_DOUBLE = "map(bigint,double)";
 
-    private MLFunctions()
-    {
-    }
+    private MLFunctions() {}
 
     @ScalarFunction("classify")
     @SqlType(StandardTypes.VARCHAR)

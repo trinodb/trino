@@ -13,6 +13,7 @@
  */
 package io.trino.cli;
 
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
@@ -418,9 +419,8 @@ public class TestFormatUtils
         assertThat(formatDataRate(ofBytes(8640000), Duration.valueOf("10d"), false, true)).isEqualTo("10B");
         assertThat(formatDataRate(ofBytes(8640000), Duration.valueOf("10d"), true, true)).isEqualTo("10B/s");
 
-        // Currently, these tests fail due to https://github.com/trinodb/trino/issues/13093
-        // assertThat(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("0s"), false)).isEqualTo("0B");
-        // assertThat(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("0s"), true)).isEqualTo("0B/s");
+        assertThat(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("0s"), false, true)).isEqualTo("0B");
+        assertThat(FormatUtils.formatDataRate(DataSize.ofBytes(1), Duration.valueOf("0s"), true, true)).isEqualTo("0B/s");
     }
 
     @Test

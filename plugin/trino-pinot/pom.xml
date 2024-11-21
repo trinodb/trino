@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>460</version>
+        <version>465</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -157,6 +157,10 @@
             <artifactId>pinot-common</artifactId>
             <version>${dep.pinot.version}</version>
             <exclusions>
+                <exclusion>
+                    <groupId>jakarta.activation</groupId>
+                    <artifactId>jakarta.activation-api</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>jakarta.servlet</groupId>
                     <artifactId>jakarta.servlet-api</artifactId>

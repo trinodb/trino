@@ -414,6 +414,12 @@ properties:
 * - `hive.metastore.glue.partitions-segments`
   - Number of segments for partitioned Glue tables.
   - `5`
+* - `hive.metastore.glue.skip-archive`
+  - AWS Glue has the ability to archive older table versions and a user can
+    roll back the table to any historical version if needed. By default, the
+    Hive Connector backed by Glue will not skip the archival of older table
+    versions.
+  - `false`
 :::
 
 (iceberg-glue-catalog)=
@@ -430,12 +436,12 @@ described with the following additional property:
 * - Property name
   - Description
   - Default
-* - `iceberg.glue.skip-archive`
-  - Skip archiving an old table version when creating a new version in a commit.
-    See [AWS Glue Skip
-    Archive](https://iceberg.apache.org/docs/latest/aws/#skip-archive).
+* - `iceberg.glue.cache-table-metadata`
+  - While updating the table in AWS Glue, store the table metadata with the
+    purpose of accelerating `information_schema.columns` and
+    `system.metadata.table_comments` queries.
   - `true`
-:::
+  :::
 
 ## Iceberg-specific metastores
 
@@ -470,6 +476,9 @@ following properties:
 * - `iceberg.rest-catalog.warehouse`
   - Warehouse identifier/location for the catalog (optional). Example:
     `s3://my_bucket/warehouse_location`
+* - `iceberg.rest-catalog.parent-namespace`
+  - The namespace to use with the REST catalog server. Example:
+    `main`
 * - `iceberg.rest-catalog.security`
   - The type of security to use (default: `NONE`).  `OAUTH2` requires either a
     `token` or `credential`. Example: `OAUTH2`
@@ -486,7 +495,20 @@ following properties:
 * - `iceberg.rest-catalog.oauth2.scope`
   - Scope to be used when communicating with the REST Catalog. Applicable only
     when using `credential`.
-:::
+* - `iceberg.rest-catalog.oauth2.server-uri`
+  - The endpoint to retrieve access token from OAuth2 Server.
+* - `iceberg.rest-catalog.vended-credentials-enabled`
+  - Use credentials provided by the REST backend for file system access.
+    Defaults to `false`.
+* - `iceberg.rest-catalog.nested-namespace-enabled`
+  - Support querying objects under nested namespace.
+    Defaults to `false`.
+* - `iceberg.rest-catalog.case-insensitive-name-matching`
+  - Match namespace, table, and view names case insensitively. Defaults to `false`.
+* - `iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl`
+  - [Duration](prop-type-duration) for which case-insensitive namespace, table, 
+    and view names are cached. Defaults to `1m`.
+  :::
 
 The following example shows a minimal catalog configuration using an Iceberg
 REST metadata catalog:
@@ -495,6 +517,19 @@ REST metadata catalog:
 connector.name=iceberg
 iceberg.catalog.type=rest
 iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
+```
+
+`iceberg.security` must be `read_only` when connecting to Databricks Unity catalog
+using an Iceberg REST catalog:
+
+```properties
+connector.name=iceberg
+iceberg.catalog.type=rest
+iceberg.rest-catalog.uri=https://dbc-12345678-9999.cloud.databricks.com/api/2.1/unity-catalog/iceberg
+iceberg.security=read_only
+iceberg.rest-catalog.security=OAUTH2
+iceberg.rest-catalog.oauth2.token=***
+iceberg.rest-catalog.parent-namespace=test_namespace
 ```
 
 The REST catalog supports [view management](sql-view-management) 
@@ -511,6 +546,37 @@ The Iceberg JDBC catalog is supported for the Iceberg connector.  At a minimum,
 `iceberg.jdbc-catalog.catalog-name` must be configured. When using any
 database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
 directory.
+
+:::{list-table} JDBC catalog configuration properties
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `iceberg.jdbc-catalog.driver-class`
+  - JDBC driver class name.
+* - `iceberg.jdbc-catalog.connection-url`
+  - The URI to connect to the JDBC server.
+* - `iceberg.jdbc-catalog.connection-user`
+  - User name for JDBC client.
+* - `iceberg.jdbc-catalog.connection-password`
+  - Password for JDBC client.
+* - `iceberg.jdbc-catalog.catalog-name`
+  - Iceberg JDBC metastore catalog name.
+* - `iceberg.jdbc-catalog.default-warehouse-dir`
+  - The default warehouse directory to use for JDBC.
+* - `iceberg.jdbc-catalog.schema-version`
+  - JDBC catalog schema version.
+    Valid values are `V0` or `V1`. Defaults to `V1`.
+* - `iceberg.jdbc-catalog.retryable-status-codes`
+  - On connection error to JDBC metastore, retry if
+    it is one of these JDBC status codes.
+    Valid value is a comma-separated list of status codes.
+    Note: JDBC catalog always retries the following status
+    codes: `08000,08003,08006,08007,40001`. Specify only
+    additional codes (such as `57000,57P03,57P04` if using
+    PostgreSQL driver) here.
+:::
 
 :::{warning}
 The JDBC catalog may have compatibility issues if Iceberg introduces breaking

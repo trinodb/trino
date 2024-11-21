@@ -66,6 +66,20 @@ public class TestSimplifyRedundantCase
 
         assertThat(optimize(
                 new Case(
+                        ImmutableList.of(new WhenClause(new Reference(BOOLEAN, "x"), TRUE)),
+                        TRUE)))
+                .isEqualTo(Optional.of(IrUtils.or(
+                        new Comparison(IDENTICAL, new Reference(BOOLEAN, "x"), TRUE),
+                        TRUE)));
+
+        assertThat(optimize(
+                new Case(
+                        ImmutableList.of(new WhenClause(new Reference(BOOLEAN, "x"), FALSE)),
+                        FALSE)))
+                .isEqualTo(Optional.of(FALSE));
+
+        assertThat(optimize(
+                new Case(
                         ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)), TRUE)),
                         FALSE)))
                 .isEqualTo(Optional.of(new Comparison(IDENTICAL, new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)), TRUE)));
@@ -83,7 +97,12 @@ public class TestSimplifyRedundantCase
                                 new WhenClause(new Reference(BOOLEAN, "y"), FALSE),
                                 new WhenClause(new Reference(BOOLEAN, "z"), TRUE)),
                         FALSE)))
-                .isEqualTo(Optional.of(new Comparison(IDENTICAL, IrUtils.or(new Reference(BOOLEAN, "x"), new Reference(BOOLEAN, "z")), TRUE)));
+                .isEqualTo(Optional.of(
+                        IrUtils.or(
+                                new Comparison(IDENTICAL, new Reference(BOOLEAN, "x"), TRUE),
+                                IrUtils.and(
+                                        IrExpressions.not(PLANNER_CONTEXT.getMetadata(), new Comparison(IDENTICAL, new Reference(BOOLEAN, "y"), TRUE)),
+                                        new Comparison(IDENTICAL, new Reference(BOOLEAN, "z"), TRUE)))));
 
         assertThat(optimize(
                 new Case(
@@ -92,7 +111,54 @@ public class TestSimplifyRedundantCase
                                 new WhenClause(new Reference(BOOLEAN, "y"), FALSE),
                                 new WhenClause(new Reference(BOOLEAN, "z"), FALSE)),
                         TRUE)))
-                .isEqualTo(Optional.of(IrExpressions.not(PLANNER_CONTEXT.getMetadata(), new Comparison(IDENTICAL, IrUtils.or(new Reference(BOOLEAN, "y"), new Reference(BOOLEAN, "z")), TRUE))));
+                .isEqualTo(Optional.of(
+                        IrUtils.or(
+                                new Comparison(IDENTICAL, new Reference(BOOLEAN, "x"), TRUE),
+                                IrUtils.and(
+                                        IrExpressions.not(PLANNER_CONTEXT.getMetadata(), new Comparison(IDENTICAL, new Reference(BOOLEAN, "y"), TRUE)),
+                                        IrExpressions.not(PLANNER_CONTEXT.getMetadata(), new Comparison(IDENTICAL, new Reference(BOOLEAN, "z"), TRUE))))));
+
+        assertThat(optimize(
+                new Case(
+                        ImmutableList.of(
+                                new WhenClause(new Reference(BOOLEAN, "a1"), TRUE),
+                                new WhenClause(new Reference(BOOLEAN, "a2"), FALSE),
+                                new WhenClause(new Reference(BOOLEAN, "a3"), FALSE),
+                                new WhenClause(new Reference(BOOLEAN, "a4"), TRUE)),
+                        TRUE)))
+                .isEqualTo(Optional.of(IrUtils.or(
+                        new Comparison(IDENTICAL, new Reference(BOOLEAN, "a1"), TRUE),
+                        IrUtils.and(
+                                IrExpressions.not(PLANNER_CONTEXT.getMetadata(), new Comparison(IDENTICAL, new Reference(BOOLEAN, "a2"), TRUE)),
+                                IrExpressions.not(PLANNER_CONTEXT.getMetadata(), new Comparison(IDENTICAL, new Reference(BOOLEAN, "a3"), TRUE)),
+                                IrUtils.or(
+                                        new Comparison(IDENTICAL, new Reference(BOOLEAN, "a4"), TRUE),
+                                        TRUE)))));
+
+        assertThat(optimize(
+                new Case(
+                        ImmutableList.of(
+                                new WhenClause(new Reference(BOOLEAN, "a1"), FALSE),
+                                new WhenClause(new Reference(BOOLEAN, "a2"), FALSE),
+                                new WhenClause(new Reference(BOOLEAN, "a3"), TRUE),
+                                new WhenClause(new Reference(BOOLEAN, "a4"), FALSE)),
+                        TRUE)))
+                .isEqualTo(Optional.of(
+                        IrUtils.and(
+                                IrExpressions.not(PLANNER_CONTEXT.getMetadata(), new Comparison(IDENTICAL, new Reference(BOOLEAN, "a1"), TRUE)),
+                                IrExpressions.not(PLANNER_CONTEXT.getMetadata(), new Comparison(IDENTICAL, new Reference(BOOLEAN, "a2"), TRUE)),
+                                IrUtils.or(
+                                        new Comparison(IDENTICAL, new Reference(BOOLEAN, "a3"), TRUE),
+                                        IrExpressions.not(PLANNER_CONTEXT.getMetadata(), new Comparison(IDENTICAL, new Reference(BOOLEAN, "a4"), TRUE))))));
+
+        assertThat(optimize(
+                new Case(
+                        ImmutableList.of(
+                                new WhenClause(new Reference(BOOLEAN, "a1"), TRUE),
+                                new WhenClause(new Reference(BOOLEAN, "a2"), FALSE),
+                                new WhenClause(new Reference(BOOLEAN, "a3"), FALSE)),
+                        FALSE)))
+                .isEqualTo(Optional.of(new Comparison(IDENTICAL, new Reference(BOOLEAN, "a1"), TRUE)));
     }
 
     @Test

@@ -427,13 +427,15 @@ public class TestJsonQueryFunction
     @Test
     public void testDescendantMemberAccessor()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 SELECT json_query(
                                 '{"a" : {"b" : 1}, "c" :  [true, {"c" : {"c" : null}}]}',
                                 'lax $..c'
                                 WITH ARRAY WRAPPER)
                 """))
-                .matches("""
+                .matches(
+                        """
                         VALUES cast('[[true,{"c":{"c":null}}],{"c":null},null]'AS varchar)
                         """);
     }

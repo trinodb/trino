@@ -14,15 +14,15 @@ remote exchange (GATHER, SINGLE, [])
                                                     scan inventory
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        dynamic filter (i_item_sk::EQUAL)
-                                                            scan item
+                                                        scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    dynamic filter (w_warehouse_sk::EQUAL)
-                                                        scan warehouse
+                                                    dynamic filter (i_item_sk::EQUAL)
+                                                        scan item
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan date_dim
+                                                dynamic filter (w_warehouse_sk::EQUAL)
+                                                    scan warehouse
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, [inv_item_sk_8, inv_warehouse_sk_9])
                         final aggregation over (d_moy_62, inv_item_sk_8, inv_warehouse_sk_9, w_warehouse_name_40)
@@ -36,10 +36,10 @@ remote exchange (GATHER, SINGLE, [])
                                                         scan inventory
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan item
+                                                            scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan warehouse
+                                                        scan item
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan date_dim
+                                                    scan warehouse

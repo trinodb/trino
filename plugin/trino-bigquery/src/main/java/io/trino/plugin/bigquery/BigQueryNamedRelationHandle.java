@@ -21,7 +21,6 @@ import io.trino.spi.connector.SchemaTableName;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryNamedRelationHandle
@@ -32,6 +31,7 @@ public class BigQueryNamedRelationHandle
     private final String type;
     private final Optional<BigQueryPartitionType> partitionType;
     private final Optional<String> comment;
+    private final boolean useStorageApi;
 
     @JsonCreator
     public BigQueryNamedRelationHandle(
@@ -39,13 +39,15 @@ public class BigQueryNamedRelationHandle
             @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
             @JsonProperty("type") String type,
             @JsonProperty("partitionType") Optional<BigQueryPartitionType> partitionType,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("useStorageApi") boolean useStorageApi)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
         this.type = requireNonNull(type, "type is null");
         this.partitionType = requireNonNull(partitionType, "partitionType is null");
         this.comment = requireNonNull(comment, "comment is null");
+        this.useStorageApi = useStorageApi;
     }
 
     @JsonProperty
@@ -78,6 +80,13 @@ public class BigQueryNamedRelationHandle
         return comment;
     }
 
+    @JsonProperty
+    @Override
+    public boolean isUseStorageApi()
+    {
+        return useStorageApi;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -105,11 +114,6 @@ public class BigQueryNamedRelationHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("remoteTableName", remoteTableName)
-                .add("schemaTableName", schemaTableName)
-                .add("type", type)
-                .add("comment", comment)
-                .toString();
+        return "%s:%s".formatted(remoteTableName, type);
     }
 }

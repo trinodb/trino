@@ -45,7 +45,7 @@ public class TestUuidType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = UUID.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = UUID.createFixedSizeBlockBuilder(1);
         for (int i = 0; i < 10; i++) {
             String uuid = "6b5f5b65-67e4-43b0-8ee3-586cd49f58a" + i;
             UUID.writeSlice(blockBuilder, castFromVarcharToUuid(utf8Slice(uuid)));

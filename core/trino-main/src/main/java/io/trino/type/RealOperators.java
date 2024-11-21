@@ -55,9 +55,7 @@ public final class RealOperators
 
     private static final ThreadLocal<DecimalFormat> FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0.0#####E0", new DecimalFormatSymbols(ENGLISH)));
 
-    private RealOperators()
-    {
-    }
+    private RealOperators() {}
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.REAL)

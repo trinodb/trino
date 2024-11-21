@@ -91,3 +91,25 @@ Storage:
 * - `azure.oauth.secret`
   - A OAuth 2.0 client secret for the service principal.
 :::
+
+## Access multiple storage accounts
+
+To allow Trino to access multiple Azure storage accounts from a single
+catalog configuration, you can use [](azure-oauth-authentication) with
+an Azure service principal. The following steps describe how to create
+a service principal in Azure and assign an IAM role granting access to the
+storage accounts:
+
+- Create a service principal in Azure Active Directory using Azure
+  **App Registrations** and save the client secret.
+- Assign access to the storage accounts from the account's
+  **Access Control (IAM)** section. You can add **Role Assignments** and
+  select appropriate roles, such as **Storage Blob Data Contributor**.
+- Assign access using the option **User, group, or service principal** and
+  select the service principal created. Save to finalize the role
+  assignment.
+
+ Once you create the service principal and configure the storage accounts
+ use the **Client ID**, **Secret** and **Tenant ID** values from the
+ application registration, to configure the catalog using properties from
+ [](azure-oauth-authentication).

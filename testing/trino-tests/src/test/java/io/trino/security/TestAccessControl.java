@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
-import io.airlift.testing.Assertions;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
@@ -273,7 +272,7 @@ public class TestAccessControl
                 }))
                 .build()));
         queryRunner.createCatalog("mock", "mock");
-        queryRunner.installPlugin(new JdbcPlugin("base_jdbc", new TestingH2JdbcModule()));
+        queryRunner.installPlugin(new JdbcPlugin("base_jdbc", TestingH2JdbcModule::new));
         queryRunner.createCatalog("jdbc", "base_jdbc", TestingH2JdbcModule.createProperties());
         for (String tableName : ImmutableList.of("orders", "nation", "region", "lineitem")) {
             queryRunner.execute(format("CREATE TABLE %1$s AS SELECT * FROM tpch.tiny.%1$s WITH NO DATA", tableName));
@@ -885,7 +884,8 @@ public class TestAccessControl
         // Show that without UPDATE on the target table, the MERGE fails
         assertAccessDenied(baseMergeSql + updateCase, "Cannot update columns \\[nation_name] in table " + targetName, privilege(targetTable, UPDATE_TABLE));
 
-        assertAccessAllowed("""
+        assertAccessAllowed(
+                """
                 MERGE INTO orders o USING region r ON (o.orderkey = r.regionkey)
                 WHEN MATCHED AND o.orderkey % 2 = 0 THEN DELETE
                 WHEN MATCHED AND o.orderkey % 2 = 1 THEN UPDATE SET orderkey = null
@@ -921,7 +921,7 @@ public class TestAccessControl
         }
         catch (AssertionError e) {
             // There is no clean exception message for authorization failure.  We simply get a 403
-            Assertions.assertContains(e.getMessage(), "statusCode=403");
+            assertThat(e).hasMessageContaining("statusCode=403");
         }
     }
 

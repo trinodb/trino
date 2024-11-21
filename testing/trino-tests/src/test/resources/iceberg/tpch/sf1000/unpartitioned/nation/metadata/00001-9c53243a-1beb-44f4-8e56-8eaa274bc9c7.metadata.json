@@ -68,11 +68,7 @@
     "fields" : [ ]
   } ],
   "properties" : {
-    "trino.stats.ndv.2.ndv" : "25",
-    "trino.stats.ndv.1.ndv" : "25",
-    "trino.stats.ndv.3.ndv" : "5",
-    "write.format.default" : "PARQUET",
-    "trino.stats.ndv.4.ndv" : "25"
+    "write.format.default" : "PARQUET"
   },
   "current-snapshot-id" : 5987065169814573221,
   "refs" : {
@@ -99,6 +95,45 @@
     },
     "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet/nation/metadata/snap-5987065169814573221-1-e3a2705e-f37e-4708-9dd0-34090f475f02.avro",
     "schema-id" : 0
+  } ],
+    "statistics" : [ {
+    "snapshot-id" : 5987065169814573221,
+    "statistics-path" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet/nation/metadata/20240327_144923_01338_mjn5m-86b1db04-a91d-4aa2-987a-a65010dd61e5.stats",
+    "file-size-in-bytes" : 1601,
+    "file-footer-size-in-bytes" : 841,
+    "blob-metadata" : [ {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5987065169814573221,
+      "sequence-number" : 1,
+      "fields" : [ 1 ],
+      "properties" : {
+        "ndv" : "25"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5987065169814573221,
+      "sequence-number" : 1,
+      "fields" : [ 2 ],
+      "properties" : {
+        "ndv" : "25"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5987065169814573221,
+      "sequence-number" : 1,
+      "fields" : [ 3 ],
+      "properties" : {
+        "ndv" : "5"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 5987065169814573221,
+      "sequence-number" : 1,
+      "fields" : [ 4 ],
+      "properties" : {
+        "ndv" : "25"
+      }
+    } ]
   } ],
   "snapshot-log" : [ {
     "timestamp-ms" : 1647888454307,

@@ -35,6 +35,7 @@ import io.trino.operator.table.json.JsonTableQueryColumn;
 import io.trino.operator.table.json.JsonTableValueColumn;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.function.table.TableArgument;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -337,7 +338,7 @@ class RelationPlanner
 
             List<Symbol> outputSymbols = outputSymbolsBuilder.build();
             boolean updateTarget = analysis.isUpdateTarget(node);
-            PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.buildOrThrow(), updateTarget, Optional.empty());
+            PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, columns.buildOrThrow(), TupleDomain.all(), Optional.empty(), updateTarget, Optional.empty());
 
             plan = new RelationPlan(root, scope, outputSymbols, outerContext);
 

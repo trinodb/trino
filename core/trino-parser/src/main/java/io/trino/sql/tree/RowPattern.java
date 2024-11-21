@@ -13,12 +13,10 @@
  */
 package io.trino.sql.tree;
 
-import java.util.Optional;
-
 public abstract class RowPattern
         extends Node
 {
-    protected RowPattern(Optional<NodeLocation> location)
+    protected RowPattern(NodeLocation location)
     {
         super(location);
     }

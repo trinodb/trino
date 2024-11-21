@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TestMetadataManager;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
@@ -40,7 +41,6 @@ import java.util.concurrent.ExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.metadata.MetadataManager.testMetadataManagerBuilder;
 import static io.trino.testing.TestingSession.testSession;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
@@ -66,7 +66,7 @@ public class TestSetPathTask
         transactionManager = createTestTransactionManager();
         accessControl = new AllowAllAccessControl();
 
-        metadata = testMetadataManagerBuilder()
+        metadata = TestMetadataManager.builder()
                 .withTransactionManager(transactionManager)
                 .build();
     }

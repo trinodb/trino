@@ -21,7 +21,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                 scan web_sales
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                                    scan warehouse
+                                                                                    scan ship_mode
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                                 scan date_dim
@@ -30,7 +30,7 @@ local exchange (GATHER, SINGLE, [])
                                                                             scan time_dim
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan ship_mode
+                                                                        scan warehouse
                         partial aggregation over (d_year_85, expr_331, w_city_71, w_country_75, w_county_72, w_state_73, w_warehouse_name_65, w_warehouse_sq_ft_66)
                             final aggregation over (d_year_85, w_city_71, w_country_75, w_county_72, w_state_73, w_warehouse_name_65, w_warehouse_sq_ft_66)
                                 local exchange (GATHER, SINGLE, [])
@@ -48,7 +48,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                 scan catalog_sales
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                                    scan warehouse
+                                                                                    scan ship_mode
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                                 scan date_dim
@@ -57,4 +57,4 @@ local exchange (GATHER, SINGLE, [])
                                                                             scan time_dim
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan ship_mode
+                                                                        scan warehouse

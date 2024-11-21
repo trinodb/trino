@@ -28,17 +28,15 @@ public final class ExplainAnalyze
     private final Statement statement;
     private final boolean verbose;
 
+    @Deprecated
     public ExplainAnalyze(Statement statement, boolean verbose)
     {
-        this(Optional.empty(), statement, verbose);
+        super(Optional.empty());
+        this.statement = requireNonNull(statement, "statement is null");
+        this.verbose = verbose;
     }
 
-    public ExplainAnalyze(NodeLocation location, boolean verbose, Statement statement)
-    {
-        this(Optional.of(location), statement, verbose);
-    }
-
-    public ExplainAnalyze(Optional<NodeLocation> location, Statement statement, boolean verbose)
+    public ExplainAnalyze(NodeLocation location, Statement statement, boolean verbose)
     {
         super(location);
         this.statement = requireNonNull(statement, "statement is null");

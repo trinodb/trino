@@ -34,7 +34,7 @@ public class TestAbfsSyncPartitionMetadata
         extends BaseTestSyncPartitionMetadata
 {
     @Inject
-    @Named("databases.presto.abfs_schema")
+    @Named("databases.trino.abfs_schema")
     private String schema;
 
     @BeforeMethodWithContext

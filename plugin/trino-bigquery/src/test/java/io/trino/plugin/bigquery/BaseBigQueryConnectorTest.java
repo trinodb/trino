@@ -26,6 +26,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -122,15 +123,6 @@ public abstract class BaseBigQueryConnectorTest
                 .row("shippriority", "bigint", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
-    }
-
-    @Test
-    @Override // Override because the regexp is different from the base test
-    public void testPredicateReflectedInExplain()
-    {
-        assertExplain(
-                "EXPLAIN SELECT name FROM nation WHERE nationkey = 42",
-                "nationkey", "bigint", "42");
     }
 
     @Test
@@ -308,18 +300,17 @@ public abstract class BaseBigQueryConnectorTest
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        switch (dataMappingTestSetup.getTrinoTypeName()) {
-            case "real":
-            case "char(3)":
-            case "time":
-            case "time(3)":
-            case "time(6)":
-            case "timestamp":
-            case "timestamp(3)":
-            case "timestamp(3) with time zone":
-                return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-        return Optional.of(dataMappingTestSetup);
+        return switch (dataMappingTestSetup.getTrinoTypeName()) {
+            case "real",
+                 "char(3)",
+                 "time",
+                 "time(3)",
+                 "time(6)",
+                 "timestamp",
+                 "timestamp(3)",
+                 "timestamp(3) with time zone" -> Optional.of(dataMappingTestSetup.asUnsupported());
+            default -> Optional.of(dataMappingTestSetup);
+        };
     }
 
     @Override
@@ -623,17 +614,18 @@ public abstract class BaseBigQueryConnectorTest
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE bigquery.tpch.orders (\n" +
-                        "   orderkey bigint NOT NULL,\n" +
-                        "   custkey bigint NOT NULL,\n" +
-                        "   orderstatus varchar NOT NULL,\n" +
-                        "   totalprice double NOT NULL,\n" +
-                        "   orderdate date NOT NULL,\n" +
-                        "   orderpriority varchar NOT NULL,\n" +
-                        "   clerk varchar NOT NULL,\n" +
-                        "   shippriority bigint NOT NULL,\n" +
-                        "   comment varchar NOT NULL\n" +
-                        ")");
+                .isEqualTo("""
+                        CREATE TABLE bigquery.tpch.orders (
+                           orderkey bigint NOT NULL,
+                           custkey bigint NOT NULL,
+                           orderstatus varchar NOT NULL,
+                           totalprice double NOT NULL,
+                           orderdate date NOT NULL,
+                           orderpriority varchar NOT NULL,
+                           clerk varchar NOT NULL,
+                           shippriority bigint NOT NULL,
+                           comment varchar NOT NULL
+                        )""");
     }
 
     @Test
@@ -647,6 +639,26 @@ public abstract class BaseBigQueryConnectorTest
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 2)");
             assertThat((String) computeActual("SHOW CREATE TABLE " + table.getName()).getOnlyValue())
                     .isEqualTo("CREATE TABLE bigquery." + table.getName() + " (\n" +
+                            "   a bigint,\n" +
+                            "   b bigint\n" +
+                            ")");
+        }
+    }
+
+    @Test
+    public void testSkipUnsupportedTimestampType()
+    {
+        Session skipViewMaterialization = Session.builder(getSession())
+                .setCatalogSessionProperty("bigquery", "skip_view_materialization", "true")
+                .build();
+
+        try (TestView view = new TestView(
+                bigQuerySqlExecutor,
+                "test.test_skip_unsupported_type",
+                "SELECT 1 a, TIMESTAMP '1970-01-01 00:00:00 UTC' unsupported, 2 b")) {
+            assertQuery(skipViewMaterialization, "SELECT * FROM " + view.getName(), "VALUES (1, 2)");
+            assertThat((String) computeActual(skipViewMaterialization, "SHOW CREATE TABLE " + view.getName()).getOnlyValue())
+                    .isEqualTo("CREATE TABLE bigquery." + view.getName() + " (\n" +
                             "   a bigint,\n" +
                             "   b bigint\n" +
                             ")");
@@ -789,10 +801,12 @@ public abstract class BaseBigQueryConnectorTest
         String expectedLabel = "q_" + queryId.toString() + "__t_" + traceToken;
 
         @Language("SQL")
-        String checkForLabelQuery = """
-                    SELECT * FROM region-us.INFORMATION_SCHEMA.JOBS_BY_USER WHERE EXISTS(
-                        SELECT * FROM UNNEST(labels) AS label WHERE label.key = 'trino_query' AND label.value = '%s'
-                    )""".formatted(expectedLabel);
+        String checkForLabelQuery =
+                """
+                SELECT * FROM region-us.INFORMATION_SCHEMA.JOBS_BY_USER WHERE EXISTS(
+                    SELECT * FROM UNNEST(labels) AS label WHERE label.key = 'trino_query' AND label.value = '%s'
+                )\
+                """.formatted(expectedLabel);
 
         assertEventually(() -> assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
                 .extracting(values -> values.get("query").getStringValue())

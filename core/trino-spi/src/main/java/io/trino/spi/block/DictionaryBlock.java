@@ -42,7 +42,6 @@ public final class DictionaryBlock
     private final int[] ids;
     private final long retainedSizeInBytes;
     private volatile long sizeInBytes = -1;
-    private volatile long logicalSizeInBytes = -1;
     private volatile int uniqueIds = -1;
     // isSequentialIds is only valid when uniqueIds is computed
     private volatile boolean isSequentialIds;
@@ -190,36 +189,6 @@ public final class DictionaryBlock
         this.sizeInBytes = getSizeInBytesForSelectedPositions(used, uniqueIds, positionCount);
         this.uniqueIds = uniqueIds;
         this.isSequentialIds = isSequentialIds;
-    }
-
-    @Override
-    public long getLogicalSizeInBytes()
-    {
-        if (logicalSizeInBytes >= 0) {
-            return logicalSizeInBytes;
-        }
-
-        OptionalInt dictionarySizePerPosition = dictionary.fixedSizeInBytesPerPosition();
-        if (dictionarySizePerPosition.isPresent()) {
-            logicalSizeInBytes = dictionarySizePerPosition.getAsInt() * (long) getPositionCount();
-            return logicalSizeInBytes;
-        }
-
-        // Calculation of logical size can be performed as part of calculateCompactSize() with minor modifications.
-        // Keeping this calculation separate as this is a little more expensive and may not be called as often.
-        long sizeInBytes = 0;
-        long[] seenSizes = new long[dictionary.getPositionCount()];
-        Arrays.fill(seenSizes, -1L);
-        for (int i = 0; i < getPositionCount(); i++) {
-            int position = getId(i);
-            if (seenSizes[position] < 0) {
-                seenSizes[position] = dictionary.getRegionSizeInBytes(position, 1);
-            }
-            sizeInBytes += seenSizes[position];
-        }
-
-        logicalSizeInBytes = sizeInBytes;
-        return sizeInBytes;
     }
 
     @Override

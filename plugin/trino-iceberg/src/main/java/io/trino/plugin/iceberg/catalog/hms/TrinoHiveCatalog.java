@@ -740,18 +740,16 @@ public class TrinoHiveCatalog
                     materializedView.getParameters()));
         }
 
+        SchemaTableName storageTableName;
         if (storageTable != null) {
             String storageSchema = Optional.ofNullable(materializedView.getParameters().get(STORAGE_SCHEMA))
                     .orElse(viewName.getSchemaName());
-            SchemaTableName storageTableName = new SchemaTableName(storageSchema, storageTable);
-            return Optional.of(getMaterializedViewDefinition(
-                    materializedView.getOwner(),
-                    materializedView.getViewOriginalText()
-                            .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)),
-                    storageTableName));
+            storageTableName = new SchemaTableName(storageSchema, storageTable);
+        }
+        else {
+            storageTableName = new SchemaTableName(viewName.getSchemaName(), IcebergTableName.tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
         }
 
-        SchemaTableName storageTableName = new SchemaTableName(viewName.getSchemaName(), IcebergTableName.tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
         return Optional.of(getMaterializedViewDefinition(
                 materializedView.getOwner(),
                 materializedView.getViewOriginalText()
@@ -785,9 +783,12 @@ public class TrinoHiveCatalog
             operations.initializeFromMetadata(metadata);
             return Optional.of(new BaseTable(operations, quotedTableName(storageTableName), TRINO_METRICS_REPORTER));
         }
-        catch (NotFoundException e) {
+        catch (UncheckedExecutionException e) {
             // Removed during reading
-            return Optional.empty();
+            if (e.getCause() instanceof NotFoundException) {
+                return Optional.empty();
+            }
+            throw e;
         }
     }
 

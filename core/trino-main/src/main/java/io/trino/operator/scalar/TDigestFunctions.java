@@ -51,7 +51,7 @@ public final class TDigestFunctions
             percentiles[i] = DOUBLE.getDouble(percentilesArrayBlock, i);
         }
         checkCondition(Ordering.natural().isOrdered(Doubles.asList(percentiles)), INVALID_FUNCTION_ARGUMENT, "percentiles must be sorted in increasing order");
-        BlockBuilder output = DOUBLE.createBlockBuilder(null, percentilesArrayBlock.getPositionCount());
+        BlockBuilder output = DOUBLE.createFixedSizeBlockBuilder(percentilesArrayBlock.getPositionCount());
         double[] valuesAtPercentiles = input.valuesAt(percentiles);
         for (Double value : valuesAtPercentiles) {
             DOUBLE.writeDouble(output, value);

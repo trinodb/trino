@@ -102,7 +102,7 @@ public class TestGroupedTopNRowNumberBuilder
         assertThat(groupedTopNBuilder.processPage(input.get(3)).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(BIGINT, DOUBLE, BIGINT)
                 .row(1L, 0.3, 1)
@@ -174,7 +174,7 @@ public class TestGroupedTopNRowNumberBuilder
         assertThat(groupedTopNBuilder.processPage(input.get(3)).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(BIGINT, DOUBLE, BIGINT)
                 .row(3L, 0.1, 1)
@@ -221,7 +221,7 @@ public class TestGroupedTopNRowNumberBuilder
         unblock.set(true);
         assertThat(work.process()).isTrue();
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertThat(output.size()).isEqualTo(1);
+        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(types)
                 .row(1L, 0.1)

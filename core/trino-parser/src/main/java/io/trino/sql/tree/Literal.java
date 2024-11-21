@@ -21,6 +21,12 @@ import java.util.Optional;
 public abstract class Literal
         extends Expression
 {
+    protected Literal(NodeLocation location)
+    {
+        super(location);
+    }
+
+    @Deprecated
     protected Literal(Optional<NodeLocation> location)
     {
         super(location);

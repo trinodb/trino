@@ -154,7 +154,7 @@ public class TestProtobufDecoder
                 .decodeRow(messageBuilder.build().toByteArray())
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(9);
+        assertThat(decodedRow).hasSize(9);
 
         checkValue(decodedRow, stringColumn, stringData);
         checkValue(decodedRow, integerColumn, integerData);
@@ -323,7 +323,7 @@ public class TestProtobufDecoder
                 .decodeRow(message.toByteArray())
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(2);
+        assertThat(decodedRow).hasSize(2);
 
         final var obj = new ObjectMapper();
         final var expected = obj.writeValueAsString(setValue);
@@ -508,7 +508,7 @@ public class TestProtobufDecoder
                 .decodeRow(messageBuilder.build().toByteArray())
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(3);
+        assertThat(decodedRow).hasSize(3);
 
         Block listBlock = (Block) decodedRow.get(listColumn).getObject();
         assertThat(VARCHAR.getSlice(listBlock, 0).toStringUtf8()).isEqualTo("Presto");
@@ -637,7 +637,7 @@ public class TestProtobufDecoder
                 .decodeRow(messageBuilder.build().toByteArray())
                 .orElseThrow(AssertionError::new);
 
-        assertThat(decodedRow.size()).isEqualTo(9);
+        assertThat(decodedRow).hasSize(9);
 
         checkValue(decodedRow, stringColumn, stringData);
         checkValue(decodedRow, integerColumn, integerData);

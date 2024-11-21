@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -30,7 +29,7 @@ public class PatternPermutation
 
     public PatternPermutation(NodeLocation location, List<RowPattern> patterns)
     {
-        super(Optional.of(location));
+        super(location);
         this.patterns = requireNonNull(patterns, "patterns is null");
         checkArgument(!patterns.isEmpty(), "patterns list is empty");
     }

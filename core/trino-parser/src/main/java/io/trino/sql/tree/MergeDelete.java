@@ -24,17 +24,13 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public class MergeDelete
         extends MergeCase
 {
+    @Deprecated
     public MergeDelete(Optional<Expression> expression)
     {
-        this(Optional.empty(), expression);
+        super(Optional.empty(), expression);
     }
 
     public MergeDelete(NodeLocation location, Optional<Expression> expression)
-    {
-        super(Optional.of(location), expression);
-    }
-
-    public MergeDelete(Optional<NodeLocation> location, Optional<Expression> expression)
     {
         super(location, expression);
     }

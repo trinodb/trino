@@ -852,30 +852,6 @@ public class HashGenerationOptimizer
         return Optional.of(new HashComputation(fields));
     }
 
-    public static Optional<Expression> getHashExpression(Metadata metadata, SymbolAllocator symbolAllocator, List<Symbol> symbols)
-    {
-        if (symbols.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Expression result = new Constant(BIGINT, (long) INITIAL_HASH_VALUE);
-        for (Symbol symbol : symbols) {
-            Expression hashField = BuiltinFunctionCallBuilder.resolve(metadata)
-                    .setName(HASH_CODE)
-                    .addArgument(symbol.type(), new Reference(BIGINT, symbol.name()))
-                    .build();
-
-            hashField = new Coalesce(hashField, new Constant(BIGINT, (long) NULL_HASH_CODE));
-
-            result = BuiltinFunctionCallBuilder.resolve(metadata)
-                    .setName("combine_hash")
-                    .addArgument(BIGINT, result)
-                    .addArgument(BIGINT, hashField)
-                    .build();
-        }
-        return Optional.of(result);
-    }
-
     private static class HashComputation
     {
         private final List<Symbol> fields;
@@ -885,11 +861,6 @@ public class HashGenerationOptimizer
             requireNonNull(fields, "fields is null");
             this.fields = ImmutableList.copyOf(fields);
             checkArgument(!this.fields.isEmpty(), "fields cannot be empty");
-        }
-
-        public List<Symbol> getFields()
-        {
-            return fields;
         }
 
         public Optional<HashComputation> translate(Function<Symbol, Optional<Symbol>> translator)

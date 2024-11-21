@@ -216,7 +216,7 @@ public class TestNodeScheduler
         }
         nonRackLocalSplits = Sets.difference(nonRackLocalSplits, new HashSet<>(assignments.values()));
         // Check that 3 of the splits were rejected, since they're non-local
-        assertThat(nonRackLocalSplits.size()).isEqualTo(3);
+        assertThat(nonRackLocalSplits).hasSize(3);
 
         // Assign rack-local splits
         ImmutableSet.Builder<Split> rackLocalSplits = ImmutableSet.builder();
@@ -246,7 +246,7 @@ public class TestNodeScheduler
                     .build());
         }
         unassigned = Sets.difference(unassigned, new HashSet<>(assignments.values()));
-        assertThat(unassigned.size()).isEqualTo(3);
+        assertThat(unassigned).hasSize(3);
         int rack1 = 0;
         int rack2 = 0;
         for (Split split : unassigned) {
@@ -297,7 +297,7 @@ public class TestNodeScheduler
             splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote()));
         }
         Multimap<InternalNode, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
-        assertThat(assignments.entries().size()).isEqualTo(assignments.size());
+        assertThat(assignments.entries()).hasSize(assignments.size());
         for (InternalNode node : activeCatalogNodes) {
             assertThat(assignments.keySet()).contains(node);
         }
@@ -356,7 +356,7 @@ public class TestNodeScheduler
             splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote()));
         }
         Multimap<InternalNode, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
-        assertThat(assignments.entries().size()).isEqualTo(activeCatalogNodes.size());
+        assertThat(assignments.entries()).hasSize(activeCatalogNodes.size());
         for (InternalNode node : activeCatalogNodes) {
             assertThat(assignments.keySet()).contains(node);
         }
@@ -399,7 +399,7 @@ public class TestNodeScheduler
 
         // no split should be assigned to the newNode, as it already has
         // maxSplitsPerNode + maxSplitsPerNodePerTask assigned to it
-        assertThat(assignments.keySet().size()).isEqualTo(3); // Splits should be scheduled on the other three nodes
+        assertThat(assignments.keySet()).hasSize(3); // Splits should be scheduled on the other three nodes
         assertThat(assignments.keySet().contains(newNode)).isFalse(); // No splits scheduled on the maxed out node
 
         for (RemoteTask task : tasks) {

@@ -1,0 +1,62 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.spooling.filesystem;
+
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hashing;
+import io.trino.filesystem.Location;
+
+import java.util.List;
+
+import static java.util.Objects.requireNonNull;
+
+public class PartitionedFileSystemLayout
+        extends SimpleFileSystemLayout
+{
+    private final int partitions;
+
+    public PartitionedFileSystemLayout(PartitionedLayoutConfig layoutConfig)
+    {
+        this.partitions = requireNonNull(layoutConfig, "layoutConfig is null").getPartitions();
+    }
+
+    @Override
+    public Location location(Location rootLocation, FileSystemSpooledSegmentHandle segmentHandle)
+    {
+        return super.location(rootLocation.appendPath(partition(segmentHandle)), segmentHandle);
+    }
+
+    @Override
+    public List<Location> searchPaths(Location rootLocation)
+    {
+        ImmutableList.Builder<Location> builder = ImmutableList.builderWithExpectedSize(partitions);
+        for (int i = 0; i < partitions; i++) {
+            builder.add(rootLocation.appendPath(partition(i)));
+        }
+        return builder.build();
+    }
+
+    private String partition(FileSystemSpooledSegmentHandle handle)
+    {
+        HashCode hashCode = Hashing.murmur3_32_fixed().hashBytes(handle.uuid());
+        return partition(Hashing.consistentHash(hashCode, partitions));
+    }
+
+    private String partition(int partition)
+    {
+        return Strings.padEnd(Integer.toString(partition), 3, '0') + "-spooled";
+    }
+}

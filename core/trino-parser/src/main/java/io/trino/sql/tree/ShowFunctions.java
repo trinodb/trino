@@ -31,7 +31,7 @@ public final class ShowFunctions
 
     public ShowFunctions(NodeLocation location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
     {
-        super(Optional.of(location));
+        super(location);
         this.schema = requireNonNull(schema, "schema is null");
         this.likePattern = requireNonNull(likePattern, "likePattern is null");
         this.escape = requireNonNull(escape, "escape is null");

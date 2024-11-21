@@ -58,9 +58,6 @@
     "fields" : [ ]
   } ],
   "properties" : {
-    "trino.stats.ndv.2.ndv" : "5",
-    "trino.stats.ndv.1.ndv" : "5",
-    "trino.stats.ndv.3.ndv" : "5",
     "write.format.default" : "PARQUET"
   },
   "current-snapshot-id" : 6839986430402395594,
@@ -88,6 +85,37 @@
     },
     "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet/region/metadata/snap-6839986430402395594-1-3f47ad2f-9095-47cd-8988-4809d94e799c.avro",
     "schema-id" : 0
+  } ],
+  "statistics" : [ {
+    "snapshot-id" : 6839986430402395594,
+    "statistics-path" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet/region/metadata/20240327_145143_02021_h3sru-35f56829-2e03-4c3a-ace7-2c0089ba4e43.stats",
+    "file-size-in-bytes" : 858,
+    "file-footer-size-in-bytes" : 647,
+    "blob-metadata" : [ {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6839986430402395594,
+      "sequence-number" : 1,
+      "fields" : [ 1 ],
+      "properties" : {
+        "ndv" : "5"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6839986430402395594,
+      "sequence-number" : 1,
+      "fields" : [ 2 ],
+      "properties" : {
+        "ndv" : "5"
+      }
+    }, {
+      "type" : "apache-datasketches-theta-v1",
+      "snapshot-id" : 6839986430402395594,
+      "sequence-number" : 1,
+      "fields" : [ 3 ],
+      "properties" : {
+        "ndv" : "5"
+      }
+    } ]
   } ],
   "snapshot-log" : [ {
     "timestamp-ms" : 1647890128590,

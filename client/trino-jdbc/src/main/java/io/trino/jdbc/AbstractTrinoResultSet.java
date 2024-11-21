@@ -24,8 +24,6 @@ import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.Column;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
-import io.trino.client.QueryError;
-import io.trino.client.QueryStatusInfo;
 import io.trino.jdbc.ColumnInfo.Nullable;
 import io.trino.jdbc.TypeConversions.NoConversionRegisteredException;
 import org.joda.time.DateTimeZone;
@@ -57,12 +55,12 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -159,9 +157,11 @@ abstract class AbstractTrinoResultSet
                     .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE).toLocalDate())
                     .add("time", String.class, Time.class, string -> parseTime(string, SYSTEM_DEFAULT_ZONE_ID))
                     .add("time with time zone", String.class, Time.class, AbstractTrinoResultSet::parseTimeWithTimeZone)
+                    .add("timestamp", String.class, LocalDateTime.class, AbstractTrinoResultSet::parseTimestampAsLocalDateTime)
                     .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, SYSTEM_DEFAULT_ZONE_ID))
+                    .add("timestamp with time zone", String.class, Instant.class, AbstractTrinoResultSet::parseTimestampWithTimeZoneAsInstant)
                     .add("timestamp with time zone", String.class, Timestamp.class, AbstractTrinoResultSet::parseTimestampWithTimeZoneAsSqlTimestamp)
-                    .add("timestamp with time zone", String.class, ZonedDateTime.class, AbstractTrinoResultSet::parseTimestampWithTimeZone)
+                    .add("timestamp with time zone", String.class, ZonedDateTime.class, AbstractTrinoResultSet::parseTimestampWithTimeZoneAsZonedDateTime)
                     .add("interval year to month", String.class, TrinoIntervalYearMonth.class, AbstractTrinoResultSet::parseIntervalYearMonth)
                     .add("interval day to second", String.class, TrinoIntervalDayTime.class, AbstractTrinoResultSet::parseIntervalDayTime)
                     .add("array", List.class, List.class, (type, list) -> (List<?>) convertFromClientRepresentation(type, list))
@@ -184,7 +184,7 @@ abstract class AbstractTrinoResultSet
                         return result;
                     })
                     .build();
-    protected final Iterator<List<Object>> results;
+    protected final CancellableIterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
     private final List<ColumnInfo> columnInfoList;
     private final ResultSetMetaData resultSetMetaData;
@@ -193,7 +193,9 @@ abstract class AbstractTrinoResultSet
     private final AtomicBoolean wasNull = new AtomicBoolean();
     private final Optional<Statement> statement;
 
-    AbstractTrinoResultSet(Optional<Statement> statement, List<Column> columns, Iterator<List<Object>> results)
+    private final AtomicBoolean closed = new AtomicBoolean();
+
+    AbstractTrinoResultSet(Optional<Statement> statement, List<Column> columns, CancellableIterator<List<Object>> results)
     {
         this.statement = requireNonNull(statement, "statement is null");
         requireNonNull(columns, "columns is null");
@@ -448,10 +450,16 @@ abstract class AbstractTrinoResultSet
         throw new IllegalArgumentException("Expected column to be a timestamp type but is " + columnInfo.getColumnTypeName());
     }
 
-    private static ZonedDateTime parseTimestampWithTimeZone(String value)
+    private static Instant parseTimestampWithTimeZoneAsInstant(String value)
     {
         ParsedTimestamp parsed = parseTimestamp(value);
-        return toZonedDateTime(parsed, timezone -> ZoneId.of(timezone.orElseThrow(() -> new IllegalArgumentException("Time zone missing: " + value))));
+        return toInstant(parsed, timezone -> timezone.map(ZoneId::of).orElseThrow(() -> new IllegalArgumentException("Time zone missing: " + value)));
+    }
+
+    private static ZonedDateTime parseTimestampWithTimeZoneAsZonedDateTime(String value)
+    {
+        ParsedTimestamp parsed = parseTimestamp(value);
+        return toZonedDateTime(parsed, timezone -> timezone.map(ZoneId::of).orElseThrow(() -> new IllegalArgumentException("Time zone missing: " + value)));
     }
 
     @Override
@@ -1827,6 +1835,15 @@ abstract class AbstractTrinoResultSet
         return getObject(columnIndex(columnLabel), type);
     }
 
+    @Override
+    public void close()
+            throws SQLException
+    {
+        if (closed.compareAndSet(false, true)) {
+            results.cancel();
+        }
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public <T> T unwrap(Class<T> iface)
@@ -1929,14 +1946,6 @@ abstract class AbstractTrinoResultSet
         }
     }
 
-    static SQLException resultsException(QueryStatusInfo results)
-    {
-        QueryError error = requireNonNull(results.getError());
-        String message = format("Query failed (#%s): %s", results.getId(), error.getMessage());
-        Throwable cause = (error.getFailureInfo() == null) ? null : error.getFailureInfo().toException();
-        return new SQLException(message, error.getSqlState(), error.getErrorCode(), cause);
-    }
-
     private static Map<String, Integer> getFieldMap(List<Column> columns)
     {
         Map<String, Integer> map = Maps.newHashMapWithExpectedSize(columns.size());
@@ -1973,6 +1982,11 @@ abstract class AbstractTrinoResultSet
         ParsedTimestamp parsed = parseTimestamp(value);
         return toTimestamp(value, parsed, timezone ->
                 ZoneId.of(timezone.orElseThrow(() -> new IllegalArgumentException("Time zone missing: " + value))));
+    }
+
+    private static LocalDateTime parseTimestampAsLocalDateTime(String value)
+    {
+        return toLocalDateTime(parseTimestamp(value));
     }
 
     private static Timestamp parseTimestampAsSqlTimestamp(String value, ZoneId localTimeZone)
@@ -2049,7 +2063,13 @@ abstract class AbstractTrinoResultSet
         return timestamp;
     }
 
-    private static ZonedDateTime toZonedDateTime(ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
+    private static Instant toInstant(ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
+    {
+        return toZonedDateTime(parsed, timeZoneParser)
+                .toInstant();
+    }
+
+    private static LocalDateTime toLocalDateTime(ParsedTimestamp parsed)
     {
         int year = parsed.year;
         int month = parsed.month;
@@ -2058,14 +2078,19 @@ abstract class AbstractTrinoResultSet
         int minute = parsed.minute;
         int second = parsed.second;
         long picosOfSecond = parsed.picosOfSecond;
-        ZoneId zoneId = timeZoneParser.apply(parsed.timezone);
 
-        ZonedDateTime zonedDateTime = LocalDateTime.of(year, month, day, hour, minute, second, 0)
-                .atZone(zoneId);
+        LocalDateTime localDateTime = LocalDateTime.of(year, month, day, hour, minute, second, 0);
 
         int nanoOfSecond = (int) rescale(picosOfSecond, 12, 9);
-        zonedDateTime = zonedDateTime.plusNanos(nanoOfSecond);
-        return zonedDateTime;
+        return localDateTime.plusNanos(nanoOfSecond);
+    }
+
+    private static ZonedDateTime toZonedDateTime(ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
+    {
+        ZoneId zoneId = timeZoneParser.apply(parsed.timezone);
+
+        return toLocalDateTime(parsed)
+                .atZone(zoneId);
     }
 
     private static Time parseTime(String value, ZoneId localTimeZone)

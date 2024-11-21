@@ -24,7 +24,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
-import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import org.joda.time.DateTime;
 
@@ -102,7 +101,7 @@ public class StageStats
     private final Duration failedInputBlockedTime;
 
     private final DataSize bufferedDataSize;
-    private final Optional<TDigestHistogram> outputBufferUtilization;
+    private final Optional<io.trino.execution.DistributionSnapshot> outputBufferUtilization;
     private final DataSize outputDataSize;
     private final DataSize failedOutputDataSize;
     private final long outputPositions;
@@ -177,7 +176,7 @@ public class StageStats
             @JsonProperty("failedInputBlockedTime") Duration failedInputBlockedTime,
 
             @JsonProperty("bufferedDataSize") DataSize bufferedDataSize,
-            @JsonProperty("outputBufferUtilization") Optional<TDigestHistogram> outputBufferUtilization,
+            @JsonProperty("outputBufferUtilization") Optional<io.trino.execution.DistributionSnapshot> outputBufferUtilization,
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("failedOutputDataSize") DataSize failedOutputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
@@ -562,7 +561,7 @@ public class StageStats
     }
 
     @JsonProperty
-    public Optional<TDigestHistogram> getOutputBufferUtilization()
+    public Optional<io.trino.execution.DistributionSnapshot> getOutputBufferUtilization()
     {
         return outputBufferUtilization;
     }

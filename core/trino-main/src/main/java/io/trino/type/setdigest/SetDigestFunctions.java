@@ -30,9 +30,7 @@ import static io.trino.type.setdigest.SetDigest.exactIntersectionCardinality;
 
 public final class SetDigestFunctions
 {
-    private SetDigestFunctions()
-    {
-    }
+    private SetDigestFunctions() {}
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)

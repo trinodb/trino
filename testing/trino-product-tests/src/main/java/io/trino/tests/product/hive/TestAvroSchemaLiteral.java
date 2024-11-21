@@ -26,7 +26,8 @@ public class TestAvroSchemaLiteral
         extends HiveProductTest
 {
     @Language("JSON")
-    private static final String SCHEMA_LITERAL = """
+    private static final String SCHEMA_LITERAL =
+            """
             {
               "namespace": "io.trino.test",
               "name": "product_tests_avro_table",

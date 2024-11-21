@@ -438,24 +438,24 @@ public class TestCachingHiveMetastore
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
         // Select half of the available partitions and load them into the cache
-        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1)).size()).isEqualTo(1);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1))).hasSize(1);
         assertThat(mockClient.getAccessCount()).isEqualTo(2);
 
         // Now select all the partitions
-        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size()).isEqualTo(2);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2))).hasSize(2);
         // There should be one more access to fetch the remaining partition
         assertThat(mockClient.getAccessCount()).isEqualTo(3);
 
         // Now if we fetch any or both of them, they should not hit the client
-        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1)).size()).isEqualTo(1);
-        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION2)).size()).isEqualTo(1);
-        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size()).isEqualTo(2);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1))).hasSize(1);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION2))).hasSize(1);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2))).hasSize(2);
         assertThat(mockClient.getAccessCount()).isEqualTo(3);
 
         metastore.flushCache();
 
         // Fetching both should only result in one batched access
-        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size()).isEqualTo(2);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2))).hasSize(2);
         assertThat(mockClient.getAccessCount()).isEqualTo(4);
     }
 
@@ -910,7 +910,7 @@ public class TestCachingHiveMetastore
     {
         Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
         Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(table, ImmutableList.of(BAD_PARTITION));
-        assertThat(partitionsByNames.size()).isEqualTo(1);
+        assertThat(partitionsByNames).hasSize(1);
         Optional<Partition> onlyElement = Iterables.getOnlyElement(partitionsByNames.values());
         assertThat(onlyElement).isEmpty();
     }

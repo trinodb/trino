@@ -28,7 +28,7 @@ public class TestDeltaLakeAzure
         extends BaseTestTableFormats
 {
     @Inject
-    @Named("databases.presto.abfs_schema")
+    @Named("databases.trino.abfs_schema")
     private String schema;
     private String schemaLocation;
 

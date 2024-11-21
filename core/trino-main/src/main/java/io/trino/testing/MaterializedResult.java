@@ -16,36 +16,20 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.client.StatementStats;
 import io.trino.client.Warning;
 import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
-import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.MapBlockBuilder;
-import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimeWithTimeZoneType;
-import io.trino.spi.type.TimeZoneKey;
-import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -58,7 +42,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -70,22 +53,8 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
-import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
-import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.type.JsonType.JSON;
-import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -98,6 +67,7 @@ public class MaterializedResult
     private final List<MaterializedRow> rows;
     private final List<Type> types;
     private final List<String> columnNames;
+    private final Optional<String> queryDataEncoding;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
     private final Optional<String> updateType;
@@ -107,18 +77,19 @@ public class MaterializedResult
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this(rows, types, Optional.empty());
+        this(rows, types, Optional.empty(), Optional.empty());
     }
 
-    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types, Optional<List<String>> columnNames)
+    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types, Optional<List<String>> columnNames, Optional<String> queryDataEncoding)
     {
-        this(rows, types, columnNames.orElse(ImmutableList.of()), ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
+        this(rows, types, columnNames.orElse(ImmutableList.of()), queryDataEncoding, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public MaterializedResult(
             List<MaterializedRow> rows,
             List<? extends Type> types,
             List<String> columnNames,
+            Optional<String> queryDataEncoding,
             Map<String, String> setSessionProperties,
             Set<String> resetSessionProperties,
             Optional<String> updateType,
@@ -129,6 +100,7 @@ public class MaterializedResult
         this.rows = ImmutableList.copyOf(requireNonNull(rows, "rows is null"));
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
+        this.queryDataEncoding = requireNonNull(queryDataEncoding, "queryDataEncoding is null");
         this.setSessionProperties = ImmutableMap.copyOf(requireNonNull(setSessionProperties, "setSessionProperties is null"));
         this.resetSessionProperties = ImmutableSet.copyOf(requireNonNull(resetSessionProperties, "resetSessionProperties is null"));
         this.updateType = requireNonNull(updateType, "updateType is null");
@@ -162,6 +134,11 @@ public class MaterializedResult
     {
         checkState(!columnNames.isEmpty(), "Column names are unknown");
         return columnNames;
+    }
+
+    public Optional<String> getQueryDataEncoding()
+    {
+        return queryDataEncoding;
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -300,125 +277,6 @@ public class MaterializedResult
         return rows.get(0).getField(0);
     }
 
-    public Page toPage()
-    {
-        PageBuilder pageBuilder = new PageBuilder(types);
-        for (MaterializedRow row : rows) {
-            appendToPage(pageBuilder, row);
-        }
-        return pageBuilder.build();
-    }
-
-    private static void appendToPage(PageBuilder pageBuilder, MaterializedRow row)
-    {
-        for (int field = 0; field < row.getFieldCount(); field++) {
-            Type type = pageBuilder.getType(field);
-            Object value = row.getField(field);
-            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(field);
-            writeValue(type, blockBuilder, value);
-        }
-        pageBuilder.declarePosition();
-    }
-
-    private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)
-    {
-        if (value == null) {
-            blockBuilder.appendNull();
-        }
-        else if (BIGINT.equals(type)) {
-            type.writeLong(blockBuilder, (Long) value);
-        }
-        else if (INTEGER.equals(type)) {
-            type.writeLong(blockBuilder, (Integer) value);
-        }
-        else if (SMALLINT.equals(type)) {
-            type.writeLong(blockBuilder, (Short) value);
-        }
-        else if (TINYINT.equals(type)) {
-            type.writeLong(blockBuilder, (Byte) value);
-        }
-        else if (REAL.equals(type)) {
-            type.writeLong(blockBuilder, floatToRawIntBits(((Float) value)));
-        }
-        else if (DOUBLE.equals(type)) {
-            type.writeDouble(blockBuilder, (Double) value);
-        }
-        else if (BOOLEAN.equals(type)) {
-            type.writeBoolean(blockBuilder, (Boolean) value);
-        }
-        else if (JSON.equals(type)) {
-            type.writeSlice(blockBuilder, Slices.utf8Slice((String) value));
-        }
-        else if (type instanceof VarcharType) {
-            type.writeSlice(blockBuilder, Slices.utf8Slice((String) value));
-        }
-        else if (type instanceof CharType) {
-            type.writeSlice(blockBuilder, Slices.utf8Slice((String) value));
-        }
-        else if (VARBINARY.equals(type)) {
-            type.writeSlice(blockBuilder, Slices.wrappedBuffer((byte[]) value));
-        }
-        else if (DATE.equals(type)) {
-            int days = ((SqlDate) value).getDays();
-            type.writeLong(blockBuilder, days);
-        }
-        else if (type instanceof TimeType) {
-            SqlTime time = (SqlTime) value;
-            type.writeLong(blockBuilder, time.getPicos());
-        }
-        else if (type instanceof TimeWithTimeZoneType) {
-            long nanos = roundDiv(((SqlTimeWithTimeZone) value).getPicos(), PICOSECONDS_PER_NANOSECOND);
-            int offsetMinutes = ((SqlTimeWithTimeZone) value).getOffsetMinutes();
-            type.writeLong(blockBuilder, packTimeWithTimeZone(nanos, offsetMinutes));
-        }
-        else if (type instanceof TimestampType) {
-            long micros = ((SqlTimestamp) value).getEpochMicros();
-            if (((TimestampType) type).getPrecision() <= TimestampType.MAX_SHORT_PRECISION) {
-                type.writeLong(blockBuilder, micros);
-            }
-            else {
-                type.writeObject(blockBuilder, new LongTimestamp(micros, ((SqlTimestamp) value).getPicosOfMicros()));
-            }
-        }
-        else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
-            long millisUtc = ((SqlTimestampWithTimeZone) value).getMillisUtc();
-            TimeZoneKey timeZoneKey = ((SqlTimestampWithTimeZone) value).getTimeZoneKey();
-            type.writeLong(blockBuilder, packDateTimeWithZone(millisUtc, timeZoneKey));
-        }
-        else if (type instanceof ArrayType) {
-            List<?> list = (List<?>) value;
-            Type elementType = ((ArrayType) type).getElementType();
-            ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
-                for (Object element : list) {
-                    writeValue(elementType, elementBuilder, element);
-                }
-            });
-        }
-        else if (type instanceof MapType) {
-            Map<?, ?> map = (Map<?, ?>) value;
-            Type keyType = ((MapType) type).getKeyType();
-            Type valueType = ((MapType) type).getValueType();
-            ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
-                for (Entry<?, ?> entry : map.entrySet()) {
-                    writeValue(keyType, keyBuilder, entry.getKey());
-                    writeValue(valueType, valueBuilder, entry.getValue());
-                }
-            });
-        }
-        else if (type instanceof RowType) {
-            List<?> row = (List<?>) value;
-            List<Type> fieldTypes = type.getTypeParameters();
-            ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
-                for (int field = 0; field < row.size(); field++) {
-                    writeValue(fieldTypes.get(field), fieldBuilders.get(field), row.get(field));
-                }
-            });
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type " + type);
-        }
-    }
-
     /**
      * Converts this {@link MaterializedResult} to a new one, representing the data using the same type domain as returned by {@code TestingTrinoClient}.
      */
@@ -430,6 +288,7 @@ public class MaterializedResult
                         .collect(toImmutableList()),
                 types,
                 columnNames,
+                queryDataEncoding,
                 setSessionProperties,
                 resetSessionProperties,
                 updateType,
@@ -510,6 +369,7 @@ public class MaterializedResult
         private final ConnectorSession session;
         private final List<Type> types;
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
+        private Optional<String> queryDataEncoding = Optional.empty();
         private Optional<List<String>> columnNames = Optional.empty();
 
         Builder(ConnectorSession session, List<Type> types)
@@ -572,9 +432,15 @@ public class MaterializedResult
             return this;
         }
 
+        public synchronized Builder queryDataEncoding(String encoding)
+        {
+            this.queryDataEncoding = Optional.of(requireNonNull(encoding, "encoding is null"));
+            return this;
+        }
+
         public synchronized MaterializedResult build()
         {
-            return new MaterializedResult(rows.build(), types, columnNames);
+            return new MaterializedResult(rows.build(), types, columnNames, queryDataEncoding);
         }
     }
 }

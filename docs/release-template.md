@@ -14,8 +14,6 @@
 
 ## CLI
 
-## Accumulo connector
-
 ## BigQuery connector
 
 ## Blackhole connector
@@ -31,6 +29,8 @@
 ## Elasticsearch connector
 
 ## Exasol connector
+
+## Faker connector
 
 ## Google Sheets connector
 
@@ -81,5 +81,9 @@
 ## SQL Server connector
 
 ## TPC-H connector
+
+## TPC-DS connector
+
+## Vertica connector
 
 ## SPI

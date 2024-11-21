@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.Futures;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
-import io.trino.testing.ResourcePresence;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -146,12 +145,6 @@ public final class TestingKafka
     {
         closer.close();
         stopped = true;
-    }
-
-    @ResourcePresence
-    public boolean isNotStopped()
-    {
-        return !stopped;
     }
 
     public void createTopic(String topic)

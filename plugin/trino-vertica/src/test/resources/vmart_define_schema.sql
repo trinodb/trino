@@ -1,0 +1,1 @@
+-- Don't prepare VMart example database to speed up startup time

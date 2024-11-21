@@ -35,6 +35,7 @@ import io.trino.plugin.jdbc.DoubleReadFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -131,6 +132,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -147,8 +149,11 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
+import static io.trino.plugin.geospatial.GeoFunctions.stAsBinary;
+import static io.trino.plugin.geospatial.GeoFunctions.stGeomFromBinary;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -277,6 +282,7 @@ public class PostgreSqlClient
     private final Type jsonType;
     private final Type uuidType;
     private final MapType varcharMapType;
+    private final Type geometryType;
     private final List<String> tableTypes;
     private final boolean statisticsEnabled;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
@@ -299,6 +305,7 @@ public class PostgreSqlClient
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        this.geometryType = typeManager.getType(new TypeSignature(StandardTypes.GEOMETRY));
 
         ImmutableList.Builder<String> tableTypes = ImmutableList.builder();
         tableTypes.add("TABLE", "PARTITIONED TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
@@ -453,20 +460,14 @@ public class PostgreSqlClient
     }
 
     @Override
-    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        if (tableHandle.getColumns().isPresent()) {
-            return tableHandle.getColumns().get();
-        }
-        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
-        SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
-
         try (Connection connection = connectionFactory.openConnection(session)) {
             Map<String, Integer> arrayColumnDimensions = ImmutableMap.of();
             if (getArrayMapping(session) == AS_ARRAY) {
-                arrayColumnDimensions = getArrayColumnDimensions(connection, tableHandle);
+                arrayColumnDimensions = getArrayColumnDimensions(connection, remoteTableName);
             }
-            try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+            try (ResultSet resultSet = getColumns(remoteTableName, connection.getMetaData())) {
                 int allColumns = 0;
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 while (resultSet.next()) {
@@ -528,7 +529,7 @@ public class PostgreSqlClient
         return super.getAllTableColumns(connection, remoteSchemaName);
     }
 
-    private static Map<String, Integer> getArrayColumnDimensions(Connection connection, JdbcTableHandle tableHandle)
+    private static Map<String, Integer> getArrayColumnDimensions(Connection connection, RemoteTableName remoteTableName)
             throws SQLException
     {
         String sql = "" +
@@ -541,7 +542,6 @@ public class PostgreSqlClient
                 "AND tbl.relname = ? " +
                 "AND attyp.typcategory = 'A' ";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
             statement.setString(1, remoteTableName.getSchemaName().orElse(null));
             statement.setString(2, remoteTableName.getTableName());
 
@@ -581,6 +581,8 @@ public class PostgreSqlClient
                 return Optional.of(hstoreColumnMapping(session));
             case "vector":
                 return Optional.of(vectorColumnMapping());
+            case "geometry":
+                return Optional.of(geometryColumnMapping());
         }
         if (jdbcTypeName.endsWith("\"vector\"")) {
             // TODO: Find more reliable way to detect vector type. The type name can be "schema-name"."vector"
@@ -1028,7 +1030,7 @@ public class PostgreSqlClient
             Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()).stream()
                     .collect(toImmutableMap(ColumnStatisticsResult::columnName, identity()));
 
-            for (JdbcColumnHandle column : this.getColumns(session, table)) {
+            for (JdbcColumnHandle column : JdbcMetadata.getColumns(session, this, table)) {
                 ColumnStatisticsResult result = columnStatistics.get(column.getColumnName());
                 if (result == null) {
                     continue;
@@ -1608,13 +1610,13 @@ public class PostgreSqlClient
             // getArray is unsupported for vectors type
             String result = resultSet.getString(columnIndex);
             if (result == null) {
-                BlockBuilder builder = REAL.createBlockBuilder(null, 1);
+                BlockBuilder builder = REAL.createFixedSizeBlockBuilder(1);
                 builder.appendNull();
                 return builder.build();
             }
             verify(result.charAt(0) == '[' && result.charAt(result.length() - 1) == ']', "vector must be enclosed in square brackets: %s", result);
             String[] vectors = result.substring(1, result.length() - 1).split(",");
-            BlockBuilder builder = REAL.createBlockBuilder(null, vectors.length);
+            BlockBuilder builder = REAL.createFixedSizeBlockBuilder(vectors.length);
             for (String vector : vectors) {
                 REAL.writeFloat(builder, Float.parseFloat(vector));
             }
@@ -1627,6 +1629,39 @@ public class PostgreSqlClient
         return ObjectWriteFunction.of(Block.class, (_, _, _) -> {
             throw new TrinoException(NOT_SUPPORTED, "Writing to vector type is unsupported");
         });
+    }
+
+    private ColumnMapping geometryColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                geometryType,
+                (resultSet, columnIndex) -> {
+                    String hexWkb = resultSet.getString(columnIndex);
+                    byte[] wkb = HexFormat.of().parseHex(hexWkb);
+                    return stGeomFromBinary(wrappedBuffer(wkb));
+                },
+                geometryWriteFunction(),
+                DISABLE_PUSHDOWN);
+    }
+
+    private static SliceWriteFunction geometryWriteFunction()
+    {
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return "ST_GeomFromWKB(?)";
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice slice)
+                    throws SQLException
+            {
+                byte[] bytes = stAsBinary(slice).getBytes();
+                statement.setBytes(index, bytes);
+            }
+        };
     }
 
     private static class StatisticsDao

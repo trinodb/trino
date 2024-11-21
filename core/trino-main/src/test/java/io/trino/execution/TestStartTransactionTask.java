@@ -52,7 +52,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.CatalogManager.NO_CATALOGS;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -137,7 +137,7 @@ public class TestStartTransactionTask
         getFutureValue(new StartTransactionTask(transactionManager).execute(new StartTransaction(new NodeLocation(1, 1), ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP));
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
         assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isPresent();
-        assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
+        assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
 
         TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().get());
         assertThat(transactionInfo.isAutoCommitContext()).isFalse();
@@ -160,7 +160,7 @@ public class TestStartTransactionTask
                 WarningCollector.NOOP));
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
         assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isPresent();
-        assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
+        assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
 
         TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().get());
         assertThat(transactionInfo.getIsolationLevel()).isEqualTo(IsolationLevel.SERIALIZABLE);

@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Assertions.assertInstanceOf;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBigQueryPlugin
 {
@@ -29,7 +29,7 @@ public class TestBigQueryPlugin
     {
         BigQueryPlugin plugin = new BigQueryPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertInstanceOf(factory, BigQueryConnectorFactory.class);
+        assertThat(factory).isInstanceOf(BigQueryConnectorFactory.class);
 
         factory.create(
                         "test",

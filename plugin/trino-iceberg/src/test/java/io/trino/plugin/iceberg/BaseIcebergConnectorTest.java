@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -190,6 +191,8 @@ public abstract class BaseIcebergConnectorTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
+                        // Only allow some extra properties. Add "sorted_by" so that we can test that the property is disallowed by the connector explicitly.
+                        .put("iceberg.allowed-extra-properties", "extra.property.one,extra.property.two,extra.property.three,sorted_by")
                         // Allows testing the sorting writer flushing to the file system with smaller tables
                         .put("iceberg.writer-sort-buffer-size", "1MB")
                         .buildOrThrow())
@@ -1059,7 +1062,7 @@ public abstract class BaseIcebergConnectorTest
                 "\\QUnable to parse partitioning value: Cannot partition by non-primitive source field: struct<3: child: optional string>");
         assertQueryFails(
                 "CREATE TABLE test_partitioned_table_nested_field_inside_array (parent ARRAY(ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"parent.child\"'])",
-                "\\QPartitioning field [parent.child] cannot be contained in a array");
+                "\\QPartitioning field [parent.element.child] cannot be contained in a array");
         assertQueryFails(
                 "CREATE TABLE test_partitioned_table_nested_field_inside_map (parent MAP(ROW(child INTEGER), ARRAY(VARCHAR))) WITH (partitioning = ARRAY['\"parent.key.child\"'])",
                 "\\QPartitioning field [parent.key.child] cannot be contained in a map");
@@ -1441,7 +1444,8 @@ public abstract class BaseIcebergConnectorTest
                 .matches("VALUES " + values + ", " + highValues + ", " + lowValues);
 
         // Insert "large" number of rows, supposedly topping over iceberg.writer-sort-buffer-size so that temporary files are utilized by the sorting writer.
-        assertUpdate("""
+        assertUpdate(
+                """
                 INSERT INTO %s
                 SELECT v.*
                 FROM (VALUES %s, %s, %s) v
@@ -1922,12 +1926,12 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = '%s', location = '%s', partitioning = ARRAY['aDate'])", format, tempDirPath));
         assertThat(getTablePropertiesString("test_create_table_like_original")).isEqualTo(format(
                 """
-                WITH (
-                   format = '%s',
-                   format_version = 2,
-                   location = '%s',
-                   partitioning = ARRAY['adate']
-                )""",
+                        WITH (
+                           format = '%s',
+                           format_version = 2,
+                           location = '%s',
+                           partitioning = ARRAY['adate']
+                        )""",
                 format,
                 tempDirPath));
 
@@ -1938,22 +1942,22 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertThat(getTablePropertiesString("test_create_table_like_copy1")).isEqualTo(format(
                 """
-                WITH (
-                   format = '%s',
-                   format_version = 2,
-                   location = '%s'
-                )""",
+                        WITH (
+                           format = '%s',
+                           format_version = 2,
+                           location = '%s'
+                        )""",
                 format,
                 getTableLocation("test_create_table_like_copy1")));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertThat(getTablePropertiesString("test_create_table_like_copy2")).isEqualTo(format(
                 """
-                WITH (
-                   format = '%s',
-                   format_version = 2,
-                   location = '%s'
-                )""",
+                        WITH (
+                           format = '%s',
+                           format_version = 2,
+                           location = '%s'
+                        )""",
                 format,
                 getTableLocation("test_create_table_like_copy2")));
         assertUpdate("DROP TABLE test_create_table_like_copy2");
@@ -5377,7 +5381,7 @@ public abstract class BaseIcebergConnectorTest
             List<String> updatedFiles = getActiveFiles(tableName);
             // as we force repartitioning there should be only 3 partitions
             assertThat(updatedFiles).hasSize(3);
-            assertThat(getAllDataFilesFromTableDirectory(tableName)).containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
+            assertThat(getAllDataFilesFromTableDirectory(tableName)).containsExactlyInAnyOrderElementsOf(ImmutableSet.copyOf(concat(initialFiles, updatedFiles)));
 
             assertUpdate("DROP TABLE " + tableName);
         }
@@ -5522,11 +5526,13 @@ public abstract class BaseIcebergConnectorTest
 
         assertQuery(
                 "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
-                "VALUES '1'");
+                "VALUES '0'");
         List<String> allDataFilesAfterOptimizeWithWhere = getAllDataFilesFromTableDirectory(tableName);
         assertThat(allDataFilesAfterOptimizeWithWhere)
-                .hasSize(6)
+                .hasSize(5)
                 .doesNotContain(allDataFilesInitially.stream().filter(file -> file.contains("regionkey=3"))
+                        .toArray(String[]::new))
+                .contains(allDataFilesInitially.stream().filter(file -> !file.contains("regionkey=3"))
                         .toArray(String[]::new));
 
         assertThat(query("SELECT * FROM " + tableName))
@@ -5543,7 +5549,8 @@ public abstract class BaseIcebergConnectorTest
         List<String> allDataFilesAfterFullOptimize = getAllDataFilesFromTableDirectory(tableName);
         assertThat(allDataFilesAfterFullOptimize)
                 .hasSize(5)
-                .doesNotContain(allDataFilesInitially.toArray(new String[0]));
+                // All files skipped from OPTIMIZE as they have no deletes and there's only one file per partition
+                .contains(allDataFilesAfterOptimizeWithWhere.toArray(new String[0]));
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("SELECT * FROM nation WHERE nationkey != 7");
@@ -5574,6 +5581,65 @@ public abstract class BaseIcebergConnectorTest
                 .failure().hasMessage("This connector does not support table procedures");
         assertThat(query("ALTER TABLE \"nation$snapshots\" EXECUTE OPTIMIZE"))
                 .failure().hasMessage("This connector does not support table procedures");
+    }
+
+    @Test
+    void testOptimizeOnlyOneFileShouldHaveNoEffect()
+    {
+        String tableName = "test_optimize_one_file_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1, 2", 2);
+
+        List<String> initialFiles = getActiveFiles(tableName);
+        assertThat(initialFiles).hasSize(1);
+
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertThat(query("SELECT a FROM " + tableName))
+                .matches("VALUES 1, 2");
+        assertThat(getActiveFiles(tableName))
+                .containsExactlyInAnyOrderElementsOf(initialFiles);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE a = 1", 1);
+        // Calling optimize after adding a DELETE should result in compaction
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertThat(query("SELECT a FROM " + tableName))
+                .matches("VALUES 2");
+        assertThat(getActiveFiles(tableName))
+                .hasSize(1)
+                .doesNotContainAnyElementsOf(initialFiles);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testOptimizeAfterChangeInPartitioning()
+    {
+        String tableName = "test_optimize_after_change_in_partitioning_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['bucket(nationkey, 5)']) AS SELECT * FROM tpch.tiny.supplier", 100);
+        List<String> initialFiles = getActiveFiles(tableName);
+        assertThat(initialFiles).hasSize(5);
+
+        // OPTIMIZE shouldn't have to rewrite files
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertThat(query("SELECT COUNT(*) FROM " + tableName)).matches("VALUES BIGINT '100'");
+        assertThat(getActiveFiles(tableName))
+                .containsExactlyInAnyOrderElementsOf(initialFiles);
+
+        // Change in partitioning should result in OPTIMIZE rewriting all files
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['nationkey']");
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertThat(query("SELECT COUNT(*) FROM " + tableName)).matches("VALUES BIGINT '100'");
+        List<String> filesAfterPartioningChange = getActiveFiles(tableName);
+        assertThat(filesAfterPartioningChange)
+                .hasSize(25)
+                .doesNotContainAnyElementsOf(initialFiles);
+
+        // OPTIMIZE shouldn't have to rewrite files anymore
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertThat(query("SELECT COUNT(*) FROM " + tableName)).matches("VALUES BIGINT '100'");
+        assertThat(getActiveFiles(tableName))
+                .hasSize(25)
+                .containsExactlyInAnyOrderElementsOf(filesAfterPartioningChange);
     }
 
     private List<String> getActiveFiles(String tableName)
@@ -6136,9 +6202,9 @@ public abstract class BaseIcebergConnectorTest
                 .matches("VALUES (BIGINT '3', VARCHAR 'one two')");
         List<String> updatedFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
         List<Long> updatedSnapshots = getSnapshotIds(tableName);
-        assertThat(updatedFiles.size()).isEqualTo(initialFiles.size() - 2);
+        assertThat(updatedFiles).hasSize(initialFiles.size() - 2);
         assertThat(updatedSnapshots.size()).isLessThan(initialSnapshots.size());
-        assertThat(updatedSnapshots.size()).isEqualTo(1);
+        assertThat(updatedSnapshots).hasSize(1);
         assertThat(initialSnapshots).containsAll(updatedSnapshots);
     }
 
@@ -6216,7 +6282,7 @@ public abstract class BaseIcebergConnectorTest
                 "\\Qline 1:46: Unable to set catalog 'iceberg' table procedure 'EXPIRE_SNAPSHOTS' property 'retention_threshold' to ['33mb']: Unknown time unit: mb");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '33s')",
-                "\\QRetention specified (33.00s) is shorter than the minimum retention configured in the system (7.00d). Minimum retention can be changed with iceberg.expire_snapshots.min-retention configuration property or iceberg.expire_snapshots_min_retention session property");
+                "\\QRetention specified (33.00s) is shorter than the minimum retention configured in the system (7.00d). Minimum retention can be changed with iceberg.expire-snapshots.min-retention configuration property or iceberg.expire_snapshots_min_retention session property");
     }
 
     @Test
@@ -6354,7 +6420,7 @@ public abstract class BaseIcebergConnectorTest
                 "\\Qline 1:49: Unable to set catalog 'iceberg' table procedure 'REMOVE_ORPHAN_FILES' property 'retention_threshold' to ['33mb']: Unknown time unit: mb");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '33s')",
-                "\\QRetention specified (33.00s) is shorter than the minimum retention configured in the system (7.00d). Minimum retention can be changed with iceberg.remove_orphan_files.min-retention configuration property or iceberg.remove_orphan_files_min_retention session property");
+                "\\QRetention specified (33.00s) is shorter than the minimum retention configured in the system (7.00d). Minimum retention can be changed with iceberg.remove-orphan-files.min-retention configuration property or iceberg.remove_orphan_files_min_retention session property");
     }
 
     @Test
@@ -6518,13 +6584,13 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("INSERT INTO %s VALUES 4,5,6", tableName), 3);
         assertQuery(format("SELECT * FROM %s FOR VERSION AS OF %d", tableName, oldSnapshotId), "VALUES 1,2,3");
         assertThat(query(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, oldSnapshotId)))
-                .failure().hasMessage(format("Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
+                .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
         assertThat(query(format("DELETE FROM \"%s@%d\" WHERE col = 5", tableName, oldSnapshotId)))
                 .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
         assertThat(query(format("UPDATE \"%s@%d\" SET col = 50 WHERE col = 5", tableName, oldSnapshotId)))
                 .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
         assertThat(query(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, getCurrentSnapshotId(tableName))))
-                .failure().hasMessage(format("Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
+                .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
         assertThat(query(format("DELETE FROM \"%s@%d\" WHERE col = 9", tableName, getCurrentSnapshotId(tableName))))
                 .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
         assertThatThrownBy(() -> assertUpdate(format("UPDATE \"%s@%d\" set col = 50 WHERE col = 5", tableName, getCurrentSnapshotId(tableName))))
@@ -6825,7 +6891,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
         List<Long> updatedSnapshots = getSnapshotIds(tableName);
         assertThat(updatedSnapshots.size()).isLessThan(initialSnapshots.size());
-        assertThat(updatedSnapshots.size()).isEqualTo(1);
+        assertThat(updatedSnapshots).hasSize(1);
 
         assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName + " FOR VERSION AS OF " + v3SnapshotId))
                 .matches("VALUES (BIGINT '3', VARCHAR 'one two')");
@@ -8034,13 +8100,15 @@ public abstract class BaseIcebergConnectorTest
         String catalog = getSession().getCatalog().orElseThrow();
         try (TestTable salesTable = new TestTable(getQueryRunner()::execute, "sales_table", "(date date, receipt_id varchar, amount decimal(10,2)) with (partitioning=array['date'])");
                 TestTable dimensionTable = new TestTable(getQueryRunner()::execute, "dimension_table", "(date date, following_holiday boolean, year int)")) {
-            assertUpdate("""
+            assertUpdate(
+                    """
                     INSERT INTO %s
                     VALUES
                         (DATE '2023-01-01' , false, 2023),
                         (DATE '2023-01-02' , true, 2023),
                         (DATE '2023-01-03' , false, 2023)""".formatted(dimensionTable.getName()), 3);
-            assertUpdate("""
+            assertUpdate(
+                    """
                     INSERT INTO %s
                     VALUES
                         (DATE '2023-01-02' , '#2023#1', DECIMAL '122.12'),
@@ -8054,7 +8122,8 @@ public abstract class BaseIcebergConnectorTest
                         (DATE '2023-01-05' , '#2023#9', DECIMAL '70.75'),
                         (DATE '2023-01-05' , '#2023#10', DECIMAL '80.12')""".formatted(salesTable.getName()), 10);
 
-            String selectQuery = """
+            String selectQuery =
+                    """
                     SELECT receipt_id
                     FROM %s s
                     JOIN %s d
@@ -8356,6 +8425,115 @@ public abstract class BaseIcebergConnectorTest
         assertQuerySucceeds("TABLE nation");
         // verify that <base>$<invalid-suffix> results in table not found
         assertQueryFails("TABLE \"nation$foo\"", "\\Qline 1:1: Table '%s.%s.\"nation$foo\"' does not exist".formatted(catalog, schema));
+    }
+
+    @Test
+    public void testExtraProperties()
+    {
+        String tableName = "test_create_table_with_multiple_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.TWO'], ARRAY['one', 'two']))");
+
+        assertThat(query("SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two')"))
+                .skippingTypesCheck()
+                .matches("VALUES ('extra.property.one', 'one'), ('extra.property.two', 'two')");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['extra.property.one'], ARRAY['updated'])");
+        assertThat(query("SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two')"))
+                .skippingTypesCheck()
+                .matches("VALUES ('extra.property.one', 'updated'), ('extra.property.two', 'two')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testReplaceTableExtraProperties()
+    {
+        String tableName = "test_replace_table_with_multiple_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))");
+        assertUpdate("CREATE OR REPLACE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.three'], ARRAY['three']))");
+
+        assertThat(query("SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two', 'extra.property.three')"))
+                .skippingTypesCheck()
+                .matches("VALUES ('extra.property.three', 'three')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableAsSelectWithExtraProperties()
+    {
+        String tableName = "test_ctas_with_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two'])) " +
+                "AS SELECT 1 as c1", 1);
+
+        assertThat(query("SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two')"))
+                .skippingTypesCheck()
+                .matches("VALUES ('extra.property.one', 'one'), ('extra.property.two', 'two')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testShowCreateNotContainExtraProperties()
+    {
+        String tableName = "test_show_create_table_with_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))");
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).doesNotContain("extra_properties =", "extra.property.one", "extra.property.two");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNullExtraProperty()
+    {
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_null_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['null.property'], ARRAY[null]))",
+                ".*\\QUnable to set catalog 'iceberg' table property 'extra_properties' to [MAP(ARRAY['null.property'], ARRAY[null])]: Extra table property value cannot be null '{null.property=null}'\\E");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_as_null_extra_properties WITH (extra_properties = MAP(ARRAY['null.property'], ARRAY[null])) AS SELECT 1 as c1",
+                ".*\\QUnable to set catalog 'iceberg' table property 'extra_properties' to [MAP(ARRAY['null.property'], ARRAY[null])]: Extra table property value cannot be null '{null.property=null}'\\E");
+    }
+
+    @Test
+    public void testIllegalExtraPropertyKey()
+    {
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_illegal_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['sorted_by'], ARRAY['id']))",
+                "\\QIllegal keys in extra_properties: [sorted_by]");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_as_with_illegal_extra_properties WITH (extra_properties = MAP(ARRAY['extra_properties'], ARRAY['some_value'])) AS SELECT 1 as c1",
+                "\\QIllegal keys in extra_properties: [extra_properties]");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_as_illegal_extra_properties WITH (extra_properties = MAP(ARRAY['write.format.default'], ARRAY['ORC'])) AS SELECT 1 as c1",
+                "\\QIllegal keys in extra_properties: [write.format.default]");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_as_illegal_extra_properties WITH (extra_properties = MAP(ARRAY['comment'], ARRAY['some comment'])) AS SELECT 1 as c1",
+                "\\QIllegal keys in extra_properties: [comment]");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_as_illegal_extra_properties WITH (extra_properties = MAP(ARRAY['not_allowed_property'], ARRAY['foo'])) AS SELECT 1 as c1",
+                "\\QIllegal keys in extra_properties: [not_allowed_property]");
+    }
+
+    @Test
+    public void testSetIllegalExtraPropertyKey()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_illegal_table_properties", "(x int)")) {
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES extra_properties = MAP(ARRAY['sorted_by'], ARRAY['id'])",
+                    "\\QIllegal keys in extra_properties: [sorted_by]");
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES extra_properties = MAP(ARRAY['comment'], ARRAY['some comment'])",
+                    "\\QIllegal keys in extra_properties: [comment]");
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES extra_properties = MAP(ARRAY['not_allowed_property'], ARRAY['foo'])",
+                    "\\QIllegal keys in extra_properties: [not_allowed_property]");
+        }
     }
 
     @Override

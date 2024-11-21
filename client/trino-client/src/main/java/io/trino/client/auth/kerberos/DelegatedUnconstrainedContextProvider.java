@@ -20,6 +20,8 @@ import javax.security.auth.RefreshFailedException;
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.security.AccessController;
 import java.util.Set;
 
@@ -28,7 +30,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 public class DelegatedUnconstrainedContextProvider
         extends AbstractUnconstrainedContextProvider
 {
-    private final Subject subject = Subject.getSubject(AccessController.getContext());
+    private final Subject subject = current();
 
     @Override
     protected Subject getSubject()
@@ -53,6 +55,18 @@ public class DelegatedUnconstrainedContextProvider
             catch (RefreshFailedException exception) {
                 throw new ClientException("Unable to refresh the kerberos ticket", exception);
             }
+        }
+    }
+
+    private static Subject current()
+    {
+        try {
+            Method current = Subject.class.getDeclaredMethod("current");
+            return (Subject) current.invoke(null);
+        }
+        catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+            // Fallback to pre-Java 17 method
+            return Subject.getSubject(AccessController.getContext());
         }
     }
 }

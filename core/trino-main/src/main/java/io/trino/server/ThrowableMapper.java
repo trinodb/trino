@@ -15,8 +15,6 @@ package io.trino.server;
 
 import com.google.common.base.Throwables;
 import com.google.inject.Inject;
-import io.airlift.log.Logger;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.InternalServerErrorException;
@@ -24,10 +22,11 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.ServiceUnavailableException;
 import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jakarta.ws.rs.ext.ExceptionMapper;
+
+import java.util.concurrent.TimeoutException;
 
 import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN;
@@ -35,12 +34,7 @@ import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN;
 public class ThrowableMapper
         implements ExceptionMapper<Throwable>
 {
-    private static final Logger log = Logger.get(ThrowableMapper.class);
-
     private final boolean includeExceptionInResponse;
-
-    @Context
-    private HttpServletRequest request;
 
     @Inject
     public ThrowableMapper(ServerConfig config)
@@ -86,10 +80,11 @@ public class ThrowableMapper
             case GoneException goneException -> plainTextError(Response.Status.GONE)
                     .entity("Error 410 Gone: " + goneException.getMessage())
                     .build();
+            case TimeoutException timeoutException -> plainTextError(Response.Status.REQUEST_TIMEOUT)
+                    .entity("Error 408 Timeout: " + timeoutException.getMessage())
+                    .build();
             case WebApplicationException webApplicationException -> webApplicationException.getResponse();
             default -> {
-                log.warn(throwable, "Request failed for %s", request.getRequestURI());
-
                 ResponseBuilder responseBuilder = plainTextError(Response.Status.INTERNAL_SERVER_ERROR);
                 if (includeExceptionInResponse) {
                     responseBuilder.entity(Throwables.getStackTraceAsString(throwable));

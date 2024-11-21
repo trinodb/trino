@@ -38,6 +38,7 @@ import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -48,6 +49,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.weakref.jmx.Managed;
@@ -78,6 +80,7 @@ import static io.trino.plugin.hive.BackgroundHiveSplitLoader.BucketSplitInfo.cre
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
+import static io.trino.plugin.hive.HivePartitionManager.partitionMatches;
 import static io.trino.plugin.hive.HiveSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isIgnoreAbsentPartitions;
@@ -252,7 +255,9 @@ public class HiveSplitManager
                 table,
                 peekingIterator(partitions),
                 bucketHandle.map(HiveBucketHandle::toTableBucketProperty),
-                neededColumnNames);
+                neededColumnNames,
+                dynamicFilter,
+                hiveTable);
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
@@ -305,7 +310,9 @@ public class HiveSplitManager
             Table table,
             PeekingIterator<HivePartition> hivePartitions,
             Optional<HiveBucketProperty> bucketProperty,
-            Set<String> neededColumnNames)
+            Set<String> neededColumnNames,
+            DynamicFilter dynamicFilter,
+            HiveTableHandle tableHandle)
     {
         if (!hivePartitions.hasNext()) {
             return emptyIterator();
@@ -324,6 +331,15 @@ public class HiveSplitManager
 
         Iterator<List<HivePartition>> partitionNameBatches = partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize);
         Iterator<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
+            // Use dynamic filters to reduce the partitions listed by getPartitionsByNames
+            TupleDomain<ColumnHandle> currentDynamicFilter = dynamicFilter.getCurrentPredicate();
+            if (!currentDynamicFilter.isAll()) {
+                TupleDomain<ColumnHandle> partitionsFilter = currentDynamicFilter.intersect(tableHandle.getCompactEffectivePredicate());
+                partitionBatch = partitionBatch.stream()
+                        .filter(hivePartition -> partitionMatches(tableHandle.getPartitionColumns(), partitionsFilter, hivePartition))
+                        .collect(toImmutableList());
+            }
+
             SchemaTableName tableName = table.getSchemaTableName();
             Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(
                     tableName.getSchemaName(),

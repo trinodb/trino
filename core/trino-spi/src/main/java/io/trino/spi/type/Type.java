@@ -105,6 +105,16 @@ public interface Type
     BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries);
 
     /**
+     * Creates a block containing as single  null values.
+     */
+    default ValueBlock createNullBlock()
+    {
+        return createBlockBuilder(null, 1, 0)
+                .appendNull()
+                .buildValueBlock();
+    }
+
+    /**
      * Gets an object representation of the type value in the {@code block}
      * {@code position}. This is the value returned to the user via the
      * REST endpoint and therefore must be JSON serializable.

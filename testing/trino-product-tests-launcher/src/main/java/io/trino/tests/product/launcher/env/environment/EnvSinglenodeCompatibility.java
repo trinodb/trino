@@ -68,8 +68,8 @@ public class EnvSinglenodeCompatibility
 
     private void configureCompatibilityTestContainer(Environment.Builder builder, Config config)
     {
-        boolean java22 = config.getCompatibilityTestVersion() >= 447;
-        String jvmConfig = "conf/trino/etc/" + (java22 ? "jvm.config" : "jvm-pre-jdk22.config");
+        boolean initialJdk22 = config.getCompatibilityTestVersion() >= 447 && config.getCompatibilityTestVersion() <= 452;
+        String jvmConfig = initialJdk22 ? "conf/trino/etc/jvm.config-initial-jdk-22" : "conf/trino/etc/jvm.config";
         String dockerImage = config.getCompatibilityTestDockerImage();
         String containerConfigDir = getConfigurationDirectory(dockerImage);
         DockerContainer container = new DockerContainer(dockerImage, COMPATIBILTY_TEST_CONTAINER_NAME)

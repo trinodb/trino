@@ -124,8 +124,6 @@ public class TestIcebergFileOperations
         assertFileSystemAccesses("CREATE TABLE test_create (id VARCHAR, age INT)",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
                         .build());
     }
@@ -136,16 +134,12 @@ public class TestIcebergFileOperations
         assertFileSystemAccesses("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
                         .build());
         assertFileSystemAccesses("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
                         .build());
     }
@@ -198,11 +192,41 @@ public class TestIcebergFileOperations
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(METADATA_JSON, "OutputFile.create"), 2)
                         .addCopies(new FileOperation(METADATA_JSON, "InputFile.newStream"), 2)
-                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
-                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
                         .add(new FileOperation(MANIFEST, "OutputFile.create"))
-                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(STATS, "OutputFile.create"))
+                        .build());
+    }
+
+    @Test
+    public void testInsert()
+    {
+        assertUpdate("CREATE TABLE test_insert (id VARCHAR, age INT)");
+
+        assertFileSystemAccesses(
+                "INSERT INTO test_insert VALUES('a', 1)",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(METADATA_JSON, "OutputFile.create"), 2)
+                        .addCopies(new FileOperation(METADATA_JSON, "InputFile.newStream"), 3)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 3)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 3)
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
+                        .add(new FileOperation(STATS, "OutputFile.create"))
+                        .build());
+
+        assertFileSystemAccesses(
+                "INSERT INTO test_insert VALUES('b', 2)",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(METADATA_JSON, "OutputFile.create"), 2)
+                        .addCopies(new FileOperation(METADATA_JSON, "InputFile.newStream"), 3)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 3)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 3)
+                        .add(new FileOperation(STATS, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
                         .add(new FileOperation(STATS, "OutputFile.create"))
                         .build());
     }

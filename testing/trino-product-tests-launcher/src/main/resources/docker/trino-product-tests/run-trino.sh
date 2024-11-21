@@ -19,16 +19,13 @@ if test -d /docker/presto-init.d; then
 fi
 
 if [ -z "$JAVA_HOME" ]; then
-    echo "JAVA_HOME must be set"
-    exit 1
-fi
-
-if [ ! -d "$JAVA_HOME" ]; then
+    echo "JAVA_HOME not set"
+elif [ ! -d "$JAVA_HOME" ]; then
     echo "JAVA_HOME $JAVA_HOME does not exist"
     exit 1
+else
+    export PATH="${JAVA_HOME}/bin:${PATH}"
 fi
-
-export PATH="${JAVA_HOME}/bin:${PATH}"
 
 exec /docker/trino-server/bin/launcher \
   -Dnode.id="${HOSTNAME}" \

@@ -24,7 +24,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.metadata.InternalNode;
-import jakarta.annotation.Nullable;
 
 import java.net.URI;
 import java.util.Optional;
@@ -95,17 +94,15 @@ public class RemoteNodeMemory
             Futures.addCallback(responseFuture, new FutureCallback<>()
             {
                 @Override
-                public void onSuccess(@Nullable JsonResponse<MemoryInfo> result)
+                public void onSuccess(JsonResponse<MemoryInfo> result)
                 {
                     lastUpdateNanos.set(System.nanoTime());
                     future.compareAndSet(responseFuture, null);
-                    if (result != null) {
-                        if (result.hasValue()) {
-                            memoryInfo.set(Optional.ofNullable(result.getValue()));
-                        }
-                        if (result.getStatusCode() != OK.code()) {
-                            log.warn("Error fetching memory info from %s returned status %d", memoryInfoUri, result.getStatusCode());
-                        }
+                    if (result.hasValue()) {
+                        memoryInfo.set(Optional.ofNullable(result.getValue()));
+                    }
+                    if (result.getStatusCode() != OK.code()) {
+                        log.warn("Error fetching memory info from %s returned status %d", memoryInfoUri, result.getStatusCode());
                     }
                 }
 

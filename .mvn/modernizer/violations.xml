@@ -151,6 +151,12 @@
     </violation>
 
     <violation>
+        <name>com/amazonaws/services/glue/model/Table.getStorageDescriptor:()Lcom/amazonaws/services/glue/model/StorageDescriptor;</name>
+        <version>1.1</version>
+        <comment>Storage descriptor is nullable in Glue model, which is too easy to forget about. Prefer GlueToTrinoConverter.getStorageDescriptor</comment>
+    </violation>
+
+    <violation>
         <name>com/amazonaws/services/glue/model/Table.getTableType:()Ljava/lang/String;</name>
         <version>1.1</version>
         <comment>Table type is nullable in Glue model, which is too easy to forget about. Prefer GlueToTrinoConverter.getTableType</comment>

@@ -713,7 +713,7 @@ public class TestMetastoreHiveStatisticsProvider
             protected Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions, Set<String> columns)
             {
                 assertThat(table).isEqualTo(TABLE);
-                assertThat(hivePartitions.size()).isEqualTo(1);
+                assertThat(hivePartitions).hasSize(1);
                 return ImmutableMap.of();
             }
         };

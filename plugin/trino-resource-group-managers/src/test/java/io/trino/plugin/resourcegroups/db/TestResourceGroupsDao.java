@@ -82,7 +82,7 @@ public class TestResourceGroupsDao
         dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
         dao.insertResourceGroup(2, "bi", "50%", 50, 50, 50, null, null, null, null, null, 1L, ENVIRONMENT);
         List<ResourceGroupSpecBuilder> records = dao.getResourceGroups(ENVIRONMENT);
-        assertThat(records.size()).isEqualTo(2);
+        assertThat(records).hasSize(2);
         map.put(1L, new ResourceGroupSpecBuilder(1, new ResourceGroupNameTemplate("global"), "100%", 100, Optional.of(100), 100, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
         map.put(2L, new ResourceGroupSpecBuilder(2, new ResourceGroupNameTemplate("bi"), "50%", 50, Optional.of(50), 50, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(1L)));
         compareResourceGroups(map, records);
@@ -287,7 +287,7 @@ public class TestResourceGroupsDao
 
     private static void compareResourceGroups(Map<Long, ResourceGroupSpecBuilder> map, List<ResourceGroupSpecBuilder> records)
     {
-        assertThat(map.size()).isEqualTo(records.size());
+        assertThat(map).hasSize(records.size());
         for (ResourceGroupSpecBuilder record : records) {
             ResourceGroupSpecBuilder expected = map.get(record.getId());
             assertThat(record.build()).isEqualTo(expected.build());
@@ -296,7 +296,7 @@ public class TestResourceGroupsDao
 
     private static void compareSelectors(Map<Long, SelectorRecord> map, List<SelectorRecord> records)
     {
-        assertThat(map.size()).isEqualTo(records.size());
+        assertThat(map).hasSize(records.size());
         for (SelectorRecord record : records) {
             SelectorRecord expected = map.get(record.getResourceGroupId());
             assertThat(record.getResourceGroupId()).isEqualTo(expected.getResourceGroupId());

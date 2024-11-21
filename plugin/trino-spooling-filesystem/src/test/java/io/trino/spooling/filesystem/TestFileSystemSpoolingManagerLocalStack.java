@@ -62,7 +62,7 @@ public class TestFileSystemSpoolingManagerLocalStack
                 .setAwsAccessKey(LOCALSTACK.getAccessKey())
                 .setAwsSecretKey(LOCALSTACK.getSecretKey())
                 .setStreamingPartSize(DataSize.valueOf("5.5MB"));
-        return new FileSystemSpoolingManager(spoolingConfig, new S3FileSystemFactory(noop(), filesystemConfig, new S3FileSystemStats()));
+        return new FileSystemSpoolingManager(spoolingConfig, new S3FileSystemFactory(noop(), filesystemConfig, new S3FileSystemStats()), new SimpleFileSystemLayout());
     }
 
     protected S3Client createS3Client()

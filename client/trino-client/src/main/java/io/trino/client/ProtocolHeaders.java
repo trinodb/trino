@@ -50,6 +50,7 @@ public final class ProtocolHeaders
     private final String responseSetSession;
     private final String responseClearSession;
     private final String responseSetRole;
+    private final String responseQueryDataEncoding;
     private final String responseAddedPrepare;
     private final String responseDeallocatedPrepare;
     private final String responseStartedTransactionId;
@@ -97,6 +98,7 @@ public final class ProtocolHeaders
         responseSetSession = prefix + "Set-Session";
         responseClearSession = prefix + "Clear-Session";
         responseSetRole = prefix + "Set-Role";
+        responseQueryDataEncoding = prefix + "Query-Data-Encoding";
         responseAddedPrepare = prefix + "Added-Prepare";
         responseDeallocatedPrepare = prefix + "Deallocated-Prepare";
         responseStartedTransactionId = prefix + "Started-Transaction-Id";
@@ -233,6 +235,11 @@ public final class ProtocolHeaders
     public String responseSetRole()
     {
         return responseSetRole;
+    }
+
+    public String responseQueryDataEncoding()
+    {
+        return responseQueryDataEncoding;
     }
 
     public String responseAddedPrepare()

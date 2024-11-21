@@ -181,19 +181,22 @@ final class TestExasolConnectorTest
         String schema = getSession().getSchema().orElseThrow();
         assertThat(computeScalar("SHOW CREATE TABLE orders"))
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
-                .isEqualTo(format("""
-                                CREATE TABLE %s.%s.orders (
-                                   orderkey decimal(19, 0),
-                                   custkey decimal(19, 0),
-                                   orderstatus varchar(1),
-                                   totalprice decimal(10, 2),
-                                   orderdate date,
-                                   orderpriority varchar(15),
-                                   clerk varchar(15),
-                                   shippriority decimal(10, 0),
-                                   comment varchar(79)
-                                )""",
-                        catalog, schema));
+                .isEqualTo(format(
+                        """
+                        CREATE TABLE %s.%s.orders (
+                           orderkey decimal(19, 0),
+                           custkey decimal(19, 0),
+                           orderstatus varchar(1),
+                           totalprice decimal(10, 2),
+                           orderdate date,
+                           orderpriority varchar(15),
+                           clerk varchar(15),
+                           shippriority decimal(10, 0),
+                           comment varchar(79)
+                        )\
+                        """,
+                        catalog,
+                        schema));
     }
 
     @Test

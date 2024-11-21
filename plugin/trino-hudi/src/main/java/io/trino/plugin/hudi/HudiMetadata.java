@@ -143,23 +143,23 @@ public class HudiMetadata
     private Optional<SystemTable> getRawSystemTable(SchemaTableName tableName, ConnectorSession session)
     {
         HudiTableName name = HudiTableName.from(tableName.getTableName());
-        if (name.getTableType() == TableType.DATA) {
+        if (name.tableType() == TableType.DATA) {
             return Optional.empty();
         }
 
-        Optional<Table> tableOptional = metastore.getTable(tableName.getSchemaName(), name.getTableName());
+        Optional<Table> tableOptional = metastore.getTable(tableName.getSchemaName(), name.tableName());
         if (tableOptional.isEmpty()) {
             return Optional.empty();
         }
         if (!isHudiTable(tableOptional.get())) {
             return Optional.empty();
         }
-        return switch (name.getTableType()) {
+        return switch (name.tableType()) {
             case DATA ->
                 // TODO (https://github.com/trinodb/trino/issues/17973) remove DATA table type
                     Optional.empty();
             case TIMELINE -> {
-                SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
+                SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.tableNameWithType());
                 yield Optional.of(new TimelineTable(fileSystemFactory.create(session), systemTableName, tableOptional.get()));
             }
         };
@@ -228,9 +228,10 @@ public class HudiMetadata
     }
 
     @Override
-    public Optional<Object> getInfo(ConnectorTableHandle table)
+    public Optional<Object> getInfo(ConnectorTableHandle tableHandle)
     {
-        return Optional.of(HudiTableInfo.from((HudiTableHandle) table));
+        HudiTableHandle table = (HudiTableHandle) tableHandle;
+        return Optional.of(new HudiTableInfo(table.getSchemaTableName(), table.getTableType().name(), table.getBasePath()));
     }
 
     @Override

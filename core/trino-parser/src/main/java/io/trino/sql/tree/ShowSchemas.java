@@ -31,7 +31,7 @@ public class ShowSchemas
 
     public ShowSchemas(NodeLocation location, Optional<Identifier> catalog, Optional<String> likePattern, Optional<String> escape)
     {
-        super(Optional.of(location));
+        super(location);
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.likePattern = requireNonNull(likePattern, "likePattern is null");
         this.escape = requireNonNull(escape, "escape is null");

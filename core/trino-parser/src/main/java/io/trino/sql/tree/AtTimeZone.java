@@ -28,6 +28,7 @@ public class AtTimeZone
     private final Expression value;
     private final Expression timeZone;
 
+    @Deprecated
     public AtTimeZone(Expression value, Expression timeZone)
     {
         this(Optional.empty(), value, timeZone);
