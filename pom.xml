@@ -1581,7 +1581,7 @@
             <dependency>
                 <groupId>io.trino.benchto</groupId>
                 <artifactId>benchto-driver</artifactId>
-                <version>0.32</version>
+                <version>0.33</version>
                 <exclusions>
                     <exclusion>
                         <groupId>ch.qos.logback</groupId>
