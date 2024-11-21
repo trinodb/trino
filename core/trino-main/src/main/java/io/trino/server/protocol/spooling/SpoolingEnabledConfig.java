@@ -25,8 +25,8 @@ public class SpoolingEnabledConfig
         return enabled;
     }
 
-    @Config("experimental.protocol.spooling.enabled")
-    @ConfigDescription("Enable experimental spooling client protocol server-side support")
+    @Config("protocol.spooling.enabled")
+    @ConfigDescription("Enable spooled client protocol support")
     public SpoolingEnabledConfig setEnabled(boolean enabled)
     {
         this.enabled = enabled;
