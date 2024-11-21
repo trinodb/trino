@@ -676,17 +676,18 @@ public class TestCassandraConnectorTest
     @Test
     public void testIdentifiers()
     {
-        String quotedKeyspaceNameStartingWithUnderscore = "\"_keyspace\"";
+        String keyspaceName = "_keyspace" + randomNameSuffix();
+        String quotedKeyspaceNameStartingWithUnderscore = "\"%s\"".formatted(keyspaceName);
         dropKeyspace(quotedKeyspaceNameStartingWithUnderscore);
         createKeyspace(quotedKeyspaceNameStartingWithUnderscore);
         assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("_keyspace")
+                .row(keyspaceName)
                 .build(), new Duration(1, MINUTES));
 
-        assertUpdate("CREATE TABLE _keyspace._table AS SELECT 1 AS \"_col\", 2 AS \"2col\"", 1);
-        assertQuery("SHOW TABLES FROM cassandra._keyspace", "VALUES ('_table')");
-        assertQuery("SELECT * FROM cassandra._keyspace._table", "VALUES (1, 2)");
-        assertUpdate("DROP TABLE cassandra._keyspace._table");
+        assertUpdate("CREATE TABLE %s._table AS SELECT 1 AS \"_col\", 2 AS \"2col\"".formatted(keyspaceName), 1);
+        assertQuery("SHOW TABLES FROM cassandra." + keyspaceName, "VALUES ('_table')");
+        assertQuery("SELECT * FROM cassandra.%s._table".formatted(keyspaceName), "VALUES (1, 2)");
+        assertUpdate("DROP TABLE cassandra.%s._table".formatted(keyspaceName));
 
         dropKeyspace(quotedKeyspaceNameStartingWithUnderscore);
     }
@@ -1000,9 +1001,10 @@ public class TestCassandraConnectorTest
          *
          * http://docs.datastax.com/en/cql/3.1/cql/cql_reference/ucase-lcase_r.html
          */
-        String uppercaseKeyspaceName = "KEYSPACE_1";
-        createKeyspace(uppercaseKeyspaceName);
+        String uppercaseKeyspaceName = "KEYSPACE_1" + randomNameSuffix().toUpperCase(ENGLISH);
         String lowercaseKeyspaceName = uppercaseKeyspaceName.toLowerCase(ENGLISH);
+        createKeyspace(uppercaseKeyspaceName);
+
         assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
                 .row(lowercaseKeyspaceName)
                 .build(), new Duration(1, MINUTES));
@@ -1032,24 +1034,26 @@ public class TestCassandraConnectorTest
          *
          * http://docs.datastax.com/en/cql/3.1/cql/cql_reference/ucase-lcase_r.html
          */
-        String quotedUppercaseKeyspaceName = "\"KEYSPACE_2\"";
+        String uppercaseKeyspaceName = "KEYSPACE_2%s".formatted(randomNameSuffix().toUpperCase(ENGLISH));
+        String quotedUppercaseKeyspaceName = "\"%s\"".formatted(uppercaseKeyspaceName);
         createKeyspace(quotedUppercaseKeyspaceName);
+        String lowerCaseKeyspaceName = uppercaseKeyspaceName.toLowerCase(ENGLISH);
         assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("keyspace_2")
+                .row(lowerCaseKeyspaceName)
                 .build(), new Duration(1, MINUTES));
 
         session.execute("CREATE TABLE " + quotedUppercaseKeyspaceName + ".\"TABLE_2\" (\"COLUMN_2\" bigint PRIMARY KEY)");
-        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.keyspace_2"), resultBuilder(getSession(), createUnboundedVarcharType())
+        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + lowerCaseKeyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
                 .row("table_2")
                 .build(), new Duration(1, MINUTES));
-        assertContains(computeActual("SHOW COLUMNS FROM cassandra.keyspace_2.table_2"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
+        assertContains(computeActual("SHOW COLUMNS FROM cassandra.%s.table_2".formatted(lowerCaseKeyspaceName)), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
                 .row("column_2", "bigint", "", "")
                 .build());
 
         assertUpdate("INSERT INTO " + quotedUppercaseKeyspaceName + ".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)", 1);
 
-        assertThat(computeActual("SELECT column_2 FROM cassandra.keyspace_2.table_2").getRowCount()).isEqualTo(1);
-        assertUpdate("DROP TABLE cassandra.keyspace_2.table_2");
+        assertThat(computeActual("SELECT column_2 FROM cassandra.%s.table_2".formatted(lowerCaseKeyspaceName)).getRowCount()).isEqualTo(1);
+        assertUpdate("DROP TABLE cassandra.%s.table_2".formatted(lowerCaseKeyspaceName));
 
         // when an identifier is unquoted the lowercase and uppercase spelling may be used interchangeable
         dropKeyspace(quotedUppercaseKeyspaceName);
@@ -1062,28 +1066,35 @@ public class TestCassandraConnectorTest
         executeExclusively(() -> {
             // Identifiers enclosed in double quotes are stored in Cassandra verbatim. It is possible to create 2 keyspaces with names
             // that have differences only in letters case.
-            String quotedKeyspaceMixedCaseName1 = "\"KeYsPaCe_3\"";
+            String randomNameSuffix = randomNameSuffix();
+            String mixedCaseKeyspaceName1 = "KeYsPaCe_3%s".formatted(randomNameSuffix);
+            String mixedCaseKeyspaceName2 = "kEySpAcE_3%s".formatted(randomNameSuffix);
+            String lowercaseKeyspaceName = "keyspace_3%s".formatted(randomNameSuffix);
+
+            String quotedKeyspaceMixedCaseName1 = "\"%s\"".formatted(mixedCaseKeyspaceName1);
+            String quotedKeyspaceMixedCaseName2 = "\"%s\"".formatted(mixedCaseKeyspaceName2);
+
             createKeyspace(quotedKeyspaceMixedCaseName1);
-            String quotedKeyspaceMixedCaseName2 = "\"kEySpAcE_3\"";
             createKeyspace(quotedKeyspaceMixedCaseName2);
 
             // Although in Trino all the schema and table names are always displayed as lowercase
             assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                    .row("keyspace_3")
-                    .row("keyspace_3")
+                    .row(lowercaseKeyspaceName)
+                    .row(lowercaseKeyspaceName)
                     .build(), new Duration(1, MINUTES));
 
             // There is no way to figure out what the exactly keyspace we want to retrieve tables from
             assertQueryFailsEventually(
-                    "SHOW TABLES FROM cassandra.keyspace_3",
-                    "Error listing tables for catalog cassandra: More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
+                    "SHOW TABLES FROM cassandra.%s".formatted(lowercaseKeyspaceName),
+                    "Error listing tables for catalog cassandra: More than one keyspace has been found for the case insensitive schema name: %s -> \\(%s, %s\\)"
+                            .formatted(lowercaseKeyspaceName, mixedCaseKeyspaceName1, mixedCaseKeyspaceName2),
                     new Duration(1, MINUTES));
 
             dropKeyspace(quotedKeyspaceMixedCaseName1);
             dropKeyspace(quotedKeyspaceMixedCaseName2);
             // Wait until the schema becomes invisible to Trino. Otherwise, testSelectInformationSchemaColumns may fail due to ambiguous schema names.
             assertEventually(() -> assertThat(computeActual("SHOW SCHEMAS FROM cassandra").getOnlyColumnAsSet())
-                    .doesNotContain("keyspace_3"));
+                    .doesNotContain(lowercaseKeyspaceName));
         });
     }
 
@@ -1092,7 +1103,7 @@ public class TestCassandraConnectorTest
     {
         // This test creates tables with names that collide in a way not supported by the connector. Run it exclusively to prevent other tests from failing.
         executeExclusively(() -> {
-            String keyspaceName = "keyspace_4";
+            String keyspaceName = "keyspace_4" + randomNameSuffix();
             createKeyspace(keyspaceName);
             assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
                     .row(keyspaceName)
@@ -1127,7 +1138,7 @@ public class TestCassandraConnectorTest
     {
         // This test creates columns with names that collide in a way not supported by the connector. Run it exclusively to prevent other tests from failing.
         executeExclusively(() -> {
-            String keyspaceName = "keyspace_5";
+            String keyspaceName = "keyspace_5" + randomNameSuffix();
             createKeyspace(keyspaceName);
             assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
                     .row(keyspaceName)
@@ -1337,7 +1348,7 @@ public class TestCassandraConnectorTest
     @Test
     public void testNestedCollectionType()
     {
-        String keyspaceName = "keyspace_test_nested_collection";
+        String keyspaceName = "keyspace_test_nested_collection" + randomNameSuffix();
         createKeyspace(keyspaceName);
         assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
                 .row(keyspaceName)
