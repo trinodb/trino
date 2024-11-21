@@ -288,7 +288,7 @@ public class ClientOptions
     public boolean disableCompression;
 
     @PropertyMapping(ENCODING)
-    @Option(names = "--encoding", paramLabel = "<encoding>", description = "Experimental spooled protocol encoding [available: ${ENCODINGS}, default: " + DEFAULT_VALUE + "]", defaultValue = "${PREFERRED_ENCODINGS}")
+    @Option(names = "--encoding", paramLabel = "<encoding>", description = "Spooled encoding [available: ${ENCODINGS}, default: " + DEFAULT_VALUE + "]", defaultValue = "${PREFERRED_ENCODINGS}")
     public Optional<String> encoding = Optional.empty();
 
     @Option(names = "--editing-mode", paramLabel = "<editing-mode>", defaultValue = "EMACS", description = "Editing mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
