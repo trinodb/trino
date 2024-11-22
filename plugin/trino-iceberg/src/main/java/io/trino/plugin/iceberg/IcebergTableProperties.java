@@ -266,7 +266,7 @@ public class IcebergTableProperties
 
     public static boolean getObjectStoreEnabled(Map<String, Object> tableProperties)
     {
-        return (Boolean) tableProperties.get(OBJECT_STORE_ENABLED_PROPERTY);
+        return (boolean) tableProperties.getOrDefault(OBJECT_STORE_ENABLED_PROPERTY, false);
     }
 
     public static Optional<String> getDataLocation(Map<String, Object> tableProperties)
