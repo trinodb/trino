@@ -218,6 +218,14 @@
                                     <old>method java.lang.Iterable&lt;io.trino.spi.eventlistener.EventListener&gt; io.trino.spi.connector.Connector::getEventListeners()</old>
                                     <justification>Remove connector event listeners</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method byte[] io.trino.spi.type.SqlVarbinary::getBytes()</old>
+                                    <new>method byte[] io.trino.spi.type.SqlVarbinary::getBytes()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
