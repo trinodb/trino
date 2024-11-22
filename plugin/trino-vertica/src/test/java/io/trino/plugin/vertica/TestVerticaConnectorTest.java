@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.vertica;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JoinOperator;
 import io.trino.spi.connector.JoinCondition;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -69,7 +71,9 @@ public class TestVerticaConnectorTest
             case SUPPORTS_JOIN_PUSHDOWN -> true;
             case SUPPORTS_ARRAY,
                  SUPPORTS_ADD_COLUMN_WITH_COMMENT,
-                 SUPPORTS_AGGREGATION_PUSHDOWN,
+                 // Vertica returns NaN for stddev functions in case of single value for example, but trino expects null
+                 SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
+                 SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
@@ -369,6 +373,44 @@ public class TestVerticaConnectorTest
     public void testInsertIntoNotNullColumn()
     {
         abort("TODO Enable this test");
+    }
+
+    @Test
+    @Override
+    public void testNumericAggregationPushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        // empty table
+        try (TestTable emptyTable = createAggregationTestTable(schemaName + ".test_num_agg_pd", ImmutableList.of())) {
+            assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal), sum(a_bigint), sum(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + emptyTable.getName())).isNotFullyPushedDown(AggregationNode.class);
+        }
+
+        try (TestTable testTable = createAggregationTestTable(schemaName + ".test_num_agg_pd",
+                ImmutableList.of("100.000, 100000000.000000000, 100.000, 100000000", "123.321, 123456789.987654321, 123.321, 123456789"))) {
+            assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal), sum(a_bigint), sum(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            // Vertica just truncates when we cast decimal values instead of rounding, the only way to overcome it:
+            // cast to higher scale and then round to original scale, but it looks error-prone
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
+
+            // smoke testing of more complex cases
+            // WHERE on aggregation column
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 AND long_decimal < 124")).isFullyPushedDown();
+            // WHERE on non-aggregation column
+            assertThat(query("SELECT min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110")).isFullyPushedDown();
+            // GROUP BY
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " GROUP BY short_decimal")).isFullyPushedDown();
+            // GROUP BY with WHERE on both grouping and aggregation column
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 AND long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
+            // GROUP BY with WHERE on grouping column
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 GROUP BY short_decimal")).isFullyPushedDown();
+            // GROUP BY with WHERE on aggregation column
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
+        }
     }
 
     @Override

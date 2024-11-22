@@ -15,6 +15,8 @@ package io.trino.plugin.vertica;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -22,6 +24,7 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
@@ -31,10 +34,22 @@ import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
+import io.trino.plugin.jdbc.aggregation.ImplementCorr;
+import io.trino.plugin.jdbc.aggregation.ImplementCount;
+import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
+import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
+import io.trino.plugin.jdbc.aggregation.ImplementCovariancePop;
+import io.trino.plugin.jdbc.aggregation.ImplementCovarianceSamp;
+import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
+import io.trino.plugin.jdbc.aggregation.ImplementRegrIntercept;
+import io.trino.plugin.jdbc.aggregation.ImplementRegrSlope;
+import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -121,6 +136,7 @@ public class VerticaClient
 
     private final boolean statisticsEnabled;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     @Inject
     public VerticaClient(
@@ -143,6 +159,30 @@ public class VerticaClient
                 .map("$greater_than(left: supported_type, right: supported_type)").to("left > right")
                 .map("$greater_than_or_equal(left: supported_type, right: supported_type)").to("left >= right")
                 .build();
+
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
+                this.connectorExpressionRewriter,
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
+                        .add(new ImplementCountAll(bigintTypeHandle))
+                        .add(new ImplementMinMax(true))
+                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementCountDistinct(bigintTypeHandle, true))
+                        .add(new ImplementSum(VerticaClient::toTypeHandle))
+                        .add(new ImplementAvgFloatingPoint())
+                        .add(new ImplementAvgBigint())
+                        .add(new ImplementCovarianceSamp())
+                        .add(new ImplementCovariancePop())
+                        .add(new ImplementCorr())
+                        .add(new ImplementRegrIntercept())
+                        .add(new ImplementRegrSlope())
+                        .build());
+    }
+
+    @Override
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
     @Override
@@ -434,5 +474,10 @@ public class VerticaClient
     public OptionalInt getMaxColumnNameLength(ConnectorSession session)
     {
         return this.getMaxColumnNameLengthFromDatabaseMetaData(session);
+    }
+
+    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
+    {
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 }
