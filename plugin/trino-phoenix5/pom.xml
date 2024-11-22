@@ -16,7 +16,7 @@
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <dep.hbase.version>2.5.10-hadoop3</dep.hbase.version>
-        <dep.phoenix5.version>5.2.0</dep.phoenix5.version>
+        <dep.phoenix5.version>5.2.1</dep.phoenix5.version>
 
         <!-- This is required for JDK 17 to start HBase server due to illegal reflective access -->
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default} --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
@@ -190,6 +190,14 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
+                    <groupId>com.squareup.okhttp3</groupId>
+                    <artifactId>logging-interceptor</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.squareup.okhttp3</groupId>
+                    <artifactId>okhttp</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
@@ -201,6 +209,12 @@
             <artifactId>trino-main</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.squareup.okhttp3</groupId>
+                    <artifactId>okhttp</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -214,6 +228,10 @@
             <artifactId>trino-testing</artifactId>
             <scope>test</scope>
             <exclusions>
+                <exclusion>
+                    <groupId>com.squareup.okhttp3</groupId>
+                    <artifactId>okhttp</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>junit</groupId>
                     <artifactId>junit</artifactId>
@@ -366,6 +384,21 @@
                     <ignoredResourcePatterns combine.children="append">
                         <ignoredResourcePattern>mrapp-generated-classpath</ignoredResourcePattern>
                     </ignoredResourcePatterns>
+                    <ignoredDependencies>
+                        <!-- phoenix-client-embedded-hbase conflicts with a transitive dependencies of airlift:http-server used for testing -->
+                        <dependency>
+                            <groupId>org.eclipse.jetty</groupId>
+                            <artifactId>jetty-client</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.eclipse.jetty</groupId>
+                            <artifactId>jetty-http</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.eclipse.jetty</groupId>
+                            <artifactId>jetty-io</artifactId>
+                        </dependency>
+                    </ignoredDependencies>
                 </configuration>
             </plugin>
             <plugin>
