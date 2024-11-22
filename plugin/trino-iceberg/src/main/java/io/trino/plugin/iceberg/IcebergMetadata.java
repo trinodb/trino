@@ -1061,8 +1061,10 @@ public class IcebergMetadata
 
         String tableLocation = null;
         if (replace) {
-            IcebergTableHandle table = (IcebergTableHandle) getTableHandle(session, tableMetadata.getTableSchema().getTable(), Optional.empty(), Optional.empty());
-            if (table != null) {
+            ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTableSchema().getTable(), Optional.empty(), Optional.empty());
+            if (tableHandle != null) {
+                checkValidTableHandle(tableHandle);
+                IcebergTableHandle table = (IcebergTableHandle) tableHandle;
                 verifyTableVersionForUpdate(table);
                 Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
                 Optional<String> providedTableLocation = getTableLocation(tableMetadata.getProperties());

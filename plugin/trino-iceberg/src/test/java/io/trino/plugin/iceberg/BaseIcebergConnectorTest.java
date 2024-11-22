@@ -7629,6 +7629,8 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("SELECT 1 FROM " + tableName + " WHERE false", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("SHOW CREATE TABLE " + tableName, "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("CREATE TABLE a_new_table (LIKE " + tableName + " EXCLUDING PROPERTIES)", "Metadata not found in metadata location for table " + schemaTableName);
+        assertQueryFails("CREATE OR REPLACE TABLE " + tableName + " (id INT, country VARCHAR, independence ROW(month VARCHAR, year INT))", "Metadata not found in metadata location for table " + schemaTableName);
+        assertQueryFails("CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 x, 'IRELAND' y", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("DESCRIBE " + tableName, "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("SHOW COLUMNS FROM " + tableName, "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("SHOW STATS FOR " + tableName, "Metadata not found in metadata location for table " + schemaTableName);
