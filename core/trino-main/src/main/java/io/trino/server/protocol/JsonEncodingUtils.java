@@ -49,6 +49,7 @@ import io.trino.type.SqlIntervalYearMonth;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.Base64;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -367,9 +368,14 @@ public class JsonEncodingUtils
             verify(keyBlock.getPositionCount() == valueBlock.getPositionCount(), "Key and value blocks have different number of positions");
             generator.writeStartObject();
             for (int i = 0; i < map.getSize(); i++) {
-                // Field name is always written as String for backward compatibility,
-                // only value is properly encoded.
-                generator.writeFieldName(mapType.getKeyType().getObjectValue(session, keyBlock, offset + i).toString());
+                // Map keys are always serialized as strings for backward compatibility with existing clients,
+                // except for SqlVarbinary type which is encoded as base64-encoded string.
+                // Map values are always properly encoded using their types.
+                // TODO: improve in v2 JSON format
+                switch (mapType.getKeyType().getObjectValue(session, keyBlock, offset + i)) {
+                    case SqlVarbinary varbinary -> generator.writeFieldName(Base64.getEncoder().encodeToString(varbinary.getBytes()));
+                    case Object value -> generator.writeFieldName(value.toString());
+                }
                 valueEncoder.encode(generator, session, valueBlock, offset + i);
             }
             generator.writeEndObject();
