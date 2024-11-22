@@ -468,13 +468,18 @@ public class TrinoConnection
     public Map<String, Class<?>> getTypeMap()
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getTypeMap");
+        checkOpen();
+        return ImmutableMap.of();
     }
 
     @Override
     public void setTypeMap(Map<String, Class<?>> map)
             throws SQLException
     {
+        checkOpen();
+        if (map == null || map.isEmpty()) {
+            return;
+        }
         throw new SQLFeatureNotSupportedException("setTypeMap");
     }
 
