@@ -226,6 +226,54 @@
                                     <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
                                     <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.type.SqlDate::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.type.SqlDate::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.type.SqlDecimal::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.type.SqlDecimal::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.type.SqlTime::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.type.SqlTime::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.type.SqlTimeWithTimeZone::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.type.SqlTimeWithTimeZone::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.type.SqlTimestamp::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.type.SqlTimestamp::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.type.SqlTimestampWithTimeZone::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.type.SqlTimestampWithTimeZone::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
