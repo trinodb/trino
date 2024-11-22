@@ -129,6 +129,7 @@ public class TrinoConnection
     private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
     private final Map<String, ClientSelectedRole> roles = new ConcurrentHashMap<>();
+    private Map<String, Class<?>> typeMap = new ConcurrentHashMap<>();
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final Call.Factory httpCallFactory;
     private final Call.Factory segmentHttpCallFactory;
@@ -468,14 +469,22 @@ public class TrinoConnection
     public Map<String, Class<?>> getTypeMap()
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getTypeMap");
+        checkOpen();
+        if (typeMap == null) {
+            return ImmutableMap.of();
+        }
+        return ImmutableMap.copyOf(typeMap);
     }
 
     @Override
     public void setTypeMap(Map<String, Class<?>> map)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("setTypeMap");
+        checkOpen();
+        if (map == null) {
+            throw new SQLException("map cannot be null");
+        }
+        this.typeMap = ImmutableMap.copyOf(map);
     }
 
     @Override
