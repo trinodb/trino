@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createBlockOfReals;
@@ -63,6 +64,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -422,6 +424,33 @@ public class TestJsonQueryDataEncoding
                         entry(3.0f, 3.0d),
                         entry(4.0f, 4.0d),
                         entry(5.0f, null)));
+    }
+
+    @Test
+    public void testMapOfVarbinaryKeysSerialization()
+            throws IOException
+    {
+        MapType mapType = new MapType(VARBINARY, DOUBLE, new TypeOperators());
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", mapType));
+        MapBlockBuilder blockBuilder = mapType.createBlockBuilder(null, 6);
+
+        blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+            VARBINARY.writeSlice(keyBuilder, utf8Slice("value"));
+            DOUBLE.writeDouble(valueBuilder, 0.0d);
+
+            VARBINARY.writeSlice(keyBuilder, utf8Slice("value2"));
+            valueBuilder.appendNull();
+        });
+
+        Page page = page(blockBuilder.build());
+        List<Object> values = roundTrip(columns, page, "[[{\"dmFsdWU=\":0.0,\"dmFsdWUy\":null}]]").getFirst();
+        assertThat(values.getFirst()).isInstanceOf(Map.class);
+        Map<Object, Object> valuesMap = (Map<Object, Object>) values.getFirst();
+
+        assertThat(valuesMap.keySet().stream()
+                .map(bytes -> new String((byte[]) bytes, UTF_8))
+                .collect(toImmutableSet()))
+                .containsExactlyInAnyOrder("value", "value2");
     }
 
     @Test
