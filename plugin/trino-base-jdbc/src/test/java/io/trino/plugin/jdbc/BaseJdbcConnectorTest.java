@@ -148,7 +148,8 @@ public abstract class BaseJdbcConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_UPDATE -> true;
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
+            case SUPPORTS_ADD_COLUMN_WITH_POSITION,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_CREATE_VIEW,
                  SUPPORTS_MERGE,
                  SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
