@@ -105,8 +105,10 @@ import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_COMMENT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_POSITION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD_IN_ARRAY;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD_WITH_POSITION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN;
@@ -2417,6 +2419,40 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testAddColumnWithPosition()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN)); // covered by testAddColumn
+
+        if (!hasBehavior(SUPPORTS_ADD_COLUMN_WITH_POSITION)) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "AS SELECT 2 second, 4 fourth")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ADD COLUMN first integer FIRST",
+                        "This connector does not support adding columns with FIRST clause");
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ADD COLUMN third integer AFTER second",
+                        "This connector does not support adding columns with AFTER clause");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "AS SELECT 2 second, 4 fourth")) {
+            assertTableColumnNames(table.getName(), "second", "fourth");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (2, 4)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN first integer FIRST");
+            assertTableColumnNames(table.getName(), "first", "second", "fourth");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, 4)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN third integer AFTER second");
+            assertTableColumnNames(table.getName(), "first", "second", "third", "fourth");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, null, 4)");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (10, 20, 30, 40)", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, null, 4), (10, 20, 30, 40)");
+        }
+    }
+
+    @Test
     public void testAddRowField()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
@@ -2521,6 +2557,59 @@ public abstract class BaseConnectorTest
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.element.element.c.element.w integer");
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(a integer, b row(x integer, y integer), c array(row(v integer, w integer)), d integer)))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[array[row(1, row(10, NULL), array[row(11, NULL)], NULL)]] AS array(array(row(a integer, b row(x integer, y integer), c array(row(v integer, w integer)), d integer))))");
+        }
+    }
+
+    @Test
+    public void testAddRowFieldWithPosition()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_FIELD)); // covered by testAddRowField
+
+        if (!hasBehavior(SUPPORTS_ADD_FIELD_WITH_POSITION)) {
+            try (TestTable table = new TestTable(
+                    getQueryRunner()::execute,
+                    "test_add_field_",
+                    "AS SELECT CAST(row(1) AS row(field integer)) AS col")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ADD COLUMN col.new_field integer FIRST",
+                        "This connector does not support adding columns with FIRST clause");
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ADD COLUMN col.new_field integer AFTER field",
+                        "This connector does not support adding columns with AFTER clause");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_add_field_",
+                "AS SELECT CAST(row(2, row(22, 44)) AS row(b integer, d row(f2 integer, f4 integer))) AS col")) {
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(b integer, d row(f2 integer, f4 integer))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.a integer FIRST");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b integer, d row(f2 integer, f4 integer))");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT CAST(row(NULL, 2, row(22, 44)) AS row(a integer, b integer, d row(f2 integer, f4 integer)))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.c integer AFTER b");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b integer, c integer, d row(f2 integer, f4 integer))");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT CAST(row(NULL, 2, NULL, row(22, 44)) AS row(a integer, b integer, c integer, d row(f2 integer, f4 integer)))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.d.f1 integer FIRST");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b integer, c integer, d row(f1 integer, f2 integer, f4 integer))");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT CAST(row(NULL, 2, NULL, row(NULL, 22, 44)) AS row(a integer, b integer, c integer, d row(f1 integer, f2 integer, f4 integer)))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.d.f3 integer AFTER f2");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b integer, c integer, d row(f1 integer, f2 integer, f3 integer, f4 integer))");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT CAST(row(NULL, 2, NULL, row(NULL, 22, NULL, 44)) AS row(a integer, b integer, c integer, d row(f1 integer, f2 integer, f3 integer, f4 integer)))");
+
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT row(10, 20, 30, row(111, 222, 333, 444))", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("SELECT row(NULL, 2, NULL, row(NULL, 22, NULL, 44)) UNION SELECT row(10, 20, 30, row(111, 222, 333, 444))");
         }
     }
 
