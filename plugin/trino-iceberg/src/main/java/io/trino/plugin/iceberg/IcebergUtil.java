@@ -196,6 +196,7 @@ public final class IcebergUtil
     public static final String METADATA_FOLDER_NAME = "metadata";
     public static final String METADATA_FILE_EXTENSION = ".metadata.json";
     public static final String TRINO_QUERY_ID_NAME = "trino_query_id";
+    public static final String TRINO_USER_NAME = "trino_user";
     // For backward compatibility only. DO NOT USE.
     private static final String BROKEN_ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
     // For backward compatibility only. DO NOT USE.
@@ -1056,6 +1057,7 @@ public final class IcebergUtil
     public static void commit(SnapshotUpdate<?> update, ConnectorSession session)
     {
         update.set(TRINO_QUERY_ID_NAME, session.getQueryId());
+        update.set(TRINO_USER_NAME, session.getUser());
         update.commit();
     }
 
