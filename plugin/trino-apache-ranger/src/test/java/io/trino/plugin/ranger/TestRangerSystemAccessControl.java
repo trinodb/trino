@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.ranger;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -43,7 +44,7 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestRangerSystemAccessControl
+final class TestRangerSystemAccessControl
 {
     private static RangerSystemAccessControl accessControlManager;
 
@@ -76,7 +77,7 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    public void testCanSetUserOperations()
+    void testCanSetUserOperations()
     {
         accessControlManager.checkCanSetUser(ADMIN.getPrincipal(), BOB.getUser());
         accessControlManager.checkCanImpersonateUser(ADMIN, BOB.getUser());
@@ -92,7 +93,7 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    public void testSystemInformationOperations()
+    void testSystemInformationOperations()
     {
         accessControlManager.checkCanReadSystemInformation(ADMIN);
         accessControlManager.checkCanWriteSystemInformation(ADMIN);
@@ -102,7 +103,7 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    public void testSystemSessionPropertyOperations()
+    void testSystemSessionPropertyOperations()
     {
         accessControlManager.checkCanSetSystemSessionProperty(ADMIN, new QueryId("q1"), "test-property");
 
@@ -110,7 +111,7 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    public void testQueryOperations()
+    void testQueryOperations()
     {
         accessControlManager.checkCanExecuteQuery(ADMIN, new QueryId("1"));
 
@@ -118,7 +119,7 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    public void testCatalogOperations()
+    void testCatalogOperations()
     {
         accessControlManager.canAccessCatalog(context(ALICE), CATALOG_ALICE);
         accessControlManager.checkCanCreateCatalog(context(ALICE), CATALOG_ALICE);
@@ -135,7 +136,7 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    public void testSchemaOperations()
+    void testSchemaOperations()
     {
         accessControlManager.checkCanCreateSchema(context(ALICE), SCHEMA_ALICE_SCH1, null);
         accessControlManager.checkCanDropSchema(context(ALICE), SCHEMA_ALICE_SCH1);
@@ -157,14 +158,14 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    public void testTableOperations()
+    void testTableOperations()
     {
         CatalogSchemaTableName newTableName = new CatalogSchemaTableName("alice-catalog", "sch1", "new-table");
 
-        accessControlManager.checkCanCreateTable(context(ALICE), TABLE_ALICE_SCH1_TBL1, Map.of());
+        accessControlManager.checkCanCreateTable(context(ALICE), TABLE_ALICE_SCH1_TBL1, ImmutableMap.of());
         accessControlManager.checkCanDropTable(context(ALICE), TABLE_ALICE_SCH1_TBL1);
         accessControlManager.checkCanRenameTable(context(ALICE), TABLE_ALICE_SCH1_TBL1, newTableName);
-        accessControlManager.checkCanSetTableProperties(context(ALICE), TABLE_ALICE_SCH1_TBL1, Collections.emptyMap());
+        accessControlManager.checkCanSetTableProperties(context(ALICE), TABLE_ALICE_SCH1_TBL1, ImmutableMap.of());
         accessControlManager.checkCanSetTableComment(context(ALICE), TABLE_ALICE_SCH1_TBL1);
         accessControlManager.checkCanSetTableAuthorization(context(ALICE), TABLE_ALICE_SCH1_TBL1, new TrinoPrincipal(USER, "principal"));
         accessControlManager.checkCanShowTables(context(ALICE), SCHEMA_ALICE_SCH1);
@@ -172,14 +173,14 @@ public class TestRangerSystemAccessControl
         accessControlManager.checkCanInsertIntoTable(context(ALICE), TABLE_ALICE_SCH1_TBL1);
         accessControlManager.checkCanDeleteFromTable(context(ALICE), TABLE_ALICE_SCH1_TBL1);
         accessControlManager.checkCanTruncateTable(context(ALICE), TABLE_ALICE_SCH1_TBL1);
-        accessControlManager.checkCanCreateTable(context(BOB), TABLE_USER_BOB_TBL1, Map.of());
+        accessControlManager.checkCanCreateTable(context(BOB), TABLE_USER_BOB_TBL1, ImmutableMap.of());
         accessControlManager.checkCanDropTable(context(BOB), TABLE_USER_BOB_TBL1);
 
         Set<SchemaTableName> aliceTables = ImmutableSet.of(new SchemaTableName("sch1", "tbl1"));
         assertThat(accessControlManager.filterTables(context(ALICE), CATALOG_ALICE, aliceTables)).isEqualTo(aliceTables);
         assertThat(accessControlManager.filterTables(context(BOB), "alice-catalog", aliceTables)).isEmpty();
 
-        assertThatThrownBy(() -> accessControlManager.checkCanCreateTable(context(BOB), TABLE_ALICE_SCH1_TBL1, Map.of())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanCreateTable(context(BOB), TABLE_ALICE_SCH1_TBL1, ImmutableMap.of())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanDropTable(context(BOB), TABLE_ALICE_SCH1_TBL1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanRenameTable(context(BOB), TABLE_ALICE_SCH1_TBL1, newTableName)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanSetTableProperties(context(BOB), TABLE_ALICE_SCH1_TBL1, Collections.emptyMap())).isInstanceOf(AccessDeniedException.class);
@@ -193,7 +194,7 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    public void testColumnOperations()
+    void testColumnOperations()
     {
         accessControlManager.checkCanAddColumn(context(ALICE), TABLE_ALICE_SCH1_TBL1);
         accessControlManager.checkCanAlterColumn(context(ALICE), TABLE_ALICE_SCH1_TBL1);
@@ -202,13 +203,13 @@ public class TestRangerSystemAccessControl
         accessControlManager.checkCanSetColumnComment(context(ALICE), TABLE_ALICE_SCH1_TBL1);
         accessControlManager.checkCanShowColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1);
         accessControlManager.checkCanSelectFromColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1, ImmutableSet.of());
-        accessControlManager.checkCanUpdateTableColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1, Collections.emptySet());
+        accessControlManager.checkCanUpdateTableColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1, ImmutableSet.of());
         accessControlManager.checkCanAddColumn(context(BOB), TABLE_USER_BOB_TBL1);
         accessControlManager.checkCanSelectFromColumns(context(BOB), TABLE_USER_BOB_TBL1, ImmutableSet.of());
         accessControlManager.checkCanDropColumn(context(BOB), TABLE_USER_BOB_TBL1);
 
-        Set<String> columns = Collections.singleton("column-1");
-        Map<SchemaTableName, Set<String>> tableColumns = Collections.singletonMap(TABLE_ALICE_SCH1_TBL1.getSchemaTableName(), columns);
+        Set<String> columns = ImmutableSet.of("column-1");
+        Map<SchemaTableName, Set<String>> tableColumns = ImmutableMap.of(TABLE_ALICE_SCH1_TBL1.getSchemaTableName(), columns);
 
         assertThat(accessControlManager.filterColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1, columns)).isEqualTo(columns);
         assertThat(accessControlManager.filterColumns(context(ALICE), TABLE_ALICE_SCH1_TBL1.getCatalogName(), tableColumns)).isEqualTo(tableColumns);
@@ -226,7 +227,7 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    public void testViewOperations()
+    void testViewOperations()
     {
         CatalogSchemaTableName newViewName = new CatalogSchemaTableName(VIEW_ALICE_SCH1_VW1.getCatalogName(), VIEW_ALICE_SCH1_VW1.getSchemaTableName().getSchemaName(), "new-view");
 
@@ -248,25 +249,25 @@ public class TestRangerSystemAccessControl
     }
 
     @Test
-    public void testMaterializedViewOperations()
+    void testMaterializedViewOperations()
     {
         CatalogSchemaTableName newViewName = new CatalogSchemaTableName(VIEW_ALICE_SCH1_VW1.getCatalogName(), VIEW_ALICE_SCH1_VW1.getSchemaTableName().getSchemaName(), "new-view");
 
-        accessControlManager.checkCanCreateMaterializedView(context(ALICE), VIEW_ALICE_SCH1_VW1, Collections.emptyMap());
+        accessControlManager.checkCanCreateMaterializedView(context(ALICE), VIEW_ALICE_SCH1_VW1, ImmutableMap.of());
         accessControlManager.checkCanRefreshMaterializedView(context(ALICE), VIEW_ALICE_SCH1_VW1);
-        accessControlManager.checkCanSetMaterializedViewProperties(context(ALICE), VIEW_ALICE_SCH1_VW1, Collections.emptyMap());
+        accessControlManager.checkCanSetMaterializedViewProperties(context(ALICE), VIEW_ALICE_SCH1_VW1, ImmutableMap.of());
         accessControlManager.checkCanDropMaterializedView(context(ALICE), VIEW_ALICE_SCH1_VW1);
         accessControlManager.checkCanRenameMaterializedView(context(ALICE), VIEW_ALICE_SCH1_VW1, newViewName);
 
-        assertThatThrownBy(() -> accessControlManager.checkCanCreateMaterializedView(context(BOB), VIEW_ALICE_SCH1_VW1, Collections.emptyMap())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanCreateMaterializedView(context(BOB), VIEW_ALICE_SCH1_VW1, ImmutableMap.of())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanRefreshMaterializedView(context(BOB), VIEW_ALICE_SCH1_VW1)).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> accessControlManager.checkCanSetMaterializedViewProperties(context(BOB), VIEW_ALICE_SCH1_VW1, Collections.emptyMap())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanSetMaterializedViewProperties(context(BOB), VIEW_ALICE_SCH1_VW1, ImmutableMap.of())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanDropMaterializedView(context(BOB), VIEW_ALICE_SCH1_VW1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanRenameMaterializedView(context(BOB), VIEW_ALICE_SCH1_VW1, newViewName)).isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
-    public void testProcedureOperations()
+    void testProcedureOperations()
     {
         accessControlManager.checkCanExecuteProcedure(context(ALICE), PROC_ALICE_SCH1_PROC1);
         accessControlManager.checkCanExecuteTableProcedure(context(ALICE), TABLE_ALICE_SCH1_TBL1, PROC_ALICE_SCH1_PROC1.getRoutineName());
@@ -287,7 +288,7 @@ public class TestRangerSystemAccessControl
         assertThat(accessControlManager.canExecuteFunction(context(ALICE), FUNC_ALICE_SCH1_FUNC1)).isTrue();
         assertThat(accessControlManager.canExecuteFunction(context(BOB), FUNC_ALICE_SCH1_FUNC1)).isFalse();
 
-        Set<SchemaFunctionName> functionNames = Collections.singleton(new SchemaFunctionName(SCHEMA_ALICE_SCH1.getSchemaName(), FUNC_ALICE_SCH1_FUNC1.getRoutineName()));
+        Set<SchemaFunctionName> functionNames = Set.of(new SchemaFunctionName(SCHEMA_ALICE_SCH1.getSchemaName(), FUNC_ALICE_SCH1_FUNC1.getRoutineName()));
 
         assertThat(accessControlManager.filterFunctions(context(ALICE), CATALOG_ALICE, functionNames)).isEqualTo(functionNames);
         assertThat(accessControlManager.filterFunctions(context(BOB), CATALOG_ALICE, functionNames)).isEmpty();
@@ -296,31 +297,31 @@ public class TestRangerSystemAccessControl
     @Test
     public void testColumnMask()
     {
-        final VarcharType varcharType = VarcharType.createVarcharType(20);
+        VarcharType varcharType = VarcharType.createVarcharType(20);
 
         // MASK_NONE
         Optional<ViewExpression> ret = accessControlManager.getColumnMask(context(ALICE), TABLE_ALICE_SCH1_TBL1, "national_id", varcharType);
-        assertThat(ret.isPresent()).isFalse();
+        assertThat(ret).isNotPresent();
 
         // MASK_SHOW_FIRST_4
         ret = accessControlManager.getColumnMask(context(BOB), TABLE_ALICE_SCH1_TBL1, "national_id", varcharType);
-        assertThat(ret.isPresent()).isTrue();
+        assertThat(ret).isPresent();
         assertThat(ret.get().getExpression()).isEqualTo("cast(regexp_replace(national_id, '(^.{4})(.*)', x -> x[1] || regexp_replace(x[2], '.', 'X')) as varchar(20))");
     }
 
     @Test
-    public void testRowFilters()
+    void testRowFilters()
     {
         List<ViewExpression> retArray = accessControlManager.getRowFilters(context(ALICE), TABLE_ALICE_SCH1_TBL1);
         assertThat(retArray).isEmpty();
 
         retArray = accessControlManager.getRowFilters(context(BOB), TABLE_ALICE_SCH1_TBL1);
         assertThat(retArray).isNotEmpty();
-        assertThat(retArray.size()).isEqualTo(1);
-        assertThat(retArray.get(0).getExpression()).isEqualTo("status = 'active'");
+        assertThat(retArray).hasSize(1);
+        assertThat(retArray.getFirst().getExpression()).isEqualTo("status = 'active'");
     }
 
-    private SystemSecurityContext context(Identity id)
+    private static SystemSecurityContext context(Identity id)
     {
         return new SystemSecurityContext(id, new QueryId("id_1"), Instant.now());
     }
