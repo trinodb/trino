@@ -16,11 +16,7 @@
     <description>Trino - Apache Ranger access control</description>
 
     <properties>
-        <dep.commons.collections.version>3.2.2</dep.commons.collections.version>
         <dep.graalvm.version>24.1.0</dep.graalvm.version>
-        <dep.hadoop-shaded-guava.version>1.2.0</dep.hadoop-shaded-guava.version>
-        <dep.hppc.version>0.8.1</dep.hppc.version>
-        <dep.jersey-client.version>1.19.3</dep.jersey-client.version>
         <dep.ranger.version>2.5.0</dep.ranger.version>
     </properties>
 
@@ -97,7 +93,7 @@
         <dependency>
             <groupId>com.carrotsearch</groupId>
             <artifactId>hppc</artifactId>
-            <version>${dep.hppc.version}</version>
+            <version>0.8.1</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -108,13 +104,13 @@
         <dependency>
             <groupId>commons-collections</groupId>
             <artifactId>commons-collections</artifactId>
-            <version>${dep.commons.collections.version}</version>
+            <version>3.2.2</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.hadoop.thirdparty</groupId>
             <artifactId>hadoop-shaded-guava</artifactId>
-            <version>${dep.hadoop-shaded-guava.version}</version>
+            <version>1.2.0</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
