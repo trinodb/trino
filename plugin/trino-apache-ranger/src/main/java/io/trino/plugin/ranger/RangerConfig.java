@@ -17,11 +17,10 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
+import jakarta.validation.constraints.NotEmpty;
 
 import java.io.File;
 import java.util.List;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class RangerConfig
 {
@@ -29,6 +28,7 @@ public class RangerConfig
     private List<File> pluginConfigResource = ImmutableList.of();
     private List<File> hadoopConfigResource = ImmutableList.of();
 
+    @NotEmpty
     public String getServiceName()
     {
         return serviceName;
@@ -49,27 +49,23 @@ public class RangerConfig
 
     @Config("apache-ranger.plugin.config.resource")
     @ConfigDescription("List of paths to Ranger plugin configuration files")
-    public RangerConfig setPluginConfigResource(List<String> pluginConfigResource)
+    public RangerConfig setPluginConfigResource(List<File> pluginConfigResource)
     {
-        this.pluginConfigResource = pluginConfigResource.stream()
-                .map(File::new)
-                .collect(toImmutableList());
-        return this;
-    }
-
-    @Config("apache-ranger.hadoop.config.resource")
-    @ConfigDescription("List of paths to hadoop configuration files")
-    @SuppressWarnings("unused")
-    public RangerConfig setHadoopConfigResource(List<String> hadoopConfigResource)
-    {
-        this.hadoopConfigResource = hadoopConfigResource.stream()
-                .map(File::new)
-                .collect(toImmutableList());
+        this.pluginConfigResource = ImmutableList.copyOf(pluginConfigResource);
         return this;
     }
 
     public List<@FileExists File> getHadoopConfigResource()
     {
         return hadoopConfigResource;
+    }
+
+    @Config("apache-ranger.hadoop.config.resource")
+    @ConfigDescription("List of paths to hadoop configuration files")
+    @SuppressWarnings("unused")
+    public RangerConfig setHadoopConfigResource(List<File> hadoopConfigResource)
+    {
+        this.hadoopConfigResource = ImmutableList.copyOf(hadoopConfigResource);
+        return this;
     }
 }
