@@ -49,9 +49,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.BigintType;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
 import jakarta.inject.Inject;
 
 import java.util.ArrayList;
@@ -72,7 +69,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.filterKeys;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
-import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -331,21 +327,8 @@ public class FakerMetadata
         int columnId = 0;
         for (; columnId < tableMetadata.getColumns().size(); columnId++) {
             ColumnMetadata column = tableMetadata.getColumns().get(columnId);
-            double nullProbability = 0;
-            if (column.isNullable()) {
-                nullProbability = (double) column.getProperties().getOrDefault(ColumnInfo.NULL_PROBABILITY_PROPERTY, tableNullProbability);
-            }
-            String generator = (String) column.getProperties().get(ColumnInfo.GENERATOR_PROPERTY);
-            if (generator != null && !isCharacterColumn(column)) {
-                throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `generator` property can only be set for CHAR, VARCHAR or VARBINARY columns");
-            }
             columns.add(new ColumnInfo(
-                    new FakerColumnHandle(
-                            columnId,
-                            column.getName(),
-                            column.getType(),
-                            nullProbability,
-                            generator),
+                    FakerColumnHandle.of(columnId, column, tableNullProbability),
                     column));
         }
 
@@ -355,7 +338,8 @@ public class FakerMetadata
                         ROW_ID_COLUMN_NAME,
                         BigintType.BIGINT,
                         0,
-                        ""),
+                        "",
+                        Domain.all(BigintType.BIGINT)),
                 ColumnMetadata.builder()
                         .setName(ROW_ID_COLUMN_NAME)
                         .setType(BigintType.BIGINT)
@@ -369,11 +353,6 @@ public class FakerMetadata
                 tableMetadata.getComment()));
 
         return new FakerOutputTableHandle(tableName);
-    }
-
-    private boolean isCharacterColumn(ColumnMetadata column)
-    {
-        return column.getType() instanceof CharType || column.getType() instanceof VarcharType || column.getType() instanceof VarbinaryType;
     }
 
     private synchronized void checkSchemaExists(String schemaName)
