@@ -25,7 +25,16 @@ import static java.util.Locale.ENGLISH;
 class RangerTrinoAccessRequest
         extends RangerAccessRequestImpl
 {
-    public RangerTrinoAccessRequest(RangerTrinoResource resource, String user, Set<String> userGroups, Optional<Instant> queryTime, Optional<String> clientAddress, Optional<String> clientType, Optional<String> queryText, RangerTrinoAccessType trinoAccessType, String action)
+    public RangerTrinoAccessRequest(
+            RangerTrinoResource resource,
+            String user,
+            Set<String> userGroups,
+            Optional<Instant> queryTime,
+            Optional<String> clientAddress,
+            Optional<String> clientType,
+            Optional<String> queryText,
+            RangerTrinoAccessType trinoAccessType,
+            String action)
     {
         super(resource, trinoAccessType.name().toLowerCase(ENGLISH), user, userGroups, null);
 
