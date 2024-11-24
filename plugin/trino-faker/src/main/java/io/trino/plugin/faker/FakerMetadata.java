@@ -309,13 +309,48 @@ public class FakerMetadata
             if (generator != null && !isCharacterColumn(column)) {
                 throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `generator` property can only be set for CHAR, VARCHAR or VARBINARY columns");
             }
+            // only parse min, max, and options to validate literals - FakerColumnHandle needs to be serializable,
+            // and some internal Trino types are not (Int128, LongTimestamp, LongTimestampWithTimeZone), so they cannot be stored in the handle as native types
+            String min = (String) column.getProperties().get(ColumnInfo.MIN_PROPERTY);
+            try {
+                Literal.parse(min, column.getType());
+            }
+            catch (IllegalArgumentException e) {
+                throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `min` property must be a valid " + column.getType().getDisplayName() + " literal", e);
+            }
+            String max = (String) column.getProperties().get(ColumnInfo.MAX_PROPERTY);
+            try {
+                Literal.parse(max, column.getType());
+            }
+            catch (IllegalArgumentException e) {
+                throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `max` property must be a valid " + column.getType().getDisplayName() + " literal", e);
+            }
+            if ((min != null || max != null) && isCharacterColumn(column)) {
+                throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `min` and `max` properties cannot be set for CHAR, VARCHAR or VARBINARY columns");
+            }
+            List<String> options = null;
+            if (column.getProperties().containsKey(ColumnInfo.OPTIONS_PROPERTY)) {
+                options = getOptions((List<?>) column.getProperties().get(ColumnInfo.OPTIONS_PROPERTY));
+                try {
+                    options.forEach(value -> Literal.parse(value, column.getType()));
+                }
+                catch (IllegalArgumentException | ClassCastException e) {
+                    throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `options` property must only contain valid " + column.getType().getDisplayName() + " literals", e);
+                }
+            }
+            if (options != null && (min != null || max != null || generator != null)) {
+                throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `options` property cannot be set together with `min`, `max`, and `generator` properties");
+            }
             columns.add(new ColumnInfo(
                     new FakerColumnHandle(
                             columnId,
                             column.getName(),
                             column.getType(),
                             nullProbability,
-                            generator),
+                            generator,
+                            min,
+                            max,
+                            options),
                     column));
         }
 
@@ -325,7 +360,10 @@ public class FakerMetadata
                         ROW_ID_COLUMN_NAME,
                         BigintType.BIGINT,
                         0,
-                        ""),
+                        "",
+                        null,
+                        null,
+                        null),
                 ColumnMetadata.builder()
                         .setName(ROW_ID_COLUMN_NAME)
                         .setType(BigintType.BIGINT)
@@ -339,6 +377,18 @@ public class FakerMetadata
                 tableMetadata.getComment()));
 
         return new FakerOutputTableHandle(tableName);
+    }
+
+    public static List<String> getOptions(Collection<?> values)
+    {
+        if (values == null) {
+            return null;
+        }
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        for (Object value : values) {
+            builder.add((String) value);
+        }
+        return builder.build();
     }
 
     private boolean isCharacterColumn(ColumnMetadata column)
