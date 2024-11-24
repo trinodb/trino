@@ -894,12 +894,12 @@ public class RangerSystemAccessControl
         return rangerPlugin.evalRowFilterPolicies(request, rangerPlugin.getResultProcessor());
     }
 
-    private boolean isDataMaskEnabled(RangerAccessResult result)
+    private static boolean isDataMaskEnabled(RangerAccessResult result)
     {
         return result.isMaskEnabled();
     }
 
-    private boolean isRowFilterEnabled(RangerAccessResult result)
+    private static boolean isRowFilterEnabled(RangerAccessResult result)
     {
         return result.isRowFilterEnabled();
     }
