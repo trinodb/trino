@@ -24,6 +24,9 @@ public record ColumnInfo(FakerColumnHandle handle, ColumnMetadata metadata)
 {
     public static final String NULL_PROBABILITY_PROPERTY = "null_probability";
     public static final String GENERATOR_PROPERTY = "generator";
+    public static final String MIN_PROPERTY = "min";
+    public static final String MAX_PROPERTY = "max";
+    public static final String ALLOWED_VALUES_PROPERTY = "allowed_values";
 
     public ColumnInfo
     {

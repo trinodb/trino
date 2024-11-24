@@ -28,12 +28,17 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
+import io.trino.spi.type.ArrayType;
 import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -41,6 +46,7 @@ import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONST
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class FakerConnector
@@ -161,7 +167,28 @@ public class FakerConnector
                                 throw new TrinoException(INVALID_COLUMN_PROPERTY, "generator must be a valid Faker expression", e);
                             }
                         },
-                        false));
+                        false),
+                stringProperty(
+                        MIN_PROPERTY,
+                        "Minimum generated value (inclusive)",
+                        null,
+                        false),
+                stringProperty(
+                        MAX_PROPERTY,
+                        "Maximum generated value (inclusive)",
+                        null,
+                        false),
+                new PropertyMetadata<>(
+                        ALLOWED_VALUES_PROPERTY,
+                        "List of allowed values",
+                        new ArrayType(VARCHAR),
+                        List.class,
+                        null,
+                        false,
+                        value -> ((List<?>) value).stream()
+                                .map(String.class::cast)
+                                .collect(toImmutableList()),
+                        value -> value));
     }
 
     private static void checkProperty(boolean expression, ErrorCodeSupplier errorCode, String errorMessage)

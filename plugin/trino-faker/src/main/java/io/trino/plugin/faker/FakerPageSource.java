@@ -152,8 +152,10 @@ class FakerPageSource
             long offset)
     {
         if (ROW_ID_COLUMN_NAME.equals(column.name())) {
-            return new Generator() {
+            return new Generator()
+            {
                 long currentRowId = offset;
+
                 @Override
                 public void accept(BlockBuilder blockBuilder)
                 {
@@ -234,8 +236,10 @@ class FakerPageSource
             ObjectWriter singleValueWriter = objectWriter(handle.type());
             return (blockBuilder) -> singleValueWriter.accept(blockBuilder, domain.getSingleValue());
         }
-        if (domain.getValues().isDiscreteSet()) {
-            List<Object> values = domain.getValues().getDiscreteSet();
+        if (domain.getValues().isDiscreteSet() || handle.domain().getValues().isDiscreteSet()) {
+            List<Object> values = domain.getValues().isDiscreteSet()
+                    ? domain.getValues().getDiscreteSet()
+                    : handle.domain().getValues().getDiscreteSet();
             ObjectWriter singleValueWriter = objectWriter(handle.type());
             return (blockBuilder) -> singleValueWriter.accept(blockBuilder, values.get(random.nextInt(values.size())));
         }
@@ -257,8 +261,10 @@ class FakerPageSource
         };
     }
 
-    private Generator randomValueGenerator(FakerColumnHandle handle, Range range)
+    private Generator randomValueGenerator(FakerColumnHandle handle, Range predicateRange)
     {
+        Range range = predicateRange.intersect(handle.domain().getValues().getRanges().getSpan())
+                .orElseThrow(() -> new TrinoException(INVALID_ROW_FILTER, "Predicates do not overlap with column min and max properties"));
         if (handle.generator() != null) {
             if (!range.isAll()) {
                 throw new TrinoException(INVALID_ROW_FILTER, "Predicates for columns with a generator expression are not supported");
