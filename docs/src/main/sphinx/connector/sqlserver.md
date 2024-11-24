@@ -393,7 +393,7 @@ FROM
 The `procedure` function allows you to run stored procedures on the underlying
 database directly. It requires syntax native to SQL Server, because the full query
 is pushed down and processed in SQL Server. In order to use this table function set
-`sqlserver.experimental.stored-procedure-table-function-enabled` to `true`.
+`sqlserver.stored-procedure-table-function-enabled` to `true`.
 
 :::{note}
 The `procedure` function does not support running StoredProcedures that return multiple statements,
