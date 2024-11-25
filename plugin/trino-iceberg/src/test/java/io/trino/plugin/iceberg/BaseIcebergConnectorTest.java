@@ -8567,6 +8567,24 @@ public abstract class BaseIcebergConnectorTest
                 "Data location can only be set when object store layout is enabled");
     }
 
+    @Test
+    @Override
+    public void testSetFieldMapKeyType()
+    {
+        // Iceberg doesn't support change a map 'key' column. Only map values can be changed.
+        assertThatThrownBy(super::testSetFieldMapKeyType)
+                .hasMessageContaining("Failed to set field type: Cannot alter map keys");
+    }
+
+    @Test
+    @Override
+    public void testSetNestedFieldMapKeyType()
+    {
+        // Iceberg doesn't support change a map 'key' column. Only map values can be changed.
+        assertThatThrownBy(super::testSetNestedFieldMapKeyType)
+                .hasMessageContaining("Failed to set field type: Cannot alter map keys");
+    }
+
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
