@@ -31,40 +31,48 @@ import static io.trino.sql.relational.SpecialForm.Form.AND;
 public final class AndFilterEvaluator
         implements FilterEvaluator
 {
-    public static Optional<Supplier<FilterEvaluator>> createAndExpressionEvaluator(ColumnarFilterCompiler compiler, SpecialForm specialForm)
+    public static Optional<Supplier<FilterEvaluator>> createAndExpressionEvaluator(ColumnarFilterCompiler compiler, SpecialForm specialForm, boolean filterReorderingEnabled)
     {
         checkArgument(specialForm.form() == AND, "specialForm %s should be AND", specialForm);
         checkArgument(specialForm.arguments().size() >= 2, "AND expression %s should have at least 2 arguments", specialForm);
 
         ImmutableList.Builder<Supplier<FilterEvaluator>> builder = ImmutableList.builder();
         for (RowExpression expression : specialForm.arguments()) {
-            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(expression, compiler);
+            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(expression, compiler, filterReorderingEnabled);
             if (subExpressionEvaluator.isEmpty()) {
                 return Optional.empty();
             }
             builder.add(subExpressionEvaluator.get());
         }
         List<Supplier<FilterEvaluator>> subExpressionEvaluators = builder.build();
-        return Optional.of(() -> new AndFilterEvaluator(subExpressionEvaluators.stream().map(Supplier::get).collect(toImmutableList())));
+        return Optional.of(() -> new AndFilterEvaluator(
+                subExpressionEvaluators.stream().map(Supplier::get).collect(toImmutableList()),
+                filterReorderingEnabled));
     }
 
     private final List<FilterEvaluator> subFilterEvaluators;
+    private final FilterReorderingProfiler profiler;
 
-    private AndFilterEvaluator(List<FilterEvaluator> subFilterEvaluators)
+    private AndFilterEvaluator(List<FilterEvaluator> subFilterEvaluators, boolean filterReorderingEnabled)
     {
         checkArgument(subFilterEvaluators.size() >= 2, "must have at least 2 subexpressions to AND");
         this.subFilterEvaluators = subFilterEvaluators;
+        this.profiler = new FilterReorderingProfiler(subFilterEvaluators.size(), filterReorderingEnabled);
     }
 
     @Override
     public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, SourcePage page)
     {
+        int inputPositions = activePositions.size();
         long filterTimeNanos = 0;
-        for (FilterEvaluator evaluator : subFilterEvaluators) {
+        for (int filterIndex : profiler.getFilterOrder()) {
+            FilterEvaluator evaluator = subFilterEvaluators.get(filterIndex);
             SelectionResult result = evaluator.evaluate(session, activePositions, page);
+            profiler.addFilterMetrics(filterIndex, result.filterTimeNanos(), activePositions.size() - result.selectedPositions().size());
             filterTimeNanos += result.filterTimeNanos();
             activePositions = result.selectedPositions();
         }
+        profiler.reorderFilters(inputPositions);
         return new SelectionResult(activePositions, filterTimeNanos);
     }
 }

@@ -651,10 +651,11 @@ public class TestColumnarFilters
         return call(FUNCTION_RESOLUTION.resolveFunction("$not", fromTypes(BOOLEAN)), expression);
     }
 
-    private static List<Page> processFilter(List<Page> inputPages, boolean columnarEvaluationEnabled, RowExpression filter)
+    private static List<Page> processFilter(List<Page> inputPages, boolean columnarEvaluationEnabled, boolean filterReorderingEnabled, RowExpression filter)
     {
         PageProcessor compiledProcessor = FUNCTION_RESOLUTION.getExpressionCompiler().compilePageProcessor(
                         columnarEvaluationEnabled,
+                        filterReorderingEnabled,
                         Optional.of(filter),
                         Optional.empty(),
                         ImmutableList.of(field(ROW_NUM_CHANNEL, BIGINT)),
@@ -911,8 +912,17 @@ public class TestColumnarFilters
 
     private static void verifyFilterInternal(List<Page> inputPages, RowExpression filter)
     {
-        List<Page> outputPagesExpected = processFilter(inputPages, false, filter);
-        List<Page> outputPagesActual = processFilter(inputPages, true, filter);
+        List<Page> outputPagesExpected = processFilter(inputPages, false, false, filter);
+        // Without filter reordering
+        List<Page> outputPagesActual = processFilter(inputPages, true, false, filter);
+        assertThat(outputPagesExpected).hasSize(outputPagesActual.size());
+
+        for (int pageCount = 0; pageCount < outputPagesActual.size(); pageCount++) {
+            assertPageEquals(ImmutableList.of(BIGINT), outputPagesActual.get(pageCount), outputPagesExpected.get(pageCount));
+        }
+
+        // With filter reordering
+        outputPagesActual = processFilter(inputPages, true, true, filter);
         assertThat(outputPagesExpected).hasSize(outputPagesActual.size());
 
         for (int pageCount = 0; pageCount < outputPagesActual.size(); pageCount++) {
@@ -933,12 +943,12 @@ public class TestColumnarFilters
 
     private static void assertThatColumnarFilterEvaluationIsSupported(RowExpression filterExpression)
     {
-        assertThat(createColumnarFilterEvaluator(filterExpression, COMPILER)).isPresent();
+        assertThat(createColumnarFilterEvaluator(filterExpression, COMPILER, true)).isPresent();
     }
 
     private static void assertThatColumnarFilterEvaluationIsNotSupported(RowExpression filterExpression)
     {
-        assertThat(createColumnarFilterEvaluator(filterExpression, COMPILER)).isEmpty();
+        assertThat(createColumnarFilterEvaluator(filterExpression, COMPILER, true)).isEmpty();
     }
 
     @ScalarFunction("custom_is_distinct_from")

@@ -67,15 +67,16 @@ public sealed interface FilterEvaluator
     static Optional<Supplier<FilterEvaluator>> createColumnarFilterEvaluator(
             boolean columnarFilterEvaluationEnabled,
             Optional<RowExpression> filter,
-            ColumnarFilterCompiler columnarFilterCompiler)
+            ColumnarFilterCompiler columnarFilterCompiler,
+            boolean filterReorderingEnabled)
     {
         if (columnarFilterEvaluationEnabled && filter.isPresent()) {
-            return createColumnarFilterEvaluator(filter.get(), columnarFilterCompiler);
+            return createColumnarFilterEvaluator(filter.get(), columnarFilterCompiler, filterReorderingEnabled);
         }
         return Optional.empty();
     }
 
-    static Optional<Supplier<FilterEvaluator>> createColumnarFilterEvaluator(RowExpression rowExpression, ColumnarFilterCompiler compiler)
+    static Optional<Supplier<FilterEvaluator>> createColumnarFilterEvaluator(RowExpression rowExpression, ColumnarFilterCompiler compiler, boolean filterReorderingEnabled)
     {
         // Eventually this should use RowExpressionVisitor when we handle nested RowExpressions
         if (rowExpression instanceof ConstantExpression constantExpression) {
@@ -99,13 +100,13 @@ public sealed interface FilterEvaluator
                 return createIsNullExpressionEvaluator(compiler, specialFormArg);
             }
             if (specialFormArg.form() == AND) {
-                return createAndExpressionEvaluator(compiler, specialFormArg);
+                return createAndExpressionEvaluator(compiler, specialFormArg, filterReorderingEnabled);
             }
             if (specialFormArg.form() == OR) {
-                return createOrExpressionEvaluator(compiler, specialFormArg);
+                return createOrExpressionEvaluator(compiler, specialFormArg, filterReorderingEnabled);
             }
             if (specialFormArg.form() == BETWEEN) {
-                return createBetweenEvaluator(compiler, specialFormArg);
+                return createBetweenEvaluator(compiler, specialFormArg, filterReorderingEnabled);
             }
             if (specialFormArg.form() == IN) {
                 return createInExpressionEvaluator(compiler, specialFormArg);
@@ -120,7 +121,7 @@ public sealed interface FilterEvaluator
         return isBuiltinFunctionName(functionName) && functionName.getFunctionName().equals("$not");
     }
 
-    private static Optional<Supplier<FilterEvaluator>> createBetweenEvaluator(ColumnarFilterCompiler compiler, SpecialForm specialForm)
+    private static Optional<Supplier<FilterEvaluator>> createBetweenEvaluator(ColumnarFilterCompiler compiler, SpecialForm specialForm, boolean filterReorderingEnabled)
     {
         checkArgument(specialForm.form() == BETWEEN, "specialForm should be BETWEEN");
         checkArgument(specialForm.arguments().size() == 3, "BETWEEN should have 3 arguments %s", specialForm.arguments());
@@ -147,7 +148,8 @@ public sealed interface FilterEvaluator
                         ImmutableList.of(
                                 call(lessThanOrEqual, specialForm.arguments().get(1), valueExpression),
                                 call(lessThanOrEqual, valueExpression, specialForm.arguments().get(2))),
-                        ImmutableList.of()));
+                        ImmutableList.of()),
+                filterReorderingEnabled);
     }
 
     private static Optional<Supplier<FilterEvaluator>> createInExpressionEvaluator(ColumnarFilterCompiler compiler, SpecialForm specialForm)

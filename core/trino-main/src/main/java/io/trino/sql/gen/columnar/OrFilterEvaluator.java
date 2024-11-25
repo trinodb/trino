@@ -31,50 +31,71 @@ import static io.trino.sql.relational.SpecialForm.Form.OR;
 public final class OrFilterEvaluator
         implements FilterEvaluator
 {
-    public static Optional<Supplier<FilterEvaluator>> createOrExpressionEvaluator(ColumnarFilterCompiler compiler, SpecialForm specialForm)
+    public static Optional<Supplier<FilterEvaluator>> createOrExpressionEvaluator(ColumnarFilterCompiler compiler, SpecialForm specialForm, boolean filterReorderingEnabled)
     {
         checkArgument(specialForm.form() == OR, "specialForm %s should be OR", specialForm);
         checkArgument(specialForm.arguments().size() >= 2, "OR expression %s should have at least 2 arguments", specialForm);
 
         ImmutableList.Builder<Supplier<FilterEvaluator>> builder = ImmutableList.builder();
         for (RowExpression expression : specialForm.arguments()) {
-            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(expression, compiler);
+            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(expression, compiler, filterReorderingEnabled);
             if (subExpressionEvaluator.isEmpty()) {
                 return Optional.empty();
             }
             builder.add(subExpressionEvaluator.get());
         }
         List<Supplier<FilterEvaluator>> subExpressionEvaluators = builder.build();
-        return Optional.of(() -> new OrFilterEvaluator(subExpressionEvaluators.stream().map(Supplier::get).collect(toImmutableList())));
+        return Optional.of(() -> new OrFilterEvaluator(
+                subExpressionEvaluators.stream().map(Supplier::get).collect(toImmutableList()),
+                filterReorderingEnabled));
     }
 
     private final List<FilterEvaluator> subFilterEvaluators;
+    private final FilterReorderingProfiler profiler;
 
-    private OrFilterEvaluator(List<FilterEvaluator> subFilterEvaluators)
+    private OrFilterEvaluator(List<FilterEvaluator> subFilterEvaluators, boolean filterReorderingEnabled)
     {
         checkArgument(subFilterEvaluators.size() >= 2, "must have at least 2 subexpressions to OR");
         this.subFilterEvaluators = subFilterEvaluators;
+        this.profiler = new FilterReorderingProfiler(subFilterEvaluators.size(), filterReorderingEnabled);
     }
 
     @Override
     public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, SourcePage page)
     {
+        int inputPositions = activePositions.size();
         long filterTimeNanos = 0;
-        SelectionResult result = subFilterEvaluators.getFirst().evaluate(session, activePositions, page);
+        SelectionResult result = getFirst().evaluate(session, activePositions, page);
         SelectedPositions accumulatedPositions = result.selectedPositions();
+        profiler.addFilterMetrics(0, result.filterTimeNanos(), accumulatedPositions.size());
         filterTimeNanos += result.filterTimeNanos();
         activePositions = activePositions.difference(accumulatedPositions);
         for (int index = 1; index < subFilterEvaluators.size() - 1; index++) {
-            FilterEvaluator evaluator = subFilterEvaluators.get(index);
+            int filterIndex = getFilterIndex(index);
+            FilterEvaluator evaluator = subFilterEvaluators.get(filterIndex);
             result = evaluator.evaluate(session, activePositions, page);
             SelectedPositions selectedPositions = result.selectedPositions();
+            profiler.addFilterMetrics(filterIndex, result.filterTimeNanos(), selectedPositions.size());
             filterTimeNanos += result.filterTimeNanos();
             accumulatedPositions = accumulatedPositions.union(selectedPositions);
             activePositions = activePositions.difference(selectedPositions);
         }
-        result = subFilterEvaluators.getLast().evaluate(session, activePositions, page);
+        int filterIndex = getFilterIndex(subFilterEvaluators.size() - 1);
+        result = subFilterEvaluators.get(filterIndex).evaluate(session, activePositions, page);
+        profiler.addFilterMetrics(filterIndex, result.filterTimeNanos(), result.selectedPositions().size());
+        profiler.reorderFilters(inputPositions);
         filterTimeNanos += result.filterTimeNanos();
         accumulatedPositions = accumulatedPositions.union(result.selectedPositions());
         return new SelectionResult(accumulatedPositions, filterTimeNanos);
+    }
+
+    private int getFilterIndex(int index)
+    {
+        return profiler.getFilterOrder()[index];
+    }
+
+    private FilterEvaluator getFirst()
+    {
+        return subFilterEvaluators.get(getFilterIndex(0));
     }
 }
