@@ -33,25 +33,6 @@ across nodes in the cluster. It can be disabled, when it is known that the
 output data set is not skewed, in order to avoid the overhead of hashing and
 redistributing all the data across the network.
 
-## `protocol.v1.prepared-statement-compression.length-threshold`
-
-- **Type:** {ref}`prop-type-integer`
-- **Default value:** `2048`
-
-Prepared statements that are submitted to Trino for processing, and are longer
-than the value of this property, are compressed for transport via the HTTP
-header to improve handling, and to avoid failures due to hitting HTTP header
-size limits.
-
-## `protocol.v1.prepared-statement-compression.min-gain`
-
-- **Type:** {ref}`prop-type-integer`
-- **Default value:** `512`
-
-Prepared statement compression is not applied if the size gain is less than the
-configured value. Smaller statements do not benefit from compression, and are
-left uncompressed.
-
 (file-compression)=
 ## File compression and decompression
 

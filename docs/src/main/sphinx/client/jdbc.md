@@ -261,4 +261,23 @@ may not be specified using both methods.
     `PREPARE <statement>` followed by `EXECUTE <statement>`. This reduces
     network overhead and uses smaller HTTP headers and requires Trino 431 or
     greater.
+* - `encoding`
+  - Set the encoding when using the [spooling protocol](jdbc-spooling-protocol).
+    Valid values are JSON with Zstandard compression, `json+zstd` (recommended),
+    JSON with LZ4 compression `json+lz4`, and uncompressed JSON `json`. By
+    default, the default encoding configured on the cluster is used.
+
 :::
+
+(jdbc-spooling-protocol)=
+## Spooling protocol
+
+The Trino JDBC driver automatically uses of the spooling protocol to improve
+throughput for client interactions with higher data transfer demands, if the
+[](protocol-spooling) is configured on the cluster.
+
+Optionally use the `encoding` parameter to configure a different desired
+encoding, compared to the default on the cluster.
+
+The JVM process using the JDBC driver must have network access to the spooling
+object storage.

@@ -63,6 +63,7 @@ admin/properties
 
 * [Properties reference overview](admin/properties)
 * [](admin/properties-general)
+* [](admin/properties-client-protocol)
 * [](admin/properties-http-server)
 * [](admin/properties-resource-management)
 * [](admin/properties-query-management)
