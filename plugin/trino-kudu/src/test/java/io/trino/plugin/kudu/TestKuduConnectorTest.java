@@ -958,6 +958,38 @@ public class TestKuduConnectorTest
     @Test
     @Disabled
     @Override
+    public void testUpdateWithNullValues()
+    {
+        withTableName("test_update_nulls", tableName -> {
+            assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, NATION_COLUMNS)));
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation", 25);
+            assertUpdate("UPDATE " + tableName + " SET nationkey = 100 WHERE regionkey = 2", 5);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey = 100", "VALUES 5");
+
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey IS NULL", "VALUES 0");
+            assertUpdate("UPDATE " + tableName + " SET nationkey = NULL WHERE regionkey = 2", 5);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey IS NULL", "VALUES 5");
+        });
+
+        withTableName("test_update_nulls", tableName -> {
+            assertUpdate(createKuduTableForWrites("CREATE TABLE %s %s".formatted(tableName, "(not_null_col INTEGER, nullable_col1 INTEGER, nullable_col2 INTEGER)")));
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1, 1), (2, 2, 2)", 2);
+            assertUpdate("UPDATE " + tableName + " SET nullable_col1 = 10 WHERE not_null_col = 1", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 10, 1), (2, 2, 2)");
+
+            assertUpdate("UPDATE " + tableName + " SET nullable_col2 = null WHERE not_null_col = 1", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 10, null), (2, 2, 2)");
+            assertQueryFails("UPDATE " + tableName + " SET not_null_col = TRY(1 / 0) WHERE not_null_col = 2", "NULL value not allowed for NOT NULL column: not_null_col");
+        });
+    }
+
+    /**
+     * This test fails intermittently because Kudu doesn't have strong enough
+     * semantics to support writing from multiple threads.
+     */
+    @Test
+    @Disabled
+    @Override
     public void testRowLevelUpdate()
     {
         withTableName("test_update", tableName -> {
