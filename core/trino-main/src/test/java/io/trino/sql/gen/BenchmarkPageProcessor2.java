@@ -117,11 +117,11 @@ public class BenchmarkPageProcessor2
         types = projections.stream().map(Expression::type).collect(toList());
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(FUNCTION_MANAGER, METADATA, TYPE_MANAGER, 0);
-        ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(FUNCTION_MANAGER, METADATA, 0);
+        ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(FUNCTIONS.getPlannerContext(), 0);
 
         inputPage = createPage(types, dictionaryBlocks);
         pageProcessor = new ExpressionCompiler(pageFunctionCompiler, columnarFilterCompiler)
-                .compilePageProcessor(true, Optional.of(getFilter(type)), Optional.empty(), projections, sourceLayout, Optional.empty(), OptionalInt.empty())
+                .compilePageProcessor(true, true, Optional.of(getFilter(type)), Optional.empty(), projections, sourceLayout, Optional.empty(), OptionalInt.empty())
                 .apply(DynamicFilter.EMPTY);
     }
 

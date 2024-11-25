@@ -36,7 +36,6 @@ import java.util.stream.LongStream;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
-import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -105,8 +104,9 @@ public final class DynamicFiltersTestUtil
                 testSessionBuilder().build(),
                 columns.buildOrThrow(),
                 layout.buildOrThrow(),
-                selectivityThreshold)
-                .createDynamicPageFilterEvaluator(new ColumnarFilterCompiler(createTestingFunctionManager(), PLANNER_CONTEXT.getMetadata(), 0), dynamicFilter)
+                selectivityThreshold,
+                true)
+                .createDynamicPageFilterEvaluator(new ColumnarFilterCompiler(PLANNER_CONTEXT, 0), dynamicFilter)
                 .get();
     }
 

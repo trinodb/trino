@@ -74,8 +74,8 @@ public class TestPageProcessorCompiler
                 new Symbol(arrayType, "$col_1"), 1);
         List<Expression> projections = ImmutableList.of(call(resolvedFunction, col0, col1));
 
-        Function<DynamicFilter, PageProcessor> factory1 = compiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
-        Function<DynamicFilter, PageProcessor> factory2 = compiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Function<DynamicFilter, PageProcessor> factory1 = compiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Function<DynamicFilter, PageProcessor> factory2 = compiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
         assertThat(factory1 != factory2).isTrue();
     }
 
@@ -85,7 +85,7 @@ public class TestPageProcessorCompiler
         Map<Symbol, Integer> layout = ImmutableMap.of(
                 new Symbol(BIGINT, "$col_0"), 3,
                 new Symbol(VARCHAR, "$col_1"), 1);
-        PageProcessor processor = compiler.compilePageProcessor(true, Optional.empty(), Optional.empty(),
+        PageProcessor processor = compiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(),
                         ImmutableList.of(new Reference(BIGINT, "$col_0"), new Reference(VARCHAR, "$col_1")),
                         layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE))
                 .apply(DynamicFilter.EMPTY);
@@ -126,7 +126,7 @@ public class TestPageProcessorCompiler
         ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
         Call filter = call(lessThan, lengthVarchar, new Constant(BIGINT, 10L));
 
-        PageProcessor processor = compiler.compilePageProcessor(true, Optional.of(filter), Optional.empty(),
+        PageProcessor processor = compiler.compilePageProcessor(true, true, Optional.of(filter), Optional.empty(),
                         ImmutableList.of(col0), layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE))
                 .apply(DynamicFilter.EMPTY);
 
@@ -169,7 +169,7 @@ public class TestPageProcessorCompiler
         ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
         Call filter = call(lessThan, col0, new Constant(BIGINT, 10L));
 
-        PageProcessor processor = compiler.compilePageProcessor(true, Optional.of(filter), Optional.empty(),
+        PageProcessor processor = compiler.compilePageProcessor(true, true, Optional.of(filter), Optional.empty(),
                         ImmutableList.of(col0), layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE))
                 .apply(DynamicFilter.EMPTY);
 
@@ -193,7 +193,7 @@ public class TestPageProcessorCompiler
     public void testSanityColumnarDictionary()
     {
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 2);
-        PageProcessor processor = compiler.compilePageProcessor(true, Optional.empty(), Optional.empty(),
+        PageProcessor processor = compiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(),
                         ImmutableList.of(new Reference(VARCHAR, "$col_0")), layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE))
                 .apply(DynamicFilter.EMPTY);
 
@@ -225,7 +225,7 @@ public class TestPageProcessorCompiler
                 new Constant(BIGINT, 10L));
         Call lessThanRandomExpression = call(lessThan, col0, random);
 
-        PageProcessor processor = compiler.compilePageProcessor(true, Optional.empty(), Optional.empty(),
+        PageProcessor processor = compiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(),
                         ImmutableList.of(lessThanRandomExpression), layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE))
                 .apply(DynamicFilter.EMPTY);
 

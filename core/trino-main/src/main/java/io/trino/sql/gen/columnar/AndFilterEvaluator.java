@@ -27,12 +27,13 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.sql.gen.columnar.FilterEvaluator.isReorderingSafe;
 import static java.util.Objects.requireNonNull;
 
 public final class AndFilterEvaluator
         implements FilterEvaluator
 {
-    public static Optional<Supplier<FilterEvaluator>> createAndExpressionEvaluator(ColumnarFilterCompiler compiler, Logical logical, Map<Symbol, Integer> layout)
+    public static Optional<Supplier<FilterEvaluator>> createAndExpressionEvaluator(ColumnarFilterCompiler compiler, Logical logical, Map<Symbol, Integer> layout, boolean filterReorderingEnabled)
     {
         checkArgument(logical.operator() == Logical.Operator.AND, "logical %s should be AND", logical);
 
@@ -41,42 +42,49 @@ public final class AndFilterEvaluator
 
         ImmutableList.Builder<Supplier<FilterEvaluator>> builder = ImmutableList.builderWithExpectedSize(terms.size());
         for (Expression expression : terms) {
-            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(expression, layout, compiler);
+            Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(expression, layout, compiler, filterReorderingEnabled);
             if (subExpressionEvaluator.isEmpty()) {
                 return Optional.empty();
             }
             builder.add(subExpressionEvaluator.get());
         }
         List<Supplier<FilterEvaluator>> subExpressionEvaluators = builder.build();
+        boolean reorderingSafe = filterReorderingEnabled && isReorderingSafe(compiler.getPlannerContext(), terms);
         return Optional.of(() -> {
             FilterEvaluator[] filterEvaluators = new FilterEvaluator[subExpressionEvaluators.size()];
             for (int i = 0; i < filterEvaluators.length; i++) {
                 filterEvaluators[i] = requireNonNull(subExpressionEvaluators.get(i).get(), "subExpressionEvaluator is null");
             }
-            return new AndFilterEvaluator(filterEvaluators);
+            return new AndFilterEvaluator(filterEvaluators, reorderingSafe);
         });
     }
 
     private final FilterEvaluator[] subFilterEvaluators;
+    private final FilterReorderingProfiler profiler;
 
-    private AndFilterEvaluator(FilterEvaluator[] subFilterEvaluators)
+    private AndFilterEvaluator(FilterEvaluator[] subFilterEvaluators, boolean filterReorderingEnabled)
     {
         checkArgument(subFilterEvaluators.length >= 2, "must have at least 2 subexpressions to AND");
         this.subFilterEvaluators = subFilterEvaluators;
+        this.profiler = new FilterReorderingProfiler(subFilterEvaluators.length, filterReorderingEnabled);
     }
 
     @Override
     public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, SourcePage page)
     {
+        int inputPositions = activePositions.size();
         long filterTimeNanos = 0;
-        for (FilterEvaluator evaluator : subFilterEvaluators) {
+        for (int filterIndex : profiler.getFilterOrder()) {
             if (activePositions.isEmpty()) {
                 break;
             }
+            FilterEvaluator evaluator = subFilterEvaluators[filterIndex];
             SelectionResult result = evaluator.evaluate(session, activePositions, page);
+            profiler.addFilterMetrics(filterIndex, result.filterTimeNanos(), activePositions.size() - result.selectedPositions().size());
             filterTimeNanos += result.filterTimeNanos();
             activePositions = result.selectedPositions();
         }
+        profiler.reorderFilters(inputPositions);
         return new SelectionResult(activePositions, filterTimeNanos);
     }
 }

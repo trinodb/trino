@@ -178,9 +178,10 @@ public class BenchmarkInCodeGenerator
             TypeManager typeManager = functions.getPlannerContext().getTypeManager();
             processor = new ExpressionCompiler(
                     new PageFunctionCompiler(functionManager, metadata, typeManager, 0),
-                    new ColumnarFilterCompiler(functionManager, metadata, 0))
+                    new ColumnarFilterCompiler(functions.getPlannerContext(), 0))
                     .compilePageProcessor(
                             columnarEvaluationEnabled,
+                            true,
                             Optional.of(filter),
                             Optional.empty(),
                             ImmutableList.of(project),

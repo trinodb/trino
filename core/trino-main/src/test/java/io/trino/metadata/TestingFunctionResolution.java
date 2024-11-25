@@ -132,7 +132,7 @@ public class TestingFunctionResolution
 
     public ColumnarFilterCompiler getColumnarFilterCompiler(int expressionCacheSize)
     {
-        return new ColumnarFilterCompiler(plannerContext.getFunctionManager(), plannerContext.getMetadata(), expressionCacheSize);
+        return new ColumnarFilterCompiler(plannerContext, expressionCacheSize);
     }
 
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)

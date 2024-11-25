@@ -42,6 +42,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemColumn;
 import io.trino.tpch.TpchColumn;
+import io.trino.type.LikePattern;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -73,8 +74,10 @@ import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.type.LikePatternType.LIKE_PATTERN;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -90,19 +93,23 @@ public class BenchmarkColumnarFilterParquetData
     private static final Symbol SHIP_DATE_SYMBOL = new Symbol(DATE, "ship_date");
     private static final Symbol QUANTITY_SYMBOL = new Symbol(DOUBLE, "quantity");
     private static final Symbol SHIP_MODE_SYMBOL = new Symbol(VARCHAR, "ship_mode");
+    private static final Symbol COMMENT_SYMBOL = new Symbol(VARCHAR, "comment");
 
-    private static final Map<Symbol, Integer> LAYOUT = ImmutableMap.of(
-            EXTENDED_PRICE_SYMBOL, 0,
-            DISCOUNT_SYMBOL, 1,
-            SHIP_DATE_SYMBOL, 2,
-            QUANTITY_SYMBOL, 3,
-            SHIP_MODE_SYMBOL, 4);
+    private static final Map<Symbol, Integer> LAYOUT = ImmutableMap.<Symbol, Integer>builder()
+            .put(EXTENDED_PRICE_SYMBOL, 0)
+            .put(DISCOUNT_SYMBOL, 1)
+            .put(SHIP_DATE_SYMBOL, 2)
+            .put(QUANTITY_SYMBOL, 3)
+            .put(SHIP_MODE_SYMBOL, 4)
+            .put(COMMENT_SYMBOL, 5)
+            .buildOrThrow();
 
     private static final Reference EXTENDED_PRICE = new Reference(DOUBLE, EXTENDED_PRICE_SYMBOL.name());
     private static final Reference DISCOUNT = new Reference(DOUBLE, DISCOUNT_SYMBOL.name());
     private static final Reference SHIP_DATE = new Reference(DATE, SHIP_DATE_SYMBOL.name());
     private static final Reference QUANTITY = new Reference(DOUBLE, QUANTITY_SYMBOL.name());
     private static final Reference SHIP_MODE = new Reference(VARCHAR, SHIP_MODE_SYMBOL.name());
+    private static final Reference COMMENT = new Reference(VARCHAR, COMMENT_SYMBOL.name());
 
     private static final long MIN_SHIP_DATE = LocalDate.parse("1994-01-01").toEpochDay();
     private static final long MAX_SHIP_DATE = LocalDate.parse("1995-01-01").toEpochDay();
@@ -156,7 +163,22 @@ public class BenchmarkColumnarFilterParquetData
             {
                 return new In(SHIP_MODE, ImmutableList.of(new Constant(VARCHAR, SHIP), new Constant(VARCHAR, MAIL)));
             }
-        }
+        },
+        OR {
+            // where comment like 'fur%'
+            //    or discount >= 0.01
+            //    or quantity < 24;
+            @Override
+            Expression getExpression()
+            {
+                return new Logical(
+                        Logical.Operator.OR,
+                        ImmutableList.of(
+                                call(FUNCTION_RESOLUTION.resolveFunction("$like", fromTypes(VARCHAR, LIKE_PATTERN)), COMMENT, new Constant(LIKE_PATTERN, LikePattern.compile("fur%", Optional.empty()))),
+                                call(FUNCTION_RESOLUTION.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)), new Constant(DOUBLE, 0.01), DISCOUNT),
+                                call(FUNCTION_RESOLUTION.resolveOperator(LESS_THAN, ImmutableList.of(DOUBLE, DOUBLE)), QUANTITY, new Constant(DOUBLE, 24.0))));
+            }
+        },
         /**/;
 
         abstract Expression getExpression();
@@ -170,6 +192,7 @@ public class BenchmarkColumnarFilterParquetData
         ExpressionCompiler expressionCompiler = FUNCTION_RESOLUTION.getExpressionCompiler();
         compiledProcessor = expressionCompiler.compilePageProcessor(
                         columnarEvaluationEnabled,
+                        true,
                         Optional.of(filterExpression),
                         Optional.empty(),
                         ImmutableList.of(EXTENDED_PRICE),
@@ -183,7 +206,8 @@ public class BenchmarkColumnarFilterParquetData
                 LineItemColumn.DISCOUNT,
                 LineItemColumn.SHIP_DATE,
                 LineItemColumn.QUANTITY,
-                LineItemColumn.SHIP_MODE);
+                LineItemColumn.SHIP_MODE,
+                LineItemColumn.COMMENT);
         BenchmarkParquetFormatUtils.TestData testData = createTpchDataSet(LINE_ITEM, columns);
 
         dataSource = new TestingParquetDataSource(

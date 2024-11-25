@@ -107,7 +107,7 @@ public class TestFilterAndProjectOperator
                 col1, new Constant(BIGINT, 5L));
 
         ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-        Function<DynamicFilter, PageProcessor> processorFactory = compiler.compilePageProcessor(true, Optional.of(filter), Optional.empty(), ImmutableList.of(field0, add5), layout, Optional.empty(), OptionalInt.empty());
+        Function<DynamicFilter, PageProcessor> processorFactory = compiler.compilePageProcessor(true, true, Optional.of(filter), Optional.empty(), ImmutableList.of(field0, add5), layout, Optional.empty(), OptionalInt.empty());
         Supplier<PageProcessor> processor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
@@ -156,7 +156,7 @@ public class TestFilterAndProjectOperator
                 col1, new Constant(BIGINT, 10L));
 
         ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-        Function<DynamicFilter, PageProcessor> processorFactory = compiler.compilePageProcessor(true, Optional.of(filter), Optional.empty(), ImmutableList.of(col1), layout, Optional.empty(), OptionalInt.empty());
+        Function<DynamicFilter, PageProcessor> processorFactory = compiler.compilePageProcessor(true, true, Optional.of(filter), Optional.empty(), ImmutableList.of(col1), layout, Optional.empty(), OptionalInt.empty());
         Supplier<PageProcessor> processor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(

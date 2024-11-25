@@ -38,6 +38,7 @@ import io.trino.operator.project.PageFieldsToInputParametersRewriter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.OperatorType;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
@@ -88,6 +89,7 @@ public class ColumnarFilterCompiler
 {
     private static final Logger log = Logger.get(ColumnarFilterCompiler.class);
 
+    private final PlannerContext plannerContext;
     private final FunctionManager functionManager;
     private final Metadata metadata;
     // Optional is used to cache failure to generate filter for unsupported cases
@@ -95,15 +97,16 @@ public class ColumnarFilterCompiler
     private final CacheStatsMBean filterCacheStats;
 
     @Inject
-    public ColumnarFilterCompiler(FunctionManager functionManager, Metadata metadata, CompilerConfig config)
+    public ColumnarFilterCompiler(PlannerContext plannerContext, CompilerConfig config)
     {
-        this(functionManager, metadata, config.getExpressionCacheSize());
+        this(plannerContext, config.getExpressionCacheSize());
     }
 
-    public ColumnarFilterCompiler(FunctionManager functionManager, Metadata metadata, int expressionCacheSize)
+    public ColumnarFilterCompiler(PlannerContext plannerContext, int expressionCacheSize)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.functionManager = plannerContext.getFunctionManager();
+        this.metadata = plannerContext.getMetadata();
         if (expressionCacheSize > 0) {
             filterCache = buildNonEvictableCache(
                     CacheBuilder.newBuilder()
@@ -128,6 +131,11 @@ public class ColumnarFilterCompiler
     Metadata getMetadata()
     {
         return metadata;
+    }
+
+    PlannerContext getPlannerContext()
+    {
+        return plannerContext;
     }
 
     public Optional<Supplier<ColumnarFilter>> generateFilter(Expression filter, Map<Symbol, Integer> layout)

@@ -17,9 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.WorkProcessor;
 import io.trino.operator.project.PageProcessor;
+import io.trino.operator.project.PageProcessorMetrics;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.DynamicFilter;
@@ -43,7 +46,6 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -88,7 +90,7 @@ public class BenchmarkAndColumnarFilterTpchData
     private static final Slice MIN_SHIP_DATE = utf8Slice("1994-01-01");
     private static final Slice MAX_SHIP_DATE = utf8Slice("1995-01-01");
 
-    private Page inputPage;
+    private List<Page> inputPages;
     private PageProcessor processor;
 
     @Param({"true", "false"})
@@ -97,13 +99,14 @@ public class BenchmarkAndColumnarFilterTpchData
     @Setup
     public void setup()
     {
-        inputPage = createInputPage();
+        inputPages = createInputPages();
 
         Expression filterExpression = createFilterExpression(FUNCTION_RESOLUTION);
         ExpressionCompiler expressionCompiler = FUNCTION_RESOLUTION.getExpressionCompiler();
         List<? extends Expression> projections = ImmutableList.of(new Reference(DOUBLE, COL_EXTENDED_PRICE));
         processor = expressionCompiler.compilePageProcessor(
                         columnarEvaluationEnabled,
+                        true,
                         Optional.of(filterExpression),
                         Optional.empty(),
                         projections,
@@ -114,31 +117,46 @@ public class BenchmarkAndColumnarFilterTpchData
     }
 
     @Benchmark
-    public List<Optional<Page>> compiled()
+    public long compiled()
     {
-        return ImmutableList.copyOf(
-                processor.process(
-                        null,
-                        new DriverYieldSignal(),
-                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        SourcePage.create(inputPage)));
+        LocalMemoryContext context = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
+        long outputRows = 0;
+        for (Page inputPage : inputPages) {
+            WorkProcessor<Page> workProcessor = processor.createWorkProcessor(
+                    null,
+                    new DriverYieldSignal(),
+                    context,
+                    new PageProcessorMetrics(),
+                    SourcePage.create(inputPage));
+            while (workProcessor.process() && !workProcessor.isFinished()) {
+                outputRows += workProcessor.getResult().getPositionCount();
+            }
+        }
+        return outputRows;
     }
 
-    private static Page createInputPage()
+    private static List<Page> createInputPages()
     {
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE));
-        LineItemGenerator lineItemGenerator = new LineItemGenerator(1, 1, 1);
-        Iterator<LineItem> iterator = lineItemGenerator.iterator();
-        for (int i = 0; i < 10_000; i++) {
+        PageBuilder pageBuilder = PageBuilder.withMaxPageSize(350 * 1024, ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE));
+        ImmutableList.Builder<Page> pages = ImmutableList.builder();
+        for (LineItem lineItem : new LineItemGenerator(1, 1, 1)) {
             pageBuilder.declarePosition();
 
-            LineItem lineItem = iterator.next();
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(EXTENDED_PRICE), lineItem.extendedPrice());
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(DISCOUNT), lineItem.discount());
             VARCHAR.writeSlice(pageBuilder.getBlockBuilder(SHIP_DATE), Slices.wrappedBuffer(LineItemColumn.SHIP_DATE.getString(lineItem).getBytes(UTF_8)));
             DOUBLE.writeDouble(pageBuilder.getBlockBuilder(QUANTITY), lineItem.quantity());
+
+            if (pageBuilder.isFull()) {
+                Page page = pageBuilder.build();
+                pages.add(page);
+                pageBuilder.reset();
+            }
         }
-        return pageBuilder.build();
+        if (!pageBuilder.isEmpty()) {
+            pages.add(pageBuilder.build());
+        }
+        return pages.build();
     }
 
     // where shipdate >= '1994-01-01'

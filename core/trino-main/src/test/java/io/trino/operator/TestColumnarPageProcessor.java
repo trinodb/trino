@@ -99,7 +99,7 @@ public class TestColumnarPageProcessor
         Map<Symbol, Integer> layout = ImmutableMap.of(
                 new Symbol(types.get(0), "$col_0"), 3,
                 new Symbol(types.get(1), "$col_1"), 1);
-        return compiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE))
+        return compiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE))
                 .apply(DynamicFilter.EMPTY);
     }
 }

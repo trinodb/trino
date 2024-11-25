@@ -108,7 +108,7 @@ public class TestScanFilterAndProjectOperator
         FunctionManager functionManager = runner.getPlannerContext().getFunctionManager();
         expressionCompiler = new ExpressionCompiler(
                 new PageFunctionCompiler(functionManager, runner.getPlannerContext().getMetadata(), runner.getPlannerContext().getTypeManager(), 0),
-                new ColumnarFilterCompiler(functionManager, runner.getPlannerContext().getMetadata(), 0));
+                new ColumnarFilterCompiler(runner.getPlannerContext(), 0));
     }
 
     @AfterAll
@@ -132,7 +132,7 @@ public class TestScanFilterAndProjectOperator
         Reference col0 = new Reference(VARCHAR, "$col_0");
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
         List<Expression> projections = ImmutableList.of(col0);
-        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
         Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
@@ -175,7 +175,7 @@ public class TestScanFilterAndProjectOperator
                 new TestingFunctionResolution(runner).resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
                 col0, new Constant(BIGINT, 10L));
         List<Expression> projections = ImmutableList.of(col0);
-        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, Optional.of(filter), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, true, Optional.of(filter), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
         Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
@@ -252,7 +252,7 @@ public class TestScanFilterAndProjectOperator
         Reference col0 = new Reference(VARCHAR, "$col_0");
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
         List<Expression> projections = ImmutableList.of(col0);
-        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
         Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
@@ -301,14 +301,14 @@ public class TestScanFilterAndProjectOperator
         FunctionManager functionManager = runner.getPlannerContext().getFunctionManager();
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(
                 new PageFunctionCompiler(functionManager, runner.getPlannerContext().getMetadata(), runner.getPlannerContext().getTypeManager(), 0),
-                new ColumnarFilterCompiler(functionManager, runner.getPlannerContext().getMetadata(), 0));
+                new ColumnarFilterCompiler(runner.getPlannerContext(), 0));
         Reference col0 = new Reference(BIGINT, "$col_0");
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
         ImmutableList.Builder<Expression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
             projections.add(call(runner.getPlannerContext().getMetadata().resolveBuiltinFunction("generic_long_page_col" + i, fromTypes(BIGINT)), col0));
         }
-        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections.build(), layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE));
+        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(), projections.build(), layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE));
         Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
