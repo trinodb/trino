@@ -19,6 +19,6 @@ public class DatabendPlugin
 {
     public DatabendPlugin()
     {
-        super("databend", new DatabendClientModule());
+        super("databend", () -> new DatabendClientModule());
     }
 }
