@@ -6,6 +6,9 @@ the community. The preferred method to interact with Trino is using these
 existing clients. This document provides details about the API for reference.
 It can also be used to implement your own client, if necessary.
 
+Find more information about client drivers, client applications, and the client
+protocol configuration in the [client documentation](/client).
+
 ## HTTP methods
 
 - A `POST` to `/v1/statement` runs the query string in the `POST` body,

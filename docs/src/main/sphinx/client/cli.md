@@ -604,6 +604,20 @@ Query 20200707_170726_00030_2iup9 failed: line 1:25: Column 'region' cannot be r
 SELECT nationkey, name, region FROM tpch.sf1.nation LIMIT 3
 ```
 
+(cli-spooling-protocol)=
+## Spooling protocol
+
+The Trino CLI automatically uses of the spooling protocol to improve throughput
+for client interactions with higher data transfer demands, if the
+[](protocol-spooling) is configured on the cluster.
+
+Optionally use the `--encoding` option to configure a different desired
+encoding, compared to the default on the cluster. The available values are
+`json+zstd` (recommended) for JSON with Zstandard compression, and `json+lz4`
+for JSON with LZ4 compression, and `json` for uncompressed JSON. 
+
+The CLI process must have network access to the spooling object storage.
+
 (cli-output-format)=
 ## Output formats
 
