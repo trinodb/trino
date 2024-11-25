@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorSession;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.nio.file.FileAlreadyExistsException;
 
 import static java.util.Objects.requireNonNull;
 
@@ -47,6 +48,9 @@ public class NoIsolationSynchronizer
             try (OutputStream outputStream = outputFile.create()) {
                 outputStream.write(entryContents);
             }
+        }
+        catch (FileAlreadyExistsException e) {
+            throw new TransactionConflictException("Conflict detected while writing Transaction Log entry " + newLogEntryPath, e);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

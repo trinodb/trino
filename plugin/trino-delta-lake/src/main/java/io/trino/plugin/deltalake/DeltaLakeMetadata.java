@@ -1263,7 +1263,8 @@ public class DeltaLakeMetadata
                     statisticsAccess.deleteExtendedStatistics(session, schemaTableName, location);
                 }
                 else {
-                    setRollback(() -> deleteRecursivelyIfExists(fileSystem, deltaLogDirectory));
+                    // deleteRecursivelyIfNothingExists ensures current CREATE TABLE doesn't delete directory if there's a conflict
+                    setRollback(() -> deleteRecursivelyIfLogNotExists(fileSystem, deltaLogDirectory));
                     protocolEntry = protocolEntryForNewTable(containsTimestampType, tableMetadata.getProperties());
                 }
 
@@ -1447,7 +1448,7 @@ public class DeltaLakeMetadata
         }
         else {
             checkPathContainsNoFiles(session, finalLocation);
-            setRollback(() -> deleteRecursivelyIfExists(fileSystemFactory.create(session), finalLocation));
+            setRollback(() -> deleteRecursivelyIfLogNotExists(fileSystemFactory.create(session), finalLocation));
             protocolEntry = protocolEntryForNewTable(containsTimestampType, tableMetadata.getProperties());
         }
 
@@ -1557,13 +1558,17 @@ public class DeltaLakeMetadata
         }
     }
 
-    private static void deleteRecursivelyIfExists(TrinoFileSystem fileSystem, Location path)
+    private static void deleteRecursivelyIfLogNotExists(TrinoFileSystem fileSystem, Location tablePath)
     {
         try {
-            fileSystem.deleteDirectory(path);
+            Location deltaLogDirectory = Location.of(getTransactionLogDir(tablePath.path()));
+            boolean transactionLogFileExists = fileSystem.listFiles(deltaLogDirectory).hasNext();
+            if (!transactionLogFileExists) {
+                fileSystem.deleteDirectory(tablePath);
+            }
         }
         catch (IOException e) {
-            LOG.warn(e, "IOException while trying to delete '%s'", path);
+            LOG.warn(e, "IOException while trying to delete '%s'", tablePath);
         }
     }
 
@@ -1704,7 +1709,11 @@ public class DeltaLakeMetadata
                 // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
                 cleanupFailedWrite(session, handle.location(), dataFileInfos);
             }
-            if (handle.readVersion().isEmpty()) {
+            // Table already exist and created by a concurrent transaction as there's conflict while writing the transaction log entry
+            if (e instanceof TransactionConflictException) {
+                throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry, Table already exists", e);
+            }
+            else if (handle.readVersion().isEmpty()) {
                 Location transactionLogDir = Location.of(getTransactionLogDir(location));
                 try {
                     fileSystemFactory.create(session).deleteDirectory(transactionLogDir);
