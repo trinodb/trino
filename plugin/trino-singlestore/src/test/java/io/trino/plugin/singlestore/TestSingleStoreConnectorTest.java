@@ -115,34 +115,20 @@ public class TestSingleStoreConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
 
-        if (typeName.equals("boolean")) {
+        return switch (typeName) {
             // SingleStore does not have built-in support for boolean type. SingleStore provides BOOLEAN as the synonym of TINYINT(1)
             // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
-            return Optional.empty();
-        }
-
-        if (typeName.equals("time")) {
+            case "boolean" -> Optional.empty();
             // SingleStore supports only second precision
             // Skip 'time' that is alias of time(3) here and add test cases in TestSingleStoreTypeMapping.testTime instead
-            return Optional.empty();
-        }
-
-        if (typeName.equals("timestamp(3) with time zone") ||
-                typeName.equals("timestamp(6) with time zone")) {
-            return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-
-        if (typeName.equals("timestamp")) {
+            case "time" -> Optional.empty();
+            case "timestamp(3) with time zone", "timestamp(6) with time zone" -> Optional.of(dataMappingTestSetup.asUnsupported());
             // TODO this should either work or fail cleanly
-            return Optional.empty();
-        }
-
-        if (typeName.equals("varchar")) {
+            case "timestamp" -> Optional.empty();
             // TODO fails due to case insensitive UTF-8 comparisons
-            return Optional.empty();
-        }
-
-        return Optional.of(dataMappingTestSetup);
+            case "varchar" -> Optional.empty();
+            default -> Optional.of(dataMappingTestSetup);
+        };
     }
 
     @Test
