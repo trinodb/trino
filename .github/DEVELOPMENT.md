@@ -185,7 +185,7 @@ the POMs to each module. If that doesn't work, you can do it manually:
 Note that the version of errorprone used by the IDEA plugin might be older than
 the one configured in the `pom.xml` and you might need to disable some checks
 that are not yet supported by that older version. When in doubt, always check
-with the full Maven build (``./mvnw clean install -DskipTests -Perrorprone-compiler``).
+with the full Maven build (``./mvnw clean package -DskipTests -Perrorprone-compiler``).
 
 ### Language injection in IDE
 

@@ -92,13 +92,13 @@ Trino build. You only need to have built the current Trino version from the root
 That is, before building the docs the first time, run the following command:
 
 ```bash
-./mvnw clean install -DskipTests
+./mvnw clean package -DskipTests
 ```
 
 Subsequently, you can build the doc site using the Maven wrapper script:
 
 ```bash
-./mvnw -pl docs clean install
+./mvnw -pl docs clean package
 ```
 
 If you have Maven installed and available on the path, you can use the `mvn` command
