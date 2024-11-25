@@ -94,6 +94,7 @@ public record TaskInfo(
                         0,
                         pipelinedBufferStates,
                         Optional.empty(),
+                        Optional.empty(),
                         Optional.empty()),
                 ImmutableSet.of(),
                 taskStats,

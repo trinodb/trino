@@ -31,6 +31,7 @@ import io.trino.operator.PipelineStats;
 import io.trino.operator.TaskStats;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
@@ -473,6 +474,7 @@ public class StageStateMachine
         long failedOutputDataSize = 0;
         long outputPositions = 0;
         long failedOutputPositions = 0;
+        Metrics.Accumulator outputBufferMetrics = Metrics.accumulator();
 
         long outputBlockedTime = 0;
         long failedOutputBlockedTime = 0;
@@ -545,9 +547,13 @@ public class StageStateMachine
             inputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
 
             bufferedDataSize += taskInfo.outputBuffers().getTotalBufferedBytes();
+
+            Optional<Metrics> bufferMetrics = taskInfo.outputBuffers().getMetrics();
+
             taskInfo.outputBuffers().getUtilization().ifPresent(bufferUtilizationHistograms::add);
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
+            bufferMetrics.ifPresent(outputBufferMetrics::add);
 
             outputBlockedTime += taskStats.getOutputBlockedTime().roundTo(NANOSECONDS);
 
@@ -655,6 +661,7 @@ public class StageStateMachine
                 succinctBytes(failedOutputDataSize),
                 outputPositions,
                 failedOutputPositions,
+                outputBufferMetrics.get(),
                 succinctDuration(outputBlockedTime, NANOSECONDS),
                 succinctDuration(failedOutputBlockedTime, NANOSECONDS),
                 succinctBytes(physicalWrittenDataSize),

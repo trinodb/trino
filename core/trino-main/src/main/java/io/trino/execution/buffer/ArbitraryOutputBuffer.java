@@ -153,6 +153,7 @@ public class ArbitraryOutputBuffer
                 totalPagesAdded.get(),
                 Optional.of(infos.build()),
                 Optional.of(new TDigestHistogram(memoryManager.getUtilizationHistogram())),
+                Optional.empty(),
                 Optional.empty());
     }
 
