@@ -64,7 +64,7 @@ Trino supports [reproducible builds](https://reproducible-builds.org) as of vers
 Trino is a standard Maven project. Simply run the following command from the
 project root directory:
 
-    ./mvnw clean install -DskipTests
+    ./mvnw clean package -DskipTests
 
 On the first build, Maven downloads all the dependencies from the internet
 and caches them in the local repository (`~/.m2/repository`), which can take a

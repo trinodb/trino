@@ -54,7 +54,7 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install -B --strict-checksums -V -T 1C -DskipTests -P ci -am -pl ':trino-docs'
+          $RETRY $MAVEN package -B --strict-checksums -V -T 1C -DskipTests -P ci -am -pl ':trino-docs'
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
@@ -79,10 +79,10 @@ jobs:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
       - uses: ./.github/actions/setup
         timeout-minutes: 10
-      - name: Maven Install
+      - name: Maven Package
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
+          $RETRY $MAVEN package ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
         id: tests
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }}
