@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.exchange.ExchangeSink;
+import io.trino.spi.metrics.Metrics;
 
 import java.util.List;
 import java.util.Optional;
@@ -47,6 +48,7 @@ public class SpoolingExchangeOutputBuffer
     // It doesn't have to be declared as volatile as the nullification of this variable doesn't have to be immediately visible to other threads.
     // However since the abort can be triggered at any moment of time this variable has to be accessed in a safe way (avoiding "check-then-use").
     private ExchangeSink exchangeSink;
+    private Optional<Metrics> finalSinkMetrics;
     private final Supplier<LocalMemoryContext> memoryContextSupplier;
 
     private final AtomicLong peakMemoryUsage = new AtomicLong();
@@ -88,7 +90,8 @@ public class SpoolingExchangeOutputBuffer
                 totalPagesAdded.get(),
                 Optional.empty(),
                 Optional.empty(),
-                outputStats.getFinalSnapshot());
+                outputStats.getFinalSnapshot(),
+                getMetrics());
     }
 
     @Override
@@ -226,7 +229,9 @@ public class SpoolingExchangeOutputBuffer
             else {
                 stateMachine.finish();
             }
+            finalSinkMetrics = sink.getMetrics();
             exchangeSink = null;
+
             forceFreeMemory();
         });
     }
@@ -257,6 +262,7 @@ public class SpoolingExchangeOutputBuffer
             if (failure != null) {
                 log.warn(failure, "Error aborting exchange sink");
             }
+            finalSinkMetrics = sink.getMetrics();
             exchangeSink = null;
             forceFreeMemory();
         });
@@ -314,5 +320,14 @@ public class SpoolingExchangeOutputBuffer
             // so that the task context hasn't been created yet (as a result there's no memory context available).
             return null;
         }
+    }
+
+    private Optional<Metrics> getMetrics()
+    {
+        ExchangeSink sink = exchangeSink;
+        if (sink == null) {
+            return finalSinkMetrics;
+        }
+        return sink.getMetrics();
     }
 }
