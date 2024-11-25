@@ -9,7 +9,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>trino-apache-ranger</artifactId>
+    <artifactId>trino-ranger</artifactId>
 
     <packaging>trino-plugin</packaging>
     <name>Trino - Apache Ranger access control</name>

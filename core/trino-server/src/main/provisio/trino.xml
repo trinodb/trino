@@ -34,7 +34,7 @@
 
     <!-- Plugins -->
     <artifactSet to="plugin/apache-ranger">
-        <artifact id="${project.groupId}:trino-apache-ranger:zip:${project.version}">
+        <artifact id="${project.groupId}:trino-ranger:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
