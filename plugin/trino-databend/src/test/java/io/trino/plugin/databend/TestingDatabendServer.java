@@ -10,7 +10,6 @@ import java.sql.DriverManager;
 import java.sql.Statement;
 
 import static java.lang.String.format;
-import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class TestingDatabendServer
         implements Closeable
