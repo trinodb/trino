@@ -181,8 +181,6 @@ import static java.util.stream.Collectors.joining;
 public class DatabendClient
         extends BaseJdbcClient
 {
-    private static final Splitter TABLE_PROPERTY_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
-
     private static final DecimalType UINT64_TYPE = createDecimalType(20, 0);
 
     // An empty character means that the table doesn't have a comment in Databend
@@ -191,19 +189,19 @@ public class DatabendClient
 
     public static final int DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 1_000;
 
-    private static final PredicatePushdownController DATABEND_PUSHDOWN_CONTROLLER = (session, domain) -> {
-        if (domain.isOnlyNull()) {
-            return FULL_PUSHDOWN.apply(session, domain);
-        }
-
-        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
-        if (!simplifiedDomain.getValues().isDiscreteSet()) {
-            // Domain#simplify can turn a discrete set into a range predicate
-            return DISABLE_PUSHDOWN.apply(session, domain);
-        }
-
-        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
-    };
+//    private static final PredicatePushdownController DATABEND_PUSHDOWN_CONTROLLER = (session, domain) -> {
+//        if (domain.isOnlyNull()) {
+//            return FULL_PUSHDOWN.apply(session, domain);
+//        }
+//
+//        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+//        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+//            // Domain#simplify can turn a discrete set into a range predicate
+//            return DISABLE_PUSHDOWN.apply(session, domain);
+//        }
+//
+//        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+//    };
 
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
@@ -447,7 +445,7 @@ public class DatabendClient
     {
         checkArgument(nullableProperties.values().stream().noneMatch(Optional::isEmpty), "Setting a property to null is not supported");
 
-        Map<String, Object> properties = nullableProperties.entrySet().stream().filter(entry -> entry.getValue().isPresent()).collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().orElseThrow()));
+//        Map<String, Object> properties = nullableProperties.entrySet().stream().filter(entry -> entry.getValue().isPresent()).collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().orElseThrow()));
 
         ImmutableList.Builder<String> tableOptions = ImmutableList.builder();
 
