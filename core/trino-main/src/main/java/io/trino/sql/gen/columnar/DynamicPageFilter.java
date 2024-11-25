@@ -128,7 +128,7 @@ public final class DynamicPageFilter
     private static Supplier<FilterEvaluator> createDynamicFilterEvaluator(List<RowExpression> rowExpressions, ColumnarFilterCompiler compiler, double selectivityThreshold)
     {
         List<Supplier<FilterEvaluator>> subExpressionEvaluators = rowExpressions.stream()
-                .map(expression -> createColumnarFilterEvaluator(expression, compiler))
+                .map(expression -> createColumnarFilterEvaluator(expression, compiler, true))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toImmutableList());
