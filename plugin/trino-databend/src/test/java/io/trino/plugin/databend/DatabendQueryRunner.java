@@ -35,10 +35,6 @@ import static java.util.Objects.requireNonNull;
 
 public final class DatabendQueryRunner
 {
-    static {
-        Logging logging = Logging.initialize();
-    }
-
     public static final String TPCH_SCHEMA = "tpch";
 
     private DatabendQueryRunner() {}

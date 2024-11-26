@@ -20,6 +20,7 @@ import org.testcontainers.utility.DockerImageName;
 import java.io.Closeable;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Statement;
 
 import static java.lang.String.format;
@@ -45,13 +46,18 @@ public class TestingDatabendServer
         dockerContainer.start();
     }
 
+    public Connection createConnection()
+            throws SQLException
+    {
+        return DriverManager.getConnection(getJdbcUrl());
+    }
+
     public void execute(String sql)
     {
         try (Connection connection = DriverManager.getConnection(getJdbcUrl());
              Statement statement = connection.createStatement()) {
             statement.execute(sql);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException("Failed to execute statement: " + sql, e);
         }
     }
