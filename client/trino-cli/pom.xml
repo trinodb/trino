@@ -224,6 +224,8 @@
                             <excludes>
                                 <!-- jline-terminal-ffm works only on JDK 22+, but will fall back to JNI on lower JDKs -->
                                 <exclude>org.jline:jline-terminal-ffm</exclude>
+                                <!-- Used reflectively on JDK22+ for native decompression -->
+                                <exclude>io.airlift:aircompressor-v3</exclude>
                             </excludes>
                         </enforceBytecodeVersion>
                     </rules>

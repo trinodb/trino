@@ -395,6 +395,12 @@
                                     <exclude>io.airlift:units</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
+                            <enforceBytecodeVersion>
+                                <excludes combine.children="append">
+                                    <!-- Used reflectively on JDK22+ for native decompression -->
+                                    <exclude>io.airlift:aircompressor-v3</exclude>
+                                </excludes>
+                            </enforceBytecodeVersion>
                         </rules>
                     </configuration>
                 </plugin>
