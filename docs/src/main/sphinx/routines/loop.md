@@ -24,25 +24,34 @@ block](routine-label).
 
 ## Examples
 
-
-The following function counts up to `100` in a loop starting from the input
-value `i` and returns the number of incremental steps in the loop to get to
-`100`.
+The following function counts up to `100` with a step size `step` in a loop
+starting from the start value `start_value`, and returns the number of
+incremental steps in the loop to get to a value of `100` or higher:
 
 ```sql
-FUNCTION to_one_hundred(i int)
+FUNCTION to_one_hundred(start_value int, step int)
   RETURNS int
   BEGIN
     DECLARE count int DEFAULT 0;
+    DECLARE current int DEFAULT 0;
+    SET current = start_value;
     abc: LOOP
-      IF i >= 100 THEN
+      IF current >= 100 THEN
         LEAVE abc;
-      END IF
+      END IF;
       SET count = count + 1;
-      SET i = i + 1;
+      SET current = current + step;
     END LOOP;
-    RETURN;
+    RETURN count;
   END
+```
+
+Example invocations:
+
+```sql
+SELECT to_one_hundred(90, 1); --10
+SELECT to_one_hundred(0, 5); --20
+SELECT to_one_hundred(12, 3); -- 30
 ```
 
 Further examples of varying complexity that cover usage of the `LOOP` statement
