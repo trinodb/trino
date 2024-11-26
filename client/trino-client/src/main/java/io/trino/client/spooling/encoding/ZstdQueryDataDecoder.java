@@ -13,7 +13,6 @@
  */
 package io.trino.client.spooling.encoding;
 
-import io.airlift.compress.zstd.ZstdDecompressor;
 import io.trino.client.QueryDataDecoder;
 
 import java.io.IOException;
@@ -32,8 +31,7 @@ public class ZstdQueryDataDecoder
     void decompress(byte[] bytes, byte[] output)
             throws IOException
     {
-        ZstdDecompressor decompressor = new ZstdDecompressor();
-        int decompressedSize = decompressor.decompress(bytes, 0, bytes.length, output, 0, output.length);
+        int decompressedSize = DecompressionUtils.decompressZstd(bytes, output);
         if (decompressedSize != output.length) {
             throw new IOException(format("Decompressed size does not match expected segment size, expected %d, got %d", decompressedSize, output.length));
         }
