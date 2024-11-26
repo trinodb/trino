@@ -123,7 +123,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPE
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
-import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_ENABLED_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
@@ -337,7 +337,7 @@ public final class IcebergUtil
         }
 
         if (parseBoolean(icebergTable.properties().getOrDefault(OBJECT_STORE_ENABLED, "false"))) {
-            properties.put(OBJECT_STORE_ENABLED_PROPERTY, true);
+            properties.put(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY, true);
         }
 
         Optional<String> dataLocation = Optional.ofNullable(icebergTable.properties().get(WRITE_DATA_LOCATION));
@@ -851,14 +851,14 @@ public final class IcebergUtil
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toIceberg().toString());
         propertiesBuilder.put(FORMAT_VERSION, Integer.toString(IcebergTableProperties.getFormatVersion(tableMetadata.getProperties())));
 
-        boolean objectStoreEnabled = IcebergTableProperties.getObjectStoreEnabled(tableMetadata.getProperties());
-        if (objectStoreEnabled) {
+        boolean objectStoreLayoutEnabled = IcebergTableProperties.getObjectStoreLayoutEnabled(tableMetadata.getProperties());
+        if (objectStoreLayoutEnabled) {
             propertiesBuilder.put(OBJECT_STORE_ENABLED, "true");
         }
         Optional<String> dataLocation = IcebergTableProperties.getDataLocation(tableMetadata.getProperties());
         dataLocation.ifPresent(location -> {
-            if (!objectStoreEnabled) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, "Data location can only be set when object store is enabled");
+            if (!objectStoreLayoutEnabled) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Data location can only be set when object store layout is enabled");
             }
             propertiesBuilder.put(WRITE_DATA_LOCATION, location);
         });

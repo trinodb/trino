@@ -183,17 +183,17 @@ public class TestIcebergV2
     }
 
     @Test
-    public void testSetPropertiesObjectStoreEnabled()
+    public void testSetPropertiesObjectStoreLayoutEnabled()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_object_store", "(x int) WITH (object_store_enabled = false)")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_object_store", "(x int) WITH (object_store_layout_enabled = false)")) {
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
-                    .doesNotContain("object_store_enabled");
+                    .doesNotContain("object_store_layout_enabled");
             assertThat(loadTable(table.getName()).properties())
                     .doesNotContainKey("write.object-storage.enabled");
 
-            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES object_store_enabled = true");
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES object_store_layout_enabled = true");
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
-                    .contains("object_store_enabled = true");
+                    .contains("object_store_layout_enabled = true");
             assertThat(loadTable(table.getName()).properties())
                     .containsEntry("write.object-storage.enabled", "true");
         }
@@ -210,11 +210,11 @@ public class TestIcebergV2
 
             assertQueryFails(
                     "ALTER TABLE " + table.getName() + " SET PROPERTIES data_location = 'local:///data-location'",
-                    "Data location can only be set when object store is enabled");
+                    "Data location can only be set when object store layout is enabled");
 
-            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES object_store_enabled = true, data_location = 'local:///data-location'");
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES object_store_layout_enabled = true, data_location = 'local:///data-location'");
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
-                    .contains("object_store_enabled = true")
+                    .contains("object_store_layout_enabled = true")
                     .contains("data_location = 'local:///data-location'");
             assertThat(loadTable(table.getName()).properties())
                     .containsEntry("write.object-storage.enabled", "true")

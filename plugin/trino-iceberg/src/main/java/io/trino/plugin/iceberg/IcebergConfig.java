@@ -91,7 +91,7 @@ public class IcebergConfig
     private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;
     private boolean metadataCacheEnabled = true;
-    private boolean objectStoreEnabled;
+    private boolean objectStoreLayoutEnabled;
     private int metadataParallelism = 8;
 
     public CatalogType getCatalogType()
@@ -522,16 +522,16 @@ public class IcebergConfig
         return this;
     }
 
-    public boolean isObjectStoreEnabled()
+    public boolean isObjectStoreLayoutEnabled()
     {
-        return objectStoreEnabled;
+        return objectStoreLayoutEnabled;
     }
 
-    @Config("iceberg.object-store.enabled")
+    @Config("iceberg.object-store-layout.enabled")
     @ConfigDescription("Enable the Iceberg object store file layout")
-    public IcebergConfig setObjectStoreEnabled(boolean objectStoreEnabled)
+    public IcebergConfig setObjectStoreLayoutEnabled(boolean objectStoreLayoutEnabled)
     {
-        this.objectStoreEnabled = objectStoreEnabled;
+        this.objectStoreLayoutEnabled = objectStoreLayoutEnabled;
         return this;
     }
 

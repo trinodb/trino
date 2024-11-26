@@ -737,7 +737,7 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(
                 "CREATE TABLE " + trinoTableName + " (doc_id VARCHAR)\n" +
                         " WITH (" +
-                        " object_store_enabled = true," +
+                        " object_store_layout_enabled = true," +
                         " data_location = 'local:///write-data-path'," +
                         " extra_properties = MAP(ARRAY['custom.table-property'], ARRAY['my_custom_value'])" +
                         " )");
@@ -1203,7 +1203,7 @@ public class TestIcebergSparkCompatibility
 
         onTrino().executeQuery(format(
                 "CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (" +
-                          "object_store_enabled = true," +
+                          "object_store_layout_enabled = true," +
                           "data_location = '%s'," +
                           "format = '%s'," +
                           "format_version = %s)",
