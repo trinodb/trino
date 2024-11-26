@@ -20,7 +20,7 @@ import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 
