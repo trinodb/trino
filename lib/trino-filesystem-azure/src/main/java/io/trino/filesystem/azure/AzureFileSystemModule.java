@@ -29,6 +29,7 @@ public class AzureFileSystemModule
             case ACCESS_KEY -> new AzureAuthAccessKeyModule();
             case OAUTH -> new AzureAuthOAuthModule();
             case DEFAULT -> new AzureAuthDefaultModule();
+            case MSI -> new AzureAuthMSIModule();
         };
         install(module);
     }
