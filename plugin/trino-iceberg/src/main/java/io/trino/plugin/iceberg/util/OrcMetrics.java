@@ -33,7 +33,7 @@ import io.trino.orc.metadata.statistics.DoubleStatistics;
 import io.trino.orc.metadata.statistics.IntegerStatistics;
 import io.trino.orc.metadata.statistics.StringStatistics;
 import io.trino.orc.metadata.statistics.TimestampStatistics;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.iceberg.TrinoOrcDataSource;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;

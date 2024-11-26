@@ -23,7 +23,7 @@ import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.metastore.HiveType;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriterOptions;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;

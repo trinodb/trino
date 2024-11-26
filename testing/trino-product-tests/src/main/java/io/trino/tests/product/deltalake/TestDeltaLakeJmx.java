@@ -38,7 +38,7 @@ public class TestDeltaLakeJmx
                 row("io.trino.plugin.hive.metastore.cache:name=delta,type=cachinghivemetastore"),
                 row("io.trino.plugin.hive.metastore.glue:name=delta,type=gluehivemetastore"),
                 row("io.trino.plugin.hive.metastore.glue:name=delta,type=gluemetastorestats"),
-                row("io.trino.plugin.hive:catalog=delta,name=delta,type=fileformatdatasourcestats"),
+                row("io.trino.plugin.base.metrics:catalog=delta,name=delta,type=fileformatdatasourcestats"),
                 row("trino.plugin.deltalake.metastore:catalog=delta,name=delta,type=deltalaketablemetadatascheduler"),
                 row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=transactionlogaccess"));
     }
@@ -51,7 +51,7 @@ public class TestDeltaLakeJmx
                 row("io.trino.plugin.hive.metastore.cache:name=delta,type=cachinghivemetastore"),
                 row("io.trino.plugin.hive.metastore.thrift:name=delta,type=thrifthivemetastore"),
                 row("io.trino.plugin.hive.metastore.thrift:name=delta,type=thriftmetastorestats"),
-                row("io.trino.plugin.hive:catalog=delta,name=delta,type=fileformatdatasourcestats"),
+                row("io.trino.plugin.base.metrics:catalog=delta,name=delta,type=fileformatdatasourcestats"),
                 row("trino.plugin.deltalake.metastore:catalog=delta,name=delta,type=deltalaketablemetadatascheduler"),
                 row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=transactionlogaccess"));
     }
