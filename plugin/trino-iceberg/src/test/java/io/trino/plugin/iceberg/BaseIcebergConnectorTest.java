@@ -8540,11 +8540,11 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testObjectStoreEnabledAndDataLocation()
+    public void testObjectStoreLayoutEnabledAndDataLocation()
             throws Exception
     {
-        String tableName = "test_object_store_enabled_data_location" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (object_store_enabled = true, data_location = 'local:///data-location/xyz') AS SELECT 1 AS val", 1);
+        String tableName = "test_object_store_layout_enabled_data_location" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (object_store_layout_enabled = true, data_location = 'local:///data-location/xyz') AS SELECT 1 AS val", 1);
 
         Location tableLocation = Location.of(getTableLocation(tableName));
         assertThat(fileSystem.directoryExists(tableLocation).get()).isTrue();
@@ -8560,11 +8560,11 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testCreateTableWithDataLocationButObjectStoreDisabled()
+    public void testCreateTableWithDataLocationButObjectStoreLayoutDisabled()
     {
         assertQueryFails(
                 "CREATE TABLE test_data_location WITH (data_location = 'local:///data-location/xyz') AS SELECT 1 AS val",
-                "Data location can only be set when object store is enabled");
+                "Data location can only be set when object store layout is enabled");
     }
 
     @Override

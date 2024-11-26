@@ -271,7 +271,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPE
 import static io.trino.plugin.iceberg.IcebergTableProperties.EXTRA_PROPERTIES_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
-import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_ENABLED_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
@@ -380,7 +380,7 @@ public class IcebergMetadata
             .add(EXTRA_PROPERTIES_PROPERTY)
             .add(FILE_FORMAT_PROPERTY)
             .add(FORMAT_VERSION_PROPERTY)
-            .add(OBJECT_STORE_ENABLED_PROPERTY)
+            .add(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
             .add(DATA_LOCATION_PROPERTY)
             .add(PARTITIONING_PROPERTY)
             .add(SORTED_BY_PROPERTY)
@@ -2161,8 +2161,8 @@ public class IcebergMetadata
             updateProperties.set(FORMAT_VERSION, Integer.toString(formatVersion));
         }
 
-        if (properties.containsKey(OBJECT_STORE_ENABLED_PROPERTY)) {
-            boolean objectStoreEnabled = (boolean) properties.get(OBJECT_STORE_ENABLED_PROPERTY)
+        if (properties.containsKey(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)) {
+            boolean objectStoreEnabled = (boolean) properties.get(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The object_store_enabled property cannot be empty"));
             updateProperties.set(OBJECT_STORE_ENABLED, Boolean.toString(objectStoreEnabled));
         }
@@ -2171,10 +2171,10 @@ public class IcebergMetadata
             String dataLocation = (String) properties.get(DATA_LOCATION_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The data_location property cannot be empty"));
             boolean objectStoreEnabled = (boolean) properties.getOrDefault(
-                    OBJECT_STORE_ENABLED_PROPERTY,
+                    OBJECT_STORE_LAYOUT_ENABLED_PROPERTY,
                     Optional.of(Boolean.parseBoolean(icebergTable.properties().get(OBJECT_STORE_ENABLED)))).orElseThrow();
             if (!objectStoreEnabled) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, "Data location can only be set when object store is enabled");
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Data location can only be set when object store layout is enabled");
             }
             updateProperties.set(WRITE_DATA_LOCATION, dataLocation);
         }

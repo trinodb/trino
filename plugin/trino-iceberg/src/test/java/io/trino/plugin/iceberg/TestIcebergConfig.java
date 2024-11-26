@@ -76,7 +76,7 @@ public class TestIcebergConfig
                 .setIncrementalRefreshEnabled(true)
                 .setMetadataCacheEnabled(true)
                 .setIncrementalRefreshEnabled(true)
-                .setObjectStoreEnabled(false)
+                .setObjectStoreLayoutEnabled(false)
                 .setMetadataParallelism(8));
     }
 
@@ -114,7 +114,7 @@ public class TestIcebergConfig
                 .put("iceberg.allowed-extra-properties", "propX,propY")
                 .put("iceberg.incremental-refresh-enabled", "false")
                 .put("iceberg.metadata-cache.enabled", "false")
-                .put("iceberg.object-store.enabled", "true")
+                .put("iceberg.object-store-layout.enabled", "true")
                 .put("iceberg.metadata.parallelism", "10")
                 .buildOrThrow();
 
@@ -150,7 +150,7 @@ public class TestIcebergConfig
                 .setIncrementalRefreshEnabled(false)
                 .setMetadataCacheEnabled(false)
                 .setIncrementalRefreshEnabled(false)
-                .setObjectStoreEnabled(true)
+                .setObjectStoreLayoutEnabled(true)
                 .setMetadataParallelism(10);
 
         assertFullMapping(properties, expected);

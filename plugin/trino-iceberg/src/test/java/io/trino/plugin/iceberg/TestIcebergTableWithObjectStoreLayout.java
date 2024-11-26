@@ -30,7 +30,7 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
-final class TestIcebergTableWithObjectStore
+final class TestIcebergTableWithObjectStoreLayout
         extends AbstractTestQueryFramework
 {
     private HiveMetastore metastore;
@@ -41,7 +41,7 @@ final class TestIcebergTableWithObjectStore
             throws Exception
     {
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
-                .addIcebergProperty("iceberg.object-store.enabled", "true")
+                .addIcebergProperty("iceberg.object-store-layout.enabled", "true")
                 .build();
 
         metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
