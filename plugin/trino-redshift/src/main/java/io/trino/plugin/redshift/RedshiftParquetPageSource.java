@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.redshift;
 
+import com.google.common.io.Closer;
 import io.trino.parquet.ParquetCorruptionException;
-import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -29,21 +29,21 @@ import java.util.OptionalLong;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_PARQUET_BAD_DATA;
 import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_PARQUET_CURSOR_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class RedshiftPageSource
+public class RedshiftParquetPageSource
         implements ConnectorPageSource
 {
     private final ParquetReader parquetReader;
+    private final Closer closer;
     private boolean closed;
-    private final Closeable closer;
     private long completedPositions;
 
-    public RedshiftPageSource(ParquetReader parquetReader, Closeable closer)
+    public RedshiftParquetPageSource(ParquetReader parquetReader, Closeable closeable)
     {
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
-        this.closer = requireNonNull(closer, "closer is null");
+        closer = Closer.create();
+        closer.register(requireNonNull(closeable, "closeable is null"));
     }
 
     @Override
@@ -79,7 +79,7 @@ public class RedshiftPageSource
         }
         catch (IOException | RuntimeException e) {
             closeAllSuppress(e, this);
-            throw handleException(parquetReader.getDataSource().getId(), e);
+            throw handleException(e);
         }
 
         if (closed || page == null) {
@@ -120,7 +120,7 @@ public class RedshiftPageSource
         return parquetReader.getMetrics();
     }
 
-    static TrinoException handleException(ParquetDataSourceId dataSourceId, Exception exception)
+    static TrinoException handleException(Exception exception)
     {
         if (exception instanceof TrinoException) {
             return (TrinoException) exception;
@@ -128,6 +128,6 @@ public class RedshiftPageSource
         if (exception instanceof ParquetCorruptionException) {
             return new TrinoException(REDSHIFT_PARQUET_BAD_DATA, exception);
         }
-        return new TrinoException(REDSHIFT_PARQUET_CURSOR_ERROR, format("Failed to read Parquet file: %s", dataSourceId), exception);
+        return new TrinoException(REDSHIFT_PARQUET_CURSOR_ERROR, exception.getMessage(), exception);
     }
 }

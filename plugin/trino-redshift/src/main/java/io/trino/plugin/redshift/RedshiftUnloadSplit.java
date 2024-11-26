@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.redshift;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorSplit;
 
@@ -22,17 +20,17 @@ import java.util.Map;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
-public record RedshiftUnloadSplit(String path)
+public record RedshiftUnloadSplit(String path, long length)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(RedshiftUnloadSplit.class);
 
-    @JsonCreator
-    public RedshiftUnloadSplit(@JsonProperty("path") String path)
+    public RedshiftUnloadSplit
     {
-        this.path = requireNonNull(path, "path is null");
+        requireNonNull(path, "path is null");
     }
 
     @Override
@@ -44,6 +42,6 @@ public record RedshiftUnloadSplit(String path)
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + estimatedSizeOf(path);
+        return INSTANCE_SIZE + estimatedSizeOf(path) + sizeOf(length);
     }
 }

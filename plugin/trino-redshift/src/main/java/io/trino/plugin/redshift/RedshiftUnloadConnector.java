@@ -17,6 +17,7 @@ import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.s3.FileSystemS3;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.JdbcConnector;
 import io.trino.plugin.jdbc.JdbcTransactionManager;
@@ -32,13 +33,13 @@ import io.trino.spi.procedure.Procedure;
 import java.util.Optional;
 import java.util.Set;
 
-public class RedshiftConnector
+public class RedshiftUnloadConnector
         extends JdbcConnector
 {
     private final RedshiftPageSourceProvider pageSourceProvider;
 
     @Inject
-    public RedshiftConnector(
+    public RedshiftUnloadConnector(
             LifeCycleManager lifeCycleManager,
             ConnectorSplitManager jdbcSplitManager,
             ConnectorRecordSetProvider jdbcRecordSetProvider,
@@ -49,7 +50,8 @@ public class RedshiftConnector
             Set<SessionPropertiesProvider> sessionProperties,
             Set<TablePropertiesProvider> tableProperties,
             JdbcTransactionManager transactionManager,
-            @FileSystemS3 TrinoFileSystemFactory fileSystemFactory)
+            @FileSystemS3 TrinoFileSystemFactory fileSystemFactory,
+            FileFormatDataSourceStats fileFormatDataSourceStats)
     {
         super(
                 lifeCycleManager,
@@ -62,7 +64,7 @@ public class RedshiftConnector
                 sessionProperties,
                 tableProperties,
                 transactionManager);
-        this.pageSourceProvider = new RedshiftPageSourceProvider(jdbcRecordSetProvider, fileSystemFactory);
+        this.pageSourceProvider = new RedshiftPageSourceProvider(jdbcRecordSetProvider, fileSystemFactory, fileFormatDataSourceStats);
     }
 
     @Override

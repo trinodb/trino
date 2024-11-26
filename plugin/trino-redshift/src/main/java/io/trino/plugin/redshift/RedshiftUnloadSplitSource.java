@@ -13,88 +13,132 @@
  */
 package io.trino.plugin.redshift;
 
+import com.amazon.redshift.util.RedshiftException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoInputStream;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_FILESYSTEM_ERROR;
+import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_S3_CROSS_REGION_UNSUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public class RedshiftUnloadSplitSource
         implements ConnectorSplitSource
 {
     private static final Logger log = Logger.get(RedshiftUnloadSplitSource.class);
-    private static final String RESULT_FILES_QUERY = "SELECT rtrim(path) FROM stl_unload_log WHERE query=pg_last_query_id() ORDER BY path";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
-    private final Connection connection;
     private final CompletableFuture<Boolean> resultSetFuture;
+    private final String unloadOutputLocation;
+    private final TrinoFileSystem fileSystem;
 
+    private Optional<Location> manifestLocation;
     private boolean finished;
 
-    public RedshiftUnloadSplitSource(ExecutorService executor, Connection connection, PreparedStatement statement)
+    public RedshiftUnloadSplitSource(ExecutorService executor, Connection connection, PreparedStatement statement, String unloadOutputLocation, TrinoFileSystem fileSystem)
     {
         requireNonNull(executor, "executor is null");
-        this.connection = requireNonNull(connection, "connection is null");
         requireNonNull(statement, "statement is null");
         resultSetFuture = CompletableFuture.supplyAsync(() -> {
             log.debug("Executing: %s", statement);
             try {
+                // Exclusively set readOnly to false to avoid query failing with "ERROR: transaction is read-only".
+                connection.setReadOnly(false);
                 return statement.execute();
             }
             catch (SQLException e) {
+                if (e instanceof RedshiftException && e.getMessage().contains("ERROR: S3ServiceException:The S3 bucket addressed by the query is in a different region from this cluster")) {
+                    throw new TrinoException(REDSHIFT_S3_CROSS_REGION_UNSUPPORTED, "Redshift cluster and S3 bucket in different regions is not supported", e);
+                }
                 throw new RuntimeException(e);
             }
         }, executor);
+        this.unloadOutputLocation = requireNonNull(unloadOutputLocation, "unloadOutputLocation is null");
+        this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
     }
 
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
-        try {
-            resultSetFuture.get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
-        finished = true;
-        List<ConnectorSplit> splits = getPaths().stream()
-                .map(RedshiftUnloadSplit::new)
-                .collect(toImmutableList());
-        return CompletableFuture.completedFuture(new ConnectorSplitBatch(splits, isFinished()));
+        return resultSetFuture
+                .thenApply(_ -> {
+                    ConnectorSplitBatch connectorSplitBatch = new ConnectorSplitBatch(getUnloadedFilePaths().stream()
+                            .map(fileInfo -> (ConnectorSplit) new RedshiftUnloadSplit(fileInfo.path, fileInfo.size))
+                            .collect(toImmutableList()), true);
+                    finished = true;
+                    return connectorSplitBatch;
+                })
+                .exceptionally(e -> {
+                    throw new RuntimeException(e);
+                });
     }
 
-    private List<String> getPaths()
+    private List<FileInfo> getUnloadedFilePaths()
     {
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        ImmutableList.Builder<FileInfo> unloadedFilePaths = ImmutableList.builder();
+        manifestLocation = Optional.of(Location.of(unloadOutputLocation + "manifest"));
+        TrinoInputFile inputFile = fileSystem.newInputFile(manifestLocation.get());
+        JsonNode outputFileEntries;
         try {
-            // TODO is it worth getting transfer_size to tracking/debugging?
-            ResultSet results = connection.prepareStatement(RESULT_FILES_QUERY).executeQuery();
-            while (results.next()) {
-                builder.add(results.getString(1));
+            // manifest is not generated if unload query doesn't produce any results.
+            if (!inputFile.exists()) {
+                manifestLocation = Optional.empty();
+                return ImmutableList.of();
             }
         }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
+        catch (IOException e) {
+            throw new TrinoException(REDSHIFT_FILESYSTEM_ERROR, e);
         }
-        return builder.build();
+        try (TrinoInputStream inputStream = inputFile.newStream()) {
+            byte[] manifestContent = inputStream.readAllBytes();
+            outputFileEntries = OBJECT_MAPPER.readTree(manifestContent).path("entries");
+        }
+        catch (IOException e) {
+            throw new TrinoException(REDSHIFT_FILESYSTEM_ERROR, e);
+        }
+        outputFileEntries.elements()
+                .forEachRemaining(fileInfo -> unloadedFilePaths.add(new FileInfo(fileInfo.get("url").asText(), fileInfo.get("meta").get("content_length").longValue())));
+        return unloadedFilePaths.build();
     }
 
     @Override
-    public void close() {}
+    public void close()
+    {
+        resultSetFuture.cancel(true);
+        if (manifestLocation.isPresent()) {
+            try {
+                fileSystem.deleteFile(manifestLocation.get());
+            }
+            catch (IOException e) {
+                log.debug(e, "Failed to delete manifest file");
+            }
+        }
+    }
 
     @Override
     public boolean isFinished()
     {
         return finished;
     }
+
+    private record FileInfo(String path, long size) {}
 }

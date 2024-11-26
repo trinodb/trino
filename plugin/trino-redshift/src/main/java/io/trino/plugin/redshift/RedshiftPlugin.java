@@ -20,6 +20,8 @@ import io.trino.spi.connector.ConnectorFactory;
 public class RedshiftPlugin
         implements Plugin
 {
+    public static final String REDSHIFT = "redshift";
+
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {

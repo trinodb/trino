@@ -28,7 +28,7 @@ import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 public class RedshiftSessionProperties
         implements SessionPropertiesProvider
 {
-    private static final String USE_UNLOAD = "use_unload";
+    private static final String UNLOAD_ENABLED = "unload_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -37,7 +37,7 @@ public class RedshiftSessionProperties
     {
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(booleanProperty(
-                        USE_UNLOAD,
+                        UNLOAD_ENABLED,
                         "Use UNLOAD for reading query results",
                         config.getUnloadLocation().isPresent(),
                         value -> {
@@ -55,8 +55,8 @@ public class RedshiftSessionProperties
         return sessionProperties;
     }
 
-    public static boolean useUnload(ConnectorSession session)
+    public static boolean unloadEnabled(ConnectorSession session)
     {
-        return session.getProperty(USE_UNLOAD, Boolean.class);
+        return session.getProperty(UNLOAD_ENABLED, Boolean.class);
     }
 }
