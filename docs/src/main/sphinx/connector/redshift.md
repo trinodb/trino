@@ -64,6 +64,32 @@ documentation](https://docs.aws.amazon.com/redshift/latest/mgmt/jdbc20-configura
 ```{include} jdbc-authentication.fragment
 ```
 
+### UNLOAD configuration
+
+The connector brings parallelism by converting Trino query to corresponding 
+Redshift `UNLOAD` command to unload query results on to the S3 bucket in the 
+form of Parquet files and reading these Parquet files from S3 bucket. Parquet 
+files will be removed as Trino query finishes. Additionally, it's preferable to 
+define a custom life cycle policy on S3 bucket.
+This feature intends to bring query results faster compared to the default JDBC 
+approach when fetching large query result set from Redshift.
+
+The following table describes configuration properties for using 
+`UNLOAD` command in Redshift connector:
+
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - ``redshift.unload-location``
+  - A writeable location in Amazon S3, to be used for temporarily unloading Redshift query results.
+* - ``redshift.unload-iam-role``
+  - Fully specified ARN of the IAM Role attached to the Redshift cluster. Provided role will be used
+    in `UNLOAD` command.
+:::
+
 ### Multiple Redshift databases or clusters
 
 The Redshift connector can only access a single database within

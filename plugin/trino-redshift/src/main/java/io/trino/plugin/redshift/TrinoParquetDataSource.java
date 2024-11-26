@@ -19,18 +19,24 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.AbstractParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 
 import java.io.IOException;
 
+import static java.util.Objects.requireNonNull;
+
+// Copied as-is from io.trino.plugin.hive.parquet.TrinoParquetDataSource
 public class TrinoParquetDataSource
         extends AbstractParquetDataSource
 {
+    private final FileFormatDataSourceStats stats;
     private final TrinoInput input;
 
-    public TrinoParquetDataSource(TrinoInputFile file, ParquetReaderOptions options)
+    public TrinoParquetDataSource(TrinoInputFile file, ParquetReaderOptions options, FileFormatDataSourceStats stats)
             throws IOException
     {
         super(new ParquetDataSourceId(file.location().toString()), file.length(), options);
+        this.stats = requireNonNull(stats, "stats is null");
         this.input = file.newInput();
     }
 
@@ -45,13 +51,18 @@ public class TrinoParquetDataSource
     protected Slice readTailInternal(int length)
             throws IOException
     {
-        return input.readTail(length);
+        long readStart = System.nanoTime();
+        Slice tail = input.readTail(length);
+        stats.readDataBytesPerSecond(tail.length(), System.nanoTime() - readStart);
+        return tail;
     }
 
     @Override
     protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException
     {
+        long readStart = System.nanoTime();
         input.readFully(position, buffer, bufferOffset, bufferLength);
+        stats.readDataBytesPerSecond(bufferLength, System.nanoTime() - readStart);
     }
 }

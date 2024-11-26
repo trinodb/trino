@@ -30,6 +30,7 @@ import io.trino.spi.type.TypeManager;
 import java.util.Map;
 
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
+import static io.trino.plugin.redshift.RedshiftPlugin.REDSHIFT;
 import static java.util.Objects.requireNonNull;
 
 public class RedshiftConnectorFactory
@@ -38,7 +39,7 @@ public class RedshiftConnectorFactory
     @Override
     public String getName()
     {
-        return "redshift";
+        return REDSHIFT;
     }
 
     @Override
@@ -63,6 +64,6 @@ public class RedshiftConnectorFactory
                 .setRequiredConfigurationProperties(requiredConfig)
                 .initialize();
 
-        return injector.getInstance(RedshiftConnector.class);
+        return injector.getInstance(Connector.class);
     }
 }

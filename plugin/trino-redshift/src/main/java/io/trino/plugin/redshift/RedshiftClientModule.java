@@ -22,6 +22,7 @@ import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.s3.S3FileSystemModule;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
@@ -29,6 +30,7 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcConnector;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcSplitManager;
@@ -36,6 +38,7 @@ import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.RemoteQueryCancellationModule;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.function.table.ConnectorTableFunction;
 
@@ -65,17 +68,17 @@ public class RedshiftClientModule
         install(new JdbcJoinPushdownSupportModule());
         install(new RemoteQueryCancellationModule());
 
-        binder.bind(RedshiftConnector.class).in(Scopes.SINGLETON);
-
         install(conditionalModule(
                 RedshiftConfig.class,
                 config -> config.getUnloadLocation().isPresent(),
                 unloadBinder -> {
                     install(new S3FileSystemModule());
                     unloadBinder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
+                    unloadBinder.bind(Connector.class).to(RedshiftUnloadConnector.class).in(Scopes.SINGLETON);
+                    unloadBinder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
                     newOptionalBinder(unloadBinder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class))
-                            .setBinding().to(RedshiftUnloadSplitManager.class).in(SINGLETON);
-                }));
+                            .setBinding().to(RedshiftSplitManager.class).in(SINGLETON);
+                }, otherBinder -> otherBinder.bind(Connector.class).to(JdbcConnector.class).in(Scopes.SINGLETON)));
     }
 
     @Singleton

@@ -16,9 +16,13 @@ package io.trino.plugin.redshift;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 
 import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkState;
 
 @DefunctConfig({
         "redshift.disable-automatic-fetch-size",
@@ -29,8 +33,7 @@ public class RedshiftConfig
     private Integer fetchSize;
 
     private String unloadLocation;
-    private String unloadOptions;
-    private String iamRole;
+    private String unloadIamRole;
 
     public Optional<@Min(0) Integer> getFetchSize()
     {
@@ -45,7 +48,7 @@ public class RedshiftConfig
         return this;
     }
 
-    public Optional<String> getUnloadLocation()
+    public Optional<@Pattern(regexp = "^s3://[a-z0-9][a-z0-9.-]*(?:/[a-z0-9._/-]+)?$", message = "Invalid S3 unload path") String> getUnloadLocation()
     {
         return Optional.ofNullable(unloadLocation);
     }
@@ -58,29 +61,23 @@ public class RedshiftConfig
         return this;
     }
 
-    public Optional<String> getUnloadOptions()
+    public Optional<String> getUnloadIamRole()
     {
-        return Optional.ofNullable(unloadOptions);
+        return Optional.ofNullable(unloadIamRole);
     }
 
-    @Config("redshift.unload-options")
-    @ConfigDescription("Extra options to append to the Redshift UNLOAD command")
-    public RedshiftConfig setUnloadOptions(String unloadOptions)
-    {
-        this.unloadOptions = unloadOptions;
-        return this;
-    }
-
-    public Optional<String> getIamRole()
-    {
-        return Optional.ofNullable(iamRole);
-    }
-
-    @Config("redshift.iam-role")
+    @Config("redshift.unload-iam-role")
     @ConfigDescription("Fully specified ARN of the IAM Role attached to the Redshift cluster")
-    public RedshiftConfig setIamRole(String iamRole)
+    public RedshiftConfig setUnloadIamRole(String unloadIamRole)
     {
-        this.iamRole = iamRole;
+        this.unloadIamRole = unloadIamRole;
         return this;
+    }
+
+    @PostConstruct
+    public void validate()
+    {
+        checkState(getUnloadIamRole().isPresent() == getUnloadLocation().isPresent(),
+                "Either 'redshift.unload-iam-role' and 'redshift.unload-location' must be set or both of them must not be set");
     }
 }

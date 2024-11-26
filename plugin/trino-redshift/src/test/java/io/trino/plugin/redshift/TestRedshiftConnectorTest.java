@@ -13,23 +13,48 @@
  */
 package io.trino.plugin.redshift;
 
+import com.amazon.redshift.Driver;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
+import io.trino.filesystem.s3.S3FileSystemConfig;
+import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemStats;
+import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.plugin.jdbc.DefaultQueryBuilder;
+import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcDynamicFilteringConfig;
+import io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties;
+import io.trino.plugin.jdbc.JdbcSplit;
+import io.trino.plugin.jdbc.JdbcSplitManager;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent.Status;
 import io.trino.plugin.jdbc.RemoteLogTracingEvent;
+import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.credential.ExtraCredentialProvider;
+import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.Constraint;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.Handle;
@@ -42,6 +67,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -52,6 +79,10 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.jdbc.logging.RemoteQueryModifier.NONE;
+import static io.trino.plugin.redshift.RedshiftQueryRunner.AWS_ACCESS_KEY;
+import static io.trino.plugin.redshift.RedshiftQueryRunner.AWS_REGION;
+import static io.trino.plugin.redshift.RedshiftQueryRunner.AWS_SECRET_KEY;
 import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_PASSWORD;
 import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_URL;
 import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_USER;
@@ -78,10 +109,15 @@ public class TestRedshiftConnectorTest
 
     private final RemoteDatabaseEventMonitor remoteDatabaseEventMonitor = new RemoteDatabaseEventMonitor();
 
+    protected RedshiftConfig redshiftJdbcConfig;
+    protected RedshiftSplitManager redshiftSplitManager;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        redshiftJdbcConfig = new RedshiftConfig();
+        redshiftSplitManager = createSplitManager();
         return RedshiftQueryRunner.builder()
                 // NOTE this can cause tests to time-out if larger tables like
                 //  lineitem and orders need to be re-created.
@@ -113,6 +149,60 @@ public class TestRedshiftConnectorTest
                  SUPPORTS_SET_COLUMN_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    protected RedshiftSplitManager createSplitManager()
+    {
+        DriverConnectionFactory driverConnectionFactory = DriverConnectionFactory.builder(new Driver(), JDBC_URL, new ExtraCredentialProvider(Optional.empty(), Optional.empty(), new StaticCredentialProvider(Optional.of(JDBC_USER), Optional.of(JDBC_PASSWORD))))
+                .build();
+        RedshiftClient redshiftClient = new RedshiftClient(
+                new BaseJdbcConfig().setConnectionUrl(JDBC_URL),
+                redshiftJdbcConfig,
+                driverConnectionFactory,
+                new JdbcStatisticsConfig(),
+                new DefaultQueryBuilder(NONE),
+                new DefaultIdentifierMapping(),
+                NONE);
+
+        return new RedshiftSplitManager(
+                redshiftClient,
+                new DefaultQueryBuilder(NONE),
+                NONE,
+                new JdbcSplitManager(redshiftClient),
+                redshiftJdbcConfig,
+                new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
+                        .setAwsAccessKey(AWS_ACCESS_KEY)
+                        .setAwsSecretKey(AWS_SECRET_KEY)
+                        .setRegion(AWS_REGION)
+                        .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats()),
+                Executors.newFixedThreadPool(1));
+    }
+
+    @Test
+    void testJdbcFlow()
+            throws ExecutionException, InterruptedException
+    {
+        SchemaTableName schemaTableName = new SchemaTableName(TEST_SCHEMA, "nation");
+        JdbcTableHandle table = new JdbcTableHandle(schemaTableName, new RemoteTableName(Optional.of(TEST_DATABASE), Optional.of(TEST_SCHEMA), "nation"), Optional.empty());
+        ConnectorSession session = createUnloadSession();
+        try (ConnectorSplitSource splitSource = redshiftSplitManager.getSplits(null, session, table, DynamicFilter.EMPTY, Constraint.alwaysTrue())) {
+            assertThat(splitSource).isInstanceOf(FixedSplitSource.class);
+            ConnectorSplitSource.ConnectorSplitBatch connectorSplitBatch = splitSource.getNextBatch(2).get();
+            assertThat(connectorSplitBatch.getSplits()).hasSize(1);
+            assertThat(connectorSplitBatch.getSplits()).allMatch(split -> split instanceof JdbcSplit);
+            assertThat(connectorSplitBatch.isNoMoreSplits()).isTrue();
+        }
+    }
+
+    protected ConnectorSession createUnloadSession()
+    {
+        return TestingConnectorSession.builder()
+                .setPropertyMetadata(
+                        Stream.concat(
+                                        new JdbcDynamicFilteringSessionProperties(new JdbcDynamicFilteringConfig()).getSessionProperties().stream(),
+                                        new RedshiftSessionProperties(redshiftJdbcConfig).getSessionProperties().stream())
+                                .toList())
+                .build();
     }
 
     @Test
