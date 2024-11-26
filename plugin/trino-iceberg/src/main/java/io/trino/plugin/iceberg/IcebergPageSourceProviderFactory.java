@@ -16,7 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.inject.Inject;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.ConnectorPageSourceProvider;

@@ -18,7 +18,7 @@ import com.google.common.io.Resources;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.local.LocalInputFile;
 import io.trino.orc.OrcReaderOptions;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
