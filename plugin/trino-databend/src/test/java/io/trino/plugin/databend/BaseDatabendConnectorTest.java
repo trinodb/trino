@@ -1,3 +1,16 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.databend;
 
 import io.trino.Session;
@@ -5,6 +18,8 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.datatype.CreateAndInsertDataSetup;
+import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
@@ -14,7 +29,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -247,6 +261,40 @@ public abstract class BaseDatabendConnectorTest
             assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą%'"))
                     .isFullyPushedDown();
         }
+    }
+    private DataSetup databendCreateAndInsert(String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new DatabendSqlExecutor(onRemoteDatabase()), tableNamePrefix);
+    }
+    @Test
+    public void testDatabendNullPushdown()
+    {
+        Session mapStringAsVarbinary = Session.builder(getSession())
+                .setCatalogSessionProperty("databend", "connection_timeout", "60")
+                .build();
+
+        TestNullPushdownDataType.connectorExpressionOnly()
+                .addSpecialColumn("String", "'z'", "CAST('z' AS varchar)")
+                .addTestCase("Nullable(decimal(3, 1))")
+                .addTestCase("Nullable(decimal(30, 5))")
+                .execute(getQueryRunner(), databendCreateAndInsert("tpch.test_is_null"));
+
+        TestNullPushdownDataType.create()
+                .addSpecialColumn("String", "'z'", "CAST('z' AS varchar)")
+                .addTestCase("Nullable(tinyint)")
+                .addTestCase("Nullable(smallint)")
+                .addTestCase("Nullable(integer)")
+                .addTestCase("Nullable(bigint)")
+                .addTestCase("Nullable(UInt8)")
+                .addTestCase("Nullable(UInt16)")
+                .addTestCase("Nullable(UInt32)")
+                .addTestCase("Nullable(UInt64)")
+                .addTestCase("Nullable(double)")
+                .addTestCase("Nullable(varchar(30))")
+                .addTestCase("Nullable(String)")
+                .addTestCase("Nullable(date)")
+                .addTestCase("Nullable(datetime)")
+                .execute(getQueryRunner(), databendCreateAndInsert("tpch.test_is_null"));
     }
 
     @Test
