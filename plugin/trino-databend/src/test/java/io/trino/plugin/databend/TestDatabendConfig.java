@@ -16,7 +16,6 @@ package io.trino.plugin.databend;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
-import java.time.Duration;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -28,15 +27,15 @@ public class TestDatabendConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(DatabendConfig.class).setConnectionTimeout(Duration.ofSeconds(10)));
+        assertRecordedDefaults(recordDefaults(DatabendConfig.class).setConnectionTimeout("10"));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder().put("databend.connection-timeout", Duration.ofSeconds(60).toString()).buildOrThrow();
+        Map<String, String> properties = ImmutableMap.<String, String>builder().put("databend.connection-timeout", "60").buildOrThrow();
 
-        DatabendConfig expected = new DatabendConfig().setConnectionTimeout(Duration.ofSeconds(60));
+        DatabendConfig expected = new DatabendConfig().setConnectionTimeout("60");
 
         assertFullMapping(properties, expected);
     }

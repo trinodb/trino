@@ -68,8 +68,9 @@ public class DatabendClientModule
     {
         Properties connectionProperties = new Properties();
         if (databendConfig.getConnectionTimeout() != null) {
-            connectionProperties.setProperty("connectTimeout", String.valueOf(databendConfig.getConnectionTimeout().toMillis()));
+            connectionProperties.setProperty("connectTimeout", String.valueOf(databendConfig.getConnectionTimeout()));
         }
+        connectionProperties.setProperty("presigned_url_disabled", String.valueOf(databendConfig.getPresignedUrlDisabled()));
         return connectionProperties;
     }
 }
