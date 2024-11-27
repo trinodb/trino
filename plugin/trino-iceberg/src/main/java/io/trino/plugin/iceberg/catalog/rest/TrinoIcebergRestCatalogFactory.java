@@ -54,7 +54,6 @@ public class TrinoIcebergRestCatalogFactory
     private final URI serverUri;
     private final Optional<String> prefix;
     private final Optional<String> warehouse;
-    private final Namespace parentNamespace;
     private final boolean nestedNamespaceEnabled;
     private final SessionType sessionType;
     private final boolean vendedCredentialsEnabled;
@@ -85,7 +84,6 @@ public class TrinoIcebergRestCatalogFactory
         this.serverUri = restConfig.getBaseUri();
         this.prefix = restConfig.getPrefix();
         this.warehouse = restConfig.getWarehouse();
-        this.parentNamespace = restConfig.getParentNamespace();
         this.nestedNamespaceEnabled = restConfig.isNestedNamespaceEnabled();
         this.sessionType = restConfig.getSessionType();
         this.vendedCredentialsEnabled = restConfig.isVendedCredentialsEnabled();
@@ -144,7 +142,6 @@ public class TrinoIcebergRestCatalogFactory
                 catalogName,
                 sessionType,
                 credentials,
-                parentNamespace,
                 nestedNamespaceEnabled,
                 trinoVersion,
                 typeManager,
