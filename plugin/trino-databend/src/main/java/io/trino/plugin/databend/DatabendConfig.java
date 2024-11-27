@@ -28,7 +28,7 @@ public class DatabendConfig
         return connectionTimeout;
     }
 
-    @Config("databend.connection_timeout")
+    @Config("databend.connection-timeout")
     public DatabendConfig setConnectionTimeout(Duration connectionTimeout)
     {
         this.connectionTimeout = connectionTimeout;
