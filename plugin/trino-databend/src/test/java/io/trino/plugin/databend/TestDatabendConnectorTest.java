@@ -15,8 +15,6 @@ package io.trino.plugin.databend;
 
 import io.trino.testing.QueryRunner;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 public class TestDatabendConnectorTest
         extends BaseDatabendConnectorTest
 {
