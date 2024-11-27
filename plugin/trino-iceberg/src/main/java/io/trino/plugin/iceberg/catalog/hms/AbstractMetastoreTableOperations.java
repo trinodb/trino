@@ -16,14 +16,13 @@ package io.trino.plugin.iceberg.catalog.hms;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
-import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
+import io.trino.plugin.iceberg.CreateTableException;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.io.FileIO;
@@ -124,10 +123,11 @@ public abstract class AbstractMetastoreTableOperations
         try {
             metastore.createTable(table, privileges);
         }
-        catch (SchemaNotFoundException | TableAlreadyExistsException e) {
-            // clean up metadata files corresponding to the current transaction
+        catch (Exception e) {
+            // clean up metadata file corresponding to the current transaction
             fileIo.deleteFile(newMetadataLocation);
-            throw e;
+            // wrap exception in CleanableFailure to ensure that manifest list Avro files are also cleaned up
+            throw new CreateTableException(e, getSchemaTableName());
         }
     }
 
