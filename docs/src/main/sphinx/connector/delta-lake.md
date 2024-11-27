@@ -198,6 +198,10 @@ values. Typical usage does not require you to configure them.
 * - `delta.deletion-vectors-enabled`
   - Set to `true` for enabling deletion vectors by default when creating new tables.
   - `false`
+* - `delta.metadata.parallelism`
+  - Number of threads used for retrieving metadata. Currently, only table loading 
+    is parallelized.
+  - `8`
 :::
 
 ### Catalog session properties

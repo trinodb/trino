@@ -66,6 +66,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.jdbc.JdbcMetadata.getColumns;
 import static io.trino.plugin.phoenix5.MetadataUtil.getEscapedTableName;
 import static io.trino.plugin.phoenix5.MetadataUtil.toTrinoSchemaName;
@@ -330,7 +331,7 @@ public class PhoenixMetadata
     }
 
     @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateColumnHandles, RetryMode retryMode)
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         checkArgument(handle.isNamedRelation(), "Merge target must be named relation table");
@@ -350,11 +351,23 @@ public class PhoenixMetadata
             primaryKeysDomainBuilder.put(columnHandle, dummy);
         }
 
+        ImmutableMap.Builder<Integer, Set<Integer>> updateColumnChannelsBuilder = ImmutableMap.builder();
+        for (Map.Entry<Integer, Collection<ColumnHandle>> entry : updateColumnHandles.entrySet()) {
+            int caseNumber = entry.getKey();
+            Set<Integer> updateColumnChannels = entry.getValue().stream()
+                    .map(JdbcColumnHandle.class::cast)
+                    .peek(column -> checkArgument(columns.contains(column), "update column %s not found in the target table", column))
+                    .map(columns::indexOf)
+                    .collect(toImmutableSet());
+            updateColumnChannelsBuilder.put(caseNumber, updateColumnChannels);
+        }
+
         return new PhoenixMergeTableHandle(
                 phoenixClient.updatedScanColumnTable(session, handle, handle.getColumns(), mergeRowIdColumnHandle),
                 phoenixOutputTableHandle,
                 mergeRowIdColumnHandle,
-                TupleDomain.withColumnDomains(primaryKeysDomainBuilder.buildOrThrow()));
+                TupleDomain.withColumnDomains(primaryKeysDomainBuilder.buildOrThrow()),
+                updateColumnChannelsBuilder.buildOrThrow());
     }
 
     @Override

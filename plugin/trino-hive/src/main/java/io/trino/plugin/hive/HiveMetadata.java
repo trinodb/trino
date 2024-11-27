@@ -152,6 +152,9 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -177,6 +180,7 @@ import static io.trino.metastore.type.Category.PRIMITIVE;
 import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
+import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getPartitionList;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.find;
@@ -408,6 +412,7 @@ public class HiveMetadata
     private final boolean allowTableRename;
     private final long maxPartitionDropsPerQuery;
     private final HiveTimestampPrecision hiveViewsTimestampPrecision;
+    private final Executor metadataFetchingExecutor;
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -434,7 +439,8 @@ public class HiveMetadata
             boolean partitionProjectionEnabled,
             boolean allowTableRename,
             long maxPartitionDropsPerQuery,
-            HiveTimestampPrecision hiveViewsTimestampPrecision)
+            HiveTimestampPrecision hiveViewsTimestampPrecision,
+            Executor metadataFetchingExecutor)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -461,6 +467,7 @@ public class HiveMetadata
         this.allowTableRename = allowTableRename;
         this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
         this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
+        this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
     }
 
     @Override
@@ -814,25 +821,30 @@ public class HiveMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> optionalSchemaName)
     {
-        ImmutableSet.Builder<SchemaTableName> tableNames = ImmutableSet.builder();
-        for (String schemaName : listSchemas(session, optionalSchemaName)) {
-            for (TableInfo tableInfo : metastore.getTables(schemaName)) {
-                tableNames.add(tableInfo.tableName());
-            }
-        }
-        return tableNames.build().asList();
+        return streamTables(session, optionalSchemaName)
+                .map(TableInfo::tableName)
+                .collect(toImmutableList());
     }
 
     @Override
     public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> optionalSchemaName)
     {
-        ImmutableMap.Builder<SchemaTableName, RelationType> result = ImmutableMap.builder();
-        for (String schemaName : listSchemas(session, optionalSchemaName)) {
-            for (TableInfo tableInfo : metastore.getTables(schemaName)) {
-                result.put(tableInfo.tableName(), tableInfo.extendedRelationType().toRelationType());
-            }
+        return streamTables(session, optionalSchemaName)
+                .collect(toImmutableMap(TableInfo::tableName, tableInfo -> tableInfo.extendedRelationType().toRelationType(), (ignore, second) -> second));
+    }
+
+    private Stream<TableInfo> streamTables(ConnectorSession session, Optional<String> optionalSchemaName)
+    {
+        List<Callable<List<TableInfo>>> tasks = listSchemas(session, optionalSchemaName).stream()
+                .map(schemaName -> (Callable<List<TableInfo>>) () -> metastore.getTables(schemaName))
+                .collect(toImmutableList());
+        try {
+            return processWithAdditionalThreads(tasks, metadataFetchingExecutor).stream()
+                    .flatMap(Collection::stream);
         }
-        return result.buildKeepingLast();
+        catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause());
+        }
     }
 
     private List<String> listSchemas(ConnectorSession session, Optional<String> schemaName)

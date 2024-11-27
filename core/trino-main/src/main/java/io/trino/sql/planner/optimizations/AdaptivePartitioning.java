@@ -115,8 +115,8 @@ public class AdaptivePartitioning
                     partitionedInputBytes.stream().mapToLong(Long::longValue).sum() - Collections.min(partitionedInputBytes);
 
             if (estimatedMemoryConsumptionInBytes > runtimeAdaptivePartitioningMaxTaskSizeInBytes * partitionCount) {
-                log.info("Stage %s has an estimated memory consumption of %s, changing partition count from %s to %s",
-                        fragment.getId(), succinctBytes(estimatedMemoryConsumptionInBytes), partitionCount, runtimeAdaptivePartitioningPartitionCount);
+                log.info("Stage %s.%s has an estimated memory consumption of %s, changing partition count from %s to %s",
+                        context.session().getQueryId(), fragment.getId(), succinctBytes(estimatedMemoryConsumptionInBytes), partitionCount, runtimeAdaptivePartitioningPartitionCount);
                 Rewriter rewriter = new Rewriter(runtimeAdaptivePartitioningPartitionCount, context.idAllocator(), runtimeInfoProvider);
                 PlanNode planNode = rewriteWith(rewriter, plan);
                 return new Result(planNode, rewriter.getChangedPlanIds());

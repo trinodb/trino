@@ -851,7 +851,7 @@ class StatementAnalyzer
             analyzeCheckConstraints(table, tableName, accessControlScope, tableSchema.tableSchema().getCheckConstraints());
             analysis.registerTable(table, Optional.of(handle), tableName, session.getIdentity().getUser(), accessControlScope, Optional.empty());
 
-            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of());
+            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(), ImmutableMultimap.of());
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -3482,7 +3482,10 @@ class StatementAnalyzer
                                     sourceColumnsByColumnName.getOrDefault(column.getName(), ImmutableSet.of())))
                             .collect(toImmutableList())));
 
-            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles));
+            ImmutableMultimap.Builder<Integer, ColumnHandle> updateCaseColumnsBuilder = ImmutableMultimap.builder();
+            // Update only have one update case number which default is 0
+            updatedColumnHandles.forEach(columnHandle -> updateCaseColumnsBuilder.put(0, columnHandle));
+            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles), updateCaseColumnsBuilder.build());
 
             return createAndAssignScope(update, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -3645,12 +3648,32 @@ class StatementAnalyzer
             analysis.setUpdateTarget(targetTableHandle.catalogHandle().getVersion(), tableName, Optional.of(table), Optional.of(updatedColumns));
             List<List<ColumnHandle>> mergeCaseColumnHandles = buildCaseColumnLists(merge, dataColumnSchemas, allColumnHandles);
 
-            createMergeAnalysis(table, targetTableHandle, tableSchema, targetTableScope, joinScope, mergeCaseColumnHandles);
+            checkArgument(
+                    mergeCaseColumnHandles.size() == merge.getMergeCases().size(),
+                    "Unexpected mergeCaseColumnHandles size: %s with merge cases size: %s", mergeCaseColumnHandles.size(), merge.getMergeCases().size());
+            ImmutableMultimap.Builder<Integer, ColumnHandle> updateCaseColumnHandles = ImmutableMultimap.builder();
+            for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
+                MergeCase mergeCase = merge.getMergeCases().get(caseCounter);
+                if (mergeCase instanceof MergeUpdate) {
+                    for (ColumnHandle columnHandle : mergeCaseColumnHandles.get(caseCounter)) {
+                        updateCaseColumnHandles.put(caseCounter, columnHandle);
+                    }
+                }
+            }
+
+            createMergeAnalysis(table, targetTableHandle, tableSchema, targetTableScope, joinScope, mergeCaseColumnHandles, updateCaseColumnHandles.build());
 
             return createAndAssignScope(merge, Optional.empty(), Field.newUnqualified("rows", BIGINT));
         }
 
-        private void createMergeAnalysis(Table table, TableHandle handle, TableSchema tableSchema, Scope tableScope, Scope joinScope, List<List<ColumnHandle>> updatedColumns)
+        private void createMergeAnalysis(
+                Table table,
+                TableHandle handle,
+                TableSchema tableSchema,
+                Scope tableScope,
+                Scope joinScope,
+                List<List<ColumnHandle>> mergeCaseColumns,
+                Multimap<Integer, ColumnHandle> updateCaseColumns)
         {
             Optional<PartitioningHandle> updateLayout = metadata.getUpdateLayout(session, handle);
             Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, handle);
@@ -3713,7 +3736,8 @@ class StatementAnalyzer
                     dataColumnSchemas,
                     dataColumnHandles,
                     redistributionColumnHandles,
-                    updatedColumns,
+                    mergeCaseColumns,
+                    updateCaseColumns,
                     nonNullableColumnHandles,
                     columnHandleFieldNumbers,
                     mergeRowType,

@@ -111,7 +111,7 @@ public class BigQueryRpcConfig
     }
 
     @Min(0)
-    @Max(1024)
+    @Max(16)
     public int getRetries()
     {
         return retries;
@@ -126,7 +126,7 @@ public class BigQueryRpcConfig
     }
 
     @MinDuration("0s")
-    @MaxDuration("30m")
+    @MaxDuration("1m")
     public Duration getTimeout()
     {
         return timeout;
@@ -141,7 +141,7 @@ public class BigQueryRpcConfig
     }
 
     @MinDuration("0s")
-    @MaxDuration("1m")
+    @MaxDuration("30s")
     public Duration getRetryDelay()
     {
         return retryDelay;

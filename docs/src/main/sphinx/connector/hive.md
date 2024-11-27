@@ -291,6 +291,10 @@ Hive connector documentation.
   - Enables auto-commit for all writes. This can be used to disallow
     multi-statement write transactions.
   - `false`
+* - `hive.metadata.parallelism`
+  - Number of threads used for retrieving metadata. Currently, only table loading
+    is parallelized.
+  - `8`
 :::
 
 (hive-file-system-configuration)=

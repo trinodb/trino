@@ -207,11 +207,11 @@ public class KuduPageSink
     @Override
     public void storeMergedRows(Page page)
     {
-        // The last channel in the page is the rowId block, the next-to-last is the operation block
+        // The last channel in the page is the rowId block, the next-to-last is the case number block, then the next is operation block
         int columnCount = originalColumnTypes.size();
-        checkArgument(page.getChannelCount() == 2 + columnCount, "The page size should be 2 + columnCount (%s), but is %s", columnCount, page.getChannelCount());
+        checkArgument(page.getChannelCount() == 3 + columnCount, "The page size should be 3 + columnCount (%s), but is %s", columnCount, page.getChannelCount());
         Block operationBlock = page.getBlock(columnCount);
-        Block rowIds = page.getBlock(columnCount + 1);
+        Block rowIds = page.getBlock(columnCount + 2);
 
         Schema schema = table.getSchema();
         try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientSession(session)) {

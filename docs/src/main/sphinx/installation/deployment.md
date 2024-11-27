@@ -42,12 +42,6 @@ We recommend using the Eclipse Temurin OpenJDK distribution from
 against that distribution. Eclipse Temurin is also the JDK used by the [Trino
 Docker image](https://hub.docker.com/r/trinodb/trino).
 
-(requirements-python)=
-### Python
-
-- version 2.6.x, 2.7.x, or 3.x
-- required by the `bin/launcher` script only
-
 ## Installing Trino
 
 Download the Trino server tarball, {maven_download}`server`, and unpack it. The
@@ -139,8 +133,6 @@ The following provides a good starting point for creating `etc/jvm.config`:
 -Dfile.encoding=UTF-8
 # Allow loading dynamic agent used by JOL
 -XX:+EnableDynamicAgentLoading
-# https://bugs.openjdk.org/browse/JDK-8327134
--Djava.security.manager=allow
 ```
 
 You must adjust the value for the memory used by Trino, specified with `-Xmx`
@@ -295,9 +287,8 @@ See {doc}`/connector` for more information about configuring catalogs.
 (running-trino)=
 ## Running Trino
 
-The installation provides a `bin/launcher` script, which requires Python in
-the `PATH`. The script can be used manually or as a daemon startup script. It
-accepts the following commands:
+The installation provides a `bin/launcher` script that can be used manually 
+or as a daemon startup script. It accepts the following commands:
 
 :::{list-table} `launcher` commands
 :widths: 15, 85

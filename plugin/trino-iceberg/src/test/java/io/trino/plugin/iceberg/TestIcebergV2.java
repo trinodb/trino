@@ -183,6 +183,46 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testSetPropertiesObjectStoreLayoutEnabled()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_object_store", "(x int) WITH (object_store_layout_enabled = false)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("object_store_layout_enabled");
+            assertThat(loadTable(table.getName()).properties())
+                    .doesNotContainKey("write.object-storage.enabled");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES object_store_layout_enabled = true");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("object_store_layout_enabled = true");
+            assertThat(loadTable(table.getName()).properties())
+                    .containsEntry("write.object-storage.enabled", "true");
+        }
+    }
+
+    @Test
+    public void testSetPropertiesDataLocation()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_data_location", "(x int)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("data_location =");
+            assertThat(loadTable(table.getName()).properties())
+                    .doesNotContainKey("write.data.path");
+
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES data_location = 'local:///data-location'",
+                    "Data location can only be set when object store layout is enabled");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES object_store_layout_enabled = true, data_location = 'local:///data-location'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("object_store_layout_enabled = true")
+                    .contains("data_location = 'local:///data-location'");
+            assertThat(loadTable(table.getName()).properties())
+                    .containsEntry("write.object-storage.enabled", "true")
+                    .containsEntry("write.data.path", "local:///data-location");
+        }
+    }
+
+    @Test
     public void testV2TableRead()
     {
         String tableName = "test_v2_table_read" + randomNameSuffix();
@@ -1424,6 +1464,31 @@ public class TestIcebergV2
                 "ARRAY['hour(\"grandparent.parent.ts\")']",
                 ".*?(grandparent\\.parent\\.ts_hour=.*/).*",
                 ImmutableSet.of("grandparent.parent.ts_hour=2021-01-01-01/", "grandparent.parent.ts_hour=2022-02-02-02/", "grandparent.parent.ts_hour=2023-03-03-03/"));
+    }
+
+    @Test
+    void testMapValueSchemaChange()
+    {
+        testMapValueSchemaChange("PARQUET", "map(array[1], array[NULL])");
+        testMapValueSchemaChange("ORC", "map(array[1], array[row(NULL)])");
+        testMapValueSchemaChange("AVRO", "NULL");
+    }
+
+    private void testMapValueSchemaChange(String format, String expectedValue)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_map_value_schema_change",
+                "WITH (format = '" + format + "') AS SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(field integer))) col")) {
+            Table icebergTable = loadTable(table.getName());
+            icebergTable.updateSchema()
+                    .addColumn("col.value", "new_field", Types.IntegerType.get())
+                    .deleteColumn("col.value.field")
+                    .commit();
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .as("Format: %s", format)
+                    .matches("SELECT CAST(" + expectedValue + " AS map(integer, row(new_field integer)))");
+        }
     }
 
     @Test

@@ -392,7 +392,7 @@ public class DefaultQueryBuilder
         return String.join(", ", projections);
     }
 
-    private String getFrom(JdbcClient client, JdbcRelationHandle baseRelation, Consumer<QueryParameter> accumulator)
+    protected String getFrom(JdbcClient client, JdbcRelationHandle baseRelation, Consumer<QueryParameter> accumulator)
     {
         if (baseRelation instanceof JdbcNamedRelationHandle) {
             return " FROM " + getRelation(client, ((JdbcNamedRelationHandle) baseRelation).getRemoteTableName());

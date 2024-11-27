@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>465-SNAPSHOT</version>
+    <version>466-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -101,6 +101,7 @@
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>
+        <module>plugin/trino-ranger</module>
         <module>plugin/trino-redis</module>
         <module>plugin/trino-redshift</module>
         <module>plugin/trino-resource-group-managers</module>
@@ -146,7 +147,7 @@
     <properties>
         <project.build.targetJdk>23</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2024-10-30T23:43:31Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2024-11-21T00:14:31Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
@@ -186,12 +187,12 @@
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
-        <dep.aws-sdk.version>1.12.778</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.779</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.7.1</dep.confluent.version>
-        <dep.docker.images.version>102</dep.docker.images.version>
+        <dep.docker.images.version>105</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
-        <dep.flyway.version>10.21.0</dep.flyway.version>
+        <dep.flyway.version>11.0.0</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.11.0</dep.frontend-node.version>
         <dep.frontend-npm.version>10.9.0</dep.frontend-npm.version>
@@ -203,6 +204,7 @@
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>3.9.0</dep.kafka-clients.version>
+        <dep.launcher.version>300</dep.launcher.version>
         <dep.okio.version>3.9.1</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.14.4</dep.parquet.version>
@@ -278,7 +280,7 @@
             <dependency>
                 <groupId>org.apache.arrow</groupId>
                 <artifactId>arrow-bom</artifactId>
-                <version>18.0.0</version>
+                <version>18.1.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -302,7 +304,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.20.3</version>
+                <version>1.20.4</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -310,7 +312,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.29.16</version>
+                <version>2.29.21</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -503,7 +505,7 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.5.6-7</version>
+                <version>1.5.6-8</version>
             </dependency>
 
             <dependency>
@@ -657,7 +659,7 @@
             <dependency>
                 <groupId>commons-io</groupId>
                 <artifactId>commons-io</artifactId>
-                <version>2.17.0</version>
+                <version>2.18.0</version>
             </dependency>
 
             <dependency>
@@ -682,7 +684,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor-v3</artifactId>
-                <version>3.1</version>
+                <version>3.2</version>
             </dependency>
 
             <dependency>
@@ -860,7 +862,7 @@
             <dependency>
                 <groupId>io.minio</groupId>
                 <artifactId>minio</artifactId>
-                <version>8.5.13</version>
+                <version>8.5.14</version>
             </dependency>
 
             <dependency>
@@ -1392,6 +1394,19 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-ranger</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-ranger</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-re2j</artifactId>
                 <version>1.7</version>
             </dependency>
@@ -1581,7 +1596,7 @@
             <dependency>
                 <groupId>io.trino.benchto</groupId>
                 <artifactId>benchto-driver</artifactId>
-                <version>0.32</version>
+                <version>0.33</version>
                 <exclusions>
                     <exclusion>
                         <groupId>ch.qos.logback</groupId>
@@ -2024,7 +2039,7 @@
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-api</artifactId>
-                <version>2.24.1</version>
+                <version>2.24.2</version>
             </dependency>
 
             <dependency>

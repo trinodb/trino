@@ -90,6 +90,7 @@ public class DeltaLakeConfig
     private boolean queryPartitionFilterRequired;
     private boolean deletionVectorsEnabled;
     private boolean deltaLogFileSystemCacheDisabled;
+    private int metadataParallelism = 8;
 
     public Duration getMetadataCacheTtl()
     {
@@ -564,6 +565,20 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setDeltaLogFileSystemCacheDisabled(boolean deltaLogFileSystemCacheDisabled)
     {
         this.deltaLogFileSystemCacheDisabled = deltaLogFileSystemCacheDisabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getMetadataParallelism()
+    {
+        return metadataParallelism;
+    }
+
+    @ConfigDescription("Limits metadata enumeration calls parallelism")
+    @Config("delta.metadata.parallelism")
+    public DeltaLakeConfig setMetadataParallelism(int metadataParallelism)
+    {
+        this.metadataParallelism = metadataParallelism;
         return this;
     }
 }

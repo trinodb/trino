@@ -64,7 +64,7 @@ public class IcebergConfig
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation = true;
     private CatalogType catalogType = HIVE_METASTORE;
-    private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
+    private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
     private boolean collectExtendedStatisticsOnWrite = true;
@@ -91,6 +91,8 @@ public class IcebergConfig
     private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;
     private boolean metadataCacheEnabled = true;
+    private boolean objectStoreLayoutEnabled;
+    private int metadataParallelism = 8;
 
     public CatalogType getCatalogType()
     {
@@ -517,6 +519,33 @@ public class IcebergConfig
     public IcebergConfig setMetadataCacheEnabled(boolean metadataCacheEnabled)
     {
         this.metadataCacheEnabled = metadataCacheEnabled;
+        return this;
+    }
+
+    public boolean isObjectStoreLayoutEnabled()
+    {
+        return objectStoreLayoutEnabled;
+    }
+
+    @Config("iceberg.object-store-layout.enabled")
+    @ConfigDescription("Enable the Iceberg object store file layout")
+    public IcebergConfig setObjectStoreLayoutEnabled(boolean objectStoreLayoutEnabled)
+    {
+        this.objectStoreLayoutEnabled = objectStoreLayoutEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getMetadataParallelism()
+    {
+        return metadataParallelism;
+    }
+
+    @ConfigDescription("Limits metadata enumeration calls parallelism")
+    @Config("iceberg.metadata.parallelism")
+    public IcebergConfig setMetadataParallelism(int metadataParallelism)
+    {
+        this.metadataParallelism = metadataParallelism;
         return this;
     }
 }

@@ -132,6 +132,7 @@ public class TestPostgreSqlConnectorTest
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                    SUPPORTS_MAP_TYPE,
                     SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
                     SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                     SUPPORTS_ROW_TYPE -> false;

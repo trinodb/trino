@@ -15,12 +15,10 @@ package io.trino.server.protocol.spooling;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Base64;
 import java.util.Map;
-import java.util.Optional;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -39,7 +37,6 @@ class TestSpoolingConfig
         assertRecordedDefaults(recordDefaults(SpoolingConfig.class)
                 .setSharedSecretKey(null)
                 .setRetrievalMode(STORAGE)
-                .setStorageRedirectTtl(Optional.empty())
                 .setInitialSegmentSize(DataSize.of(8, MEGABYTE))
                 .setMaximumSegmentSize(DataSize.of(16, MEGABYTE))
                 .setMaximumInlinedRows(1000)
@@ -55,7 +52,6 @@ class TestSpoolingConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("protocol.spooling.shared-secret-key", randomAesEncryptionKey) // 256 bits
                 .put("protocol.spooling.retrieval-mode", "coordinator_storage_redirect")
-                .put("protocol.spooling.coordinator-storage-redirect-ttl", "60s")
                 .put("protocol.spooling.inlining.enabled", "false")
                 .put("protocol.spooling.initial-segment-size", "1kB")
                 .put("protocol.spooling.maximum-segment-size", "8kB")
@@ -65,7 +61,6 @@ class TestSpoolingConfig
 
         SpoolingConfig expected = new SpoolingConfig()
                 .setRetrievalMode(COORDINATOR_STORAGE_REDIRECT)
-                .setStorageRedirectTtl(Optional.of(Duration.valueOf("60s")))
                 .setSharedSecretKey(randomAesEncryptionKey)
                 .setInitialSegmentSize(DataSize.of(1, KILOBYTE))
                 .setMaximumSegmentSize(DataSize.of(8, KILOBYTE))

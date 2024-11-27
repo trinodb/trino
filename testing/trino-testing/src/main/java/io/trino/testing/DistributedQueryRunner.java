@@ -908,7 +908,7 @@ public class DistributedQueryRunner
         {
             if (encoding.isPresent()) {
                 setTestingTrinoClientFactory((server, session) -> createClient(server, session, encoding.get()));
-                addExtraProperty("experimental.protocol.spooling.enabled", "true");
+                addExtraProperty("protocol.spooling.enabled", "true");
                 // create smaller number of segments
                 addExtraProperty("protocol.spooling.initial-segment-size", "16MB");
                 addExtraProperty("protocol.spooling.maximum-segment-size", "32MB");

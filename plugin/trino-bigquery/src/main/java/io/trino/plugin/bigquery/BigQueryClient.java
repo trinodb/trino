@@ -55,6 +55,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
@@ -275,7 +276,7 @@ public class BigQueryClient
 
     public TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<BigQueryColumnHandle> requiredColumns, Optional<String> filter)
     {
-        String query = selectSql(remoteTableId.getTableId(), requiredColumns, filter);
+        String query = selectSql(remoteTableId.getTableId(), requiredColumns, filter, OptionalLong.empty());
         log.debug("query is %s", query);
         return materializationCache.getCachedTable(this, query, viewExpiration, remoteTableId);
     }
@@ -501,7 +502,7 @@ public class BigQueryClient
         return requireNonNull(((QueryJobConfiguration) jobConfiguration).getDestinationTable(), "Cannot determine destination table for query");
     }
 
-    public static String selectSql(TableId table, List<BigQueryColumnHandle> requiredColumns, Optional<String> filter)
+    public static String selectSql(TableId table, List<BigQueryColumnHandle> requiredColumns, Optional<String> filter, OptionalLong limit)
     {
         return selectSql(table,
                 requiredColumns.stream()
@@ -513,17 +514,21 @@ public class BigQueryClient
                                                 .collect(toImmutableList()))
                                         .build()))
                         .collect(joining(",")),
-                filter);
+                filter,
+                limit);
     }
 
-    public static String selectSql(TableId table, String formattedColumns, Optional<String> filter)
+    public static String selectSql(TableId table, String formattedColumns, Optional<String> filter, OptionalLong limit)
     {
         String tableName = fullTableName(table);
         String query = format("SELECT %s FROM `%s`", formattedColumns, tableName);
-        if (filter.isEmpty()) {
-            return query;
+        if (filter.isPresent()) {
+            query = query + " WHERE " + filter.get();
         }
-        return query + " WHERE " + filter.get();
+        if (limit.isPresent()) {
+            query = query + " LIMIT " + limit.getAsLong();
+        }
+        return query;
     }
 
     private static String fullTableName(TableId remoteTableId)

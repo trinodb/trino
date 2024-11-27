@@ -4,7 +4,7 @@
 
 * Add support for [](/sql/show-create-function). ({issue}`21809`)
 * Add support for the {func}`bitwise_xor_agg` aggregation function. ({issue}`21436`)
-* {{breaking}} Require JDK 22 to run Trino. ({issue}`20980`)
+* {{breaking}} Require JDK 22 to run Trino, including updated [](jvm-config).({issue}`20980`)
 * Improve performance of `ORDER BY` queries with `LIMIT` on large data sets. ({issue}`21761`)
 * Improve performance of queries containing the {func}`rank` or
   {func}`row_number` window functions. ({issue}`21639`)

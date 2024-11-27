@@ -81,6 +81,7 @@ public class TestIgniteConnectorTest
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
                  SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_NATIVE_QUERY,
                  SUPPORTS_NEGATIVE_DATE,
                  SUPPORTS_RENAME_COLUMN,

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>465-SNAPSHOT</version>
+        <version>466-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -224,18 +224,12 @@
                             <excludes>
                                 <!-- jline-terminal-ffm works only on JDK 22+, but will fall back to JNI on lower JDKs -->
                                 <exclude>org.jline:jline-terminal-ffm</exclude>
+                                <!-- Used reflectively on JDK22+ for native decompression -->
+                                <exclude>io.airlift:aircompressor-v3</exclude>
                             </excludes>
                         </enforceBytecodeVersion>
                     </rules>
                 </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>enforce</goal>
-                        </goals>
-                        <phase>verify</phase>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

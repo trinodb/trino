@@ -132,6 +132,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD_IN_A
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_SCHEMA_CASCADE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MAP_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MATERIALIZED_VIEW_FRESHNESS_FROM_BASE_TABLES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
@@ -151,6 +152,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_COLUMN_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE_IN_ARRAY;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE_IN_MAP;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
@@ -3295,6 +3297,92 @@ public abstract class BaseConnectorTest
         }
     }
 
+    @Test
+    public void testSetFieldMapKeyType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_MAP_TYPE) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        String tableDefinition = "AS SELECT CAST(map(array[row(1)], array[2]) AS map(row(field integer), integer)) AS col";
+        if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP)) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_map", tableDefinition)) {
+                assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col.key.field SET DATA TYPE bigint", ".*does not support.*");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_map", tableDefinition)) {
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(row(field integer), integer)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.key.field SET DATA TYPE bigint");
+
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(row(field bigint), integer)");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT CAST(map(array[row(1)], array[2]) AS map(row(field bigint), integer))");
+        }
+    }
+
+    @Test
+    public void testSetFieldMapValueType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_MAP_TYPE) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        String tableDefinition = "AS SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(field integer))) AS col";
+        if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP)) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_map", tableDefinition)) {
+                assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col.value.field SET DATA TYPE bigint", ".*does not support.*");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_map", tableDefinition)) {
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(integer, row(field integer))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.value.field SET DATA TYPE bigint");
+
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(integer, row(field bigint))");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(field bigint)))");
+        }
+    }
+
+    @Test
+    public void testSetNestedFieldMapKeyType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_ARRAY) && hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ARRAY) && hasBehavior(SUPPORTS_MAP_TYPE) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_set_nested_field_type_in_map",
+                "AS SELECT CAST(array[map(array[row(1)], array[2])] AS array(map(row(field integer), integer))) AS col")) {
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(row(field integer), integer))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.element.key.field SET DATA TYPE bigint");
+
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(row(field bigint), integer))");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT CAST(array[map(array[row(1)], array[2])] AS array(map(row(field bigint), integer)))");
+        }
+    }
+
+    @Test
+    public void testSetNestedFieldMapValueType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_ARRAY) && hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ARRAY) && hasBehavior(SUPPORTS_MAP_TYPE) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_set_nested_field_type_in_map",
+                "AS SELECT CAST(array[map(array[1], array[row(2)])] AS array(map(integer, row(field integer)))) AS col")) {
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(integer, row(field integer)))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.element.value.field SET DATA TYPE bigint");
+
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(integer, row(field bigint)))");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT CAST(array[map(array[1], array[row(2)])] AS array(map(integer, row(field bigint))))");
+        }
+    }
+
     protected void verifySetFieldTypeFailurePermissible(Throwable e)
     {
         throw new AssertionError("Unexpected set field type failure", e);
@@ -4449,6 +4537,26 @@ public abstract class BaseConnectorTest
             assertUpdate("INSERT INTO " + table.getName() + " (a) VALUES (ARRAY[null])", 1);
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
             assertQuery("SELECT a[1], b[1] FROM " + table.getName(), "VALUES (null, null), (12.3, 12)");
+        }
+    }
+
+    @Test
+    public void testInsertMap()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT));
+
+        String tableName = "test_insert_map_" + randomNameSuffix();
+        if (!hasBehavior(SUPPORTS_MAP_TYPE)) {
+            assertThat(query("CREATE TABLE " + tableName + " (a map(integer, integer))"))
+                    // TODO Unify failure message across connectors
+                    .failure().hasMessageMatching("[Uu]nsupported (column )?type: \\Qmap(integer, integer)");
+            abort("not supported");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_map_", "(col map(integer, integer))")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES map(ARRAY[1], ARRAY[2])", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                .matches("VALUES map(ARRAY[1], ARRAY[2])");
         }
     }
 

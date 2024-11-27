@@ -120,6 +120,7 @@ import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACT
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_QUERY_ID_NAME;
+import static io.trino.plugin.iceberg.IcebergUtil.TRINO_USER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.getLatestMetadataLocation;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
@@ -7378,17 +7379,17 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "test_snapshot_query_ids_v1" + randomNameSuffix();
 
         // Create empty table
-        assertQueryIdStored(tableName, executeWithQueryId(format("CREATE TABLE %s (a bigint, b bigint) WITH (format_version = 1, partitioning = ARRAY['a'])", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("CREATE TABLE %s (a bigint, b bigint) WITH (format_version = 1, partitioning = ARRAY['a'])", tableName)));
 
         // Insert some records, creating 3 partitions
-        assertQueryIdStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 100), (2, 300), (2, 350), (3, 250)", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 100), (2, 300), (2, 350), (3, 250)", tableName)));
 
         // Delete whole partition
-        assertQueryIdStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 2", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 2", tableName)));
 
         // Insert some more and then optimize
-        assertQueryIdStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 400)", tableName)));
-        assertQueryIdStored(tableName, executeWithQueryId(format("ALTER TABLE %s EXECUTE OPTIMIZE", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 400)", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("ALTER TABLE %s EXECUTE OPTIMIZE", tableName)));
     }
 
     @Test
@@ -7400,23 +7401,23 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (1, 20), (2, 2)", sourceTableName), 4);
 
         // Create table with CTAS
-        assertQueryIdStored(tableName, executeWithQueryId(format("CREATE TABLE %s WITH (format_version = 2, partitioning = ARRAY['a']) " +
+        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("CREATE TABLE %s WITH (format_version = 2, partitioning = ARRAY['a']) " +
                 "AS SELECT * FROM %s", tableName, sourceTableName)));
 
         // Insert records
-        assertQueryIdStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 100), (2, 300), (3, 250)", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("INSERT INTO %s VALUES (1, 100), (2, 300), (3, 250)", tableName)));
 
         // Delete a whole partition
-        assertQueryIdStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 2", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 2", tableName)));
 
         // Delete an individual row
-        assertQueryIdStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 1 AND b = 4", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("DELETE FROM %s WHERE a = 1 AND b = 4", tableName)));
 
         // Update an individual row
-        assertQueryIdStored(tableName, executeWithQueryId(format("UPDATE %s SET b = 900 WHERE a = 1 AND b = 1", tableName)));
+        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("UPDATE %s SET b = 900 WHERE a = 1 AND b = 1", tableName)));
 
         // Merge
-        assertQueryIdStored(tableName, executeWithQueryId(format("MERGE INTO %s t USING %s s ON t.a = s.a AND t.b = s.b " +
+        assertQueryIdAndUserStored(tableName, executeWithQueryId(format("MERGE INTO %s t USING %s s ON t.a = s.a AND t.b = s.b " +
                 "WHEN MATCHED THEN UPDATE SET b = t.b * 50", tableName, sourceTableName)));
     }
 
@@ -7629,6 +7630,8 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("SELECT 1 FROM " + tableName + " WHERE false", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("SHOW CREATE TABLE " + tableName, "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("CREATE TABLE a_new_table (LIKE " + tableName + " EXCLUDING PROPERTIES)", "Metadata not found in metadata location for table " + schemaTableName);
+        assertQueryFails("CREATE OR REPLACE TABLE " + tableName + " (id INT, country VARCHAR, independence ROW(month VARCHAR, year INT))", "Metadata not found in metadata location for table " + schemaTableName);
+        assertQueryFails("CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 x, 'IRELAND' y", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("DESCRIBE " + tableName, "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("SHOW COLUMNS FROM " + tableName, "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("SHOW STATS FOR " + tableName, "Metadata not found in metadata location for table " + schemaTableName);
@@ -8536,6 +8539,91 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
+    @Test // regression test for https://github.com/trinodb/trino/issues/22922
+    void testArrayElementChange()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_array_schema_change",
+                "(col array(row(a varchar, b varchar)))",
+                List.of("CAST(array[row('a', 'b')] AS array(row(a varchar, b varchar)))"))) {
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.element.a");
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.element.c varchar");
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.element.b");
+
+            String expected = format == ORC ? "CAST(array[row(NULL)] AS array(row(c varchar)))" : "CAST(NULL AS array(row(c varchar)))";
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES " + expected);
+        }
+    }
+
+    // MAP type is tested in TestIcebergV2.testMapValueSchemaChange
+
+    @Test
+    void testRowFieldChange()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_row_schema_change",
+                "(col row(a varchar, b varchar))")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT CAST(row('a', 'b') AS row(a varchar, b varchar))", 1);
+
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.a");
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.c varchar");
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.b");
+
+            String expected = format == ORC || format == AVRO ? "CAST(row(NULL) AS row(c varchar))" : "CAST(NULL AS row(c varchar))";
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT " + expected);
+        }
+    }
+
+    @Test
+    public void testObjectStoreLayoutEnabledAndDataLocation()
+            throws Exception
+    {
+        String tableName = "test_object_store_layout_enabled_data_location" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (object_store_layout_enabled = true, data_location = 'local:///data-location/xyz') AS SELECT 1 AS val", 1);
+
+        Location tableLocation = Location.of(getTableLocation(tableName));
+        assertThat(fileSystem.directoryExists(tableLocation).get()).isTrue();
+
+        String filePath = (String) computeScalar("SELECT file_path FROM \"" + tableName + "$files\"");
+        Location dataFileLocation = Location.of(filePath);
+        assertThat(fileSystem.newInputFile(dataFileLocation).exists()).isTrue();
+        assertThat(filePath).matches("local:///data-location/xyz/.{6}/tpch/%s.*".formatted(tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertThat(fileSystem.newInputFile(dataFileLocation).exists()).isFalse();
+        assertThat(fileSystem.newInputFile(tableLocation).exists()).isFalse();
+    }
+
+    @Test
+    public void testCreateTableWithDataLocationButObjectStoreLayoutDisabled()
+    {
+        assertQueryFails(
+                "CREATE TABLE test_data_location WITH (data_location = 'local:///data-location/xyz') AS SELECT 1 AS val",
+                "Data location can only be set when object store layout is enabled");
+    }
+
+    @Test
+    @Override
+    public void testSetFieldMapKeyType()
+    {
+        // Iceberg doesn't support change a map 'key' column. Only map values can be changed.
+        assertThatThrownBy(super::testSetFieldMapKeyType)
+                .hasMessageContaining("Failed to set field type: Cannot alter map keys");
+    }
+
+    @Test
+    @Override
+    public void testSetNestedFieldMapKeyType()
+    {
+        // Iceberg doesn't support change a map 'key' column. Only map values can be changed.
+        assertThatThrownBy(super::testSetNestedFieldMapKeyType)
+                .hasMessageContaining("Failed to set field type: Cannot alter map keys");
+    }
+
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
@@ -8750,9 +8838,11 @@ public abstract class BaseIcebergConnectorTest
                 .queryId();
     }
 
-    private void assertQueryIdStored(String tableName, QueryId queryId)
+    private void assertQueryIdAndUserStored(String tableName, QueryId queryId)
     {
         assertThat(getFieldFromLatestSnapshotSummary(tableName, TRINO_QUERY_ID_NAME))
                 .isEqualTo(queryId.toString());
+        assertThat(getFieldFromLatestSnapshotSummary(tableName, TRINO_USER_NAME))
+                .isEqualTo("user");
     }
 }

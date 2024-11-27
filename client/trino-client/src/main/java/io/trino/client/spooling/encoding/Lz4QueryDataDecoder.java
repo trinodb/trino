@@ -13,7 +13,6 @@
  */
 package io.trino.client.spooling.encoding;
 
-import io.airlift.compress.lz4.Lz4Decompressor;
 import io.trino.client.QueryDataDecoder;
 
 import java.io.IOException;
@@ -32,8 +31,7 @@ public class Lz4QueryDataDecoder
     void decompress(byte[] input, byte[] output)
             throws IOException
     {
-        Lz4Decompressor decompressor = new Lz4Decompressor();
-        int decompressedSize = decompressor.decompress(input, 0, input.length, output, 0, output.length);
+        int decompressedSize = DecompressionUtils.decompressLZ4(input, output);
         if (decompressedSize != output.length) {
             throw new IOException(format("Decompressed size does not match expected segment size, expected %d, got %d", decompressedSize, output.length));
         }

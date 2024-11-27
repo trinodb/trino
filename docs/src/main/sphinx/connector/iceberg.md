@@ -125,7 +125,7 @@ implementation is used:
 * - `iceberg.dynamic-filtering.wait-timeout`
   - Maximum duration to wait for completion of dynamic filters during split
     generation.
-  - `0s`
+  - `1s`
 * - `iceberg.delete-schema-locations-fallback`
   - Whether schema locations are deleted when Trino can't determine whether
     they contain external files.
@@ -198,6 +198,11 @@ implementation is used:
   - Set to `false` to disable in-memory caching of metadata files on the 
     coordinator. This cache is not used when `fs.cache.enabled` is set to true.
   - `true`
+* - `iceberg.object-store-layout.enabled`
+  - Set to `true` to enable Iceberg's [object store file layout](https://iceberg.apache.org/docs/latest/aws/#object-store-file-layout). 
+    Enabling the object store file layout appends a deterministic hash directly 
+    after the data write path.
+  - `false`
 * - `iceberg.expire-snapshots.min-retention`
   -  Minimal retention period for the
      [`expire_snapshot` command](iceberg-expire-snapshots).
@@ -224,6 +229,10 @@ implementation is used:
 * - `iceberg.split-manager-threads`
   -  Number of threads to use for generating splits.
   -  Double the number of processors on the coordinator node.
+* - `iceberg.metadata.parallelism`
+  - Number of threads used for retrieving metadata. Currently, only table loading 
+    is parallelized.
+  - `8`
 :::
 
 (iceberg-fte-support)=
@@ -807,6 +816,8 @@ The following table properties can be updated after a table is created:
 - `format_version`
 - `partitioning`
 - `sorted_by`
+- `object_store_layout_enabled`
+- `data_location`
 
 For example, to update a table from v1 of the Iceberg specification to v2:
 
@@ -869,6 +880,10 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Comma-separated list of columns to use for Parquet bloom filter. It improves
     the performance of queries using Equality and IN predicates when reading
     Parquet files. Requires Parquet format. Defaults to `[]`.
+* - `object_store_layout_enabled`
+  - Whether Iceberg's [object store file layout](https://iceberg.apache.org/docs/latest/aws/#object-store-file-layout) is enabled. 
+* - `data_location`
+  - Optionally specifies the file system location URI for the table's data files
 * - `extra_properties`
   - Additional properties added to a Iceberg table. The properties are not used by Trino,
     and are available in the `$properties` metadata table.

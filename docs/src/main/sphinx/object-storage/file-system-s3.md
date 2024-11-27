@@ -42,11 +42,16 @@ support:
 * - `s3.sse.type`
   - Set the type of S3 server-side encryption (SSE) to use. Defaults to `NONE`
     for no encryption. Other valid values are `S3` for encryption by S3 managed
-    keys, and `KMS` for encryption with a key from the AWS Key Management
-    Service (KMS). Note that S3 automatically uses SSE so `NONE` and `S3` are
-    equivalent. S3-compatible systems might behave differently.
+    keys, `KMS` for encryption with a key from the AWS Key Management
+    Service (KMS), and `CUSTOMER` for encryption with a customer-provided key
+    from `s3.sse.customer-key`. Note that S3 automatically uses SSE so `NONE` 
+    and `S3` are equivalent. S3-compatible systems might behave differently.
 * - `s3.sse.kms-key-id`
   - The identifier of a key in KMS to use for SSE.
+* - `s3.sse.customer-key`
+  - The 256-bit, base64-encoded AES-256 encryption key to encrypt or decrypt
+    data from S3 when using the SSE-C mode for SSE with `s3.sse.type` set to
+    `CUSTOMER`. 
 * - `s3.streaming.part-size`
   - Part size for S3 streaming upload. Values between `5MB` and `256MB` are
     valid. Defaults to `16MB`.

@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.phoenix5;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
@@ -32,19 +34,27 @@ import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import org.apache.phoenix.util.SchemaUtil;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.phoenix5.PhoenixClient.ROWKEY;
 import static io.trino.plugin.phoenix5.PhoenixClient.ROWKEY_COLUMN_HANDLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;
@@ -56,8 +66,10 @@ public class PhoenixMergeSink
     private final int columnCount;
 
     private final ConnectorPageSink insertSink;
-    private final ConnectorPageSink updateSink;
+    private final Map<Integer, Supplier<ConnectorPageSink>> updateSinkSuppliers;
     private final ConnectorPageSink deleteSink;
+
+    private final Map<Integer, Set<Integer>> updateCaseChannels;
 
     public PhoenixMergeSink(
             ConnectorSession session,
@@ -73,7 +85,6 @@ public class PhoenixMergeSink
         this.columnCount = phoenixOutputTableHandle.getColumnNames().size();
 
         this.insertSink = new JdbcPageSink(session, phoenixOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier, JdbcClient::buildInsertSql);
-        this.updateSink = createUpdateSink(session, phoenixOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier);
 
         ImmutableList.Builder<String> mergeRowIdFieldNamesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> mergeRowIdFieldTypesBuilder = ImmutableList.builder();
@@ -84,6 +95,31 @@ public class PhoenixMergeSink
             mergeRowIdFieldTypesBuilder.add(field.getType());
         }
         List<String> mergeRowIdFieldNames = mergeRowIdFieldNamesBuilder.build();
+        List<String> dataColumnNames = phoenixOutputTableHandle.getColumnNames().stream()
+                .map(SchemaUtil::getEscapedArgument)
+                .collect(toImmutableList());
+        Set<Integer> mergeRowIdChannels = mergeRowIdFieldNames.stream()
+                .map(dataColumnNames::indexOf)
+                .collect(toImmutableSet());
+
+        Map<Integer, Set<Integer>> updateCaseChannels = new HashMap<>();
+        for (Map.Entry<Integer, Set<Integer>> entry : phoenixMergeTableHandle.updateCaseColumns().entrySet()) {
+            updateCaseChannels.put(entry.getKey(), entry.getValue());
+            if (!hasRowKey) {
+                checkArgument(!mergeRowIdChannels.isEmpty() && !mergeRowIdChannels.contains(-1), "No primary keys found");
+                updateCaseChannels.get(entry.getKey()).addAll(mergeRowIdChannels);
+            }
+        }
+        this.updateCaseChannels = ImmutableMap.copyOf(updateCaseChannels);
+
+        ImmutableMap.Builder<Integer, Supplier<ConnectorPageSink>> updateSinksBuilder = ImmutableMap.builder();
+        for (Map.Entry<Integer, Set<Integer>> entry : this.updateCaseChannels.entrySet()) {
+            int caseNumber = entry.getKey();
+            Supplier<ConnectorPageSink> updateSupplier = Suppliers.memoize(() -> createUpdateSink(session, phoenixOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier, entry.getValue()));
+            updateSinksBuilder.put(caseNumber, updateSupplier);
+        }
+        this.updateSinkSuppliers = updateSinksBuilder.buildOrThrow();
+
         this.deleteSink = createDeleteSink(session, mergeRowIdFieldTypesBuilder.build(), phoenixClient, phoenixMergeTableHandle, mergeRowIdFieldNames, pageSinkId, remoteQueryModifier, queryBuilder);
     }
 
@@ -92,12 +128,17 @@ public class PhoenixMergeSink
             PhoenixOutputTableHandle phoenixOutputTableHandle,
             PhoenixClient phoenixClient,
             ConnectorPageSinkId pageSinkId,
-            RemoteQueryModifier remoteQueryModifier)
+            RemoteQueryModifier remoteQueryModifier,
+            Set<Integer> updateChannels)
     {
         ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
-        columnNamesBuilder.addAll(phoenixOutputTableHandle.getColumnNames());
-        columnTypesBuilder.addAll(phoenixOutputTableHandle.getColumnTypes());
+        for (int channel = 0; channel < phoenixOutputTableHandle.getColumnNames().size(); channel++) {
+            if (updateChannels.contains(channel)) {
+                columnNamesBuilder.add(phoenixOutputTableHandle.getColumnNames().get(channel));
+                columnTypesBuilder.add(phoenixOutputTableHandle.getColumnTypes().get(channel));
+            }
+        }
         if (phoenixOutputTableHandle.rowkeyColumn().isPresent()) {
             columnNamesBuilder.add(ROWKEY);
             columnTypesBuilder.add(ROWKEY_COLUMN_HANDLE.getColumnType());
@@ -157,7 +198,7 @@ public class PhoenixMergeSink
     @Override
     public void storeMergedRows(Page page)
     {
-        checkArgument(page.getChannelCount() == 2 + columnCount, "The page size should be 2 + columnCount (%s), but is %s", columnCount, page.getChannelCount());
+        checkArgument(page.getChannelCount() == 3 + columnCount, "The page size should be 3 + columnCount (%s), but is %s", columnCount, page.getChannelCount());
         int positionCount = page.getPositionCount();
         Block operationBlock = page.getBlock(columnCount);
 
@@ -168,8 +209,10 @@ public class PhoenixMergeSink
         int insertPositionCount = 0;
         int[] deletePositions = new int[positionCount];
         int deletePositionCount = 0;
-        int[] updatePositions = new int[positionCount];
-        int updatePositionCount = 0;
+
+        Block updateCaseBlock = page.getBlock(columnCount + 1);
+        Map<Integer, int[]> updatePositions = new HashMap<>();
+        Map<Integer, Integer> updatePositionCounts = new HashMap<>();
 
         for (int position = 0; position < positionCount; position++) {
             int operation = TINYINT.getByte(operationBlock, position);
@@ -183,8 +226,10 @@ public class PhoenixMergeSink
                     deletePositionCount++;
                 }
                 case UPDATE_OPERATION_NUMBER -> {
-                    updatePositions[updatePositionCount] = position;
-                    updatePositionCount++;
+                    int caseNumber = INTEGER.getInt(updateCaseBlock, position);
+                    int updatePositionCount = updatePositionCounts.getOrDefault(caseNumber, 0);
+                    updatePositions.computeIfAbsent(caseNumber, _ -> new int[positionCount])[updatePositionCount] = position;
+                    updatePositionCounts.put(caseNumber, updatePositionCount + 1);
                 }
                 default -> throw new IllegalStateException("Unexpected value: " + operation);
             }
@@ -194,7 +239,7 @@ public class PhoenixMergeSink
             insertSink.appendPage(dataPage.getPositions(insertPositions, 0, insertPositionCount));
         }
 
-        List<Block> rowIdFields = RowBlock.getRowFieldsFromBlock(page.getBlock(columnCount + 1));
+        List<Block> rowIdFields = RowBlock.getRowFieldsFromBlock(page.getBlock(columnCount + 2));
         if (deletePositionCount > 0) {
             Block[] deleteBlocks = new Block[rowIdFields.size()];
             for (int field = 0; field < rowIdFields.size(); field++) {
@@ -203,13 +248,21 @@ public class PhoenixMergeSink
             deleteSink.appendPage(new Page(deletePositionCount, deleteBlocks));
         }
 
-        if (updatePositionCount > 0) {
-            Page updatePage = dataPage.getPositions(updatePositions, 0, updatePositionCount);
-            if (hasRowKey) {
-                updatePage = updatePage.appendColumn(rowIdFields.get(0).getPositions(updatePositions, 0, updatePositionCount));
-            }
+        for (Map.Entry<Integer, Integer> entry : updatePositionCounts.entrySet()) {
+            int caseNumber = entry.getKey();
+            int updatePositionCount = entry.getValue();
+            if (updatePositionCount > 0) {
+                checkArgument(updatePositions.containsKey(caseNumber), "Unexpected case number %s", caseNumber);
 
-            updateSink.appendPage(updatePage);
+                Page updatePage = dataPage
+                        .getColumns(updateCaseChannels.get(caseNumber).stream().mapToInt(Integer::intValue).sorted().toArray())
+                        .getPositions(updatePositions.get(caseNumber), 0, updatePositionCount);
+                if (hasRowKey) {
+                    updatePage = updatePage.appendColumn(rowIdFields.get(0).getPositions(updatePositions.get(caseNumber), 0, updatePositionCount));
+                }
+
+                updateSinkSuppliers.get(caseNumber).get().appendPage(updatePage);
+            }
         }
     }
 
@@ -218,7 +271,7 @@ public class PhoenixMergeSink
     {
         insertSink.finish();
         deleteSink.finish();
-        updateSink.finish();
+        updateSinkSuppliers.values().stream().map(Supplier::get).forEach(ConnectorPageSink::finish);
         return completedFuture(ImmutableList.of());
     }
 
@@ -227,6 +280,6 @@ public class PhoenixMergeSink
     {
         insertSink.abort();
         deleteSink.abort();
-        updateSink.abort();
+        updateSinkSuppliers.values().stream().map(Supplier::get).forEach(ConnectorPageSink::abort);
     }
 }

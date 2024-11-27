@@ -30,6 +30,8 @@
 
 ## Exasol connector
 
+## Faker connector
+
 ## Google Sheets connector
 
 ## Hive connector
@@ -79,5 +81,9 @@
 ## SQL Server connector
 
 ## TPC-H connector
+
+## TPC-DS connector
+
+## Vertica connector
 
 ## SPI
