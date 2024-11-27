@@ -168,4 +168,3 @@ public final class TestNullPushdownDataType
         }
     }
 }
-
