@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1-labs
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +30,7 @@ RUN \
 # Use ubi9 minimal as it's more secure
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 ARG JDK_VERSION
+ARG ARCH
 ENV JAVA_HOME="/usr/lib/jvm/${JDK_VERSION}"
 ENV PATH=$PATH:$JAVA_HOME/bin
 ENV CATALOG_MANAGEMENT=static
@@ -45,7 +47,8 @@ RUN \
 
 ARG TRINO_VERSION
 COPY --chown=trino:trino trino-cli-${TRINO_VERSION}-executable.jar /usr/bin/trino
-COPY --chown=trino:trino trino-server-${TRINO_VERSION} /usr/lib/trino
+COPY --chown=trino:trino --exclude=bin/darwin-* --exclude=bin/linux-* trino-server-${TRINO_VERSION} /usr/lib/trino
+COPY --chown=trino:trino trino-server-${TRINO_VERSION}/bin/linux-${ARCH} /usr/lib/trino/bin/linux-${ARCH}
 COPY --chown=trino:trino default/etc /etc/trino
 COPY --chown=trino:trino --from=jvmkill /libjvmkill.so /usr/lib/trino/bin
 
