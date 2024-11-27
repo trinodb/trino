@@ -8162,7 +8162,7 @@ public abstract class BaseIcebergConnectorTest
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("Table name must be shorter than or equal to '128' characters but got .*");
+        assertThat(e).hasMessageMatching(".*Table name must be shorter than or equal to '128' characters but got .*");
     }
 
     @Test
