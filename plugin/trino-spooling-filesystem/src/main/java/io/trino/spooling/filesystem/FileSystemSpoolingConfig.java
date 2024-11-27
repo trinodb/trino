@@ -91,7 +91,7 @@ public class FileSystemSpoolingConfig
     }
 
     @Config("fs.layout")
-    @ConfigDescription("Spooled segments filesystem layout")
+    @ConfigDescription("File system layout for spooled segments storage")
     public FileSystemSpoolingConfig setLayout(Layout layout)
     {
         this.layout = layout;
