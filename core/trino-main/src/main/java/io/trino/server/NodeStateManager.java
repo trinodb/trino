@@ -39,9 +39,9 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class GracefulShutdownHandler
+public class NodeStateManager
 {
-    private static final Logger log = Logger.get(GracefulShutdownHandler.class);
+    private static final Logger log = Logger.get(NodeStateManager.class);
     private static final Duration LIFECYCLE_STOP_TIMEOUT = new Duration(30, SECONDS);
 
     private final ScheduledExecutorService shutdownHandler = newSingleThreadScheduledExecutor(threadsNamed("shutdown-handler-%s"));
@@ -56,7 +56,7 @@ public class GracefulShutdownHandler
     private boolean shutdownRequested;
 
     @Inject
-    public GracefulShutdownHandler(
+    public NodeStateManager(
             SqlTaskManager sqlTaskManager,
             ServerConfig serverConfig,
             ShutdownAction shutdownAction,
