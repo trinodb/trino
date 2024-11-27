@@ -430,6 +430,21 @@ FROM
 ```{include} query-table-function-ordering.fragment
 ```
 
+## Performance
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+(bigquery-pushdown)=
+### Pushdown
+
+The connector supports pushdown for a number of operations:
+
+- [](limit-pushdown) for access to tables and other objects when using the REST
+  API to reduce CPU consumption in BigQuery and performance overall. Pushdown is
+  not supported by the Storage API, used for the more common Trino-managed
+  tables, and therefore not used for access with it.
+
 ## FAQ
 
 ### What is the Pricing for the Storage API?
