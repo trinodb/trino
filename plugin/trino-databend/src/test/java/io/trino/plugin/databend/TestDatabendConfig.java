@@ -34,7 +34,7 @@ public class TestDatabendConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder().put("databend.connection_timeout", "4").buildOrThrow();
+        Map<String, String> properties = ImmutableMap.<String, String>builder().put("databend.connection-timeout", "60").buildOrThrow();
 
         DatabendConfig expected = new DatabendConfig().setConnectionTimeout(Duration.ofSeconds(4));
 

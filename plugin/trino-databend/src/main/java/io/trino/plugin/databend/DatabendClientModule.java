@@ -64,11 +64,11 @@ public class DatabendClientModule
     }
 
     // custom databend config can be added here
-    public static Properties getConnectionProperties(DatabendConfig mySqlConfig)
+    public static Properties getConnectionProperties(DatabendConfig databendConfig)
     {
         Properties connectionProperties = new Properties();
-        if (mySqlConfig.getConnectionTimeout() != null) {
-            connectionProperties.setProperty("connectTimeout", String.valueOf(mySqlConfig.getConnectionTimeout().toMillis()));
+        if (databendConfig.getConnectionTimeout() != null) {
+            connectionProperties.setProperty("connectTimeout", String.valueOf(databendConfig.getConnectionTimeout().toMillis()));
         }
         return connectionProperties;
     }

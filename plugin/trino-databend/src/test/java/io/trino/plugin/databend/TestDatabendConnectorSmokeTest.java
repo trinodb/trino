@@ -26,7 +26,7 @@ public class TestDatabendConnectorSmokeTest
     {
         databendServer = closeAfterClass(new TestingDatabendServer());
         return DatabendQueryRunner.builder(databendServer)
-                .addConnectorProperty("databend.connection_timeout", "60")
+                .addConnectorProperty("databend.connection-timeout", "60")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
