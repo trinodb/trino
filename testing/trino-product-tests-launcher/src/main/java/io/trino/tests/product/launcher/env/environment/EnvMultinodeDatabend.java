@@ -53,7 +53,7 @@ public final class EnvMultinodeDatabend
     @SuppressWarnings("resource")
     private DockerContainer createDatabend()
     {
-        DockerContainer container = new DockerContainer("datafuselabs/databend:v1.2.615","databend")
+        DockerContainer container = new DockerContainer("datafuselabs/databend:v1.2.615", "databend")
                 .withEnv("QUERY_DEFAULT_USER", "databend")
                 .withEnv("QUERY_DEFAULT_USER", "databend");
 
@@ -62,4 +62,3 @@ public final class EnvMultinodeDatabend
         return container;
     }
 }
-
