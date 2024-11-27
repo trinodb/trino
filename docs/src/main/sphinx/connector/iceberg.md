@@ -125,7 +125,7 @@ implementation is used:
 * - `iceberg.dynamic-filtering.wait-timeout`
   - Maximum duration to wait for completion of dynamic filters during split
     generation.
-  - `0s`
+  - `1s`
 * - `iceberg.delete-schema-locations-fallback`
   - Whether schema locations are deleted when Trino can't determine whether
     they contain external files.
