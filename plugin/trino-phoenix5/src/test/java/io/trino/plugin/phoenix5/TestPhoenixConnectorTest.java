@@ -104,6 +104,7 @@ public class TestPhoenixConnectorTest
                  SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
                  SUPPORTS_DROP_SCHEMA_CASCADE,
                  SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_NATIVE_QUERY,
                  SUPPORTS_NOT_NULL_CONSTRAINT,
                  SUPPORTS_RENAME_COLUMN,

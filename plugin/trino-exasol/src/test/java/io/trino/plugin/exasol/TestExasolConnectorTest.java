@@ -76,6 +76,7 @@ final class TestExasolConnectorTest
                  SUPPORTS_CREATE_TABLE,
                  SUPPORTS_DELETE,
                  SUPPORTS_INSERT,
+                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_NEGATIVE_DATE, // min date is 0001-01-01
                  SUPPORTS_RENAME_COLUMN,
                  SUPPORTS_RENAME_TABLE,

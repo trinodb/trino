@@ -132,6 +132,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD_IN_A
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_SCHEMA_CASCADE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MAP_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MATERIALIZED_VIEW_FRESHNESS_FROM_BASE_TABLES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
@@ -3299,7 +3300,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testSetFieldMapKeyType()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_MAP_TYPE) && hasBehavior(SUPPORTS_ROW_TYPE));
 
         String tableDefinition = "AS SELECT CAST(map(array[row(1)], array[2]) AS map(row(field integer), integer)) AS col";
         if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP)) {
@@ -3323,7 +3324,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testSetFieldMapValueType()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_MAP_TYPE) && hasBehavior(SUPPORTS_ROW_TYPE));
 
         String tableDefinition = "AS SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(field integer))) AS col";
         if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP)) {
@@ -3347,7 +3348,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testSetNestedFieldMapKeyType()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_ARRAY) && hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ARRAY) && hasBehavior(SUPPORTS_ROW_TYPE));
+        skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_ARRAY) && hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ARRAY) && hasBehavior(SUPPORTS_MAP_TYPE) && hasBehavior(SUPPORTS_ROW_TYPE));
 
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
@@ -3366,7 +3367,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testSetNestedFieldMapValueType()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_ARRAY) && hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ARRAY) && hasBehavior(SUPPORTS_ROW_TYPE));
+        skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_ARRAY) && hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ARRAY) && hasBehavior(SUPPORTS_MAP_TYPE) && hasBehavior(SUPPORTS_ROW_TYPE));
 
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
@@ -4536,6 +4537,26 @@ public abstract class BaseConnectorTest
             assertUpdate("INSERT INTO " + table.getName() + " (a) VALUES (ARRAY[null])", 1);
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
             assertQuery("SELECT a[1], b[1] FROM " + table.getName(), "VALUES (null, null), (12.3, 12)");
+        }
+    }
+
+    @Test
+    public void testInsertMap()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT));
+
+        String tableName = "test_insert_map_" + randomNameSuffix();
+        if (!hasBehavior(SUPPORTS_MAP_TYPE)) {
+            assertThat(query("CREATE TABLE " + tableName + " (a map(integer, integer))"))
+                    // TODO Unify failure message across connectors
+                    .failure().hasMessageMatching("[Uu]nsupported (column )?type: \\Qmap(integer, integer)");
+            abort("not supported");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_map_", "(col map(integer, integer))")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES map(ARRAY[1], ARRAY[2])", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                .matches("VALUES map(ARRAY[1], ARRAY[2])");
         }
     }
 
