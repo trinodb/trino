@@ -48,8 +48,7 @@ public final class DatabendTableProperties
                         "Databend Table Engine, defaults to Log",
                         DatabendEngineType.class,
                         DEFAULT_TABLE_ENGINE,
-                        false
-                ))
+                        false))
                 .add(new PropertyMetadata<>(
                         ORDER_BY_PROPERTY,
                         "columns to be the sorting key, it's required for table MergeTree engine family",
@@ -58,8 +57,7 @@ public final class DatabendTableProperties
                         ImmutableList.of(),
                         false,
                         value -> (List<?>) value,
-                        value -> value
-                ))
+                        value -> value))
                 .build();
     }
 
