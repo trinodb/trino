@@ -37,7 +37,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestIcebergConfig
 {
@@ -51,7 +51,7 @@ public class TestIcebergConfig
                 .setMaxPartitionsPerWriter(100)
                 .setUniqueTableLocation(true)
                 .setCatalogType(HIVE_METASTORE)
-                .setDynamicFilteringWaitTimeout(new Duration(0, MINUTES))
+                .setDynamicFilteringWaitTimeout(new Duration(1, SECONDS))
                 .setTableStatisticsEnabled(true)
                 .setExtendedStatisticsEnabled(true)
                 .setCollectExtendedStatisticsOnWrite(true)

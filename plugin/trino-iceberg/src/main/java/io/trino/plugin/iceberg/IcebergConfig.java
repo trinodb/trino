@@ -64,7 +64,7 @@ public class IcebergConfig
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation = true;
     private CatalogType catalogType = HIVE_METASTORE;
-    private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
+    private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
     private boolean collectExtendedStatisticsOnWrite = true;
