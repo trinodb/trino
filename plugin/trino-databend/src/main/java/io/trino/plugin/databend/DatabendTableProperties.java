@@ -42,7 +42,25 @@ public final class DatabendTableProperties
     @Inject
     public DatabendTableProperties()
     {
-        tableProperties = ImmutableList.of(enumProperty(ENGINE_PROPERTY, "Databend Table Engine, defaults to Log", DatabendEngineType.class, DEFAULT_TABLE_ENGINE, false), new PropertyMetadata<>(ORDER_BY_PROPERTY, "columns to be the sorting key, it's required for table MergeTree engine family", new ArrayType(VARCHAR), List.class, ImmutableList.of(), false, value -> (List<?>) value, value -> value));
+        tableProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(enumProperty(
+                        ENGINE_PROPERTY,
+                        "Databend Table Engine, defaults to Log",
+                        DatabendEngineType.class,
+                        DEFAULT_TABLE_ENGINE,
+                        false
+                ))
+                .add(new PropertyMetadata<>(
+                        ORDER_BY_PROPERTY,
+                        "columns to be the sorting key, it's required for table MergeTree engine family",
+                        new ArrayType(VARCHAR),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> (List<?>) value,
+                        value -> value
+                ))
+                .build();
     }
 
     public static DatabendEngineType getEngine(Map<String, Object> tableProperties)
