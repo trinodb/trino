@@ -15,8 +15,6 @@ package io.trino.plugin.databend;
 
 import io.trino.testing.QueryRunner;
 
-import java.time.Duration;
-
 public class TestDatabendConnectorSmokeTest
         extends BaseDatabendConnectorSmokeTest
 {
@@ -28,7 +26,8 @@ public class TestDatabendConnectorSmokeTest
     {
         databendServer = closeAfterClass(new TestingDatabendServer());
         return DatabendQueryRunner.builder(databendServer)
-                .addConnectorProperty("databend.connection-timeout", Duration.ofSeconds(60).toString())
+                .addConnectorProperty("databend.connection-timeout", "60")
+                .addConnectorProperty("databend.presigned-url-disabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
