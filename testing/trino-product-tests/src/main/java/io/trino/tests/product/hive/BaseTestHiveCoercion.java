@@ -214,14 +214,10 @@ public abstract class BaseTestHiveCoercion
 
         // Additional assertions for VARBINARY coercion
         if (prestoReadColumns.contains("binary_to_string")) {
-            List<Object> hexRepresentedValue = ImmutableList.of("58F7BFBFBF", "58F7BFBFBF58");
+            List<Object> hexRepresentedValue = ImmutableList.of("58EFBFBDEFBFBDEFBFBDEFBFBD", "58EFBFBDEFBFBDEFBFBDEFBFBD58");
 
             if (tableName.toLowerCase(ENGLISH).contains("orc")) {
                 hexRepresentedValue = ImmutableList.of("3538206637206266206266206266", "3538206637206266206266206266203538");
-            }
-
-            if (tableName.toLowerCase(ENGLISH).contains("parquet")) {
-                hexRepresentedValue = ImmutableList.of("58EFBFBDEFBFBDEFBFBDEFBFBD", "58EFBFBDEFBFBDEFBFBDEFBFBD58");
             }
 
             assertQueryResults(

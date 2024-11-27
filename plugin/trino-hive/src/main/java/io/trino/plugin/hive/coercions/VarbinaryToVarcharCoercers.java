@@ -26,7 +26,6 @@ import java.nio.charset.CharsetDecoder;
 import java.util.HexFormat;
 
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
-import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.nio.charset.CodingErrorAction.REPLACE;
@@ -41,9 +40,6 @@ public class VarbinaryToVarcharCoercers
         if (storageFormat == ORC) {
             return new OrcVarbinaryToVarcharCoercer(toType);
         }
-        if (storageFormat == PARQUET) {
-            return new ParquetVarbinaryToVarcharCoercer(toType);
-        }
         return new VarbinaryToVarcharCoercer(toType);
     }
 
@@ -51,31 +47,6 @@ public class VarbinaryToVarcharCoercers
             extends TypeCoercer<VarbinaryType, VarcharType>
     {
         public VarbinaryToVarcharCoercer(VarcharType toType)
-        {
-            super(VARBINARY, toType);
-        }
-
-        @Override
-        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
-        {
-            try {
-                Slice decodedValue = fromType.getSlice(block, position);
-                if (toType.isUnbounded()) {
-                    toType.writeSlice(blockBuilder, decodedValue);
-                    return;
-                }
-                toType.writeSlice(blockBuilder, truncateToLength(decodedValue, toType.getBoundedLength()));
-            }
-            catch (RuntimeException e) {
-                blockBuilder.appendNull();
-            }
-        }
-    }
-
-    private static class ParquetVarbinaryToVarcharCoercer
-            extends TypeCoercer<VarbinaryType, VarcharType>
-    {
-        public ParquetVarbinaryToVarcharCoercer(VarcharType toType)
         {
             super(VARBINARY, toType);
         }
