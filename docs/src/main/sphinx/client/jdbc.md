@@ -5,13 +5,20 @@ users to access Trino using Java-based applications, and other non-Java
 applications running in a JVM. Both desktop and server-side applications, such
 as those used for reporting and database development, use the JDBC driver.
 
+The JDBC driver uses the [](/client/client-protocol) over HTTP/HTTPS to
+communicate with the coordinator on the cluster.
+
 ## Requirements
 
 The Trino JDBC driver has the following requirements:
 
-- Java version 8 or higher.
+- Java version 8 or higher. Java 22 or higher is recommended for improved
+  decompression performance.
 - All users that connect to Trino with the JDBC driver must be granted access to
   query tables in the `system.jdbc` schema.
+- Network access over HTTP/HTTPS to the coordinator of the Trino cluster.
+- Network access to the configured object storage, if the
+  [](jdbc-spooling-protocol) is enabled.
 
 The JDBC driver version should be identical to the version of the Trino cluster,
 or newer. Older versions typically work, but only a subset is regularly tested.
@@ -44,10 +51,6 @@ After you have downloaded the JDBC driver and added it to your
 classpath, you'll typically need to restart your application in order to
 recognize the new driver. Then, depending on your application, you
 may need to manually register and configure the driver.
-
-The CLI uses the HTTP protocol and the
-{doc}`Trino client REST API </develop/client-protocol>` to communicate
-with Trino.
 
 ## Registering and configuring the driver
 
