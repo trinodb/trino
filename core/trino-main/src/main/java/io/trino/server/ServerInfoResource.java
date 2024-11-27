@@ -46,12 +46,12 @@ public class ServerInfoResource
     private final NodeVersion version;
     private final String environment;
     private final boolean coordinator;
-    private final GracefulShutdownHandler shutdownHandler;
+    private final NodeStateManager shutdownHandler;
     private final StartupStatus startupStatus;
     private final long startTime = System.nanoTime();
 
     @Inject
-    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, GracefulShutdownHandler shutdownHandler, StartupStatus startupStatus)
+    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, NodeStateManager shutdownHandler, StartupStatus startupStatus)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = nodeInfo.getEnvironment();
