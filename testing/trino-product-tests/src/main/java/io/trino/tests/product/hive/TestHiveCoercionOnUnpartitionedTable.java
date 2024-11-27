@@ -300,6 +300,8 @@ public class TestHiveCoercionOnUnpartitionedTable
                 .put(columnContext("parquet", "timestamp_map_to_map"), "Unsupported Trino column type (varchar) for Parquet column ([timestamp_map_to_map, key_value, value, timestamp2string] optional int96 timestamp2string)")
                 .put(columnContext("parquet", "string_to_timestamp"), "Unsupported Trino column type (timestamp(3)) for Parquet column ([string_to_timestamp] optional binary string_to_timestamp (STRING))")
                 .put(columnContext("parquet", "timestamp_to_date"), "Unsupported Trino column type (date) for Parquet column ([timestamp_to_date] optional int96 timestamp_to_date))")
+                .put(columnContext("parquet", "binary_to_string"), "Varbinary to Varchar coercion doesn't match with Hive's implementation") // Error message is not matched, this is added for our understanding
+                .put(columnContext("parquet", "binary_to_smaller_varchar"), "Varbinary to Varchar coercion doesn't match with Hive's implementation") // Error message is not matched, this is added for our understanding
                 .buildOrThrow();
     }
 

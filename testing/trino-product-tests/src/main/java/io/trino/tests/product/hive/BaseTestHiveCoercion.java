@@ -211,24 +211,26 @@ public abstract class BaseTestHiveCoercion
         }
         String prestoSelectQuery = format("SELECT %s FROM %s", String.join(", ", prestoReadColumns), tableName);
         assertQueryResults(Engine.TRINO, prestoSelectQuery, expectedPrestoResults, prestoReadColumns, 2);
-        List<Object> hexRepresentedValue = ImmutableList.of("58F7BFBFBF", "58F7BFBFBF58");
-
-        if (tableName.toLowerCase(ENGLISH).contains("orc")) {
-            hexRepresentedValue = ImmutableList.of("3538206637206266206266206266", "3538206637206266206266206266203538");
-        }
-
-        // TODO: Translate internal byte sequence of Varchar in sync with Hive when coercing from Varbinary column
-        if (tableName.toLowerCase(ENGLISH).contains("parquet") && !tableName.toLowerCase(ENGLISH).contains("_unpartitioned")) {
-            hexRepresentedValue = ImmutableList.of("58EFBFBDEFBFBDEFBFBDEFBFBD", "58EFBFBDEFBFBDEFBFBDEFBFBD58");
-        }
 
         // Additional assertions for VARBINARY coercion
-        assertQueryResults(
-                Engine.TRINO,
-                format("SELECT to_hex(cast(binary_to_string as varbinary)) as hex_representation FROM %s", tableName),
-                ImmutableMap.of("hex_representation", hexRepresentedValue),
-                ImmutableList.of("hex_representation"),
-                2);
+        if (prestoReadColumns.contains("binary_to_string")) {
+            List<Object> hexRepresentedValue = ImmutableList.of("58F7BFBFBF", "58F7BFBFBF58");
+
+            if (tableName.toLowerCase(ENGLISH).contains("orc")) {
+                hexRepresentedValue = ImmutableList.of("3538206637206266206266206266", "3538206637206266206266206266203538");
+            }
+
+            if (tableName.toLowerCase(ENGLISH).contains("parquet")) {
+                hexRepresentedValue = ImmutableList.of("58EFBFBDEFBFBDEFBFBDEFBFBD", "58EFBFBDEFBFBDEFBFBDEFBFBD58");
+            }
+
+            assertQueryResults(
+                    Engine.TRINO,
+                    format("SELECT to_hex(cast(binary_to_string as varbinary)) as hex_representation FROM %s", tableName),
+                    ImmutableMap.of("hex_representation", hexRepresentedValue),
+                    ImmutableList.of("hex_representation"),
+                    2);
+        }
 
         // For Hive, remove unsupported columns for the current file format and hive version
         List<String> hiveReadColumns = removeUnsupportedColumnsForHive(allColumns, tableName);
@@ -236,9 +238,14 @@ public abstract class BaseTestHiveCoercion
         String hiveSelectQuery = format("SELECT %s FROM %s", String.join(", ", hiveReadColumns), tableName);
         assertQueryResults(Engine.HIVE, hiveSelectQuery, expectedHiveResults, hiveReadColumns, 2);
 
+        List<Object> hexRepresentedValue = ImmutableList.of("58F7BFBFBF", "58F7BFBFBF58");
+
         // TODO: Translate internal byte sequence of Varchar in sync with Hive when coercing from Varbinary column
         if (tableName.toLowerCase(ENGLISH).contains("parquet")) {
             hexRepresentedValue = ImmutableList.of("58EFBFBDEFBFBDEFBFBDEFBFBD", "58EFBFBDEFBFBDEFBFBDEFBFBD58");
+        }
+        else if (tableName.toLowerCase(ENGLISH).contains("orc")) {
+            hexRepresentedValue = ImmutableList.of("3538206637206266206266206266", "3538206637206266206266206266203538");
         }
 
         // Additional assertions for VARBINARY coercion
