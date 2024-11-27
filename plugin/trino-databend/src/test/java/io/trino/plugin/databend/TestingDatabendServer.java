@@ -29,7 +29,7 @@ public class TestingDatabendServer
         implements Closeable
 {
     private static final DockerImageName DATABEND_IMAGE = DockerImageName.parse("datafuselabs/databend:v1.2.615");
-    public static final DockerImageName DATABEND_LATEST_IMAGE = DATABEND_IMAGE.withTag("v1.2.615");
+    public static final DockerImageName DATABEND_LATEST_IMAGE = DATABEND_IMAGE.withTag("v1.2.664-nightly");
     public static final DockerImageName DATABEND_DEFAULT_IMAGE = DATABEND_IMAGE.withTag("v1.2.615");
 
     private final DatabendContainer dockerContainer;
