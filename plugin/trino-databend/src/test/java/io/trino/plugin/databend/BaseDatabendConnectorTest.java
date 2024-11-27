@@ -271,10 +271,6 @@ public abstract class BaseDatabendConnectorTest
     @Test
     public void testDatabendNullPushdown()
     {
-        Session mapStringAsVarbinary = Session.builder(getSession())
-                .setCatalogSessionProperty("databend", "connection_timeout", "60")
-                .build();
-
         TestNullPushdownDataType.connectorExpressionOnly()
                 .addSpecialColumn("String", "'z'", "CAST('z' AS varchar)")
                 .addTestCase("Nullable(decimal(3, 1))")
