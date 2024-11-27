@@ -262,10 +262,12 @@ public abstract class BaseDatabendConnectorTest
                     .isFullyPushedDown();
         }
     }
+
     private DataSetup databendCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new DatabendSqlExecutor(onRemoteDatabase()), tableNamePrefix);
     }
+
     @Test
     public void testDatabendNullPushdown()
     {
@@ -415,14 +417,14 @@ public abstract class BaseDatabendConnectorTest
         try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.verify_negative_date", "(dt DATE)")) {
             // Insert via prepared statement succeeds but writes incorrect value due to bug in driver
             try (Connection connection = databendServer.createConnection();
-                 PreparedStatement insert = connection.prepareStatement("INSERT INTO " + table.getName() + " VALUES (?)")) {
+                    PreparedStatement insert = connection.prepareStatement("INSERT INTO " + table.getName() + " VALUES (?)")) {
                 insert.setObject(1, negativeDate);
                 int affectedRows = insert.executeUpdate();
                 assertThat(affectedRows).isEqualTo(1);
             }
 
             try (Connection connection = databendServer.createConnection();
-                 ResultSet resultSet = connection.createStatement().executeQuery("SELECT dt FROM " + table.getName())) {
+                    ResultSet resultSet = connection.createStatement().executeQuery("SELECT dt FROM " + table.getName())) {
                 while (resultSet.next()) {
                     LocalDate dateReadBackFromDatabend = resultSet.getObject(1, LocalDate.class);
                     assertThat(dateReadBackFromDatabend).isNotEqualTo(negativeDate);

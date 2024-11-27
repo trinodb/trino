@@ -55,16 +55,17 @@ public class TestingDatabendServer
     public void execute(String sql)
     {
         try (Connection connection = DriverManager.getConnection(getJdbcUrl());
-             Statement statement = connection.createStatement()) {
+                Statement statement = connection.createStatement()) {
             statement.execute(sql);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("Failed to execute statement: " + sql, e);
         }
     }
 
     public String getJdbcUrl()
     {
-        return format("jdbc:databend://%s:%s/", dockerContainer.getHost(),
+        return format("jdbc:databend://databend:databend@%s:%s/", dockerContainer.getHost(),
                 dockerContainer.getMappedPort(8000));
     }
 

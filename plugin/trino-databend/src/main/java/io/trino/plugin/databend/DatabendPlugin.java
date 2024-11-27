@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 package io.trino.plugin.databend;
+
 import io.trino.plugin.jdbc.JdbcPlugin;
 
 public class DatabendPlugin
