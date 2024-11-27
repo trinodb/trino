@@ -19,7 +19,7 @@
         <dependency>
             <groupId>com.databend</groupId>
             <artifactId>databend-jdbc</artifactId>
-            <version>0.2.8</version>
+            <version>0.3.2</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.squareup.okio</groupId>
@@ -32,6 +32,10 @@
                 <exclusion>
                     <groupId>joda-time</groupId>
                     <artifactId>joda-time</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

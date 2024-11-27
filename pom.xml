@@ -469,7 +469,7 @@
             <dependency>
                 <groupId>com.databend</groupId>
                 <artifactId>databend-jdbc</artifactId>
-                <version>0.2.8</version>
+                <version>0.3.2</version>
                 <classifier>all</classifier>
             </dependency>
 
