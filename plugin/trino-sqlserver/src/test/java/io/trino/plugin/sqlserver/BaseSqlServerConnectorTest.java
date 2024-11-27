@@ -66,6 +66,7 @@ public abstract class BaseSqlServerConnectorTest
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                  SUPPORTS_DROP_SCHEMA_CASCADE,
                  SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
+                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_NEGATIVE_DATE,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
                  SUPPORTS_RENAME_SCHEMA,
