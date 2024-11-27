@@ -259,7 +259,7 @@ public final class IcebergQueryRunner
                     .addIcebergProperty("iceberg.security", "read_only")
                     .addIcebergProperty("iceberg.catalog.type", "rest")
                     .addIcebergProperty("iceberg.rest-catalog.uri", unityCatalog.uri() + "/iceberg")
-                    .addIcebergProperty("iceberg.rest-catalog.parent-namespace", "unity")
+                    .addIcebergProperty("iceberg.rest-catalog.warehouse", "unity")
                     .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
                     .disableSchemaInitializer()
                     .build();
