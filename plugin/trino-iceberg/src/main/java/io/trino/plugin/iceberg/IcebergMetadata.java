@@ -1103,8 +1103,7 @@ public class IcebergMetadata
         try {
             if (fragments.isEmpty()) {
                 // Commit the transaction if the table is being created without data
-                AppendFiles appendFiles = transaction.newFastAppend();
-                commitUpdateAndTransaction(appendFiles, session, transaction, "create table");
+                commitTransaction(transaction, "create table");
                 transaction = null;
                 return Optional.empty();
             }
@@ -2648,7 +2647,7 @@ public class IcebergMetadata
         if (handle.getSnapshotId().isEmpty()) {
             // No snapshot, table is empty
             verify(
-                    computedStatistics.isEmpty(),
+                    isEmptyComputedStatistics(computedStatistics),
                     "Unexpected computed statistics that cannot be attached to a snapshot because none exists: %s",
                     computedStatistics);
 
@@ -2671,6 +2670,18 @@ public class IcebergMetadata
 
         commitTransaction(transaction, "statistics collection");
         transaction = null;
+    }
+
+    private static boolean isEmptyComputedStatistics(Collection<ComputedStatistics> computedStatistics)
+    {
+        if (computedStatistics.isEmpty()) {
+            return true;
+        }
+        if (computedStatistics.size() > 1) {
+            return false;
+        }
+        ComputedStatistics statistics = Iterables.getOnlyElement(computedStatistics);
+        return statistics.getTableStatistics().isEmpty() && statistics.getColumnStatistics().isEmpty();
     }
 
     @Override

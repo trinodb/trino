@@ -846,10 +846,10 @@ public class TestIcebergStatistics
                 """);
 
         // On empty table
-        assertQueryFails("ANALYZE " + tableName + " WITH (columns = ARRAY[])", "Cannot specify empty list of columns for analysis");
-        assertQueryFails("ANALYZE " + tableName + " WITH (columns = ARRAY['a'])", "Invalid columns specified for analysis: \\[a]");
-        assertQueryFails("ANALYZE " + tableName + " WITH (columns = ARRAY['a.x'])", "Invalid columns specified for analysis: \\[a.x]");
-        assertQueryFails("ANALYZE " + tableName + " WITH (columns = ARRAY['b'])", "Invalid columns specified for analysis: \\[b]");
+        assertUpdate("ANALYZE " + tableName + " WITH (columns = ARRAY[])");
+        assertUpdate("ANALYZE " + tableName + " WITH (columns = ARRAY['a'])");
+        assertUpdate("ANALYZE " + tableName + " WITH (columns = ARRAY['a.x'])");
+        assertUpdate("ANALYZE " + tableName + " WITH (columns = ARRAY['b'])");
         assertUpdate("ANALYZE " + tableName);
         assertQuery(
                 "SHOW STATS FOR " + tableName,

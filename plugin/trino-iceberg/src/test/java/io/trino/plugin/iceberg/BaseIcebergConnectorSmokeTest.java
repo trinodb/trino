@@ -709,7 +709,7 @@ public abstract class BaseIcebergConnectorSmokeTest
             long filesCount = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\"");
             long partitionsCount = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$partitions\"");
 
-            assertThat(snapshotIds).hasSize(4);
+            assertThat(snapshotIds).hasSize(3);
             assertThat(snapshotIds).hasSameElementsAs(historySnapshotIds);
             assertThat(filesCount).isEqualTo(3L);
             assertThat(partitionsCount).isEqualTo(2L);

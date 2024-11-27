@@ -205,7 +205,7 @@ public abstract class BaseIcebergSystemTables
                         "('is_current_ancestor', 'boolean', '', '')");
 
         // Test the number of history entries
-        assertQuery("SELECT count(*) FROM test_schema.\"test_table$history\"", "VALUES 3");
+        assertQuery("SELECT count(*) FROM test_schema.\"test_table$history\"", "VALUES 2");
     }
 
     @Test
@@ -222,46 +222,46 @@ public abstract class BaseIcebergSystemTables
         List<Long> latestSequenceNumbers = new ArrayList<>();
 
         assertUpdate("CREATE TABLE test_schema.test_metadata_log_entries (c1 BIGINT)");
-        latestSchemaIds.add(0);
-        latestSequenceNumbers.add(1L);
+        latestSchemaIds.add(null);
+        latestSequenceNumbers.add(null);
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
 
         assertUpdate("INSERT INTO test_schema.test_metadata_log_entries VALUES (1)", 1);
         // INSERT create two commits (https://github.com/trinodb/trino/issues/15439) and share a same snapshotId
         latestSchemaIds.add(0);
         latestSchemaIds.add(0);
-        latestSequenceNumbers.add(2L);
-        latestSequenceNumbers.add(2L);
+        latestSequenceNumbers.add(1L);
+        latestSequenceNumbers.add(1L);
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
 
         assertUpdate("ALTER TABLE test_schema.test_metadata_log_entries ADD COLUMN c2 VARCHAR");
         latestSchemaIds.add(0);
-        latestSequenceNumbers.add(2L);
+        latestSequenceNumbers.add(1L);
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
 
         assertUpdate("DELETE FROM test_schema.test_metadata_log_entries WHERE c1 = 1", 1);
         latestSchemaIds.add(1);
-        latestSequenceNumbers.add(3L);
+        latestSequenceNumbers.add(2L);
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
 
         // OPTIMIZE create two commits: update snapshot and rewrite statistics
         assertUpdate("ALTER TABLE test_schema.test_metadata_log_entries execute optimize");
         latestSchemaIds.add(1);
         latestSchemaIds.add(1);
-        latestSequenceNumbers.add(4L);
-        latestSequenceNumbers.add(4L);
+        latestSequenceNumbers.add(3L);
+        latestSequenceNumbers.add(3L);
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
 
         assertUpdate("CREATE OR REPLACE TABLE test_schema.test_metadata_log_entries (c3 INTEGER)");
-        latestSchemaIds.add(2);
-        latestSequenceNumbers.add(5L);
+        latestSchemaIds.add(1);
+        latestSequenceNumbers.add(3L);
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
 
         assertUpdate("INSERT INTO test_schema.test_metadata_log_entries VALUES (1)", 1);
         latestSchemaIds.add(2);
-        latestSequenceNumbers.add(6L);
+        latestSequenceNumbers.add(4L);
         latestSchemaIds.add(2);
-        latestSequenceNumbers.add(6L);
+        latestSequenceNumbers.add(4L);
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
 
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_metadata_log_entries");
@@ -290,8 +290,8 @@ public abstract class BaseIcebergSystemTables
                         "('manifest_list', 'varchar', '', '')," +
                         "('summary', 'map(varchar, varchar)', '', '')");
 
-        assertQuery("SELECT operation FROM test_schema.\"test_table$snapshots\"", "VALUES 'append', 'append', 'append'");
-        assertQuery("SELECT summary['total-records'] FROM test_schema.\"test_table$snapshots\"", "VALUES '0', '3', '6'");
+        assertQuery("SELECT operation FROM test_schema.\"test_table$snapshots\"", "VALUES 'append', 'append'");
+        assertQuery("SELECT summary['total-records'] FROM test_schema.\"test_table$snapshots\"", "VALUES '3', '6'");
     }
 
     @Test
