@@ -123,68 +123,68 @@ to the following table:
 :header-rows: 1
 
 * - Databend database type
-- Trino type
-- Notes
+  - Trino type
+  - Notes
 * - `BOOLEAN`
-- `BOOLEAN`
--
+  - `BOOLEAN`
+  -
 * - `TINYINT`
-- `TINYINT`
--
+  - `TINYINT`
+  -
 * - `TINYINT UNSIGNED`
-- `SMALLINT`
--
+  - `SMALLINT`
+  -
 * - `SMALLINT`
-- `SMALLINT`
--
+  - `SMALLINT`
+  -
 * - `SMALLINT UNSIGNED`
-- `INTEGER`
--
+  - `INTEGER`
+  -
 * - `INTEGER`
-- `INTEGER`
--
+  - `INTEGER`
+  -
 * - `INTEGER UNSIGNED`
-- `BIGINT`
--
+  - `BIGINT`
+  -
 * - `BIGINT`
-- `BIGINT`
--
+  - `BIGINT`
+  -
 * - `BIGINT UNSIGNED`
-- `DECIMAL(20, 0)`
--
+  - `DECIMAL(20, 0)`
+  -
 * - `DOUBLE PRECISION`
-- `DOUBLE`
--
+  - `DOUBLE`
+  -
 * - `FLOAT`
-- `REAL`
--
+  - `REAL`
+  -
 * - `DECIMAL(p, s)`
-- `DECIMAL(p, s)`
-- 
+  - `DECIMAL(p, s)`
+  - 
 * - `VARCHAR(n)`
-- `VARCHAR(n)`
--
+  - `VARCHAR(n)`
+  -
 * - `MAP(K, V)`
-- `VARCHAR`
--
+  - `VARCHAR`
+  -
 * - `ARRAY(T)`
-- `VARCHAR`
--
+  - `VARCHAR`
+  -
 * - `BINARY`
-- `VARBINARY`
--
+  - `VARBINARY`
+  -
 * - `JSON`
-- `JSON`
--
+  - `JSON`
+  -
 * - `DATE`
-- `DATE`
--
+  - `DATE`
+  -
 * - `DATETIME(n)`
-- `TIMESTAMP(n)`
--
+  - `TIMESTAMP(n)`
+  -
 * - `TIMESTAMP(n)`
-- `TIMESTAMP(n) WITH TIME ZONE`
--
+  - `TIMESTAMP(n) WITH TIME ZONE`
+  -
 :::
 
 No other types are supported.
@@ -199,47 +199,47 @@ to the following table:
 :header-rows: 1
 
 * - Trino type
-- Databend type
-- Notes
+  - Databend type
+  - Notes
 * - `BOOLEAN`
-- `BOOLEAN`
--
+  - `BOOLEAN`
+  -
 * - `TINYINT`
-- `Int8`
-- `TINYINT`, `BOOL`, `BOOLEAN`, and `INT1` are aliases of `Int8`
+  - `Int8`
+  - `TINYINT`, `BOOL`, `BOOLEAN`, and `INT1` are aliases of `Int8`
 * - `SMALLINT`
-- `Int16`
--  `SMALLINT` and `INT2` are aliases of `Int16`
+  - `Int16`
+  -  `SMALLINT` and `INT2` are aliases of `Int16`
 * - `INTEGER`
-- `Int32`
-- `INT`, `INT4`, and `INTEGER` are aliases of `Int32`
+  - `Int32`
+  - `INT`, `INT4`, and `INTEGER` are aliases of `Int32`
 * - `BIGINT`
-- `Int64`
-- `BIGINT` is an alias of `Int64`
+  - `Int64`
+  - `BIGINT` is an alias of `Int64`
 * - `REAL`
-- `Float32`
-- `FLOAT` is an alias of `Float32`
+  - `Float32`
+  - `FLOAT` is an alias of `Float32`
 * - `DOUBLE`
-- `Float64`
-- `DOUBLE` is an alias of `Float64`
+  - `Float64`
+  - `DOUBLE` is an alias of `Float64`
 * - `DECIMAL(p,s)`
-- `Decimal(p,s)`
--
+  - `Decimal(p,s)`
+  -
 * - `VARCHAR`
-- `String`
--
+  - `String`
+  -
 * - `CHAR`
-- `String`
--
+  - `String`
+  -
 * - `VARBINARY`
-- `String`
-- 
+  - `String`
+  - 
 * - `DATE`
-- `Date`
--
+  - `Date`
+  -
 * - `TIMESTAMP(0)`
-- `DateTime`
--
+  - `DateTime`
+  -
 :::
 
 No other types are supported.
