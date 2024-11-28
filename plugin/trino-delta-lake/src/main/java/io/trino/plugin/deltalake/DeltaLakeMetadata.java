@@ -4100,6 +4100,12 @@ public class DeltaLakeMetadata
                     fileSystemFactory,
                     transactionLogAccess,
                     typeManager));
+            case TRANSACTIONS -> Optional.of(new DeltaLakeTransactionsTable(
+                    systemTableName,
+                    tableLocation,
+                    fileSystemFactory,
+                    transactionLogAccess,
+                    typeManager));
             case PROPERTIES -> Optional.of(new DeltaLakePropertiesTable(systemTableName, tableLocation, transactionLogAccess));
             case PARTITIONS -> Optional.of(new DeltaLakePartitionsTable(session, systemTableName, tableLocation, transactionLogAccess, typeManager));
         };
