@@ -16,21 +16,21 @@ package io.trino.server;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
 import static com.google.common.util.concurrent.Futures.catching;
 import static com.google.common.util.concurrent.Futures.withTimeout;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class AsyncResponseUtils
 {
     private AsyncResponseUtils() {}
 
-    public static <V> ListenableFuture<V> withFallbackAfterTimeout(ListenableFuture<V> future, Duration timeout, Supplier<V> fallback, Executor responseExecutor, ScheduledExecutorService timeoutExecutor)
+    public static <V> ListenableFuture<V> withFallbackAfterTimeout(ListenableFuture<V> future, Duration timeout, Supplier<V> fallback, ScheduledExecutorService timeoutExecutor)
     {
-        return catching(withTimeout(future, timeout.toMillis(), MILLISECONDS, timeoutExecutor), TimeoutException.class, _ -> fallback.get(), responseExecutor);
+        return catching(withTimeout(future, timeout.toMillis(), MILLISECONDS, timeoutExecutor), TimeoutException.class, _ -> fallback.get(), directExecutor());
     }
 }
