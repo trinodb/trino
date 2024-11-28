@@ -64,6 +64,7 @@ import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBReader;
+import org.locationtech.jts.io.kml.KMLReader;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 import org.locationtech.jts.operation.distance.DistanceOp;
 
@@ -313,6 +314,14 @@ public final class GeoFunctions
     public static Slice stGeomFromBinary(@SqlType(VARBINARY) Slice input)
     {
         return serialize(geomFromBinary(input));
+    }
+
+    @Description("Returns a Geometry type object from OGC KML representation")
+    @ScalarFunction("ST_GeomFromKML")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stGeomFromKML(@SqlType(VARCHAR) Slice input)
+    {
+        return serialize(geomFromKML(input));
     }
 
     @Description("Returns a Geometry type object from Spatial Framework for Hadoop representation")
@@ -1546,6 +1555,16 @@ public final class GeoFunctions
         }
         catch (ParseException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);
+        }
+    }
+
+    private static Geometry geomFromKML(Slice input)
+    {
+        try {
+            return new KMLReader().read(input.toStringUtf8());
+        }
+        catch (ParseException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid KML: " + input.toStringUtf8(), e);
         }
     }
 
