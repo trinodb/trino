@@ -133,8 +133,6 @@ public class TableFinishOperator
     private final TableExecuteContext tableExecuteContext;
     private final boolean outputRowCount;
 
-    private final Supplier<TableFinishInfo> tableFinishInfoSupplier;
-
     public TableFinishOperator(
             OperatorContext operatorContext,
             TableFinisher tableFinisher,
@@ -150,9 +148,8 @@ public class TableFinishOperator
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.tableExecuteContext = requireNonNull(tableExecuteContext, "tableExecuteContext is null");
-        this.tableFinishInfoSupplier = createTableFinishInfoSupplier(outputMetadata, statisticsTiming);
         this.outputRowCount = outputRowCount;
-        operatorContext.setInfoSupplier(tableFinishInfoSupplier);
+        operatorContext.setInfoSupplier(createTableFinishInfoSupplier(outputMetadata, statisticsTiming));
     }
 
     @Override
