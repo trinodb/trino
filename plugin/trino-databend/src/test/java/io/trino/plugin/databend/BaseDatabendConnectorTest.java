@@ -131,13 +131,16 @@ public abstract class BaseDatabendConnectorTest
                 .isEqualTo("CREATE TABLE databend.tpch.orders (\n" +
                         "   orderkey bigint,\n" +
                         "   custkey bigint,\n" +
-                        "   orderstatus varchar(255),\n" +
+                        "   orderstatus varchar,\n" +
                         "   totalprice double,\n" +
                         "   orderdate date,\n" +
-                        "   orderpriority varchar(255),\n" +
-                        "   clerk varchar(255),\n" +
+                        "   orderpriority varchar,\n" +
+                        "   clerk varchar,\n" +
                         "   shippriority integer,\n" +
-                        "   comment varchar(255)\n" +
+                        "   comment varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   engine = 'FUSE'\n" +
                         ")");
     }
 
