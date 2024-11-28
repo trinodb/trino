@@ -264,7 +264,7 @@ public class JsonEncodingUtils
                 return;
             }
             Slice slice = VARCHAR.getSlice(block, position);
-            generator.writeString(slice.toStringUtf8());
+            generator.writeUTF8String(slice.byteArray(), slice.byteArrayOffset(), slice.length());
         }
     }
 
