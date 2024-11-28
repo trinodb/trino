@@ -1,7 +1,7 @@
 ---
 myst:
-substitutions:
-default_domain_compaction_threshold: "`1000`"
+  substitutions:
+    default_domain_compaction_threshold: "`1000`"
 ---
 
 # Databend connector
