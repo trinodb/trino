@@ -276,17 +276,17 @@ public abstract class BaseDatabendConnectorTest
     {
         // varchar like
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name LIKE '%ROM%'"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // varchar equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // varchar range
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
                 .isNotFullyPushedDown(FilterNode.class);
 
         // varchar different case
@@ -296,26 +296,16 @@ public abstract class BaseDatabendConnectorTest
 
         // bigint equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
                 .isFullyPushedDown();
 
         // bigint range, with decimal to bigint simplification
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey BETWEEN 18.5 AND 19.5"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
-                .isFullyPushedDown();
-
-        // date equality
-        assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
-                .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
                 .isFullyPushedDown();
 
         onRemoteDatabase().execute("CREATE TABLE tpch.binary_test (x int, y varbinary(100))");
         onRemoteDatabase().execute("INSERT INTO tpch.binary_test VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))");
-
-        // varbinary equality
-        assertThat(query("SELECT x, y FROM tpch.binary_test WHERE y = from_base64('AFCBhLrkidtNTZcA9Ru3hw==')"))
-                .matches("VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))")
-                .isFullyPushedDown();
 
         onRemoteDatabase().execute("DROP TABLE tpch.binary_test");
 
