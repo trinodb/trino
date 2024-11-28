@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.databend;
 
+import io.airlift.units.Duration;
 import io.trino.testing.QueryRunner;
 
 public class TestDatabendConnectorTest
@@ -24,7 +25,7 @@ public class TestDatabendConnectorTest
     {
         databendServer = closeAfterClass(new TestingDatabendServer(TestingDatabendServer.DATABEND_DEFAULT_IMAGE));
         return DatabendQueryRunner.builder(databendServer)
-                .addConnectorProperty("databend.connection-timeout", "60")
+                .addConnectorProperty("databend.connection-timeout", Duration.valueOf("60s").toString())
                 .addConnectorProperty("databend.presigned-url-disabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
