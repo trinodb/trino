@@ -277,6 +277,7 @@ class Query
     public synchronized void dispose()
     {
         exchangeDataSource.close();
+        lastResult = null;
     }
 
     public QueryId getQueryId()
