@@ -113,13 +113,13 @@ public abstract class BaseDatabendConnectorTest
         return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar(255)", "", "")
+                .row("orderstatus", "varchar", "", "")
                 .row("totalprice", "double", "", "")
                 .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar(255)", "", "")
-                .row("clerk", "varchar(255)", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("clerk", "varchar", "", "")
                 .row("shippriority", "integer", "", "")
-                .row("comment", "varchar(255)", "", "")
+                .row("comment", "varchar", "", "")
                 .build();
     }
 
@@ -215,13 +215,11 @@ public abstract class BaseDatabendConnectorTest
     @Test
     public void testColumnComment()
     {
-        // TODO add support for setting comments on existing column and replace the test with io.trino.testing.BaseConnectorTest#testCommentColumn
-
         onRemoteDatabase().execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
 
         assertQuery(
                 "SELECT column_name, column_comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
-                "VALUES ('col1', 'test comment'), ('col2', ''), ('col3', '')");
+                "VALUES ('col1', '''test comment'''), ('col2', null), ('col3', null)");
 
         assertUpdate("DROP TABLE test_column_comment");
     }
@@ -251,17 +249,20 @@ public abstract class BaseDatabendConnectorTest
         try (TestTable table = new TestTable(
                 onRemoteDatabase(),
                 "tpch.test_like_predicate_pushdown",
-                "(id integer, a_varchar varchar(1) CHARACTER SET utf8 COLLATE utf8_bin)",
+                "(id integer, a_varchar varchar(1))",
                 List.of(
                         "1, 'A'",
                         "2, 'a'",
                         "3, 'B'",
                         "4, 'ą'",
                         "5, 'Ą'"))) {
-            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%A%'"))
-                    .isFullyPushedDown();
-            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą%'"))
-                    .isFullyPushedDown();
+            assertQuery(
+                    "SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%A%'",
+                    "VALUES (1)");
+
+            assertQuery(
+                    "SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą%'",
+                    "VALUES (4)");
         }
     }
 
@@ -295,6 +296,25 @@ public abstract class BaseDatabendConnectorTest
                 .addTestCase("Nullable(date)")
                 .addTestCase("Nullable(datetime)")
                 .execute(getQueryRunner(), databendCreateAndInsert("tpch.test_is_null"));
+    }
+
+    public void assertQueryPlanContains(String query, String expectedNode)
+    {
+        String actualPlan = getQueryPlan(query);
+
+        assertThat(actualPlan)
+                .withFailMessage("Query plan does not contain expected node: %s\nActual plan:\n%s", expectedNode, actualPlan)
+                .contains(expectedNode);
+    }
+
+    public String getQueryPlan(String query)
+    {
+        MaterializedResult result = computeActual("EXPLAIN " + query);
+
+        return result.getMaterializedRows().stream()
+                .map(row -> row.getField(0).toString())
+                .reduce((line1, line2) -> line1 + "\n" + line2)
+                .orElseThrow(() -> new RuntimeException("Query plan is empty"));
     }
 
     @Test
