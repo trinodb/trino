@@ -374,7 +374,7 @@ public class TaskResource
     @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}/acknowledge")
-    public void acknowledgeResults(
+    public Response acknowledgeResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
             @PathParam("token") long token)
@@ -383,6 +383,7 @@ public class TaskResource
         requireNonNull(bufferId, "bufferId is null");
 
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
+        return Response.ok().build();
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
