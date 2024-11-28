@@ -44,6 +44,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.server.AsyncResponseUtils.withFallbackAfterTimeout;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
@@ -97,7 +98,7 @@ public class OAuth2TokenExchangeResource
         // hang if the client retries the request. The response will timeout eventually.
         ListenableFuture<TokenPoll> tokenFuture = tokenExchange.getTokenPoll(authId);
         ListenableFuture<Response> responseFuture = withFallbackAfterTimeout(
-                transform(tokenFuture, OAuth2TokenExchangeResource::toResponse, responseExecutor),
+                transform(tokenFuture, OAuth2TokenExchangeResource::toResponse, directExecutor()),
                 MAX_POLL_TIME, () -> pendingResponse(request), timeoutExecutor);
         bindAsyncResponse(asyncResponse, responseFuture, responseExecutor);
     }
