@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.common.base.Throwables;
 import com.google.inject.Inject;
+import io.airlift.jaxrs.ParsingException;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.InternalServerErrorException;
@@ -82,6 +83,9 @@ public class ThrowableMapper
                     .build();
             case TimeoutException timeoutException -> plainTextError(Response.Status.REQUEST_TIMEOUT)
                     .entity("Error 408 Timeout: " + timeoutException.getMessage())
+                    .build();
+            case ParsingException parsingException -> Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Throwables.getStackTraceAsString(parsingException))
                     .build();
             case WebApplicationException webApplicationException -> webApplicationException.getResponse();
             default -> {
