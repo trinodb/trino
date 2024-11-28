@@ -14,15 +14,16 @@
 package io.trino.plugin.databend;
 
 import io.airlift.configuration.Config;
+import io.airlift.units.Duration;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 
 public class DatabendConfig
         extends BaseJdbcConfig
 {
-    private String connectionTimeout = "60"; // seconds
+    private Duration connectionTimeout = Duration.valueOf("60s"); // seconds
     private Boolean presignedUrlDisabled = false;
 
-    public String getConnectionTimeout()
+    public Duration getConnectionTimeout()
     {
         return connectionTimeout;
     }
@@ -33,7 +34,7 @@ public class DatabendConfig
     }
 
     @Config("databend.connection-timeout")
-    public DatabendConfig setConnectionTimeout(String connectionTimeout)
+    public DatabendConfig setConnectionTimeout(Duration connectionTimeout)
     {
         this.connectionTimeout = connectionTimeout;
         return this;
