@@ -65,7 +65,7 @@ public class TestingDatabendServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:databend://databend:databend@%s:%s/", dockerContainer.getHost(),
+        return format("jdbc:databend://databend:databend@%s:%s?presigned_url_disabled=true", dockerContainer.getHost(),
                 dockerContainer.getMappedPort(8000));
     }
 
