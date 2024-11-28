@@ -37,12 +37,12 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -68,6 +68,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -291,10 +292,27 @@ public class TestJsonQueryDataEncoding
             throws IOException
     {
         List<TypedColumn> columns = ImmutableList.of(typed("col0", VARCHAR));
-        Page page = page(createStringsBlock("ala", "ma", "kota", "a", "kot", "ma", "ale", ""));
+        Page page = page(createStringsBlock("ala", "ma", "kota", "a", "kot", "ma", "ale", "", null));
 
-        assertThat(roundTrip(columns, page, "[[\"ala\"],[\"ma\"],[\"kota\"],[\"a\"],[\"kot\"],[\"ma\"],[\"ale\"],[\"\"]]"))
-                .isEqualTo(column("ala", "ma", "kota", "a", "kot", "ma", "ale", ""));
+        assertThat(roundTrip(columns, page, "[[\"ala\"],[\"ma\"],[\"kota\"],[\"a\"],[\"kot\"],[\"ma\"],[\"ale\"],[\"\"],[null]]"))
+                .isEqualTo(column("ala", "ma", "kota", "a", "kot", "ma", "ale", "", null));
+    }
+
+    @Test
+    public void testVarcharUtf8Serialization()
+            throws IOException
+    {
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", VARCHAR));
+        Page page = page(createStringsBlock(
+                "数据应用",
+                "\"quoted\"",
+                "zażółć gęślą jaźń",
+                "\0\0\0",  // garbage in, garbage out
+                "\r\t\n",
+                "\uD83E\uDD83"));
+
+        assertThat(roundTrip(columns, page, "[[\"数据应用\"],[\"\\\"quoted\\\"\"],[\"zażółć gęślą jaźń\"],[\"\\u0000\\u0000\\u0000\"],[\"\\r\\t\\n\"],[\"🦃\"]]"))
+                .isEqualTo(column("数据应用", "\"quoted\"", "zażółć gęślą jaźń", "\0\0\0", "\r\t\n", "🦃"));
     }
 
     @Test
@@ -564,8 +582,13 @@ public class TestJsonQueryDataEncoding
     private static <T> List<List<T>> column(T... values)
     {
         return Arrays.stream(values)
-                .map(List::of)
-                .collect(toImmutableList());
+                // Allow nulls in values
+                .map(value -> {
+                    List<T> list = new ArrayList<>();
+                    list.add(value);
+                    return list;
+                })
+                .collect(toList());
     }
 
     private static <T> List<T> array(T... values)
