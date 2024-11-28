@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.protocol.spooling;
+package io.trino.server.protocol;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.client.Column;
@@ -19,7 +19,7 @@ import io.trino.client.QueryDataDecoder;
 import io.trino.client.Row;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.encoding.JsonQueryDataDecoder;
-import io.trino.server.protocol.OutputColumn;
+import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.encoding.JsonQueryDataEncoder;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -56,7 +56,7 @@ import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTinyintsBlock;
 import static io.trino.block.BlockAssertions.createTypedLongsBlock;
 import static io.trino.server.protocol.ProtocolUtil.createColumn;
-import static io.trino.server.protocol.spooling.TestJsonQueryDataEncoding.TypedColumn.typed;
+import static io.trino.server.protocol.TestJsonEncodingUtils.TypedColumn.typed;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -72,7 +72,7 @@ import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestJsonQueryDataEncoding
+public class TestJsonEncodingUtils
 {
     protected QueryDataDecoder createDecoder(List<Column> columns)
     {
