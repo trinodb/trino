@@ -64,11 +64,20 @@ import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.VarcharType;
 import org.elasticsearch.client.ResponseException;
 
 import java.util.ArrayList;
@@ -126,6 +135,7 @@ public class ElasticsearchMetadata
             new ElasticsearchColumnHandle(
                     PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
                     VARCHAR,
+                    new IndexMetadata.PrimitiveType("text"),
                     new VarcharDecoder.Descriptor(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME),
                     false));
 
@@ -250,34 +260,12 @@ public class ElasticsearchMetadata
             result.put(field.name(), new ElasticsearchColumnHandle(
                     field.name(),
                     converted.type(),
+                    field.type(),
                     converted.decoderDescriptor(),
-                    supportsPredicates(field.type())));
+                    supportsPredicates(field.type(), converted.type)));
         }
 
         return result.buildOrThrow();
-    }
-
-    private static boolean supportsPredicates(IndexMetadata.Type type)
-    {
-        if (type instanceof DateTimeType) {
-            return true;
-        }
-
-        if (type instanceof PrimitiveType) {
-            switch (((PrimitiveType) type).name().toLowerCase(ENGLISH)) {
-                case "boolean":
-                case "byte":
-                case "short":
-                case "integer":
-                case "long":
-                case "double":
-                case "float":
-                case "keyword":
-                    return true;
-            }
-        }
-
-        return false;
     }
 
     private TypeAndDecoder toTrino(IndexMetadata.Field field)
@@ -677,6 +665,16 @@ public class ElasticsearchMetadata
         ConnectorTableHandle tableHandle = ((RawQueryFunctionHandle) handle).getTableHandle();
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
+    }
+
+    private static boolean supportsPredicates(IndexMetadata.Type type, Type trinoType)
+    {
+        return switch (trinoType) {
+            case TimestampType _, BooleanType _, TinyintType _, SmallintType _, IntegerType _, BigintType _, RealType _ -> true;
+            case DoubleType _ -> !(type instanceof ScaledFloatType);
+            case VarcharType _ when type instanceof PrimitiveType primitiveType && primitiveType.name().toLowerCase(ENGLISH).equals("keyword") -> true;
+            default -> false;
+        };
     }
 
     private record InternalTableMetadata(SchemaTableName tableName, List<ColumnMetadata> columnMetadata, Map<String, ColumnHandle> columnHandles) {}
