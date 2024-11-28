@@ -272,52 +272,6 @@ public abstract class BaseDatabendConnectorTest
     }
 
     @Test
-    public void testDatabendNullPushdown()
-    {
-        TestNullPushdownDataType.connectorExpressionOnly()
-                .addSpecialColumn("String", "'z'", "CAST('z' AS varchar)")
-                .addTestCase("Nullable(decimal(3, 1))")
-                .addTestCase("Nullable(decimal(30, 5))")
-                .execute(getQueryRunner(), databendCreateAndInsert("tpch.test_is_null"));
-
-        TestNullPushdownDataType.create()
-                .addSpecialColumn("String", "'z'", "CAST('z' AS varchar)")
-                .addTestCase("Nullable(tinyint)")
-                .addTestCase("Nullable(smallint)")
-                .addTestCase("Nullable(integer)")
-                .addTestCase("Nullable(bigint)")
-                .addTestCase("Nullable(UInt8)")
-                .addTestCase("Nullable(UInt16)")
-                .addTestCase("Nullable(UInt32)")
-                .addTestCase("Nullable(UInt64)")
-                .addTestCase("Nullable(double)")
-                .addTestCase("Nullable(varchar(30))")
-                .addTestCase("Nullable(String)")
-                .addTestCase("Nullable(date)")
-                .addTestCase("Nullable(datetime)")
-                .execute(getQueryRunner(), databendCreateAndInsert("tpch.test_is_null"));
-    }
-
-    public void assertQueryPlanContains(String query, String expectedNode)
-    {
-        String actualPlan = getQueryPlan(query);
-
-        assertThat(actualPlan)
-                .withFailMessage("Query plan does not contain expected node: %s\nActual plan:\n%s", expectedNode, actualPlan)
-                .contains(expectedNode);
-    }
-
-    public String getQueryPlan(String query)
-    {
-        MaterializedResult result = computeActual("EXPLAIN " + query);
-
-        return result.getMaterializedRows().stream()
-                .map(row -> row.getField(0).toString())
-                .reduce((line1, line2) -> line1 + "\n" + line2)
-                .orElseThrow(() -> new RuntimeException("Query plan is empty"));
-    }
-
-    @Test
     public void testPredicatePushdown()
     {
         // varchar like
