@@ -41,7 +41,7 @@ public class TestingDatabendServer
 
     public TestingDatabendServer(DockerImageName image)
     {
-        dockerContainer = new DatabendContainer(image);
+        dockerContainer = new DatabendContainer(image).withUrlParam("presigned_url_disabled", "true");
 
         dockerContainer.start();
     }
