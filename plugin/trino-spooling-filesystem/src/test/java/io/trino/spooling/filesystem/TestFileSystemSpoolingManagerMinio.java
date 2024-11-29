@@ -17,7 +17,7 @@ import io.airlift.units.DataSize;
 import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemStats;
-import io.trino.spi.protocol.SpoolingManager;
+import io.trino.spi.spool.SpoolingManager;
 import io.trino.testing.containers.Minio;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;

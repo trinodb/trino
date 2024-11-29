@@ -19,9 +19,9 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.server.ServerConfig;
 import io.trino.spi.classloader.ThreadContextClassLoader;
-import io.trino.spi.protocol.SpoolingManager;
-import io.trino.spi.protocol.SpoolingManagerContext;
-import io.trino.spi.protocol.SpoolingManagerFactory;
+import io.trino.spi.spool.SpoolingManager;
+import io.trino.spi.spool.SpoolingManagerContext;
+import io.trino.spi.spool.SpoolingManagerFactory;
 
 import java.io.File;
 import java.io.IOException;

@@ -11,25 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.protocol;
+package io.trino.spi.spool;
 
 import io.trino.spi.Experimental;
-import io.trino.spi.QueryId;
 
-import static java.util.Objects.requireNonNull;
+import java.time.Instant;
 
+/**
+ * SpooledSegmentHandle is used to uniquely identify a spooled segment and to manage its lifecycle.
+ */
 @Experimental(eta = "2025-05-31")
-public record SpoolingContext(String encoding, QueryId queryId, long rows, long size)
+public interface SpooledSegmentHandle
 {
-    public SpoolingContext
-    {
-        requireNonNull(queryId, "queryId is null");
-        requireNonNull(encoding, "encoding is null");
-        if (rows < 0) {
-            throw new IllegalArgumentException("rows is negative");
-        }
-        if (size < 0) {
-            throw new IllegalArgumentException("size is negative");
-        }
-    }
+    String identifier();
+
+    String encoding();
+
+    Instant expirationTime();
 }

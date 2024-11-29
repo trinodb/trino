@@ -15,8 +15,8 @@ package io.trino.spooling.filesystem;
 
 import io.azam.ulidj.ULID;
 import io.trino.filesystem.encryption.EncryptionKey;
-import io.trino.spi.protocol.SpooledSegmentHandle;
-import io.trino.spi.protocol.SpoolingContext;
+import io.trino.spi.spool.SpooledSegmentHandle;
+import io.trino.spi.spool.SpoolingContext;
 
 import java.time.Instant;
 import java.util.Optional;
