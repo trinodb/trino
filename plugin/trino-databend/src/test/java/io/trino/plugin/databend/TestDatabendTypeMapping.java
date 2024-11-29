@@ -86,7 +86,7 @@ public class TestDatabendTypeMapping
             throws Exception
     {
         databendServer = closeAfterClass(new TestingDatabendServer());
-        return DatabendQueryRunner.builder(databendServer)
+        return DatabendQueryRunner.builder(databendServer).addConnectorProperty("connection-url", databendServer.getJdbcUrl())
                 .build();
     }
 
