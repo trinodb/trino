@@ -1849,7 +1849,7 @@ public abstract class BaseConnectorTest
             assertUpdate(session, "DROP MATERIALIZED VIEW " + uppercaseName);
         }
 
-        assertThat(getQueryRunner().tableExists(session, originalMaterializedView.toString())).isFalse();
+        assertThat(getQueryRunner().tableExists(session, originalMaterializedView.objectName())).isFalse();
         assertThat(getQueryRunner().tableExists(session, renamedMaterializedView)).isFalse();
         assertThat(getQueryRunner().tableExists(session, testExistsMaterializedViewName)).isFalse();
 
