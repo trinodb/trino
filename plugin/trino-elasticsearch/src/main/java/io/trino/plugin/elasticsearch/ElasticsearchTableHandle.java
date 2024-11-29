@@ -14,6 +14,7 @@
 package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
@@ -21,6 +22,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
@@ -32,7 +34,8 @@ public record ElasticsearchTableHandle(
         TupleDomain<ColumnHandle> constraint,
         Map<String, String> regexes,
         Optional<String> query,
-        OptionalLong limit)
+        OptionalLong limit,
+        Set<ElasticsearchColumnHandle> columns)
         implements ConnectorTableHandle
 {
     public enum Type
@@ -49,7 +52,21 @@ public record ElasticsearchTableHandle(
                 TupleDomain.all(),
                 ImmutableMap.of(),
                 query,
-                OptionalLong.empty());
+                OptionalLong.empty(),
+                ImmutableSet.of());
+    }
+
+    public ElasticsearchTableHandle withColumns(Set<ElasticsearchColumnHandle> columns)
+    {
+        return new ElasticsearchTableHandle(
+                type,
+                schema,
+                index,
+                constraint,
+                regexes,
+                query,
+                limit,
+                columns);
     }
 
     public ElasticsearchTableHandle
@@ -58,7 +75,8 @@ public record ElasticsearchTableHandle(
         requireNonNull(schema, "schema is null");
         requireNonNull(index, "index is null");
         requireNonNull(constraint, "constraint is null");
-        regexes = ImmutableMap.copyOf(requireNonNull(regexes, "regexes is null"));
+        regexes = ImmutableMap.copyOf(regexes);
+        columns = ImmutableSet.copyOf(columns);
         requireNonNull(query, "query is null");
         requireNonNull(limit, "limit is null");
     }

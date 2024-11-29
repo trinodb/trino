@@ -13,14 +13,19 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
+import java.util.List;
+
 import static java.util.Objects.requireNonNull;
 
 public record ElasticsearchColumnHandle(
-        String name,
+        List<String> path,
         Type type,
         IndexMetadata.Type elasticsearchType,
         DecoderDescriptor decoderDescriptor,
@@ -29,10 +34,16 @@ public record ElasticsearchColumnHandle(
 {
     public ElasticsearchColumnHandle
     {
-        requireNonNull(name, "name is null");
+        path = ImmutableList.copyOf(path);
         requireNonNull(type, "type is null");
         requireNonNull(elasticsearchType, "elasticsearchType is null");
         requireNonNull(decoderDescriptor, "decoderDescriptor is null");
+    }
+
+    @JsonIgnore
+    public String name()
+    {
+        return Joiner.on('.').join(path);
     }
 
     @Override
