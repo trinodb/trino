@@ -37,6 +37,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -53,25 +54,57 @@ public abstract class BaseDatabendConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_AGGREGATION_PUSHDOWN,
-                    SUPPORTS_JOIN_PUSHDOWN -> true;
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
                     SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
-                    SUPPORTS_ARRAY,
-                    SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
-                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
-                    SUPPORTS_NEGATIVE_DATE,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
+                    SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
                     SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
-                    SUPPORTS_SET_COLUMN_TYPE -> false;
+                    SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_TRUNCATE -> true;
+            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
+                    SUPPORTS_ARRAY,
+                    SUPPORTS_DELETE,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_NEGATIVE_DATE,
+                    SUPPORTS_ROW_TYPE,
+                    SUPPORTS_SET_COLUMN_TYPE,
+                    SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Test
+    public void testAddColumn()
+    {
+        if (!hasBehavior(SUPPORTS_ADD_COLUMN)) {
+            assertQueryFails("ALTER TABLE nation ADD COLUMN test_add_column bigint", "This connector does not support adding columns");
+            return;
+        }
+
+        String tableName;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", tableDefinitionForAddColumn())) {
+            tableName = table.getName();
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN x bigint", ".* Column 'x' already exists");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN X bigint", ".* Column 'X' already exists");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN a varchar(50)");
+            // Verify table state after adding a column, but before inserting anything to it
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    "VALUES ('first', NULL)");
+            assertQuery(
+                    "SELECT * FROM " + table.getName() + " WHERE a IS NULL",
+                    "VALUES ('first', NULL)");
+        }
+
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN x bigint");
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN IF NOT EXISTS x bigint");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Override
