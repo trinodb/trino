@@ -20,11 +20,11 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.semconv.ExceptionAttributes;
-import io.trino.spi.protocol.SpooledLocation;
-import io.trino.spi.protocol.SpooledLocation.DirectLocation;
-import io.trino.spi.protocol.SpooledSegmentHandle;
-import io.trino.spi.protocol.SpoolingContext;
-import io.trino.spi.protocol.SpoolingManager;
+import io.trino.spi.spool.SpooledLocation;
+import io.trino.spi.spool.SpooledLocation.DirectLocation;
+import io.trino.spi.spool.SpooledSegmentHandle;
+import io.trino.spi.spool.SpoolingContext;
+import io.trino.spi.spool.SpoolingManager;
 
 import java.io.IOException;
 import java.io.InputStream;
