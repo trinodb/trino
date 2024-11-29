@@ -182,20 +182,6 @@ public class DatabendClient
 
     public static final int DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 1_000;
 
-//    private static final PredicatePushdownController DATABEND_PUSHDOWN_CONTROLLER = (session, domain) -> {
-//        if (domain.isOnlyNull()) {
-//            return FULL_PUSHDOWN.apply(session, domain);
-//        }
-//
-//        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
-//        if (!simplifiedDomain.getValues().isDiscreteSet()) {
-//            // Domain#simplify can turn a discrete set into a range predicate
-//            return DISABLE_PUSHDOWN.apply(session, domain);
-//        }
-//
-//        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
-//    };
-
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 

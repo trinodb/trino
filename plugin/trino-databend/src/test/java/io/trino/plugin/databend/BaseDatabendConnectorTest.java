@@ -69,6 +69,7 @@ public abstract class BaseDatabendConnectorTest
                     SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_NEGATIVE_DATE,
                     SUPPORTS_ROW_TYPE,
+                    SUPPORTS_ADD_COLUMN,
                     SUPPORTS_SET_COLUMN_TYPE,
                     SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
