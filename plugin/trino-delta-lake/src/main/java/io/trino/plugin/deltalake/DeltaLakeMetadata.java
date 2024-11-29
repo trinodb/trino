@@ -165,7 +165,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -259,16 +258,12 @@ import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMe
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.verifyDeltaLakeTable;
 import static io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId.OPTIMIZE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.APPEND_ONLY_CONFIGURATION_KEY;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.CHANGE_DATA_FEED_FEATURE_NAME;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.COLUMN_MAPPING_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.COLUMN_MAPPING_PHYSICAL_NAME_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.ID;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.DELETION_VECTORS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.IsolationLevel;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.MAX_COLUMN_ID_CONFIGURATION_KEY;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.TIMESTAMP_NTZ_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.deserializeType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.enabledUniversalFormats;
@@ -286,10 +281,10 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.is
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeColumnType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.unsupportedReaderFeatures;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.unsupportedWriterFeatures;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.validateType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.verifySupportedColumnMapping;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedReaderFeatures;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedWriterFeatures;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.configurationForNewTable;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getMandatoryCurrentVersion;
@@ -389,16 +384,14 @@ public class DeltaLakeMetadata
     // The highest reader and writer versions Trino supports
     private static final int MAX_READER_VERSION = 3;
     public static final int MAX_WRITER_VERSION = 7;
-    // The lowest versions Delta Lake supports reader and writer features
-    private static final int MIN_READER_FEATURE_VERSION = 3;
-    private static final int MIN_WRITER_FEATURE_VERSION = 7;
-    private static final int CDF_SUPPORTED_WRITER_VERSION = 4;
-    private static final int COLUMN_MAPPING_MODE_SUPPORTED_READER_VERSION = 2;
-    private static final int COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION = 5;
-    private static final int TIMESTAMP_NTZ_SUPPORTED_READER_VERSION = 3;
-    private static final int TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION = 7;
-    private static final int DELETION_VECTORS_SUPPORTED_READER_VERSION = 3;
-    private static final int DELETION_VECTORS_SUPPORTED_WRITER_VERSION = 7;
+
+    public static final int CDF_SUPPORTED_WRITER_VERSION = 4;
+    public static final int COLUMN_MAPPING_MODE_SUPPORTED_READER_VERSION = 2;
+    public static final int COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION = 5;
+    public static final int TIMESTAMP_NTZ_SUPPORTED_READER_VERSION = 3;
+    public static final int TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION = 7;
+    public static final int DELETION_VECTORS_SUPPORTED_READER_VERSION = 3;
+    public static final int DELETION_VECTORS_SUPPORTED_WRITER_VERSION = 7;
     private static final RetryPolicy<Object> TRANSACTION_CONFLICT_RETRY_POLICY = RetryPolicy.builder()
             .handleIf(throwable -> Throwables.getCausalChain(throwable).stream().anyMatch(TransactionConflictException.class::isInstance))
             .withDelay(Duration.ofMillis(400))
@@ -1888,21 +1881,13 @@ public class DeltaLakeMetadata
 
     private ProtocolEntry buildProtocolEntryForNewColumn(ProtocolEntry protocolEntry, Type type)
     {
-        if (!containsTimestampType(type)) {
-            return protocolEntry;
+        ProtocolEntry.Builder builder = ProtocolEntry.builder(protocolEntry);
+
+        if (containsTimestampType(type)) {
+            builder.enableTimestampNtz();
         }
 
-        return new ProtocolEntry(
-                max(protocolEntry.minReaderVersion(), TIMESTAMP_NTZ_SUPPORTED_READER_VERSION),
-                max(protocolEntry.minWriterVersion(), TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION),
-                Optional.of(ImmutableSet.<String>builder()
-                        .addAll(protocolEntry.readerFeatures().orElse(ImmutableSet.of()))
-                        .add(TIMESTAMP_NTZ_FEATURE_NAME)
-                        .build()),
-                Optional.of(ImmutableSet.<String>builder()
-                        .addAll(protocolEntry.writerFeatures().orElse(ImmutableSet.of()))
-                        .add(TIMESTAMP_NTZ_FEATURE_NAME)
-                        .build()));
+        return builder.build();
     }
 
     @Override
@@ -2943,38 +2928,23 @@ public class DeltaLakeMetadata
 
     private ProtocolEntry protocolEntry(int readerVersion, int writerVersion, boolean containsTimestampType, Map<String, Object> properties)
     {
-        Set<String> readerFeatures = new HashSet<>();
-        Set<String> writerFeatures = new HashSet<>();
+        ProtocolEntry.Builder protocolEntry = ProtocolEntry.builder(readerVersion, writerVersion);
+
         Optional<Boolean> changeDataFeedEnabled = getChangeDataFeedEnabled(properties);
         if (changeDataFeedEnabled.isPresent() && changeDataFeedEnabled.get()) {
-            // Enabling cdf (change data feed) requires setting the writer version to 4
-            writerVersion = CDF_SUPPORTED_WRITER_VERSION;
-            writerFeatures.add(CHANGE_DATA_FEED_FEATURE_NAME);
+            protocolEntry.enableChangeDataFeed();
         }
         ColumnMappingMode columnMappingMode = getColumnMappingMode(properties);
         if (columnMappingMode == ID || columnMappingMode == NAME) {
-            readerVersion = max(readerVersion, COLUMN_MAPPING_MODE_SUPPORTED_READER_VERSION);
-            writerVersion = max(writerVersion, COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION);
-            readerFeatures.add(COLUMN_MAPPING_FEATURE_NAME);
-            writerFeatures.add(COLUMN_MAPPING_FEATURE_NAME);
+            protocolEntry.enableColumnMapping();
         }
         if (containsTimestampType) {
-            readerVersion = max(readerVersion, TIMESTAMP_NTZ_SUPPORTED_READER_VERSION);
-            writerVersion = max(writerVersion, TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION);
-            readerFeatures.add(TIMESTAMP_NTZ_FEATURE_NAME);
-            writerFeatures.add(TIMESTAMP_NTZ_FEATURE_NAME);
+            protocolEntry.enableTimestampNtz();
         }
         if (getDeletionVectorsEnabled(properties)) {
-            readerVersion = max(readerVersion, DELETION_VECTORS_SUPPORTED_READER_VERSION);
-            writerVersion = max(writerVersion, DELETION_VECTORS_SUPPORTED_WRITER_VERSION);
-            readerFeatures.add(DELETION_VECTORS_FEATURE_NAME);
-            writerFeatures.add(DELETION_VECTORS_FEATURE_NAME);
+            protocolEntry.enableDeletionVector();
         }
-        return new ProtocolEntry(
-                readerVersion,
-                writerVersion,
-                readerVersion < MIN_READER_FEATURE_VERSION || readerFeatures.isEmpty() ? Optional.empty() : Optional.of(readerFeatures),
-                writerVersion < MIN_WRITER_FEATURE_VERSION || writerFeatures.isEmpty() ? Optional.empty() : Optional.of(writerFeatures));
+        return protocolEntry.build();
     }
 
     private void writeCheckpointIfNeeded(
