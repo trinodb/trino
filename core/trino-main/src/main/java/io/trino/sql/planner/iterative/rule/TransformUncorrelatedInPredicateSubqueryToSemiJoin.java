@@ -28,7 +28,7 @@ import static io.trino.sql.planner.plan.Patterns.Apply.correlation;
 import static io.trino.sql.planner.plan.Patterns.applyNode;
 
 /**
- * This optimizers looks for InPredicate expressions in ApplyNodes and replaces the nodes with SemiJoin nodes.
+ * This optimizer looks for InPredicate expressions in ApplyNodes and replaces the nodes with SemiJoin nodes.
  * <p>
  * Plan before optimizer:
  * <pre>
@@ -44,8 +44,8 @@ import static io.trino.sql.planner.plan.Patterns.applyNode;
  * Filter(semijoinresult):
  *   SemiJoin
  *     - source: plan A
- *     - filteringSource: symbol a
- *     - sourceJoinSymbol: plan B
+ *     - filteringSource: plan B
+ *     - sourceJoinSymbol: symbol a
  *     - filteringSourceJoinSymbol: symbol b
  *     - semiJoinOutput: semijoinresult
  * </pre>
