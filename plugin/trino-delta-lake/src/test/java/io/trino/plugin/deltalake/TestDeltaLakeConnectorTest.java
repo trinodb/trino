@@ -60,6 +60,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.union;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
@@ -4199,6 +4200,39 @@ public class TestDeltaLakeConnectorTest
         assertQuery(session, "SELECT * FROM " + tableName, "VALUES 1, 2, 44, 5");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testAddTimestampNtzColumnToCdfEnabledTable()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_timestamp_ntz", "(x int) WITH (change_data_feed_enabled = true)")) {
+            assertThat(getTableProperties(table.getName()))
+                    .containsExactlyInAnyOrderEntriesOf(ImmutableMap.<String, String>builder()
+                            .put("delta.enableChangeDataFeed", "true")
+                            .put("delta.enableDeletionVectors", "false")
+                            .put("delta.minReaderVersion", "1")
+                            .put("delta.minWriterVersion", "4")
+                            .buildOrThrow());
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN ts TIMESTAMP");
+
+            // CDF is enabled in this table. 'delta.feature.changeDataFeed' must be added when updating the table to versions supporting table features
+            assertThat(getTableProperties(table.getName()))
+                    .containsExactlyInAnyOrderEntriesOf(ImmutableMap.<String, String>builder()
+                            .put("delta.enableChangeDataFeed", "true")
+                            .put("delta.enableDeletionVectors", "false")
+                            .put("delta.feature.changeDataFeed", "supported")
+                            .put("delta.feature.timestampNtz", "supported")
+                            .put("delta.minReaderVersion", "3")
+                            .put("delta.minWriterVersion", "7")
+                            .buildOrThrow());
+        }
+    }
+
+    private Map<String, String> getTableProperties(String tableName)
+    {
+        return computeActual("SELECT key, value FROM \"" + tableName + "$properties\"").getMaterializedRows().stream()
+                .collect(toImmutableMap(row -> (String) row.getField(0), row -> (String) row.getField(1)));
     }
 
     @Test
