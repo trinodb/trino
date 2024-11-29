@@ -1143,6 +1143,21 @@ public class TestIcebergStatistics
                         "(null, null, DOUBLE '25')");
     }
 
+    @Test
+    public void testNaN()
+    {
+        String tableName = "test_nan";
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 AS c1, double 'NaN' AS c2", 1);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                VALUES
+                  ('c1', null, 1.0, 0.0, null, 1, 1),
+                  ('c2', null, 1.0, 0.0, null, null, null),
+                  (null, null, null, null, 1.0, null, null)
+                """);
+    }
+
     private long getCurrentSnapshotId(String tableName)
     {
         return (long) computeActual(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName))
