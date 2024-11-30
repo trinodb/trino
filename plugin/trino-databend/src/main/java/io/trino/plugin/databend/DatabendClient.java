@@ -365,7 +365,7 @@ public class DatabendClient
         tableOptions.add("ENGINE = " + engine.getEngineType());
 
         formatProperty(DatabendTableProperties.getOrderBy(tableProperties)).ifPresent(value -> tableOptions.add("ORDER BY " + value));
-        tableMetadata.getComment().ifPresent(comment -> tableOptions.add(format("COMMENT %s", databendVarcharLiteral(comment))));
+        tableMetadata.getComment().ifPresent(comment -> tableOptions.add(format("COMMENT = %s", databendVarcharLiteral(comment))));
 
         return ImmutableList.of(format("CREATE TABLE %s (%s) %s", quoted(remoteTableName), join(", ", columns), join(" ", tableOptions.build())));
     }
@@ -452,7 +452,7 @@ public class DatabendClient
             sb.append(toWriteMapping(session, column.getType()).getDataType());
         }
         if (column.getComment() != null) {
-            sb.append(format(" COMMENT %s", databendVarcharLiteral(column.getComment())));
+            sb.append(format(" COMMENT = %s", databendVarcharLiteral(column.getComment())));
         }
         return sb.toString();
     }
@@ -501,7 +501,7 @@ public class DatabendClient
     @Override
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
-        String sql = format("ALTER TABLE %s MODIFY COMMENT %s", quoted(handle.asPlainTable().getRemoteTableName()), databendVarcharLiteral(comment.orElse(NO_COMMENT)));
+        String sql = format("ALTER TABLE %s MODIFY COMMENT = %s", quoted(handle.asPlainTable().getRemoteTableName()), databendVarcharLiteral(comment.orElse(NO_COMMENT)));
         execute(session, sql);
     }
 
