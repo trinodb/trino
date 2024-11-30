@@ -41,9 +41,7 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -77,12 +75,12 @@ public class TestDatabendConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN,
                     SUPPORTS_JOIN_PUSHDOWN,
                     SUPPORTS_LIMIT_PUSHDOWN,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
                     SUPPORTS_TOPN_PUSHDOWN -> false;
 
             case SUPPORTS_ADD_COLUMN,
                     SUPPORTS_ARRAY,
                     SUPPORTS_COMMENT_ON_TABLE,
-                    SUPPORTS_DELETE,
                     SUPPORTS_INSERT,
                     SUPPORTS_RENAME_SCHEMA,
                     SUPPORTS_NEGATIVE_DATE, // min date is 0001-01-01
@@ -93,21 +91,6 @@ public class TestDatabendConnectorTest
 
             default -> super.hasBehavior(connectorBehavior);
         };
-    }
-
-    @Test
-    @Override
-    public void verifySupportsRowLevelDeleteDeclaration()
-    {
-        if (hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
-            // Covered by testRowLevelDelete
-            return;
-        }
-
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_row_level_delete", "(regionkey int)")) {
-            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
-        }
     }
 
     @Test
