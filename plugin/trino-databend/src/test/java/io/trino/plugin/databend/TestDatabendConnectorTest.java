@@ -204,6 +204,12 @@ public class TestDatabendConnectorTest
     }
 
     @Override
+    protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
+    {
+        return new TestTable(onRemoteDatabase(), name, "(t_double Nullable(Float64), u_double Nullable(Float64), v_real Nullable(Float32), w_real Nullable(Float32)) Engine=FUSE", rows);
+    }
+
+    @Override
     protected TestTable createTableWithUnsupportedColumn()
     {
         return new TestTable(
