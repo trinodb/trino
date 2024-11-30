@@ -440,11 +440,21 @@ public class DatabendClient
     @Override
     protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
     {
-        if (column.getComment() != null) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+        StringBuilder sb = new StringBuilder()
+                .append(quoted(columnName))
+                .append(" ");
+        if (column.isNullable()) {
+            // set column nullable property explicitly
+            sb.append("Nullable(").append(toWriteMapping(session, column.getType()).getDataType()).append(")");
         }
-
-        return String.format("%s %s %s", quoted(columnName), toWriteMapping(session, column.getType()).getDataType(), column.isNullable() ? "NULL" : "NOT NULL");
+        else {
+            // By default, the clickhouse column is not allowed to be null
+            sb.append(toWriteMapping(session, column.getType()).getDataType());
+        }
+        if (column.getComment() != null) {
+            sb.append(format(" COMMENT %s", databendVarcharLiteral(column.getComment())));
+        }
+        return sb.toString();
     }
 
     @Override

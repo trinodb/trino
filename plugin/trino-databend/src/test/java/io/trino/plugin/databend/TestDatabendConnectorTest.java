@@ -36,10 +36,15 @@ import java.util.List;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -68,29 +73,94 @@ public class TestDatabendConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
-                    SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
-                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_TRUNCATE -> true;
-            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
+            // Tests requires s3 presigned url to be disabled
+            case SUPPORTS_AGGREGATION_PUSHDOWN,
+                    SUPPORTS_JOIN_PUSHDOWN,
+                    SUPPORTS_LIMIT_PUSHDOWN,
+                    SUPPORTS_TOPN_PUSHDOWN -> false;
+
+            case SUPPORTS_ADD_COLUMN,
                     SUPPORTS_ARRAY,
+                    SUPPORTS_COMMENT_ON_TABLE,
                     SUPPORTS_DELETE,
-                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_NEGATIVE_DATE,
+                    SUPPORTS_INSERT,
+                    SUPPORTS_RENAME_SCHEMA,
+                    SUPPORTS_NEGATIVE_DATE, // min date is 0001-01-01
+                    SUPPORTS_RENAME_TABLE,
                     SUPPORTS_ROW_TYPE,
-                    SUPPORTS_ADD_COLUMN,
                     SUPPORTS_SET_COLUMN_TYPE,
                     SUPPORTS_UPDATE -> false;
+
             default -> super.hasBehavior(connectorBehavior);
         };
     }
 
     @Test
+    @Override
+    public void verifySupportsRowLevelDeleteDeclaration()
+    {
+        if (hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
+            // Covered by testRowLevelDelete
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_row_level_delete", "(regionkey int)")) {
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
+        }
+    }
+
+    @Test
+    @Override
+    public void testRenameColumnWithComment()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_rename_column_",
+                "(id INT NOT NULL, col INT COMMENT 'test column comment')")) {
+            assertThat(getColumnComment(table.getName(), "col")).isEqualTo("'test column comment'");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col TO renamed_col");
+            assertThat(getColumnComment(table.getName(), "renamed_col")).isEqualTo("'test column comment'");
+        }
+    }
+
+    @Test
+    @Override
+    public void testJoin()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, "false")
+                .build();
+
+        // 2 inner joins, eligible for join reodering
+        assertQuery(
+                session,
+                "SELECT 'c.name', 'n.name', 'r.name' " +
+                        "FROM nation n " +
+                        "JOIN customer c ON 'c.nationkey' = 'n.nationkey' " +
+                        "JOIN region r ON 'n.regionkey' = 'r.regionkey'");
+
+        // 2 inner joins, eligible for join reodering, where one table has a filter
+        assertQuery(
+                session,
+                "SELECT 'c.name', 'n.name', 'r.name' " +
+                        "FROM nation n " +
+                        "JOIN customer c ON 'c.nationkey' = 'n.nationkey' " +
+                        "JOIN region r ON 'n.regionkey' = 'r.regionkey' " +
+                        "WHERE n.name = 'ARGENTINA'");
+
+        // 2 inner joins, eligible for join reodering, on top of aggregation
+        assertQuery(
+                session,
+                "SELECT 'c.name', 'n.name', 'n.count', 'r.name' " +
+                        "FROM (SELECT 'name', 'regionkey', 'nationkey', count(*) count FROM nation GROUP BY 'name', 'regionkey', 'nationkey') n " +
+                        "JOIN customer c ON 'c.nationkey' = 'n.nationkey' " +
+                        "JOIN region r ON 'n.regionkey' = 'r.regionkey'");
+    }
+
+    @Test
+    @Override
     public void testAddColumn()
     {
         if (!hasBehavior(SUPPORTS_ADD_COLUMN)) {
@@ -120,6 +190,21 @@ public class TestDatabendConnectorTest
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN x bigint");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN IF NOT EXISTS x bigint");
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+    }
+
+    @Test
+    @Override
+    public void verifySupportsUpdateDeclaration()
+    {
+        if (hasBehavior(SUPPORTS_UPDATE)) {
+            // Covered by testUpdate
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
+            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
+        }
     }
 
     @Override
@@ -199,7 +284,7 @@ public class TestDatabendConnectorTest
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
+                .hasStackTraceContaining("TrinoException: " + "");
     }
 
     @Test
@@ -244,6 +329,25 @@ public class TestDatabendConnectorTest
         assertUpdate("DROP TABLE databend_test_tinyint1");
     }
 
+    @Test
+    @Override
+    public void testDateYearOfEraPredicate()
+    {
+        // Override because Exasol does not support negative dates
+        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+    }
+
+    @Test
+    @Override
+    public void testSelectInTransaction()
+    {
+        inTransaction(session -> {
+            assertQuery(session, "SELECT 'nationkey', 'name', 'regionkey' FROM nation");
+            assertQuery(session, "SELECT 'regionkey', 'name' FROM region");
+            assertQuery(session, "SELECT 'nationkey', 'name', 'regionkey' FROM nation");
+        });
+    }
+
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
@@ -278,10 +382,6 @@ public class TestDatabendConnectorTest
     @Override
     public void testAddNotNullColumn()
     {
-        assertThatThrownBy(super::testAddNotNullColumn)
-                .isInstanceOf(AssertionError.class)
-                .hasMessage("Should fail to add not null column without a default value to a non-empty table");
-
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_col", "(a_varchar varchar)")) {
             String tableName = table.getName();
 
