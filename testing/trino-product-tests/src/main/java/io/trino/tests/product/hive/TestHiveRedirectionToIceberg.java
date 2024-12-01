@@ -296,7 +296,7 @@ public class TestHiveRedirectionToIceberg
                         ")\n" +
                         "WITH (\n" +
                         "   format = 'PARQUET',\n" +
-                        "   format_version = 2,\n" +
+                        "   format_version = 3,\n" +
                         format("   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/%s-\\E.*\\Q',\n", tableName) +
                         "   partitioning = ARRAY['regionkey']\n" + // 'partitioning' comes from Iceberg
                         ")\\E");
