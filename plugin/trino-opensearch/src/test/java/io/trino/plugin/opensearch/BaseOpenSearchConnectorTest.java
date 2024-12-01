@@ -149,7 +149,7 @@ public abstract class BaseOpenSearchConnectorTest
     public void testSelectAll()
     {
         // List columns explicitly, as there's no defined order in OpenSearch
-        assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment  FROM orders");
+        assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment FROM orders");
     }
 
     @Override
