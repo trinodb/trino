@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
@@ -65,14 +64,8 @@ import static java.util.Objects.requireNonNull;
 public class TableChangesFunction
         extends AbstractConnectorTableFunction
 {
-    private static final Logger log = Logger.get(TableChangesFunction.class);
-
     private static final String FUNCTION_NAME = "table_changes";
-    @Deprecated
-    private static final String SCHEMA_VAR_NAME = "SCHEMA";
     private static final String SCHEMA_NAME_VAR_NAME = "SCHEMA_NAME";
-    @Deprecated
-    private static final String TABLE_VAR_NAME = "TABLE";
     private static final String TABLE_NAME_VAR_NAME = "TABLE_NAME";
     private static final String START_SNAPSHOT_VAR_NAME = "START_SNAPSHOT_ID";
     private static final String END_SNAPSHOT_VAR_NAME = "END_SNAPSHOT_ID";
@@ -88,14 +81,12 @@ public class TableChangesFunction
                 FUNCTION_NAME,
                 ImmutableList.of(
                         ScalarArgumentSpecification.builder()
-                                .name(SCHEMA_VAR_NAME)
+                                .name(SCHEMA_NAME_VAR_NAME)
                                 .type(VARCHAR)
-                                .defaultValue(null)
                                 .build(),
                         ScalarArgumentSpecification.builder()
-                                .name(TABLE_VAR_NAME)
+                                .name(TABLE_NAME_VAR_NAME)
                                 .type(VARCHAR)
-                                .defaultValue(null)
                                 .build(),
                         ScalarArgumentSpecification.builder()
                                 .name(START_SNAPSHOT_VAR_NAME)
@@ -104,16 +95,6 @@ public class TableChangesFunction
                         ScalarArgumentSpecification.builder()
                                 .name(END_SNAPSHOT_VAR_NAME)
                                 .type(BIGINT)
-                                .build(),
-                        ScalarArgumentSpecification.builder()
-                                .name(SCHEMA_NAME_VAR_NAME)
-                                .type(VARCHAR)
-                                .defaultValue(null)
-                                .build(),
-                        ScalarArgumentSpecification.builder()
-                                .name(TABLE_NAME_VAR_NAME)
-                                .type(VARCHAR)
-                                .defaultValue(null)
                                 .build()),
                 GENERIC_TABLE);
 
@@ -201,13 +182,6 @@ public class TableChangesFunction
 
     private static String getSchemaName(Map<String, Argument> arguments)
     {
-        if (argumentExists(arguments, SCHEMA_VAR_NAME) && argumentExists(arguments, SCHEMA_NAME_VAR_NAME)) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot use both " + SCHEMA_VAR_NAME + " and " + SCHEMA_NAME_VAR_NAME + " arguments");
-        }
-        if (argumentExists(arguments, SCHEMA_VAR_NAME)) {
-            log.warn("%s argument is deprecated. Use %s instead.", SCHEMA_VAR_NAME, SCHEMA_NAME_VAR_NAME);
-            return ((Slice) checkNonNull(((ScalarArgument) arguments.get(SCHEMA_VAR_NAME)).getValue())).toStringUtf8();
-        }
         if (argumentExists(arguments, SCHEMA_NAME_VAR_NAME)) {
             return ((Slice) checkNonNull(((ScalarArgument) arguments.get(SCHEMA_NAME_VAR_NAME)).getValue())).toStringUtf8();
         }
@@ -216,13 +190,6 @@ public class TableChangesFunction
 
     private static String getTableName(Map<String, Argument> arguments)
     {
-        if (argumentExists(arguments, TABLE_VAR_NAME) && argumentExists(arguments, TABLE_NAME_VAR_NAME)) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot use both " + TABLE_VAR_NAME + " and " + TABLE_NAME_VAR_NAME + " arguments");
-        }
-        if (argumentExists(arguments, TABLE_VAR_NAME)) {
-            log.warn("%s argument is deprecated. Use %s instead.", TABLE_VAR_NAME, TABLE_NAME_VAR_NAME);
-            return ((Slice) checkNonNull(((ScalarArgument) arguments.get(TABLE_VAR_NAME)).getValue())).toStringUtf8();
-        }
         if (argumentExists(arguments, TABLE_NAME_VAR_NAME)) {
             return ((Slice) checkNonNull(((ScalarArgument) arguments.get(TABLE_NAME_VAR_NAME)).getValue())).toStringUtf8();
         }
