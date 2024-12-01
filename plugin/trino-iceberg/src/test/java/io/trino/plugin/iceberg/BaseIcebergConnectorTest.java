@@ -375,7 +375,7 @@ public abstract class BaseIcebergConnectorTest
                         ")\n" +
                         "WITH (\n" +
                         "   format = '" + format.name() + "',\n" +
-                        "   format_version = 2,\n" +
+                        "   format_version = 3,\n" +
                         "   location = '\\E.*/tpch/orders-.*\\Q'\n" +
                         ")\\E");
     }
@@ -1935,7 +1935,7 @@ public abstract class BaseIcebergConnectorTest
                 """
                         WITH (
                            format = '%s',
-                           format_version = 2,
+                           format_version = 3,
                            location = '%s',
                            partitioning = ARRAY['adate']
                         )""",
@@ -1951,7 +1951,7 @@ public abstract class BaseIcebergConnectorTest
                 """
                         WITH (
                            format = '%s',
-                           format_version = 2,
+                           format_version = 3,
                            location = '%s'
                         )""",
                 format,
@@ -1962,7 +1962,7 @@ public abstract class BaseIcebergConnectorTest
                 """
                         WITH (
                            format = '%s',
-                           format_version = 2,
+                           format_version = 3,
                            location = '%s'
                         )""",
                 format,

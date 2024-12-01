@@ -51,7 +51,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class IcebergConfig
 {
     public static final int FORMAT_VERSION_SUPPORT_MIN = 1;
-    public static final int FORMAT_VERSION_SUPPORT_MAX = 2;
+    public static final int FORMAT_VERSION_SUPPORT_MAX = 3;
     public static final String EXTENDED_STATISTICS_CONFIG = "iceberg.extended-statistics.enabled";
     public static final String EXTENDED_STATISTICS_DESCRIPTION = "Enable collection (ANALYZE) and use of extended statistics.";
     public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION = "Collect extended statistics during writes";

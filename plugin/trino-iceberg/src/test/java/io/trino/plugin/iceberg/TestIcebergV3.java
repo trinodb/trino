@@ -119,7 +119,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
-public class TestIcebergV2
+public class TestIcebergV3
         extends AbstractTestQueryFramework
 {
     private HiveMetastore metastore;
@@ -176,7 +176,7 @@ public class TestIcebergV2
     {
         String tableName = "test_default_format_version_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
+        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(3);
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -784,7 +784,7 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
         assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
         assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 42"))
-                .failure().hasMessage("line 1:79: Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 2");
+                .failure().hasMessage("line 1:79: Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 3");
     }
 
     @Test
@@ -830,7 +830,7 @@ public class TestIcebergV2
 
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = DEFAULT, format = DEFAULT, partitioning = DEFAULT, sorted_by = DEFAULT");
         table = loadTable(tableName);
-        assertThat(table.operations().current().formatVersion()).isEqualTo(2);
+        assertThat(table.operations().current().formatVersion()).isEqualTo(3);
         assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET")).isTrue();
         assertThat(table.spec().isUnpartitioned()).isTrue();
         assertThat(table.sortOrder().isUnsorted()).isTrue();
@@ -1267,7 +1267,7 @@ public class TestIcebergV2
     public void testNestedFieldPartitioning()
     {
         String tableName = "test_nested_field_partitioning_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (id INT, district ROW(name VARCHAR), state ROW(name VARCHAR)) WITH (partitioning = ARRAY['\"state.name\"'])");
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, district ROW(name VARCHAR), state ROW(name VARCHAR)) WITH (format_version = 2, partitioning = ARRAY['\"state.name\"'])");
 
         assertUpdate(
                 "INSERT INTO " + tableName + " VALUES " +
@@ -1323,7 +1323,7 @@ public class TestIcebergV2
     {
         String tableName = "test_highly_nested_field_partitioning_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
-                " WITH (partitioning = ARRAY['\"country.state.district.name\"'])");
+                " WITH (format_version = 1, partitioning = ARRAY['\"country.state.district.name\"'])");
 
         assertUpdate(
                 "INSERT INTO " + tableName + " VALUES " +

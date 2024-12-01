@@ -131,6 +131,7 @@ public class UnityCatalogContainer
         metastoreDir.deleteOnExit();
 
         QueryRunner queryRunner = IcebergQueryRunner.builder()
+                .addIcebergProperty("iceberg.format-version", "2")
                 .addIcebergProperty("hive.metastore.catalog.dir", metastoreDir.toURI().toString())
                 .build();
 

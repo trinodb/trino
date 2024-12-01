@@ -214,7 +214,7 @@ public abstract class BaseIcebergMaterializedViewTest
                         "\\QCREATE MATERIALIZED VIEW iceberg." + schema + ".test_mv_show_create\n" +
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
-                                "   format_version = 2,\n" +
+                                "   format_version = 3,\n" +
                                 "   location = '" + getSchemaDirectory() + "/test_mv_show_create-\\E[0-9a-f]+\\Q',\n" +
                                 "   orc_bloom_filter_columns = ARRAY['_date'],\n" +
                                 "   orc_bloom_filter_fpp = 1E-1,\n" +
@@ -530,7 +530,7 @@ public abstract class BaseIcebergMaterializedViewTest
                 .matches("\\QCREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + "\n" +
                         "WITH (\n" +
                         "   format = 'PARQUET',\n" +
-                        "   format_version = 2,\n" +
+                        "   format_version = 3,\n" +
                         "   location = '" + getSchemaDirectory() + "/materialized_view_window-\\E[0-9a-f]+\\Q',\n" +
                         "   partitioning = ARRAY['_date'],\n" +
                         "   storage_schema = '" + schema + "'\n" +

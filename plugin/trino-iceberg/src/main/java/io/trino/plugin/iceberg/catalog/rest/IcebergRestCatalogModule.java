@@ -43,6 +43,11 @@ public class IcebergRestCatalogModule
         binder.bind(TrinoCatalogFactory.class).to(TrinoIcebergRestCatalogFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, IcebergFileSystemFactory.class).setBinding().to(IcebergRestCatalogFileSystemFactory.class).in(Scopes.SINGLETON);
 
+        configBinder(binder).bindConfigDefaults(IcebergConfig.class, config -> {
+            // REST catalog does not support format version 3 yet
+            config.setFormatVersion(2);
+        });
+
         IcebergConfig icebergConfig = buildConfigObject(IcebergConfig.class);
         IcebergRestCatalogConfig restCatalogConfig = buildConfigObject(IcebergRestCatalogConfig.class);
         if (restCatalogConfig.isVendedCredentialsEnabled() && icebergConfig.isRegisterTableProcedureEnabled()) {

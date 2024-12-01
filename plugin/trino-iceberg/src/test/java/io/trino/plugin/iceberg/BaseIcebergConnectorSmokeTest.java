@@ -105,7 +105,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                         "\\)\n" +
                         "WITH \\(\n" +
                         "   format = '" + format.name() + "',\n" +
-                        "   format_version = 2,\n" +
+                        "   format_version = [23],\n" +
                         format("   location = '.*/" + schemaName + "/region.*'\n") +
                         "\\)");
     }
