@@ -30,8 +30,6 @@ import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
-import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RetryMode;
@@ -45,7 +43,6 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.BigintType;
@@ -152,7 +149,7 @@ public class FakerMetadata
         }
         long schemaLimit = (long) schema.properties().getOrDefault(SchemaInfo.DEFAULT_LIMIT_PROPERTY, defaultLimit);
         long tableLimit = (long) tables.get(tableName).properties().getOrDefault(TableInfo.DEFAULT_LIMIT_PROPERTY, schemaLimit);
-        return new FakerTableHandle(tableName, TupleDomain.all(), tableLimit);
+        return new FakerTableHandle(tableName, tableLimit);
     }
 
     @Override
@@ -519,62 +516,6 @@ public class FakerMetadata
         return Optional.of(new LimitApplicationResult<>(
                 fakerTable.withLimit(limit),
                 false,
-                true));
-    }
-
-    @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            Constraint constraint)
-    {
-        FakerTableHandle fakerTable = (FakerTableHandle) table;
-
-        TupleDomain<ColumnHandle> summary = constraint.getSummary();
-        if (summary.isAll()) {
-            return Optional.empty();
-        }
-        // the only reason not to use isNone is so the linter doesn't complain about not checking an Optional
-        if (summary.getDomains().isEmpty()) {
-            throw new IllegalArgumentException("summary cannot be none");
-        }
-
-        TupleDomain<ColumnHandle> currentConstraint = fakerTable.constraint();
-        if (currentConstraint.getDomains().isEmpty()) {
-            throw new IllegalArgumentException("currentConstraint is none but should be all!");
-        }
-
-        // push down everything, unsupported constraints will throw an exception during data generation
-        boolean anyUpdated = false;
-        for (Map.Entry<ColumnHandle, Domain> entry : summary.getDomains().get().entrySet()) {
-            FakerColumnHandle column = (FakerColumnHandle) entry.getKey();
-            Domain domain = entry.getValue();
-
-            if (currentConstraint.getDomains().get().containsKey(column)) {
-                Domain currentDomain = currentConstraint.getDomains().get().get(column);
-                // it is important to avoid processing same constraint multiple times
-                // so that planner doesn't get stuck in a loop
-                if (currentDomain.equals(domain)) {
-                    continue;
-                }
-                // TODO write test cases for this, it doesn't seem to work with IS NULL
-                currentDomain.union(domain);
-            }
-            else {
-                Map<ColumnHandle, Domain> domains = new HashMap<>(currentConstraint.getDomains().get());
-                domains.put(column, domain);
-                currentConstraint = TupleDomain.withColumnDomains(domains);
-            }
-            anyUpdated = true;
-        }
-        if (!anyUpdated) {
-            return Optional.empty();
-        }
-
-        return Optional.of(new ConstraintApplicationResult<>(
-                fakerTable.withConstraint(currentConstraint),
-                TupleDomain.all(),
-                constraint.getExpression(),
                 true));
     }
 
