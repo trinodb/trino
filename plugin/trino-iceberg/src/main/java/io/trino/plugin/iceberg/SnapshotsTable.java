@@ -21,7 +21,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
-import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 
 import java.util.Map;
@@ -68,21 +67,16 @@ public class SnapshotsTable
     }
 
     @Override
-    protected void addRow(PageListBuilder pagesBuilder, StructLike structLike, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema)
+    protected void addRow(PageListBuilder pagesBuilder, Row row, TimeZoneKey timeZoneKey)
     {
         pagesBuilder.beginRow();
-
-        pagesBuilder.appendTimestampTzMillis(
-                structLike.get(columnNameToPositionInSchema.get(COMMITTED_AT_COLUMN_NAME), Long.class) / MICROSECONDS_PER_MILLISECOND,
-                timeZoneKey);
-        pagesBuilder.appendBigint(structLike.get(columnNameToPositionInSchema.get(SNAPSHOT_ID_COLUMN_NAME), Long.class));
-
-        Long parentId = structLike.get(columnNameToPositionInSchema.get(PARENT_ID_COLUMN_NAME), Long.class);
-        pagesBuilder.appendBigint(parentId);
-
-        pagesBuilder.appendVarchar(structLike.get(columnNameToPositionInSchema.get(OPERATION_COLUMN_NAME), String.class));
-        pagesBuilder.appendVarchar(structLike.get(columnNameToPositionInSchema.get(MANIFEST_LIST_COLUMN_NAME), String.class));
-        pagesBuilder.appendVarcharVarcharMap(structLike.get(columnNameToPositionInSchema.get(SUMMARY_COLUMN_NAME), Map.class));
+        pagesBuilder.appendTimestampTzMillis(row.get(COMMITTED_AT_COLUMN_NAME, Long.class) / MICROSECONDS_PER_MILLISECOND, timeZoneKey);
+        pagesBuilder.appendBigint(row.get(SNAPSHOT_ID_COLUMN_NAME, Long.class));
+        pagesBuilder.appendBigint(row.get(PARENT_ID_COLUMN_NAME, Long.class));
+        pagesBuilder.appendVarchar(row.get(OPERATION_COLUMN_NAME, String.class));
+        pagesBuilder.appendVarchar(row.get(MANIFEST_LIST_COLUMN_NAME, String.class));
+        //noinspection unchecked
+        pagesBuilder.appendVarcharVarcharMap(row.get(SUMMARY_COLUMN_NAME, Map.class));
         pagesBuilder.endRow();
     }
 }
