@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -98,12 +99,26 @@ public abstract class BaseSystemTable
     private void addRows(DataTask dataTask, PageListBuilder pagesBuilder, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema)
     {
         try (CloseableIterable<StructLike> dataRows = dataTask.rows()) {
-            dataRows.forEach(dataTaskRow -> addRow(pagesBuilder, dataTaskRow, timeZoneKey, columnNameToPositionInSchema));
+            dataRows.forEach(dataTaskRow -> addRow(pagesBuilder, new Row(dataTaskRow, columnNameToPositionInSchema), timeZoneKey));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    protected abstract void addRow(PageListBuilder pagesBuilder, StructLike structLike, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema);
+    protected abstract void addRow(PageListBuilder pagesBuilder, Row row, TimeZoneKey timeZoneKey);
+
+    public record Row(StructLike structLike, Map<String, Integer> columnNameToPositionInSchema)
+    {
+        public Row
+        {
+            requireNonNull(structLike, "structLike is null");
+            columnNameToPositionInSchema = ImmutableMap.copyOf(columnNameToPositionInSchema);
+        }
+
+        public <T> T get(String columnName, Class<T> javaClass)
+        {
+            return structLike.get(columnNameToPositionInSchema.get(columnName), javaClass);
+        }
+    }
 }
