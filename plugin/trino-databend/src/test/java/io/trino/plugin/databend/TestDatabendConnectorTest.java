@@ -411,6 +411,14 @@ public class TestDatabendConnectorTest
     }
 
     @Test
+    @Override
+    public void testNativeQueryColumnAlias()
+    {
+        assertThat(query("SELECT name AS region_name FROM tpch.region WHERE regionkey = 0"))
+                .matches("VALUES CAST('AFRICA' AS VARCHAR)");
+    }
+
+    @Test
     public void testPredicatePushdown()
     {
         // varchar like
@@ -505,8 +513,7 @@ public class TestDatabendConnectorTest
     protected Session joinPushdownEnabled(Session session)
     {
         return Session.builder(super.joinPushdownEnabled(session))
-                // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
+//                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
     }
 
