@@ -75,7 +75,8 @@ public class TestDeltaLakeConfig
                 .setQueryPartitionFilterRequired(false)
                 .setDeletionVectorsEnabled(false)
                 .setDeltaLogFileSystemCacheDisabled(false)
-                .setMetadataParallelism(8));
+                .setMetadataParallelism(8)
+                .setVacuumLoggingEnabled(false));
     }
 
     @Test
@@ -118,6 +119,7 @@ public class TestDeltaLakeConfig
                 .put("delta.deletion-vectors-enabled", "true")
                 .put("delta.fs.cache.disable-transaction-log-caching", "true")
                 .put("delta.metadata.parallelism", "10")
+                .put("delta.vacuum.logging.enabled", "true")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -156,7 +158,8 @@ public class TestDeltaLakeConfig
                 .setQueryPartitionFilterRequired(true)
                 .setDeletionVectorsEnabled(true)
                 .setDeltaLogFileSystemCacheDisabled(true)
-                .setMetadataParallelism(10);
+                .setMetadataParallelism(10)
+                .setVacuumLoggingEnabled(true);
 
         assertFullMapping(properties, expected);
     }

@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.procedure;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -32,11 +33,15 @@ import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeSessionProperties;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriter;
+import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
+import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -68,7 +73,9 @@ import static io.trino.plugin.deltalake.DeltaLakeMetadata.MAX_WRITER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkUnsupportedUniversalFormat;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkValidTableHandle;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getVacuumMinRetention;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isVacuumLoggingEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.DELETION_VECTORS_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.IsolationLevel;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.unsupportedWriterFeatures;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
@@ -100,18 +107,26 @@ public class VacuumProcedure
     private final TrinoFileSystemFactory fileSystemFactory;
     private final DeltaLakeMetadataFactory metadataFactory;
     private final TransactionLogAccess transactionLogAccess;
+    private final TransactionLogWriterFactory transactionLogWriterFactory;
+    private final String nodeVersion;
+    private final String nodeId;
 
     @Inject
     public VacuumProcedure(
             CatalogName catalogName,
             TrinoFileSystemFactory fileSystemFactory,
             DeltaLakeMetadataFactory metadataFactory,
-            TransactionLogAccess transactionLogAccess)
+            TransactionLogAccess transactionLogAccess,
+            TransactionLogWriterFactory transactionLogWriterFactory,
+            NodeManager nodeManager)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
+        this.transactionLogWriterFactory = requireNonNull(transactionLogWriterFactory, "transactionLogWriterFactory is null");
+        this.nodeVersion = nodeManager.getCurrentNode().getVersion();
+        this.nodeId = nodeManager.getCurrentNode().getNodeIdentifier();
     }
 
     @Override
@@ -166,6 +181,7 @@ public class VacuumProcedure
 
         Duration retentionDuration = Duration.valueOf(retention);
         Duration minRetention = getVacuumMinRetention(session);
+        boolean isVacuumLoggingEnabled = isVacuumLoggingEnabled(session);
         checkProcedureArgument(
                 retentionDuration.compareTo(minRetention) >= 0,
                 "Retention specified (%s) is shorter than the minimum retention configured in the system (%s). " +
@@ -257,6 +273,8 @@ public class VacuumProcedure
             long retainedKnownFiles = 0;
             long retainedUnknownFiles = 0;
             List<TrinoInputFile> filesToDelete = new ArrayList<>();
+            long filesToDeleteSize = 0;
+            int numActualFilesDeleted = 0;
 
             FileIterator listing = fileSystem.listFiles(Location.of(tableLocation));
             while (listing.hasNext()) {
@@ -300,17 +318,32 @@ public class VacuumProcedure
                 Location fileLocation = Location.of(location);
                 TrinoInputFile inputFile = fileSystem.newInputFile(fileLocation);
                 filesToDelete.add(inputFile);
+                filesToDeleteSize += inputFile.length();
+            }
+            long readVersion = handle.getReadVersion();
+            if (isVacuumLoggingEnabled) {
+                logVacuumStart(handle.location(), session, readVersion, filesToDelete.size(), filesToDeleteSize);
             }
             int totalFilesToDelete = filesToDelete.size();
             int batchCount = (int) Math.ceil((double) totalFilesToDelete / DELETE_BATCH_SIZE);
-            for (int batchNumber = 0; batchNumber < batchCount; batchNumber++) {
-                int start = batchNumber * DELETE_BATCH_SIZE;
-                int end = Math.min(start + DELETE_BATCH_SIZE, totalFilesToDelete);
+            String status = "FAILED";
+            try {
+                for (int batchNumber = 0; batchNumber < batchCount; batchNumber++) {
+                    int start = batchNumber * DELETE_BATCH_SIZE;
+                    int end = Math.min(start + DELETE_BATCH_SIZE, totalFilesToDelete);
 
-                List<TrinoInputFile> batch = filesToDelete.subList(start, end);
-                fileSystem.deleteFiles(batch.stream().map(TrinoInputFile::location).collect(toImmutableList()));
+                    List<TrinoInputFile> batch = filesToDelete.subList(start, end);
+                    numActualFilesDeleted += batch.size();
+                    fileSystem.deleteFiles(batch.stream().map(TrinoInputFile::location).collect(toImmutableList()));
+                }
+                status = "COMPLETED";
             }
-
+            finally {
+                if (isVacuumLoggingEnabled) {
+                    int numVacuumedDirectories = Set.of(filesToDelete.stream().map(f -> f.location().parentDirectory())).size();
+                    logVacuumEnd(handle.location(), session, readVersion, numActualFilesDeleted, numVacuumedDirectories, status);
+                }
+            }
             log.info(
                     "[%s] finished vacuuming table %s [%s]: files checked: %s; metadata files: %s; retained known files: %s; retained unknown files: %s; removed files: %s",
                     queryId,
@@ -322,5 +355,46 @@ public class VacuumProcedure
                     retainedUnknownFiles,
                     totalFilesToDelete);
         }
+    }
+
+    private void logVacuumStart(String location, ConnectorSession session, long readVersion, long numFilesToDelete, long filesToDeleteSize)
+            throws IOException
+    {
+        long createdTime = System.currentTimeMillis();
+        long commitVersion = readVersion + 1;
+
+        TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriterWithoutTransactionIsolation(session, location);
+        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(commitVersion, createdTime, session, "VACUUM START", ImmutableMap.of("queryId", session.getQueryId()), ImmutableMap.of("numFilesToDelete", String.valueOf(numFilesToDelete), "sizeOfDataToDelete", String.valueOf(filesToDeleteSize)), readVersion));
+
+        transactionLogWriter.flush();
+    }
+
+    private void logVacuumEnd(String location, ConnectorSession session, long readVersion, int numDeletedFiles, int numVacuumedDirectories, String status)
+            throws IOException
+    {
+        long createdTime = System.currentTimeMillis();
+        long commitVersion = readVersion + 2;
+
+        TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriterWithoutTransactionIsolation(session, location);
+        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(commitVersion, createdTime, session, "VACUUM END", ImmutableMap.of("queryId", session.getQueryId(), "status", status), ImmutableMap.of("numDeletedFiles", String.valueOf(numDeletedFiles), "numVacuumedDirectories", String.valueOf(numVacuumedDirectories)), readVersion));
+        transactionLogWriter.flush();
+    }
+
+    private CommitInfoEntry getCommitInfoEntry(long commitVersion, long createdTime, ConnectorSession session, String operation, ImmutableMap<String, String> operationParameters, ImmutableMap<String, String> operationMetrics, long readVersion)
+    {
+        return new CommitInfoEntry(
+                commitVersion,
+                createdTime,
+                session.getUser(),
+                session.getUser(),
+                operation,
+                operationParameters,
+                null,
+                null,
+                "trino-" + nodeVersion + "-" + nodeId,
+                readVersion,
+                IsolationLevel.WRITESERIALIZABLE.getValue(),
+                Optional.of(true),
+                operationMetrics);
     }
 }
