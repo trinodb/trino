@@ -22,6 +22,7 @@ import io.trino.client.spooling.DataAttributes;
 import io.trino.server.protocol.JsonEncodingUtils.TypeEncoder;
 import io.trino.server.protocol.OutputColumn;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
+import io.trino.server.protocol.spooling.QueryDataEncodingConfig;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -106,10 +107,18 @@ public class JsonQueryDataEncoder
     public static class ZstdFactory
             extends Factory
     {
+        private final int compressionThreshold;
+
+        @Inject
+        public ZstdFactory(QueryDataEncodingConfig config)
+        {
+            this.compressionThreshold = toIntExact(config.getCompressionThreshold().toBytes());
+        }
+
         @Override
         public QueryDataEncoder create(Session session, List<OutputColumn> columns)
         {
-            return new ZstdQueryDataEncoder(super.create(session, columns));
+            return new ZstdQueryDataEncoder(super.create(session, columns), compressionThreshold);
         }
 
         @Override
@@ -122,10 +131,18 @@ public class JsonQueryDataEncoder
     public static class Lz4Factory
             extends Factory
     {
+        private final int compressionThreshold;
+
+        @Inject
+        public Lz4Factory(QueryDataEncodingConfig config)
+        {
+            this.compressionThreshold = toIntExact(config.getCompressionThreshold().toBytes());
+        }
+
         @Override
         public QueryDataEncoder create(Session session, List<OutputColumn> columns)
         {
-            return new Lz4QueryDataEncoder(super.create(session, columns));
+            return new Lz4QueryDataEncoder(super.create(session, columns), compressionThreshold);
         }
 
         @Override
