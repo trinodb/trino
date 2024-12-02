@@ -29,8 +29,8 @@ public class QueryDataDecoders
 {
     private static final List<Factory> decoders = ImmutableList.of(
             new JsonQueryDataDecoder.ZstdFactory(),
-            new JsonQueryDataDecoder.Factory(),
-            new JsonQueryDataDecoder.Lz4Factory());
+            new JsonQueryDataDecoder.Lz4Factory(),
+            new JsonQueryDataDecoder.Factory());
 
     private static final Map<String, Factory> encodingMap = factoriesMap();
 
