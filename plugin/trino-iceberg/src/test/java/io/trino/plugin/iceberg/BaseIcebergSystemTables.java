@@ -340,7 +340,7 @@ public abstract class BaseIcebergSystemTables
     @Test
     public void testFilesTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_files_table", "AS SELECT 1 x")) {
+        try (TestTable table = createTable("test_files_table", "AS SELECT 1 x")) {
             MaterializedResult result = computeActual("DESCRIBE " + table.getName());
             assertThat(result.getMaterializedRows().stream().map(row -> (String) row.getField(0)))
                     .doesNotContain("partition");
@@ -456,7 +456,7 @@ public abstract class BaseIcebergSystemTables
 
     private void testFilesTableReadableMetrics(@Language("SQL") String type, @Language("SQL") String values, @Language("JSON") String... readableMetrics)
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_files_table", "(x " + type + ")")) {
+        try (TestTable table = createTable("test_files_table", "(x " + type + ")")) {
             getQueryRunner().execute("INSERT INTO " + table.getName() + " " + values);
             assertThat(computeActual("SELECT readable_metrics FROM \"" + table.getName() + "$files\"").getOnlyColumnAsSet())
                     .containsExactlyInAnyOrder(readableMetrics);
@@ -466,7 +466,7 @@ public abstract class BaseIcebergSystemTables
     @Test
     public void testFilesSchemaEvolution()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_files_table", "WITH (partitioning = ARRAY['part']) AS SELECT 1 x, 2 part")) {
+        try (TestTable table = createTable("test_files_table", "WITH (partitioning = ARRAY['part']) AS SELECT 1 x, 2 part")) {
             assertThat(query("SELECT partition FROM \"" + table.getName() + "$files\""))
                     .matches("SELECT CAST(ROW(2) AS ROW(part int))");
 
@@ -484,8 +484,7 @@ public abstract class BaseIcebergSystemTables
     @Test
     public void testFilesNestedPartition()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = createTable(
                 "test_files_table",
                 "WITH (partitioning = ARRAY['\"part.nested\"']) AS SELECT 1 x, CAST(ROW(2) AS ROW(nested int)) part")) {
             assertThat(query("SELECT partition.\"part.nested\" FROM \"" + table.getName() + "$files\""))
