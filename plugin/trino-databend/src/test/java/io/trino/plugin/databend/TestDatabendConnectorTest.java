@@ -410,6 +410,32 @@ public class TestDatabendConnectorTest
         }
     }
 
+    @Test
+    @Override
+    public void testExecuteProcedure()
+    {
+        String tableName = "test_execute" + randomNameSuffix();
+        String schemaTableName = "default" + "." + tableName;
+
+        assertUpdate("CREATE TABLE " + schemaTableName + "(a int)");
+
+        try {
+            assertUpdate("INSERT INTO " + schemaTableName + " VALUES (1)", 1);
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES 1");
+
+            assertUpdate("UPDATE " + schemaTableName + " SET a = 2 WHERE true", 1);
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES 2");
+
+            assertUpdate("DELETE FROM " + schemaTableName + " WHERE true", 0);
+            assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
+
+            assertUpdate("CALL system.execute('DROP TABLE " + schemaTableName + "')");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
+    }
+
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
