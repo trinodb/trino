@@ -36,6 +36,12 @@ public class MarkDistinctHash
         this.groupByHash = createGroupByHash(session, types, hasPrecomputedHash, 10_000, hashStrategyCompiler, updateMemory);
     }
 
+    private MarkDistinctHash(MarkDistinctHash other)
+    {
+        groupByHash = other.groupByHash.copy();
+        nextDistinctId = other.nextDistinctId;
+    }
+
     public long getEstimatedSize()
     {
         return groupByHash.getEstimatedSize();
@@ -78,5 +84,10 @@ public class MarkDistinctHash
         }
         checkState(nextDistinctId == groupCount);
         return BooleanType.wrapByteArrayAsBooleanBlockWithoutNulls(distinctMask);
+    }
+
+    public MarkDistinctHash copy()
+    {
+        return new MarkDistinctHash(this);
     }
 }
