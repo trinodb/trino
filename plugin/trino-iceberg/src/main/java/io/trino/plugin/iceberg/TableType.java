@@ -19,6 +19,7 @@ public enum TableType
     HISTORY,
     METADATA_LOG_ENTRIES,
     SNAPSHOTS,
+    ALL_MANIFESTS,
     MANIFESTS,
     PARTITIONS,
     FILES,
