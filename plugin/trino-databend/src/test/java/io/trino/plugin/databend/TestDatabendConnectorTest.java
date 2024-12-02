@@ -42,11 +42,13 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -210,6 +212,36 @@ public class TestDatabendConnectorTest
     {
         assertThatThrownBy(super::testNativeQueryIncorrectSyntax)
                 .hasStackTraceContaining("Failed to get table handle for prepared query");
+    }
+
+    @Test
+    @Override
+    public void testAddColumnWithCommentSpecialCharacter()
+    {
+        testAddColumnWithCommentSpecialCharacter("a;semicolon");
+        testAddColumnWithCommentSpecialCharacter("an@at");
+        testAddColumnWithCommentSpecialCharacter("a\"quote");
+        testAddColumnWithCommentSpecialCharacter("a`backtick`");
+        testAddColumnWithCommentSpecialCharacter("a/slash");
+        testAddColumnWithCommentSpecialCharacter("a\\backslash");
+        testAddColumnWithCommentSpecialCharacter("a?question");
+        testAddColumnWithCommentSpecialCharacter("[square bracket]");
+    }
+
+    protected void testAddColumnWithCommentSpecialCharacter(String comment)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN_WITH_COMMENT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_col_", "(a_varchar varchar)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b_varchar varchar COMMENT " + varcharLiteral(comment));
+            assertThat(getColumnComment(table.getName(), "b_varchar")).isEqualTo("'" + comment + "'");
+        }
+    }
+
+    protected static String varcharLiteral(String value)
+    {
+        requireNonNull(value, "value is null");
+        return "'" + value.replace("'", "''") + "'";
     }
 
     @Override
