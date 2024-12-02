@@ -95,7 +95,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -139,7 +138,6 @@ import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsuppor
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
-import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -542,11 +540,11 @@ public class DatabendClient
         return true;
     }
 
-    @Override
-    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
-    {
-        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
-    }
+//    @Override
+//    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+//    {
+//        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+//    }
 
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
