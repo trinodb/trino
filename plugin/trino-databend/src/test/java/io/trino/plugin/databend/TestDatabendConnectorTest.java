@@ -43,7 +43,12 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_COMMENT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_NOT_NULL_CONSTRAINT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -100,6 +105,7 @@ public class TestDatabendConnectorTest
                     SUPPORTS_COMMENT_ON_COLUMN,
                     SUPPORTS_INSERT,
                     SUPPORTS_RENAME_SCHEMA,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_NEGATIVE_DATE, // min date is 0001-01-01
                     SUPPORTS_RENAME_TABLE,
                     SUPPORTS_ROW_TYPE,
@@ -312,6 +318,95 @@ public class TestDatabendConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
             assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
+        }
+    }
+
+    @Test
+    @Override
+    public void testCreateTableAsSelectWithTableComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        String tableName = "test_ctas_" + randomNameSuffix();
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT)) {
+            assertQueryFails("CREATE TABLE " + tableName + " COMMENT 'test comment' AS SELECT name FROM nation", "This connector does not support creating tables with table comment");
+            return;
+        }
+
+        assertUpdate("CREATE TABLE " + tableName + " COMMENT 'test comment' AS SELECT name FROM nation", 25);
+        assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName)).isEqualTo("test comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    @Override
+    public void testCreateTableWithColumnComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        String tableName = "test_create_" + randomNameSuffix();
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT)) {
+            assertQueryFails("CREATE TABLE " + tableName + " (a bigint COMMENT 'test comment')", "This connector does not support creating tables with column comment");
+            return;
+        }
+
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint COMMENT 'test comment')");
+        assertThat(getColumnComment(tableName, "a").replace("'", "")).isEqualTo("test comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    @Override
+    public void testCreateTableWithColumnCommentSpecialCharacter()
+    {
+        testCreateTableWithColumnCommentSpecialCharacter("a;semicolon");
+        testCreateTableWithColumnCommentSpecialCharacter("an@at");
+        testCreateTableWithColumnCommentSpecialCharacter("a\"quote");
+        testCreateTableWithColumnCommentSpecialCharacter("a`backtick`");
+        testCreateTableWithColumnCommentSpecialCharacter("a/slash");
+        testCreateTableWithColumnCommentSpecialCharacter("a\\backslash");
+        testCreateTableWithColumnCommentSpecialCharacter("a?question");
+        testCreateTableWithColumnCommentSpecialCharacter("[square bracket]");
+    }
+
+    @Test
+    @Override
+    public void testDropNotNullConstraint()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        if (!hasBehavior(SUPPORTS_DROP_NOT_NULL_CONSTRAINT)) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_not_null_", "(col integer NOT NULL)")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP NOT NULL",
+                        "This connector does not support dropping a not null constraint");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_not_null_", "(col integer NOT NULL)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES NULL", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES NULL");
+        }
+    }
+
+    @Test
+    @Override
+    public void testDistinctAggregationPushdown()
+    {
+        abort("Databend query plan");
+    }
+
+    private void testCreateTableWithColumnCommentSpecialCharacter(String comment)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_", " (a bigint COMMENT " + varcharLiteral(comment) + ")")) {
+            assertThat(getColumnComment(table.getName(), "a").replace("'", "")).isEqualTo(comment);
         }
     }
 
