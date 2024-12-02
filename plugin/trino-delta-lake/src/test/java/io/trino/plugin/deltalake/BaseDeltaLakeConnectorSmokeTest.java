@@ -230,6 +230,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("delta.register-table-procedure.enabled", "true")
                         .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
+                        .put("delta.vacuum.logging.enabled", "true")
                         .putAll(deltaStorageConfiguration())
                         .buildOrThrow())
                 .setSchemaLocation(getLocationForTable(bucketName, SCHEMA))
@@ -1716,6 +1717,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
                 .setCatalogSessionProperty(catalog, "vacuum_min_retention", "0s")
                 .build();
+        Session sessionWithVacuumLoggingDisabled = Session.builder(sessionWithShortRetentionUnlocked)
+                .setCatalogSessionProperty(catalog, "vacuum_logging_enabled", "false")
+                .build();
         assertUpdate(
                 format("CREATE TABLE %s WITH (location = '%s', partitioned_by = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", tableName, tableLocation),
                 25);
@@ -1746,6 +1750,34 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertThat(getActiveFiles(tableName)).isEqualTo(updatedFiles);
             // old files should be cleaned up
             assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(updatedFiles);
+            // operations should be logged
+            assertThat(query("SELECT version, operation, MAP_FILTER(operation_parameters, (k, v) -> k <> 'queryId') FROM \"" + tableName + "$history\"")).matches( """
+                    VALUES\s
+                    (CAST(0 AS BIGINT), CAST('CREATE TABLE AS SELECT' AS VARCHAR), CAST(MAP() AS MAP(VARCHAR, VARCHAR))),\s
+                    (1, 'MERGE', MAP()),\s
+                    (2, 'VACUUM START', MAP()),\s
+                    (3, 'VACUUM END', MAP(ARRAY['status'], ARRAY['COMPLETED'])),\s
+                    (4, 'VACUUM START', MAP()),\s
+                    (5, 'VACUUM END', MAP(ARRAY['status'], ARRAY['COMPLETED']))""");
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['sizeOfDataToDelete'] FROM \"" + tableName + "$history\" WHERE version = 2"))).isEqualTo(0);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['numFilesToDelete'] FROM \"" + tableName + "$history\" WHERE version = 2"))).isEqualTo(0);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['numDeletedFiles'] FROM \"" + tableName + "$history\" WHERE version = 3"))).isEqualTo(0);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['numVacuumedDirectories'] FROM \"" + tableName + "$history\" WHERE version = 3"))).isEqualTo(8);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['sizeOfDataToDelete'] FROM \"" + tableName + "$history\" WHERE version = 4"))).isGreaterThanOrEqualTo(5012);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['numFilesToDelete'] FROM \"" + tableName + "$history\" WHERE version = 4"))).isEqualTo(5);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['numDeletedFiles'] FROM \"" + tableName + "$history\" WHERE version = 5"))).isEqualTo(5);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['numVacuumedDirectories'] FROM \"" + tableName + "$history\" WHERE version = 5"))).isEqualTo(8);
+
+            assertUpdate(sessionWithVacuumLoggingDisabled, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '1s')");
+            // no new vacuum logging operations are logged
+            assertQuery("SELECT version, operation FROM \"" + tableName + "$history\"", """
+                    VALUES\s
+                    (0, 'CREATE TABLE AS SELECT'),\s
+                    (1, 'MERGE'),\s
+                    (2, 'VACUUM START'),\s
+                    (3, 'VACUUM END'),\s
+                    (4, 'VACUUM START'),\s
+                    (5, 'VACUUM END')""");
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
