@@ -63,6 +63,9 @@ public final class CassandraQueryRunner
                     .build());
             this.server = requireNonNull(server, "server is null");
             connectorProperties.put("cassandra.contact-points", server.getHost());
+            connectorProperties.put("cassandra.security", "PASSWORD");
+            connectorProperties.put("cassandra.username", server.getUsername());
+            connectorProperties.put("cassandra.password", server.getPassword());
             connectorProperties.put("cassandra.native-protocol-port", Integer.toString(server.getPort()));
             connectorProperties.put("cassandra.load-policy.use-dc-aware", "true");
             connectorProperties.put("cassandra.load-policy.dc-aware.local-dc", "datacenter1");

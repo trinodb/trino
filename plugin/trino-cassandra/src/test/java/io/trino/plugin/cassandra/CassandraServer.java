@@ -138,6 +138,16 @@ public class CassandraServer
         return dockerContainer.getContactPoint().getPort();
     }
 
+    public String getUsername()
+    {
+        return dockerContainer.getUsername();
+    }
+
+    public String getPassword()
+    {
+        return dockerContainer.getPassword();
+    }
+
     public void refreshSizeEstimates(String keyspace, String table)
             throws Exception
     {
