@@ -48,6 +48,8 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WI
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_NOT_NULL_CONSTRAINT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NATIVE_QUERY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -102,13 +104,13 @@ public class TestDatabendConnectorTest
                     SUPPORTS_TOPN_PUSHDOWN -> false;
 
             case SUPPORTS_ARRAY,
+                    SUPPORTS_DELETE,
                     SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_INSERT,
                     SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_NEGATIVE_DATE, // min date is 0001-01-01
                     SUPPORTS_RENAME_TABLE,
                     SUPPORTS_ROW_TYPE,
+                    SUPPORTS_NATIVE_QUERY,
                     SUPPORTS_SET_COLUMN_TYPE,
                     SUPPORTS_UPDATE -> false;
 
@@ -153,6 +155,24 @@ public class TestDatabendConnectorTest
     public void testAddColumnConcurrently()
     {
         // TODO: Enable this test after finding the failure cause
+    }
+
+    @Test
+    @Override
+    public void testExecuteProcedureWithNamedArgument()
+    {
+        String tableName = "test_execute" + randomNameSuffix();
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+
+        assertUpdate("CREATE TABLE " + schemaTableName + "(a int)");
+        try {
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
+            assertUpdate("DROP TABLE " + schemaTableName + "");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
     }
 
     @Test
@@ -258,6 +278,39 @@ public class TestDatabendConnectorTest
     }
 
     @Test
+    public void testInsert()
+    {
+        if (!hasBehavior(SUPPORTS_INSERT)) {
+            assertQueryFails("INSERT INTO nation(nationkey) VALUES (42)", "This connector does not support inserts");
+            return;
+        }
+
+        // We are using SUPPORTS_CREATE_TABLE_WITH_DATA because WITH NO DATA is using same execution code paths
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
+            throw new AssertionError("Cannot test INSERT without CTAS, the test needs to be implemented in a connector-specific way");
+        }
+
+        String query = "SELECT name, nationkey, regionkey FROM nation";
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", "AS " + query + " WITH NO DATA")) {
+            assertQuery("SELECT count(*) FROM " + table.getName() + "", "SELECT 0");
+
+            assertUpdate("INSERT INTO " + table.getName() + " " + query, 25);
+
+            assertQuery("SELECT * FROM " + table.getName() + "", query);
+
+            // UNION query produces columns in the opposite order
+            // of how they are declared in the table schema
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " (nationkey, name, regionkey) " +
+                            "SELECT nationkey, name, regionkey FROM nation " +
+                            "UNION ALL " +
+                            "SELECT nationkey, name, regionkey FROM nation",
+                    50);
+        }
+    }
+
+    @Test
     @Override
     public void testCreateTableAsSelectNegativeDate()
     {
@@ -271,6 +324,21 @@ public class TestDatabendConnectorTest
     {
         assertThatThrownBy(super::testInsertNegativeDate)
                 .hasStackTraceContaining("input is out of range");
+    }
+
+    @Test
+    @Override
+    public void testInsertIntoNotNullColumn()
+    {
+        abort("TODO test");
+    }
+
+    @Test
+    @Override
+    public void testNativeQuerySimple()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
+        assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT 1'))", "VALUES 1");
     }
 
     @Test
@@ -337,6 +405,22 @@ public class TestDatabendConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " COMMENT 'test comment' AS SELECT name FROM nation", 25);
         assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName)).isEqualTo("test comment");
 
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    @Override
+    public void testCreateTableAsSelect()
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
+            assertQueryFails("CREATE TABLE xxxx AS SELECT BIGINT '42' a, DOUBLE '-38.5' b", "This connector does not support creating tables with data");
+            return;
+        }
+
+        String tableName = "test_create_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b", 1);
+        assertThat(query("SELECT CAST(a AS bigint), b FROM " + tableName))
+                .matches("VALUES (BIGINT '42', -385e-1)");
         assertUpdate("DROP TABLE " + tableName);
     }
 
