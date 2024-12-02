@@ -336,8 +336,7 @@ public class TestDeltaLakeBasic
         checkArgument(inputValues.size() == 2, "inputValues size must be 2");
         checkArgument(expectedPartitionValuesParsed.size() == 2, "expectedPartitionValuesParsed size must be 2");
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_values_parsed_checkpoint",
                 "(x int, part " + inputType + ") WITH (checkpoint_interval = 2, column_mapping_mode = '" + columnMappingMode + "', partitioned_by = ARRAY['part'])")) {
             for (String inputValue : inputValues) {
@@ -1188,7 +1187,7 @@ public class TestDeltaLakeBasic
     private void testDeletionVectorsEnabledCreateTable(String tableDefinition)
             throws Exception
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "deletion_vectors", tableDefinition)) {
+        try (TestTable table = newTrinoTable("deletion_vectors", tableDefinition)) {
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
                     .contains("deletion_vectors_enabled = true");
 
@@ -1221,7 +1220,7 @@ public class TestDeltaLakeBasic
     private void testDeletionVectorsDisabledCreateTable(String tableDefinition)
             throws Exception
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "deletion_vectors", tableDefinition)) {
+        try (TestTable table = newTrinoTable("deletion_vectors", tableDefinition)) {
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
                     .doesNotContain("deletion_vectors_enabled");
 

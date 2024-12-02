@@ -153,7 +153,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     @Test
     void testGlueTableLocation()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_table_location", "AS SELECT 1 x")) {
+        try (TestTable table = newTrinoTable("test_table_location", "AS SELECT 1 x")) {
             String initialLocation = getStorageDescriptor(getGlueTable(table.getName())).orElseThrow().getLocation();
             assertThat(getStorageDescriptor(getGlueTable(table.getName())).orElseThrow().getLocation())
                     // Using startsWith because the location has UUID suffix

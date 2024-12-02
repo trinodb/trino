@@ -408,7 +408,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     private void testStoreMetastoreCommentTable(boolean storeTableMetadata)
     {
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
             assertMetastoreInvocations(session, "COMMENT ON TABLE " + table.getName() + " IS 'test comment'", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
         }
     }
@@ -423,7 +423,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     private void testStoreMetastoreCommentColumn(boolean storeTableMetadata)
     {
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int COMMENT 'test comment')")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int COMMENT 'test comment')")) {
             assertMetastoreInvocations(session, "COMMENT ON COLUMN " + table.getName() + ".col IS 'new test comment'", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
         }
     }
@@ -440,7 +440,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
 
         // Use 'name' column mapping mode to allow renaming columns
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int NOT NULL) WITH (column_mapping_mode = 'name')")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int NOT NULL) WITH (column_mapping_mode = 'name')")) {
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP NOT NULL", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " ADD COLUMN new_col int COMMENT 'test comment'", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " RENAME COLUMN new_col TO renamed_col", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
@@ -460,7 +460,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     private void testStoreMetastoreSetTableProperties(boolean storeTableMetadata)
     {
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " SET PROPERTIES change_data_feed_enabled = true", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
         }
     }
@@ -475,7 +475,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     private void testStoreMetastoreOptimize(boolean storeTableMetadata)
     {
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " EXECUTE optimize", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
         }
     }
@@ -494,7 +494,7 @@ public class TestDeltaLakeMetastoreAccessOperations
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
                 .build();
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "AS SELECT 1 a")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "AS SELECT 1 a")) {
             assertUpdate("UPDATE " + table.getName() + " SET a = 2", 1);
             assertMetastoreInvocations(
                     session,
@@ -513,7 +513,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     private void testStoreMetastoreRegisterTable(boolean storeTableMetadata)
     {
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int) COMMENT 'test comment'")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) COMMENT 'test comment'")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
             String tableLocation = metastore.getTable(TPCH_SCHEMA, table.getName()).orElseThrow().getStorage().getLocation();
             metastore.dropTable(TPCH_SCHEMA, table.getName(), false);
@@ -537,7 +537,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
         String schemaString = "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}";
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
             assertThat(metastore.getTable(TPCH_SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(entry("trino_last_transaction_version", "0"), entry("trino_metadata_schema_string", schemaString));
 
@@ -563,7 +563,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     private void testStoreMetastoreTruncateTable(boolean storeTableMetadata)
     {
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "AS SELECT 1 col")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "AS SELECT 1 col")) {
             assertMetastoreInvocations(session, "TRUNCATE TABLE " + table.getName(), ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
         }
     }

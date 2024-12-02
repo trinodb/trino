@@ -343,8 +343,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testPartialFilterWhenPartitionColumnOrderIsDifferentFromTableDefinition(ColumnMappingMode columnMappingMode)
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_delete_with_partial_filter_composed_partition",
                 "(_bigint BIGINT, _date DATE, _varchar VARCHAR) WITH (column_mapping_mode='" + columnMappingMode + "', partitioned_by = ARRAY['_varchar', '_date'])")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES  (1, CAST('2019-09-10' AS DATE), 'a'), (2, CAST('2019-09-10' AS DATE), 'a')", 2);
@@ -402,8 +401,7 @@ public class TestDeltaLakeConnectorTest
     {
         // TODO https://github.com/trinodb/trino/issues/24155 Cannot insert varbinary values into partitioned columns
         // Update TestDeltaLakeBasic.testPartitionValuesParsedCheckpoint() when fixing this issue
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_varbinary_partition",
                 "(x int, part varbinary) WITH (partitioned_by = ARRAY['part'])")) {
             assertQueryFails("INSERT INTO " + table.getName() + " VALUES (1, X'01')", "Unsupported type for partition: varbinary");
@@ -587,8 +585,7 @@ public class TestDeltaLakeConnectorTest
     public void testCharVarcharComparison()
     {
         // with char->varchar coercion on table creation, this is essentially varchar/varchar comparison
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_char_varchar",
                 "(k, v) AS VALUES" +
                         "   (-1, CAST(NULL AS CHAR(3))), " +
@@ -817,7 +814,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testShowStatsForTimestampWithTimeZone()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_stats_timestamptz_", "(x TIMESTAMP(3) WITH TIME ZONE) WITH (checkpoint_interval = 2)")) {
+        try (TestTable table = newTrinoTable("test_stats_timestamptz_", "(x TIMESTAMP(3) WITH TIME ZONE) WITH (checkpoint_interval = 2)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '+10000-01-02 13:34:56.123 +01:00')", 1);
             assertThat(query("SHOW STATS FOR " + table.getName()))
                     .result()
@@ -842,7 +839,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testAddColumnToPartitionedTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_partitioned_table_", "(x VARCHAR, part VARCHAR) WITH (partitioned_by = ARRAY['part'])")) {
+        try (TestTable table = newTrinoTable("test_add_column_partitioned_table_", "(x VARCHAR, part VARCHAR) WITH (partitioned_by = ARRAY['part'])")) {
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first', 'part-0001'", 1);
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN x bigint", ".* Column 'x' already exists");
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN part bigint", ".* Column 'part' already exists");
@@ -876,7 +873,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testAddColumnAndOptimize()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_and_optimize", "(x VARCHAR)")) {
+        try (TestTable table = newTrinoTable("test_add_column_and_optimize", "(x VARCHAR)")) {
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN a varchar(50)");
@@ -904,7 +901,7 @@ public class TestDeltaLakeConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
                 .build();
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_and_optimize", "(x VARCHAR)")) {
+        try (TestTable table = newTrinoTable("test_add_column_and_optimize", "(x VARCHAR)")) {
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second'", 1);
 
@@ -1008,7 +1005,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testPathColumn()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_path_column", "(x VARCHAR)")) {
+        try (TestTable table = newTrinoTable("test_path_column", "(x VARCHAR)")) {
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
             String firstFilePath = (String) computeScalar("SELECT \"$path\" FROM " + table.getName());
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second'", 1);
@@ -1330,11 +1327,11 @@ public class TestDeltaLakeConnectorTest
     public void testCreateTableWithChangeDataFeedColumnName()
     {
         for (String columnName : CHANGE_DATA_FEED_COLUMN_NAMES) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_cdf", "(" + columnName + " int)")) {
+            try (TestTable table = newTrinoTable("test_create_table_cdf", "(" + columnName + " int)")) {
                 assertTableColumnNames(table.getName(), columnName);
             }
 
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_cdf", "AS SELECT 1 AS " + columnName)) {
+            try (TestTable table = newTrinoTable("test_create_table_cdf", "AS SELECT 1 AS " + columnName)) {
                 assertTableColumnNames(table.getName(), columnName);
             }
         }
@@ -1343,7 +1340,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateTableWithChangeDataFeed()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cdf", "(x int) WITH (change_data_feed_enabled = true)")) {
+        try (TestTable table = newTrinoTable("test_cdf", "(x int) WITH (change_data_feed_enabled = true)")) {
             assertThat(query("SELECT * FROM \"" + table.getName() + "$properties\""))
                     .skippingTypesCheck()
                     .matches("VALUES " +
@@ -1354,7 +1351,7 @@ public class TestDeltaLakeConnectorTest
         }
 
         // timestamp type requires reader version 3 and writer version 7
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cdf", "(x timestamp) WITH (change_data_feed_enabled = true)")) {
+        try (TestTable table = newTrinoTable("test_cdf", "(x timestamp) WITH (change_data_feed_enabled = true)")) {
             assertThat(query("SELECT * FROM \"" + table.getName() + "$properties\""))
                     .skippingTypesCheck()
                     .matches("VALUES " +
@@ -1370,8 +1367,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testChangeDataFeedWithDeletionVectors()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_cdf",
                 "(x VARCHAR, y INT) WITH (change_data_feed_enabled = true, deletion_vectors_enabled = true)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES('test1', 1)", 1);
@@ -1414,7 +1410,7 @@ public class TestDeltaLakeConnectorTest
     public void testUnsupportedAddColumnWithChangeDataFeed()
     {
         for (String columnName : CHANGE_DATA_FEED_COLUMN_NAMES) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column", "(col int) WITH (change_data_feed_enabled = true)")) {
+            try (TestTable table = newTrinoTable("test_add_column", "(col int) WITH (change_data_feed_enabled = true)")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " ADD COLUMN " + columnName + " int",
                         "\\QColumn name %s is forbidden when change data feed is enabled\\E".formatted(columnName));
@@ -1431,7 +1427,7 @@ public class TestDeltaLakeConnectorTest
     public void testUnsupportedRenameColumnWithChangeDataFeed()
     {
         for (String columnName : CHANGE_DATA_FEED_COLUMN_NAMES) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_rename_column", "(col int) WITH (change_data_feed_enabled = true)")) {
+            try (TestTable table = newTrinoTable("test_rename_column", "(col int) WITH (change_data_feed_enabled = true)")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " RENAME COLUMN col TO " + columnName,
                         "Cannot rename column when change data feed is enabled");
@@ -1444,7 +1440,7 @@ public class TestDeltaLakeConnectorTest
     public void testUnsupportedSetTablePropertyWithChangeDataFeed()
     {
         for (String columnName : CHANGE_DATA_FEED_COLUMN_NAMES) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_properties", "(" + columnName + " int)")) {
+            try (TestTable table = newTrinoTable("test_set_properties", "(" + columnName + " int)")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " SET PROPERTIES change_data_feed_enabled = true",
                         "\\QUnable to enable change data feed because table contains [%s] columns\\E".formatted(columnName));
@@ -1533,7 +1529,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     void testCreateTableWithColumnMappingModeAndTimestampNtz()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_column_mapping", "(x int) WITH (column_mapping_mode = 'NAME')")) {
+        try (TestTable table = newTrinoTable("test_column_mapping", "(x int) WITH (column_mapping_mode = 'NAME')")) {
             assertThat(query("SELECT * FROM \"" + table.getName() + "$properties\""))
                     .skippingTypesCheck()
                     .matches("VALUES " +
@@ -1545,7 +1541,7 @@ public class TestDeltaLakeConnectorTest
         }
 
         // timestamp type requires reader version 3 and writer version 7
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_column_mapping", "(x timestamp) WITH (column_mapping_mode = 'NAME')")) {
+        try (TestTable table = newTrinoTable("test_column_mapping", "(x timestamp) WITH (column_mapping_mode = 'NAME')")) {
             assertThat(query("SELECT * FROM \"" + table.getName() + "$properties\""))
                     .skippingTypesCheck()
                     .matches("VALUES " +
@@ -1717,8 +1713,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testPartitionPredicateOnCheckpointWithColumnMappingMode(ColumnMappingMode mode)
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_checkpoint_with_column_mapping_mode",
                 "(x int, part int) WITH (column_mapping_mode='" + mode + "', checkpoint_interval = 3, partitioned_by = ARRAY['part'])")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10)", 1);
@@ -2000,8 +1995,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testCreateOrReplaceTableAsSelectWithSwappedColumns(ColumnMappingMode columnMappingMode)
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_create_or_replace_with_column",
                 "AS SELECT 'abc' colA, BIGINT '1' colB")) {
             assertThat(query("SELECT colA, colB FROM " + table.getName()))
@@ -2019,7 +2013,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableChangeUnpartitionedTableIntoPartitioned()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT BIGINT '22' a, CAST('some data' AS VARCHAR) b")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " AS SELECT BIGINT '22' a, CAST('some data' AS VARCHAR) b")) {
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (partitioned_by=ARRAY['a']) AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b", 2);
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES (BIGINT '42', CAST('some data' AS VARCHAR)), (BIGINT '43', CAST('another data' AS VARCHAR))");
@@ -2034,8 +2028,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableChangePartitionedTableIntoUnpartitioned()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_create_or_replace_",
                 "  WITH (partitioned_by=ARRAY['a']) AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b")) {
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b", 2);
@@ -2058,7 +2051,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableTableCommentIsRemoved()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " (a BIGINT) COMMENT 'This is a table'")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " (a BIGINT) COMMENT 'This is a table'")) {
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (a BIGINT COMMENT 'This is a column')");
             assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
 
@@ -2073,7 +2066,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableWithEnablingCdcProperty()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_with_cdc", " (a BIGINT)")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_with_cdc", " (a BIGINT)")) {
             assertQueryFails(
                     "CREATE OR REPLACE TABLE " + table.getName() + " (c BIGINT) WITH (change_data_feed_enabled = true)",
                     "CREATE OR REPLACE is not supported for tables with change data feed enabled");
@@ -2083,7 +2076,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableAsWithEnablingCdcProperty()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_with_cdc", " (a BIGINT)")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_with_cdc", " (a BIGINT)")) {
             assertQueryFails(
                     "CREATE OR REPLACE TABLE " + table.getName() + " WITH (change_data_feed_enabled = true) AS SELECT 1 new_column",
                     "CREATE OR REPLACE is not supported for tables with change data feed enabled");
@@ -2093,7 +2086,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceOnCdcEnabledTables()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_with_cdc", " (a BIGINT) WITH (change_data_feed_enabled = true)")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_with_cdc", " (a BIGINT) WITH (change_data_feed_enabled = true)")) {
             assertQueryFails(
                     "CREATE OR REPLACE TABLE " + table.getName() + " (d BIGINT)",
                     "CREATE OR REPLACE is not supported for tables with change data feed enabled");
@@ -2103,7 +2096,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableAsOnCdcEnabledTables()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_with_cdc", " (a BIGINT) WITH (change_data_feed_enabled = true)")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_with_cdc", " (a BIGINT) WITH (change_data_feed_enabled = true)")) {
             assertQueryFails(
                     "CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 1 new_column",
                     "CREATE OR REPLACE is not supported for tables with change data feed enabled");
@@ -2113,8 +2106,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableWithSameLocationForManagedTable()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_create_or_replace_with_same_location_",
                 " (a BIGINT)")) {
             String location = metastore.getTable("test_schema", table.getName()).orElseThrow().getStorage().getLocation();
@@ -2130,8 +2122,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableAsWithSameLocationForManagedTable()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_create_or_replace_with_same_location_",
                 " (a BIGINT)")) {
             String location = metastore.getTable("test_schema", table.getName()).orElseThrow().getStorage().getLocation();
@@ -2147,7 +2138,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableWithChangeInLocationForManagedTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_change_location_", " (a BIGINT) ")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_change_location_", " (a BIGINT) ")) {
             String location = "s3://%s/%s".formatted(bucketName, randomNameSuffix());
             assertQueryFails(
                     "CREATE OR REPLACE TABLE " + table.getName() + " (a BIGINT) WITH (location = '%s')".formatted(location),
@@ -2164,7 +2155,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceAsTableWithChangeInLocationForManagedTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_change_location_", " (a BIGINT) ")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_change_location_", " (a BIGINT) ")) {
             String location = "s3://%s/%s".formatted(bucketName, randomNameSuffix());
             assertQueryFails(
                     "CREATE OR REPLACE TABLE " + table.getName() + " WITH (location = '%s') AS SELECT 'a' colA".formatted(location),
@@ -2182,8 +2173,7 @@ public class TestDeltaLakeConnectorTest
     public void testCreateOrReplaceTableWithChangeInLocationForExternalTable()
     {
         String location = "s3://%s/%s".formatted(bucketName, randomNameSuffix());
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_create_or_replace_change_location_",
                 " (a BIGINT) WITH (location = '%s')".formatted(location))) {
             assertQueryFails(
@@ -2200,8 +2190,7 @@ public class TestDeltaLakeConnectorTest
     public void testCreateOrReplaceTableAsWithChangeInLocationForExternalTable()
     {
         String location = "s3://%s/%s".formatted(bucketName, randomNameSuffix());
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_create_or_replace_change_location_",
                 " (a BIGINT) WITH (location = '%s')".formatted(location))) {
             assertQueryFails(
@@ -2218,8 +2207,7 @@ public class TestDeltaLakeConnectorTest
     public void testCreateOrReplaceTableWithNoLocationSpecifiedForExternalTable()
     {
         String location = "s3://%s/%s".formatted(bucketName, randomNameSuffix());
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "create_or_replace_with_no_location_",
                 " (a BIGINT) WITH (location = '%s')".formatted(location))) {
             assertTableType("test_schema", table.getName(), EXTERNAL_TABLE.name());
@@ -2232,8 +2220,7 @@ public class TestDeltaLakeConnectorTest
     public void testCreateOrReplaceTableAsWithNoLocationSpecifiedForExternalTable()
     {
         String location = "s3://%s/%s".formatted(bucketName, randomNameSuffix());
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "create_or_replace_with_no_location_",
                 " (a BIGINT) WITH (location = '%s')".formatted(location))) {
             assertTableType("test_schema", table.getName(), EXTERNAL_TABLE.name());
@@ -2245,8 +2232,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableWithNoLocationSpecifiedForManagedTable()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "create_or_replace_with_no_location_",
                 " (a BIGINT)")) {
             assertTableType("test_schema", table.getName(), MANAGED_TABLE.name());
@@ -2258,8 +2244,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableAsWithNoLocationSpecifiedForManagedTable()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "create_or_replace_with_no_location_",
                 " (a BIGINT)")) {
             assertTableType("test_schema", table.getName(), MANAGED_TABLE.name());
@@ -2271,8 +2256,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableWithStatsUpdated()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "create_or_replace_for_stats_",
                 " AS SELECT 1 as colA")) {
             assertQuery(
@@ -2299,8 +2283,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testCreateOrReplaceTableAsWithStatsUpdated()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "create_or_replace_for_stats_",
                 " AS SELECT 1 as colA")) {
             assertQuery(
@@ -2333,8 +2316,7 @@ public class TestDeltaLakeConnectorTest
 
     public void testTableOperationWithChangeInColumnMappingMode(String columnMappingMode)
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "create_or_replace_with_change_column_mapping_",
                 " AS SELECT 1 as colA, 'B' as colB")) {
             assertQueryFails(
@@ -2753,15 +2735,14 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testProjectionPushdownColumnReorderInSchemaAndDataFile()
     {
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_projection_pushdown_column_reorder_",
                 "(id BIGINT, nested1 ROW(a BIGINT, b VARCHAR, c INT), nested2 ROW(d DOUBLE, e BOOLEAN, f DATE))")) {
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (100, ROW(10, 'a', 100), ROW(10.10, true, DATE '2023-04-19'))", 1);
             String tableDataFile = ((String) computeScalar("SELECT \"$path\" FROM " + testTable.getName()))
                     .replaceFirst("s3://" + bucketName, "");
 
-            try (TestTable temporaryTable = new TestTable(
-                    getQueryRunner()::execute,
+            try (TestTable temporaryTable = newTrinoTable(
                     "test_projection_pushdown_column_reorder_temporary_",
                     "(nested2 ROW(d DOUBLE, e BOOLEAN, f DATE), id BIGINT, nested1 ROW(a BIGINT, b VARCHAR, c INT))")) {
                 assertUpdate("INSERT INTO " + temporaryTable.getName() + " VALUES (ROW(10.10, true, DATE '2023-04-19'), 100, ROW(10, 'a', 100))", 1);
@@ -3702,8 +3683,7 @@ public class TestDeltaLakeConnectorTest
     {
         Map<String, String> catalogProperties = getSession().getCatalogProperties(getSession().getCatalog().orElseThrow());
         assertThat(catalogProperties).doesNotContainKey("query_partition_filter_required");
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_filter_not_demanded",
                 "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
                 ImmutableList.of("'a', 'part_a'", "'b', 'part_b'"))) {
@@ -3716,8 +3696,7 @@ public class TestDeltaLakeConnectorTest
     public void testQueryWithoutPartitionOnNonPartitionedTableNotDemanded()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_no_partition_table_",
                 "(x varchar, part varchar)",
                 ImmutableList.of("('a', 'part_a')", "('b', 'part_b')"))) {
@@ -3730,8 +3709,7 @@ public class TestDeltaLakeConnectorTest
     public void testQueryWithoutPartitionFilterNotAllowed()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_no_partition_filter_",
                 "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
                 ImmutableList.of("('a', 'part_a')", "('b', 'part_b')"))) {
@@ -3746,8 +3724,7 @@ public class TestDeltaLakeConnectorTest
     public void testPartitionFilterRemovedByPlanner()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_filter_removed_",
                 "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
                 ImmutableList.of("('a', 'part_a')", "('b', 'part_b')"))) {
@@ -3762,8 +3739,7 @@ public class TestDeltaLakeConnectorTest
     public void testPartitionFilterIncluded()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_filter_included",
                 "(x varchar, part integer) WITH (partitioned_by = ARRAY['part'])",
                 ImmutableList.of("('a', 1)", "('a', 2)", "('a', 3)", "('a', 4)", "('b', 1)", "('b', 2)", "('b', 3)", "('b', 4)"))) {
@@ -3791,8 +3767,7 @@ public class TestDeltaLakeConnectorTest
     {
         Session session = sessionWithPartitionFilterRequirement();
 
-        try (TestTable leftTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable leftTable = newTrinoTable(
                 "test_partition_left_",
                 "(x varchar, part varchar)",
                 ImmutableList.of("('a', 'part_a')"));
@@ -3817,8 +3792,7 @@ public class TestDeltaLakeConnectorTest
     {
         Session session = sessionWithPartitionFilterRequirement();
 
-        try (TestTable leftTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable leftTable = newTrinoTable(
                 "test_partition_inferred_left_",
                 "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
                 ImmutableList.of("('a', 'part_a')"));
@@ -3842,8 +3816,7 @@ public class TestDeltaLakeConnectorTest
     public void testComplexPartitionPredicateWithCasting()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_predicate",
                 "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
                 ImmutableList.of("('a', '1')", "('b', '2')"))) {
@@ -3855,8 +3828,7 @@ public class TestDeltaLakeConnectorTest
     public void testPartitionPredicateInOuterQuery()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_predicate",
                 "(x integer, part integer) WITH (partitioned_by = ARRAY['part'])",
                 ImmutableList.of("(1, 11)", "(2, 22)"))) {
@@ -3868,8 +3840,7 @@ public class TestDeltaLakeConnectorTest
     public void testPartitionPredicateInInnerQuery()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_predicate",
                 "(x integer, part integer) WITH (partitioned_by = ARRAY['part'])",
                 ImmutableList.of("(1, 11)", "(2, 22)"))) {
@@ -3881,8 +3852,7 @@ public class TestDeltaLakeConnectorTest
     public void testPartitionPredicateFilterAndAnalyzeOnPartitionedTable()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_predicate_analyze_",
                 "(x integer, part integer) WITH (partitioned_by = ARRAY['part'])",
                 ImmutableList.of("(1, 11)", "(2, 22)"))) {
@@ -3897,8 +3867,7 @@ public class TestDeltaLakeConnectorTest
     public void testPartitionPredicateFilterAndAnalyzeOnNonPartitionedTable()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable nonPartitioned = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable nonPartitioned = newTrinoTable(
                 "test_partition_predicate_analyze_nonpartitioned",
                 "(a integer, b integer) ",
                 ImmutableList.of("(1, 11)", "(2, 22)"))) {
@@ -3911,8 +3880,7 @@ public class TestDeltaLakeConnectorTest
     public void testPartitionFilterMultiplePartition()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_filter_multiple_partition_",
                 "(x varchar, part1 integer, part2 integer) WITH (partitioned_by = ARRAY['part1', 'part2'])",
                 ImmutableList.of("('a', 1, 1)", "('a', 1, 2)", "('a', 2, 1)", "('a', 2, 2)", "('b', 1, 1)", "('b', 1, 2)", "('b', 2, 1)", "('b', 2, 2)"))) {
@@ -3941,8 +3909,7 @@ public class TestDeltaLakeConnectorTest
     public void testPartitionFilterRequiredAndOptimize()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_filter_optimize",
                 "(part integer, name varchar(50)) WITH (partitioned_by = ARRAY['part'])",
                 ImmutableList.of("(1, 'Bob')", "(2, 'Alice')"))) {
@@ -3975,8 +3942,7 @@ public class TestDeltaLakeConnectorTest
     public void testPartitionFilterEnabledAndOptimizeForNonPartitionedTable()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_filter_nonpartitioned_optimize",
                 "(part integer, name varchar(50))",
                 ImmutableList.of("(1, 'Bob')", "(2, 'Alice')"))) {
@@ -4001,8 +3967,7 @@ public class TestDeltaLakeConnectorTest
     public void testPartitionFilterRequiredAndWriteOperation()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_filter_table_changes",
                 "(x integer, part integer) WITH (partitioned_by = ARRAY['part'], change_data_feed_enabled = true)",
                 ImmutableList.of("(1, 11)", "(2, 22)", "(3, 33)"))) {
@@ -4040,8 +4005,7 @@ public class TestDeltaLakeConnectorTest
     public void testPartitionFilterRequiredAndTableChanges()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_filter_table_changes",
                 "(x integer, part integer) WITH (partitioned_by = ARRAY['part'], change_data_feed_enabled = true)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 11)", 1);
@@ -4092,8 +4056,7 @@ public class TestDeltaLakeConnectorTest
     public void testPartitionFilterRequiredAndHistoryTable()
     {
         Session session = sessionWithPartitionFilterRequirement();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partition_filter_table_changes",
                 "(x integer, part integer) WITH (partitioned_by = ARRAY['part'], change_data_feed_enabled = true)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 11)", 1);
@@ -4240,8 +4203,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testTimestampCoercionOnCreateTable(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_timestamp_coercion_on_create_table",
                 "(ts TIMESTAMP)")) {
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (" + actualValue + ")", 1);
@@ -4253,8 +4215,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testCharCoercionOnCreateTable(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_char_coercion_on_create_table",
                 "(vch VARCHAR)")) {
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (" + actualValue + ")", 1);
@@ -4302,8 +4263,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testTimestampCoercionOnCreateTableAsSelect(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_timestamp_coercion_on_create_table_as_select",
                 "AS SELECT %s ts".formatted(actualValue))) {
             assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("timestamp(6)");
@@ -4314,8 +4274,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testCharCoercionOnCreateTableAsSelect(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_char_coercion_on_create_table_as_select",
                 "AS SELECT %s col".formatted(actualValue))) {
             assertThat(getColumnType(testTable.getName(), "col")).isEqualTo("varchar");
@@ -4362,8 +4321,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testTimestampCoercionOnCreateTableAsSelectWithNoData(@Language("SQL") String actualValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_timestamp_coercion_on_create_table_as_select_with_no_data",
                 "AS SELECT %s ts WITH NO DATA".formatted(actualValue))) {
             assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("timestamp(6)");
@@ -4373,8 +4331,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testCharCoercionOnCreateTableAsSelectWithNoData(@Language("SQL") String actualValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_char_coercion_on_create_table_as_select_with_no_data",
                 "AS SELECT %s col WITH NO DATA".formatted(actualValue))) {
             assertThat(getColumnType(testTable.getName(), "col")).isEqualTo("varchar");
@@ -4421,8 +4378,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testTimestampCoercionOnCreateTableAsWithRowType(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_timestamp_coercion_on_create_table_as_with_row_type",
                 "AS SELECT CAST(row(%s) AS row(value timestamp(6))) ts".formatted(actualValue))) {
             assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("row(value timestamp(6))");
@@ -4435,8 +4391,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testCharCoercionOnCreateTableAsWithRowType(@Language("SQL") String actualValue, @Language("SQL") String actualTypeLiteral, @Language("SQL") String expectedValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_char_coercion_on_create_table_as_with_row_type",
                 "AS SELECT CAST(row(%s) AS row(value %s)) col".formatted(actualValue, actualTypeLiteral))) {
             assertThat(getColumnType(testTable.getName(), "col")).isEqualTo("row(value varchar)");
@@ -4485,8 +4440,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testTimestampCoercionOnCreateTableAsWithArrayType(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_timestamp_coercion_on_create_table_as_with_array_type",
                 "AS SELECT array[%s] ts".formatted(actualValue))) {
             assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("array(timestamp(6))");
@@ -4499,8 +4453,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testCharCoercionOnCreateTableAsWithArrayType(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_char_coercion_on_create_table_as_with_array_type",
                 "AS SELECT array[%s] col".formatted(actualValue))) {
             assertThat(getColumnType(testTable.getName(), "col")).isEqualTo("array(varchar)");
@@ -4549,8 +4502,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testTimestampCoercionOnCreateTableAsWithMapType(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_timestamp_coercion_on_create_table_as_with_map_type",
                 "AS SELECT map(array[%1$s], array[%1$s]) ts".formatted(actualValue))) {
             assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("map(timestamp(6), timestamp(6))");
@@ -4563,8 +4515,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testCharCoercionOnCreateTableAsWithMapType(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_char_coercion_on_create_table_as_with_map_type",
                 "AS SELECT map(array[%1$s], array[%1$s]) col".formatted(actualValue))) {
             assertThat(getColumnType(testTable.getName(), "col")).isEqualTo("map(varchar, varchar)");
@@ -4601,7 +4552,7 @@ public class TestDeltaLakeConnectorTest
 
     private void testAddColumnWithTypeCoercion(String columnType, String expectedColumnType)
     {
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_coercion_add_column", "(a varchar, b row(x integer))")) {
+        try (TestTable testTable = newTrinoTable("test_coercion_add_column", "(a varchar, b row(x integer))")) {
             // TODO: Update this test once the connector supports adding a new field to a row type
             assertQueryFails("ALTER TABLE " + testTable.getName() + " ADD COLUMN b.y " + columnType, "This connector does not support adding fields");
 
@@ -4620,8 +4571,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testSelectTableUsingVersion()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_select_table_using_version",
                 "(id INT, country VARCHAR)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'India')", 1);
@@ -4669,7 +4619,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testReadMultipleVersions()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_multiple_versions", "AS SELECT 1 id")) {
+        try (TestTable table = newTrinoTable("test_read_multiple_versions", "AS SELECT 1 id")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
             assertQuery(
                     "SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0 " +
@@ -4682,7 +4632,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testReadVersionedTableWithOptimize()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_versioned_optimize", "AS SELECT 1 id")) {
+        try (TestTable table = newTrinoTable("test_read_versioned_optimize", "AS SELECT 1 id")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
 
             Set<String> beforeActiveFiles = getActiveFiles(table.getName());
@@ -4709,7 +4659,7 @@ public class TestDeltaLakeConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
                 .build();
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_and_vacuum", "(x VARCHAR)")) {
+        try (TestTable table = newTrinoTable("test_add_column_and_vacuum", "(x VARCHAR)")) {
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second'", 1);
 
@@ -4750,8 +4700,8 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testInsertFromVersionedTable()
     {
-        try (TestTable targetTable = new TestTable(getQueryRunner()::execute, "test_read_versioned_insert", "(col int)");
-                TestTable sourceTable = new TestTable(getQueryRunner()::execute, "test_read_versioned_insert", "AS SELECT 1 col")) {
+        try (TestTable targetTable = newTrinoTable("test_read_versioned_insert", "(col int)");
+                TestTable sourceTable = newTrinoTable("test_read_versioned_insert", "AS SELECT 1 col")) {
             assertUpdate("INSERT INTO " + sourceTable.getName() + " VALUES 2", 1);
             assertUpdate("INSERT INTO " + sourceTable.getName() + " VALUES 3", 1);
 
@@ -4766,7 +4716,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testInsertFromVersionedSameTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_versioned_insert", "AS SELECT 1 id")) {
+        try (TestTable table = newTrinoTable("test_read_versioned_insert", "AS SELECT 1 id")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
 
             assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0", 1);
@@ -4790,7 +4740,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testInsertFromMultipleVersionedSameTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_versioned_insert", "AS SELECT 1 id")) {
+        try (TestTable table = newTrinoTable("test_read_versioned_insert", "AS SELECT 1 id")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
 
@@ -4807,7 +4757,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testReadVersionedTableWithChangeDataFeed()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_versioned_cdf", "WITH (change_data_feed_enabled=true) AS SELECT 1 id")) {
+        try (TestTable table = newTrinoTable("test_read_versioned_cdf", "WITH (change_data_feed_enabled=true) AS SELECT 1 id")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
             assertUpdate("UPDATE " + table.getName() + " SET id = -2 WHERE id = 2", 1);
             assertUpdate("DELETE FROM " + table.getName() + " WHERE id = 1", 1);
@@ -4823,7 +4773,7 @@ public class TestDeltaLakeConnectorTest
     public void testSelectTableUsingVersionSchemaEvolution()
     {
         // Delta Lake respects the old schema unlike Iceberg connector
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_select_table_using_version", "AS SELECT 1 id")) {
+        try (TestTable table = newTrinoTable("test_select_table_using_version", "AS SELECT 1 id")) {
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN new_col VARCHAR");
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0", "VALUES 1");
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", "VALUES (1, NULL)");
@@ -4863,7 +4813,7 @@ public class TestDeltaLakeConnectorTest
     public void testSelectAfterReadVersionedTable()
     {
         // Run normal SELECT after reading from versioned table
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_select_after_version", "AS SELECT 1 id")) {
+        try (TestTable table = newTrinoTable("test_select_after_version", "AS SELECT 1 id")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0", "VALUES 1");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
@@ -4931,7 +4881,7 @@ public class TestDeltaLakeConnectorTest
         assertQueryFails("CREATE TABLE " + tableName + "(col row(a row(x int, \"X\" int)))", "Field name 'x' specified more than once");
         assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS row(a row(x int, \"X\" int))) col", "Field name 'x' specified more than once");
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_duplicated_field_names_", "(id int)")) {
+        try (TestTable table = newTrinoTable("test_duplicated_field_names_", "(id int)")) {
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col row(x int, \"X\" int)", ".* Field name 'x' specified more than once");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col row(\"X\" int)");
@@ -4958,7 +4908,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterCreateTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int) COMMENT 'test comment'")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) COMMENT 'test comment'")) {
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(
                             entry("comment", "test comment"),
@@ -4970,7 +4920,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterCreateOrReplaceTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int) COMMENT 'test comment'")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) COMMENT 'test comment'")) {
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + "(new_col varchar) COMMENT 'new comment'");
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(
@@ -4983,7 +4933,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterCreateTableAsSelect()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "COMMENT 'test comment' AS SELECT 1 col")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "COMMENT 'test comment' AS SELECT 1 col")) {
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(
                             entry("comment", "test comment"),
@@ -4995,7 +4945,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterCreateOrReplaceTableAsSelect()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "COMMENT 'test comment' AS SELECT 1 col")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "COMMENT 'test comment' AS SELECT 1 col")) {
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " COMMENT 'new comment' AS SELECT 'test' new_col", 1);
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(
@@ -5008,7 +4958,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterCommentTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .doesNotContainKey("comment")
                     .contains(
@@ -5027,7 +4977,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterCommentColumn()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int COMMENT 'test comment')")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int COMMENT 'test comment')")) {
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .doesNotContainKey("comment")
                     .contains(
@@ -5047,7 +4997,7 @@ public class TestDeltaLakeConnectorTest
     public void testMetastoreAfterAlterColumn()
     {
         // Use 'name' column mapping mode to allow renaming columns
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int NOT NULL) WITH (column_mapping_mode = 'name')")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int NOT NULL) WITH (column_mapping_mode = 'name')")) {
             Map<String, String> initialParameters = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters();
             assertThat(initialParameters)
                     .doesNotContainKey("comment")
@@ -5108,7 +5058,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterSetTableProperties()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES change_data_feed_enabled = true");
             assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(
@@ -5120,7 +5070,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterOptimize()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
             assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize");
             assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(
@@ -5132,7 +5082,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterRegisterTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int) COMMENT 'test comment'")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) COMMENT 'test comment'")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
             String tableLocation = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getStorage().getLocation();
             metastore.dropTable(SCHEMA, table.getName(), false);
@@ -5149,7 +5099,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testMetastoreAfterCreateTableRemotely()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int) COMMENT 'test comment'")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) COMMENT 'test comment'")) {
             Table metastoreTable = metastore.getTable(SCHEMA, table.getName()).orElseThrow();
             metastore.dropTable(SCHEMA, table.getName(), false);
 
@@ -5177,7 +5127,7 @@ public class TestDeltaLakeConnectorTest
     {
         String schemaString = "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}";
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(entry("trino_last_transaction_version", "0"), entry("trino_metadata_schema_string", schemaString));
 
@@ -5211,7 +5161,7 @@ public class TestDeltaLakeConnectorTest
     {
         String schemaString = "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}";
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "AS SELECT 1 col")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "AS SELECT 1 col")) {
             assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(entry("trino_last_transaction_version", "0"), entry("trino_metadata_schema_string", schemaString));
 

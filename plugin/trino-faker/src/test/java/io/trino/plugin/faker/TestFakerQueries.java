@@ -48,7 +48,7 @@ final class TestFakerQueries
     @Test
     void testColumnComment()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "comment", "(id INTEGER, name VARCHAR)")) {
+        try (TestTable table = newTrinoTable("comment", "(id INTEGER, name VARCHAR)")) {
             assertUpdate("COMMENT ON COLUMN %s.name IS 'comment text'".formatted(table.getName()));
             assertQuery("SHOW COLUMNS FROM " + table.getName(), "VALUES ('id', 'integer', '', ''), ('name', 'varchar', '', 'comment text')");
         }
@@ -57,7 +57,7 @@ final class TestFakerQueries
     @Test
     void testCannotCommentRowId()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "cannot_comment", "(id INTEGER, name VARCHAR)")) {
+        try (TestTable table = newTrinoTable("cannot_comment", "(id INTEGER, name VARCHAR)")) {
             assertThat(query("COMMENT ON COLUMN \"%s\".\"$row_id\" IS 'comment text'".formatted(table.getName())))
                     .failure()
                     .hasErrorCode(INVALID_COLUMN_REFERENCE)
@@ -213,7 +213,7 @@ final class TestFakerQueries
     @Test
     void testSelectLimit()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "single_column", "(rnd_bigint bigint NOT NULL)")) {
+        try (TestTable table = newTrinoTable("single_column", "(rnd_bigint bigint NOT NULL)")) {
             assertQuery("SELECT count(rnd_bigint) FROM (SELECT rnd_bigint FROM %s LIMIT 5) a".formatted(table.getName()),
                     "VALUES (5)");
 
@@ -250,7 +250,7 @@ final class TestFakerQueries
     @Test
     void testSelectDefaultTableLimit()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "default_table_limit", "(rnd_bigint bigint NOT NULL) WITH (default_limit = 100)")) {
+        try (TestTable table = newTrinoTable("default_table_limit", "(rnd_bigint bigint NOT NULL) WITH (default_limit = 100)")) {
             assertQuery("SELECT count(distinct rnd_bigint) FROM " + table.getName(), "VALUES (100)");
         }
     }
@@ -258,7 +258,7 @@ final class TestFakerQueries
     @Test
     public void selectOnlyNulls()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "only_nulls", "(rnd_bigint bigint) WITH (null_probability = 1.0)")) {
+        try (TestTable table = newTrinoTable("only_nulls", "(rnd_bigint bigint) WITH (null_probability = 1.0)")) {
             assertQuery("SELECT count(distinct rnd_bigint) FROM " + table.getName(), "VALUES (0)");
         }
     }
@@ -266,7 +266,7 @@ final class TestFakerQueries
     @Test
     void testSelectGenerator()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "generators",
+        try (TestTable table = newTrinoTable("generators",
                 """
                 (
                     name VARCHAR NOT NULL WITH (generator = '#{Name.first_name} #{Name.last_name}'),

@@ -186,7 +186,7 @@ public class TestIcebergV2
     @Test
     public void testSetPropertiesObjectStoreLayoutEnabled()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_object_store", "(x int) WITH (object_store_layout_enabled = false)")) {
+        try (TestTable table = newTrinoTable("test_object_store", "(x int) WITH (object_store_layout_enabled = false)")) {
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
                     .doesNotContain("object_store_layout_enabled");
             assertThat(loadTable(table.getName()).properties())
@@ -203,7 +203,7 @@ public class TestIcebergV2
     @Test
     public void testSetPropertiesDataLocation()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_data_location", "(x int)")) {
+        try (TestTable table = newTrinoTable("test_data_location", "(x int)")) {
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
                     .doesNotContain("data_location =");
             assertThat(loadTable(table.getName()).properties())
@@ -413,7 +413,7 @@ public class TestIcebergV2
                 .setSystemProperty("task_min_writer_count", "1")
                 .build();
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_optimize_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
+        try (TestTable table = newTrinoTable("test_optimize_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
             assertUpdate(session, "ALTER TABLE " + table.getName() + " EXECUTE optimize");
             assertThat(computeActual("SELECT split_offsets FROM \"" + table.getName() + "$files\""))
                     .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
@@ -687,8 +687,7 @@ public class TestIcebergV2
         String blackholeTable = "blackhole_table_" + randomNameSuffix();
         assertUpdate("CREATE TABLE blackhole.default.%s (a INT, b INT) WITH (split_count = 1, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '3s')".formatted(blackholeTable));
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_optimize_during_write_operations",
                 "(int_col INT)")) {
             String tableName = table.getName();
@@ -1020,7 +1019,7 @@ public class TestIcebergV2
     @Test
     public void testStatsFilePruning()
     {
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_stats_file_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
+        try (TestTable testTable = newTrinoTable("test_stats_file_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 10), (10, 10)", 2);
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (200, 10), (300, 20)", 2);
 
@@ -1070,7 +1069,7 @@ public class TestIcebergV2
     @Test
     public void testColumnStatsPruning()
     {
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_column_stats_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
+        try (TestTable testTable = newTrinoTable("test_column_stats_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 10), (10, 10)", 2);
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (200, 10), (300, 20)", 2);
 
@@ -1477,8 +1476,7 @@ public class TestIcebergV2
 
     private void testMapValueSchemaChange(String format, String expectedValue)
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_map_value_schema_change",
                 "WITH (format = '" + format + "') AS SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(field integer))) col")) {
             Table icebergTable = loadTable(table.getName());
