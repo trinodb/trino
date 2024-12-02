@@ -486,8 +486,7 @@ public class TestIcebergSparkCompatibility
                 sparkTableName));
 
         onSpark().executeQuery("UPDATE " + sparkTableName + " SET _string = 'a' WHERE _struct._field = 1");
-        assertThatThrownBy(() -> onSpark().executeQuery("DELETE FROM " + sparkTableName + " WHERE _struct._another_field = 'y'"))
-                .hasMessageContaining("Cannot filter by nested column: 6: _another_field: optional string");
+        onSpark().executeQuery("DELETE FROM " + sparkTableName + " WHERE _struct._another_field = 'y'");
         assertQueryFailure(() -> onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP COLUMN _struct._field"))
                 .hasMessageContaining("Cannot find source column for partition field: 1000: _struct._field: identity(5)");
 
