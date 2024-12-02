@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.databend;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
@@ -51,6 +52,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_NOT_NULL_C
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NATIVE_QUERY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -104,7 +106,7 @@ public class TestDatabendConnectorTest
                     SUPPORTS_TOPN_PUSHDOWN -> false;
 
             case SUPPORTS_ARRAY,
-                    SUPPORTS_DELETE,
+//                    SUPPORTS_DELETE,
                     SUPPORTS_COMMENT_ON_COLUMN,
                     SUPPORTS_NEGATIVE_DATE, // min date is 0001-01-01
                     SUPPORTS_RENAME_TABLE,
@@ -190,6 +192,18 @@ public class TestDatabendConnectorTest
     }
 
     @Test
+    public void verifySupportsNativeQueryDeclaration()
+    {
+        if (hasBehavior(SUPPORTS_NATIVE_QUERY)) {
+            // Covered by testNativeQuerySelectFromNation
+            return;
+        }
+        assertQueryFails(
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                ".* ResultSetMetaData not available for query.*");
+    }
+
+    @Test
     @Override
     public void testJoin()
     {
@@ -251,6 +265,41 @@ public class TestDatabendConnectorTest
         testAddColumnWithCommentSpecialCharacter("a\\backslash");
         testAddColumnWithCommentSpecialCharacter("a?question");
         testAddColumnWithCommentSpecialCharacter("[square bracket]");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithVarcharEqualityPredicate()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col = 'A'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'a', null");
+        }
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithVarcharInequalityPredicate()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col != 'A'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
+        }
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithVarcharGreaterAndLowerPredicate()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'0'", "'a'", "'A'", "'b'", "null"))) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col < 'A'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'a', 'A', 'b', null");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col > 'A'", 2);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
+        }
     }
 
     protected void testAddColumnWithCommentSpecialCharacter(String comment)
