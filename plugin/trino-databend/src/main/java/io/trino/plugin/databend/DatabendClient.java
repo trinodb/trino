@@ -501,14 +501,7 @@ public class DatabendClient
     @Override
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
-        String sql = format("ALTER TABLE %s MODIFY COMMENT = %s", quoted(handle.asPlainTable().getRemoteTableName()), databendVarcharLiteral(comment.orElse(NO_COMMENT)));
-        execute(session, sql);
-    }
-
-    @Override
-    public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
-    {
-        String sql = format("ALTER TABLE %s COMMENT COLUMN %s %s", quoted(handle.asPlainTable().getRemoteTableName()), quoted(column.getColumnName()), databendVarcharLiteral(comment.orElse("")));
+        String sql = format("ALTER TABLE %s COMMENT = %s", quoted(handle.asPlainTable().getRemoteTableName()), databendVarcharLiteral(comment.orElse(NO_COMMENT)));
         execute(session, sql);
     }
 
