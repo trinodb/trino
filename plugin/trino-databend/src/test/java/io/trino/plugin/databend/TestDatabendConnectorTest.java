@@ -436,6 +436,14 @@ public class TestDatabendConnectorTest
         }
     }
 
+    @Test
+    @Override
+    public void testExecuteProcedureWithInvalidQuery()
+    {
+        assertQuery("SELECT 1");
+        assertQueryFails("invalid", ".*mismatched input 'invalid'.*");
+    }
+
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
