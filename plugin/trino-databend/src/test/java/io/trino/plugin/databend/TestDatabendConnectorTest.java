@@ -106,7 +106,6 @@ public class TestDatabendConnectorTest
             case SUPPORTS_ARRAY,
                     SUPPORTS_DELETE,
                     SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_RENAME_SCHEMA,
                     SUPPORTS_NEGATIVE_DATE, // min date is 0001-01-01
                     SUPPORTS_RENAME_TABLE,
                     SUPPORTS_ROW_TYPE,
