@@ -75,6 +75,7 @@ public class DeltaLakeConfig
     private long defaultCheckpointWritingInterval = 10;
     private boolean checkpointFilteringEnabled = true;
     private Duration vacuumMinRetention = new Duration(7, DAYS);
+    private boolean vacuumTransactionLoggingEnabled;
     private Optional<String> hiveCatalogName = Optional.empty();
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
@@ -295,6 +296,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setVacuumMinRetention(Duration vacuumMinRetention)
     {
         this.vacuumMinRetention = vacuumMinRetention;
+        return this;
+    }
+
+    public boolean isVacuumTransactionLoggingEnabled()
+    {
+        return vacuumTransactionLoggingEnabled;
+    }
+
+    @Config("delta.vacuum.transaction-logging.enabled")
+    @ConfigDescription("Whether to log vacuum information into the Delta transaction log")
+    public DeltaLakeConfig setVacuumTransactionLoggingEnabled(boolean vacuumTransactionLoggingEnabled)
+    {
+        this.vacuumTransactionLoggingEnabled = vacuumTransactionLoggingEnabled;
         return this;
     }
 
