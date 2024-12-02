@@ -654,6 +654,7 @@ public class IcebergMetadata
             case METADATA_LOG_ENTRIES -> Optional.of(new MetadataLogEntriesTable(tableName, table));
             case SNAPSHOTS -> Optional.of(new SnapshotsTable(tableName, typeManager, table));
             case PARTITIONS -> Optional.of(new PartitionsTable(tableName, typeManager, table, getCurrentSnapshotId(table)));
+            case ALL_MANIFESTS -> Optional.of(new AllManifestsTable(tableName, table));
             case MANIFESTS -> Optional.of(new ManifestsTable(tableName, table, getCurrentSnapshotId(table)));
             case FILES -> Optional.of(new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table)));
             case PROPERTIES -> Optional.of(new PropertiesTable(tableName, table));
