@@ -451,8 +451,7 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testDropExtendedStats()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_drop_extended_stats",
                 "AS SELECT * FROM tpch.sf1.nation")) {
             String query = "SHOW STATS FOR " + table.getName();
@@ -485,8 +484,7 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testDropMissingStats()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_drop_missing_stats",
                 "AS SELECT * FROM tpch.sf1.nation")) {
             // When there are no extended stats, the procedure should have no effect
@@ -506,8 +504,7 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testDropStatsAccessControl()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_deny_drop_stats",
                 "AS SELECT * FROM tpch.sf1.nation")) {
             assertAccessDenied(
@@ -524,8 +521,7 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testStatsOnTpcDsData()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_old_date_stats",
                 "AS SELECT d_date FROM tpcds.tiny.date_dim")) {
             assertUpdate("ANALYZE " + table.getName());

@@ -109,8 +109,7 @@ public class TestIgniteConnectorTest
     @Test
     public void testLikeWithEscape()
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_like_with_escape",
                 "(id int, a varchar(4))",
                 List.of(
@@ -140,8 +139,7 @@ public class TestIgniteConnectorTest
         assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL")).isFullyPushedDown();
         assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL OR name = 'a' OR regionkey = 4")).isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_is_null_predicate_pushdown",
                 "(a_int integer, a_varchar varchar(1))",
                 List.of(
@@ -158,8 +156,7 @@ public class TestIgniteConnectorTest
     {
         assertThat(query("SELECT nationkey FROM nation WHERE name IS NOT NULL OR regionkey = 4")).isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_is_not_null_predicate_pushdown",
                 "(a_int integer, a_varchar varchar(1))",
                 List.of(
@@ -176,8 +173,7 @@ public class TestIgniteConnectorTest
     {
         assertThat(query("SELECT nationkey FROM nation WHERE NOT(name LIKE '%A%')")).isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_is_not_predicate_pushdown",
                 "(a_int integer, a_varchar varchar(2))",
                 List.of(
@@ -332,8 +328,7 @@ public class TestIgniteConnectorTest
     @Test
     public void testAvgDecimalExceedingSupportedPrecision()
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_avg_decimal_exceeding_supported_precision",
                 "(a decimal(38, 38), b bigint)",
                 List.of(
@@ -405,7 +400,7 @@ public class TestIgniteConnectorTest
     {
         // Override because Ignite can access old data after dropping and adding a column with same name
         executeExclusively(() -> {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "AS SELECT 1 x, 2 y, 3 z")) {
+            try (TestTable table = newTrinoTable("test_drop_add_column", "AS SELECT 1 x, 2 y, 3 z")) {
                 assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
                 assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
 

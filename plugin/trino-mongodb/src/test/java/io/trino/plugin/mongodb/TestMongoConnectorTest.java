@@ -356,7 +356,7 @@ public class TestMongoConnectorTest
 
     private void testPredicatePushdown(String value)
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_predicate_pushdown", "AS SELECT %s col".formatted(value))) {
+        try (TestTable table = newTrinoTable("test_predicate_pushdown", "AS SELECT %s col".formatted(value))) {
             testPredicatePushdown(table.getName(), "col = " + value);
             testPredicatePushdown(table.getName(), "col != " + value);
             testPredicatePushdown(table.getName(), "col < " + value);
@@ -380,7 +380,7 @@ public class TestMongoConnectorTest
 
     private void testPredicatePushdownFloatingPoint(String value)
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_floating_point_pushdown", "AS SELECT %s col".formatted(value))) {
+        try (TestTable table = newTrinoTable("test_floating_point_pushdown", "AS SELECT %s col".formatted(value))) {
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = " + value))
                     .isFullyPushedDown();
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE col <= " + value))
@@ -402,8 +402,7 @@ public class TestMongoConnectorTest
     @Test
     public void testPredicatePushdownCharWithPaddedSpace()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_predicate_pushdown_char_with_padded_space",
                 "(k, v) AS VALUES" +
                         "   (-1, CAST(NULL AS char(3))), " +
@@ -436,8 +435,7 @@ public class TestMongoConnectorTest
     public void testPredicatePushdownMultipleNotEquals()
     {
         // Regression test for https://github.com/trinodb/trino/issues/19404
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_predicate_pushdown_with_multiple_not_equals",
                 "(id, value) AS VALUES (1, 10), (2, 20), (3, 30)")) {
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE id != 1 AND value != 20"))
@@ -449,8 +447,7 @@ public class TestMongoConnectorTest
     @Test
     public void testHighPrecisionDecimalPredicate()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_high_precision_decimal_predicate",
                 "(col DECIMAL(34, 0))",
                 Arrays.asList("decimal '3141592653589793238462643383279502'", null))) {
@@ -1354,8 +1351,7 @@ public class TestMongoConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "projection_pushdown_enabled", "false")
                 .build();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "filter_on_projection_columns",
                 format("(col_0 ROW(col_1 %1$s, col_2 ROW(col_3 %1$s, col_4 ROW(col_5 %1$s))))", expectedType))) {
             assertUpdate(format("INSERT INTO %s VALUES NULL", table.getName()), 1);

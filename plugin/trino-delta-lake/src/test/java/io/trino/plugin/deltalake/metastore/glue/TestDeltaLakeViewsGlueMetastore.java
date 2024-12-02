@@ -70,7 +70,7 @@ public class TestDeltaLakeViewsGlueMetastore
     {
         String tableName = "test_glue_table_" + randomNameSuffix();
         String viewName = "test_glue_view_" + randomNameSuffix();
-        try (TestTable table = new TestTable(getQueryRunner()::execute, tableName, "AS SELECT 'test' x");
+        try (TestTable table = newTrinoTable(tableName, "AS SELECT 'test' x");
                 TestView view = new TestView(getQueryRunner()::execute, viewName, "SELECT * FROM " + table.getName())) {
             assertQuery(format("SELECT * FROM %s", view.getName()), "VALUES 'test'");
             assertQuery(format("SELECT table_type FROM information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", view.getName(), schema), "VALUES 'VIEW'");

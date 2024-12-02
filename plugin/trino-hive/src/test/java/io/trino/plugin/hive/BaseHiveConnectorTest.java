@@ -268,7 +268,7 @@ public abstract class BaseHiveConnectorTest
     @Override
     public void verifySupportsUpdateDeclaration()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_update", "AS SELECT * FROM nation")) {
+        try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM nation")) {
             assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
         }
     }
@@ -277,7 +277,7 @@ public abstract class BaseHiveConnectorTest
     @Override
     public void verifySupportsRowLevelUpdateDeclaration()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
+        try (TestTable table = newTrinoTable("test_supports_update", "AS SELECT * FROM nation")) {
             assertQueryFails("UPDATE " + table.getName() + " SET nationkey = nationkey * 100 WHERE regionkey = 2", MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
         }
     }
@@ -4403,8 +4403,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testShowCreateTableWithColumnProperties()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_show_create_table_with_column_properties",
                 "(a INT, b INT WITH (partition_projection_type = 'INTEGER', partition_projection_range = ARRAY['0', '10'])) " +
                         "WITH (" +
@@ -8439,8 +8438,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCoercingVarchar0ToVarchar1()
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_coercion_create_table_varchar",
                 "(var_column_0 varchar(0), var_column_1 varchar(1), var_column_10 varchar(10))")) {
             assertThat(getColumnType(testTable.getName(), "var_column_0")).isEqualTo("varchar(1)");
@@ -8452,8 +8450,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCoercingVarchar0ToVarchar1WithCTAS()
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_coercion_ctas_varchar",
                 "AS SELECT '' AS var_column")) {
             assertThat(getColumnType(testTable.getName(), "var_column")).isEqualTo("varchar(1)");
@@ -8463,8 +8460,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCoercingVarchar0ToVarchar1WithCTASNoData()
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_coercion_ctas_nd_varchar",
                 "AS SELECT '' AS var_column WITH NO DATA")) {
             assertThat(getColumnType(testTable.getName(), "var_column")).isEqualTo("varchar(1)");
@@ -8474,8 +8470,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCoercingVarchar0ToVarchar1WithAddColumn()
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_coercion_add_column_varchar",
                 "(col integer)")) {
             assertUpdate("ALTER TABLE " + testTable.getName() + " ADD COLUMN var_column varchar(0)");
@@ -8974,8 +8969,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testHiddenColumnNameConflict(String columnName)
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_hidden_column_name_conflict",
                 format("(\"%s\" int, _bucket int, _partition int) WITH (partitioned_by = ARRAY['_partition'], bucketed_by = ARRAY['_bucket'], bucket_count = 10)", columnName))) {
             assertThat(query("SELECT * FROM " + table.getName()))
@@ -9383,8 +9377,7 @@ public abstract class BaseHiveConnectorTest
             Resources.copy(resourceLocation, out);
         }
 
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_select_with_short_zone_id_",
                 "(id INT, firstName VARCHAR, lastName VARCHAR) WITH (external_location = '%s')".formatted(tempDir))) {
             assertThat(query("SELECT * FROM %s".formatted(testTable.getName())))

@@ -271,7 +271,7 @@ public abstract class BaseMySqlConnectorTest
                 .isInstanceOf(AssertionError.class)
                 .hasMessage("Should fail to add not null column without a default value to a non-empty table");
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_col", "(a_varchar varchar)")) {
+        try (TestTable table = newTrinoTable("test_add_nn_col", "(a_varchar varchar)")) {
             String tableName = table.getName();
 
             assertUpdate("INSERT INTO " + tableName + " VALUES ('a')", 1);

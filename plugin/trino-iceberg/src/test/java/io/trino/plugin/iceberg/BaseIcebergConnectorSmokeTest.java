@@ -124,7 +124,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testHiddenPathColumn()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "hidden_file_path", "(a int, b VARCHAR)", ImmutableList.of("(1, 'a')"))) {
+        try (TestTable table = newTrinoTable("hidden_file_path", "(a int, b VARCHAR)", ImmutableList.of("(1, 'a')"))) {
             String filePath = (String) computeScalar(format("SELECT file_path FROM \"%s$files\"", table.getName()));
 
             assertQuery("SELECT DISTINCT \"$path\" FROM " + table.getName(), "VALUES " + "'" + filePath + "'");
@@ -149,8 +149,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         String[] expectedErrors = new String[] {"Failed to commit the transaction during write:",
                 "Failed to replace table due to concurrent updates:",
                 "Failed to commit during write:"};
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_concurrent_delete",
                 "(col0 INTEGER, col1 INTEGER, col2 INTEGER, col3 INTEGER)")) {
             String tableName = table.getName();
@@ -190,8 +189,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testCreateOrReplaceTable()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_create_or_replace",
                 " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
             assertThat(query("SELECT a, b FROM " + table.getName()))
@@ -535,8 +533,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     public void testSortedNationTable()
     {
         Session withSmallRowGroups = withSmallRowGroups(getSession());
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_sorted_nation_table",
                 "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS SELECT * FROM nation WITH NO DATA")) {
             assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
@@ -556,8 +553,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                 .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "20kB")
                 .setCatalogSessionProperty("iceberg", "parquet_writer_batch_size", "200")
                 .build();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_sorted_lineitem_table",
                 "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
             assertUpdate(
@@ -701,8 +697,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testMetadataTables()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_metadata_tables",
                 "(id int, part varchar) WITH (partitioning = ARRAY['part'])")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'p1')", 1);
@@ -752,8 +747,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     {
         DateTimeFormatter instantMillisFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSVV").withZone(UTC);
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_table_changes_function_",
                 "AS SELECT nationkey, name FROM tpch.tiny.nation WITH NO DATA")) {
             long initialSnapshot = getMostRecentSnapshotId(table.getName());
@@ -793,8 +787,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testRowLevelDeletesWithTableChangesFunction()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_row_level_deletes_with_table_changes_function_",
                 "AS SELECT nationkey, regionkey, name FROM tpch.tiny.nation WITH NO DATA")) {
             assertUpdate("INSERT INTO " + table.getName() + " SELECT nationkey, regionkey, name FROM nation", 25);
@@ -814,8 +807,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     {
         DateTimeFormatter instantMillisFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSVV").withZone(UTC);
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_table_changes_function_",
                 "AS SELECT nationkey, name FROM tpch.tiny.nation WITH NO DATA")) {
             long initialSnapshot = getMostRecentSnapshotId(table.getName());

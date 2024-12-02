@@ -692,7 +692,7 @@ public abstract class AbstractTestOracleTypeMapping
     public void testJulianGregorianDate()
     {
         // Oracle TO_DATE function returns +10 days during julian and gregorian calendar switch
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_julian_dt", "(ts date)")) {
+        try (TestTable table = newTrinoTable("test_julian_dt", "(ts date)")) {
             assertUpdate(format("INSERT INTO %s VALUES (DATE '1582-10-05')", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES TIMESTAMP '1582-10-15 00:00:00'");
         }
@@ -701,7 +701,7 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testUnsupportedDate()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_dt", "(ts date)")) {
+        try (TestTable table = newTrinoTable("test_unsupported_dt", "(ts date)")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (DATE '-4713-12-31')", table.getName()),
                     """
@@ -960,7 +960,7 @@ public abstract class AbstractTestOracleTypeMapping
     public void testJulianGregorianTimestamp()
     {
         // Oracle TO_DATE function returns +10 days during julian and gregorian calendar switch
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_julian_ts", "(ts date)")) {
+        try (TestTable table = newTrinoTable("test_julian_ts", "(ts date)")) {
             assertUpdate(format("INSERT INTO %s VALUES (timestamp '1582-10-05')", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES TIMESTAMP '1582-10-15 00:00:00'");
         }
@@ -969,7 +969,7 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testUnsupportedTimestamp()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_ts", "(ts timestamp)")) {
+        try (TestTable table = newTrinoTable("test_unsupported_ts", "(ts timestamp)")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (TIMESTAMP '-4713-12-31 00:00:00.000')", table.getName()),
                     """

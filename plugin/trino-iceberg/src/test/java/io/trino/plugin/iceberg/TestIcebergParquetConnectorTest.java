@@ -60,8 +60,7 @@ public class TestIcebergParquetConnectorTest
     @Test
     public void testRowGroupResetDictionary()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_row_group_reset_dictionary",
                 "(plain_col varchar, dict_col int)")) {
             String tableName = table.getName();
@@ -89,8 +88,7 @@ public class TestIcebergParquetConnectorTest
     @Test
     public void testIgnoreParquetStatistics()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_ignore_parquet_statistics",
                 "WITH (sorted_by = ARRAY['custkey']) AS TABLE tpch.tiny.customer WITH NO DATA")) {
             assertUpdate(
@@ -122,8 +120,7 @@ public class TestIcebergParquetConnectorTest
     @Test
     public void testPushdownPredicateToParquetAfterColumnRename()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_pushdown_predicate_statistics",
                 "WITH (sorted_by = ARRAY['custkey']) AS TABLE tpch.tiny.customer WITH NO DATA")) {
             assertUpdate(
