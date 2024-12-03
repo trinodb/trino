@@ -2579,6 +2579,14 @@
                             <requirePropertyDiverges>
                                 <property>project.description</property>
                             </requirePropertyDiverges>
+                            <requireJavaVendor>
+                                <message>Trino requires Temurin or Oracle JDK for development. Other vendors are not recommended due to lack of testing coverage.</message>
+                                <includes>
+                                    <include>Eclipse Adoptium</include>
+                                    <!-- For testing beta/ea builds locally -->
+                                    <include>Oracle Corporation</include>
+                                </includes>
+                            </requireJavaVendor>
                         </rules>
                     </configuration>
                 </plugin>
