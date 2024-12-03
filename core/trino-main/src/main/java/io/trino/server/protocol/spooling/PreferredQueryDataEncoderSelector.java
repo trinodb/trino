@@ -26,23 +26,16 @@ public class PreferredQueryDataEncoderSelector
 {
     private final Logger log = Logger.get(PreferredQueryDataEncoderSelector.class);
     private final QueryDataEncoders encoders;
-    private final SpoolingManagerRegistry spoolingManagerRegistry;
 
     @Inject
-    public PreferredQueryDataEncoderSelector(QueryDataEncoders encoders, SpoolingManagerRegistry spoolingManagerRegistry)
+    public PreferredQueryDataEncoderSelector(QueryDataEncoders encoders)
     {
         this.encoders = requireNonNull(encoders, "encoders is null");
-        this.spoolingManagerRegistry = requireNonNull(spoolingManagerRegistry, "spoolingManagerRegistry is null");
     }
 
     @Override
     public Optional<QueryDataEncoder.Factory> select(List<String> encodings)
     {
-        if (spoolingManagerRegistry.getSpoolingManager().isEmpty()) {
-            log.debug("Client requested one of the spooled encodings '%s' but spooling is disabled", encodings);
-            return Optional.empty();
-        }
-
         for (String encoding : encodings) {
             if (encoders.exists(encoding)) {
                 return Optional.of(encoders.get(encoding));

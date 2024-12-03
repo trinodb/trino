@@ -13,7 +13,9 @@
  */
 package io.trino.server.protocol.spooling;
 
+import com.google.inject.ConfigurationException;
 import com.google.inject.Inject;
+import com.google.inject.spi.Message;
 import io.airlift.log.Logger;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
@@ -27,6 +29,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -78,7 +81,7 @@ public class SpoolingManagerRegistry
         }
 
         if (!CONFIG_FILE.exists()) {
-            return;
+            throw new ConfigurationException(List.of(new Message("Spooling protocol is enabled, but manager configuration file does not exist: " + CONFIG_FILE)));
         }
 
         Map<String, String> properties = loadProperties();
