@@ -65,18 +65,15 @@ public class RewriteCast
 
     private boolean pushdownSupported(JdbcTypeHandle sourceType, Type targetType)
     {
-        if (targetType instanceof CharType charType) {
-            // Oracle will throw an error on casts to char(n>ORACLE_CHAR_MAX_CHARS) "ORA-00932: inconsistent datatypes: expected - got NCLOB"
-            return charType.getLength() <= ORACLE_CHAR_MAX_CHARS
+        return switch (targetType) {
+            case CharType charType -> charType.getLength() <= ORACLE_CHAR_MAX_CHARS
                     && supportedSourceTypeToCastToChar(sourceType);
-        }
-        if (targetType instanceof VarcharType varcharType && !varcharType.isUnbounded()) {
             // unbounded varchar and char(n>ORACLE_VARCHAR2_MAX_CHARS) gets written as nclob.
             // pushdown does not happen when comparing nclob type variable, so skipping to pushdown the cast for nclob type variable.
-            return varcharType.getLength().orElseThrow() <= ORACLE_VARCHAR2_MAX_CHARS
+            case VarcharType varcharType -> varcharType.getLength().orElseThrow() <= ORACLE_VARCHAR2_MAX_CHARS
                     && supportedSourceTypeToCastToVarchar(sourceType);
-        }
-        return false;
+            default -> false;
+        };
     }
 
     private static boolean supportedSourceTypeToCastToChar(JdbcTypeHandle sourceType)
