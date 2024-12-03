@@ -105,17 +105,17 @@ public final class StandaloneQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return executeInternal(session, sql).result();
+        return executeUnmaterialized(session, sql).result().get();
     }
 
     @Override
     public MaterializedResultWithPlan executeWithPlan(Session session, String sql)
     {
-        TestingDirectTrinoClient.Result result = executeInternal(session, sql);
-        return new MaterializedResultWithPlan(result.queryId(), server.getQueryPlan(result.queryId()), result.result());
+        TestingDirectTrinoClient.Result result = executeUnmaterialized(session, sql);
+        return new MaterializedResultWithPlan(result.queryId(), server.getQueryPlan(result.queryId()), result.result().get());
     }
 
-    private TestingDirectTrinoClient.Result executeInternal(Session session, @Language("SQL") String sql)
+    public TestingDirectTrinoClient.Result executeUnmaterialized(Session session, @Language("SQL") String sql)
     {
         lock.readLock().lock();
         try {

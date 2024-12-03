@@ -149,6 +149,11 @@ public class DataDefinitionExecution<T extends Statement>
                 @Override
                 public void onSuccess(@Nullable Void result)
                 {
+                    stateMachine.addStateChangeListener(newState -> {
+                        if (newState.isDone()) {
+                            stateMachine.updateQueryInfo(Optional.empty());
+                        }
+                    });
                     stateMachine.transitionToFinishing();
                 }
 
