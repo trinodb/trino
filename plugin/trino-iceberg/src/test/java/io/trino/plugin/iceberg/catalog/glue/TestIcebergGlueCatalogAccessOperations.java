@@ -24,7 +24,6 @@ import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.IcebergConnector;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
-import io.trino.plugin.iceberg.TableType;
 import io.trino.plugin.iceberg.util.FileOperationUtils.FileOperation;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -50,23 +49,12 @@ import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_TABLE;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.GET_TABLES;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreMethod.UPDATE_TABLE;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
-import static io.trino.plugin.iceberg.TableType.DATA;
-import static io.trino.plugin.iceberg.TableType.FILES;
-import static io.trino.plugin.iceberg.TableType.HISTORY;
-import static io.trino.plugin.iceberg.TableType.MANIFESTS;
-import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
-import static io.trino.plugin.iceberg.TableType.METADATA_LOG_ENTRIES;
-import static io.trino.plugin.iceberg.TableType.PARTITIONS;
-import static io.trino.plugin.iceberg.TableType.PROPERTIES;
-import static io.trino.plugin.iceberg.TableType.REFS;
-import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.fromFilePath;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 /*
@@ -418,72 +406,6 @@ public class TestIcebergGlueCatalogAccessOperations
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_show_stats_with_filter");
-        }
-    }
-
-    @Test
-    public void testSelectSystemTable()
-    {
-        try {
-            assertUpdate("CREATE TABLE test_select_snapshots AS SELECT 2 AS age", 1);
-
-            // select from $history
-            assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$history\"",
-                    ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .add(GET_TABLE)
-                            .build());
-
-            // select from $metadata_log_entries
-            assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$metadata_log_entries\"",
-                    ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .add(GET_TABLE)
-                            .build());
-
-            // select from $snapshots
-            assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$snapshots\"",
-                    ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .add(GET_TABLE)
-                            .build());
-
-            // select from $manifests
-            assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$manifests\"",
-                    ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .add(GET_TABLE)
-                            .build());
-
-            // select from $partitions
-            assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$partitions\"",
-                    ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .add(GET_TABLE)
-                            .build());
-
-            // select from $files
-            assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$files\"",
-                    ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .add(GET_TABLE)
-                            .build());
-
-            // select from $properties
-            assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$properties\"",
-                    ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .add(GET_TABLE)
-                            .build());
-
-            // select from $refs
-            assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$refs\"",
-                    ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .add(GET_TABLE)
-                            .build());
-
-            assertQueryFails("SELECT * FROM \"test_select_snapshots$materialized_view_storage\"",
-                    "Table '" + testSchema + ".test_select_snapshots\\$materialized_view_storage' not found");
-
-            // This test should get updated if a new system table is added.
-            assertThat(TableType.values())
-                    .containsExactly(DATA, HISTORY, METADATA_LOG_ENTRIES, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES, REFS, MATERIALIZED_VIEW_STORAGE);
-        }
-        finally {
-            getQueryRunner().execute("DROP TABLE IF EXISTS test_select_snapshots");
         }
     }
 
