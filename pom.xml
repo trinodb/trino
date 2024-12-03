@@ -1639,7 +1639,7 @@
             <dependency>
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache-jdbc</artifactId>
-                <version>0.13.1-9</version>
+                <version>0.13.1-10</version>
             </dependency>
 
             <dependency>
