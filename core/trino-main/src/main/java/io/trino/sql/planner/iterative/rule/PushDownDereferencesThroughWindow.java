@@ -141,7 +141,8 @@ public class PushDownDereferencesThroughWindow
                                                                     .collect(toImmutableList()),
                                                             oldFunction.getOrderingScheme(),
                                                             oldFunction.getFrame(),
-                                                            oldFunction.isIgnoreNulls());
+                                                            oldFunction.isIgnoreNulls(),
+                                                            oldFunction.isDistinct());
                                                 })),
                                 windowNode.getHashSymbol(),
                                 windowNode.getPrePartitionedInputs(),
