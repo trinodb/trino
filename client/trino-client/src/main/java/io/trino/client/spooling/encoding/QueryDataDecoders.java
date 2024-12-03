@@ -22,6 +22,7 @@ import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 
@@ -39,7 +40,7 @@ public class QueryDataDecoders
     public static Factory get(String encoding)
     {
         if (!encodingMap.containsKey(encoding)) {
-            throw new IllegalArgumentException("Unknown spooled protocol encoding: " + encoding);
+            throw new IllegalArgumentException(format("Unknown spooling protocol encoding '%s'", encoding));
         }
 
         Factory factory = encodingMap.get(encoding);
