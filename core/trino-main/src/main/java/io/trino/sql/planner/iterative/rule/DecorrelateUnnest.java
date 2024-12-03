@@ -466,6 +466,7 @@ public class DecorrelateUnnest
                     ImmutableList.of(),
                     Optional.empty(),
                     DEFAULT_FRAME,
+                    false,
                     false);
             WindowNode windowNode = new WindowNode(
                     idAllocator.getNextId(),

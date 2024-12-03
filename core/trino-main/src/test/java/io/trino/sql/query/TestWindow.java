@@ -278,4 +278,56 @@ public class TestWindow
                             (1, NULL)
                         """);
     }
+
+    @Test
+    public void testWindowWithDistinct()
+    {
+        // just distinct
+        assertThat(assertions.query(
+                """
+                SELECT a, ARRAY_AGG(DISTINCT c) OVER w
+                FROM (
+                    VALUES (1, 1, 1), (1, 2, 2), (1, 3, 1), (1, 4, 4), (1, 4, 2), (1, 5, 5),
+                           (2, 1, 1), (2, 2, 3), (2, 3, 2), (2, 4, 3)) AS t(a, b, c)
+                WINDOW w AS (PARTITION BY a ORDER BY b)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, ARRAY[1]),
+                            (1, ARRAY[1, 2]),
+                            (1, ARRAY[1, 2]),
+                            (1, ARRAY[1, 2, 4]),
+                            (1, ARRAY[1, 2, 4]),
+                            (1, ARRAY[1, 2, 4, 5]),
+                            (2, ARRAY[1]),
+                            (2, ARRAY[1, 3]),
+                            (2, ARRAY[1, 3, 2]),
+                            (2, ARRAY[1, 3, 2])
+                        """);
+
+        // distinct with order by
+        assertThat(assertions.query(
+                """
+                SELECT a, ARRAY_AGG(DISTINCT c ORDER BY c DESC) OVER w
+                FROM (
+                    VALUES (1, 1, 1), (1, 2, 2), (1, 3, 1), (1, 4, 4), (1, 4, 2), (1, 5, 5),
+                           (2, 1, 1), (2, 2, 3), (2, 3, 2), (2, 4, 3)) AS t(a, b, c)
+                WINDOW w AS (PARTITION BY a ORDER BY b)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, ARRAY[1]),
+                            (1, ARRAY[2, 1]),
+                            (1, ARRAY[2, 1]),
+                            (1, ARRAY[4, 2, 1]),
+                            (1, ARRAY[4, 2, 1]),
+                            (1, ARRAY[5, 4, 2, 1]),
+                            (2, ARRAY[1]),
+                            (2, ARRAY[3, 1]),
+                            (2, ARRAY[3, 2, 1]),
+                            (2, ARRAY[3, 2, 1])
+                        """);
+    }
 }

@@ -222,6 +222,7 @@ public class TestPruneWindowColumns
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
                                                 Optional.of(orderKey)),
+                                        false,
                                         false),
                                 output2,
                                 new WindowNode.Function(
@@ -236,6 +237,7 @@ public class TestPruneWindowColumns
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
                                                 Optional.of(orderKey)),
+                                        false,
                                         false)),
                         hash,
                         p.values(

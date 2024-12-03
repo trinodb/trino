@@ -173,6 +173,7 @@ public class TestPushdownFilterIntoWindow
                 ImmutableList.of(symbol.toSymbolReference()),
                 Optional.empty(),
                 DEFAULT_FRAME,
+                false,
                 false);
     }
 }

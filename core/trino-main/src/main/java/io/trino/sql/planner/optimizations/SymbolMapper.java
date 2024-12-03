@@ -251,7 +251,7 @@ public class SymbolMapper
             WindowNode.Frame newFrame = map(function.getFrame());
             Optional<OrderingScheme> newOrderingScheme = function.getOrderingScheme().map(this::map);
 
-            newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, newOrderingScheme, newFrame, function.isIgnoreNulls()));
+            newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, newOrderingScheme, newFrame, function.isIgnoreNulls(), function.isDistinct()));
         });
 
         SpecificationWithPreSortedPrefix newSpecification = mapAndDistinct(node.getSpecification(), node.getPreSortedOrderPrefix());
@@ -311,7 +311,7 @@ public class SymbolMapper
             WindowNode.Frame newFrame = map(function.getFrame());
             verify(function.getOrderingScheme().isEmpty());
 
-            newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, Optional.empty(), newFrame, function.isIgnoreNulls()));
+            newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, Optional.empty(), newFrame, function.isIgnoreNulls(), function.isDistinct()));
         });
 
         ImmutableMap.Builder<Symbol, Measure> newMeasures = ImmutableMap.builder();

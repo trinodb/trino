@@ -4363,10 +4363,6 @@ class StatementAnalyzer
                     throw semanticException(NESTED_WINDOW, nestedWindowExpressions.getFirst(), "Cannot nest window functions or row pattern measures inside window function arguments");
                 }
 
-                if (windowFunction.isDistinct()) {
-                    throw semanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", windowFunction);
-                }
-
                 ResolvedWindow window = analysis.getWindow(windowFunction);
                 // TODO get function requirements from window function metadata when we have it
                 String name = windowFunction.getName().toString().toLowerCase(ENGLISH);
@@ -4389,6 +4385,10 @@ class StatementAnalyzer
                 FunctionKind kind = resolvedFunction.functionKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
                     throw semanticException(FUNCTION_NOT_WINDOW, node, "Not a window function: %s", windowFunction.getName());
+                }
+
+                if (windowFunction.isDistinct() && kind != AGGREGATE) {
+                    throw semanticException(NOT_SUPPORTED, node, "Only aggregation window functions with DISTINCT are supported: %s", windowFunction);
                 }
 
                 if (windowFunction.getOrderBy().isPresent() && kind != AGGREGATE) {

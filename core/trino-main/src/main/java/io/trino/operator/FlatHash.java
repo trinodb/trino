@@ -129,7 +129,7 @@ public final class FlatHash
         recordGroups = Arrays.stream(other.recordGroups)
                 .map(records -> records == null ? null : Arrays.copyOf(records, records.length))
                 .toArray(byte[][]::new);
-        variableWidthData = new VariableWidthData(other.variableWidthData);
+        variableWidthData = other.variableWidthData == null ? null : new VariableWidthData(other.variableWidthData);
         groupRecordIndex = Arrays.copyOf(other.groupRecordIndex, other.groupRecordIndex.length);
         checkMemoryReservation = other.checkMemoryReservation;
         fixedSizeEstimate = other.fixedSizeEstimate;

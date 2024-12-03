@@ -88,7 +88,7 @@ public class FlatGroupByHash
         groupByChannelCount = other.groupByChannelCount;
         hasPrecomputedHash = other.hasPrecomputedHash;
         processDictionary = other.processDictionary;
-        dictionaryLookBack = other.dictionaryLookBack.copy();
+        dictionaryLookBack = other.dictionaryLookBack == null ? null : other.dictionaryLookBack.copy();
         currentPageSizeInBytes = other.currentPageSizeInBytes;
         currentBlocks = Arrays.copyOf(other.currentBlocks, other.currentBlocks.length);
         currentBlockBuilders = Arrays.stream(other.currentBlockBuilders)

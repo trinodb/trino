@@ -117,6 +117,7 @@ public class TestReplaceWindowWithRowNumber
                 ImmutableList.of(),
                 Optional.empty(),
                 DEFAULT_FRAME,
+                false,
                 false);
     }
 }

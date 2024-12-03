@@ -27,7 +27,8 @@ public record WindowFunction(
         String name,
         WindowNode.Frame frame,
         List<Expression> arguments,
-        Optional<OrderingScheme> orderingScheme)
+        Optional<OrderingScheme> orderingScheme,
+        boolean distinct)
 {
     public WindowFunction
     {

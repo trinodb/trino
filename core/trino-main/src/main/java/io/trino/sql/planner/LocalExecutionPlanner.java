@@ -102,6 +102,7 @@ import io.trino.operator.WindowOperator.WindowOperatorFactory;
 import io.trino.operator.aggregation.AccumulatorFactory;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.DistinctAccumulatorFactory;
+import io.trino.operator.aggregation.DistinctWindowAccumulator;
 import io.trino.operator.aggregation.OrderedAccumulatorFactory;
 import io.trino.operator.aggregation.OrderedWindowAccumulator;
 import io.trino.operator.aggregation.partial.PartialAggregationController;
@@ -1213,6 +1214,23 @@ public class LocalExecutionPlanner
                                         sortKeysArguments,
                                         sortOrders);
                     }
+
+                    if (function.isDistinct()) {
+                        List<Type> argumentTypes = argumentChannels.stream()
+                                .map(channel -> source.getTypes().get(channel))
+                                .collect(toImmutableList());
+
+                        Function<List<Supplier<Object>>, WindowAccumulator> finalAccumulatorSupplier = accumulatorSupplier;
+                        List<Integer> argumentChannelsFinal = ImmutableList.copyOf(argumentChannels);
+                        accumulatorSupplier = (lambdaProviders) -> new DistinctWindowAccumulator(
+                                finalAccumulatorSupplier.apply(lambdaProviders),
+                                argumentTypes,
+                                argumentChannelsFinal,
+                                hashStrategyCompiler,
+                                session,
+                                pagesIndexFactory);
+                    }
+
                     windowFunctionSupplier = windowAggregationFunctionSupplier(resolvedFunction, lambdaInterfaces, accumulatorSupplier);
                 }
                 else {

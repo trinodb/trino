@@ -71,6 +71,7 @@ public class TestPruneOrderByInWindowAggregation
                                                     ImmutableList.of(new Symbol(BIGINT, "input")),
                                                     ImmutableMap.of(new Symbol(BIGINT, "input"), SortOrder.ASC_NULLS_LAST))),
                                             DEFAULT_FRAME,
+                                            false,
                                             false),
                                     arrayAgg, new WindowNode.Function(arrayAggFunction,
                                             ImmutableList.of(new Reference(BIGINT, "input")),
@@ -78,6 +79,7 @@ public class TestPruneOrderByInWindowAggregation
                                                     ImmutableList.of(new Symbol(BIGINT, "input")),
                                                     ImmutableMap.of(new Symbol(BIGINT, "input"), SortOrder.ASC_NULLS_LAST))),
                                             DEFAULT_FRAME,
+                                            false,
                                             false)),
                             planBuilder.values(sourceSymbols, ImmutableList.of()));
                 })

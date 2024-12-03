@@ -143,7 +143,7 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), Optional.empty(), frame, false);
+        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), Optional.empty(), frame, false, false);
 
         DataOrganizationSpecification specification = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
@@ -238,7 +238,7 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnA.toSymbolReference()), Optional.empty(), frame, false);
+        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnA.toSymbolReference()), Optional.empty(), frame, false, false);
 
         DataOrganizationSpecification specification = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
@@ -271,7 +271,7 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), Optional.empty(), frame, false);
+        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), Optional.empty(), frame, false, false);
 
         DataOrganizationSpecification specification = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
