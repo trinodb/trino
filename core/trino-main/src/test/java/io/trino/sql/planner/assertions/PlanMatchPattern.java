@@ -1110,7 +1110,12 @@ public final class PlanMatchPattern
 
     public static ExpectedValueProvider<WindowFunction> windowFunction(String name, List<String> args, WindowNode.Frame frame, List<PlanMatchPattern.Ordering> orderBy)
     {
-        return new WindowFunctionProvider(name, frame, toSymbolAliases(args), orderBy);
+        return windowFunction(name, args, frame, orderBy, false);
+    }
+
+    public static ExpectedValueProvider<WindowFunction> windowFunction(String name, List<String> args, WindowNode.Frame frame, List<PlanMatchPattern.Ordering> orderBy, boolean distinct)
+    {
+        return new WindowFunctionProvider(name, frame, toSymbolAliases(args), orderBy, distinct);
     }
 
     public static List<Expression> toSymbolReferences(List<PlanTestSymbol> aliases, SymbolAliases symbolAliases)

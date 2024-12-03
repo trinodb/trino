@@ -104,7 +104,7 @@ public class BigintGroupByHash
         nullGroupId = other.nullGroupId;
         valuesByGroupId = Arrays.copyOf(other.valuesByGroupId, other.valuesByGroupId.length);
         nextGroupId = other.nextGroupId;
-        dictionaryLookBack = other.dictionaryLookBack.copy();
+        dictionaryLookBack = other.dictionaryLookBack == null ? null : other.dictionaryLookBack.copy();
         updateMemory = other.updateMemory;
         preallocatedMemoryInBytes = other.preallocatedMemoryInBytes;
         currentPageSizeInBytes = other.currentPageSizeInBytes;

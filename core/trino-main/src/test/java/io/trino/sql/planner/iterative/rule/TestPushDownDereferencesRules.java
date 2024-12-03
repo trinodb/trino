@@ -635,7 +635,8 @@ public class TestPushDownDereferencesRules
                                                                 CURRENT_ROW,
                                                                 Optional.empty(),
                                                                 Optional.empty()),
-                                                        true)),
+                                                        true,
+                                                        false)),
                                         p.values(
                                                 p.symbol("msg1", ROW_TYPE),
                                                 p.symbol("msg2", ROW_TYPE),
