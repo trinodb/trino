@@ -13,13 +13,28 @@
  */
 package io.trino.plugin.redshift;
 
+import com.amazon.redshift.Driver;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.opentelemetry.api.OpenTelemetry;
+import io.trino.filesystem.s3.S3FileSystemConfig;
+import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemStats;
+import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.DefaultQueryBuilder;
+import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.JdbcDynamicFilteringConfig;
+import io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
+import io.trino.plugin.jdbc.JdbcSplitManager;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.credential.ExtraCredentialProvider;
+import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
@@ -27,8 +42,11 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorSession;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -36,63 +54,67 @@ import software.amazon.awssdk.services.s3.S3Client;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.Executors;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.jdbc.logging.RemoteQueryModifier.NONE;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.AWS_ACCESS_KEY;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.AWS_REGION;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.AWS_SECRET_KEY;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.IAM_ROLE;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.S3_UNLOAD_ROOT;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_PASSWORD;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_URL;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_USER;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_DATABASE;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-public class TestRedshiftUnloadConnectorTest
-        extends TestRedshiftConnectorTest
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
+public class TestRedshiftUnload
 {
-    @Override
-    protected QueryRunner createQueryRunner()
+    private RedshiftConfig redshiftJdbcConfig;
+    private RedshiftSplitManager redshiftSplitManager;
+
+    @BeforeAll
+    public void setup()
             throws Exception
     {
         redshiftJdbcConfig = new RedshiftConfig().setUnloadLocation(S3_UNLOAD_ROOT).setUnloadIamRole(IAM_ROLE);
         redshiftSplitManager = createSplitManager();
+    }
 
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("redshift.unload-location", S3_UNLOAD_ROOT)
-                .put("redshift.unload-iam-role", IAM_ROLE)
-                .put("s3.region", AWS_REGION)
-                .put("s3.endpoint", "https://s3.%s.amazonaws.com".formatted(AWS_REGION))
-                .put("s3.aws-access-key", AWS_ACCESS_KEY)
-                .put("s3.aws-secret-key", AWS_SECRET_KEY)
-                .put("s3.path-style-access", "true")
-                .put("join-pushdown.enabled", "true")
-                .put("join-pushdown.strategy", "EAGER")
-                .buildOrThrow();
-
-        return RedshiftQueryRunner.builder()
-                // NOTE this can cause tests to time-out if larger tables like
-                //  lineitem and orders need to be re-created.
-                .setInitialTables(REQUIRED_TPCH_TABLES)
-                .setConnectorProperties(properties)
+    private RedshiftSplitManager createSplitManager()
+    {
+        DriverConnectionFactory driverConnectionFactory = DriverConnectionFactory.builder(new Driver(), JDBC_URL, new ExtraCredentialProvider(Optional.empty(), Optional.empty(), new StaticCredentialProvider(Optional.of(JDBC_USER), Optional.of(JDBC_PASSWORD))))
                 .build();
-    }
+        RedshiftClient redshiftClient = new RedshiftClient(
+                new BaseJdbcConfig().setConnectionUrl(JDBC_URL),
+                redshiftJdbcConfig,
+                driverConnectionFactory,
+                new JdbcStatisticsConfig(),
+                new DefaultQueryBuilder(NONE),
+                new DefaultIdentifierMapping(),
+                NONE);
 
-    @Test
-    @Override
-    public void testCancellation()
-    {
-        abort("java.util.concurrent.TimeoutException: testCancellation() timed out after 60 seconds");
-    }
-
-    @Test
-    @Override
-    void testJdbcFlow()
-    {
-        abort("Not applicable for unload test");
+        return new RedshiftSplitManager(
+                redshiftClient,
+                new DefaultQueryBuilder(NONE),
+                NONE,
+                new JdbcSplitManager(redshiftClient),
+                redshiftJdbcConfig,
+                new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
+                        .setAwsAccessKey(AWS_ACCESS_KEY)
+                        .setAwsSecretKey(AWS_SECRET_KEY)
+                        .setRegion(AWS_REGION)
+                        .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats()),
+                Executors.newFixedThreadPool(1));
     }
 
     @Test
@@ -148,6 +170,17 @@ public class TestRedshiftUnloadConnectorTest
             assertThat(connectorSplitBatch.getSplits()).hasSize(1);
             connectorSplitBatch.getSplits().forEach(split -> assertThat(split).isInstanceOf(JdbcSplit.class));
         }
+    }
+
+    private ConnectorSession createUnloadSession()
+    {
+        return TestingConnectorSession.builder()
+                .setPropertyMetadata(
+                        Stream.concat(
+                                        new JdbcDynamicFilteringSessionProperties(new JdbcDynamicFilteringConfig()).getSessionProperties().stream(),
+                                        new RedshiftSessionProperties(redshiftJdbcConfig).getSessionProperties().stream())
+                                .toList())
+                .build();
     }
 
     private static void verifyS3UnloadedFiles(List<RedshiftUnloadSplit> redshiftUnloadSplits)

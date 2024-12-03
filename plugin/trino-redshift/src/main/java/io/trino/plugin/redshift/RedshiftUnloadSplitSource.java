@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.redshift;
 
+import com.amazon.redshift.util.RedshiftException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -38,6 +39,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_FILESYSTEM_ERROR;
+import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_S3_CROSS_REGION_UNSUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public class RedshiftUnloadSplitSource
@@ -65,6 +67,9 @@ public class RedshiftUnloadSplitSource
                 return statement.execute();
             }
             catch (SQLException e) {
+                if (e instanceof RedshiftException && e.getMessage().contains("ERROR: S3ServiceException:The S3 bucket addressed by the query is in a different region from this cluster")) {
+                    throw new TrinoException(REDSHIFT_S3_CROSS_REGION_UNSUPPORTED, "Redshift cluster and S3 bucket in different regions is not supported", e);
+                }
                 throw new RuntimeException(e);
             }
         }, executor);

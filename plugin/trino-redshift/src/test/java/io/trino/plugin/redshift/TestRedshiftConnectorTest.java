@@ -109,8 +109,8 @@ public class TestRedshiftConnectorTest
 
     private final RemoteDatabaseEventMonitor remoteDatabaseEventMonitor = new RemoteDatabaseEventMonitor();
 
-    protected RedshiftConfig redshiftJdbcConfig;
-    protected RedshiftSplitManager redshiftSplitManager;
+    private RedshiftConfig redshiftJdbcConfig;
+    private RedshiftSplitManager redshiftSplitManager;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -151,7 +151,7 @@ public class TestRedshiftConnectorTest
         };
     }
 
-    protected RedshiftSplitManager createSplitManager()
+    private RedshiftSplitManager createSplitManager()
     {
         DriverConnectionFactory driverConnectionFactory = DriverConnectionFactory.builder(new Driver(), JDBC_URL, new ExtraCredentialProvider(Optional.empty(), Optional.empty(), new StaticCredentialProvider(Optional.of(JDBC_USER), Optional.of(JDBC_PASSWORD))))
                 .build();
@@ -184,7 +184,7 @@ public class TestRedshiftConnectorTest
     {
         SchemaTableName schemaTableName = new SchemaTableName(TEST_SCHEMA, "nation");
         JdbcTableHandle table = new JdbcTableHandle(schemaTableName, new RemoteTableName(Optional.of(TEST_DATABASE), Optional.of(TEST_SCHEMA), "nation"), Optional.empty());
-        ConnectorSession session = createUnloadSession();
+        ConnectorSession session = createJdbcSession();
         try (ConnectorSplitSource splitSource = redshiftSplitManager.getSplits(null, session, table, DynamicFilter.EMPTY, Constraint.alwaysTrue())) {
             assertThat(splitSource).isInstanceOf(FixedSplitSource.class);
             ConnectorSplitSource.ConnectorSplitBatch connectorSplitBatch = splitSource.getNextBatch(2).get();
@@ -194,7 +194,7 @@ public class TestRedshiftConnectorTest
         }
     }
 
-    protected ConnectorSession createUnloadSession()
+    private ConnectorSession createJdbcSession()
     {
         return TestingConnectorSession.builder()
                 .setPropertyMetadata(

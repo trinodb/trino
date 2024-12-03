@@ -113,7 +113,7 @@ public class RedshiftSplitManager
 
         Connection connection;
         PreparedStatement statement;
-        String unloadOutputLocation = unloadLocation.orElseThrow() + session.getQueryId() + "-" + UUID.randomUUID() + "/";
+        String unloadOutputLocation = unloadLocation.orElseThrow() + "/" + session.getQueryId() + "-" + UUID.randomUUID() + "/";
         try {
             connection = jdbcClient.getConnection(session);
             String redshiftSelectSql = getRedshiftSelectSql(session, connection, jdbcTableHandle, columns);

@@ -70,9 +70,10 @@ The connector brings parallelism by converting Trino query to corresponding
 Redshift `UNLOAD` command to unload query results on to the S3 bucket in the 
 form of Parquet files and reading these Parquet files from S3 bucket. Parquet 
 files will be removed as Trino query finishes. Additionally, it's preferable to 
-define a custom life cycle policy on S3 bucket.
+define a custom life cycle policy on an S3 bucket.
 This feature intends to bring query results faster compared to the default JDBC 
 approach when fetching large query result set from Redshift.
+One of the limitation is that Redshift and S3 must be in the same region.
 
 The following table describes configuration properties for using 
 `UNLOAD` command in Redshift connector:
