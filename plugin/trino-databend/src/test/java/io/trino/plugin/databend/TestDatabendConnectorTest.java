@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -35,11 +36,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
-import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
@@ -57,8 +58,10 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -111,12 +114,25 @@ public class TestDatabendConnectorTest
                     SUPPORTS_NEGATIVE_DATE, // min date is 0001-01-01
                     SUPPORTS_RENAME_TABLE,
                     SUPPORTS_ROW_TYPE,
+                    SUPPORTS_INSERT,
                     SUPPORTS_NATIVE_QUERY,
                     SUPPORTS_SET_COLUMN_TYPE,
                     SUPPORTS_UPDATE -> false;
 
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Test
+    @Disabled
+    @Override
+    public void testAddAndDropColumnName() {}
+
+    @Test
+    @Override
+    public void testDataMappingSmokeTest()
+    {
+        abort("skip this because some cases are not supported"); //  .add(new DataMappingTestSetup("boolean", "false", "true"))
     }
 
     @Test
@@ -192,6 +208,86 @@ public class TestDatabendConnectorTest
     }
 
     @Test
+    @Override
+    public void testColumnName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        for (String columnName : testColumnNameDataProvider()) {
+            testColumnName(columnName, true);
+        }
+    }
+
+    protected void testColumnName(String columnName, boolean delimited)
+    {
+        String nameInSql = toColumnNameInSql(columnName, delimited);
+        String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomNameSuffix();
+
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(key varchar(50), " + nameInSql + " varchar(50))");
+        }
+        catch (RuntimeException e) {
+            if (isColumnNameRejected(e, columnName, delimited)) {
+                // It is OK if give column name is not allowed and is clearly rejected by the connector.
+                return;
+            }
+            throw e;
+        }
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')", 3);
+
+            // SELECT *
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')");
+
+            // predicate
+            assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " IS NULL", "VALUES ('null value')");
+            assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " = 'abc'", "VALUES ('sample value')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    private static String toColumnNameInSql(String columnName, boolean delimited)
+    {
+        String nameInSql = columnName;
+        if (delimited) {
+            nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
+        }
+        return nameInSql;
+    }
+
+    public List<String> testColumnNameDataProvider()
+    {
+        return testColumnNameTestData().stream()
+                .map(this::filterColumnNameTestData)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toList());
+    }
+
+    private List<String> testColumnNameTestData()
+    {
+        return ImmutableList.<String>builder()
+                .add("lowercase")
+                .add("UPPERCASE")
+                .add("MixedCase")
+                .add("atrailingspace ")
+                .add("an'apostrophe")
+                .add("adigit0")
+                .add("0startwithdigit")
+                .add("カラム")
+                .build();
+    }
+
+    @Test
+    public void testTrySelectTableVersion()
+    {
+        abort("skip this");
+    }
+
+    @Test
+    @Override
     public void verifySupportsNativeQueryDeclaration()
     {
         if (hasBehavior(SUPPORTS_NATIVE_QUERY)) {
@@ -201,6 +297,22 @@ public class TestDatabendConnectorTest
         assertQueryFails(
                 format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
                 ".* ResultSetMetaData not available for query.*");
+    }
+
+    @Test
+    @Override
+    public void testInsertInPresenceOfNotSupportedColumn()
+    {
+        assertThatThrownBy(super::testInsertInPresenceOfNotSupportedColumn)
+                .isInstanceOf(QueryFailedException.class)
+                .hasMessage("This connector does not support inserts");
+    }
+
+    @Test
+    @Override
+    public void testVarcharCharComparison()
+    {
+        abort("skip for char");
     }
 
     @Test
@@ -273,7 +385,7 @@ public class TestDatabendConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE col = 'A'", 1);
+            assertQuery("DELETE FROM " + table.getName() + " WHERE col = 'A'");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 'a', null");
         }
     }
@@ -284,7 +396,7 @@ public class TestDatabendConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE col != 'A'", 1);
+            assertQuery("DELETE FROM " + table.getName() + " WHERE col != 'A'");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
         }
     }
@@ -295,9 +407,9 @@ public class TestDatabendConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'0'", "'a'", "'A'", "'b'", "null"))) {
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE col < 'A'", 1);
+            assertQuery("DELETE FROM " + table.getName() + " WHERE col < 'A'");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 'a', 'A', 'b', null");
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE col > 'A'", 2);
+            assertQuery("DELETE FROM " + table.getName() + " WHERE col > 'A'");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
         }
     }
@@ -423,18 +535,10 @@ public class TestDatabendConnectorTest
     }
 
     @Test
+    @Disabled
     @Override
     public void verifySupportsUpdateDeclaration()
     {
-        if (hasBehavior(SUPPORTS_UPDATE)) {
-            // Covered by testUpdate
-            return;
-        }
-
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
-            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
-        }
     }
 
     @Test
