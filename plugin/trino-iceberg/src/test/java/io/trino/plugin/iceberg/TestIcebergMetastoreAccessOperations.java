@@ -37,6 +37,7 @@ import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.REPLACE_TABLE;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
+import static io.trino.plugin.iceberg.TableType.ENTRIES;
 import static io.trino.plugin.iceberg.TableType.FILES;
 import static io.trino.plugin.iceberg.TableType.HISTORY;
 import static io.trino.plugin.iceberg.TableType.MANIFESTS;
@@ -331,6 +332,12 @@ public class TestIcebergMetastoreAccessOperations
                         .addCopies(GET_TABLE, 1)
                         .build());
 
+        // select from $entries
+        assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$entries\"",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 1)
+                        .build());
+
         // select from $properties
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$properties\"",
                 ImmutableMultiset.<MetastoreMethod>builder()
@@ -342,7 +349,7 @@ public class TestIcebergMetastoreAccessOperations
 
         // This test should get updated if a new system table is added.
         assertThat(TableType.values())
-                .containsExactly(DATA, HISTORY, METADATA_LOG_ENTRIES, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES, REFS, MATERIALIZED_VIEW_STORAGE);
+                .containsExactly(DATA, HISTORY, METADATA_LOG_ENTRIES, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, ENTRIES, PROPERTIES, REFS, MATERIALIZED_VIEW_STORAGE);
     }
 
     @Test

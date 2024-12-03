@@ -33,6 +33,7 @@ import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -152,6 +153,13 @@ public final class IcebergTestUtils
             previousMax = columnMetadata.getStatistics().genericGetMax();
         }
         return true;
+    }
+
+    public static HiveMetastore getHiveMetastore(QueryRunner queryRunner)
+    {
+        return ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
+                .getInstance(HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
     }
 
     public static TrinoFileSystemFactory getFileSystemFactory(QueryRunner queryRunner)
