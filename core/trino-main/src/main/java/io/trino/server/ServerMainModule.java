@@ -314,9 +314,12 @@ public class ServerMainModule
         // TODO: use conditional module
         TaskManagerConfig taskManagerConfig = buildConfigObject(TaskManagerConfig.class);
         if (taskManagerConfig.isThreadPerDriverSchedulerEnabled()) {
+            newExporter(binder).export(ThreadPerDriverTaskExecutor.class).withGeneratedName();
+
             binder.bind(TaskExecutor.class)
                     .to(ThreadPerDriverTaskExecutor.class)
                     .in(Scopes.SINGLETON);
+            binder.bind(ThreadPerDriverTaskExecutor.class).in(Scopes.SINGLETON);
         }
         else {
             jaxrsBinder(binder).bind(TaskExecutorResource.class);

@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Tracer;
@@ -33,6 +34,8 @@ import io.trino.execution.executor.scheduler.FairScheduler;
 import io.trino.spi.VersionEmbedder;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -245,5 +248,61 @@ public class ThreadPerDriverTaskExecutor
     {
         // TODO
         return ImmutableSet.of();
+    }
+
+    @Managed
+    public synchronized int getTasks()
+    {
+        return tasks.size();
+    }
+
+    @Managed
+    public synchronized int getTotalRunningSplits()
+    {
+        return tasks.values().stream()
+                .mapToInt(TaskEntry::totalRunningSplits)
+                .sum();
+    }
+
+    @Managed
+    public synchronized int getTotalRunningLeafSplits()
+    {
+        return tasks.values().stream()
+                .mapToInt(TaskEntry::runningLeafSplits)
+                .sum();
+    }
+
+    @Managed
+    public synchronized int getTotalPendingLeafSplits()
+    {
+        return tasks.values().stream()
+                .mapToInt(TaskEntry::pendingLeafSplitCount)
+                .sum();
+    }
+
+    @Managed(description = "Scheduler executor")
+    @Nested
+    public ThreadPoolExecutorMBean getSchedulerExecutor()
+    {
+        return scheduler.getSchedulerExecutor();
+    }
+
+    @Managed(description = "Task executor")
+    @Nested
+    public ThreadPoolExecutorMBean getTaskExecutor()
+    {
+        return scheduler.getTaskExecutor();
+    }
+
+    @Managed
+    public int getConcurrencyControlTotalSlots()
+    {
+        return scheduler.getConcurrencyControlTotalSlots();
+    }
+
+    @Managed
+    public int getConcurrencyControlAvailableSlots()
+    {
+        return scheduler.getConcurrencyControlAvailableSlots();
     }
 }
