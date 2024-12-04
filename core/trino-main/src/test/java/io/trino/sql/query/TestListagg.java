@@ -401,7 +401,7 @@ public class TestListagg
                 FROM (
                      VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')
                 ) t(id, value)
-                 """))
+                """))
                 .matches("VALUES VARCHAR 'b,d'");
     }
 }
