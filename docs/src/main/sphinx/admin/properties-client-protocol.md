@@ -67,6 +67,15 @@ segments.
 Activate support for using JSON encoding with LZ4 compression for spooled
 segments.
 
+### `protocol.spooling.encoding.compression.threshold`
+
+- **Type:** [](prop-type-data-size)
+- **Default value:** `8KB`
+- **Minimum value:** `1KB`
+- **Maximum value:** `4MB`
+
+Threshold for enabling compression with larger segments.
+
 ### `protocol.spooling.initial-segment-size`
 
 - **Type:** [](prop-type-data-size)
