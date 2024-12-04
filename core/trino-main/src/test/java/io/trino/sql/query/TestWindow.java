@@ -82,7 +82,7 @@ public class TestWindow
                 """
                 SELECT a, ARRAY_AGG(c ORDER BY c) OVER w
                 FROM (
-                    VALUES (1, 1, 1), (1, 2, 2), (1, 3, 3), (1, 4, 4), (1, 4, 7) , (1, 5, 5),
+                    VALUES (1, 1, 1), (1, 2, 2), (1, 3, 3), (1, 4, 4), (1, 4, 7), (1, 5, 5),
                            (2, 1, 1), (2, 2, 3), (2, 3, 2), (2, 4, 1)) AS t(a, b, c)
                 WINDOW w AS (PARTITION BY a ORDER BY b)
                 """))
@@ -130,7 +130,7 @@ public class TestWindow
                 """
                 SELECT a, ARRAY_AGG(c ORDER BY d) OVER w
                 FROM (
-                    VALUES (1, 1, 1, 5), (1, 2, 2, 4), (1, 3, 3, 1), (1, 4, 4, 2), (1, 4, 7, 6) , (1, 5, 5, 3),
+                    VALUES (1, 1, 1, 5), (1, 2, 2, 4), (1, 3, 3, 1), (1, 4, 4, 2), (1, 4, 7, 6), (1, 5, 5, 3),
                            (2, 1, 1, 4), (2, 2, 3, 3), (2, 3, 2, 2), (2, 4, 1, 1)) AS t(a, b, c, d)
                 WINDOW w AS (PARTITION BY a ORDER BY b)
                 """))
@@ -154,7 +154,7 @@ public class TestWindow
                 """
                 SELECT a, ARRAY_AGG(c ORDER BY b) OVER w
                 FROM (
-                    VALUES (1, 1, 1), (1, 2, 2), (1, 3, 3), (1, 4, 4) , (1, 5, 5),
+                    VALUES (1, 1, 1), (1, 2, 2), (1, 3, 3), (1, 4, 4), (1, 5, 5),
                            (2, 1, 1), (2, 2, 3), (2, 3, 2), (2, 4, 1)) AS t(a, b, c)
                 WINDOW w AS (PARTITION BY a ORDER BY b)
                 """))
@@ -200,7 +200,7 @@ public class TestWindow
                 """
                 SELECT a, ARRAY_AGG(c ORDER BY d, c) OVER w
                 FROM (
-                    VALUES (1, 1, 1, 5), (1, 2, 2, 4), (1, 3, 3, 4), (1, 4, 4, 5), (1, 4, 7, 1) , (1, 5, 5, 2)) AS t(a, b, c, d)
+                    VALUES (1, 1, 1, 5), (1, 2, 2, 4), (1, 3, 3, 4), (1, 4, 4, 5), (1, 4, 7, 1), (1, 5, 5, 2)) AS t(a, b, c, d)
                 WINDOW w AS (PARTITION BY a ORDER BY b)
                 """))
                 .matches(
@@ -219,7 +219,7 @@ public class TestWindow
                 """
                 SELECT a, ARRAY_AGG(c ORDER BY d, c DESC) OVER w
                 FROM (
-                    VALUES (1, 1, 1, 5), (1, 2, 2, 4), (1, 3, 3, 4), (1, 4, 4, 5), (1, 4, 7, 1) , (1, 5, 5, 2)) AS t(a, b, c, d)
+                    VALUES (1, 1, 1, 5), (1, 2, 2, 4), (1, 3, 3, 4), (1, 4, 4, 5), (1, 4, 7, 1), (1, 5, 5, 2)) AS t(a, b, c, d)
                 WINDOW w AS (PARTITION BY a ORDER BY b)
                 """))
                 .matches(
@@ -241,7 +241,7 @@ public class TestWindow
                        ARRAY_AGG(c ORDER BY c DESC) OVER w,
                        ARRAY_AGG(c ORDER BY d) OVER w
                 FROM (
-                    VALUES (1, 1, 1, 5), (1, 2, 2, 4), (1, 3, 3, 1), (1, 4, 4, 2), (1, 4, 7, 6) , (1, 5, 5, 3),
+                    VALUES (1, 1, 1, 5), (1, 2, 2, 4), (1, 3, 3, 1), (1, 4, 4, 2), (1, 4, 7, 6), (1, 5, 5, 3),
                            (2, 1, 1, 4), (2, 2, 3, 3), (2, 3, 2, 2), (2, 4, 1, 1)) AS t(a, b, c, d)
                 WINDOW w AS (PARTITION BY a ORDER BY b)
                 """))
