@@ -454,7 +454,8 @@ public class CheckpointEntryIterator
                 commitInfo.getString("clusterId"),
                 commitInfo.getInt("readVersion"),
                 commitInfo.getString("isolationLevel"),
-                Optional.of(commitInfo.getBoolean("isBlindAppend")));
+                Optional.of(commitInfo.getBoolean("isBlindAppend")),
+                commitInfo.getMap(stringMap, "operationMetrics"));
         log.debug("Result: %s", result);
         return DeltaLakeTransactionLogEntry.commitInfoEntry(result);
     }
