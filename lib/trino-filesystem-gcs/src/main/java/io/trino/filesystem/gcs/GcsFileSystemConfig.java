@@ -24,6 +24,7 @@ import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.util.concurrent.TimeUnit;
 
@@ -48,6 +49,7 @@ public class GcsFileSystemConfig
     private Duration minBackoffDelay = new Duration(10, TimeUnit.MILLISECONDS);
     // Note: there is no benefit to setting this much higher as the rpc quota is 1x per second: https://cloud.google.com/storage/docs/retry-strategy#java
     private Duration maxBackoffDelay = new Duration(2000, TimeUnit.MILLISECONDS);
+    private String applicationId = "Trino";
 
     @NotNull
     public DataSize getReadBlockSize()
@@ -228,6 +230,21 @@ public class GcsFileSystemConfig
     public GcsFileSystemConfig setMaxBackoffDelay(Duration maxBackoffDelay)
     {
         this.maxBackoffDelay = maxBackoffDelay;
+        return this;
+    }
+
+    @Size(max = 50)
+    @NotNull
+    public String getApplicationId()
+    {
+        return applicationId;
+    }
+
+    @Config("gcs.application-id")
+    @ConfigDescription("Suffix that will be added to HTTP User-Agent header to identify the application")
+    public GcsFileSystemConfig setApplicationId(String applicationId)
+    {
+        this.applicationId = applicationId;
         return this;
     }
 

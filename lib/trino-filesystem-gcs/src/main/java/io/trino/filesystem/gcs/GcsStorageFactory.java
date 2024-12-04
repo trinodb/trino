@@ -28,10 +28,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.cloud.storage.StorageRetryStrategy.getUniformStorageRetryStrategy;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class GcsStorageFactory
@@ -46,6 +48,7 @@ public class GcsStorageFactory
     private final Duration maxRetryTime;
     private final Duration minBackoffDelay;
     private final Duration maxBackoffDelay;
+    private final String applicationId;
 
     @Inject
     public GcsStorageFactory(GcsFileSystemConfig config)
@@ -75,6 +78,7 @@ public class GcsStorageFactory
         this.maxRetryTime = Duration.ofMillis(config.getMaxRetryTime().toMillis());
         this.minBackoffDelay = Duration.ofMillis(config.getMinBackoffDelay().toMillis());
         this.maxBackoffDelay = Duration.ofMillis(config.getMaxBackoffDelay().toMillis());
+        this.applicationId = config.getApplicationId();
     }
 
     public Storage create(ConnectorIdentity identity)
@@ -113,6 +117,7 @@ public class GcsStorageFactory
                             .setInitialRetryDelay(minBackoffDelay)
                             .setMaxRetryDelay(maxBackoffDelay)
                             .build())
+                    .setHeaderProvider(() -> Map.of(USER_AGENT, StorageOptions.getLibraryName() + "/" + StorageOptions.version() + " " + applicationId))
                     .build()
                     .getService();
         }
