@@ -1691,6 +1691,15 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testOrderByOnlySupportedForAggregateWindowFunctions()
+    {
+        analyze("SELECT array_agg(a ORDER BY b) OVER () FROM t1");
+        assertFails("SELECT first_value(a ORDER BY b) OVER () FROM t1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Only aggregation window functions with ORDER BY are supported");
+    }
+
+    @Test
     public void testWindowFrameTypeRows()
     {
         assertFails("SELECT array_agg(x) OVER (ROWS UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)")
