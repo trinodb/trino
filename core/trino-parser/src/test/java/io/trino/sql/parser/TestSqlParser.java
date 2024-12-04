@@ -6039,6 +6039,24 @@ public class TestSqlParser
                                 new BooleanLiteral(location(1, 1), "false"),
                                 new StringLiteral(location(1, 37), "HIDDEN"),
                                 new BooleanLiteral(location(1, 1), "false"))));
+
+        assertThat(expression("LISTAGG(x) WITHIN GROUP (ORDER BY x) OVER someWindow")).isEqualTo(
+                new FunctionCall(
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier("LISTAGG", false))),
+                        Optional.of(new WindowReference(location(1, 38), new Identifier(location(1, 43), "someWindow", false))),
+                        Optional.empty(),
+                        Optional.of(new OrderBy(location(1, 26), ImmutableList.of(new SortItem(location(1, 35), new Identifier(location(1, 35), "x", false), ASCENDING, UNDEFINED)))),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                new Identifier(location(1, 9), "x", false),
+                                new StringLiteral(location(1, 1), ""),
+                                new BooleanLiteral(location(1, 1), "true"),
+                                new StringLiteral(location(1, 1), "..."),
+                                new BooleanLiteral(location(1, 1), "false"))));
+
     }
 
     @Test

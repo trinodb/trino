@@ -571,7 +571,7 @@ primaryExpression
     | name=LISTAGG '(' setQuantifier? expression (',' string)?
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' ORDER BY sortItem (',' sortItem)* ')')
-        filter?                                                                           #listagg
+        filter? over?                                                                     #listagg
     | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
         filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?

@@ -983,6 +983,10 @@ public final class ExpressionFormatter
                 builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), null));
             }
 
+            if (node.getWindow().isPresent()) {
+                builder.append(" OVER ").append(formatWindow(node.getWindow().get()));
+            }
+
             return builder.toString();
         }
     }
