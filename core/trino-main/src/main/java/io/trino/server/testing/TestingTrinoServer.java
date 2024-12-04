@@ -158,7 +158,6 @@ public class TestingTrinoServer
         Logging logging = Logging.initialize();
         logging.setLevel("io.trino.event.QueryMonitor", Level.ERROR);
         logging.setLevel("org.eclipse.jetty", Level.ERROR);
-        logging.setLevel("org.glassfish.jersey.server.ServerRuntime$Responder", Level.OFF);
         logging.setLevel("io.airlift.concurrent.BoundedExecutor", Level.OFF);
 
         // Trino server behavior does not depend on locale settings.
