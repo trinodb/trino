@@ -1694,9 +1694,20 @@ public class TestAnalyzer
     public void testOrderByOnlySupportedForAggregateWindowFunctions()
     {
         analyze("SELECT array_agg(a ORDER BY b) OVER () FROM t1");
-        assertFails("SELECT first_value(a ORDER BY b) OVER () FROM t1")
+        assertFails("SELECT first_value(a ORDER  BY b) OVER () FROM t1")
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:8: Only aggregation window functions with ORDER BY are supported");
+    }
+
+    @Test
+    public void testDistinctNotSupportedForWindowFunctions()
+    {
+        assertFails("SELECT array_agg(DISTINCT a) OVER () FROM t1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageStartingWith("line 1:1: DISTINCT in window function parameters not yet supported");
+        assertFails("SELECT first_value(DISTINCT a) OVER () FROM t1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageStartingWith("line 1:1: DISTINCT in window function parameters not yet supported");
     }
 
     @Test
