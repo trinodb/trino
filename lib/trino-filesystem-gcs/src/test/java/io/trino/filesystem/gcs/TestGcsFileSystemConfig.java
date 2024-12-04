@@ -51,7 +51,8 @@ public class TestGcsFileSystemConfig
                 .setBackoffScaleFactor(3.0)
                 .setMaxRetryTime(new Duration(25, SECONDS))
                 .setMinBackoffDelay(new Duration(10, MILLISECONDS))
-                .setMaxBackoffDelay(new Duration(2000, MILLISECONDS)));
+                .setMaxBackoffDelay(new Duration(2000, MILLISECONDS))
+                .setApplicationId("Trino"));
     }
 
     @Test
@@ -74,6 +75,7 @@ public class TestGcsFileSystemConfig
                 .put("gcs.client.max-retry-time", "10s")
                 .put("gcs.client.min-backoff-delay", "20ms")
                 .put("gcs.client.max-backoff-delay", "20ms")
+                .put("gcs.application-id", "application id")
                 .buildOrThrow();
 
         GcsFileSystemConfig expected = new GcsFileSystemConfig()
@@ -89,7 +91,8 @@ public class TestGcsFileSystemConfig
                 .setBackoffScaleFactor(4.0)
                 .setMaxRetryTime(new Duration(10, SECONDS))
                 .setMinBackoffDelay(new Duration(20, MILLISECONDS))
-                .setMaxBackoffDelay(new Duration(20, MILLISECONDS));
+                .setMaxBackoffDelay(new Duration(20, MILLISECONDS))
+                .setApplicationId("application id");
         assertFullMapping(properties, expected);
     }
 

@@ -48,6 +48,9 @@ Storage file system support:
 * - `gcs.batch-size`
   - Number of blobs to delete per batch. Defaults to 100. [Recommended batch
     size](https://cloud.google.com/storage/docs/batch) is 100.
+* - `gcs.application-id`
+  - Specify the application identifier appended to the `User-Agent` header
+    for all requests sent to Google Cloud Storage. Defaults to `Trino`.
 :::
 
 ## Authentication
