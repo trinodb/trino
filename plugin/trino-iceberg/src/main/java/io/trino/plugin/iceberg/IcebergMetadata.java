@@ -200,6 +200,8 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -225,6 +227,7 @@ import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
@@ -412,6 +415,8 @@ public class IcebergMetadata
     private Transaction transaction;
     private Optional<Long> fromSnapshotForRefresh = Optional.empty();
 
+    private final Executor executorService;
+
     public IcebergMetadata(
             TypeManager typeManager,
             CatalogHandle trinoCatalogHandle,
@@ -421,7 +426,8 @@ public class IcebergMetadata
             TableStatisticsWriter tableStatisticsWriter,
             Optional<HiveMetastoreFactory> metastoreFactory,
             boolean addFilesProcedureEnabled,
-            Predicate<String> allowedExtraProperties)
+            Predicate<String> allowedExtraProperties,
+            int metadataParallelism)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoCatalogHandle = requireNonNull(trinoCatalogHandle, "trinoCatalogHandle is null");
@@ -432,6 +438,13 @@ public class IcebergMetadata
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.addFilesProcedureEnabled = addFilesProcedureEnabled;
         this.allowedExtraProperties = requireNonNull(allowedExtraProperties, "allowedExtraProperties is null");
+
+        if (metadataParallelism == 1) {
+            this.executorService = directExecutor();
+        }
+        else {
+            this.executorService = Executors.newFixedThreadPool(metadataParallelism);
+        }
     }
 
     @Override
@@ -997,7 +1010,7 @@ public class IcebergMetadata
                                     // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
                                     log.warn(e, "Failed to access metadata of table %s during streaming table columns for %s", tableName, prefix);
                                 }
-                            }))
+                            }, executorService))
                             .collect(Collectors.toList());
 
                     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
@@ -1186,8 +1199,7 @@ public class IcebergMetadata
         TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
         try {
             if (!replace && fileSystem.listFiles(location).hasNext()) {
-                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
-                        "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
+                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
                         "to use unique table locations for every table.", location));
             }
             return newWritableTableHandle(tableMetadata.getTable(), transaction.table(), retryMode);
