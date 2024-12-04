@@ -2444,7 +2444,7 @@ class AstBuilder
     @Override
     public Node visitListagg(SqlBaseParser.ListaggContext context)
     {
-        Optional<Window> window = Optional.empty();
+        Optional<Window> window = visitIfPresent(context.over(), Window.class);
         OrderBy orderBy = new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class));
         boolean distinct = isDistinct(context.setQuantifier());
 
