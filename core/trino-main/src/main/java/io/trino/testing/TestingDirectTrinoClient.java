@@ -63,6 +63,16 @@ public class TestingDirectTrinoClient
     {
         MaterializedQueryResultsListener queryResultsListener = new MaterializedQueryResultsListener();
         DispatchQuery dispatchQuery = directTrinoClient.execute(sessionContext, sql, queryResultsListener);
+
+        if (dispatchQuery.getState() != FINISHED) {
+            QueryInfo queryInfo = dispatchQuery.getFullQueryInfo();
+            if (queryInfo.getFailureInfo() == null) {
+                throw new QueryFailedException(dispatchQuery.getQueryId(), "Query failed without failure info");
+            }
+            RuntimeException remoteException = queryInfo.getFailureInfo().toException();
+            throw new QueryFailedException(dispatchQuery.getQueryId(), Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString), remoteException);
+        }
+
         return new Result(dispatchQuery.getQueryId(), toMaterializedRows(dispatchQuery, queryResultsListener.columnTypes(), queryResultsListener.columnNames(), queryResultsListener.pages()));
     }
 
@@ -70,14 +80,6 @@ public class TestingDirectTrinoClient
     {
         QueryInfo queryInfo = dispatchQuery.getFullQueryInfo();
         ConnectorSession session = dispatchQuery.getSession().toConnectorSession();
-
-        if (queryInfo.getState() != FINISHED) {
-            if (queryInfo.getFailureInfo() == null) {
-                throw new QueryFailedException(queryInfo.getQueryId(), "Query failed without failure info");
-            }
-            RuntimeException remoteException = queryInfo.getFailureInfo().toException();
-            throw new QueryFailedException(queryInfo.getQueryId(), Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString), remoteException);
-        }
 
         if (pages.isEmpty() && columnTypes == null) {
             // the query did not produce any output
