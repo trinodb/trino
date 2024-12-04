@@ -3090,7 +3090,8 @@ public class DeltaLakeMetadata
                 "trino-" + nodeVersion + "-" + nodeId,
                 readVersion,
                 isolationLevel.getValue(),
-                Optional.of(isBlindAppend));
+                Optional.of(isBlindAppend),
+                ImmutableMap.of());
     }
 
     @Override

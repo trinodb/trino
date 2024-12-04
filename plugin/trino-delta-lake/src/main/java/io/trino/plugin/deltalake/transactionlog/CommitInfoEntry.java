@@ -30,7 +30,8 @@ public record CommitInfoEntry(
         String clusterId,
         long readVersion,
         String isolationLevel,
-        Optional<Boolean> isBlindAppend)
+        Optional<Boolean> isBlindAppend,
+        Map<String, String> operationMetrics)
 {
     public CommitInfoEntry
     {
@@ -39,7 +40,7 @@ public record CommitInfoEntry(
 
     public CommitInfoEntry withVersion(long version)
     {
-        return new CommitInfoEntry(version, timestamp, userId, userName, operation, operationParameters, job, notebook, clusterId, readVersion, isolationLevel, isBlindAppend);
+        return new CommitInfoEntry(version, timestamp, userId, userName, operation, operationParameters, job, notebook, clusterId, readVersion, isolationLevel, isBlindAppend, operationMetrics);
     }
 
     public record Job(String jobId, String jobName, String runId, String jobOwnerId, String triggerType) {}
