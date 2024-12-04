@@ -22,12 +22,14 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.NodeInfo;
+import io.airlift.tracing.TracingModule;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -53,6 +55,9 @@ public class HttpServerEventListenerFactory
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new JaxrsModule(),
+                new TracingModule(
+                        "http-event-listener",
+                       firstNonNull(getClass().getPackage().getImplementationVersion(), "unknown")),
                 testing ? new TestingHttpServerModule() : new HttpServerModule(),
                 binder -> {
                     jsonCodecBinder(binder).bindJsonCodec(QueryCompletedEvent.class);
