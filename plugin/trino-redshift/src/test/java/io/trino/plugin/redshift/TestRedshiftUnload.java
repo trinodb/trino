@@ -42,8 +42,9 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.testing.AbstractTestQueries;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -78,16 +79,22 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
 public class TestRedshiftUnload
+        extends AbstractTestQueries
 {
-    private RedshiftConfig redshiftJdbcConfig;
+    private RedshiftConfig redshiftUnloadConfig;
     private RedshiftSplitManager redshiftSplitManager;
 
-    @BeforeAll
-    public void setup()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        redshiftJdbcConfig = new RedshiftConfig().setUnloadLocation(S3_UNLOAD_ROOT).setUnloadIamRole(IAM_ROLE);
+        redshiftUnloadConfig = new RedshiftConfig().setUnloadLocation(S3_UNLOAD_ROOT).setUnloadIamRole(IAM_ROLE);
         redshiftSplitManager = createSplitManager();
+        return RedshiftQueryRunner.builder()
+                // NOTE this can cause tests to time-out if larger tables like
+                //  lineitem and orders need to be re-created.
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     private RedshiftSplitManager createSplitManager()
@@ -96,7 +103,7 @@ public class TestRedshiftUnload
                 .build();
         RedshiftClient redshiftClient = new RedshiftClient(
                 new BaseJdbcConfig().setConnectionUrl(JDBC_URL),
-                redshiftJdbcConfig,
+                redshiftUnloadConfig,
                 driverConnectionFactory,
                 new JdbcStatisticsConfig(),
                 new DefaultQueryBuilder(NONE),
@@ -108,7 +115,7 @@ public class TestRedshiftUnload
                 new DefaultQueryBuilder(NONE),
                 NONE,
                 new JdbcSplitManager(redshiftClient),
-                redshiftJdbcConfig,
+                redshiftUnloadConfig,
                 new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
                         .setAwsAccessKey(AWS_ACCESS_KEY)
                         .setAwsSecretKey(AWS_SECRET_KEY)
@@ -178,7 +185,7 @@ public class TestRedshiftUnload
                 .setPropertyMetadata(
                         Stream.concat(
                                         new JdbcDynamicFilteringSessionProperties(new JdbcDynamicFilteringConfig()).getSessionProperties().stream(),
-                                        new RedshiftSessionProperties(redshiftJdbcConfig).getSessionProperties().stream())
+                                        new RedshiftSessionProperties(redshiftUnloadConfig).getSessionProperties().stream())
                                 .toList())
                 .build();
     }
