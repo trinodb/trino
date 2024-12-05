@@ -14,6 +14,7 @@
 package io.trino.plugin.openlineage;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import org.junit.jupiter.api.Test;
 
@@ -31,7 +32,7 @@ final class TestOpenLineagePlugin
                 ImmutableMap.<String, String>builder()
                         .put("openlineage-event-listener.trino.uri", "http://localhost:8080")
                         .put("bootstrap.quiet", "true")
-                        .buildOrThrow())
+                        .buildOrThrow(), new TestingEventListenerContext())
                 .shutdown();
     }
 }

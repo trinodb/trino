@@ -38,7 +38,7 @@ public class HttpEventListenerFactory
     }
 
     @Override
-    public EventListener create(Map<String, String> config)
+    public EventListener create(Map<String, String> config, EventListenerContext context)
     {
         Bootstrap app = new Bootstrap(
                 new JsonModule(),

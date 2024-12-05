@@ -20,6 +20,7 @@ import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.trino.operator.RetryPolicy;
+import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryContext;
 import io.trino.spi.eventlistener.QueryIOMetadata;
@@ -271,6 +272,7 @@ final class TestHttpServerEventListener
                 ImmutableMap.<String, String>builder()
                         .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
+                new TestingEventListenerContext(),
                 true);
     }
 }

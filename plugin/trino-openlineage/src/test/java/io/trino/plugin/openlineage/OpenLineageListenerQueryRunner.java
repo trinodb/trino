@@ -15,6 +15,7 @@ package io.trino.plugin.openlineage;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
+import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -62,7 +63,7 @@ public final class OpenLineageListenerQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            super.setEventListener(new OpenLineageListenerFactory().create(listenerProperties));
+            super.setEventListener(new OpenLineageListenerFactory().create(listenerProperties, new TestingEventListenerContext()));
             DistributedQueryRunner queryRunner = super.build();
             try {
                 // catalog used for output data

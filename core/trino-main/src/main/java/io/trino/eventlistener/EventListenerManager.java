@@ -19,6 +19,9 @@ import com.google.inject.Inject;
 import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
+import io.trino.client.NodeVersion;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
@@ -67,12 +70,14 @@ public class EventListenerManager
     private final TimeStat queryCompletedTime = new TimeStat(MILLISECONDS);
     private final TimeStat splitCompletedTime = new TimeStat(MILLISECONDS);
     private final SecretsResolver secretsResolver;
+    private final EventListenerContextInstance context;
 
     @Inject
-    public EventListenerManager(EventListenerConfig config, SecretsResolver secretsResolver)
+    public EventListenerManager(EventListenerConfig config, SecretsResolver secretsResolver, OpenTelemetry openTelemetry, Tracer tracer, NodeVersion version)
     {
         this.configFiles = ImmutableList.copyOf(config.getEventListenerFiles());
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
+        this.context = new EventListenerContextInstance(version.toString(), openTelemetry, tracer);
     }
 
     public void addEventListenerFactory(EventListenerFactory eventListenerFactory)
@@ -129,7 +134,7 @@ public class EventListenerManager
 
         EventListener eventListener;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            eventListener = factory.create(secretsResolver.getResolvedConfiguration(properties));
+            eventListener = factory.create(secretsResolver.getResolvedConfiguration(properties), context);
         }
 
         log.info("-- Loaded event listener %s --", configFile);
