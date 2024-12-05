@@ -17,6 +17,7 @@ package io.trino.plugin.eventlistener.kafka;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
@@ -44,6 +45,7 @@ public class KafkaEventListenerFactory
                 new MBeanServerModule(),
                 new KafkaProducerModule(),
                 binder -> {
+                    binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                     configBinder(binder).bindConfig(KafkaEventListenerConfig.class);
                     binder.bind(KafkaEventListener.class).in(Scopes.SINGLETON);
                     newExporter(binder).export(KafkaEventListener.class).withGeneratedName();

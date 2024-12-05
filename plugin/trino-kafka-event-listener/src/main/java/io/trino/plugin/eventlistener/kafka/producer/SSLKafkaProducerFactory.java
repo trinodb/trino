@@ -15,9 +15,12 @@
 package io.trino.plugin.eventlistener.kafka.producer;
 
 import com.google.inject.Inject;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.instrumentation.kafkaclients.v2_6.KafkaTelemetry;
 import io.trino.plugin.eventlistener.kafka.KafkaEventListenerConfig;
 import io.trino.plugin.kafka.security.KafkaSslConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 
 import java.util.Map;
 
@@ -38,18 +41,21 @@ public class SSLKafkaProducerFactory
 {
     private final KafkaEventListenerConfig config;
     private final KafkaSslConfig sslConfig;
+    private final KafkaTelemetry kafkaTelemetry;
 
     @Inject
-    public SSLKafkaProducerFactory(KafkaEventListenerConfig config, KafkaSslConfig sslConfig)
+    public SSLKafkaProducerFactory(KafkaEventListenerConfig config, KafkaSslConfig sslConfig, OpenTelemetry openTelemetry)
     {
         this.config = requireNonNull(config, "config is null");
         this.sslConfig = sslConfig;
+        this.kafkaTelemetry = KafkaTelemetry.builder(requireNonNull(openTelemetry, "openTelemetry is null"))
+                .build();
     }
 
     @Override
-    public KafkaProducer<String, String> producer(Map<String, String> overrides)
+    public Producer<String, String> producer(Map<String, String> overrides)
     {
-        return new KafkaProducer<>(createKafkaClientConfig(config, sslConfig, overrides));
+        return kafkaTelemetry.wrap(new KafkaProducer<>(createKafkaClientConfig(config, sslConfig, overrides)));
     }
 
     private Map<String, Object> createKafkaClientConfig(KafkaEventListenerConfig config, KafkaSslConfig sslConfig, Map<String, String> kafkaClientOverrides)
