@@ -344,6 +344,8 @@ jobs:
             !:trino-exasol,
             !:trino-faulttolerant-tests,
             !:trino-filesystem,
+            !:trino-filesystem-alluxio,
+            !:trino-filesystem-cache-alluxio,
             !:trino-filesystem-azure,
             !:trino-filesystem-gcs,
             !:trino-filesystem-manager,
@@ -435,6 +437,8 @@ jobs:
             - modules:
                 - lib/trino-filesystem
                 - lib/trino-filesystem-azure
+                - lib/trino-filesystem-alluxio
+                - lib/trino-filesystem-cache-alluxio
                 - lib/trino-filesystem-manager
                 - lib/trino-filesystem-s3
                 - lib/trino-hdfs
