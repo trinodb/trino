@@ -138,7 +138,7 @@ public class RangerSystemAccessControl
     public RangerSystemAccessControl(RangerConfig config)
             throws Exception
     {
-        checkArgument(!isNullOrEmpty(config.getServiceName()), "apache-ranger.service.name is not configured");
+        checkArgument(!isNullOrEmpty(config.getServiceName()), "ranger.service.name is not configured");
 
         Configuration hadoopConf = new Configuration();
 

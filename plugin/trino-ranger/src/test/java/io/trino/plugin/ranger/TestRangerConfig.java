@@ -44,9 +44,9 @@ final class TestRangerConfig
         Path hadoopConfigResourceFile = Files.createTempFile(null, null);
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("apache-ranger.service.name", "trino")
-                .put("apache-ranger.plugin.config.resource", pluginConfigResourceFile.toString())
-                .put("apache-ranger.hadoop.config.resource", hadoopConfigResourceFile.toString())
+                .put("ranger.service.name", "trino")
+                .put("ranger.plugin.config.resource", pluginConfigResourceFile.toString())
+                .put("ranger.hadoop.config.resource", hadoopConfigResourceFile.toString())
                 .buildOrThrow();
 
         RangerConfig expected = new RangerConfig()

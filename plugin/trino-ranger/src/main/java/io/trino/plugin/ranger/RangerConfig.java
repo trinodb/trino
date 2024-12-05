@@ -34,7 +34,7 @@ public class RangerConfig
         return serviceName;
     }
 
-    @Config("apache-ranger.service.name")
+    @Config("ranger.service.name")
     @ConfigDescription("Name of Ranger service containing policies to enforce")
     public RangerConfig setServiceName(String serviceName)
     {
@@ -47,7 +47,7 @@ public class RangerConfig
         return pluginConfigResource;
     }
 
-    @Config("apache-ranger.plugin.config.resource")
+    @Config("ranger.plugin.config.resource")
     @ConfigDescription("List of paths to Ranger plugin configuration files")
     public RangerConfig setPluginConfigResource(List<File> pluginConfigResource)
     {
@@ -60,7 +60,7 @@ public class RangerConfig
         return hadoopConfigResource;
     }
 
-    @Config("apache-ranger.hadoop.config.resource")
+    @Config("ranger.hadoop.config.resource")
     @ConfigDescription("List of paths to hadoop configuration files")
     @SuppressWarnings("unused")
     public RangerConfig setHadoopConfigResource(List<File> hadoopConfigResource)

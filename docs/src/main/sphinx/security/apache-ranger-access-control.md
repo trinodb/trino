@@ -15,7 +15,7 @@ To use only Ranger for access control, create the file `etc/access-control.prope
 with the following configuration, and configurations listed in the table below:
 
 ```properties
-access-control.name=apache-ranger
+access-control.name=ranger
 ```
 
 
@@ -39,11 +39,11 @@ The following table lists the configuration properties for the Ranger access con
 
 * - Name
   - Description
-* - `apache-ranger.service.name`
+* - `ranger.service.name`
   - Name of the service having policies to be enforced by the plugin
-* - `apache-ranger.plugin.config.resource`
+* - `ranger.plugin.config.resource`
   - List of Ranger plugin configuration files, comma separated. Relative paths will be resolved dynamically by searching in the classpath.
-* - `apache-ranger.hadoop.config.resource`
+* - `ranger.hadoop.config.resource`
   - List of Hadoop configuration files, comma separated. Relative paths will be resolved dynamically by searching in the classpath.
 :::
 
