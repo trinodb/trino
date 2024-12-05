@@ -73,7 +73,8 @@ public class TestDeltaLakeSystemTables
                     ('cluster_id', 'varchar', '', ''),
                     ('read_version', 'bigint', '', ''),
                     ('isolation_level', 'varchar', '', ''),
-                    ('is_blind_append', 'boolean', '', '')
+                    ('is_blind_append', 'boolean', '', ''),
+                    ('operation_metrics', 'map(varchar, varchar)', '', '')
                     """);
 
             // Test the contents of history system table
