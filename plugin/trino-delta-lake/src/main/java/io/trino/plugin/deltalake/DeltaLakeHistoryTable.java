@@ -68,7 +68,8 @@ public class DeltaLakeHistoryTable
                                 .add(new ColumnMetadata("read_version", BIGINT))
                                 .add(new ColumnMetadata("isolation_level", VARCHAR))
                                 .add(new ColumnMetadata("is_blind_append", BOOLEAN))
-                                //TODO add support for operationMetrics, userMetadata, engineInfo
+                                .add(new ColumnMetadata("operation_metrics", typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()))))
+                                //TODO add support for userMetadata, engineInfo
                                 .build()));
     }
 
@@ -101,7 +102,12 @@ public class DeltaLakeHistoryTable
             pagesBuilder.appendBigint(commitInfoEntry.readVersion());
             write(commitInfoEntry.isolationLevel(), pagesBuilder);
             commitInfoEntry.isBlindAppend().ifPresentOrElse(pagesBuilder::appendBoolean, pagesBuilder::appendNull);
-
+            if (commitInfoEntry.operationMetrics() == null) {
+                pagesBuilder.appendNull();
+            }
+            else {
+                pagesBuilder.appendVarcharVarcharMap(commitInfoEntry.operationMetrics());
+            }
             pagesBuilder.endRow();
         });
 
