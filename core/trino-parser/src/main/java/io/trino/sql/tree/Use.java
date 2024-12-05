@@ -30,7 +30,7 @@ public final class Use
 
     public Use(NodeLocation location, Optional<Identifier> catalog, Identifier schema)
     {
-        super(Optional.of(location));
+        super(location);
         requireNonNull(catalog, "catalog is null");
         requireNonNull(schema, "schema is null");
         this.catalog = catalog;

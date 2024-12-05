@@ -182,7 +182,7 @@ public class TestPagesSerde
     @Test
     public void testBigintSerializedSize()
     {
-        BlockBuilder builder = BIGINT.createBlockBuilder(null, 5);
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(5);
 
         // empty page
         Page page = new Page(builder.build());

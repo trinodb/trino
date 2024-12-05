@@ -81,6 +81,7 @@ public final class IcebergSessionProperties
     private static final String ORC_WRITER_MIN_STRIPE_SIZE = "orc_writer_min_stripe_size";
     private static final String ORC_WRITER_MAX_STRIPE_SIZE = "orc_writer_max_stripe_size";
     private static final String ORC_WRITER_MAX_STRIPE_ROWS = "orc_writer_max_stripe_rows";
+    private static final String ORC_WRITER_MAX_ROW_GROUP_ROWS = "orc_writer_max_row_group_rows";
     private static final String ORC_WRITER_MAX_DICTIONARY_MEMORY = "orc_writer_max_dictionary_memory";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_USE_BLOOM_FILTER = "parquet_use_bloom_filter";
@@ -216,6 +217,11 @@ public final class IcebergSessionProperties
                         ORC_WRITER_MAX_STRIPE_ROWS,
                         "ORC: Max stripe row count",
                         orcWriterConfig.getStripeMaxRowCount(),
+                        false))
+                .add(integerProperty(
+                        ORC_WRITER_MAX_ROW_GROUP_ROWS,
+                        "ORC: Max number of rows in a row group",
+                        orcWriterConfig.getRowGroupMaxRowCount(),
                         false))
                 .add(dataSizeProperty(
                         ORC_WRITER_MAX_DICTIONARY_MEMORY,
@@ -470,6 +476,11 @@ public final class IcebergSessionProperties
     public static int getOrcWriterMaxStripeRows(ConnectorSession session)
     {
         return session.getProperty(ORC_WRITER_MAX_STRIPE_ROWS, Integer.class);
+    }
+
+    public static int getOrcWriterMaxRowGroupRows(ConnectorSession session)
+    {
+        return session.getProperty(ORC_WRITER_MAX_ROW_GROUP_ROWS, Integer.class);
     }
 
     public static DataSize getOrcWriterMaxDictionaryMemory(ConnectorSession session)

@@ -49,7 +49,7 @@ public class TestBigintArrayType
     protected Object getGreaterValue(Object value)
     {
         Block block = (Block) value;
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
             BIGINT.appendTo(block, i, blockBuilder);
         }

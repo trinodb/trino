@@ -31,7 +31,7 @@ public class CreateRole
 
     public CreateRole(NodeLocation location, Identifier name, Optional<GrantorSpecification> grantor, Optional<Identifier> catalog)
     {
-        super(Optional.of(location));
+        super(location);
         this.name = requireNonNull(name, "name is null");
         this.grantor = requireNonNull(grantor, "grantor is null");
         this.catalog = requireNonNull(catalog, "catalog is null");

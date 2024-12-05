@@ -29,7 +29,7 @@ public final class PathElement
 
     public PathElement(NodeLocation location, Optional<Identifier> catalog, Identifier schema)
     {
-        super(Optional.of(location));
+        super(location);
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
     }

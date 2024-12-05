@@ -124,7 +124,6 @@ public class RcFilePageSourceFactory
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
         TrinoInputFile inputFile = trinoFileSystem.newInputFile(path);
         try {
-            length = min(inputFile.length() - start, length);
             if (!inputFile.exists()) {
                 throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "File does not exist");
             }
@@ -134,6 +133,7 @@ public class RcFilePageSourceFactory
                     inputFile = new MemoryInputFile(path, Slices.wrappedBuffer(data));
                 }
             }
+            length = min(inputFile.length() - start, length);
         }
         catch (TrinoException e) {
             throw e;

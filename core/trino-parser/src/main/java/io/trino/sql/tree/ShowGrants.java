@@ -28,7 +28,7 @@ public class ShowGrants
 
     public ShowGrants(NodeLocation location, Optional<GrantObject> grantObject)
     {
-        super(Optional.of(location));
+        super(location);
         this.grantObject = grantObject == null ? Optional.empty() : grantObject;
     }
 

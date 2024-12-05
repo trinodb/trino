@@ -31,6 +31,7 @@ import com.amazonaws.services.glue.model.GetDatabasesResult;
 import com.amazonaws.services.glue.model.GetTableRequest;
 import com.amazonaws.services.glue.model.GetTablesRequest;
 import com.amazonaws.services.glue.model.GetTablesResult;
+import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.cache.Cache;
@@ -125,6 +126,7 @@ import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getColumnParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getStorageDescriptor;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableTypeNullable;
@@ -639,13 +641,14 @@ public class TrinoGlueCatalog
         Map<String, String> tableParameters = getTableParameters(glueTable);
         String metadataLocation = tableParameters.get(METADATA_LOCATION_PROP);
         String metadataValidForMetadata = tableParameters.get(TRINO_TABLE_METADATA_INFO_VALID_FOR);
+        Optional<StorageDescriptor> storageDescriptor = getStorageDescriptor(glueTable);
         if (metadataLocation == null || !metadataLocation.equals(metadataValidForMetadata) ||
-                glueTable.getStorageDescriptor() == null ||
-                glueTable.getStorageDescriptor().getColumns() == null) {
+                storageDescriptor.isEmpty() ||
+                storageDescriptor.get().getColumns() == null) {
             return Optional.empty();
         }
 
-        List<Column> glueColumns = glueTable.getStorageDescriptor().getColumns();
+        List<Column> glueColumns = storageDescriptor.get().getColumns();
         if (glueColumns.stream().noneMatch(column -> getColumnParameters(column).containsKey(COLUMN_TRINO_TYPE_ID_PROPERTY))) {
             // No column has type parameter, maybe the parameters were erased
             return Optional.empty();
@@ -754,6 +757,7 @@ public class TrinoGlueCatalog
                 schemaTableName.getTableName(),
                 Optional.of(session.getUser()),
                 tableMetadata,
+                tableMetadata.location(),
                 tableMetadata.metadataFileLocation(),
                 ImmutableMap.of(),
                 cacheTableMetadata);
@@ -803,6 +807,7 @@ public class TrinoGlueCatalog
                     to.getTableName(),
                     Optional.ofNullable(table.getOwner()),
                     metadata,
+                    getStorageDescriptor(table).map(StorageDescriptor::getLocation).orElse(null),
                     metadataLocation,
                     tableParameters,
                     cacheTableMetadata);
@@ -1314,22 +1319,20 @@ public class TrinoGlueCatalog
                     materializedViewParameters));
         }
 
+        SchemaTableName storageTableName;
         if (storageTable != null) {
             String storageSchema = Optional.ofNullable(materializedViewParameters.get(STORAGE_SCHEMA))
                     .orElse(viewName.getSchemaName());
-            SchemaTableName storageTableName = new SchemaTableName(storageSchema, storageTable);
+            storageTableName = new SchemaTableName(storageSchema, storageTable);
 
-            String viewOriginalText = table.getViewOriginalText();
-            if (viewOriginalText == null) {
+            if (table.getViewOriginalText() == null) {
                 throw new TrinoException(ICEBERG_BAD_DATA, "Materialized view did not have original text " + viewName);
             }
-            return getMaterializedViewDefinition(
-                    Optional.ofNullable(table.getOwner()),
-                    viewOriginalText,
-                    storageTableName);
+        }
+        else {
+            storageTableName = new SchemaTableName(viewName.getSchemaName(), tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
         }
 
-        SchemaTableName storageTableName = new SchemaTableName(viewName.getSchemaName(), tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
         return getMaterializedViewDefinition(
                 Optional.ofNullable(table.getOwner()),
                 table.getViewOriginalText(),
@@ -1373,9 +1376,12 @@ public class TrinoGlueCatalog
             operations.initializeFromMetadata(metadata);
             return Optional.of(new BaseTable(operations, quotedTableName(storageTableName), TRINO_METRICS_REPORTER));
         }
-        catch (NotFoundException e) {
+        catch (UncheckedExecutionException e) {
             // Removed during reading
-            return Optional.empty();
+            if (e.getCause() instanceof NotFoundException) {
+                return Optional.empty();
+            }
+            throw e;
         }
     }
 

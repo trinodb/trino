@@ -27,13 +27,13 @@ import io.airlift.bytecode.OpCode;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.expression.BytecodeExpressions;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.SizeOf;
 import io.trino.Session;
+import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.operator.HashArraySizeSupplier;
@@ -274,7 +274,6 @@ public class JoinCompiler
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), channels, hashChannel);
 
         Variable thisVariable = constructorDefinition.getThis();
-        Variable blockIndex = constructorDefinition.getScope().declareVariable(int.class, "blockIndex");
 
         BytecodeBlock constructor = constructorDefinition
                 .getBody()
@@ -282,45 +281,20 @@ public class JoinCompiler
                 .append(thisVariable)
                 .invokeConstructor(Object.class);
 
-        constructor.comment("this.size = INSTANCE_SIZE")
-                .append(thisVariable.setField(sizeField, getStatic(instanceSizeField)));
+        constructor
+                .append(thisVariable)
+                .getVariable(channels)
+                .invokeStatic(JoinCompiler.class, "computeRetainedSize", long.class, List.class)
+                .append(getStatic(instanceSizeField))
+                .longAdd()
+                .putField(sizeField);
 
         constructor.comment("Set channel fields");
-
         for (int index = 0; index < channelFields.size(); index++) {
             BytecodeExpression channel = channels.invoke("get", Object.class, constantInt(index))
                     .cast(type(ObjectArrayList.class, Block.class));
 
             constructor.append(thisVariable.setField(channelFields.get(index), channel));
-
-            BytecodeBlock loopBody = new BytecodeBlock();
-
-            constructor.comment("for(blockIndex = 0; blockIndex < channel.size(); blockIndex++) { size += channel.get(i).getRetainedSizeInBytes() }")
-                    .append(new ForLoop()
-                            .initialize(blockIndex.set(constantInt(0)))
-                            .condition(new BytecodeBlock()
-                                    .append(blockIndex)
-                                    .append(channel.invoke("size", int.class))
-                                    .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
-                            .update(new BytecodeBlock().incrementVariable(blockIndex, (byte) 1))
-                            .body(loopBody));
-
-            loopBody.append(thisVariable)
-                    .append(thisVariable)
-                    .getField(sizeField)
-                    .append(
-                            channel.invoke("get", Object.class, blockIndex)
-                                    .cast(type(Block.class))
-                                    .invoke("getRetainedSizeInBytes", long.class))
-                    .longAdd()
-                    .putField(sizeField);
-
-            constructor.append(thisVariable)
-                    .append(thisVariable)
-                    .getField(sizeField)
-                    .append(invokeStatic(SizeOf.class, "sizeOf", long.class, channel.invoke("elements", Object[].class)))
-                    .longAdd()
-                    .putField(sizeField);
         }
 
         constructor.comment("Set join channel fields");
@@ -1038,6 +1012,22 @@ public class JoinCompiler
                 "equal",
                 equalOperator.type(),
                 leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+    }
+
+    @UsedByGeneratedCode
+    public static long computeRetainedSize(List<List<Block>> channels)
+    {
+        long result = 0;
+
+        for (List<Block> channel : channels) {
+            ObjectArrayList<Block> blocks = (ObjectArrayList<Block>) channel;
+            result += SizeOf.sizeOf(blocks.elements());
+            for (Block block : channel) {
+                result += block.getRetainedSizeInBytes();
+            }
+        }
+
+        return result;
     }
 
     public static class LookupSourceSupplierFactory

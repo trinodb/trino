@@ -21,10 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
-import io.trino.client.spooling.DataAttributes;
-import io.trino.client.spooling.EncodedQueryData;
-import io.trino.client.spooling.SegmentLoader;
-import io.trino.client.spooling.encoding.QueryDataDecoders;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
 import okhttp3.Headers;
@@ -57,7 +53,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getCausalChain;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -87,6 +82,7 @@ class StatementClientV1
     private final Call.Factory httpCallFactory;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
+    private final AtomicReference<ResultRows> currentRows = new AtomicReference<>();
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
     private final AtomicReference<String> setSchema = new AtomicReference<>();
     private final AtomicReference<List<String>> setPath = new AtomicReference<>();
@@ -108,9 +104,8 @@ class StatementClientV1
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
-    // Encoded data
-    private final SegmentLoader segmentLoader;
-    private final AtomicReference<QueryDataDecoder> decoder = new AtomicReference<>();
+    // Data accessor for raw and encoded data
+    private final ResultRowsDecoder resultRowsDecoder;
 
     public StatementClientV1(Call.Factory httpCallFactory, Call.Factory segmentHttpCallFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
     {
@@ -134,7 +129,8 @@ class StatementClientV1
                 .map(Enum::name)
                 .collect(toImmutableSet())));
         this.compressionDisabled = session.isCompressionDisabled();
-        this.segmentLoader = new SegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null"));
+
+        this.resultRowsDecoder = new ResultRowsDecoder(new OkHttpSegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null")));
 
         Request request = buildQueryRequest(session, query, session.getEncoding());
         // Pass empty as materializedJsonSizeLimit to always materialize the first response
@@ -258,23 +254,23 @@ class StatementClientV1
     }
 
     @Override
-    public QueryData currentData()
+    public ResultRows currentRows()
+    {
+        checkState(isRunning(), "current position is not valid (cursor past end)");
+        return currentRows.get();
+    }
+
+    @Override
+    public QueryData currentData() // Raw over the wire representation
     {
         checkState(isRunning(), "current position is not valid (cursor past end)");
         QueryResults queryResults = currentResults.get();
 
         if (queryResults == null || queryResults.getData() == null) {
-            return RawQueryData.of(null);
+            return null;
         }
 
-        if (queryResults.getData() instanceof RawQueryData) {
-            // We need to reinterpret JSON values to have correct types
-            return ((RawQueryData) queryResults.getData())
-                    .fixTypes(queryResults.getColumns());
-        }
-
-        EncodedQueryData queryData = (EncodedQueryData) queryResults.getData();
-        return queryData.toRawData(decoder.get(), segmentLoader);
+        return queryResults.getData();
     }
 
     @Override
@@ -282,6 +278,12 @@ class StatementClientV1
     {
         checkState(!isRunning(), "current position is still valid");
         return currentResults.get();
+    }
+
+    @Override
+    public Optional<String> getEncoding()
+    {
+        return resultRowsDecoder.getEncoding();
     }
 
     @Override
@@ -462,7 +464,6 @@ class StatementClientV1
         setCatalog.set(headers.get(TRINO_HEADERS.responseSetCatalog()));
         setSchema.set(headers.get(TRINO_HEADERS.responseSetSchema()));
         setPath.set(safeSplitToList(headers.get(TRINO_HEADERS.responseSetPath())));
-
         String setAuthorizationUser = headers.get(TRINO_HEADERS.responseSetAuthorizationUser());
         if (setAuthorizationUser != null) {
             this.setAuthorizationUser.set(setAuthorizationUser);
@@ -509,22 +510,8 @@ class StatementClientV1
             clearTransactionId.set(true);
         }
 
-        // Make sure that decoder and dataAttributes are set before currentResults
-        if (results.getData() instanceof EncodedQueryData) {
-            EncodedQueryData encodedData = (EncodedQueryData) results.getData();
-            DataAttributes queryAttributed = encodedData.getMetadata();
-            if (decoder.get() == null) {
-                verify(QueryDataDecoders.exists(encodedData.getEncoding()), "Received encoded data format but there is no decoder matching %s", encodedData.getEncoding());
-                QueryDataDecoder queryDataDecoder = QueryDataDecoders
-                        .get(encodedData.getEncoding())
-                        .create(results.getColumns(), queryAttributed);
-                decoder.set(queryDataDecoder);
-            }
-
-            verify(decoder.get().encoding().equals(encodedData.getEncoding()), "Decoder has wrong encoding id, expected %s, got %s", encodedData.getEncoding(), decoder.get().encoding());
-        }
-
         currentResults.set(results);
+        currentRows.set(resultRowsDecoder.toRows(results));
     }
 
     private List<String> safeSplitToList(String value)

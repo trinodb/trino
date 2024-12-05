@@ -63,8 +63,9 @@ import java.util.stream.LongStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
@@ -91,7 +92,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDynamicFilterService
 {
-    private static final Session session = TestingSession.testSessionBuilder().build();
+    private static final Session session = TestingSession.testSessionBuilder()
+            .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "false")
+            .build();
 
     @Test
     public void testDynamicFilterSummaryCompletion()
@@ -835,7 +838,8 @@ public class TestDynamicFilterService
     {
         DataSize sizeLimit = DataSize.of(1, KILOBYTE);
         DynamicFilterConfig config = new DynamicFilterConfig();
-        config.setSmallMaxSizePerFilter(sizeLimit);
+        config.setEnableLargeDynamicFilters(false)
+                .setSmallMaxSizePerFilter(sizeLimit);
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
@@ -1023,11 +1027,13 @@ public class TestDynamicFilterService
         Symbol buildSymbol = new Symbol(VARCHAR, "buildColumn");
 
         PlanNodeId tableScanNodeId = new PlanNodeId("plan_id");
-        TableScanNode tableScan = TableScanNode.newInstance(
+        TableScanNode tableScan = new TableScanNode(
                 tableScanNodeId,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingMetadata.TestingColumnHandle("column")),
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
         FilterNode filterNode = new FilterNode(

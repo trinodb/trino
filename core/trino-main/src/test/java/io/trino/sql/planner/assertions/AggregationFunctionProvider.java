@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 
@@ -25,7 +26,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.toSymbolReferences;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -63,19 +63,20 @@ final class AggregationFunctionProvider
     {
         List<Expression> symbolReferences = toSymbolReferences(args, aliases);
 
-        Optional<OrderingScheme> orderByClause = Optional.empty();
+        Optional<OrderingScheme> orderingScheme = Optional.empty();
         if (!orderBy.isEmpty()) {
             ImmutableList.Builder<Symbol> fields = ImmutableList.builder();
             ImmutableMap.Builder<Symbol, SortOrder> orders = ImmutableMap.builder();
 
             for (PlanMatchPattern.Ordering ordering : this.orderBy) {
-                Symbol symbol = new Symbol(UNKNOWN, aliases.get(ordering.getField()).name());
+                Reference reference = aliases.get(ordering.getField());
+                Symbol symbol = new Symbol(reference.type(), reference.name());
                 fields.add(symbol);
                 orders.put(symbol, ordering.getSortOrder());
             }
-            orderByClause = Optional.of(new OrderingScheme(fields.build(), orders.buildOrThrow()));
+            orderingScheme = Optional.of(new OrderingScheme(fields.build(), orders.buildOrThrow()));
         }
 
-        return new AggregationFunction(name, filter.map(symbol -> symbol.toSymbol(aliases)), orderByClause, distinct, symbolReferences);
+        return new AggregationFunction(name, filter.map(symbol -> symbol.toSymbol(aliases)), orderingScheme, distinct, symbolReferences);
     }
 }

@@ -14,14 +14,16 @@
 package io.trino.client.spooling.encoding;
 
 import io.trino.client.Column;
+import io.trino.client.JsonDecodingUtils.TypeDecoder;
+import io.trino.client.JsonResultRows;
 import io.trino.client.QueryDataDecoder;
+import io.trino.client.ResultRows;
 import io.trino.client.spooling.DataAttributes;
-import io.trino.client.spooling.encoding.JsonDecodingUtils.TypeDecoder;
 
 import java.io.InputStream;
 import java.util.List;
 
-import static io.trino.client.spooling.encoding.JsonDecodingUtils.createTypeDecoders;
+import static io.trino.client.JsonDecodingUtils.createTypeDecoders;
 import static java.util.Objects.requireNonNull;
 
 public class JsonQueryDataDecoder
@@ -35,9 +37,9 @@ public class JsonQueryDataDecoder
     }
 
     @Override
-    public QueryDataAccess decode(InputStream stream, DataAttributes attributes)
+    public ResultRows decode(InputStream stream, DataAttributes queryAttributes)
     {
-        return new JsonQueryDataAccess(decoders, stream);
+        return JsonResultRows.forInputStream(stream, decoders);
     }
 
     @Override

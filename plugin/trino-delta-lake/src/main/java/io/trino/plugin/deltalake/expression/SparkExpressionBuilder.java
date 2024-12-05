@@ -121,20 +121,13 @@ public class SparkExpressionBuilder
     private static ComparisonExpression.Operator getComparisonOperator(Token symbol)
     {
         return switch (symbol.getType()) {
-            case SparkExpressionBaseLexer.EQ:
-                yield ComparisonExpression.Operator.EQUAL;
-            case SparkExpressionBaseLexer.NEQ:
-                yield ComparisonExpression.Operator.NOT_EQUAL;
-            case SparkExpressionBaseLexer.LT:
-                yield ComparisonExpression.Operator.LESS_THAN;
-            case SparkExpressionBaseLexer.LTE:
-                yield ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
-            case SparkExpressionBaseLexer.GT:
-                yield ComparisonExpression.Operator.GREATER_THAN;
-            case SparkExpressionBaseLexer.GTE:
-                yield ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-            default:
-                throw new IllegalArgumentException("Unsupported operator: " + symbol.getText());
+            case SparkExpressionBaseLexer.EQ -> ComparisonExpression.Operator.EQUAL;
+            case SparkExpressionBaseLexer.NEQ -> ComparisonExpression.Operator.NOT_EQUAL;
+            case SparkExpressionBaseLexer.LT -> ComparisonExpression.Operator.LESS_THAN;
+            case SparkExpressionBaseLexer.LTE -> ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+            case SparkExpressionBaseLexer.GT -> ComparisonExpression.Operator.GREATER_THAN;
+            case SparkExpressionBaseLexer.GTE -> ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+            default -> throw new IllegalArgumentException("Unsupported operator: " + symbol.getText());
         };
     }
 

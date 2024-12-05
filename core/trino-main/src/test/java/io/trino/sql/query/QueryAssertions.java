@@ -76,7 +76,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
@@ -223,7 +222,7 @@ public class QueryAssertions
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
 
-        assertEqualsIgnoreOrder(actualRows, expectedRows, "For query: \n " + actual);
+        assertThat(actualRows).as("For query: \n " + actual).containsExactlyInAnyOrderElementsOf(expectedRows);
     }
 
     public void assertQueryReturnsEmptyResult(@Language("SQL") String actual)
@@ -236,7 +235,7 @@ public class QueryAssertions
             fail("Execution of 'actual' query failed: " + actual, ex);
         }
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
-        assertThat(actualRows.size()).isEqualTo(0);
+        assertThat(actualRows).isEmpty();
     }
 
     public MaterializedResult execute(@Language("SQL") String query)
@@ -836,25 +835,25 @@ public class QueryAssertions
             //  1. Avoid constant folding -> exercises the compiler and evaluation engine
             //  2. Force constant folding -> exercises the interpreter
 
-            Result full = run("""
+            Result full = run(
+                    """
                     SELECT %s
                     FROM (
                         VALUES ROW(%s)
                     ) t(%s)
                     WHERE rand() >= 0
-                    """
-                    .formatted(
+                    """.formatted(
                             expression,
                             Joiner.on(",").join(values),
                             Joiner.on(",").join(columns)));
 
-            Result withConstantFolding = run("""
+            Result withConstantFolding = run(
+                    """
                     SELECT %s
                     FROM (
                         VALUES ROW(%s)
                     ) t(%s)
-                    """
-                    .formatted(
+                    """.formatted(
                             expression,
                             Joiner.on(",").join(values),
                             Joiner.on(",").join(columns)));

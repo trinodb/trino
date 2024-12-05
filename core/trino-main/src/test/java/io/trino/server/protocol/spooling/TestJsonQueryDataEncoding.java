@@ -13,7 +13,6 @@
  */
 package io.trino.server.protocol.spooling;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import io.trino.client.Column;
 import io.trino.client.QueryDataDecoder;
@@ -79,7 +78,7 @@ public class TestJsonQueryDataEncoding
 
     protected QueryDataEncoder createEncoder(List<OutputColumn> columns)
     {
-        return new JsonQueryDataEncoder.Factory(new ObjectMapper()).create(TEST_SESSION, columns);
+        return new JsonQueryDataEncoder.Factory().create(TEST_SESSION, columns);
     }
 
     @Test
@@ -492,8 +491,7 @@ public class TestJsonQueryDataEncoding
             throws IOException
     {
         QueryDataDecoder decoder = newDecoder(columns);
-        return ImmutableList.copyOf(decoder.decode(new ByteArrayInputStream(json), null)
-                .toIterable());
+        return ImmutableList.copyOf(decoder.decode(new ByteArrayInputStream(json), null));
     }
 
     record TypedColumn(String name, Type type)

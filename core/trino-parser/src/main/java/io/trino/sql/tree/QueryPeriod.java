@@ -41,7 +41,7 @@ public class QueryPeriod
 
     private QueryPeriod(NodeLocation location, RangeType rangeType, Optional<Expression> start, Optional<Expression> end)
     {
-        super(Optional.of(location));
+        super(location);
         this.rangeType = requireNonNull(rangeType, "rangeType is null");
         this.start = start;
         this.end = end;

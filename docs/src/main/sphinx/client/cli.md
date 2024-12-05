@@ -131,8 +131,8 @@ mode:
 * - Option
   - Description
 * - `--catalog`
-  - Sets the default catalog. You can change the default catalog and schema with
-    [](/sql/use).
+  - Sets the default catalog. Optionally also use `--schema` to set the default
+    schema. You can change the default catalog and default schema with[](/sql/use).
 * - `--client-info`
   - Adds arbitrary text as extra information about the client.
 * - `--client-request-timeout`
@@ -156,6 +156,8 @@ mode:
 * - `--editing-mode`
   - Sets key bindings in the CLI to be compatible with VI or
     EMACS editors. Defaults to `EMACS`.
+* - `--extra-credential`
+  - Extra credentials (property can be used multiple times; format is key=value)
 * - `--http-proxy`
   - Configures the URL of the HTTP proxy to connect to Trino.
 * - `--history-file`
@@ -182,8 +184,8 @@ mode:
     the password value to avoid the prompt. For more information, see
     [](cli-username-password-auth).
 * - `--schema`
-  - Sets the default schema. You can change the default catalog and schema
-    with [](/sql/use).
+  - Sets the default schema. Must be combined with `--catalog`. You can change
+    the default catalog and default schema with [](/sql/use).
 * - `--server`
   - The HTTP/HTTPS address and port of the Trino coordinator. The port must be
     set to the port the Trino coordinator is listening for connections on. Port

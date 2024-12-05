@@ -762,7 +762,11 @@ public class ThriftHiveMetastoreClient
     public void alterFunction(Function function)
             throws TException
     {
-        client.alterFunction(prependCatalogToDbName(catalogName, function.getDbName()), function.getFunctionName(), function);
+        // Hive 3 does not actually replace the content of the function
+        // https://github.com/apache/hive/blob/rel/release-3.1.2/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/ObjectStore.java#L9310
+        // Fall back to use drop & create for doing the replace function operation
+        dropFunction(function.getDbName(), function.getFunctionName());
+        createFunction(function);
     }
 
     @Override

@@ -34,12 +34,12 @@ class TestFileSystemSpooledSegmentHandle
             .truncatedTo(MILLIS); // ULID retains millisecond precision
 
     @Test
-    public void testStorageObjectNameStability()
+    public void testStorageIdentifierStability()
     {
         Instant expireAt = Instant.ofEpochMilli(90000);
         FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(new NotARandomAtAll(), context, expireAt);
-        assertThat(handle.storageObjectName())
-                .isEqualTo("0000002QWG0G2081040G208104-query_id");
+        assertThat(handle.identifier())
+                .isEqualTo("0000002QWG0G2081040G208104");
     }
 
     @Test
@@ -49,16 +49,16 @@ class TestFileSystemSpooledSegmentHandle
         FileSystemSpooledSegmentHandle handle2 = FileSystemSpooledSegmentHandle.random(random, context, now.plusMillis(3));
         FileSystemSpooledSegmentHandle handle3 = FileSystemSpooledSegmentHandle.random(random, context, now.plusMillis(2));
 
-        assertThat(handle2.storageObjectName())
-                .isGreaterThan(handle1.storageObjectName());
+        assertThat(handle2.identifier())
+                .isGreaterThan(handle1.identifier());
 
-        assertThat(handle3.storageObjectName())
-                .isLessThan(handle2.storageObjectName())
-                .isGreaterThan(handle1.storageObjectName());
+        assertThat(handle3.identifier())
+                .isLessThan(handle2.identifier())
+                .isGreaterThan(handle1.identifier());
 
-        assertThat(handle1.storageObjectName())
-                .isLessThan(handle2.storageObjectName())
-                .isLessThan(handle3.storageObjectName());
+        assertThat(handle1.identifier())
+                .isLessThan(handle2.identifier())
+                .isLessThan(handle3.identifier());
     }
 
     private static class NotARandomAtAll

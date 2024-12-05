@@ -20,6 +20,6 @@ public class RedshiftPlugin
 {
     public RedshiftPlugin()
     {
-        super("redshift", new RedshiftClientModule());
+        super("redshift", RedshiftClientModule::new);
     }
 }

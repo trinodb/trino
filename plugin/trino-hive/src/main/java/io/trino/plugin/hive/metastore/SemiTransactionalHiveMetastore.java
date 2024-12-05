@@ -238,9 +238,11 @@ public class SemiTransactionalHiveMetastore
         this.tableInvalidationCallback = requireNonNull(tableInvalidationCallback, "tableInvalidationCallback is null");
     }
 
-    public synchronized List<String> getAllDatabases()
+    public List<String> getAllDatabases()
     {
-        checkReadable();
+        synchronized (this) {
+            checkReadable();
+        }
         return delegate.getAllDatabases();
     }
 
@@ -259,11 +261,13 @@ public class SemiTransactionalHiveMetastore
         return delegate.getDatabase(databaseName);
     }
 
-    public synchronized List<TableInfo> getTables(String databaseName)
+    public List<TableInfo> getTables(String databaseName)
     {
-        checkReadable();
-        if (!tableActions.isEmpty()) {
-            throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
+        synchronized (this) {
+            checkReadable();
+            if (!tableActions.isEmpty()) {
+                throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
+            }
         }
         return delegate.getTables(databaseName);
     }

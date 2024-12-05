@@ -133,8 +133,8 @@ public class TestHiveS3AndGlueMetastoreTest
         String partitionQueryPart = (partitioned ? ",partitioned_by = ARRAY['col_int']" : "");
 
         String create = "CREATE TABLE " + tableName + "(col_str, col_int)" +
-                        "WITH (external_location = '" + location + "'" + partitionQueryPart + ") " +
-                        "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)";
+                "WITH (external_location = '" + location + "'" + partitionQueryPart + ") " +
+                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)";
         if (locationPattern == DOUBLE_SLASH || locationPattern == TRIPLE_SLASH || locationPattern == TWO_TRAILING_SLASHES) {
             assertQueryFails(create, "\\QUnsupported location that cannot be internally represented: " + location);
             return;
@@ -254,8 +254,8 @@ public class TestHiveS3AndGlueMetastoreTest
         String partitionQueryPart = (partitioned ? ",partitioned_by = ARRAY['col_int']" : "");
 
         String create = "CREATE TABLE " + tableName + "(col_str, col_int)" +
-                        "WITH (external_location = '" + location + "'" + partitionQueryPart + ") " +
-                        "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)";
+                "WITH (external_location = '" + location + "'" + partitionQueryPart + ") " +
+                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)";
         if (locationPattern == DOUBLE_SLASH || locationPattern == TRIPLE_SLASH || locationPattern == TWO_TRAILING_SLASHES) {
             assertQueryFails(create, "\\QUnsupported location that cannot be internally represented: " + location);
             return;
@@ -267,36 +267,44 @@ public class TestHiveS3AndGlueMetastoreTest
 
             // Check statistics collection on write
             if (partitioned) {
-                assertQuery("SHOW STATS FOR " + tableName, """
+                assertQuery("SHOW STATS FOR " + tableName,
+                        """
                         VALUES
                         ('col_str', 16.0, 1.0, 0.0, null, null, null),
                         ('col_int', null, 4.0, 0.0, null, 1, 4),
-                        (null, null, null, null, 4.0, null, null)""");
+                        (null, null, null, null, 4.0, null, null)\
+                        """);
             }
             else {
-                assertQuery("SHOW STATS FOR " + tableName, """
+                assertQuery("SHOW STATS FOR " + tableName,
+                        """
                         VALUES
                         ('col_str', 16.0, 3.0, 0.0, null, null, null),
                         ('col_int', null, 3.0, 0.0, null, 1, 4),
-                        (null, null, null, null, 4.0, null, null)""");
+                        (null, null, null, null, 4.0, null, null)\
+                        """);
             }
 
             // Check statistics collection explicitly
             assertUpdate("ANALYZE " + tableName, 4);
 
             if (partitioned) {
-                assertQuery("SHOW STATS FOR " + tableName, """
+                assertQuery("SHOW STATS FOR " + tableName,
+                        """
                         VALUES
                         ('col_str', 16.0, 1.0, 0.0, null, null, null),
                         ('col_int', null, 4.0, 0.0, null, 1, 4),
-                        (null, null, null, null, 4.0, null, null)""");
+                        (null, null, null, null, 4.0, null, null)\
+                        """);
             }
             else {
-                assertQuery("SHOW STATS FOR " + tableName, """
+                assertQuery("SHOW STATS FOR " + tableName,
+                        """
                         VALUES
                         ('col_str', 16.0, 4.0, 0.0, null, null, null),
                         ('col_int', null, 4.0, 0.0, null, 1, 4),
-                        (null, null, null, null, 4.0, null, null)""");
+                        (null, null, null, null, 4.0, null, null)\
+                        """);
             }
         }
     }
@@ -320,22 +328,24 @@ public class TestHiveS3AndGlueMetastoreTest
         String tableName = "test_partition_projection_" + randomNameSuffix();
         String tableLocation = locationPattern.locationForTable(bucketName, schemaName, tableName);
 
-        computeActual(format("""
-                        CREATE TABLE %s (
-                        name varchar(25),
-                        short_name varchar WITH (
-                            partition_projection_type='date',
-                            partition_projection_format='yyyy-MM-dd HH',
-                            partition_projection_range=ARRAY['2001-01-22 00', '2001-01-22 06'],
-                            partition_projection_interval=1,
-                            partition_projection_interval_unit='HOURS'
-                          )
-                        )
-                        WITH (
-                          partitioned_by=ARRAY['short_name'],
-                          partition_projection_enabled=true,
-                          external_location = '%s'
-                        )""",
+        computeActual(format(
+                """
+                CREATE TABLE %s (
+                name varchar(25),
+                short_name varchar WITH (
+                    partition_projection_type='date',
+                    partition_projection_format='yyyy-MM-dd HH',
+                    partition_projection_range=ARRAY['2001-01-22 00', '2001-01-22 06'],
+                    partition_projection_interval=1,
+                    partition_projection_interval_unit='HOURS'
+                  )
+                )
+                WITH (
+                  partitioned_by=ARRAY['short_name'],
+                  partition_projection_enabled=true,
+                  external_location = '%s'
+                )
+                """,
                 tableName,
                 tableLocation));
 

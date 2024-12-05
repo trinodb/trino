@@ -51,6 +51,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -171,12 +172,15 @@ public class BigQueryClient
         }
 
         // Get all information from BigQuery and update cache from all fetched information
+        Map<DatasetId, RemoteDatabaseObject> mapping = new HashMap<>(remoteDatasetCaseInsensitiveCache.getAllPresent(remoteDatasetCaseInsensitiveCache.asMap().keySet()));
         for (DatasetId datasetId : datasetIds.get()) {
             DatasetId newCacheKey = datasetIdToLowerCase(datasetId);
             RemoteDatabaseObject newValue = RemoteDatabaseObject.of(datasetId.getDataset());
+            mapping.merge(newCacheKey, newValue, (currentValue, collision) -> currentValue.registerCollision(collision.getOnlyRemoteName()));
             updateCache(remoteDatasetCaseInsensitiveCache, newCacheKey, newValue);
         }
-        return Optional.ofNullable(remoteDatasetCaseInsensitiveCache.getIfPresent(cacheKey));
+
+        return Optional.ofNullable(mapping.get(cacheKey));
     }
 
     public Optional<RemoteDatabaseObject> toRemoteTable(ConnectorSession session, String projectId, String remoteDatasetName, String tableName)
@@ -207,13 +211,15 @@ public class BigQueryClient
         }
 
         // Get all information from BigQuery and update cache from all fetched information
+        Map<TableId, RemoteDatabaseObject> mapping = new HashMap<>(remoteTableCaseInsensitiveCache.getAllPresent(remoteTableCaseInsensitiveCache.asMap().keySet()));
         for (TableId table : tableIds.get()) {
             TableId newCacheKey = tableIdToLowerCase(table);
             RemoteDatabaseObject newValue = RemoteDatabaseObject.of(table.getTable());
+            mapping.merge(newCacheKey, newValue, (currentValue, collision) -> currentValue.registerCollision(collision.getOnlyRemoteName()));
             updateCache(remoteTableCaseInsensitiveCache, newCacheKey, newValue);
         }
 
-        return Optional.ofNullable(remoteTableCaseInsensitiveCache.getIfPresent(cacheKey));
+        return Optional.ofNullable(mapping.get(cacheKey));
     }
 
     private static <T> void updateCache(Cache<T, RemoteDatabaseObject> caseInsensitiveCache, T newCacheKey, RemoteDatabaseObject newValue)
@@ -340,14 +346,16 @@ public class BigQueryClient
     public Iterable<TableId> findTableIdsIgnoreCase(ConnectorSession session, DatasetId remoteDatasetId, String tableName)
     {
         try {
-            TableResult tableNamesMatchingResults = executeQuery(session, """
+            TableResult tableNamesMatchingResults = executeQuery(session,
+                    """
                     SELECT table_name
                     FROM %s.%s.INFORMATION_SCHEMA.TABLES
-                    WHERE LOWER(table_name) = '%s' AND table_type IN (%s)""".formatted(
-                    quote(remoteDatasetId.getProject()),
-                    quote(remoteDatasetId.getDataset()),
-                    tableName.toLowerCase(ENGLISH),
-                    TABLE_TYPES.values().stream().map(value -> "'" + value + "'").collect(Collectors.joining(","))));
+                    WHERE LOWER(table_name) = '%s' AND table_type IN (%s)\
+                    """.formatted(
+                            quote(remoteDatasetId.getProject()),
+                            quote(remoteDatasetId.getDataset()),
+                            tableName.toLowerCase(ENGLISH),
+                            TABLE_TYPES.values().stream().map(value -> "'" + value + "'").collect(Collectors.joining(","))));
 
             return tableNamesMatchingResults.streamAll()
                     .map(row -> TableId.of(remoteDatasetId.getProject(), remoteDatasetId.getDataset(), row.getFirst().getStringValue()))
@@ -411,10 +419,16 @@ public class BigQueryClient
 
     public TableResult executeQuery(ConnectorSession session, String sql)
     {
+        return executeQuery(session, sql, null);
+    }
+
+    public TableResult executeQuery(ConnectorSession session, String sql, Long maxResults)
+    {
         log.debug("Execute query: %s", sql);
         QueryJobConfiguration job = QueryJobConfiguration.newBuilder(sql)
                 .setUseQueryCache(isQueryResultsCacheEnabled(session))
                 .setCreateDisposition(createDisposition(session))
+                .setMaxResults(maxResults)
                 .build();
         return execute(session, job);
     }
@@ -519,7 +533,8 @@ public class BigQueryClient
 
     public Stream<RelationCommentMetadata> listRelationCommentMetadata(ConnectorSession session, BigQueryClient client, String schemaName)
     {
-        TableResult result = client.executeQuery(session, """
+        TableResult result = client.executeQuery(session,
+                """
                 SELECT tbls.table_name, options.option_value
                 FROM %1$s.`INFORMATION_SCHEMA`.`TABLES` tbls
                 LEFT JOIN %1$s.`INFORMATION_SCHEMA`.`TABLE_OPTIONS` options
@@ -550,10 +565,10 @@ public class BigQueryClient
 
         TableInfo tableInfo = getTable(tableHandle.asPlainTable().getRemoteTableName().toTableId())
                 .orElseThrow(() -> new TableNotFoundException(tableHandle.asPlainTable().getSchemaTableName()));
-        return buildColumnHandles(tableInfo);
+        return buildColumnHandles(tableInfo, tableHandle.relationHandle().isUseStorageApi());
     }
 
-    public List<BigQueryColumnHandle> buildColumnHandles(TableInfo tableInfo)
+    public List<BigQueryColumnHandle> buildColumnHandles(TableInfo tableInfo, boolean useStorageApi)
     {
         Schema schema = tableInfo.getDefinition().getSchema();
         if (schema == null) {
@@ -562,8 +577,8 @@ public class BigQueryClient
         }
         return schema.getFields()
                 .stream()
-                .filter(typeManager::isSupportedType)
-                .map(typeManager::toColumnHandle)
+                .filter(field -> typeManager.isSupportedType(field, useStorageApi))
+                .map(field -> typeManager.toColumnHandle(field, useStorageApi))
                 .collect(toImmutableList());
     }
 

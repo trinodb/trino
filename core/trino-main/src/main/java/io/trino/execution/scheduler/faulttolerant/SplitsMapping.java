@@ -13,6 +13,8 @@
  */
 package io.trino.execution.scheduler.faulttolerant;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -55,6 +57,19 @@ public final class SplitsMapping
         // Builder implementations ensure that external map as well as Maps/Lists used in values
         // are immutable.
         this.splits = splits;
+    }
+
+    @JsonCreator
+    public static SplitsMapping fromSplitsMap(@JsonProperty("splits") Map<PlanNodeId, Map<Integer, List<Split>>> splits)
+    {
+        // ensure we use Immutable* collections everywhere
+        return new SplitsMapping(splits.entrySet().stream()
+                .collect(toImmutableMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().entrySet().stream()
+                                .collect(toImmutableMap(
+                                        Map.Entry::getKey,
+                                        innerEntry -> ImmutableList.copyOf(innerEntry.getValue()))))));
     }
 
     public Set<PlanNodeId> getPlanNodeIds()
@@ -108,6 +123,12 @@ public final class SplitsMapping
         return result.build();
     }
 
+    @JsonProperty("splits")
+    public Map<PlanNodeId, Map<Integer, List<Split>>> getSplitsMap()
+    {
+        return splits;
+    }
+
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
@@ -116,7 +137,7 @@ public final class SplitsMapping
                         PlanNodeId::getRetainedSizeInBytes,
                         planNodeSplits -> estimatedSizeOf(
                                 planNodeSplits,
-                                partitionId -> INTEGER_INSTANCE_SIZE,
+                                _ -> INTEGER_INSTANCE_SIZE,
                                 splitList -> estimatedSizeOf(splitList, Split::getRetainedSizeInBytes)));
     }
 

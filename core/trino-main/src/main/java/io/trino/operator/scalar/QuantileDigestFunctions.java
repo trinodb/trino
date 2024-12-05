@@ -106,7 +106,7 @@ public final class QuantileDigestFunctions
     public static Block valuesAtQuantilesDouble(@SqlType("qdigest(double)") Slice input, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         QuantileDigest digest = new QuantileDigest(input);
-        BlockBuilder output = DOUBLE.createBlockBuilder(null, percentilesArrayBlock.getPositionCount());
+        BlockBuilder output = DOUBLE.createFixedSizeBlockBuilder(percentilesArrayBlock.getPositionCount());
         for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
             DOUBLE.writeDouble(output, sortableLongToDouble(digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i))));
         }
@@ -119,7 +119,7 @@ public final class QuantileDigestFunctions
     public static Block valuesAtQuantilesReal(@SqlType("qdigest(real)") Slice input, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         QuantileDigest digest = new QuantileDigest(input);
-        BlockBuilder output = REAL.createBlockBuilder(null, percentilesArrayBlock.getPositionCount());
+        BlockBuilder output = REAL.createFixedSizeBlockBuilder(percentilesArrayBlock.getPositionCount());
         for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
             REAL.writeLong(output, floatToRawIntBits(sortableIntToFloat((int) digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i)))));
         }
@@ -132,7 +132,7 @@ public final class QuantileDigestFunctions
     public static Block valuesAtQuantilesBigint(@SqlType("qdigest(bigint)") Slice input, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         QuantileDigest digest = new QuantileDigest(input);
-        BlockBuilder output = BIGINT.createBlockBuilder(null, percentilesArrayBlock.getPositionCount());
+        BlockBuilder output = BIGINT.createFixedSizeBlockBuilder(percentilesArrayBlock.getPositionCount());
         for (int i = 0; i < percentilesArrayBlock.getPositionCount(); i++) {
             BIGINT.writeLong(output, digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i)));
         }

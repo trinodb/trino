@@ -96,7 +96,7 @@ final class TestKafkaEventListenerConfig
         KafkaEventListenerConfig conf = new KafkaEventListenerConfig();
         // check default
         Set<String> excludedFields = conf.getExcludedFields();
-        assertThat(excludedFields.size()).isEqualTo(0);
+        assertThat(excludedFields).isEmpty();
 
         // check setting multiple
         conf.setExcludedFields(Set.of("payload", "plan", "user", "groups"));

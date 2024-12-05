@@ -127,7 +127,8 @@ public class TestHiveCustomCatalogConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE TABLE hive.tpch.region (
                            regionkey bigint,
                            name varchar(25),
@@ -135,7 +136,8 @@ public class TestHiveCustomCatalogConnectorSmokeTest
                         )
                         WITH (
                            format = 'ORC'
-                        )""");
+                        )\
+                        """);
     }
 
     @Test

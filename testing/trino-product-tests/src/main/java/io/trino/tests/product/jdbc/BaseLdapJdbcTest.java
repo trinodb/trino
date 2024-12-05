@@ -41,23 +41,23 @@ public abstract class BaseLdapJdbcTest
     protected static final String NATION_SELECT_ALL_QUERY = "SELECT * FROM tpch.tiny.nation";
 
     @Inject
-    @Named("databases.presto.cli_ldap_truststore_path")
+    @Named("databases.trino.cli_ldap_truststore_path")
     protected String ldapTruststorePath;
 
     @Inject
-    @Named("databases.presto.cli_ldap_truststore_password")
+    @Named("databases.trino.cli_ldap_truststore_password")
     protected String ldapTruststorePassword;
 
     @Inject
-    @Named("databases.presto.cli_ldap_user_name")
+    @Named("databases.trino.cli_ldap_user_name")
     protected String ldapUserName;
 
     @Inject
-    @Named("databases.presto.cli_ldap_user_password")
+    @Named("databases.trino.cli_ldap_user_password")
     protected String ldapUserPassword;
 
     @Inject
-    @Named("databases.presto.cli_ldap_server_address")
+    @Named("databases.trino.cli_ldap_server_address")
     private String prestoServer;
 
     @Override

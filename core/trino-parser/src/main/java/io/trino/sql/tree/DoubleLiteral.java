@@ -22,6 +22,7 @@ public class DoubleLiteral
 {
     private final double value;
 
+    @Deprecated
     public DoubleLiteral(String value)
     {
         this(Optional.empty(), value);

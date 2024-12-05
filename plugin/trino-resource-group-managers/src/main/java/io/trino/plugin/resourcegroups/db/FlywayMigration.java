@@ -23,9 +23,7 @@ public class FlywayMigration
 {
     private static final Logger log = Logger.get(FlywayMigration.class);
 
-    private FlywayMigration()
-    {
-    }
+    private FlywayMigration() {}
 
     private static String getLocation(String configDbUrl)
     {

@@ -27,9 +27,7 @@ import static java.util.stream.Collectors.joining;
 
 public final class DynamicTablePqlExtractor
 {
-    private DynamicTablePqlExtractor()
-    {
-    }
+    private DynamicTablePqlExtractor() {}
 
     public static String extractPql(DynamicTable table, TupleDomain<ColumnHandle> tupleDomain)
     {

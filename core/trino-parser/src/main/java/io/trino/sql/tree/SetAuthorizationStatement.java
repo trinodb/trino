@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -30,7 +29,7 @@ public abstract class SetAuthorizationStatement
 
     public SetAuthorizationStatement(NodeLocation location, QualifiedName source, PrincipalSpecification principal)
     {
-        super(Optional.of(location));
+        super(location);
         this.source = requireNonNull(source, "source is null");
         this.principal = requireNonNull(principal, "principal is null");
     }

@@ -24,6 +24,7 @@ import com.google.common.collect.Streams;
 import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.TDigest;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
@@ -31,15 +32,16 @@ import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsAndCosts;
+import io.trino.execution.DistributionSnapshot;
 import io.trino.execution.QueryStats;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StageStats;
 import io.trino.execution.TableInfo;
+import io.trino.execution.TaskInfo;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
-import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -481,9 +483,11 @@ public class PlanPrinter
         if (stageInfo.isPresent()) {
             StageStats stageStats = stageInfo.get().getStageStats();
 
-            double avgPositionsPerTask = stageInfo.get().getTasks().stream().mapToLong(task -> task.stats().getProcessedInputPositions()).average().orElse(Double.NaN);
-            double squaredDifferences = stageInfo.get().getTasks().stream().mapToDouble(task -> Math.pow(task.stats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
-            double sdAmongTasks = Math.sqrt(squaredDifferences / stageInfo.get().getTasks().size());
+            List<TaskInfo> tasks = stageInfo.get().getTasks();
+            double avgPositionsPerTask = tasks.stream().mapToLong(task -> task.stats().getProcessedInputPositions()).average().orElse(Double.NaN);
+            double squaredDifferences = tasks.stream().mapToDouble(task -> Math.pow(task.stats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
+            double sdAmongTasks = Math.sqrt(squaredDifferences / tasks.size());
+            DataSize maxPeakTaskMemoryUsage = tasks.stream().map(task -> task.stats().getPeakUserMemoryReservation()).max(DataSize::compareTo).orElse(DataSize.ofBytes(0));
 
             builder.append(indentString(1))
                     .append(format("CPU: %s, Scheduled: %s, Blocked %s (Input: %s, Output: %s), Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
@@ -498,22 +502,28 @@ public class PlanPrinter
                             formatDouble(sdAmongTasks),
                             formatPositions(stageStats.getOutputPositions()),
                             stageStats.getOutputDataSize()));
-            Optional<TDigestHistogram> outputBufferUtilization = stageInfo.get().getStageStats().getOutputBufferUtilization();
+            builder.append(indentString(1))
+                    .append(format("Peak Memory: %s, Tasks count: %d; per task: max: %s\n",
+                            stageStats.getPeakUserMemoryReservation().succinct(),
+                            tasks.size(),
+                            maxPeakTaskMemoryUsage.succinct()));
+            Optional<DistributionSnapshot> outputBufferUtilization = stageInfo.get().getStageStats().getOutputBufferUtilization();
             if (verbose && outputBufferUtilization.isPresent()) {
                 builder.append(indentString(1))
-                        .append(format("Output buffer active time: %s, buffer utilization distribution (%%): {p01=%s, p05=%s, p10=%s, p25=%s, p50=%s, p75=%s, p90=%s, p95=%s, p99=%s, max=%s}\n",
-                                succinctNanos(outputBufferUtilization.get().getTotal()),
+                        .append(format("Output buffer active time: %s, buffer utilization distribution (%%): {p01=%s, p05=%s, p10=%s, p25=%s, p50=%s, p75=%s, p90=%s, p95=%s, p99=%s, min=%s, max=%s}\n",
+                                succinctNanos(outputBufferUtilization.get().total()),
                                 // scale ratio to percentages
-                                formatDouble(outputBufferUtilization.get().getP01() * 100),
-                                formatDouble(outputBufferUtilization.get().getP05() * 100),
-                                formatDouble(outputBufferUtilization.get().getP10() * 100),
-                                formatDouble(outputBufferUtilization.get().getP25() * 100),
-                                formatDouble(outputBufferUtilization.get().getP50() * 100),
-                                formatDouble(outputBufferUtilization.get().getP75() * 100),
-                                formatDouble(outputBufferUtilization.get().getP90() * 100),
-                                formatDouble(outputBufferUtilization.get().getP95() * 100),
-                                formatDouble(outputBufferUtilization.get().getP99() * 100),
-                                formatDouble(outputBufferUtilization.get().getMax() * 100)));
+                                formatDouble(outputBufferUtilization.get().p01() * 100),
+                                formatDouble(outputBufferUtilization.get().p05() * 100),
+                                formatDouble(outputBufferUtilization.get().p10() * 100),
+                                formatDouble(outputBufferUtilization.get().p25() * 100),
+                                formatDouble(outputBufferUtilization.get().p50() * 100),
+                                formatDouble(outputBufferUtilization.get().p75() * 100),
+                                formatDouble(outputBufferUtilization.get().p90() * 100),
+                                formatDouble(outputBufferUtilization.get().p95() * 100),
+                                formatDouble(outputBufferUtilization.get().p99() * 100),
+                                formatDouble(outputBufferUtilization.get().min() * 100),
+                                formatDouble(outputBufferUtilization.get().max() * 100)));
             }
 
             TDigest taskOutputDistribution = new TDigest();
@@ -904,10 +914,11 @@ public class PlanPrinter
                 String frameInfo = formatFrame(function.getFrame());
 
                 nodeOutput.appendDetails(
-                        "%s := %s(%s) %s",
+                        "%s := %s(%s%s) %s",
                         anonymizer.anonymize(entry.getKey()),
                         formatFunctionName(function.getResolvedFunction()),
                         Joiner.on(", ").join(anonymizeExpressions(function.getArguments())),
+                        function.getOrderingScheme().map(this::formatOrderingScheme).orElse(""),
                         frameInfo);
             }
             return processChildren(node, new Context(context.isInitialPlan()));
@@ -1372,11 +1383,17 @@ public class PlanPrinter
         public Void visitUnnest(UnnestNode node, Context context)
         {
             String name;
+
             if (node.getJoinType() == INNER) {
-                name = "CrossJoin Unnest";
+                if (node.getReplicateSymbols().isEmpty()) {
+                    name = "Unnest";
+                }
+                else {
+                    name = "CrossJoin Unnest";
+                }
             }
             else {
-                name = node.getJoinType().getJoinLabel() + " Unnest";
+                name = node.getJoinType().getJoinLabel() + " Unnest on true";
             }
 
             List<Symbol> unnestInputs = node.getMappings().stream()
@@ -2061,7 +2078,7 @@ public class PlanPrinter
 
         private String formatOrderingScheme(OrderingScheme orderingScheme)
         {
-            return formatCollection(orderingScheme.orderBy(), input -> anonymizer.anonymize(input) + " " + orderingScheme.ordering(input));
+            return PlanPrinter.formatOrderingScheme(anonymizer, orderingScheme);
         }
 
         @SafeVarargs
@@ -2167,6 +2184,11 @@ public class PlanPrinter
         }
     }
 
+    private static String formatOrderingScheme(Anonymizer anonymizer, OrderingScheme orderingScheme)
+    {
+        return formatCollection(orderingScheme.orderBy(), input -> anonymizer.anonymize(input) + " " + orderingScheme.ordering(input));
+    }
+
     private static <T> String formatCollection(Collection<T> collection, Function<T, String> formatter)
     {
         return collection.stream()
@@ -2191,9 +2213,9 @@ public class PlanPrinter
         builder.append(formatFunctionName(aggregation.getResolvedFunction()))
                 .append('(').append(arguments);
 
-        aggregation.getOrderingScheme().ifPresent(orderingScheme -> builder.append(' ').append(orderingScheme.orderBy().stream()
-                .map(input -> anonymizer.anonymize(input) + " " + orderingScheme.ordering(input))
-                .collect(joining(", "))));
+        aggregation.getOrderingScheme()
+                .map(orderingScheme -> formatOrderingScheme(anonymizer, orderingScheme))
+                .ifPresent(ordering -> builder.append(' ').append(ordering));
 
         builder.append(')');
 

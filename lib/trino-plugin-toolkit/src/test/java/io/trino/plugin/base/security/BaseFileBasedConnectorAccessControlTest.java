@@ -425,7 +425,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
                         .build());
 
         List<ViewExpression> rowFilters = accessControl.getRowFilters(userGroup3, myTable);
-        assertThat(rowFilters.size()).isEqualTo(1);
+        assertThat(rowFilters).hasSize(1);
         assertViewExpressionEquals(
                 rowFilters.get(0),
                 ViewExpression.builder()

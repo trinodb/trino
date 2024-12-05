@@ -22,7 +22,13 @@ import java.util.Optional;
 public abstract class Expression
         extends Node
 {
+    @Deprecated
     protected Expression(Optional<NodeLocation> location)
+    {
+        super(location);
+    }
+
+    protected Expression(NodeLocation location)
     {
         super(location);
     }

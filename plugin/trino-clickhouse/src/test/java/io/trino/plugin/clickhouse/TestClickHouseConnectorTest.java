@@ -22,6 +22,8 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.datatype.CreateAndInsertDataSetup;
+import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Disabled;
@@ -37,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.MAP_STRING_AS_VARCHAR;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
@@ -165,9 +168,7 @@ public class TestClickHouseConnectorTest
     @Test
     @Disabled
     @Override
-    public void testRenameColumnName()
-    {
-    }
+    public void testRenameColumnName() {}
 
     @Override
     protected Optional<String> filterColumnNameTestData(String columnName)
@@ -827,15 +828,16 @@ public class TestClickHouseConnectorTest
                 getQueryRunner()::execute,
                 "test_float_predicate_pushdown",
                 """
-                        (
-                        c_real real,
-                        c_real_neg_infinity real,
-                        c_real_pos_infinity real,
-                        c_real_nan real,
-                        c_double double,
-                        c_double_neg_infinity double,
-                        c_double_pos_infinity double,
-                        c_double_nan double)""",
+                (
+                c_real real,
+                c_real_neg_infinity real,
+                c_real_pos_infinity real,
+                c_real_nan real,
+                c_double double,
+                c_double_neg_infinity double,
+                c_double_pos_infinity double,
+                c_double_nan double)
+                """,
                 List.of("3.14, -infinity(), +infinity(), nan(), 3.14, -infinity(), +infinity(), nan()"))) {
             assertThat(query("SELECT c_real FROM %s WHERE c_real = real '3.14'".formatted(table.getName())))
                     // because of https://github.com/trinodb/trino/issues/9998
@@ -948,21 +950,22 @@ public class TestClickHouseConnectorTest
                 onRemoteDatabase(),
                 "tpch.test_textual_predicate_pushdown",
                 """
-                        (
-                        unsupported_1 Point,
-                        unsupported_2 Point,
-                        some_column String,
-                        a_string String,
-                        a_string_alias Text,
-                        a_fixed_string FixedString(1),
-                        a_nullable_string Nullable(String),
-                        a_nullable_string_alias Nullable(Text),
-                        a_nullable_fixed_string Nullable(FixedString(1)),
-                        a_lowcardinality_nullable_string LowCardinality(Nullable(String)),
-                        a_lowcardinality_nullable_fixed_string LowCardinality(Nullable(FixedString(1))),
-                        a_enum_1 Enum('hello', 'world', 'a', 'b', 'c', '%', '_'),
-                        a_enum_2 Enum('hello', 'world', 'a', 'b', 'c', '%', '_'))
-                        ENGINE=Log""",
+                (
+                unsupported_1 Point,
+                unsupported_2 Point,
+                some_column String,
+                a_string String,
+                a_string_alias Text,
+                a_fixed_string FixedString(1),
+                a_nullable_string Nullable(String),
+                a_nullable_string_alias Nullable(Text),
+                a_nullable_fixed_string Nullable(FixedString(1)),
+                a_lowcardinality_nullable_string LowCardinality(Nullable(String)),
+                a_lowcardinality_nullable_fixed_string LowCardinality(Nullable(FixedString(1))),
+                a_enum_1 Enum('hello', 'world', 'a', 'b', 'c', '%', '_'),
+                a_enum_2 Enum('hello', 'world', 'a', 'b', 'c', '%', '_'))
+                ENGINE=Log
+                """,
                 List.of(
                         "(10, 10), (10, 10), 'z', '\\\\', '\\\\', '\\\\', '\\\\', '\\\\', '\\\\', '\\\\', '\\\\', 'hello', 'world'",
                         "(10, 10), (10, 10), 'z', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_'",
@@ -1087,6 +1090,61 @@ public class TestClickHouseConnectorTest
     }
 
     @Test
+    public void testIsNull()
+    {
+        Session mapStringAsVarbinary = Session.builder(getSession())
+                .setCatalogSessionProperty("clickhouse", MAP_STRING_AS_VARCHAR, "false")
+                .build();
+
+        NullPushdownDataTypeTest.connectorExpressionOnly()
+                .addSpecialColumn("String", "'z'", "CAST('z' AS varchar)")
+                .addTestCase("Nullable(real)")
+                .addTestCase("Nullable(decimal(3, 1))")
+                .addTestCase("Nullable(decimal(30, 5))")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_is_null"));
+
+        NullPushdownDataTypeTest.connectorExpressionOnly()
+                .addSpecialColumn("String", "'z'", "CAST('z' AS varbinary)")
+                .addTestCase("Nullable(char(10))")
+                .addTestCase("LowCardinality(Nullable(char(10)))")
+                .addTestCase("Nullable(FixedString(10))")
+                .addTestCase("LowCardinality(Nullable(FixedString(10)))")
+                .addTestCase("Nullable(varchar(30))")
+                .addTestCase("LowCardinality(Nullable(varchar(30)))")
+                .addTestCase("Nullable(String)")
+                .addTestCase("LowCardinality(Nullable(String))")
+                .execute(getQueryRunner(), mapStringAsVarbinary, clickhouseCreateAndInsert("tpch.test_is_null"));
+
+        NullPushdownDataTypeTest.create()
+                .addSpecialColumn("String", "'z'", "CAST('z' AS varchar)")
+                .addTestCase("Nullable(tinyint)")
+                .addTestCase("Nullable(smallint)")
+                .addTestCase("Nullable(integer)")
+                .addTestCase("Nullable(bigint)")
+                .addTestCase("Nullable(UInt8)")
+                .addTestCase("Nullable(UInt16)")
+                .addTestCase("Nullable(UInt32)")
+                .addTestCase("Nullable(UInt64)")
+                .addTestCase("Nullable(double)")
+                .addTestCase("Nullable(char(10))")
+                .addTestCase("LowCardinality(Nullable(char(10)))")
+                .addTestCase("Nullable(FixedString(10))")
+                .addTestCase("LowCardinality(Nullable(FixedString(10)))")
+                .addTestCase("Nullable(varchar(30))")
+                .addTestCase("LowCardinality(Nullable(varchar(30)))")
+                .addTestCase("Nullable(String)")
+                .addTestCase("LowCardinality(Nullable(String))")
+                .addTestCase("Nullable(date)")
+                .addTestCase("Nullable(timestamp)")
+                .addTestCase("Nullable(datetime)")
+                .addTestCase("Nullable(datetime('UTC'))")
+                .addTestCase("Nullable(UUID)")
+                .addTestCase("Nullable(IPv4)")
+                .addTestCase("Nullable(IPv6)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_is_null"));
+    }
+
+    @Test
     @Override // Override because ClickHouse doesn't follow SQL standard syntax
     public void testExecuteProcedure()
     {
@@ -1153,5 +1211,10 @@ public class TestClickHouseConnectorTest
             }
             return properties.buildOrThrow();
         }
+    }
+
+    private DataSetup clickhouseCreateAndInsert(String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(onRemoteDatabase()), tableNamePrefix);
     }
 }

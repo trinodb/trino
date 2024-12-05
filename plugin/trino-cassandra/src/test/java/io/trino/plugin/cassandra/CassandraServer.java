@@ -23,7 +23,6 @@ import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.testing.ResourcePresence;
 import org.testcontainers.cassandra.CassandraContainer;
 import org.testcontainers.containers.wait.CassandraQueryWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
@@ -174,11 +173,5 @@ public class CassandraServer
     {
         session.close();
         dockerContainer.close();
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return dockerContainer.getContainerId() != null;
     }
 }

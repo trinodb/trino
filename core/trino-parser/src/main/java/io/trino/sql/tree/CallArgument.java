@@ -30,7 +30,7 @@ public final class CallArgument
 
     public CallArgument(NodeLocation location, Optional<Identifier> name, Expression value)
     {
-        super(Optional.of(location));
+        super(location);
         this.name = requireNonNull(name, "name is null");
         this.value = requireNonNull(value, "value is null");
     }

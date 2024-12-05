@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -58,7 +57,7 @@ public class TestResourceGroupIntegration
             queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").setSource("dashboard-foo").build(), "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
             List<ResourceGroupInfo> path = manager.tryGetPathToRoot(new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("global"), "user-user"), "dashboard-user"))
                     .orElseThrow(() -> new IllegalStateException("Resource group not found"));
-            assertThat(path.size()).isEqualTo(3);
+            assertThat(path).hasSize(3);
             assertThat(path.get(1).subGroups()).isPresent();
             assertThat(path.get(2).id()).isEqualTo(new ResourceGroupId("global"));
             assertThat(path.get(2).hardConcurrencyLimit()).isEqualTo(100);
@@ -82,7 +81,7 @@ public class TestResourceGroupIntegration
             if (global.softMemoryLimit().toBytes() > 0) {
                 break;
             }
-            assertLessThan(nanosSince(startTime).roundTo(SECONDS), 60L);
+            assertThat(nanosSince(startTime).roundTo(SECONDS)).isLessThan(60L);
         }
     }
 

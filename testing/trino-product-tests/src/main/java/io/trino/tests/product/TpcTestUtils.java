@@ -71,9 +71,7 @@ public final class TpcTestUtils
             "orders",
             "lineitem"};
 
-    private TpcTestUtils()
-    {
-    }
+    private TpcTestUtils() {}
 
     public static void createTpchDataset(String catalog)
     {
@@ -134,7 +132,7 @@ public final class TpcTestUtils
     public static void assertResults(List<String> expected, String query)
     {
         List<List<?>> result = onTrino().executeQuery(query).rows();
-        assertThat(result.size()).isEqualTo(expected.size());
+        assertThat(result).hasSize(expected.size());
 
         for (int i = 0; i < expected.size(); i++) {
             String expectedRow = expected.get(i);

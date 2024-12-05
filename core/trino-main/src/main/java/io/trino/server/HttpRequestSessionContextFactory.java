@@ -120,7 +120,7 @@ public class HttpRequestSessionContextFactory
         Optional<String> timeZoneId = Optional.ofNullable(headers.getFirst(protocolHeaders.requestTimeZone()));
         Optional<String> language = Optional.ofNullable(headers.getFirst(protocolHeaders.requestLanguage()));
         Optional<String> clientInfo = Optional.ofNullable(headers.getFirst(protocolHeaders.requestClientInfo()));
-        Optional<String> queryDataEncoding = Optional.ofNullable(headers.getFirst(protocolHeaders.requestQueryDataEncoding()))
+        Optional<String> queryDataEncoding = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestQueryDataEncoding())))
                 .map(Splitter.on(',').trimResults().omitEmptyStrings()::splitToList)
                 .flatMap(encoderSelector::select)
                 .map(QueryDataEncoder.Factory::encoding);

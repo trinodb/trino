@@ -16,5 +16,5 @@ package io.trino.plugin.hudi;
 public enum TableType
 {
     DATA,
-    TIMELINE;
+    TIMELINE
 }

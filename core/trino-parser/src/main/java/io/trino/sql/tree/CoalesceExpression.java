@@ -27,17 +27,13 @@ public class CoalesceExpression
 {
     private final List<Expression> operands;
 
+    @Deprecated
     public CoalesceExpression(Expression first, Expression second, Expression... additional)
     {
         this(Optional.empty(), ImmutableList.<Expression>builder()
                 .add(first, second)
                 .add(additional)
                 .build());
-    }
-
-    public CoalesceExpression(List<Expression> operands)
-    {
-        this(Optional.empty(), operands);
     }
 
     public CoalesceExpression(NodeLocation location, List<Expression> operands)

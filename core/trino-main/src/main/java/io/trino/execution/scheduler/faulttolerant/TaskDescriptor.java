@@ -13,6 +13,9 @@
  */
 package io.trino.execution.scheduler.faulttolerant;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -29,26 +32,30 @@ public class TaskDescriptor
 
     private transient volatile long retainedSizeInBytes;
 
+    @JsonCreator
     public TaskDescriptor(
-            int partitionId,
-            SplitsMapping splitsMapping,
-            NodeRequirements nodeRequirements)
+            @JsonProperty("partitionId") int partitionId,
+            @JsonProperty("splits") SplitsMapping splitsMapping,
+            @JsonProperty("nodeRequirements") NodeRequirements nodeRequirements)
     {
         this.partitionId = partitionId;
         this.splits = requireNonNull(splitsMapping, "splitsMapping is null");
         this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
     }
 
+    @JsonProperty
     public int getPartitionId()
     {
         return partitionId;
     }
 
+    @JsonProperty
     public SplitsMapping getSplits()
     {
         return splits;
     }
 
+    @JsonProperty
     public NodeRequirements getNodeRequirements()
     {
         return nodeRequirements;

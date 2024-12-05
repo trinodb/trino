@@ -53,7 +53,8 @@ public class Hadoop
     {
         super.setupContainer();
         withLogConsumer(new PrintingLogConsumer("Hadoop"));
-        withRunCommand(List.of("bash", "-e", "-c", """
+        withRunCommand(List.of("bash", "-e", "-c",
+                """
                 rm /etc/supervisord.d/{hive*,mysql*,socks*,sshd*,yarn*}.conf
                 supervisord -c /etc/supervisord.conf
                 """));

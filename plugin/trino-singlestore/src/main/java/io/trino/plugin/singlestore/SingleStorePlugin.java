@@ -21,6 +21,6 @@ public class SingleStorePlugin
 {
     public SingleStorePlugin()
     {
-        super("singlestore", new SingleStoreClientModule());
+        super("singlestore", SingleStoreClientModule::new);
     }
 }

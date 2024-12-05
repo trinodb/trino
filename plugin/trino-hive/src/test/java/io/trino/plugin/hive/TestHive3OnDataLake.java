@@ -334,7 +334,8 @@ public class TestHive3OnDataLake
                             ('Trino', 'rocks', 'colons', 'with:colon'),
                             ('Trino', 'rocks', 'slashes', 'with/slash'),
                             ('Trino', 'rocks', 'backslashes', 'with\\backslash'),
-                            ('Trino', 'rocks', 'percents', 'with%percent')""");
+                            ('Trino', 'rocks', 'percents', 'with%percent')
+                    """);
 
         assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
     }
@@ -1981,14 +1982,31 @@ public class TestHive3OnDataLake
     }
 
     @Test
+    public void testUnsupportedCommentOnHiveView()
+    {
+        String viewName = HIVE_TEST_SCHEMA + ".test_unsupported_comment_on_hive_view_" + randomNameSuffix();
+
+        hiveMinioDataLake.getHiveHadoop().runOnHive("CREATE VIEW " + viewName + " AS SELECT 1 x");
+        try {
+            assertQueryFails("COMMENT ON COLUMN " + viewName + ".x IS NULL", "Hive views are not supported.*");
+        }
+        finally {
+            hiveMinioDataLake.getHiveHadoop().runOnHive("DROP VIEW " + viewName);
+        }
+    }
+
+    @Test
     public void testCreateFunction()
     {
         String name = "test_" + randomNameSuffix();
         String name2 = "test_" + randomNameSuffix();
 
-        assertUpdate("CREATE FUNCTION " + name + "(x integer) RETURNS bigint COMMENT 't42' RETURN x * 42");
+        assertUpdate("CREATE FUNCTION " + name + "(x integer) RETURNS bigint RETURN x * 10");
+        assertQuery("SELECT " + name + "(99)", "SELECT 990");
 
+        assertUpdate("CREATE OR REPLACE FUNCTION " + name + "(x integer) RETURNS bigint COMMENT 't42' RETURN x * 42");
         assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+
         assertQueryFails("SELECT " + name + "(2.9)", ".*Unexpected parameters.*");
 
         assertUpdate("CREATE FUNCTION " + name + "(x double) RETURNS double COMMENT 't88' RETURN x * 8.8");

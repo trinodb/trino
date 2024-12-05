@@ -73,7 +73,7 @@ public class DecimalEncoding
     public Block decodeColumn(ColumnData columnData)
     {
         int size = columnData.rowCount();
-        BlockBuilder builder = type.createBlockBuilder(null, size);
+        BlockBuilder builder = type.createFixedSizeBlockBuilder(size);
 
         Slice slice = columnData.getSlice();
         for (int i = 0; i < size; i++) {

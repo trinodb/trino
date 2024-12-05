@@ -28,6 +28,7 @@ public class BooleanLiteral
 
     private final boolean value;
 
+    @Deprecated
     public BooleanLiteral(String value)
     {
         this(Optional.empty(), value);

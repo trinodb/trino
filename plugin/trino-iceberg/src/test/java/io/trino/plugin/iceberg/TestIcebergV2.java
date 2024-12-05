@@ -310,7 +310,11 @@ public class TestIcebergV2
             throws Exception
     {
         String tableName = "test_optimize_table_cleans_equality_delete_file_when_whole_table_is_scanned" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate("CREATE TABLE " + tableName + " (LIKE nation) WITH (partitioning = ARRAY['regionkey'])");
+        // Create multiple files per partition
+        for (int nationKey = 0; nationKey < 25; nationKey++) {
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE nationkey = " + nationKey, 1);
+        }
         Table icebergTable = loadTable(tableName);
         assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
@@ -329,7 +333,11 @@ public class TestIcebergV2
             throws Exception
     {
         String tableName = "test_optimize_table_with_equality_delete_file_for_different_partition_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate("CREATE TABLE " + tableName + " (LIKE nation) WITH (partitioning = ARRAY['regionkey'])");
+        // Create multiple files per partition
+        for (int nationKey = 0; nationKey < 25; nationKey++) {
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE nationkey = " + nationKey, 1);
+        }
         Table icebergTable = loadTable(tableName);
         assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
         List<String> initialActiveFiles = getActiveFiles(tableName);
@@ -593,7 +601,11 @@ public class TestIcebergV2
             throws Exception
     {
         String tableName = "test_optimize_partitioned_table_with_global_equality_delete_file_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate("CREATE TABLE " + tableName + " (LIKE nation) WITH (partitioning = ARRAY['regionkey'])");
+        // Create multiple files per partition
+        for (int nationKey = 0; nationKey < 25; nationKey++) {
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE nationkey = " + nationKey, 1);
+        }
         Table icebergTable = loadTable(tableName);
         assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
@@ -758,7 +770,7 @@ public class TestIcebergV2
         assertThat(partitionFields.get(0).transform().isIdentity()).isTrue();
         assertThat(table.sortOrder().isSorted()).isTrue();
         List<SortField> sortFields = table.sortOrder().fields();
-        assertThat(sortFields.size()).isEqualTo(1);
+        assertThat(sortFields).hasSize(1);
         assertThat(getOnlyElement(sortFields).sourceId()).isEqualTo(table.schema().findField("comment").fieldId());
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
     }
@@ -875,10 +887,10 @@ public class TestIcebergV2
 
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(5);
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10", "SELECT count(*) FROM nation WHERE regionkey < 10");
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(0);
+        assertThat(this.loadTable(tableName).newScan().planFiles()).isEmpty();
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10");
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(0);
+        assertThat(this.loadTable(tableName).newScan().planFiles()).isEmpty();
     }
 
     @Test
@@ -1412,6 +1424,23 @@ public class TestIcebergV2
                 "ARRAY['hour(\"grandparent.parent.ts\")']",
                 ".*?(grandparent\\.parent\\.ts_hour=.*/).*",
                 ImmutableSet.of("grandparent.parent.ts_hour=2021-01-01-01/", "grandparent.parent.ts_hour=2022-02-02-02/", "grandparent.parent.ts_hour=2023-03-03-03/"));
+    }
+
+    @Test
+    public void testUpdateAfterEqualityDelete()
+            throws Exception
+    {
+        String tableName = "test_update_after_equality_delete_" + randomNameSuffix();
+        for (String format : ImmutableList.of("PARQUET", "ORC", "AVRO")) {
+            assertUpdate("CREATE TABLE " + tableName + " WITH (format = '" + format + "') AS SELECT * FROM tpch.tiny.nation", 25);
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+            writeEqualityDeleteToNationTable(icebergTable);
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
+            assertUpdate("UPDATE " + tableName + " SET comment = 'test'", 20);
+            assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, 'test' FROM nation WHERE regionkey != 1");
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     private void testHighlyNestedFieldPartitioningWithTimestampTransform(String partitioning, String partitionDirectoryRegex, Set<String> expectedPartitionDirectories)

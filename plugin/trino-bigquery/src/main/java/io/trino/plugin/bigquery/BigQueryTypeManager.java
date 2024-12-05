@@ -380,14 +380,14 @@ public final class BigQueryTypeManager
         }
     }
 
-    public BigQueryColumnHandle toColumnHandle(Field field)
+    public BigQueryColumnHandle toColumnHandle(Field field, boolean useStorageApi)
     {
         FieldList subFields = field.getSubFields();
         List<BigQueryColumnHandle> subColumns = subFields == null ?
                 Collections.emptyList() :
                 subFields.stream()
-                        .filter(this::isSupportedType)
-                        .map(this::toColumnHandle)
+                        .filter(column -> isSupportedType(column, useStorageApi))
+                        .map(column -> toColumnHandle(column, useStorageApi))
                         .collect(Collectors.toList());
         ColumnMapping columnMapping = toTrinoType(field).orElseThrow(() -> new IllegalArgumentException("Unsupported type: " + field));
         return new BigQueryColumnHandle(
@@ -402,7 +402,7 @@ public final class BigQueryTypeManager
                 false);
     }
 
-    public boolean isSupportedType(Field field)
+    public boolean isSupportedType(Field field, boolean useStorageApi)
     {
         LegacySQLTypeName type = field.getType();
         if (type == LegacySQLTypeName.BIGNUMERIC) {
@@ -413,6 +413,10 @@ public final class BigQueryTypeManager
             if (field.getPrecision() != null && field.getPrecision() > Decimals.MAX_PRECISION) {
                 return false;
             }
+        }
+        if (!useStorageApi && type == LegacySQLTypeName.TIMESTAMP) {
+            // TODO https://github.com/trinodb/trino/issues/12346 BigQueryQueryPageSource does not support TIMESTAMP type
+            return false;
         }
 
         return toTrinoType(field).isPresent();

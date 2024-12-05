@@ -28,9 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class KuduConnectorFactory
         implements ConnectorFactory
 {
-    public KuduConnectorFactory()
-    {
-    }
+    public KuduConnectorFactory() {}
 
     @Override
     public String getName()

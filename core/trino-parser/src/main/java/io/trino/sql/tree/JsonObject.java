@@ -31,7 +31,7 @@ public class JsonObject
     private final Optional<DataType> returnedType;
     private final Optional<JsonFormat> outputFormat;
 
-    public JsonObject(Optional<NodeLocation> location, List<JsonObjectMember> members, boolean nullOnNull, boolean uniqueKeys, Optional<DataType> returnedType, Optional<JsonFormat> outputFormat)
+    public JsonObject(NodeLocation location, List<JsonObjectMember> members, boolean nullOnNull, boolean uniqueKeys, Optional<DataType> returnedType, Optional<JsonFormat> outputFormat)
     {
         super(location);
 

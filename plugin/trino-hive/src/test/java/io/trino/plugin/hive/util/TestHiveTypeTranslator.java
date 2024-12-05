@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
-import static io.airlift.testing.Assertions.assertContains;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -45,7 +44,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Fail.fail;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveTypeTranslator
 {
@@ -84,19 +83,12 @@ public class TestHiveTypeTranslator
 
     private static void assertInvalidTypeTranslation(Type type, ErrorCode errorCode, String message)
     {
-        try {
-            toHiveType(type);
-            fail("expected exception");
-        }
-        catch (TrinoException e) {
-            try {
-                assertThat(e.getErrorCode()).isEqualTo(errorCode);
-                assertContains(e.getMessage(), message);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        assertThatThrownBy(() -> toHiveType(type))
+                .isInstanceOf(TrinoException.class)
+                .satisfies(e -> {
+                    TrinoException trinoException = (TrinoException) e;
+                    assertThat(trinoException.getErrorCode()).isEqualTo(errorCode);
+                    assertThat(trinoException).hasMessageContaining(message);
+                });
     }
 }

@@ -40,9 +40,7 @@ public class DevNullOperator
         }
 
         @Override
-        public void noMoreOperators()
-        {
-        }
+        public void noMoreOperators() {}
 
         @Override
         public OperatorFactory duplicate()
@@ -72,9 +70,7 @@ public class DevNullOperator
     }
 
     @Override
-    public void addInput(Page page)
-    {
-    }
+    public void addInput(Page page) {}
 
     @Override
     public Page getOutput()

@@ -139,9 +139,10 @@ implementation is used:
 * - `iceberg.table-statistics-enabled`
   - Enable [](/optimizer/statistics). The equivalent [catalog session
     property](/sql/set-session) is `statistics_enabled` for session specific
-    use. Set to `false` to disable statistics. Disabling statistics means that
-    [](/optimizer/cost-based-optimizations) cannot make better decisions about
-    the query plan.
+    use. Set to `false` to prevent statistics usage by the
+    [](/optimizer/cost-based-optimizations) to make better decisions about the
+    query plan and therefore improve query processing performance. Setting to
+    `false` is not recommended and does not disable statistics gathering.
   - `true`
 * - `iceberg.extended-statistics.enabled`
   - Enable statistics collection with [](/sql/analyze) and use of extended
@@ -167,6 +168,9 @@ implementation is used:
   - Empty
 * - `iceberg.register-table-procedure.enabled`
   - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
+  - `false`
+* - `iceberg.add-files-procedure.enabled`
+  - Enable to allow user to call [`add_files` procedure](iceberg-add-files).
   - `false`
 * - `iceberg.query-partition-filter-required`
   - Set to `true` to force a query to use a partition filter for schemas
@@ -194,7 +198,32 @@ implementation is used:
   - Set to `false` to disable in-memory caching of metadata files on the 
     coordinator. This cache is not used when `fs.cache.enabled` is set to true.
   - `true`
-
+* - `iceberg.expire-snapshots.min-retention`
+  -  Minimal retention period for the
+     [`expire_snapshot` command](iceberg-expire-snapshots).
+     Equivalent session property is `expire_snapshots_min_retention`.
+  -  `7d` 
+* - `iceberg.remove-orphan-files.min-retention`
+  -  Minimal retention period for the 
+     [`remove_orphan_files` command](iceberg-remove-orphan-files).
+     Equivalent session property is `remove_orphan_files_min_retention`.
+  -  `7d`
+* - `iceberg.idle-writer-min-file-size`
+  -  Minimum data written by a single partition writer before it can
+     be considered as idle and can be closed by the engine. Equivalent
+     session property is `idle_writer_min_file_size`.
+  -  `16MB`
+* - `iceberg.sorted-writing-enabled`
+  -  Enable [sorted writing](iceberg-sorted-files) to tables with a specified sort order. Equivalent
+     session property is `sorted_writing_enabled`.
+  -  `true` 
+* - `iceberg.allowed-extra-properties`
+  -  List of extra properties that are allowed to be set on Iceberg tables.
+     Use `*` to allow all properties.
+  - `[]`
+* - `iceberg.split-manager-threads`
+  -  Number of threads to use for generating splits.
+  -  Double the number of processors on the coordinator node.
 :::
 
 (iceberg-fte-support)=
@@ -562,6 +591,92 @@ The default value is `fail`, which causes the migrate procedure to throw an
 exception if subdirectories are found. Set the value to `true` to migrate
 nested directories, or `false` to ignore them.
 
+(iceberg-add-files)=
+#### Add files
+
+The connector can add files from tables or locations to an existing Iceberg
+table if `iceberg.add-files-procedure.enabled` is set to `true` for the catalog.
+
+Use the procedure `add_files_from_table` to add existing files from a Hive table
+in the current catalog, or `add_files` to add existing files from a specified
+location, to an existing Iceberg table.
+ 
+The data files must be the Parquet, ORC, or Avro file format.
+
+The procedure adds the files to the target table, specified after `ALTER TABLE`,
+and loads them from the source table specified with the required parameters
+`schema_name` and `table_name`. The source table must be accessible in the same
+catalog as the target table and use the Hive format. The target table must use
+the Iceberg format. The catalog must use the Iceberg connector.
+
+The following examples copy data from the Hive table `hive_customer_orders` in
+the `legacy` schema of the `example` catalog into the Iceberg table
+`iceberg_customer_orders` in the `lakehouse` schema of the `example` catalog:
+
+```sql
+ALTER TABLE example.lakehouse.iceberg_customer_orders 
+EXECUTE add_files_from_table(
+    schema_name => 'legacy',
+    table_name => 'customer_orders')
+```
+
+Alternatively, you can set the current catalog and schema with a `USE`
+statement, and omit catalog and schema information:
+
+```sql
+USE example.lakehouse;
+ALTER TABLE iceberg_customer_orders 
+EXECUTE add_files_from_table(
+    schema_name => 'legacy',
+    table_name => 'customer_orders')
+```
+
+Use a `partition_filter` argument to add files from specified partitions. The
+following example adds files from a partition where the `region` is `ASIA` and
+`country` is `JAPAN`:
+
+```sql
+ALTER TABLE example.lakehouse.iceberg_customer_orders 
+EXECUTE add_files_from_table(
+    schema_name => 'legacy',
+    table_name => 'customer_orders',
+    partition_filter => map(ARRAY['region', 'country'], ARRAY['ASIA', 'JAPAN']))
+```
+
+In addition, you can provide a `recursive_directory` argument to migrate a
+Hive table that contains subdirectories:
+
+```sql
+ALTER TABLE example.lakehouse.iceberg_customer_orders 
+EXECUTE add_files_from_table(
+    schema_name => 'legacy',
+    table_name => 'customer_orders',
+    recursive_directory => 'true')
+```
+
+The default value of `recursive_directory` is `fail`, which causes the procedure
+to throw an exception if subdirectories are found. Set the value to `true` to
+add files from nested directories, or `false` to ignore them.
+
+The `add_files` procedure supports adding files, and therefore the contained
+data, to a target table, specified after `ALTER TABLE`. It loads the files from
+a object storage path specified with the required `location` parameter. The
+files must use the specified `format`, with `ORC` and `PARQUET` as valid values.
+The target Iceberg table must use the same format as the added files. The
+procedure does not validate file schemas for compatibility with the target
+Iceberg table. The `location` property is supported for partitioned tables.
+
+The following examples copy `ORC`-format files from the location
+`s3://my-bucket/a/path` into the Iceberg table `iceberg_customer_orders` in the
+`lakehouse` schema of the `example` catalog:
+
+```sql
+ALTER TABLE example.lakehouse.iceberg_customer_orders 
+EXECUTE add_files(
+    location => 's3://my-bucket/a/path',
+    format => 'ORC')
+```
+
 (iceberg-data-management)=
 ### Data management
 
@@ -627,6 +742,7 @@ EXECUTE <alter-table-execute>`.
 ```{include} optimize.fragment
 ```
 
+(iceberg-expire-snapshots)=
 ##### expire_snapshots
 
 The `expire_snapshots` command removes all snapshots and all related metadata
@@ -642,11 +758,12 @@ ALTER TABLE test_table EXECUTE expire_snapshots(retention_threshold => '7d')
 ```
 
 The value for `retention_threshold` must be higher than or equal to
-`iceberg.expire_snapshots.min-retention` in the catalog, otherwise the
+`iceberg.expire-snapshots.min-retention` in the catalog, otherwise the
 procedure fails with a similar message: `Retention specified (1.00d) is shorter
 than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
 
+(iceberg-remove-orphan-files)=
 ##### remove_orphan_files
 
 The `remove_orphan_files` command removes all files from a table's data
@@ -661,7 +778,7 @@ ALTER TABLE test_table EXECUTE remove_orphan_files(retention_threshold => '7d')
 ```
 
 The value for `retention_threshold` must be higher than or equal to
-`iceberg.remove_orphan_files.min-retention` in the catalog otherwise the
+`iceberg.remove-orphan-files.min-retention` in the catalog otherwise the
 procedure fails with a similar message: `Retention specified (1.00d) is shorter
 than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
@@ -752,6 +869,10 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Comma-separated list of columns to use for Parquet bloom filter. It improves
     the performance of queries using Equality and IN predicates when reading
     Parquet files. Requires Parquet format. Defaults to `[]`.
+* - `extra_properties`
+  - Additional properties added to a Iceberg table. The properties are not used by Trino,
+    and are available in the `$properties` metadata table.
+    The properties are not included in the output of `SHOW CREATE TABLE` statements.
 :::
 
 The table definition below specifies to use Parquet files, partitioning by columns
@@ -1129,6 +1250,13 @@ The output of the query has the following columns:
 * - `file_format`
   - `VARCHAR`
   - The format of the data file.
+* - `spec_id`
+  - `INTEGER`
+  - Spec ID used to track the file containing a row.
+* - `partition`
+  - `ROW(...)`
+  - A row that contains the mapping of the partition column names to the
+    partition column values.
 * - `record_count`
   - `BIGINT`
   - The number of entries contained in the data file.
@@ -1168,6 +1296,12 @@ The output of the query has the following columns:
 * - `equality_ids`
   - `array(INTEGER)`
   - The set of field IDs used for equality comparison in equality delete files.
+* - `sort_order_id`
+  - `INTEGER`
+  - ID representing sort order for this file.
+* - `readable_metrics`
+  - `JSON`
+  - File metrics in human-readable form.
 :::
 
 ##### `$refs` table
@@ -1329,6 +1463,7 @@ CREATE TABLE example.testdb.customer_orders (
 WITH (partitioning = ARRAY['month(order_date)', 'bucket(account_number, 10)', 'country'])
 ```
 
+(iceberg-sorted-files)=
 #### Sorted tables
 
 The connector supports sorted files as a performance improvement. Data is sorted

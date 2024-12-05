@@ -101,6 +101,3 @@ in the catalog file.
   or may return partial data.
 - When the coordinator fails/restarts, all metadata about tables is
   lost. The tables remain on the workers, but become inaccessible.
-- This connector does not work properly with multiple
-  coordinators, since each coordinator has different
-  metadata.

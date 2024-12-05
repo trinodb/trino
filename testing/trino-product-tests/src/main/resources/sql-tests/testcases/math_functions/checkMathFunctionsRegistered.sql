@@ -1,2 +1,2 @@
--- database: presto; groups: qe, math_functions, functions
+-- database: trino; groups: qe, math_functions, functions
 show functions

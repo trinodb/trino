@@ -143,7 +143,7 @@ public class TestQueryStateInfoResource
                         .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
-        assertThat(infos.size()).isEqualTo(2);
+        assertThat(infos).hasSize(2);
     }
 
     @Test
@@ -156,7 +156,7 @@ public class TestQueryStateInfoResource
                         .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
-        assertThat(infos.size()).isEqualTo(1);
+        assertThat(infos).hasSize(1);
     }
 
     @Test
@@ -194,7 +194,7 @@ public class TestQueryStateInfoResource
                         .setHeader(TRINO_HEADERS.requestUser(), "any-other-user")
                         .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
-        assertThat(infos.size()).isEqualTo(2);
+        assertThat(infos).hasSize(2);
 
         testGetAllQueryStateInfosDenied("user1", 1);
         testGetAllQueryStateInfosDenied("any-other-user", 0);
@@ -211,7 +211,7 @@ public class TestQueryStateInfoResource
                             .build(),
                     createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
-            assertThat(infos.size()).isEqualTo(expectedCount);
+            assertThat(infos).hasSize(expectedCount);
         }
         finally {
             server.getAccessControl().reset();

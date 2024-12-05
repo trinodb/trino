@@ -1,5 +1,5 @@
--- database: presto; groups: insert; mutable_tables: datatype|created; tables: datatype
--- delimiter: |; ignoreOrder: true; 
+-- database: trino; groups: insert; mutable_tables: datatype|created; tables: datatype
+-- delimiter: |; ignoreOrder: true;
 --!
 insert into ${mutableTables.hive.datatype} select c_bigint, c_double, c_string, c_date, c_timestamp, c_boolean, c_short_decimal, c_long_decimal from datatype where c_double < 20;
 select * from ${mutableTables.hive.datatype}

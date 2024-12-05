@@ -301,9 +301,7 @@ public class OrcPageSource
         public NullColumn(Type type)
         {
             this.type = requireNonNull(type, "type is null");
-            this.nullBlock = type.createBlockBuilder(null, 1, 0)
-                    .appendNull()
-                    .build();
+            this.nullBlock = type.createNullBlock();
         }
 
         @Override

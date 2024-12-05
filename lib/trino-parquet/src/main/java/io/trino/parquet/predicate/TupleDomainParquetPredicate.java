@@ -780,9 +780,7 @@ public class TupleDomainParquetPredicate
 
     private static class ColumnIndexValueConverter
     {
-        private ColumnIndexValueConverter()
-        {
-        }
+        private ColumnIndexValueConverter() {}
 
         private Function<ByteBuffer, Object> getConverter(PrimitiveType primitiveType)
         {

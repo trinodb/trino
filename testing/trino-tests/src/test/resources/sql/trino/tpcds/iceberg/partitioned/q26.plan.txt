@@ -20,7 +20,7 @@ local exchange (GATHER, SINGLE, [])
                                                     scan date_dim
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan item
+                                                scan promotion
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan promotion
+                                            scan item

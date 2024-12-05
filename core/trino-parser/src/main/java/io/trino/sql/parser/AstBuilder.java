@@ -655,6 +655,7 @@ class AstBuilder
         }
 
         return new Insert(
+                getLocation(context),
                 new Table(getQualifiedName(context.qualifiedName())),
                 columnAliases,
                 (Query) visit(context.rootQuery()));
@@ -1164,7 +1165,7 @@ class AstBuilder
                 rowCount = new Parameter(getLocation(context.offset.QUESTION_MARK()), parameterPosition);
                 parameterPosition++;
             }
-            offset = Optional.of(new Offset(Optional.of(getLocation(context.OFFSET())), rowCount));
+            offset = Optional.of(new Offset(getLocation(context.OFFSET()), rowCount));
         }
 
         Optional<Node> limit = Optional.empty();
@@ -1179,7 +1180,7 @@ class AstBuilder
                     parameterPosition++;
                 }
             }
-            limit = Optional.of(new FetchFirst(Optional.of(getLocation(context.FETCH())), rowCount, context.TIES() != null));
+            limit = Optional.of(new FetchFirst(getLocation(context.FETCH()), rowCount, context.TIES() != null));
         }
         else if (context.LIMIT() != null) {
             if (context.limit == null) {
@@ -1197,7 +1198,7 @@ class AstBuilder
                 parameterPosition++;
             }
 
-            limit = Optional.of(new Limit(Optional.of(getLocation(context.LIMIT())), rowCount));
+            limit = Optional.of(new Limit(getLocation(context.LIMIT()), rowCount));
         }
 
         if (term instanceof QuerySpecification query) {
@@ -1397,7 +1398,7 @@ class AstBuilder
     @Override
     public Node visitExplainAnalyze(SqlBaseParser.ExplainAnalyzeContext context)
     {
-        return new ExplainAnalyze(getLocation(context), context.VERBOSE() != null, (Statement) visit(context.statement()));
+        return new ExplainAnalyze(getLocation(context), (Statement) visit(context.statement()), context.VERBOSE() != null);
     }
 
     @Override
@@ -1464,14 +1465,14 @@ class AstBuilder
     @Override
     public Node visitShowStats(SqlBaseParser.ShowStatsContext context)
     {
-        return new ShowStats(Optional.of(getLocation(context)), new Table(getQualifiedName(context.qualifiedName())));
+        return new ShowStats(getLocation(context), new Table(getQualifiedName(context.qualifiedName())));
     }
 
     @Override
     public Node visitShowStatsForQuery(SqlBaseParser.ShowStatsForQueryContext context)
     {
         Query query = (Query) visit(context.rootQuery());
-        return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query));
+        return new ShowStats(getLocation(context), new TableSubquery(query));
     }
 
     @Override
@@ -2058,7 +2059,7 @@ class AstBuilder
 
         Optional<OrderBy> orderBy = Optional.empty();
         if (context.ORDER() != null) {
-            orderBy = Optional.of(new OrderBy(visit(context.sortItem(), SortItem.class)));
+            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
         }
 
         Optional<EmptyTableTreatment> emptyTableTreatment = Optional.empty();
@@ -2444,7 +2445,7 @@ class AstBuilder
     public Node visitListagg(SqlBaseParser.ListaggContext context)
     {
         Optional<Window> window = Optional.empty();
-        OrderBy orderBy = new OrderBy(visit(context.sortItem(), SortItem.class));
+        OrderBy orderBy = new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class));
         boolean distinct = isDistinct(context.setQuantifier());
 
         Expression expression = (Expression) visit(context.expression());
@@ -2537,7 +2538,7 @@ class AstBuilder
         }
 
         return new JsonExists(
-                Optional.of(getLocation(context)),
+                getLocation(context),
                 jsonPathInvocation,
                 errorBehavior);
     }
@@ -2584,7 +2585,7 @@ class AstBuilder
         }
 
         return new JsonValue(
-                Optional.of(getLocation(context)),
+                getLocation(context),
                 jsonPathInvocation,
                 returnedType,
                 emptyBehavior,
@@ -2662,7 +2663,7 @@ class AstBuilder
         }
 
         return new JsonQuery(
-                Optional.of(getLocation(context)),
+                getLocation(context),
                 jsonPathInvocation,
                 returnedType,
                 jsonOutputFormat,
@@ -2689,7 +2690,7 @@ class AstBuilder
         Optional<Identifier> pathName = visitIfPresent(context.pathName, Identifier.class);
         List<JsonPathParameter> pathParameters = visit(context.jsonArgument(), JsonPathParameter.class);
 
-        return new JsonPathInvocation(Optional.of(getLocation(context)), jsonInput, inputFormat, jsonPath, pathName, pathParameters);
+        return new JsonPathInvocation(getLocation(context), jsonInput, inputFormat, jsonPath, pathName, pathParameters);
     }
 
     private static JsonFormat getJsonFormat(SqlBaseParser.JsonRepresentationContext context)
@@ -2710,7 +2711,7 @@ class AstBuilder
     public Node visitJsonArgument(SqlBaseParser.JsonArgumentContext context)
     {
         return new JsonPathParameter(
-                Optional.of(getLocation(context)),
+                getLocation(context),
                 (Identifier) visit(context.identifier()),
                 (Expression) visit(context.jsonValueExpression().expression()),
                 Optional.ofNullable(context.jsonValueExpression().jsonRepresentation())
@@ -2732,7 +2733,7 @@ class AstBuilder
             jsonOutputFormat = Optional.of(getJsonFormat(context.jsonRepresentation()));
         }
 
-        return new JsonObject(Optional.of(getLocation(context)), members, nullOnNull, uniqueKeys, returnedType, jsonOutputFormat);
+        return new JsonObject(getLocation(context), members, nullOnNull, uniqueKeys, returnedType, jsonOutputFormat);
     }
 
     @Override
@@ -2760,7 +2761,7 @@ class AstBuilder
             jsonOutputFormat = Optional.of(getJsonFormat(context.jsonRepresentation()));
         }
 
-        return new JsonArray(Optional.of(getLocation(context)), elements, nullOnNull, returnedType, jsonOutputFormat);
+        return new JsonArray(getLocation(context), elements, nullOnNull, returnedType, jsonOutputFormat);
     }
 
     @Override
@@ -2857,7 +2858,7 @@ class AstBuilder
 
         Optional<OrderBy> orderBy = Optional.empty();
         if (context.ORDER() != null) {
-            orderBy = Optional.of(new OrderBy(visit(context.sortItem(), SortItem.class)));
+            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
         }
 
         QualifiedName name = getQualifiedName(context.qualifiedName());
@@ -2982,7 +2983,7 @@ class AstBuilder
     public Node visitLambda(SqlBaseParser.LambdaContext context)
     {
         List<LambdaArgumentDeclaration> arguments = visit(context.identifier(), Identifier.class).stream()
-                .map(LambdaArgumentDeclaration::new)
+                .map(argument -> new LambdaArgumentDeclaration(argument.getLocation().orElseThrow(), argument))
                 .collect(toList());
 
         Expression body = (Expression) visit(context.expression());
@@ -3103,7 +3104,7 @@ class AstBuilder
                 .map(this::getQualifiedName)
                 .collect(toList());
 
-        return new GroupingOperation(Optional.of(getLocation(context)), arguments);
+        return new GroupingOperation(getLocation(context), arguments);
     }
 
     @Override

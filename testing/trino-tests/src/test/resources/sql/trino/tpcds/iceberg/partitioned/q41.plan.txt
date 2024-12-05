@@ -6,13 +6,10 @@ local exchange (GATHER, SINGLE, [])
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [i_product_name])
                             partial aggregation over (i_product_name)
-                                final aggregation over (i_manufact_14, i_manufact_id, i_product_name, unique)
-                                    local exchange (GATHER, SINGLE, [])
-                                        partial aggregation over (i_manufact_14, i_manufact_id, i_product_name, unique)
-                                            join (INNER, PARTITIONED, can skip output duplicates):
-                                                remote exchange (REPARTITION, HASH, [i_manufact_14])
-                                                    dynamic filter (i_manufact_14::EQUAL)
-                                                        scan item
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, [i_manufact])
-                                                        scan item
+                                single aggregation over (i_manufact, i_manufact_id, i_product_name, unique)
+                                    join (INNER, REPLICATED, can skip output duplicates):
+                                        dynamic filter (i_manufact::EQUAL)
+                                            scan item
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan item

@@ -86,6 +86,7 @@ public class ComparisonExpression
     private final Expression left;
     private final Expression right;
 
+    @Deprecated
     public ComparisonExpression(Operator operator, Expression left, Expression right)
     {
         this(Optional.empty(), operator, left, right);
@@ -93,7 +94,10 @@ public class ComparisonExpression
 
     public ComparisonExpression(NodeLocation location, Operator operator, Expression left, Expression right)
     {
-        this(Optional.of(location), operator, left, right);
+        super(location);
+        this.operator = requireNonNull(operator, "operator is null");
+        this.left = requireNonNull(left, "left is null");
+        this.right = requireNonNull(right, "right is null");
     }
 
     private ComparisonExpression(Optional<NodeLocation> location, Operator operator, Expression left, Expression right)

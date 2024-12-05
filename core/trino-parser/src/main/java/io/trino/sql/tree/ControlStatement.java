@@ -13,8 +13,6 @@
  */
 package io.trino.sql.tree;
 
-import java.util.Optional;
-
 public abstract sealed class ControlStatement
         extends Node
         permits AssignmentStatement, CaseStatement, CompoundStatement,
@@ -23,6 +21,6 @@ public abstract sealed class ControlStatement
 {
     protected ControlStatement(NodeLocation location)
     {
-        super(Optional.of(location));
+        super(location);
     }
 }

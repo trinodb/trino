@@ -125,18 +125,19 @@ public class TestIcebergS3AndGlueMetastoreTest
         String partitionQueryPart = (partitioned ? ",partitioning = ARRAY['col_str']" : "");
 
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
-                     "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
-                     "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
+                "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
+                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
         try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
             assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
-            String expectedStatistics = """
+            String expectedStatistics =
+                    """
                     VALUES
                     ('col_str', %s, 4.0, 0.0, null, null, null),
                     ('col_int', null, 4.0, 0.0, null, 1, 4),
                     (null, null, null, null, 4.0, null, null)"""
-                    .formatted(partitioned ? "432.0" : "243.0");
+                            .formatted(partitioned ? "432.0" : "243.0");
 
             // Check extended statistics collection on write
             assertQuery("SHOW STATS FOR " + tableName, expectedStatistics);

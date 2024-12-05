@@ -25,9 +25,7 @@ public class JsonSerializer
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    public void configure(Map<String, ?> props, boolean isKey)
-    {
-    }
+    public void configure(Map<String, ?> props, boolean isKey) {}
 
     @Override
     public byte[] serialize(String topic, Object data)
@@ -41,7 +39,5 @@ public class JsonSerializer
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 }

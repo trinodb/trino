@@ -33,6 +33,7 @@ public class Query
     private final Optional<Offset> offset;
     private final Optional<Node> limit;
 
+    @Deprecated
     public Query(
             List<FunctionSpecification> functions,
             Optional<With> with,

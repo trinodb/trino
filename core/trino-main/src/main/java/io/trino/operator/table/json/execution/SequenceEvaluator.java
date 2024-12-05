@@ -30,9 +30,7 @@ import static java.lang.String.format;
 
 public class SequenceEvaluator
 {
-    private SequenceEvaluator()
-    {
-    }
+    private SequenceEvaluator() {}
 
     // creates a sequence of JSON items, and applies error handling
     public static List<JsonNode> getSequence(JsonNode item, Object[] pathParameters, JsonPathEvaluator pathEvaluator, boolean errorOnError)

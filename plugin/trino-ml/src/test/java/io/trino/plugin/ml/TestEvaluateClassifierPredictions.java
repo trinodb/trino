@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.trino.RowPageBuilder;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.AggregationMetrics;
 import io.trino.operator.aggregation.Aggregator;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
@@ -41,7 +42,7 @@ public class TestEvaluateClassifierPredictions
     {
         TestingFunctionResolution functionResolution = new TestingFunctionResolution(extractFunctions(new MLPlugin().getFunctions()));
         TestingAggregationFunction aggregation = functionResolution.getAggregateFunction("evaluate_classifier_predictions", fromTypes(BIGINT, BIGINT));
-        Aggregator aggregator = aggregation.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator();
+        Aggregator aggregator = aggregation.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator(new AggregationMetrics());
         aggregator.processPage(getPage());
         BlockBuilder finalOut = VARCHAR.createBlockBuilder(null, 1);
         aggregator.evaluate(finalOut);

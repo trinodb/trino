@@ -15,7 +15,6 @@ package io.trino.sql.tree;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -28,7 +27,7 @@ public class Descriptor
 
     public Descriptor(NodeLocation location, List<DescriptorField> fields)
     {
-        super(Optional.of(location));
+        super(location);
         requireNonNull(fields, "fields is null");
         checkArgument(!fields.isEmpty(), "fields list is empty");
         this.fields = fields;

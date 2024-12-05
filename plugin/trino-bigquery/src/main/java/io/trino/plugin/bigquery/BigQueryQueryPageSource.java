@@ -44,9 +44,13 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.bigquery.BigQueryClient.selectSql;
 import static io.trino.plugin.bigquery.BigQueryTypeManager.toTrinoTimestamp;
@@ -67,6 +71,7 @@ import static java.util.Objects.requireNonNull;
 public class BigQueryQueryPageSource
         implements ConnectorPageSource
 {
+    private static final long MAX_PAGE_ROW_COUNT = 8192L;
     private static final DateTimeFormatter TIME_FORMATTER = new DateTimeFormatterBuilder()
             .appendPattern("HH:mm:ss")
             .optionalStart()
@@ -78,23 +83,29 @@ public class BigQueryQueryPageSource
     private final List<BigQueryColumnHandle> columnHandles;
     private final PageBuilder pageBuilder;
     private final boolean isQueryFunction;
-    private final TableResult tableResult;
 
+    private final AtomicLong readTimeNanos = new AtomicLong();
+
+    private CompletableFuture<TableResult> tableResultFuture;
+    private TableResult tableResult;
     private boolean finished;
 
     public BigQueryQueryPageSource(
             ConnectorSession session,
             BigQueryTypeManager typeManager,
             BigQueryClient client,
+            ExecutorService executor,
             BigQueryTableHandle table,
             List<BigQueryColumnHandle> columnHandles,
             Optional<String> filter)
     {
-        requireNonNull(client, "client is null");
-        requireNonNull(table, "table is null");
-        requireNonNull(filter, "filter is null");
+        requireNonNull(session, "session is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        requireNonNull(client, "client is null");
+        requireNonNull(executor, "executor is null");
+        requireNonNull(table, "table is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
+        requireNonNull(filter, "filter is null");
         this.pageBuilder = new PageBuilder(columnHandles.stream().map(BigQueryColumnHandle::trinoType).collect(toImmutableList()));
         this.isQueryFunction = table.relationHandle() instanceof BigQueryQueryRelationHandle;
         String sql = buildSql(
@@ -102,7 +113,12 @@ public class BigQueryQueryPageSource
                 client.getProjectId(),
                 ImmutableList.copyOf(columnHandles),
                 filter);
-        this.tableResult = client.executeQuery(session, sql);
+        this.tableResultFuture = CompletableFuture.supplyAsync(() -> {
+            long start = System.nanoTime();
+            TableResult result = client.executeQuery(session, sql, MAX_PAGE_ROW_COUNT);
+            readTimeNanos.addAndGet(System.nanoTime() - start);
+            return result;
+        }, executor);
     }
 
     private String buildSql(BigQueryTableHandle table, String projectId, List<BigQueryColumnHandle> columns, Optional<String> filter)
@@ -127,7 +143,7 @@ public class BigQueryQueryPageSource
     @Override
     public long getReadTimeNanos()
     {
-        return 0;
+        return readTimeNanos.get();
     }
 
     @Override
@@ -146,7 +162,25 @@ public class BigQueryQueryPageSource
     public Page getNextPage()
     {
         verify(pageBuilder.isEmpty());
-        for (FieldValueList record : tableResult.iterateAll()) {
+        if (tableResult == null) {
+            tableResult = getFutureValue(tableResultFuture);
+        }
+        else if (tableResult.hasNextPage()) {
+            long start = System.nanoTime();
+            tableResult = tableResult.getNextPage();
+            readTimeNanos.addAndGet(System.nanoTime() - start);
+        }
+        else {
+            finished = true;
+            return null;
+        }
+
+        long start = System.nanoTime();
+        List<FieldValueList> values = ImmutableList.copyOf(tableResult.getValues());
+        finished = !tableResult.hasNextPage();
+        readTimeNanos.addAndGet(System.nanoTime() - start);
+
+        for (FieldValueList record : values) {
             pageBuilder.declarePosition();
             for (int column = 0; column < columnHandles.size(); column++) {
                 BigQueryColumnHandle columnHandle = columnHandles.get(column);
@@ -155,7 +189,6 @@ public class BigQueryQueryPageSource
                 appendTo(columnHandle.trinoType(), fieldValue, output);
             }
         }
-        finished = true;
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
@@ -164,7 +197,7 @@ public class BigQueryQueryPageSource
 
     private void appendTo(Type type, FieldValue value, BlockBuilder output)
     {
-        // TODO (https://github.com/trinodb/trino/issues/12346) Add support for bignumeric and timestamp with time zone types
+        // TODO (https://github.com/trinodb/trino/issues/12346) Add support for timestamp with time zone type
         if (value == null || value.isNull()) {
             output.appendNull();
             return;
@@ -255,5 +288,15 @@ public class BigQueryQueryPageSource
     }
 
     @Override
-    public void close() {}
+    public void close()
+    {
+        tableResultFuture.cancel(true);
+        tableResult = null;
+    }
+
+    @Override
+    public CompletableFuture<?> isBlocked()
+    {
+        return tableResultFuture;
+    }
 }

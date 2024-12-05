@@ -268,14 +268,14 @@ public class PlanBuilder
         return new EnforceSingleRowNode(idAllocator.getNextId(), source);
     }
 
-    public SortNode sort(List<Symbol> orderBy, PlanNode source)
+    public SortNode sort(List<Symbol> orderBySymbols, PlanNode source)
     {
         return new SortNode(
                 idAllocator.getNextId(),
                 source,
                 new OrderingScheme(
-                        orderBy,
-                        Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST))),
+                        orderBySymbols,
+                        Maps.toMap(orderBySymbols, Functions.constant(SortOrder.ASC_NULLS_FIRST))),
                 false);
     }
 
@@ -317,25 +317,25 @@ public class PlanBuilder
                 preSortedInputs);
     }
 
-    public TopNNode topN(long count, List<Symbol> orderBy, PlanNode source)
+    public TopNNode topN(long count, List<Symbol> orderBySymbols, PlanNode source)
     {
-        return topN(count, orderBy, TopNNode.Step.SINGLE, source);
+        return topN(count, orderBySymbols, TopNNode.Step.SINGLE, source);
     }
 
-    public TopNNode topN(long count, List<Symbol> orderBy, TopNNode.Step step, PlanNode source)
+    public TopNNode topN(long count, List<Symbol> orderBySymbols, TopNNode.Step step, PlanNode source)
     {
-        return topN(count, orderBy, step, SortOrder.ASC_NULLS_FIRST, source);
+        return topN(count, orderBySymbols, step, SortOrder.ASC_NULLS_FIRST, source);
     }
 
-    public TopNNode topN(long count, List<Symbol> orderBy, TopNNode.Step step, SortOrder sortOrder, PlanNode source)
+    public TopNNode topN(long count, List<Symbol> orderBySymbols, TopNNode.Step step, SortOrder sortOrder, PlanNode source)
     {
         return new TopNNode(
                 idAllocator.getNextId(),
                 source,
                 count,
                 new OrderingScheme(
-                        orderBy,
-                        Maps.toMap(orderBy, Functions.constant(sortOrder))),
+                        orderBySymbols,
+                        Maps.toMap(orderBySymbols, Functions.constant(sortOrder))),
                 step);
     }
 
@@ -447,7 +447,7 @@ public class PlanBuilder
                     aggregation.arguments(),
                     aggregation.distinct(),
                     aggregation.filter(),
-                    aggregation.orderBy(),
+                    aggregation.orderingScheme(),
                     mask));
         }
 
@@ -1312,7 +1312,7 @@ public class PlanBuilder
                 aggregation.arguments(),
                 aggregation.distinct(),
                 aggregation.filter(),
-                aggregation.orderBy(),
+                aggregation.orderingScheme(),
                 Optional.empty());
     }
 
@@ -1452,9 +1452,9 @@ public class PlanBuilder
         return new AggregationFunction(name, Optional.of(filter), Optional.empty(), false, arguments);
     }
 
-    public static AggregationFunction aggregation(String name, List<Expression> arguments, OrderingScheme orderBy)
+    public static AggregationFunction aggregation(String name, List<Expression> arguments, OrderingScheme orderingScheme)
     {
-        return new AggregationFunction(name, Optional.empty(), Optional.of(orderBy), false, arguments);
+        return new AggregationFunction(name, Optional.empty(), Optional.of(orderingScheme), false, arguments);
     }
 
     public Collection<Symbol> getSymbols()

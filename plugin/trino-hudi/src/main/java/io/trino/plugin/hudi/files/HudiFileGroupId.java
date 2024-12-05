@@ -13,50 +13,15 @@
  */
 package io.trino.plugin.hudi.files;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
-public class HudiFileGroupId
+public record HudiFileGroupId(String partitionPath, String fileId)
         implements Comparable<HudiFileGroupId>
 {
-    private final String partitionPath;
-
-    private final String fileId;
-
-    public HudiFileGroupId(String partitionPath, String fileId)
+    public HudiFileGroupId
     {
-        this.partitionPath = requireNonNull(partitionPath, "partitionPath is null");
-        this.fileId = requireNonNull(fileId, "partitionPath is null");
-    }
-
-    public String getPartitionPath()
-    {
-        return partitionPath;
-    }
-
-    public String getFileId()
-    {
-        return fileId;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        HudiFileGroupId that = (HudiFileGroupId) o;
-        return Objects.equals(partitionPath, that.partitionPath) && Objects.equals(fileId, that.fileId);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(partitionPath, fileId);
+        requireNonNull(partitionPath, "partitionPath is null");
+        requireNonNull(fileId, "partitionPath is null");
     }
 
     @Override

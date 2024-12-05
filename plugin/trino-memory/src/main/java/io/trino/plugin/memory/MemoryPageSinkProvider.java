@@ -121,8 +121,6 @@ public class MemoryPageSinkProvider
         }
 
         @Override
-        public void abort()
-        {
-        }
+        public void abort() {}
     }
 }

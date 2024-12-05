@@ -21,17 +21,13 @@ import java.util.Optional;
 public class AllRows
         extends Expression
 {
+    @Deprecated
     public AllRows()
     {
-        this(Optional.empty());
+        super(Optional.empty());
     }
 
     public AllRows(NodeLocation location)
-    {
-        this(Optional.of(location));
-    }
-
-    public AllRows(Optional<NodeLocation> location)
     {
         super(location);
     }

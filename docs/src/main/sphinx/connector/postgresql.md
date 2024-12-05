@@ -213,6 +213,9 @@ this table:
 * - `ARRAY`
   - Disabled, `ARRAY`, or `JSON`
   - See [](postgresql-array-type-handling) for more information.
+* - `GEOMETRY`, `GEOMETRY(GEOMETRY TYPE, SRID)`
+  - `GEOMETRY`
+  -
 :::
 
 No other types are supported.
@@ -281,6 +284,9 @@ this table:
 * - `ARRAY`
   - `ARRAY`
   - See [](postgresql-array-type-handling) for more information.
+* - `GEOMETRY`
+  - `GEOMETRY`
+  -
 ::::
 
 No other types are supported.

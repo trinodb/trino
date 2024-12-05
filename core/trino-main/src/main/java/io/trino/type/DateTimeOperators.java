@@ -31,9 +31,7 @@ public final class DateTimeOperators
     private static final DateTimeField MILLIS_OF_DAY = ISOChronology.getInstanceUTC().millisOfDay();
     private static final DateTimeField MONTH_OF_YEAR_UTC = ISOChronology.getInstanceUTC().monthOfYear();
 
-    private DateTimeOperators()
-    {
-    }
+    private DateTimeOperators() {}
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.DATE)

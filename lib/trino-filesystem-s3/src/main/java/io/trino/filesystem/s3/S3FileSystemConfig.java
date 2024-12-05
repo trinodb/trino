@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import software.amazon.awssdk.retries.api.RetryStrategy;
@@ -41,7 +42,7 @@ public class S3FileSystemConfig
 {
     public enum S3SseType
     {
-        NONE, S3, KMS
+        NONE, S3, KMS, CUSTOMER
     }
 
     public enum ObjectCannedAcl
@@ -96,6 +97,7 @@ public class S3FileSystemConfig
     private String stsRegion;
     private S3SseType sseType = S3SseType.NONE;
     private String sseKmsKeyId;
+    private String sseCustomerKey;
     private boolean useWebIdentityTokenCredentialsProvider;
     private DataSize streamingPartSize = DataSize.of(16, MEGABYTE);
     private boolean requesterPays;
@@ -318,6 +320,29 @@ public class S3FileSystemConfig
     {
         this.useWebIdentityTokenCredentialsProvider = useWebIdentityTokenCredentialsProvider;
         return this;
+    }
+
+    public String getSseCustomerKey()
+    {
+        return sseCustomerKey;
+    }
+
+    @Config("s3.sse.customer-key")
+    @ConfigDescription("Customer Key to use for S3 server-side encryption with Customer key (SSE-C)")
+    @ConfigSecuritySensitive
+    public S3FileSystemConfig setSseCustomerKey(String sseCustomerKey)
+    {
+        this.sseCustomerKey = sseCustomerKey;
+        return this;
+    }
+
+    @AssertTrue(message = "s3.sse.customer-key has to be set for server-side encryption with customer-provided key")
+    public boolean isSseWithCustomerKeyConfigValid()
+    {
+        if (sseType == S3SseType.CUSTOMER) {
+            return sseCustomerKey != null;
+        }
+        return true;
     }
 
     @NotNull

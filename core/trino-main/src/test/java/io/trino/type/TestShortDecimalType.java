@@ -39,7 +39,7 @@ public class TestShortDecimalType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = SHORT_DECIMAL_TYPE.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = SHORT_DECIMAL_TYPE.createFixedSizeBlockBuilder(15);
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, -1234);
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, -1234);
         SHORT_DECIMAL_TYPE.writeLong(blockBuilder, -1234);

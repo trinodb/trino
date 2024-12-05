@@ -29,6 +29,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -48,6 +49,7 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.TransferPair;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -75,6 +77,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.arrow.compression.CommonsCompressionFactory.INSTANCE;
+import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 import static org.apache.arrow.vector.types.Types.MinorType.DECIMAL256;
 
 public class BigQueryArrowToPageConverter
@@ -84,10 +87,12 @@ public class BigQueryArrowToPageConverter
     private final VectorSchemaRoot root;
     private final VectorLoader loader;
     private final List<BigQueryColumnHandle> columns;
+    private final BufferAllocator allocator;
 
     public BigQueryArrowToPageConverter(BigQueryTypeManager typeManager, BufferAllocator allocator, Schema schema, List<BigQueryColumnHandle> columns)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.allocator = requireNonNull(allocator, "allocator is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         List<FieldVector> vectors = schema.getFields().stream()
                 .map(field -> field.createVector(allocator))
@@ -172,7 +177,7 @@ public class BigQueryArrowToPageConverter
                 writeVectorValues(output, vector, index -> writeObjectTimestampWithTimezone(output, type, vector, index), offset, length);
             }
             else if (type instanceof ArrayType arrayType) {
-                writeVectorValues(output, vector, _ -> writeArrayBlock(output, arrayType, vector), offset, length);
+                writeVectorValues(output, vector, index -> writeArrayBlock(output, arrayType, vector, index), offset, length);
             }
             else if (type instanceof RowType rowType) {
                 writeVectorValues(output, vector, index -> writeRowBlock(output, rowType, vector, index), offset, length);
@@ -241,11 +246,23 @@ public class BigQueryArrowToPageConverter
         type.writeObject(output, fromEpochMillisAndFraction(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND), picosOfMillis, UTC_KEY));
     }
 
-    private void writeArrayBlock(BlockBuilder output, ArrayType arrayType, FieldVector vector)
+    private void writeArrayBlock(BlockBuilder output, ArrayType arrayType, FieldVector vector, int index)
     {
         Type elementType = arrayType.getElementType();
-        FieldVector innerVector = ((ListVector) vector).getDataVector();
-        ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> convertType(elementBuilder, elementType, innerVector, 0, innerVector.getValueCount()));
+        ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
+            ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+
+            int start = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
+            int end = offsetBuffer.getInt((long) (index + 1) * OFFSET_WIDTH);
+
+            FieldVector innerVector = ((ListVector) vector).getDataVector();
+
+            TransferPair transferPair = innerVector.getTransferPair(allocator);
+            transferPair.splitAndTransfer(start, end - start);
+            try (FieldVector sliced = (FieldVector) transferPair.getTo()) {
+                convertType(elementBuilder, elementType, sliced, 0, sliced.getValueCount());
+            }
+        });
     }
 
     private void writeRowBlock(BlockBuilder output, RowType rowType, FieldVector vector, int index)

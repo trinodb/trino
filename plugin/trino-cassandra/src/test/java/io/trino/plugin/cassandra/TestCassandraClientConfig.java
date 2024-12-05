@@ -21,13 +21,13 @@ import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.plugin.cassandra.CassandraClientConfig.CassandraAuthenticationType.NONE;
+import static io.trino.plugin.cassandra.CassandraClientConfig.CassandraAuthenticationType.PASSWORD;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -47,8 +47,6 @@ public class TestCassandraClientConfig
                 .setBatchSize(100)
                 .setSplitsPerNode(null)
                 .setAllowDropTable(false)
-                .setUsername(null)
-                .setPassword(null)
                 .setClientReadTimeout(new Duration(12_000, MILLISECONDS))
                 .setClientConnectTimeout(new Duration(5_000, MILLISECONDS))
                 .setClientSoLinger(null)
@@ -62,19 +60,13 @@ public class TestCassandraClientConfig
                 .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS))
                 .setProtocolVersion(null)
                 .setTlsEnabled(false)
-                .setKeystorePath(null)
-                .setKeystorePassword(null)
-                .setTruststorePath(null)
-                .setTruststorePassword(null));
+                .setAuthenticationType(NONE));
     }
 
     @Test
     public void testExplicitPropertyMappings()
             throws IOException
     {
-        Path keystoreFile = Files.createTempFile(null, null);
-        Path truststoreFile = Files.createTempFile(null, null);
-
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("cassandra.contact-points", "host1,host2")
                 .put("cassandra.native-protocol-port", "9999")
@@ -85,8 +77,6 @@ public class TestCassandraClientConfig
                 .put("cassandra.batch-size", "999")
                 .put("cassandra.splits-per-node", "10000")
                 .put("cassandra.allow-drop-table", "true")
-                .put("cassandra.username", "my_username")
-                .put("cassandra.password", "my_password")
                 .put("cassandra.client.read-timeout", "11ms")
                 .put("cassandra.client.connect-timeout", "22ms")
                 .put("cassandra.client.so-linger", "33")
@@ -100,10 +90,7 @@ public class TestCassandraClientConfig
                 .put("cassandra.speculative-execution.delay", "101s")
                 .put("cassandra.protocol-version", "V3")
                 .put("cassandra.tls.enabled", "true")
-                .put("cassandra.tls.keystore-path", keystoreFile.toString())
-                .put("cassandra.tls.keystore-password", "keystore-password")
-                .put("cassandra.tls.truststore-path", truststoreFile.toString())
-                .put("cassandra.tls.truststore-password", "truststore-password")
+                .put("cassandra.security", "PASSWORD")
                 .buildOrThrow();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -116,8 +103,6 @@ public class TestCassandraClientConfig
                 .setBatchSize(999)
                 .setSplitsPerNode(10_000L)
                 .setAllowDropTable(true)
-                .setUsername("my_username")
-                .setPassword("my_password")
                 .setClientReadTimeout(new Duration(11, MILLISECONDS))
                 .setClientConnectTimeout(new Duration(22, MILLISECONDS))
                 .setClientSoLinger(33)
@@ -130,11 +115,8 @@ public class TestCassandraClientConfig
                 .setSpeculativeExecutionLimit(10)
                 .setSpeculativeExecutionDelay(new Duration(101, SECONDS))
                 .setProtocolVersion(DefaultProtocolVersion.V3)
-                .setTlsEnabled(true)
-                .setKeystorePath(keystoreFile.toFile())
-                .setKeystorePassword("keystore-password")
-                .setTruststorePath(truststoreFile.toFile())
-                .setTruststorePassword("truststore-password");
+                .setAuthenticationType(PASSWORD)
+                .setTlsEnabled(true);
 
         assertFullMapping(properties, expected);
     }

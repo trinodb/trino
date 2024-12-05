@@ -14,7 +14,6 @@
 package io.trino.tests.product.launcher.cli;
 
 import io.airlift.units.Duration;
-import io.trino.testing.TestingProperties;
 import io.trino.tests.product.launcher.Extensions;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -35,6 +34,7 @@ import java.util.ListResourceBundle;
 import java.util.ResourceBundle;
 
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.trino.testing.TestingProperties.getProjectVersion;
 import static io.trino.tests.product.launcher.cli.Launcher.EnvironmentCommand;
 import static io.trino.tests.product.launcher.cli.Launcher.SuiteCommand;
 import static io.trino.tests.product.launcher.cli.Launcher.TestCommand;
@@ -160,7 +160,7 @@ public class Launcher
         @Override
         public String[] getVersion()
         {
-            return new String[] {spec.name() + " " + TestingProperties.getProjectVersion()};
+            return new String[] {spec.name() + " " + getProjectVersion()};
         }
     }
 
@@ -173,13 +173,12 @@ public class Launcher
             try {
                 Path jdkDistribution = findJdkDistribution();
                 return new Object[][] {
-                        {"project.version", TestingProperties.getProjectVersion()},
+                        {"project.version", getProjectVersion()},
                         {"product-tests.module", "testing/trino-product-tests"},
                         {"product-tests.name", "trino-product-tests"},
-                        {"server.module", "core/trino-server"},
-                        {"server.name", "trino-server"},
+                        {"server.package", "core/trino-server/target/trino-server-" + getProjectVersion() + ".tar.gz"},
                         {"launcher.bin", "testing/trino-product-tests-launcher/bin/run-launcher"},
-                        {"cli.bin", format("client/trino-cli/target/trino-cli-%s-executable.jar", TestingProperties.getProjectVersion())},
+                        {"cli.bin", format("client/trino-cli/target/trino-cli-%s-executable.jar", getProjectVersion())},
                         {"jdk.current", Files.readString(jdkDistribution).trim()},
                         {"jdk.distributions", jdkDistribution.getParent().toAbsolutePath().toString()}
                 };

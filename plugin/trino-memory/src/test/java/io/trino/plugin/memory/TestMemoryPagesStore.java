@@ -70,14 +70,14 @@ public class TestMemoryPagesStore
     {
         createTable(0L, 0L);
         insertToTable(0L, 0L);
-        assertThat(pagesStore.getPages(0L, 0, 1, new int[] {0}, List.of(INTEGER), POSITIONS_PER_PAGE, OptionalLong.empty(), OptionalDouble.empty()).size()).isEqualTo(1);
+        assertThat(pagesStore.getPages(0L, 0, 1, new int[] {0}, List.of(INTEGER), POSITIONS_PER_PAGE, OptionalLong.empty(), OptionalDouble.empty())).hasSize(1);
     }
 
     @Test
     public void testInsertPageWithoutCreate()
     {
         insertToTable(0L, 0L);
-        assertThat(pagesStore.getPages(0L, 0, 1, new int[] {0}, List.of(INTEGER), POSITIONS_PER_PAGE, OptionalLong.empty(), OptionalDouble.empty()).size()).isEqualTo(1);
+        assertThat(pagesStore.getPages(0L, 0, 1, new int[] {0}, List.of(INTEGER), POSITIONS_PER_PAGE, OptionalLong.empty(), OptionalDouble.empty())).hasSize(1);
     }
 
     @Test

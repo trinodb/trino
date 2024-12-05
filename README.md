@@ -24,6 +24,21 @@
 
 ## Development
 
+Learn about development for all Trino organization projects:
+
+* [Vision](https://trino.io/development/vision)
+* [Contribution process](https://trino.io/development/process#contribution-process)
+* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines-)
+* [Release note guidelines](https://trino.io/development/process#release-note-guidelines-)
+
+Further information in the [development section of the
+website](https://trino.io/development) includes different roles, like
+contributors, reviewers, and maintainers, related processes, and other aspects.
+
+See [the Trino developer guide](https://trino.io/docs/current/develop.html) for
+information about the SPI, implementing connectors and other plugins plugins,
+the client protocol, writing tests and other lower level details.
+
 See [DEVELOPMENT](.github/DEVELOPMENT.md) for information about code style,
 development process, and guidelines.
 
@@ -39,7 +54,7 @@ Trino supports [reproducible builds](https://reproducible-builds.org) as of vers
 ## Build requirements
 
 * Mac OS X or Linux
-* Java 22.0.0+, 64-bit
+* Java 23.0.0+, 64-bit
 * Docker
   * Turn SELinux or other systems disabling write access to the local checkout
     off, to allow containers to mount parts of the Trino source tree
@@ -75,8 +90,8 @@ After opening the project in IntelliJ, double check that the Java SDK is
 properly configured for the project:
 
 * Open the File menu and select Project Structure
-* In the SDKs section, ensure that JDK 22 is selected (create one if none exist)
-* In the Project section, ensure the Project language level is set to 22
+* In the SDKs section, ensure that JDK 23 is selected (create one if none exist)
+* In the Project section, ensure the Project language level is set to 23
 
 ### Running a testing server
 
@@ -101,6 +116,16 @@ IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 
 If `VM options` doesn't exist in the dialog, you need to select `Modify options`
 and enable `Add VM options`.
+
+To adjust which plugins are enabled for the development server, adjust the value of
+`plugin.bundles` in `config.properties`. Each entry in this list must represent a plugin
+specified by one of the following options:
+* A path to a `pom.xml` or `*.pom` file describing a Maven project that produces a plugin.
+* Maven coordinates, in the form `<groupId>:<artifactId>[:<extension>[:<classifier>]]:<version>`. The plugin will be loaded via Maven and therefore must be available in your local repository or a remote repository.
+* A path to a plugin directory containing JAR files. See [Deploying a custom plugin](https://trino.io/docs/current/develop/spi-overview.html#deploying-a-custom-plugin) for more details.
+
+If you want to use a plugin in a catalog, you must add a corresponding
+`<catalog_name>.properties` file to `testing/trino-server-dev/etc/catalog`.
 
 ### Running the CLI
 

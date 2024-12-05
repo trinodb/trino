@@ -18,7 +18,6 @@ import com.google.errorprone.annotations.Immutable;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -52,7 +51,7 @@ public class Extract
 
     public Extract(NodeLocation location, Expression expression, Field field)
     {
-        super(Optional.of(location));
+        super(location);
         requireNonNull(expression, "expression is null");
         requireNonNull(field, "field is null");
 

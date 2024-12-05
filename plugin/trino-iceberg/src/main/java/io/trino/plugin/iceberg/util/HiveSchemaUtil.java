@@ -14,10 +14,12 @@
 package io.trino.plugin.iceberg.util;
 
 import io.trino.metastore.type.TypeInfo;
+import io.trino.spi.TrinoException;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types.DecimalType;
 
 import static io.trino.metastore.type.TypeInfoUtils.getTypeInfoFromTypeString;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.stream.Collectors.joining;
 
 // based on org.apache.iceberg.hive.HiveSchemaUtil
@@ -41,6 +43,8 @@ public final class HiveSchemaUtil
             case DATE -> "date";
             case TIME, STRING, UUID -> "string";
             case TIMESTAMP -> "timestamp";
+            // TODO https://github.com/trinodb/trino/issues/19753 Support Iceberg timestamp types with nanosecond precision
+            case TIMESTAMP_NANO -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: TIMESTAMP_NANO");
             case FIXED, BINARY -> "binary";
             case DECIMAL -> "decimal(%s,%s)".formatted(((DecimalType) type).precision(), ((DecimalType) type).scale());
             case LIST -> "array<%s>".formatted(convert(type.asListType().elementType()));

@@ -16,7 +16,6 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -33,7 +32,7 @@ public final class SecurityCharacteristic
 
     public SecurityCharacteristic(NodeLocation location, Security security)
     {
-        super(Optional.of(location));
+        super(location);
         this.security = requireNonNull(security, "security is null");
     }
 

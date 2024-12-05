@@ -19,4 +19,6 @@ public enum IcebergTableProcedureId
     DROP_EXTENDED_STATS,
     EXPIRE_SNAPSHOTS,
     REMOVE_ORPHAN_FILES,
+    ADD_FILES,
+    ADD_FILES_FROM_TABLE,
 }

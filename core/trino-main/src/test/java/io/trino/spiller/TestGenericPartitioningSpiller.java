@@ -214,7 +214,7 @@ public class TestGenericPartitioningSpiller
             List<Page> actualSpill = ImmutableList.copyOf(spiller.getSpilledPages(partition));
             List<Page> expectedSpill = expectedPartitions.get(partition);
 
-            assertThat(actualSpill.size()).isEqualTo(expectedSpill.size());
+            assertThat(actualSpill).hasSize(expectedSpill.size());
             for (int j = 0; j < actualSpill.size(); j++) {
                 assertPageEquals(types, actualSpill.get(j), expectedSpill.get(j));
             }

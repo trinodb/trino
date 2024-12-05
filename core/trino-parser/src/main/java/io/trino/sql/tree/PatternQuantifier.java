@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -26,7 +25,7 @@ public abstract class PatternQuantifier
 {
     private final boolean greedy;
 
-    protected PatternQuantifier(Optional<NodeLocation> location, boolean greedy)
+    protected PatternQuantifier(NodeLocation location, boolean greedy)
     {
         super(location);
         this.greedy = greedy;

@@ -149,10 +149,10 @@ public class TestPipelineStats
 
         assertThat(actual.getPhysicalWrittenDataSize()).isEqualTo(DataSize.ofBytes(20));
 
-        assertThat(actual.getOperatorSummaries().size()).isEqualTo(1);
+        assertThat(actual.getOperatorSummaries()).hasSize(1);
         assertExpectedOperatorStats(actual.getOperatorSummaries().get(0));
 
-        assertThat(actual.getDrivers().size()).isEqualTo(1);
+        assertThat(actual.getDrivers()).hasSize(1);
         assertExpectedDriverStats(actual.getDrivers().get(0));
     }
 

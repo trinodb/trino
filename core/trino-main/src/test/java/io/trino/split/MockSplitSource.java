@@ -56,9 +56,7 @@ public class MockSplitSource
     private SettableFuture<List<Split>> nextBatchFuture = COMPLETED_FUTURE;
     private int nextBatchMaxSize;
 
-    public MockSplitSource()
-    {
-    }
+    public MockSplitSource() {}
 
     public synchronized MockSplitSource setBatchSize(int batchSize)
     {
@@ -129,9 +127,7 @@ public class MockSplitSource
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 
     @Override
     public synchronized boolean isFinished()

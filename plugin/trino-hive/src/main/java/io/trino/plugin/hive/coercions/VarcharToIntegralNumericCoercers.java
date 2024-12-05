@@ -30,9 +30,7 @@ import static java.lang.String.format;
 
 public final class VarcharToIntegralNumericCoercers
 {
-    private VarcharToIntegralNumericCoercers()
-    {
-    }
+    private VarcharToIntegralNumericCoercers() {}
 
     public static TypeCoercer<VarcharType, ? extends Type> createVarcharToIntegerNumberCoercer(VarcharType fromType, Type toType, boolean isOrcFile)
     {

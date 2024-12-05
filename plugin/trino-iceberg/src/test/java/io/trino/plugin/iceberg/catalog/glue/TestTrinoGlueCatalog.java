@@ -134,7 +134,10 @@ public class TestTrinoGlueCatalog
                     (connectorIdentity, fileIoProperties) -> {
                         throw new UnsupportedOperationException();
                     },
-                    new TableStatisticsWriter(new NodeVersion("test-version")));
+                    new TableStatisticsWriter(new NodeVersion("test-version")),
+                    Optional.empty(),
+                    false,
+                    _ -> false);
             assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, trinoSchemaName)).as("icebergMetadata.schemaExists(trinoSchemaName)")
@@ -179,7 +182,7 @@ public class TestTrinoGlueCatalog
                     .filter(info -> info.extendedRelationType() == TableInfo.ExtendedRelationType.TRINO_MATERIALIZED_VIEW)
                     .map(TableInfo::tableName)
                     .toList();
-            assertThat(materializedViews.size()).isEqualTo(1);
+            assertThat(materializedViews).hasSize(1);
             assertThat(materializedViews.get(0).getTableName()).isEqualTo(table);
             Optional<ConnectorMaterializedViewDefinition> returned = glueTrinoCatalog.getMaterializedView(SESSION, materializedViews.get(0));
             assertThat(returned).isPresent();

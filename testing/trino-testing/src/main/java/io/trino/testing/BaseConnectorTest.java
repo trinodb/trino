@@ -1231,7 +1231,8 @@ public abstract class BaseConnectorTest
 
         String viewName = "test_mv_all_types_" + randomNameSuffix();
 
-        String values = """
+        String values =
+                """
                 SELECT
                     true a_boolean,
                     TINYINT '67' a_tinyint,
@@ -1993,7 +1994,7 @@ public abstract class BaseConnectorTest
         MaterializedResult all = computeActual("SELECT orderkey FROM orders");
 
         assertContains(all, fullSample);
-        assertThat(emptySample.getMaterializedRows().size()).isEqualTo(0);
+        assertThat(emptySample.getMaterializedRows()).isEmpty();
         assertThat(all.getMaterializedRows().size() >= randomSample.getMaterializedRows().size()).isTrue();
     }
 
@@ -2004,7 +2005,7 @@ public abstract class BaseConnectorTest
         MaterializedResult halfSample = computeActual("SELECT DISTINCT orderkey, orderdate FROM orders TABLESAMPLE SYSTEM (50) WHERE orderkey BETWEEN 0 AND 9999999999");
         MaterializedResult all = computeActual("SELECT orderkey, orderdate FROM orders");
 
-        assertThat(emptySample.getMaterializedRows().size()).isEqualTo(0);
+        assertThat(emptySample.getMaterializedRows()).isEmpty();
         // Assertions need to be loose here because SYSTEM sampling random selects data on split boundaries. In this case either all the data will be selected, or
         // none of it. Sampling with a 100% ratio is ignored, so that also cannot be used to guarantee results.
         assertThat(all.getMaterializedRows().size() >= halfSample.getMaterializedRows().size()).isTrue();
@@ -2017,19 +2018,22 @@ public abstract class BaseConnectorTest
         String schema = getSession().getSchema().orElseThrow();
         assertThat(computeScalar("SHOW CREATE TABLE orders"))
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
-                .isEqualTo(format("""
-                                CREATE TABLE %s.%s.orders (
-                                   orderkey bigint,
-                                   custkey bigint,
-                                   orderstatus varchar(1),
-                                   totalprice double,
-                                   orderdate date,
-                                   orderpriority varchar(15),
-                                   clerk varchar(15),
-                                   shippriority integer,
-                                   comment varchar(79)
-                                )""",
-                        catalog, schema));
+                .isEqualTo(format(
+                        """
+                        CREATE TABLE %s.%s.orders (
+                           orderkey bigint,
+                           custkey bigint,
+                           orderstatus varchar(1),
+                           totalprice double,
+                           orderdate date,
+                           orderpriority varchar(15),
+                           clerk varchar(15),
+                           shippriority integer,
+                           comment varchar(79)
+                        )\
+                        """,
+                        catalog,
+                        schema));
     }
 
     @Test
@@ -2104,18 +2108,19 @@ public abstract class BaseConnectorTest
 
     protected @Language("SQL") String getOrdersTableWithColumns()
     {
-        return """
-                VALUES
-                ('orders', 'orderkey'),
-                ('orders', 'custkey'),
-                ('orders', 'orderstatus'),
-                ('orders', 'totalprice'),
-                ('orders', 'orderdate'),
-                ('orders', 'orderpriority'),
-                ('orders', 'clerk'),
-                ('orders', 'shippriority'),
-                ('orders', 'comment')
-                """;
+        return
+               """
+               VALUES
+               ('orders', 'orderkey'),
+               ('orders', 'custkey'),
+               ('orders', 'orderstatus'),
+               ('orders', 'totalprice'),
+               ('orders', 'orderdate'),
+               ('orders', 'orderpriority'),
+               ('orders', 'clerk'),
+               ('orders', 'shippriority'),
+               ('orders', 'comment')
+               """;
     }
 
     @Test
@@ -2692,6 +2697,7 @@ public abstract class BaseConnectorTest
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[array[row(1, row(10), array[row(40)])]] AS array(array(row(a integer, c row(x integer), d array(row(w integer))))))");
         }
     }
+
     @Test
     public void testDropRowFieldWhenDuplicates()
     {
@@ -2740,9 +2746,9 @@ public abstract class BaseConnectorTest
         try (TestTable table = new TestTable(getQueryRunner()::execute,
                 "test_drop_row_field_case_sensitivity_",
                 """
-                        AS SELECT CAST(row(1, 2, 3, 4, 5) AS
-                        row("sOME_FIELd" integer, "some_field" integer, "SomE_Field" integer, "SOME_FIELD" integer, "sOME_FieLd" integer)) AS col
-                        """)) {
+                AS SELECT CAST(row(1, 2, 3, 4, 5) AS
+                row("sOME_FIELd" integer, "some_field" integer, "SomE_Field" integer, "SOME_FIELD" integer, "sOME_FieLd" integer)) AS col
+                """)) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(sOME_FIELd integer, some_field integer, SomE_Field integer, SOME_FIELD integer, sOME_FieLd integer)");
 
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.some_field");
@@ -4141,14 +4147,6 @@ public abstract class BaseConnectorTest
             // comment deleted
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS NULL");
             assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo(null);
-
-            // comment set to non-empty value before verifying setting empty comment
-            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'updated comment'");
-            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo("updated comment");
-
-            // comment set to empty or deleted
-            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS ''");
-            assertThat(getTableComment(catalogName, schemaName, table.getName())).isIn("", null); // Some storages do not preserve empty comment
         }
 
         String tableName = "test_comment_" + randomNameSuffix();
@@ -4156,6 +4154,10 @@ public abstract class BaseConnectorTest
             // comment set when creating a table
             assertUpdate("CREATE TABLE " + tableName + "(key integer) COMMENT 'new table comment'");
             assertThat(getTableComment(catalogName, schemaName, tableName)).isEqualTo("new table comment");
+
+            // comment set to empty or deleted
+            assertUpdate("COMMENT ON TABLE " + tableName + " IS ''");
+            assertThat(getTableComment(catalogName, schemaName, tableName)).isIn("", null); // Some storages do not preserve empty comment
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
@@ -4916,6 +4918,17 @@ public abstract class BaseConnectorTest
             assertThat(query("SELECT * FROM " + tableName))
                     .skippingTypesCheck()
                     .matches("SELECT CASE regionkey WHEN 2 THEN 2*(nationkey+100) WHEN 3 THEN 2*nationkey ELSE nationkey END nationkey, name, regionkey, comment FROM tpch.tiny.nation");
+        }
+    }
+
+    @Test
+    public void testUpdateCaseSensitivity()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_update", "AS SELECT * FROM nation")) {
+            assertUpdate("UPDATE " + table.getName() + " SET NATIONKEY = 100 WHERE REGIONKEY = 2", 5);
+            assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE nationkey = 100", "VALUES 5");
         }
     }
 
@@ -5809,6 +5822,7 @@ public abstract class BaseConnectorTest
 
     private void testDataMapping(DataMappingTestSetup dataMappingTestSetup)
     {
+        log.info("dataMappingTestSetup=%s", dataMappingTestSetup);
         String trinoTypeName = dataMappingTestSetup.getTrinoTypeName();
         String sampleValueLiteral = dataMappingTestSetup.getSampleValueLiteral();
         String highValueLiteral = dataMappingTestSetup.getHighValueLiteral();
@@ -5955,10 +5969,11 @@ public abstract class BaseConnectorTest
                     "timestamptz_to_date",
                     // These to timestamps are same local time, but different point in times and also different date at UTC time zone
                     """
-                            (i, t) AS VALUES
-                                ('UTC', TIMESTAMP '2005-09-10 00:12:34.000 UTC'),
-                                ('Warsaw', TIMESTAMP '2005-09-10 00:12:34.000 Europe/Warsaw'),
-                                ('Los Angeles', TIMESTAMP '2005-09-10 00:12:34.000 America/Los_Angeles')""");
+                    (i, t) AS VALUES
+                        ('UTC', TIMESTAMP '2005-09-10 00:12:34.000 UTC'),
+                        ('Warsaw', TIMESTAMP '2005-09-10 00:12:34.000 Europe/Warsaw'),
+                        ('Los Angeles', TIMESTAMP '2005-09-10 00:12:34.000 America/Los_Angeles')
+                    """);
         }
         catch (QueryFailedException e) {
             verifyUnsupportedTypeException(e, "timestamp(3) with time zone");
@@ -5985,10 +6000,11 @@ public abstract class BaseConnectorTest
                     "timestamptz_to_ts",
                     // These to timestamps are same local time, but different point in times
                     """
-                            (i, t) AS VALUES
-                                ('UTC', TIMESTAMP '2005-09-10 13:00:00.000 UTC'),
-                                ('Warsaw', TIMESTAMP '2005-09-10 13:00:00.000 Europe/Warsaw'),
-                                ('Los Angeles', TIMESTAMP '2005-09-10 13:00:00.000 America/Los_Angeles')""");
+                    (i, t) AS VALUES
+                        ('UTC', TIMESTAMP '2005-09-10 13:00:00.000 UTC'),
+                        ('Warsaw', TIMESTAMP '2005-09-10 13:00:00.000 Europe/Warsaw'),
+                        ('Los Angeles', TIMESTAMP '2005-09-10 13:00:00.000 America/Los_Angeles')
+                    """);
         }
         catch (QueryFailedException e) {
             verifyUnsupportedTypeException(e, "timestamp(3) with time zone");
@@ -6064,7 +6080,8 @@ public abstract class BaseConnectorTest
 
         String target = "merge_target_with_ctas_" + randomNameSuffix();
         String source = "merge_source_with_ctas_" + randomNameSuffix();
-        @Language("SQL") String createTableSql = """
+        @Language("SQL") String createTableSql =
+                """
                 CREATE TABLE %s AS
                 SELECT * FROM (
                         VALUES
@@ -6299,32 +6316,35 @@ public abstract class BaseConnectorTest
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena')", targetTable), 2);
 
         // Test a literal false
-        assertUpdate("""
-                        MERGE INTO %s t USING (VALUES ('Carol', 9, 'Centreville')) AS s(customer, purchases, address)
-                          ON (FALSE)
-                            WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
-                        """.formatted(targetTable),
+        assertUpdate(
+                """
+                MERGE INTO %s t USING (VALUES ('Carol', 9, 'Centreville')) AS s(customer, purchases, address)
+                  ON (FALSE)
+                    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
+                """.formatted(targetTable),
                 1);
 
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville')");
 
         // Test a constant-folded false expression
-        assertUpdate("""
-                        MERGE INTO %s t USING (VALUES ('Dave', 22, 'Darbyshire')) AS s(customer, purchases, address)
-                          ON (t.customer != t.customer)
-                            WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
-                        """.formatted(targetTable),
+        assertUpdate(
+                """
+                MERGE INTO %s t USING (VALUES ('Dave', 22, 'Darbyshire')) AS s(customer, purchases, address)
+                  ON (t.customer != t.customer)
+                    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
+                """.formatted(targetTable),
                 1);
 
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire')");
 
         // Test a more complicated constant-folded false expression
-        assertUpdate("""
-                        MERGE INTO %s t USING (VALUES ('Ed', 7, 'Etherville')) AS s(customer, purchases, address)
-                          ON (23 - (12 + 10) > 1)
-                            WHEN MATCHED THEN UPDATE SET customer = concat(s.customer, '_fooled_you')
-                            WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
-                        """.formatted(targetTable),
+        assertUpdate(
+                """
+                MERGE INTO %s t USING (VALUES ('Ed', 7, 'Etherville')) AS s(customer, purchases, address)
+                  ON (23 - (12 + 10) > 1)
+                    WHEN MATCHED THEN UPDATE SET customer = concat(s.customer, '_fooled_you')
+                    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
+                """.formatted(targetTable),
                 1);
 
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire'), ('Ed', 7, 'Etherville')");
@@ -6647,11 +6667,12 @@ public abstract class BaseConnectorTest
 
         String targetTable = "merge_update_columns_reversed_" + randomNameSuffix();
         assertUpdate(createTableForWrites("CREATE TABLE " + targetTable + " (a, b, c) AS VALUES (1, 2, 3)"), 1);
-        assertUpdate("""
-                        MERGE INTO %s t USING (VALUES(1)) AS s(a) ON (t.a = s.a)
-                            WHEN MATCHED THEN UPDATE
-                                SET c = 100, b = 42, a = 0
-                        """.formatted(targetTable),
+        assertUpdate(
+                """
+                MERGE INTO %s t USING (VALUES(1)) AS s(a) ON (t.a = s.a)
+                    WHEN MATCHED THEN UPDATE
+                        SET c = 100, b = 42, a = 0
+                """.formatted(targetTable),
                 1);
         assertQuery("SELECT * FROM " + targetTable, "VALUES (0, 42, 100)");
 
@@ -6735,13 +6756,15 @@ public abstract class BaseConnectorTest
                         .row(name, "double", "double", "scalar", true, "t88")
                         .build());
 
-        String integerFunctionSql = """
+        String integerFunctionSql =
+                """
                 CREATE FUNCTION %s(x integer)
                 RETURNS bigint
                 COMMENT 't42'
                 RETURN (x * 42)
                 """.strip().formatted(name);
-        String doubleFunctionSql = """
+        String doubleFunctionSql =
+                """
                 CREATE FUNCTION %s(x double)
                 RETURNS double
                 COMMENT 't88'
@@ -6771,7 +6794,8 @@ public abstract class BaseConnectorTest
                         .row(name2, "varchar", "varchar", "scalar", true, "")
                         .build());
 
-        String bigintFunctionSql = """
+        String bigintFunctionSql =
+                """
                 CREATE FUNCTION %s(x bigint)
                 RETURNS bigint
                 RETURN (x * 23)
@@ -6807,7 +6831,8 @@ public abstract class BaseConnectorTest
                         .build());
 
         assertThat(computeActual("SHOW CREATE FUNCTION " + name3).getOnlyValue())
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE FUNCTION %s()
                         RETURNS double
                         NOT DETERMINISTIC
@@ -6915,9 +6940,9 @@ public abstract class BaseConnectorTest
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
                 "test_projection_with_case_sensitive_field_",
-                "(id INT, a ROW(\"UPPER_CASE\" INT, \"lower_case\" INT, \"MiXeD_cAsE\" INT))",
+                "(id BIGINT, a ROW(\"UPPER_CASE\" BIGINT, \"lower_case\" BIGINT, \"MiXeD_cAsE\" BIGINT))",
                 ImmutableList.of("(1, ROW(2, 3, 4))", "(5, ROW(6, 7, 8))"))) {
-            String expected = "VALUES (2, 3, 4), (6, 7, 8)";
+            String expected = "VALUES (BIGINT '2', BIGINT '3', BIGINT '4'), (BIGINT '6', BIGINT '7', BIGINT '8')";
             assertThat(query("SELECT a.UPPER_CASE, a.lower_case, a.MiXeD_cAsE FROM " + testTable.getName()))
                     .matches(expected)
                     .isFullyPushedDown();
@@ -6938,7 +6963,7 @@ public abstract class BaseConnectorTest
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
                 "test_projection_pushdown_multiple_rows_",
-                "(id INT, nested1 ROW(child1 INT, child2 VARCHAR, child3 INT), nested2 ROW(child1 DOUBLE, child2 BOOLEAN, child3 DATE))",
+                "(id BIGINT, nested1 ROW(child1 BIGINT, child2 VARCHAR, child3 BIGINT), nested2 ROW(child1 DOUBLE, child2 BOOLEAN, child3 DATE))",
                 ImmutableList.of(
                         "(1, ROW(10, 'a', 100), ROW(10.10, true, DATE '2023-04-19'))",
                         "(2, ROW(20, 'b', 200), ROW(20.20, false, DATE '1990-04-20'))",
@@ -6946,35 +6971,35 @@ public abstract class BaseConnectorTest
                         "(5, NULL, ROW(NULL, true, NULL))"))) {
             // Select one field from one row field
             assertThat(query("SELECT id, nested1.child1 FROM " + testTable.getName()))
-                    .matches("VALUES (1, 10), (2, 20), (4, 40), (5, NULL)")
+                    .matches("VALUES (BIGINT '1', BIGINT '10'), (BIGINT '2', BIGINT '20'), (BIGINT '4', BIGINT '40'), (BIGINT '5', NULL)")
                     .isFullyPushedDown();
             assertThat(query("SELECT nested2.child3, id FROM " + testTable.getName()))
-                    .matches("VALUES (DATE '2023-04-19', 1), (DATE '1990-04-20', 2), (NULL, 4), (NULL, 5)")
+                    .matches("VALUES (DATE '2023-04-19', BIGINT '1'), (DATE '1990-04-20', BIGINT '2'), (NULL, BIGINT '4'), (NULL, BIGINT '5')")
                     .isFullyPushedDown();
 
             // Select one field each from multiple row fields
             assertThat(query("SELECT nested2.child1, id, nested1.child2 FROM " + testTable.getName()))
                     .skippingTypesCheck()
-                    .matches("VALUES (DOUBLE '10.10', 1, 'a'), (DOUBLE '20.20', 2, 'b'), (NULL, 4, NULL), (NULL, 5, NULL)")
+                    .matches("VALUES (DOUBLE '10.10', BIGINT '1', 'a'), (DOUBLE '20.20', BIGINT '2', 'b'), (NULL, BIGINT '4', NULL), (NULL, BIGINT '5', NULL)")
                     .isFullyPushedDown();
 
             // Select multiple fields from one row field
             assertThat(query("SELECT nested1.child3, id, nested1.child2 FROM " + testTable.getName()))
                     .skippingTypesCheck()
-                    .matches("VALUES (100, 1, 'a'), (200, 2, 'b'), (400, 4, NULL), (NULL, 5, NULL)")
+                    .matches("VALUES (BIGINT '100', BIGINT '1', 'a'), (BIGINT '200', BIGINT '2', 'b'), (BIGINT '400', BIGINT '4', NULL), (NULL, BIGINT '5', NULL)")
                     .isFullyPushedDown();
             assertThat(query("SELECT nested2.child2, nested2.child3, id FROM " + testTable.getName()))
-                    .matches("VALUES (true, DATE '2023-04-19' , 1), (false, DATE '1990-04-20', 2), (NULL, NULL, 4), (true, NULL, 5)")
+                    .matches("VALUES (true, DATE '2023-04-19' , BIGINT '1'), (false, DATE '1990-04-20', BIGINT '2'), (NULL, NULL, BIGINT '4'), (true, NULL, BIGINT '5')")
                     .isFullyPushedDown();
 
             // Select multiple fields from multiple row fields
             assertThat(query("SELECT id, nested2.child1, nested1.child3, nested2.child2, nested1.child1 FROM " + testTable.getName()))
-                    .matches("VALUES (1, DOUBLE '10.10', 100, true, 10), (2, DOUBLE '20.20', 200, false, 20), (4, NULL, 400, NULL, 40), (5, NULL, NULL, true, NULL)")
+                    .matches("VALUES (BIGINT '1', DOUBLE '10.10', BIGINT '100', true, BIGINT '10'), (BIGINT '2', DOUBLE '20.20', BIGINT '200', false, BIGINT '20'), (BIGINT '4', NULL, BIGINT '400', NULL, BIGINT '40'), (BIGINT '5', NULL, NULL, true, NULL)")
                     .isFullyPushedDown();
 
             // Select only nested fields
             assertThat(query("SELECT nested2.child2, nested1.child3 FROM " + testTable.getName()))
-                    .matches("VALUES (true, 100), (false, 200), (NULL, 400), (true, NULL)")
+                    .matches("VALUES (true, BIGINT '100'), (false, BIGINT '200'), (NULL, BIGINT '400'), (true, NULL)")
                     .isFullyPushedDown();
         }
     }

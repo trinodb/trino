@@ -31,7 +31,7 @@ public class Update
 
     public Update(NodeLocation location, Table table, List<UpdateAssignment> assignments, Optional<Expression> where)
     {
-        super(Optional.of(location));
+        super(location);
         this.table = requireNonNull(table, "table is null");
         this.assignments = requireNonNull(assignments, "assignments is null");
         this.where = requireNonNull(where, "where is null");

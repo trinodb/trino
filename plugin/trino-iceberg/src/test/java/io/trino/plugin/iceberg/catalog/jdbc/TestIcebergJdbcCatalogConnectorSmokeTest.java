@@ -109,6 +109,7 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.getAbsolutePath())
+                                .put("iceberg.jdbc-catalog.retryable-status-codes", "57P01,57P05")
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
@@ -196,13 +197,6 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
     {
         assertThatThrownBy(super::testRenameSchema)
                 .hasMessageContaining("renameNamespace is not supported for Iceberg JDBC catalogs");
-    }
-
-    @Test
-    @Override
-    public void testDeleteRowsConcurrently()
-    {
-        // TODO https://github.com/trinodb/trino/issues/21862 Fix flaky test
     }
 
     @Override

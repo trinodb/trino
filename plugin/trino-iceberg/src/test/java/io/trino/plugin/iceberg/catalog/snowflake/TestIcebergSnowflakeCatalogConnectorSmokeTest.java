@@ -67,7 +67,8 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
         server = new TestingSnowflakeServer();
         server.execute(SNOWFLAKE_TEST_SCHEMA, "CREATE SCHEMA IF NOT EXISTS %s".formatted(SNOWFLAKE_TEST_SCHEMA));
         if (!server.checkIfTableExists(ICEBERG, SNOWFLAKE_TEST_SCHEMA, TpchTable.NATION.getTableName())) {
-            executeOnSnowflake("""
+            executeOnSnowflake(
+                    """
                     CREATE OR REPLACE ICEBERG TABLE %s (
                     	NATIONKEY NUMBER(38,0),
                     	NAME STRING,
@@ -82,7 +83,8 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
                     .formatted(TpchTable.NATION.getTableName(), TpchTable.NATION.getTableName()));
         }
         if (!server.checkIfTableExists(ICEBERG, SNOWFLAKE_TEST_SCHEMA, TpchTable.REGION.getTableName())) {
-            executeOnSnowflake("""
+            executeOnSnowflake(
+                    """
                     CREATE OR REPLACE ICEBERG TABLE %s (
                     	REGIONKEY NUMBER(38,0),
                     	NAME STRING,
@@ -124,22 +126,22 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_CREATE_TABLE,
-                    SUPPORTS_DELETE,
-                    SUPPORTS_INSERT,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_CREATE_SCHEMA,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_UPDATE,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_ROW_LEVEL_UPDATE,
-                    SUPPORTS_ROW_LEVEL_DELETE,
-                    SUPPORTS_CREATE_OR_REPLACE_TABLE,
-                    SUPPORTS_CREATE_TABLE_WITH_DATA,
-                    SUPPORTS_COMMENT_ON_TABLE,
-                    SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_COMMENT_ON_VIEW -> false;
+                 SUPPORTS_DELETE,
+                 SUPPORTS_INSERT,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_UPDATE,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_ROW_LEVEL_UPDATE,
+                 SUPPORTS_ROW_LEVEL_DELETE,
+                 SUPPORTS_CREATE_OR_REPLACE_TABLE,
+                 SUPPORTS_CREATE_TABLE_WITH_DATA,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_COMMENT_ON_VIEW -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -569,6 +571,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + TpchTable.REGION.getTableName() + " RENAME COLUMN name TO new_name"))
                 .hasMessageMatching("Failed to rename column: Snowflake managed Iceberg tables do not support modifications");
     }
+
     @Test
     public void testBeginStatisticsCollection()
     {
@@ -623,13 +626,14 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     {
         assertQuery(
                 "SHOW STATS FOR " + TpchTable.NATION.getTableName(),
-                          """
-                          VALUES
-                          ('nationkey', null, null, 0, null, 0.0, '24.0'),
-                          ('name', null, null, 0, null, null, null),
-                          ('regionkey', null, null, 0, null, 0.0, '4.0'),
-                          ('comment', null, null, 0, null, null, null),
-                          (null, null, null, null, 25, null, null)""");
+                """
+                VALUES
+                ('nationkey', null, null, 0, null, 0.0, '24.0'),
+                ('name', null, null, 0, null, null, null),
+                ('regionkey', null, null, 0, null, 0.0, '4.0'),
+                ('comment', null, null, 0, null, null, null),
+                (null, null, null, null, 25, null, null)
+                """);
     }
 
     @Test

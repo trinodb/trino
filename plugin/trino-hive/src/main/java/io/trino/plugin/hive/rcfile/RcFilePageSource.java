@@ -21,7 +21,6 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -44,7 +43,6 @@ public class RcFilePageSource
 {
     private static final long GUESSED_MEMORY_USAGE = DataSize.of(16, DataSize.Unit.MEGABYTE).toBytes();
 
-    private static final int NULL_ENTRY_SIZE = 0;
     private final RcFileReader rcFileReader;
 
     private final List<String> columnNames;
@@ -82,9 +80,7 @@ public class RcFilePageSource
             if (hiveColumnIndexes[columnIndex] >= rcFileReader.getColumnCount()) {
                 // this file may contain fewer fields than what's declared in the schema
                 // this happens when additional columns are added to the hive table after files have been created
-                BlockBuilder blockBuilder = column.getType().createBlockBuilder(null, 1, NULL_ENTRY_SIZE);
-                blockBuilder.appendNull();
-                constantBlocks[columnIndex] = blockBuilder.build();
+                constantBlocks[columnIndex] = column.getType().createNullBlock();
             }
         }
         types = typesBuilder.build();

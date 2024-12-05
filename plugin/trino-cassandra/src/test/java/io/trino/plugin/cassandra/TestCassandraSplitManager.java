@@ -71,13 +71,15 @@ final class TestCassandraSplitManager
         String tableName = "single_partition_key_column_table";
         int partitionCount = 3;
 
-        session.execute(format("""
-            CREATE TABLE %s.%s (
-              partition_key int,
-              clustering_key text,
-              PRIMARY KEY(partition_key, clustering_key)
-            )
-        """, KEYSPACE, tableName));
+        session.execute(format(
+                """
+                CREATE TABLE %s.%s (
+                      partition_key int,
+                      clustering_key text,
+                      PRIMARY KEY(partition_key, clustering_key))
+                """,
+                KEYSPACE,
+                tableName));
 
         CassandraColumnHandle columnHandle = new CassandraColumnHandle("partition_key", 0, CassandraTypes.INT, true, false, false, false);
         ImmutableList.Builder<CassandraPartition> partitions = ImmutableList.builderWithExpectedSize(partitionCount);

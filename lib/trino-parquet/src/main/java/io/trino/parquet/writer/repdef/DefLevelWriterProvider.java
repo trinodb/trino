@@ -30,9 +30,7 @@ public interface DefLevelWriterProvider
         ValuesCount writeDefinitionLevels();
     }
 
-    record ValuesCount(int totalValuesCount, int maxDefinitionLevelValuesCount)
-    {
-    }
+    record ValuesCount(int totalValuesCount, int maxDefinitionLevelValuesCount) {}
 
     static DefinitionLevelWriter getRootDefinitionLevelWriter(List<DefLevelWriterProvider> defLevelWriterProviders, ColumnDescriptorValuesWriter encoder)
     {

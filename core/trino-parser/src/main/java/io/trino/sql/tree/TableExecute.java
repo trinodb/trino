@@ -37,7 +37,7 @@ public class TableExecute
             List<CallArgument> arguments,
             Optional<Expression> where)
     {
-        super(Optional.of(location));
+        super(location);
         this.table = requireNonNull(table, "table is null");
         this.procedureName = requireNonNull(procedureName, "procedureName is null");
         this.arguments = requireNonNull(arguments, "arguments is null");

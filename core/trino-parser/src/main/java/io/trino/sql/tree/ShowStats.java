@@ -28,12 +28,14 @@ public class ShowStats
     private final Relation relation;
 
     @VisibleForTesting
+    @Deprecated
     public ShowStats(Relation relation)
     {
-        this(Optional.empty(), relation);
+        super(Optional.empty());
+        this.relation = relation;
     }
 
-    public ShowStats(Optional<NodeLocation> location, Relation relation)
+    public ShowStats(NodeLocation location, Relation relation)
     {
         super(location);
         this.relation = relation;

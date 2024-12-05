@@ -547,7 +547,7 @@ public final class PartitionTransforms
 
     private static Block truncateShortDecimal(DecimalType type, Block block, BigInteger unscaledWidth)
     {
-        BlockBuilder builder = type.createBlockBuilder(null, block.getPositionCount());
+        BlockBuilder builder = type.createFixedSizeBlockBuilder(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (block.isNull(position)) {
                 builder.appendNull();
@@ -585,7 +585,7 @@ public final class PartitionTransforms
 
     private static Block truncateLongDecimal(DecimalType type, Block block, BigInteger unscaledWidth)
     {
-        BlockBuilder builder = type.createBlockBuilder(null, block.getPositionCount());
+        BlockBuilder builder = type.createFixedSizeBlockBuilder(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (block.isNull(position)) {
                 builder.appendNull();

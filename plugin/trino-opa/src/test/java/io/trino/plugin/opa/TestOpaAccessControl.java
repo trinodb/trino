@@ -61,6 +61,7 @@ import static io.trino.plugin.opa.TestConstants.OPA_SERVER_URI;
 import static io.trino.plugin.opa.TestConstants.SERVER_ERROR_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.TEST_COLUMN_MASKING_TABLE_NAME;
 import static io.trino.plugin.opa.TestConstants.TEST_IDENTITY;
+import static io.trino.plugin.opa.TestConstants.TEST_QUERY_ID;
 import static io.trino.plugin.opa.TestConstants.TEST_SECURITY_CONTEXT;
 import static io.trino.plugin.opa.TestConstants.UNDEFINED_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.columnMaskingOpaConfig;
@@ -80,36 +81,45 @@ public class TestOpaAccessControl
     @Test
     public void testResponseHasExtraFields()
     {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, buildValidatingRequestHandler(TEST_IDENTITY, 200,"""
-                {
-                    "result": true,
-                    "decision_id": "foo",
-                    "some_debug_info": {"test": ""}
-                }"""));
+        InstrumentedHttpClient mockClient = createMockHttpClient(
+                OPA_SERVER_URI,
+                buildValidatingRequestHandler(
+                        TEST_IDENTITY,
+                        200,
+                        """
+                        {
+                            "result": true,
+                            "decision_id": "foo",
+                            "some_debug_info": {"test": ""}
+                        }\
+                        """));
         OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
-        authorizer.checkCanExecuteQuery(TEST_IDENTITY);
+        authorizer.checkCanExecuteQuery(TEST_IDENTITY, TEST_QUERY_ID);
     }
 
     @Test
     public void testNoResourceAction()
     {
-        testNoResourceAction("ExecuteQuery", OpaAccessControl::checkCanExecuteQuery);
+        testNoResourceAction("ExecuteQuery", (opaAccessControl, identity) -> opaAccessControl.checkCanExecuteQuery(identity, TEST_QUERY_ID));
         testNoResourceAction("ReadSystemInformation", OpaAccessControl::checkCanReadSystemInformation);
         testNoResourceAction("WriteSystemInformation", OpaAccessControl::checkCanWriteSystemInformation);
     }
 
     private void testNoResourceAction(String actionName, BiConsumer<OpaAccessControl, Identity> method)
     {
-        Set<String> expectedRequests = ImmutableSet.of("""
+        Set<String> expectedRequests = ImmutableSet.of(
+                """
                 {
                     "operation": "%s"
-                }""".formatted(actionName));
+                }\
+                """.formatted(actionName));
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(accessControl -> method.accept(accessControl, TEST_IDENTITY));
         assertAccessControlMethodBehaviour(wrappedMethod, expectedRequests);
     }
 
     @Test
-    public void testTableResourceActions() {
+    public void testTableResourceActions()
+    {
         testTableResourceActions("ShowCreateTable", OpaAccessControl::checkCanShowCreateTable);
         testTableResourceActions("DropTable", OpaAccessControl::checkCanDropTable);
         testTableResourceActions("SetTableComment", OpaAccessControl::checkCanSetTableComment);
@@ -136,7 +146,8 @@ public class TestOpaAccessControl
         CatalogSchemaTableName tableName = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> callable.accept(accessControl, TEST_SECURITY_CONTEXT, tableName));
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "%s",
                     "resource": {
@@ -176,7 +187,8 @@ public class TestOpaAccessControl
                 .buildOrThrow();
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> callable.accept(accessControl, TEST_SECURITY_CONTEXT, table, properties));
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "%s",
                     "resource": {
@@ -213,7 +225,8 @@ public class TestOpaAccessControl
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> callable.accept(accessControl, TEST_IDENTITY, dummyIdentity));
 
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "%s",
                     "resource": {
@@ -230,7 +243,7 @@ public class TestOpaAccessControl
     @Test
     public void testStringResourceAction()
     {
-        testStringResourceAction("SetSystemSessionProperty", "systemSessionProperty", (accessControl, systemSecurityContext, argument) -> accessControl.checkCanSetSystemSessionProperty(systemSecurityContext.getIdentity(), argument));
+        testStringResourceAction("SetSystemSessionProperty", "systemSessionProperty", (accessControl, systemSecurityContext, argument) -> accessControl.checkCanSetSystemSessionProperty(systemSecurityContext.getIdentity(), TEST_QUERY_ID, argument));
         testStringResourceAction("CreateCatalog", "catalog", OpaAccessControl::checkCanCreateCatalog);
         testStringResourceAction("DropCatalog", "catalog", OpaAccessControl::checkCanDropCatalog);
         testStringResourceAction("ShowSchemas", "catalog", OpaAccessControl::checkCanShowSchemas);
@@ -243,7 +256,8 @@ public class TestOpaAccessControl
     {
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> callable.accept(accessControl, TEST_SECURITY_CONTEXT, "resource_name"));
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "%s",
                     "resource": {
@@ -259,7 +273,8 @@ public class TestOpaAccessControl
     @Test
     public void testCanImpersonateUser()
     {
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "ImpersonateUser",
                     "resource": {
@@ -279,7 +294,8 @@ public class TestOpaAccessControl
     {
         ReturningMethodWrapper wrappedMethod = new ReturningMethodWrapper(
                 accessControl -> accessControl.canAccessCatalog(TEST_SECURITY_CONTEXT, "test_catalog"));
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "AccessCatalog",
                     "resource": {
@@ -287,17 +303,18 @@ public class TestOpaAccessControl
                             "name": "test_catalog"
                         }
                     }
-                }""";
+                }\
+                """;
         assertAccessControlMethodBehaviour(wrappedMethod, ImmutableSet.of(expectedRequest));
     }
 
     @Test
     public void testSchemaResourceActions()
     {
-            testSchemaResourceActions("DropSchema", OpaAccessControl::checkCanDropSchema);
-            testSchemaResourceActions("ShowCreateSchema", OpaAccessControl::checkCanShowCreateSchema);
-            testSchemaResourceActions("ShowTables", OpaAccessControl::checkCanShowTables);
-            testSchemaResourceActions("ShowFunctions", OpaAccessControl::checkCanShowFunctions);
+        testSchemaResourceActions("DropSchema", OpaAccessControl::checkCanDropSchema);
+        testSchemaResourceActions("ShowCreateSchema", OpaAccessControl::checkCanShowCreateSchema);
+        testSchemaResourceActions("ShowTables", OpaAccessControl::checkCanShowTables);
+        testSchemaResourceActions("ShowFunctions", OpaAccessControl::checkCanShowFunctions);
     }
 
     private void testSchemaResourceActions(
@@ -307,7 +324,8 @@ public class TestOpaAccessControl
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> callable.accept(accessControl, TEST_SECURITY_CONTEXT, new CatalogSchemaName("my_catalog", "my_schema")));
 
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "%s",
                     "resource": {
@@ -327,7 +345,8 @@ public class TestOpaAccessControl
         CatalogSchemaName schema = new CatalogSchemaName("my_catalog", "my_schema");
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> accessControl.checkCanCreateSchema(TEST_SECURITY_CONTEXT, schema, ImmutableMap.of()));
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "CreateSchema",
                     "resource": {
@@ -337,7 +356,8 @@ public class TestOpaAccessControl
                             "properties": {}
                         }
                     }
-                }""";
+                }\
+                """;
         assertAccessControlMethodBehaviour(wrappedMethod, ImmutableSet.of(expectedRequest));
     }
 
@@ -348,7 +368,8 @@ public class TestOpaAccessControl
         CatalogSchemaName schema = new CatalogSchemaName("my_catalog", "my_schema");
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> accessControl.checkCanCreateSchema(TEST_SECURITY_CONTEXT, schema, ImmutableMap.of("some_key", "some_value")));
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "CreateSchema",
                     "resource": {
@@ -360,7 +381,8 @@ public class TestOpaAccessControl
                             }
                         }
                     }
-                }""";
+                }\
+                """;
         assertAccessControlMethodBehaviour(wrappedMethod, ImmutableSet.of(expectedRequest));
     }
 
@@ -370,7 +392,8 @@ public class TestOpaAccessControl
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(accessControl -> accessControl.checkCanRenameSchema(
                 TEST_SECURITY_CONTEXT,
                 new CatalogSchemaName("my_catalog", "my_schema"), "new_schema_name"));
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "RenameSchema",
                     "resource": {
@@ -407,7 +430,8 @@ public class TestOpaAccessControl
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> method.accept(accessControl, TEST_SECURITY_CONTEXT, sourceTable, targetTable));
 
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "%s",
                     "resource": {
@@ -438,7 +462,8 @@ public class TestOpaAccessControl
         ThrowingMethodWrapper methodWrapper = new ThrowingMethodWrapper(
                 accessControl -> accessControl.checkCanSetSchemaAuthorization(TEST_SECURITY_CONTEXT, schema, principal));
 
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "SetSchemaAuthorization",
                     "resource": {
@@ -472,7 +497,8 @@ public class TestOpaAccessControl
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> method.accept(accessControl, TEST_SECURITY_CONTEXT, table, principal));
 
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "%s",
                     "resource": {
@@ -513,7 +539,8 @@ public class TestOpaAccessControl
         String dummyColumnName = "my_column";
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> method.accept(accessControl, TEST_SECURITY_CONTEXT, table, ImmutableSet.of(dummyColumnName)));
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "%s",
                     "resource": {
@@ -539,7 +566,8 @@ public class TestOpaAccessControl
     {
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> accessControl.checkCanSetCatalogSessionProperty(TEST_SECURITY_CONTEXT, "my_catalog", "my_property"));
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "SetCatalogSessionProperty",
                     "resource": {
@@ -557,7 +585,8 @@ public class TestOpaAccessControl
     public void testFunctionResourceActions()
     {
         CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine_name");
-        String baseRequest = """
+        String baseRequest =
+                """
                 {
                     "operation": "%s",
                     "resource": {
@@ -567,7 +596,8 @@ public class TestOpaAccessControl
                             "functionName": "my_routine_name"
                         }
                     }
-                }""";
+                }\
+                """;
         assertAccessControlMethodBehaviour(
                 new ThrowingMethodWrapper(authorizer -> authorizer.checkCanExecuteProcedure(TEST_SECURITY_CONTEXT, routine)),
                 ImmutableSet.of(baseRequest.formatted("ExecuteProcedure")));
@@ -592,7 +622,8 @@ public class TestOpaAccessControl
     public void testCanExecuteTableProcedure()
     {
         CatalogSchemaTableName table = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "operation": "ExecuteTableProcedure",
                     "resource": {
@@ -605,7 +636,8 @@ public class TestOpaAccessControl
                             "functionName": "my_procedure"
                         }
                     }
-                }""";
+                }\
+                """;
         assertAccessControlMethodBehaviour(
                 new ThrowingMethodWrapper(authorizer -> authorizer.checkCanExecuteTableProcedure(TEST_SECURITY_CONTEXT, table, "my_procedure")),
                 ImmutableSet.of(expectedRequest));
@@ -634,9 +666,10 @@ public class TestOpaAccessControl
                 accessControlContext);
         Identity sampleIdentityWithGroups = Identity.forUser("test_user").withGroups(ImmutableSet.of("some_group")).build();
 
-        authorizer.checkCanExecuteQuery(sampleIdentityWithGroups);
+        authorizer.checkCanExecuteQuery(sampleIdentityWithGroups, TEST_QUERY_ID);
 
-        String expectedRequest = """
+        String expectedRequest =
+                """
                 {
                     "action": {
                         "operation": "ExecuteQuery"
@@ -650,7 +683,8 @@ public class TestOpaAccessControl
                             "trinoVersion": "%s"
                         }
                     }
-                }""".formatted(expectedTrinoVersion);
+                }\
+                """.formatted(expectedTrinoVersion);
         assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input");
     }
 
@@ -661,10 +695,12 @@ public class TestOpaAccessControl
         assertAccessControlMethodThrowsForIllegalResponses(methodUnderTest, rowFilteringOpaConfig(), OPA_ROW_FILTERING_URI);
 
         // Also test a valid JSON response, but containing invalid fields for a row filters request
-        String validJsonButIllegalSchemaResponseContents = """
+        String validJsonButIllegalSchemaResponseContents =
+                """
                 {
                     "result": ["some-expr"]
-                }""";
+                }\
+                """;
         MockResponse response = new MockResponse(validJsonButIllegalSchemaResponseContents, 200);
 
         assertAccessControlMethodThrowsForResponse(
@@ -684,30 +720,36 @@ public class TestOpaAccessControl
         // we will accept this as meaning there are no known filters to be applied.
         testGetRowFilters("{}", ImmutableList.of());
 
-        String noExpressionsResponse = """
+        String noExpressionsResponse =
+                """
                 {
                     "result": []
-                }""";
+                }\
+                """;
         testGetRowFilters(noExpressionsResponse, ImmutableList.of());
 
-        String singleExpressionResponse = """
+        String singleExpressionResponse =
+                """
                 {
                     "result": [
                         {"expression": "expr1"}
                     ]
-                }""";
+                }\
+                """;
         testGetRowFilters(
                 singleExpressionResponse,
                 ImmutableList.of(new OpaViewExpression("expr1", Optional.empty())));
 
-        String multipleExpressionsAndIdentitiesResponse = """
+        String multipleExpressionsAndIdentitiesResponse =
+                """
                 {
                     "result": [
                         {"expression": "expr1"},
                         {"expression": "expr2", "identity": "expr2_identity"},
                         {"expression": "expr3", "identity": "expr3_identity"}
                     ]
-                }""";
+                }\
+                """;
         testGetRowFilters(
                 multipleExpressionsAndIdentitiesResponse,
                 ImmutableList.<OpaViewExpression>builder()
@@ -728,12 +770,13 @@ public class TestOpaAccessControl
             assertThat(expression.getSchema()).contains("some_schema");
         });
         assertThat(result).map(
-                viewExpression -> new OpaViewExpression(
-                        viewExpression.getExpression(),
-                        viewExpression.getSecurityIdentity()))
+                        viewExpression -> new OpaViewExpression(
+                                viewExpression.getExpression(),
+                                viewExpression.getSecurityIdentity()))
                 .containsExactlyInAnyOrderElementsOf(expectedExpressions);
 
-        String expectedRequest = String.format("""
+        String expectedRequest = String.format(
+                """
                 {
                     "operation": "GetRowFilters",
                     "resource": {
@@ -743,7 +786,8 @@ public class TestOpaAccessControl
                             "tableName": "%s"
                         }
                     }
-                }""",
+                }\
+                """,
                 TEST_COLUMN_MASKING_TABLE_NAME.getCatalogName(),
                 TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getSchemaName(),
                 TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getTableName());
@@ -790,19 +834,23 @@ public class TestOpaAccessControl
     {
         testGetColumnMasks(ImmutableMap.of(createColumnSchema("some-column"), "{}"), ImmutableMap.of());
 
-        String nullResponse = """
+        String nullResponse =
+                """
                 {
                     "result": null
-                }""";
+                }\
+                """;
         testGetColumnMasks(ImmutableMap.of(createColumnSchema("some-column"), nullResponse), ImmutableMap.of());
 
         Map<ColumnSchema, String> expressionWithoutIdentityResponses = IntStream.range(1, 10)
                 .mapToObj(index -> Map.entry(
                         createColumnSchema(String.format("some-column-%d", index)),
-                        String.format("""
-                        {
-                            "result": {"expression": "expression-%d"}
-                        }""", index)))
+                        String.format(
+                                """
+                                {
+                                    "result": {"expression": "expression-%d"}
+                                }\
+                                """, index)))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         testGetColumnMasks(
                 expressionWithoutIdentityResponses,
@@ -814,10 +862,12 @@ public class TestOpaAccessControl
         Map<ColumnSchema, String> expressionWithIdentityResponses = IntStream.range(1, 10)
                 .mapToObj(index -> Map.entry(
                         createColumnSchema(String.format("some-column-%d", index)),
-                        String.format("""
-                        {
-                            "result": {"expression": "expression-%1$d", "identity": "some_identity-%1$d"}
-                        }""", index)))
+                        String.format(
+                                """
+                                {
+                                    "result": {"expression": "expression-%1$d", "identity": "some_identity-%1$d"}
+                                }\
+                                """, index)))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         testGetColumnMasks(
                 expressionWithIdentityResponses,
@@ -829,14 +879,18 @@ public class TestOpaAccessControl
         Map<ColumnSchema, String> mixedExpressions = ImmutableMap.of(
                 createColumnSchema("some-column-1"), "{}",
                 createColumnSchema("some-column-2"), nullResponse,
-                createColumnSchema("some-column-3"), """
-                        {
-                            "result": {"expression": "expression-1"}
-                        }""",
-                createColumnSchema("some-column-4"), """
-                        {
-                            "result": {"expression": "expression-2", "identity": "some_identity-1"}
-                        }""");
+                createColumnSchema("some-column-3"),
+                """
+                {
+                    "result": {"expression": "expression-1"}
+                }\
+                """,
+                createColumnSchema("some-column-4"),
+                """
+                {
+                    "result": {"expression": "expression-2", "identity": "some_identity-1"}
+                }\
+                """);
         testGetColumnMasks(
                 mixedExpressions,
                 ImmutableMap.of(
@@ -882,10 +936,12 @@ public class TestOpaAccessControl
                 createResponseHandlerForParallelColumnMasking(ImmutableMap.of(createColumnSchema("illegal_response_column"), MALFORMED_RESPONSE)), OPA_COLUMN_MASKING_URI, opaConfig, methodUnderTest, OpaQueryException.class, "Failed to deserialize");
 
         // Also test a valid JSON response that contains invalid fields
-        String validJsonButIllegalSchemaResponseContents = """
+        String validJsonButIllegalSchemaResponseContents =
+                """
                 {
                     "result": {"expression": {"foo": "bar"}}
-                }""";
+                }\
+                """;
         MockResponse response = new MockResponse(validJsonButIllegalSchemaResponseContents, 200);
         assertAccessControlMethodThrowsForResponse(
                 response,
@@ -910,7 +966,7 @@ public class TestOpaAccessControl
         InstrumentedHttpClient httpClient = createMockHttpClient(
                 OPA_COLUMN_MASKING_URI,
                 buildValidatingRequestHandler(TEST_IDENTITY, createResponseHandlerForParallelColumnMasking(columnResponseContent.entrySet().stream()
-                                .collect(toImmutableMap(Map.Entry::getKey, entry -> new MockResponse(entry.getValue(), 200))))));
+                        .collect(toImmutableMap(Map.Entry::getKey, entry -> new MockResponse(entry.getValue(), 200))))));
         OpaAccessControl authorizer = createOpaAuthorizer(columnMaskingOpaConfig(), httpClient);
 
         Map<ColumnSchema, ViewExpression> result = authorizer.getColumnMasks(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME, ImmutableList.copyOf(columnResponseContent.keySet()));
@@ -927,7 +983,8 @@ public class TestOpaAccessControl
             return Map.entry(entry.getKey(), new OpaViewExpression(viewExpression.getExpression(), viewExpression.getSecurityIdentity()));
         })).containsExactlyInAnyOrderElementsOf(expectedResult.entrySet());
 
-        Set<String> expectedRequests = columnNames.stream().map(columnName -> String.format("""
+        Set<String> expectedRequests = columnNames.stream().map(columnName -> String.format(
+                """
                 {
                     "operation": "GetColumnMask",
                     "resource": {
@@ -939,7 +996,8 @@ public class TestOpaAccessControl
                             "columnType": "varchar"
                         }
                     }
-                }""",
+                }\
+                """,
                 TEST_COLUMN_MASKING_TABLE_NAME.getCatalogName(),
                 TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getSchemaName(),
                 TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getTableName(),

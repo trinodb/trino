@@ -41,9 +41,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 
 public class ExecutionPlanner
 {
-    private ExecutionPlanner()
-    {
-    }
+    private ExecutionPlanner() {}
 
     public static JsonTableProcessingFragment getExecutionPlan(
             JsonTablePlanNode plan,

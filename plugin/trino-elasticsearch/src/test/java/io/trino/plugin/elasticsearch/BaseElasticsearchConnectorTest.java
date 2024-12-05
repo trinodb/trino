@@ -1063,19 +1063,23 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("text_column", "Привет")
                 .buildOrThrow());
 
-        assertThat(query("" +
-                "SELECT " +
-                "keyword_column " +
-                "FROM " + indexName + " " +
-                "WHERE keyword_column LIKE 's_.m%ex\\t'"))
+        assertThat(query(
+                """
+                SELECT keyword_column
+                FROM like_test
+                WHERE keyword_column
+                LIKE 's_.m%ex\\t'
+                """))
                 .matches("VALUES VARCHAR 'so.me tex\\t'")
                 .isFullyPushedDown();
 
-        assertThat(query("" +
-                 "SELECT " +
-                 "text_column " +
-                 "FROM " + indexName + " " +
-                 "WHERE text_column LIKE 's_.m%ex\\t'"))
+        assertThat(query(
+                """
+                SELECT text_column
+                FROM like_test
+                WHERE text_column
+                LIKE 's_.m%ex\\t'
+                """))
                 .matches("VALUES VARCHAR 'so.me tex\\t'");
 
         assertThat(query("" +
@@ -1365,7 +1369,8 @@ public abstract class BaseElasticsearchConnectorTest
                 .buildOrThrow());
 
         // Trino query filters in the engine, so the rounding (dependent on scaling factor) does not impact results
-        assertThat(query("""
+        assertThat(query(
+                """
                 SELECT text_column, scaled_float_column
                 FROM scaled_float_type
                 WHERE scaled_float_column = 123.46
@@ -1543,7 +1548,8 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "filter_charset_pushdown";
 
         @Language("JSON")
-        String mappings = """
+        String mappings =
+                """
                 {
                   "properties": {
                     "keyword_column":   { "type": "keyword" },

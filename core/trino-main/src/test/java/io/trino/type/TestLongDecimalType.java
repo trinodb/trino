@@ -38,7 +38,7 @@ public class TestLongDecimalType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = LONG_DECIMAL_TYPE.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = LONG_DECIMAL_TYPE.createFixedSizeBlockBuilder(15);
         writeBigDecimal(LONG_DECIMAL_TYPE, blockBuilder, new BigDecimal("-12345678901234567890.1234567890"));
         writeBigDecimal(LONG_DECIMAL_TYPE, blockBuilder, new BigDecimal("-12345678901234567890.1234567890"));
         writeBigDecimal(LONG_DECIMAL_TYPE, blockBuilder, new BigDecimal("-12345678901234567890.1234567890"));

@@ -87,10 +87,12 @@ public class TestFormatBasedRemoteQueryModifier
     {
         testForSQLInjectionsBySource("*/; DROP TABLE TABLE_A; /*");
         testForSQLInjectionsBySource("Prefix */; DROP TABLE TABLE_A; /*");
-        testForSQLInjectionsBySource("""
+        testForSQLInjectionsBySource(
+                """
 
 
-                                     Multiline */; DROP TABLE TABLE_A; /*""");
+                Multiline */; DROP TABLE TABLE_A; /*\
+                """);
     }
 
     @Test

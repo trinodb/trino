@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -30,7 +29,7 @@ public final class CaseStatementWhenClause
 
     public CaseStatementWhenClause(NodeLocation location, Expression expression, List<ControlStatement> statements)
     {
-        super(Optional.of(location));
+        super(location);
         this.expression = requireNonNull(expression, "expression is null");
         this.statements = requireNonNull(statements, "statements is null");
     }

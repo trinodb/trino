@@ -16,7 +16,6 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,7 +27,7 @@ public final class CommentCharacteristic
 
     public CommentCharacteristic(NodeLocation location, String comment)
     {
-        super(Optional.of(location));
+        super(location);
         this.comment = requireNonNull(comment, "comment is null");
     }
 

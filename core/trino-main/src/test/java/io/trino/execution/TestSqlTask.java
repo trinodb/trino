@@ -192,13 +192,13 @@ public class TestSqlTask
 
         BufferResult results = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).get();
         assertThat(results.isBufferComplete()).isFalse();
-        assertThat(results.getSerializedPages().size()).isEqualTo(1);
+        assertThat(results.getSerializedPages()).hasSize(1);
         assertThat(getSerializedPagePositionCount(results.getSerializedPages().get(0))).isEqualTo(1);
 
         for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
             results = sqlTask.getTaskResults(OUT, results.getToken() + results.getSerializedPages().size(), DataSize.of(1, MEGABYTE)).get();
         }
-        assertThat(results.getSerializedPages().size()).isEqualTo(0);
+        assertThat(results.getSerializedPages()).isEmpty();
 
         // complete the task by calling destroy on it
         TaskInfo info = sqlTask.destroyTaskResults(OUT);

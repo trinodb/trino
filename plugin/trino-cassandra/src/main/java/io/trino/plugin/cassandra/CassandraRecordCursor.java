@@ -64,9 +64,7 @@ public class CassandraRecordCursor
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 
     @Override
     public boolean getBoolean(int i)

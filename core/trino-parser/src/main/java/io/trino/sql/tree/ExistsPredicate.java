@@ -26,21 +26,17 @@ public class ExistsPredicate
 {
     private final Expression subquery;
 
+    @Deprecated
     public ExistsPredicate(Expression subquery)
     {
-        this(Optional.empty(), subquery);
+        super(Optional.empty());
+        this.subquery = requireNonNull(subquery, "subquery is null");
     }
 
     public ExistsPredicate(NodeLocation location, Expression subquery)
     {
-        this(Optional.of(location), subquery);
-    }
-
-    private ExistsPredicate(Optional<NodeLocation> location, Expression subquery)
-    {
         super(location);
-        requireNonNull(subquery, "subquery is null");
-        this.subquery = subquery;
+        this.subquery = requireNonNull(subquery, "subquery is null");
     }
 
     public Expression getSubquery()

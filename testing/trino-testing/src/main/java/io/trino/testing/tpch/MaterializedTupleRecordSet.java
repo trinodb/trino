@@ -128,8 +128,6 @@ class MaterializedTupleRecordSet
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
     }
 }

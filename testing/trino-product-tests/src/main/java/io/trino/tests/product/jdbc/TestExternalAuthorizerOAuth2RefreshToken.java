@@ -54,15 +54,15 @@ public class TestExternalAuthorizerOAuth2RefreshToken
         extends ProductTest
 {
     @Inject
-    @Named("databases.presto.jdbc_url")
+    @Named("databases.trino.jdbc_url")
     String jdbcUrl;
 
     @Inject
-    @Named("databases.presto.https_keystore_path")
+    @Named("databases.trino.https_keystore_path")
     String truststorePath;
 
     @Inject
-    @Named("databases.presto.https_keystore_password")
+    @Named("databases.trino.https_keystore_password")
     String truststorePassword;
 
     private OkHttpClient httpClient;

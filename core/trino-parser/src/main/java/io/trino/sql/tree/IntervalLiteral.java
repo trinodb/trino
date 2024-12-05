@@ -51,11 +51,13 @@ public class IntervalLiteral
     private final IntervalField startField;
     private final Optional<IntervalField> endField;
 
+    @Deprecated
     public IntervalLiteral(String value, Sign sign, IntervalField startField)
     {
         this(Optional.empty(), value, sign, startField, Optional.empty());
     }
 
+    @Deprecated
     public IntervalLiteral(String value, Sign sign, IntervalField startField, Optional<IntervalField> endField)
     {
         this(Optional.empty(), value, sign, startField, endField);
@@ -63,7 +65,11 @@ public class IntervalLiteral
 
     public IntervalLiteral(NodeLocation location, String value, Sign sign, IntervalField startField, Optional<IntervalField> endField)
     {
-        this(Optional.of(location), value, sign, startField, endField);
+        super(location);
+        this.value = requireNonNull(value, "value is null");
+        this.sign = requireNonNull(sign, "sign is null");
+        this.startField = requireNonNull(startField, "startField is null");
+        this.endField = requireNonNull(endField, "endField is null");
     }
 
     private IntervalLiteral(Optional<NodeLocation> location, String value, Sign sign, IntervalField startField, Optional<IntervalField> endField)

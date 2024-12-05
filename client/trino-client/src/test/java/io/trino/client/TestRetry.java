@@ -140,7 +140,7 @@ public class TestRetry
                 Stream.of(new Column("id", INTEGER, new ClientTypeSignature("integer")),
                                 new Column("name", VARCHAR, new ClientTypeSignature("varchar")))
                         .collect(toList()),
-                RawQueryData.of(IntStream.range(0, numRecords)
+                TypedQueryData.of(IntStream.range(0, numRecords)
                         .mapToObj(index -> Stream.of((Object) index, "a").collect(toList()))
                         .collect(toList())),
                 new StatementStats(state, state.equals("QUEUED"), true, OptionalDouble.of(0), OptionalDouble.of(0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),

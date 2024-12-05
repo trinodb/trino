@@ -1,5 +1,5 @@
--- database: presto; groups: insert; mutable_tables: datatype|loaded
--- delimiter: |; ignoreOrder: true; 
+-- database: trino; groups: insert; mutable_tables: datatype|loaded
+-- delimiter: |; ignoreOrder: true;
 --!
 insert into ${mutableTables.hive.datatype} select * from ${mutableTables.hive.datatype};
 select * from ${mutableTables.hive.datatype}

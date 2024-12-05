@@ -58,7 +58,7 @@ public class TestPostgreSqlJdbcConnectionCreation
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new JdbcPlugin(
                             "counting_postgresql",
-                            combine(new PostgreSqlClientModule(), new TestingPostgreSqlModule(connectionFactory))));
+                            () -> combine(new PostgreSqlClientModule(), new TestingPostgreSqlModule(connectionFactory))));
                     runner.createCatalog("counting_postgresql", "counting_postgresql", ImmutableMap.of(
                             "connection-url", postgreSqlServer.getJdbcUrl(),
                             "connection-user", postgreSqlServer.getUser(),

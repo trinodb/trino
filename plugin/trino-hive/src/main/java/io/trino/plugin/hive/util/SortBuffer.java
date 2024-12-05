@@ -93,10 +93,9 @@ public class SortBuffer
     {
         pageBuilder.declarePosition();
         for (int i = 0; i < page.getChannelCount(); i++) {
-            Type type = pageBuilder.getType(i);
             Block block = page.getBlock(i);
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-            type.appendTo(block, position, blockBuilder);
+            blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
         }
     }
 

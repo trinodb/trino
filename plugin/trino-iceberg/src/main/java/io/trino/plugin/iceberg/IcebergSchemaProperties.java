@@ -14,11 +14,10 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.session.PropertyMetadata;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
@@ -26,18 +25,22 @@ public final class IcebergSchemaProperties
 {
     public static final String LOCATION_PROPERTY = "location";
 
-    public static final List<PropertyMetadata<?>> SCHEMA_PROPERTIES = ImmutableList.<PropertyMetadata<?>>builder()
-            .add(stringProperty(
-                    LOCATION_PROPERTY,
-                    "Base file system location URI",
-                    null,
-                    false))
-            .build();
+    public final List<PropertyMetadata<?>> schemaProperties;
 
-    private IcebergSchemaProperties() {}
-
-    public static Optional<String> getSchemaLocation(Map<String, Object> schemaProperties)
+    @Inject
+    public IcebergSchemaProperties()
     {
-        return Optional.ofNullable((String) schemaProperties.get(LOCATION_PROPERTY));
+        this.schemaProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(stringProperty(
+                        LOCATION_PROPERTY,
+                        "Base file system location URI",
+                        null,
+                        false))
+                .build();
+    }
+
+    public List<PropertyMetadata<?>> getSchemaProperties()
+    {
+        return schemaProperties;
     }
 }

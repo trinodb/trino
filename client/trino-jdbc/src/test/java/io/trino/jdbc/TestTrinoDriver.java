@@ -69,8 +69,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertContains;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
 import static java.lang.Float.POSITIVE_INFINITY;
@@ -245,10 +243,10 @@ public class TestTrinoDriver
                     assertThat(rs.getBigDecimal(8, 6)).isEqualTo(new BigDecimal(".123457"));
                     assertThat(rs.getBigDecimal("_decimal_long", 6)).isEqualTo(new BigDecimal(".123457"));
 
-                    assertInstanceOf(rs.getObject(9), byte[].class);
-                    assertInstanceOf(rs.getObject("_hll"), byte[].class);
-                    assertInstanceOf(rs.getBytes(9), byte[].class);
-                    assertInstanceOf(rs.getBytes("_hll"), byte[].class);
+                    assertThat(rs.getObject(9)).isInstanceOf(byte[].class);
+                    assertThat(rs.getObject("_hll")).isInstanceOf(byte[].class);
+                    assertThat(rs.getBytes(9)).isInstanceOf(byte[].class);
+                    assertThat(rs.getBytes("_hll")).isInstanceOf(byte[].class);
 
                     assertThat(rs.getObject(10)).isEqualTo("foo  ");
                     assertThat(rs.getObject("_char")).isEqualTo("foo  ");
@@ -1076,7 +1074,7 @@ public class TestTrinoDriver
         // make sure the query timed out
         queryFinished.await();
         assertThat(queryFailure.get()).isNotNull();
-        assertContains(queryFailure.get().getMessage(), "Query exceeded maximum time limit of 1.00s");
+        assertThat(queryFailure.get()).hasMessageContaining("Query exceeded maximum time limit of 1.00s");
 
         try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement()) {

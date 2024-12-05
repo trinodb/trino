@@ -23,17 +23,14 @@ public class Parameter
 {
     private final int id;
 
+    @Deprecated
     public Parameter(int id)
     {
-        this(Optional.empty(), id);
+        super(Optional.empty());
+        this.id = id;
     }
 
     public Parameter(NodeLocation location, int id)
-    {
-        this(Optional.of(location), id);
-    }
-
-    private Parameter(Optional<NodeLocation> location, int id)
     {
         super(location);
         this.id = id;

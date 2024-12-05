@@ -28,31 +28,27 @@ public class LikePredicate
     private final Expression pattern;
     private final Optional<Expression> escape;
 
+    @Deprecated
     public LikePredicate(Expression value, Expression pattern, Expression escape)
     {
-        this(Optional.empty(), value, pattern, Optional.of(escape));
+        this(value, pattern, Optional.of(escape));
     }
 
     public LikePredicate(NodeLocation location, Expression value, Expression pattern, Optional<Expression> escape)
     {
-        this(Optional.of(location), value, pattern, escape);
+        super(location);
+        this.value = requireNonNull(value, "value is null");
+        this.pattern = requireNonNull(pattern, "pattern is null");
+        this.escape = requireNonNull(escape, "escape is null");
     }
 
+    @Deprecated
     public LikePredicate(Expression value, Expression pattern, Optional<Expression> escape)
     {
-        this(Optional.empty(), value, pattern, escape);
-    }
-
-    private LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Optional<Expression> escape)
-    {
-        super(location);
-        requireNonNull(value, "value is null");
-        requireNonNull(pattern, "pattern is null");
-        requireNonNull(escape, "escape is null");
-
-        this.value = value;
-        this.pattern = pattern;
-        this.escape = escape;
+        super(Optional.empty());
+        this.value = requireNonNull(value, "value is null");
+        this.pattern = requireNonNull(pattern, "pattern is null");
+        this.escape = requireNonNull(escape, "escape is null");
     }
 
     public Expression getValue()

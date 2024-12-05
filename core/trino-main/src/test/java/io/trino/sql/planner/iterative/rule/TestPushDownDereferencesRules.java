@@ -46,7 +46,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -626,6 +626,7 @@ public class TestPushDownDereferencesRules
                                                 new WindowNode.Function(
                                                         createTestMetadataManager().resolveBuiltinFunction("min", fromTypes(ROW_TYPE)),
                                                         ImmutableList.of(p.symbol("msg3", ROW_TYPE).toSymbolReference()),
+                                                        Optional.empty(),
                                                         new WindowNode.Frame(
                                                                 RANGE,
                                                                 UNBOUNDED_PRECEDING,

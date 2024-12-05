@@ -85,9 +85,10 @@ public final class ExpressionTreeUtils
 
     private static boolean isAggregation(FunctionCall functionCall, Session session, FunctionResolver functionResolver, AccessControl accessControl)
     {
-        return ((functionResolver.isAggregationFunction(session, functionCall.getName(), accessControl) || functionCall.getFilter().isPresent())
-                && functionCall.getWindow().isEmpty())
-                || functionCall.getOrderBy().isPresent();
+        return (functionResolver.isAggregationFunction(session, functionCall.getName(), accessControl)
+                || functionCall.getFilter().isPresent()
+                || functionCall.getOrderBy().isPresent())
+                && functionCall.getWindow().isEmpty();
     }
 
     private static boolean isWindow(FunctionCall functionCall, Session session, FunctionResolver functionResolver, AccessControl accessControl)

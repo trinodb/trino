@@ -317,8 +317,8 @@ public class ImplementTableFunctionSource
                 source,
                 specification,
                 ImmutableMap.of(
-                        rowNumber, new WindowNode.Function(rowNumberFunction, ImmutableList.of(), FULL_FRAME, false),
-                        partitionSize, new WindowNode.Function(countFunction, ImmutableList.of(), FULL_FRAME, false)),
+                        rowNumber, new WindowNode.Function(rowNumberFunction, ImmutableList.of(), Optional.empty(), FULL_FRAME, false),
+                        partitionSize, new WindowNode.Function(countFunction, ImmutableList.of(), Optional.empty(), FULL_FRAME, false)),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);

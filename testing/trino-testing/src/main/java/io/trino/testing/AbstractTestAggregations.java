@@ -337,11 +337,13 @@ public abstract class AbstractTestAggregations
     @Test
     public void testMultipleDifferentDistinctOverUnion()
     {
-        assertQuery("""
+        assertQuery(
+                """
                 SELECT custkey, COUNT(DISTINCT orderkey), COUNT(DISTINCT orderstatus)
                 FROM (SELECT orderkey, orderstatus, custkey FROM orders WHERE orderstatus = 'O'
                 UNION ALL SELECT orderkey, orderstatus, custkey FROM orders WHERE orderstatus = 'F')
-                GROUP BY custkey""");
+                GROUP BY custkey
+                """);
     }
 
     @Test
@@ -379,7 +381,7 @@ public abstract class AbstractTestAggregations
         assertQuery("SELECT orderstatus, COUNT(DISTINCT orderkey), COUNT(DISTINCT custkey), COUNT(DISTINCT totalprice), COUNT(custkey), SUM(totalprice) from orders group by orderstatus");
         assertQuery("SELECT orderstatus, COUNT(DISTINCT orderkey), COUNT(DISTINCT totalprice), SUM(totalprice) from orders group by orderstatus");
         assertQuery("SELECT orderstatus, orderpriority, COUNT(orderstatus), COUNT(DISTINCT orderpriority)," +
-                    " COUNT(DISTINCT orderkey), COUNT(DISTINCT totalprice), SUM(totalprice), MAX(custkey) from orders group by orderstatus, orderpriority");
+                " COUNT(DISTINCT orderkey), COUNT(DISTINCT totalprice), SUM(totalprice), MAX(custkey) from orders group by orderstatus, orderpriority");
     }
 
     // Make sure redundant NULL values are not passed to the aggregations which potentially could happen in GroupId based mixed distinct and non-distinct aggregation implementation
@@ -408,42 +410,42 @@ public abstract class AbstractTestAggregations
     {
         assertQuery(
                 "SELECT corr(DISTINCT x, y) FROM " +
-                "(VALUES " +
-                "   (1, 1)," +
-                "   (2, 2)," +
-                "   (2, 2)," +
-                "   (3, 3)" +
-                ") t(x, y)",
+                        "(VALUES " +
+                        "   (1, 1)," +
+                        "   (2, 2)," +
+                        "   (2, 2)," +
+                        "   (3, 3)" +
+                        ") t(x, y)",
                 "VALUES (1.0)");
 
         assertQuery(
                 "SELECT corr(DISTINCT x, y), corr(DISTINCT y, x) FROM " +
-                "(VALUES " +
-                "   (1, 1)," +
-                "   (2, 2)," +
-                "   (2, 2)," +
-                "   (3, 3)" +
-                ") t(x, y)",
+                        "(VALUES " +
+                        "   (1, 1)," +
+                        "   (2, 2)," +
+                        "   (2, 2)," +
+                        "   (3, 3)" +
+                        ") t(x, y)",
                 "VALUES (1.0, 1.0)");
 
         assertQuery(
                 "SELECT corr(DISTINCT x, y), corr(DISTINCT y, x), count(*) FROM " +
-                "(VALUES " +
-                "   (1, 1)," +
-                "   (2, 2)," +
-                "   (2, 2)," +
-                "   (3, 3)" +
-                ") t(x, y)",
+                        "(VALUES " +
+                        "   (1, 1)," +
+                        "   (2, 2)," +
+                        "   (2, 2)," +
+                        "   (3, 3)" +
+                        ") t(x, y)",
                 "VALUES (1.0, 1.0, 4)");
 
         assertQuery(
                 "SELECT corr(DISTINCT x, y), corr(DISTINCT y, x), count(DISTINCT x) FROM " +
-                "(VALUES " +
-                "   (1, 1)," +
-                "   (2, 2)," +
-                "   (2, 2)," +
-                "   (3, 3)" +
-                ") t(x, y)",
+                        "(VALUES " +
+                        "   (1, 1)," +
+                        "   (2, 2)," +
+                        "   (2, 2)," +
+                        "   (3, 3)" +
+                        ") t(x, y)",
                 "VALUES (1.0, 1.0, 3)");
     }
 
@@ -1011,7 +1013,7 @@ public abstract class AbstractTestAggregations
     {
         MaterializedResult actual = computeActual("SELECT a, b, c FROM (VALUES ROW(nan(), 1, 2), ROW(nan(), 1, 2)) t(a, b, c) GROUP BY 1, 2, 3");
         List<MaterializedRow> actualRows = actual.getMaterializedRows();
-        assertThat(actualRows.size()).isEqualTo(1);
+        assertThat(actualRows).hasSize(1);
         assertThat(Double.isNaN((Double) actualRows.get(0).getField(0))).isTrue();
         assertThat(actualRows.get(0).getField(1)).isEqualTo(1);
         assertThat(actualRows.get(0).getField(2)).isEqualTo(2);
@@ -1022,7 +1024,7 @@ public abstract class AbstractTestAggregations
     {
         MaterializedResult actual = computeActual("SELECT a FROM (VALUES (ARRAY[nan(), 2e0, 3e0]), (ARRAY[nan(), 2e0, 3e0])) t(a) GROUP BY a");
         List<MaterializedRow> actualRows = actual.getMaterializedRows();
-        assertThat(actualRows.size()).isEqualTo(1);
+        assertThat(actualRows).hasSize(1);
         @SuppressWarnings("unchecked")
         List<Double> value = (List<Double>) actualRows.get(0).getField(0);
         assertThat(Double.isNaN(value.get(0))).isTrue();
@@ -1516,12 +1518,14 @@ public abstract class AbstractTestAggregations
     @Test
     public void testLongDecimalAggregations()
     {
-        assertQuery("""
+        assertQuery(
+                """
                 SELECT avg(value_big), sum(value_big), avg(value_small), sum(value_small)
                 FROM (
                     SELECT orderkey as id, CAST(power(2, 65) as DECIMAL(38, 0)) as value_big, CAST(1 as DECIMAL(38, 0)) as value_small
                     FROM orders
                     LIMIT 10)
-                GROUP BY id""");
+                GROUP BY id
+                """);
     }
 }

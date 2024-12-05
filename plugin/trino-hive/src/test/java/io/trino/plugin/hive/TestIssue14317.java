@@ -46,7 +46,8 @@ public class TestIssue14317
             queryRunner.execute("INSERT INTO s.u VALUES (5, 6)");
             queryRunner.execute("INSERT INTO s.v VALUES (5, 6)");
 
-            assertThat(assertions.query("""
+            assertThat(assertions.query(
+                    """
                     WITH t1 AS (
                       SELECT a
                       FROM (

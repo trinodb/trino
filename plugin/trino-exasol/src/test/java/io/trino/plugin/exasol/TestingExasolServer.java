@@ -16,7 +16,6 @@ package io.trino.plugin.exasol;
 
 import com.exasol.containers.ExasolContainer;
 import com.exasol.containers.ExasolService;
-import io.trino.testing.ResourcePresence;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import org.intellij.lang.annotations.Language;
 
@@ -108,11 +107,5 @@ public class TestingExasolServer
         catch (IOException ioe) {
             throw new UncheckedIOException(ioe);
         }
-    }
-
-    @ResourcePresence
-    public boolean isRunning()
-    {
-        return container.getContainerId() != null;
     }
 }

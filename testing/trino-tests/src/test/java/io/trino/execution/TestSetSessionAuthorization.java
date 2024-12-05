@@ -16,7 +16,6 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
-import io.trino.client.QueryData;
 import io.trino.client.StatementClient;
 import io.trino.spi.ErrorCode;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -258,10 +257,7 @@ public class TestSetSessionAuthorization
         try {
             try (StatementClient client = newStatementClient(httpClient, clientSession, query)) {
                 while (client.isRunning() && !Thread.currentThread().isInterrupted()) {
-                    QueryData results = client.currentData();
-                    if (results.getData() != null) {
-                        data.addAll(results.getData());
-                    }
+                    data.addAll(client.currentRows());
                     client.advance();
                 }
                 // wait for query to be fully scheduled

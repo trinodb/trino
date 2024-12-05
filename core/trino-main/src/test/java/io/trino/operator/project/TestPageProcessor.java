@@ -99,7 +99,7 @@ public class TestPageProcessor
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
-        assertThat(outputPages.size()).isEqualTo(1);
+        assertThat(outputPages).hasSize(1);
         Page outputPage = outputPages.get(0).orElse(null);
         assertThat(outputPage.getChannelCount()).isEqualTo(0);
         assertThat(outputPage.getPositionCount()).isEqualTo(inputPage.getPositionCount());
@@ -117,7 +117,7 @@ public class TestPageProcessor
         assertThat(memoryContext.getBytes()).isEqualTo(0);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
-        assertThat(outputPages.size()).isEqualTo(1);
+        assertThat(outputPages).hasSize(1);
         Page outputPage = outputPages.get(0).orElse(null);
         assertThat(outputPage.getChannelCount()).isEqualTo(0);
         assertThat(outputPage.getPositionCount()).isEqualTo(50);
@@ -137,7 +137,7 @@ public class TestPageProcessor
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
-        assertThat(outputPages.size()).isEqualTo(1);
+        assertThat(outputPages).hasSize(1);
         assertPageEquals(ImmutableList.of(BIGINT), outputPages.get(0).orElse(null), new Page(createLongSequenceBlock(25, 75)));
     }
 
@@ -155,7 +155,7 @@ public class TestPageProcessor
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
-        assertThat(outputPages.size()).isEqualTo(1);
+        assertThat(outputPages).hasSize(1);
         assertPageEquals(ImmutableList.of(BIGINT), outputPages.get(0).orElse(null), new Page(createLongSequenceBlock(0, 100)));
     }
 
@@ -171,7 +171,7 @@ public class TestPageProcessor
         assertThat(memoryContext.getBytes()).isEqualTo(0);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
-        assertThat(outputPages.size()).isEqualTo(0);
+        assertThat(outputPages).isEmpty();
     }
 
     @Test
@@ -187,7 +187,7 @@ public class TestPageProcessor
 
         // output should be one page containing no columns (only a count)
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
-        assertThat(outputPages.size()).isEqualTo(0);
+        assertThat(outputPages).isEmpty();
     }
 
     @Test
@@ -204,7 +204,7 @@ public class TestPageProcessor
         Iterator<Optional<Page>> output = pageProcessor.process(SESSION, new DriverYieldSignal(), memoryContext, inputPage);
         assertThat(memoryContext.getBytes()).isEqualTo(0);
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
-        assertThat(outputPages.size()).isEqualTo(0);
+        assertThat(outputPages).isEmpty();
     }
 
     @Test
@@ -225,7 +225,7 @@ public class TestPageProcessor
         Iterator<Optional<Page>> output = pageProcessor.process(SESSION, new DriverYieldSignal(), memoryContext, inputPage);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
-        assertThat(outputPages.size()).isEqualTo(1);
+        assertThat(outputPages).hasSize(1);
         assertPageEquals(ImmutableList.of(BIGINT), outputPages.get(0).orElse(null), new Page(createLongSequenceBlock(0, 100)));
     }
 
@@ -243,7 +243,7 @@ public class TestPageProcessor
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
-        assertThat(outputPages.size()).isEqualTo(3);
+        assertThat(outputPages).hasSize(3);
         for (int i = 0; i < outputPages.size(); i++) {
             Page actualPage = outputPages.get(i).orElse(null);
             int offset = i * MAX_BATCH_SIZE;

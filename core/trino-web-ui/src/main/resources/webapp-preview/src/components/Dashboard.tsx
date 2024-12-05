@@ -16,8 +16,7 @@ import {
   Box,
   Button,
   Checkbox,
-  // TODO: update when MUI is updated to version 6
-  Unstable_Grid2 as Grid,
+  Grid2 as Grid,
   Link,
   Paper,
   Stack,
@@ -55,8 +54,8 @@ export const Dashboard = () => {
         </Typography>
       </Box>
       <Grid container>
-        <Grid sx={{ py: 1 }} xs={12} container>
-          <Grid xs={3}>Buttons</Grid>
+        <Grid sx={{ py: 1 }} size={12} container>
+          <Grid size={3}>Buttons</Grid>
           <Stack direction="row" spacing={2}>
             <Button variant="contained">Contained</Button>
             <Button variant="outlined">Outlined</Button>
@@ -64,34 +63,34 @@ export const Dashboard = () => {
           </Stack>
         </Grid>
 
-        <Grid sx={{ py: 1 }} xs={12} container>
-          <Grid xs={3}>Secondary Button</Grid>
+        <Grid sx={{ py: 1 }} size={12} container>
+          <Grid size={3}>Secondary Button</Grid>
           <Stack direction="row" spacing={2}>
             <Button color="secondary" variant="contained">Contained</Button>
             <Button color="secondary" variant="outlined">Outlined</Button>
           </Stack>
         </Grid>
 
-        <Grid sx={{ py: 1 }} xs={12} container>
-          <Grid xs={3}>Colored Button</Grid>
+        <Grid sx={{ py: 1 }} size={12} container>
+          <Grid size={3}>Colored Button</Grid>
           <Stack direction="row" spacing={2}>
             <Button variant="contained" color="success">Success</Button>
             <Button variant="contained" color="error">Error</Button>
           </Stack>
         </Grid>
 
-        <Grid sx={{ py: 1 }} xs={12} container>
-          <Grid xs={3}>Link</Grid>
+        <Grid sx={{ py: 1 }} size={12} container>
+          <Grid size={3}>Link</Grid>
           <Link href="https://trino.io">Trino Website</Link>
         </Grid>
 
-        <Grid sx={{ py: 1 }} xs={12} container>
-          <Grid xs={3}>Switch</Grid>
+        <Grid sx={{ py: 1 }} size={12} container>
+          <Grid size={3}>Switch</Grid>
           <Switch />
         </Grid>
 
-        <Grid sx={{ py: 1 }} xs={12} container>
-          <Grid xs={3}>Checkbox</Grid>
+        <Grid sx={{ py: 1 }} size={12} container>
+          <Grid size={3}>Checkbox</Grid>
           <Checkbox defaultChecked />
         </Grid>
       </Grid>

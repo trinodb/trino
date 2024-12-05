@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>460</version>
+        <version>465</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -77,11 +77,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>event</artifactId>
         </dependency>
 
         <dependency>
@@ -650,6 +645,7 @@
                                 <exclude>**/TestCachedHiveGlueMetastore.java</exclude>
                                 <exclude>**/TestGlueHiveMetastore.java</exclude>
                                 <exclude>**/TestGlueHiveMetastoreQueries.java</exclude>
+                                <exclude>**/TestGlueHiveMetastoreSkipArchive.java</exclude>
                                 <exclude>**/TestHiveGlueMetadataListing.java</exclude>
                                 <exclude>**/TestHiveGlueMetastoreAccessOperations.java</exclude>
                                 <exclude>**/TestHiveS3AndGlueMetastoreTest.java</exclude>
@@ -712,6 +708,7 @@
                                 <include>**/TestCachedHiveGlueMetastore.java</include>
                                 <include>**/TestGlueHiveMetastore.java</include>
                                 <include>**/TestGlueHiveMetastoreQueries.java</include>
+                                <include>**/TestGlueHiveMetastoreSkipArchive.java</include>
                                 <include>**/TestHiveGlueMetadataListing.java</include>
                                 <include>**/TestHiveGlueMetastoreAccessOperations.java</include>
                                 <include>**/TestHiveS3AndGlueMetastoreTest.java</include>

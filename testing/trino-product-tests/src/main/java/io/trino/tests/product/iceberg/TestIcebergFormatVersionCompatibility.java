@@ -51,7 +51,7 @@ public class TestIcebergFormatVersionCompatibility
         List<QueryAssert.Row> expected = onCompatibilityTestServer().executeQuery(format("SELECT * FROM %s", tableName)).rows().stream()
                 .map(row -> row(row.toArray()))
                 .collect(toImmutableList());
-        assertThat(expected.size()).isEqualTo(3);
+        assertThat(expected).hasSize(3);
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s FOR VERSION AS OF %d", tableName, latestSnapshotId))).containsOnly(expected);
 
         onCompatibilityTestServer().executeQuery(format("DROP TABLE %s", tableName));

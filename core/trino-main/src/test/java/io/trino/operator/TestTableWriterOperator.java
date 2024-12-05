@@ -354,9 +354,7 @@ public class TestTableWriterOperator
         }
 
         @Override
-        public void abort()
-        {
-        }
+        public void abort() {}
 
         void complete()
         {

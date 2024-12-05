@@ -20,6 +20,6 @@ public class DruidJdbcPlugin
 {
     public DruidJdbcPlugin()
     {
-        super("druid", new DruidJdbcClientModule());
+        super("druid", DruidJdbcClientModule::new);
     }
 }

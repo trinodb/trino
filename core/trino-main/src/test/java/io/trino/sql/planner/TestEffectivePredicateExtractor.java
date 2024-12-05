@@ -176,11 +176,13 @@ public class TestEffectivePredicateExtractor
                 .buildOrThrow();
 
         Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"), new Symbol(BIGINT, "c"), new Symbol(BIGINT, "d"), new Symbol(BIGINT, "e"), new Symbol(BIGINT, "f"))));
-        baseTableScan = TableScanNode.newInstance(
+        baseTableScan = new TableScanNode(
                 newId(),
                 makeTableHandle(TupleDomain.all()),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
 
@@ -432,11 +434,13 @@ public class TestEffectivePredicateExtractor
     {
         // Effective predicate is True if there is no effective predicate
         Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"), new Symbol(DOUBLE, "c"), new Symbol(REAL, "d"))));
-        PlanNode node = TableScanNode.newInstance(
+        PlanNode node = new TableScanNode(
                 newId(),
                 makeTableHandle(TupleDomain.all()),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node);

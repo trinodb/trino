@@ -62,6 +62,8 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 import org.locationtech.jts.operation.distance.DistanceOp;
 
@@ -1538,18 +1540,15 @@ public final class GeoFunctions
         return geometry;
     }
 
-    private static OGCGeometry geomFromBinary(Slice input)
+    private static Geometry geomFromBinary(Slice input)
     {
         requireNonNull(input, "input is null");
-        OGCGeometry geometry;
         try {
-            geometry = OGCGeometry.fromBinary(input.toByteBuffer().slice());
+            return new WKBReader().read(input.getBytes());
         }
-        catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+        catch (ParseException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);
         }
-        geometry.setSpatialReference(null);
-        return geometry;
     }
 
     private static ByteBuffer getShapeByteBuffer(Slice input)

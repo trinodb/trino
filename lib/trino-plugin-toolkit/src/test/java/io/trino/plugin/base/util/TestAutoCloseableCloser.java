@@ -31,6 +31,18 @@ public class TestAutoCloseableCloser
     }
 
     @Test
+    public void testRegisterAfterClose()
+            throws Exception
+    {
+        AutoCloseableCloser closer = AutoCloseableCloser.create();
+        closer.close();
+        assertThatThrownBy(() -> closer.register(failingCloseable(new Exception("Expected failure"))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Already closed")
+                .hasSuppressedException(new Exception("Expected failure"));
+    }
+
+    @Test
     public void testAllClosed()
     {
         assertAllClosed(succeedingCloseable(), succeedingCloseable());

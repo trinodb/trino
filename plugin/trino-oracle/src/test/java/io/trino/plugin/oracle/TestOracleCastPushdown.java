@@ -28,7 +28,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -213,7 +212,7 @@ public class TestOracleCastPushdown
             assertThat(query("SELECT CAST(%s AS %s) FROM %s".formatted(testCase.sourceColumn(), testCase.castType(), leftTable())))
                     .isFullyPushedDown();
             // join pushdown is not supported, because comparison between nclob is not pushdown
-            assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+            assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                     .joinIsNotFullyPushedDown();
         }
     }
@@ -221,8 +220,8 @@ public class TestOracleCastPushdown
     @Test
     public void testJoinPushdownWithNestedCast()
     {
-        CastTestCase testCase = new CastTestCase("c_varchar_10", "varchar(100)", Optional.of("c_varchar_50"));
-        assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+        CastTestCase testCase = new CastTestCase("c_varchar_10", "varchar(100)", "c_varchar_50");
+        assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                 .isFullyPushedDown();
     }
 
@@ -250,34 +249,34 @@ public class TestOracleCastPushdown
     @Test
     public void testAllJoinPushdownWithCast()
     {
-        CastTestCase testCase = new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_varchar_50"));
-        assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+        CastTestCase testCase = new CastTestCase("c_varchar_10", "varchar(50)", "c_varchar_50");
+        assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                 .isFullyPushedDown();
-        assertThat(query("SELECT l.id FROM %s l RIGHT JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+        assertThat(query("SELECT l.id FROM %s l RIGHT JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                 .isFullyPushedDown();
-        assertThat(query("SELECT l.id FROM %s l INNER JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+        assertThat(query("SELECT l.id FROM %s l INNER JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                 .isFullyPushedDown();
-        assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
-                .isFullyPushedDown();
-
-        testCase = new CastTestCase("c_varchar_10", "varchar(10)", Optional.of("c_varchar_50"));
-        assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON l.%s = CAST(r.%s AS %s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.targetColumn().orElseThrow(), testCase.castType())))
-                .isFullyPushedDown();
-        assertThat(query("SELECT l.id FROM %s l RIGHT JOIN %s r ON l.%s = CAST(r.%s AS %s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.targetColumn().orElseThrow(), testCase.castType())))
-                .isFullyPushedDown();
-        assertThat(query("SELECT l.id FROM %s l INNER JOIN %s r ON l.%s = CAST(r.%s AS %s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.targetColumn().orElseThrow(), testCase.castType())))
-                .isFullyPushedDown();
-        assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON l.%s = CAST(r.%s AS %s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.targetColumn().orElseThrow(), testCase.castType())))
+        assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                 .isFullyPushedDown();
 
-        testCase = new CastTestCase("c_varchar_10", "varchar(200)", Optional.of("c_varchar_50"));
-        assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+        testCase = new CastTestCase("c_varchar_10", "varchar(10)", "c_varchar_50");
+        assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON l.%s = CAST(r.%s AS %s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.targetColumn(), testCase.castType())))
                 .isFullyPushedDown();
-        assertThat(query("SELECT l.id FROM %s l RIGHT JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+        assertThat(query("SELECT l.id FROM %s l RIGHT JOIN %s r ON l.%s = CAST(r.%s AS %s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.targetColumn(), testCase.castType())))
                 .isFullyPushedDown();
-        assertThat(query("SELECT l.id FROM %s l INNER JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+        assertThat(query("SELECT l.id FROM %s l INNER JOIN %s r ON l.%s = CAST(r.%s AS %s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.targetColumn(), testCase.castType())))
                 .isFullyPushedDown();
-        assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+        assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON l.%s = CAST(r.%s AS %s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.targetColumn(), testCase.castType())))
+                .isFullyPushedDown();
+
+        testCase = new CastTestCase("c_varchar_10", "varchar(200)", "c_varchar_50");
+        assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l RIGHT JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l INNER JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                 .isFullyPushedDown();
     }
 
@@ -329,199 +328,199 @@ public class TestOracleCastPushdown
     protected List<CastTestCase> supportedCastTypePushdown()
     {
         return ImmutableList.of(
-                new CastTestCase("c_char_10", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_char_50", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_char_501", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_char_520", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_nchar_10", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_varchar_10", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_varchar_10_byte", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_varchar_1001", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_varchar_1020", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_nvarchar_100", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_clob", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_nclob", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_char_unicode", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_nchar_unicode", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_varchar_unicode", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_nvarchar_unicode", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_clob_unicode", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_nclob_unicode", "char(50)", Optional.of("c_char_50")),
+                new CastTestCase("c_char_10", "char(50)", "c_char_50"),
+                new CastTestCase("c_char_50", "char(50)", "c_char_50"),
+                new CastTestCase("c_char_501", "char(50)", "c_char_50"),
+                new CastTestCase("c_char_520", "char(50)", "c_char_50"),
+                new CastTestCase("c_nchar_10", "char(50)", "c_char_50"),
+                new CastTestCase("c_varchar_10", "char(50)", "c_char_50"),
+                new CastTestCase("c_varchar_10_byte", "char(50)", "c_char_50"),
+                new CastTestCase("c_varchar_1001", "char(50)", "c_char_50"),
+                new CastTestCase("c_varchar_1020", "char(50)", "c_char_50"),
+                new CastTestCase("c_nvarchar_100", "char(50)", "c_char_50"),
+                new CastTestCase("c_clob", "char(50)", "c_char_50"),
+                new CastTestCase("c_nclob", "char(50)", "c_char_50"),
+                new CastTestCase("c_char_unicode", "char(50)", "c_char_50"),
+                new CastTestCase("c_nchar_unicode", "char(50)", "c_char_50"),
+                new CastTestCase("c_varchar_unicode", "char(50)", "c_char_50"),
+                new CastTestCase("c_nvarchar_unicode", "char(50)", "c_char_50"),
+                new CastTestCase("c_clob_unicode", "char(50)", "c_char_50"),
+                new CastTestCase("c_nclob_unicode", "char(50)", "c_char_50"),
 
-                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_varchar_10_byte", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_varchar_1001", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_varchar_1020", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_nvarchar_100", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_clob", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_nclob", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_number_3", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_number_5", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_number_10", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_number_19", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_number_15", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_number_10_2", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_number_30_2", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_varchar_unicode", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_nvarchar_unicode", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_clob_unicode", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_nclob_unicode", "varchar(50)", Optional.of("c_varchar_50")));
+                new CastTestCase("c_varchar_10", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_varchar_10_byte", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_varchar_1001", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_varchar_1020", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_nvarchar_100", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_clob", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_nclob", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_number_3", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_number_5", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_number_10", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_number_19", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_number_15", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_number_10_2", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_number_30_2", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_varchar_unicode", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_nvarchar_unicode", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_clob_unicode", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_nclob_unicode", "varchar(50)", "c_varchar_50"));
     }
 
     @Override
     protected List<CastTestCase> unsupportedCastTypePushdown()
     {
         return ImmutableList.of(
-                new CastTestCase("c_char_10", "char(501)", Optional.of("c_char_501")),
-                new CastTestCase("c_char_501", "char(520)", Optional.of("c_char_520")),
-                new CastTestCase("c_varchar_10", "char(501)", Optional.of("c_char_501")),
-                new CastTestCase("c_varchar_1001", "char(501)", Optional.of("c_char_501")),
-                new CastTestCase("c_clob", "char(501)", Optional.of("c_char_501")),
-                new CastTestCase("c_nclob", "char(501)", Optional.of("c_char_501")),
+                new CastTestCase("c_char_10", "char(501)", "c_char_501"),
+                new CastTestCase("c_char_501", "char(520)", "c_char_520"),
+                new CastTestCase("c_varchar_10", "char(501)", "c_char_501"),
+                new CastTestCase("c_varchar_1001", "char(501)", "c_char_501"),
+                new CastTestCase("c_clob", "char(501)", "c_char_501"),
+                new CastTestCase("c_nclob", "char(501)", "c_char_501"),
 
                 // Issue with padding in the result data
-                new CastTestCase("c_char_10", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_char_50", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_char_501", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_char_520", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_nchar_10", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_char_unicode", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_nchar_unicode", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_char_10", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_char_50", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_char_501", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_char_520", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_nchar_10", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_char_unicode", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_nchar_unicode", "varchar(50)", "c_varchar_50"),
 
-                new CastTestCase("c_char_10", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_char_501", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_varchar_10", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_varchar_1001", "varchar(1020)", Optional.of("c_varchar_1020")),
-                new CastTestCase("c_clob", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_nclob", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_number_3", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_number_5", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_number_10", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_number_19", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_float", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_float_5", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_binary_float", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_binary_double", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_nan", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_infinity", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_number_15", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_number_10_2", "varchar(1001)", Optional.of("c_varchar_1001")),
-                new CastTestCase("c_number_30_2", "varchar(1001)", Optional.of("c_varchar_1001")),
+                new CastTestCase("c_char_10", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_char_501", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_varchar_10", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_varchar_1001", "varchar(1020)", "c_varchar_1020"),
+                new CastTestCase("c_clob", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_nclob", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_number_3", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_number_5", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_number_10", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_number_19", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_float", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_float_5", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_binary_float", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_binary_double", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_nan", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_infinity", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_number_15", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_number_10_2", "varchar(1001)", "c_varchar_1001"),
+                new CastTestCase("c_number_30_2", "varchar(1001)", "c_varchar_1001"),
 
-                new CastTestCase("c_char_10", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_char_501", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_varchar_10", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_varchar_1001", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_number_3", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_number_5", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_number_10", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_number_19", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_float", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_float_5", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_binary_float", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_binary_double", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_nan", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_infinity", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_number_15", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_number_10_2", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_number_30_2", "varchar", Optional.of("c_clob")),
+                new CastTestCase("c_char_10", "varchar", "c_clob"),
+                new CastTestCase("c_char_501", "varchar", "c_clob"),
+                new CastTestCase("c_varchar_10", "varchar", "c_clob"),
+                new CastTestCase("c_varchar_1001", "varchar", "c_clob"),
+                new CastTestCase("c_number_3", "varchar", "c_clob"),
+                new CastTestCase("c_number_5", "varchar", "c_clob"),
+                new CastTestCase("c_number_10", "varchar", "c_clob"),
+                new CastTestCase("c_number_19", "varchar", "c_clob"),
+                new CastTestCase("c_float", "varchar", "c_clob"),
+                new CastTestCase("c_float_5", "varchar", "c_clob"),
+                new CastTestCase("c_binary_float", "varchar", "c_clob"),
+                new CastTestCase("c_binary_double", "varchar", "c_clob"),
+                new CastTestCase("c_nan", "varchar", "c_clob"),
+                new CastTestCase("c_infinity", "varchar", "c_clob"),
+                new CastTestCase("c_number_15", "varchar", "c_clob"),
+                new CastTestCase("c_number_10_2", "varchar", "c_clob"),
+                new CastTestCase("c_number_30_2", "varchar", "c_clob"),
 
-                new CastTestCase("c_char_10", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_char_501", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_varchar_10", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_varchar_1001", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_number_3", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_number_5", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_number_10", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_number_19", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_float", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_float_5", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_binary_float", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_binary_double", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_nan", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_infinity", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_number_15", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_number_10_2", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_number_30_2", "varchar", Optional.of("c_nclob")),
+                new CastTestCase("c_char_10", "varchar", "c_nclob"),
+                new CastTestCase("c_char_501", "varchar", "c_nclob"),
+                new CastTestCase("c_varchar_10", "varchar", "c_nclob"),
+                new CastTestCase("c_varchar_1001", "varchar", "c_nclob"),
+                new CastTestCase("c_number_3", "varchar", "c_nclob"),
+                new CastTestCase("c_number_5", "varchar", "c_nclob"),
+                new CastTestCase("c_number_10", "varchar", "c_nclob"),
+                new CastTestCase("c_number_19", "varchar", "c_nclob"),
+                new CastTestCase("c_float", "varchar", "c_nclob"),
+                new CastTestCase("c_float_5", "varchar", "c_nclob"),
+                new CastTestCase("c_binary_float", "varchar", "c_nclob"),
+                new CastTestCase("c_binary_double", "varchar", "c_nclob"),
+                new CastTestCase("c_nan", "varchar", "c_nclob"),
+                new CastTestCase("c_infinity", "varchar", "c_nclob"),
+                new CastTestCase("c_number_15", "varchar", "c_nclob"),
+                new CastTestCase("c_number_10_2", "varchar", "c_nclob"),
+                new CastTestCase("c_number_30_2", "varchar", "c_nclob"),
 
-                new CastTestCase("c_number_3", "tinyint", Optional.of("c_number_5")),
-                new CastTestCase("c_number_3", "smallint", Optional.of("c_number_10")),
-                new CastTestCase("c_number_3", "integer", Optional.of("c_number_19")),
-                new CastTestCase("c_number_3", "bigint", Optional.of("c_float")),
-                new CastTestCase("c_number_3", "real", Optional.of("c_float_5")),
-                new CastTestCase("c_number_3", "double", Optional.of("c_binary_float")),
-                new CastTestCase("c_number_3", "double", Optional.of("c_binary_double")),
-                new CastTestCase("c_number_3", "decimal(15)", Optional.of("c_number_15")),
-                new CastTestCase("c_number_3", "decimal(10, 2)", Optional.of("c_number_10_2")),
-                new CastTestCase("c_number_3", "decimal(30, 2)", Optional.of("c_number_30_2")),
-                new CastTestCase("c_varchar_10", "varbinary", Optional.of("c_blob")),
-                new CastTestCase("c_varchar_10", "varbinary", Optional.of("c_raw_200")),
-                new CastTestCase("c_timestamp", "date", Optional.of("c_date")),
-                new CastTestCase("c_timestamptz", "timestamp", Optional.of("c_timestamp")),
-                new CastTestCase("c_timestamp", "timestamp with time zone", Optional.of("c_timestamptz")),
+                new CastTestCase("c_number_3", "tinyint", "c_number_5"),
+                new CastTestCase("c_number_3", "smallint", "c_number_10"),
+                new CastTestCase("c_number_3", "integer", "c_number_19"),
+                new CastTestCase("c_number_3", "bigint", "c_float"),
+                new CastTestCase("c_number_3", "real", "c_float_5"),
+                new CastTestCase("c_number_3", "double", "c_binary_float"),
+                new CastTestCase("c_number_3", "double", "c_binary_double"),
+                new CastTestCase("c_number_3", "decimal(15)", "c_number_15"),
+                new CastTestCase("c_number_3", "decimal(10, 2)", "c_number_10_2"),
+                new CastTestCase("c_number_3", "decimal(30, 2)", "c_number_30_2"),
+                new CastTestCase("c_varchar_10", "varbinary", "c_blob"),
+                new CastTestCase("c_varchar_10", "varbinary", "c_raw_200"),
+                new CastTestCase("c_timestamp", "date", "c_date"),
+                new CastTestCase("c_timestamptz", "timestamp", "c_timestamp"),
+                new CastTestCase("c_timestamp", "timestamp with time zone", "c_timestamptz"),
 
                 // When data inserted from Trino, below cases give mismatched value between pushdown
                 // and without pushdown, So not supporting cast pushdown for these cases
-                new CastTestCase("c_float", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_float_5", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_binary_float", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_binary_double", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_nan", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_infinity", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_date", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_timestamp", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_timestamptz", "varchar(50)", Optional.of("c_varchar_50")));
+                new CastTestCase("c_float", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_float_5", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_binary_float", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_binary_double", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_nan", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_infinity", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_date", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_timestamp", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_timestamptz", "varchar(50)", "c_varchar_50"));
     }
 
     @Override
-    protected List<CastTestCase> failCast()
+    protected List<InvalidCastTestCase> invalidCast()
     {
         return ImmutableList.of(
-                new CastTestCase("c_number_3", "char(50)"),
-                new CastTestCase("c_number_5", "char(50)"),
-                new CastTestCase("c_number_10", "char(50)"),
-                new CastTestCase("c_number_19", "char(50)"),
-                new CastTestCase("c_float", "char(50)"),
-                new CastTestCase("c_float_5", "char(50)"),
-                new CastTestCase("c_binary_float", "char(50)"),
-                new CastTestCase("c_binary_double", "char(50)"),
-                new CastTestCase("c_number_15", "char(50)"),
-                new CastTestCase("c_number_10_2", "char(50)"),
-                new CastTestCase("c_number_30_2", "char(50)"),
-                new CastTestCase("c_date", "char(50)"),
-                new CastTestCase("c_timestamp", "char(50)"),
-                new CastTestCase("c_timestamptz", "char(50)"),
-                new CastTestCase("c_blob", "char(50)"),
-                new CastTestCase("c_raw_200", "char(50)"),
+                new InvalidCastTestCase("c_number_3", "char(50)"),
+                new InvalidCastTestCase("c_number_5", "char(50)"),
+                new InvalidCastTestCase("c_number_10", "char(50)"),
+                new InvalidCastTestCase("c_number_19", "char(50)"),
+                new InvalidCastTestCase("c_float", "char(50)"),
+                new InvalidCastTestCase("c_float_5", "char(50)"),
+                new InvalidCastTestCase("c_binary_float", "char(50)"),
+                new InvalidCastTestCase("c_binary_double", "char(50)"),
+                new InvalidCastTestCase("c_number_15", "char(50)"),
+                new InvalidCastTestCase("c_number_10_2", "char(50)"),
+                new InvalidCastTestCase("c_number_30_2", "char(50)"),
+                new InvalidCastTestCase("c_date", "char(50)"),
+                new InvalidCastTestCase("c_timestamp", "char(50)"),
+                new InvalidCastTestCase("c_timestamptz", "char(50)"),
+                new InvalidCastTestCase("c_blob", "char(50)"),
+                new InvalidCastTestCase("c_raw_200", "char(50)"),
 
-                new CastTestCase("c_number_3", "char(501)"),
-                new CastTestCase("c_number_5", "char(501)"),
-                new CastTestCase("c_number_10", "char(501)"),
-                new CastTestCase("c_number_19", "char(501)"),
-                new CastTestCase("c_float", "char(501)"),
-                new CastTestCase("c_float_5", "char(501)"),
-                new CastTestCase("c_binary_float", "char(501)"),
-                new CastTestCase("c_binary_double", "char(501)"),
-                new CastTestCase("c_number_15", "char(501)"),
-                new CastTestCase("c_number_10_2", "char(501)"),
-                new CastTestCase("c_number_30_2", "char(501)"),
-                new CastTestCase("c_date", "char(501)"),
-                new CastTestCase("c_timestamp", "char(501)"),
-                new CastTestCase("c_timestamptz", "char(501)"),
-                new CastTestCase("c_blob", "char(501)"),
-                new CastTestCase("c_raw_200", "char(501)"),
+                new InvalidCastTestCase("c_number_3", "char(501)"),
+                new InvalidCastTestCase("c_number_5", "char(501)"),
+                new InvalidCastTestCase("c_number_10", "char(501)"),
+                new InvalidCastTestCase("c_number_19", "char(501)"),
+                new InvalidCastTestCase("c_float", "char(501)"),
+                new InvalidCastTestCase("c_float_5", "char(501)"),
+                new InvalidCastTestCase("c_binary_float", "char(501)"),
+                new InvalidCastTestCase("c_binary_double", "char(501)"),
+                new InvalidCastTestCase("c_number_15", "char(501)"),
+                new InvalidCastTestCase("c_number_10_2", "char(501)"),
+                new InvalidCastTestCase("c_number_30_2", "char(501)"),
+                new InvalidCastTestCase("c_date", "char(501)"),
+                new InvalidCastTestCase("c_timestamp", "char(501)"),
+                new InvalidCastTestCase("c_timestamptz", "char(501)"),
+                new InvalidCastTestCase("c_blob", "char(501)"),
+                new InvalidCastTestCase("c_raw_200", "char(501)"),
 
-                new CastTestCase("c_blob", "varchar(50)"),
-                new CastTestCase("c_raw_200", "varchar(50)"));
+                new InvalidCastTestCase("c_blob", "varchar(50)"),
+                new InvalidCastTestCase("c_raw_200", "varchar(50)"));
     }
 
     private static List<CastTestCase> specialCaseNClob()
     {
         // Trino converts clob type to nclob
         return ImmutableList.of(
-                new CastTestCase("c_clob", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_nclob", "varchar", Optional.of("c_clob")),
-                new CastTestCase("c_clob", "varchar", Optional.of("c_nclob")),
-                new CastTestCase("c_nclob", "varchar", Optional.of("c_nclob")));
+                new CastTestCase("c_clob", "varchar", "c_clob"),
+                new CastTestCase("c_nclob", "varchar", "c_clob"),
+                new CastTestCase("c_clob", "varchar", "c_nclob"),
+                new CastTestCase("c_nclob", "varchar", "c_nclob"));
     }
 }

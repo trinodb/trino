@@ -190,13 +190,13 @@ public class TestJwkService
 
     private static void assertEmptyKeys(JwkService service)
     {
-        assertThat(service.getKeys().size()).isEqualTo(0);
+        assertThat(service.getKeys()).isEmpty();
     }
 
     private static void assertTestKeys(JwkService service)
     {
         Map<String, PublicKey> keys = service.getKeys();
-        assertThat(keys.size()).isEqualTo(3);
+        assertThat(keys).hasSize(3);
         assertThat(keys).containsKey("test-rsa");
         assertThat(keys).containsKey("test-ec");
         assertThat(keys).containsKey("test-certificate-chain");

@@ -58,24 +58,6 @@ public class TableScanNode
     private final boolean updateTarget;
     private final Optional<Boolean> useConnectorNodePartitioning;
 
-    /**
-     * @deprecated Use explicit constructor instead. Calling this method when transforming the plan may lead to information loss.
-     */
-    // We need this factory method to disambiguate with the constructor used for deserializing
-    // from a json object. The deserializer sets some fields which are never transported
-    // to null
-    @Deprecated
-    public static TableScanNode newInstance(
-            PlanNodeId id,
-            TableHandle table,
-            List<Symbol> outputs,
-            Map<Symbol, ColumnHandle> assignments,
-            boolean updateTarget,
-            Optional<Boolean> useConnectorNodePartitioning)
-    {
-        return new TableScanNode(id, table, outputs, assignments, TupleDomain.all(), Optional.empty(), updateTarget, useConnectorNodePartitioning);
-    }
-
     @DoNotCall // For JSON serialization only
     @JsonCreator
     public static TableScanNode fromJson(

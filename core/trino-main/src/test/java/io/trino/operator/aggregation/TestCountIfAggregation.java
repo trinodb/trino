@@ -28,7 +28,7 @@ public class TestCountIfAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             BOOLEAN.writeBoolean(blockBuilder, i % 2 == 0);
         }

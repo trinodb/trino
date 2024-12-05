@@ -159,7 +159,7 @@ public class TestAvroDecoder
                 ImmutableMap.of(columnName, columnType),
                 ImmutableMap.of(columnName, actualValue));
 
-        assertThat(decodedRow.size()).isEqualTo(1);
+        assertThat(decodedRow).hasSize(1);
         return decodedRow;
     }
 
@@ -184,7 +184,7 @@ public class TestAvroDecoder
 
     private static <V> Map<String, V> buildMapFromKeysAndValues(List<String> keys, List<V> values)
     {
-        assertThat(keys.size()).isEqualTo(values.size());
+        assertThat(keys).hasSize(values.size());
         Map<String, V> map = new HashMap<>();
         for (int i = 0; i < keys.size(); i++) {
             map.put(keys.get(i), values.get(i));
@@ -254,7 +254,7 @@ public class TestAvroDecoder
                 ImmutableSet.of(originalColumn, newlyAddedColumn),
                 ImmutableMap.of(DATA_SCHEMA, addedColumnSchema));
 
-        assertThat(decodedRow.size()).isEqualTo(2);
+        assertThat(decodedRow).hasSize(2);
         checkValue(decodedRow, originalColumn, "string_field_value");
         checkIsNull(decodedRow, newlyAddedColumn);
     }
@@ -277,7 +277,7 @@ public class TestAvroDecoder
                 ImmutableSet.of(renamedColumn),
                 ImmutableMap.of(DATA_SCHEMA, renamedColumnSchema));
 
-        assertThat(decodedEvolvedRow.size()).isEqualTo(1);
+        assertThat(decodedEvolvedRow).hasSize(1);
         checkIsNull(decodedEvolvedRow, renamedColumn);
     }
 
@@ -302,7 +302,7 @@ public class TestAvroDecoder
                 ImmutableSet.of(evolvedColumn),
                 ImmutableMap.of(DATA_SCHEMA, removedColumnSchema));
 
-        assertThat(decodedEvolvedRow.size()).isEqualTo(1);
+        assertThat(decodedEvolvedRow).hasSize(1);
         checkValue(decodedEvolvedRow, evolvedColumn, "string_field_value");
     }
 
@@ -324,7 +324,7 @@ public class TestAvroDecoder
                 ImmutableSet.of(longColumnReadingIntData),
                 ImmutableMap.of(DATA_SCHEMA, changedTypeSchema));
 
-        assertThat(decodedEvolvedRow.size()).isEqualTo(1);
+        assertThat(decodedEvolvedRow).hasSize(1);
         checkValue(decodedEvolvedRow, longColumnReadingIntData, 100);
     }
 
@@ -346,7 +346,7 @@ public class TestAvroDecoder
                 ImmutableSet.of(doubleColumnReadingIntData),
                 ImmutableMap.of(DATA_SCHEMA, changedTypeSchema));
 
-        assertThat(decodedEvolvedRow.size()).isEqualTo(1);
+        assertThat(decodedEvolvedRow).hasSize(1);
         checkValue(decodedEvolvedRow, doubleColumnReadingIntData, 100.0);
     }
 
@@ -503,7 +503,7 @@ public class TestAvroDecoder
                 ImmutableSet.of(row),
                 ImmutableMap.of(DATA_SCHEMA, schema));
 
-        assertThat(decodedRow.size()).isEqualTo(1);
+        assertThat(decodedRow).hasSize(1);
 
         checkValue(decodedRow, row, 98247748);
     }

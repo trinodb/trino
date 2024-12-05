@@ -41,6 +41,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.trino.client.spooling.encoding.QueryDataDecoders.getPreferredEncodings;
 import static io.trino.client.uri.ConnectionProperties.ACCESS_TOKEN;
 import static io.trino.client.uri.ConnectionProperties.APPLICATION_NAME_PREFIX;
 import static io.trino.client.uri.ConnectionProperties.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS;
@@ -423,7 +424,11 @@ public class TrinoUri
 
     public Optional<String> getEncoding()
     {
-        return resolveOptional(ENCODING);
+        Optional<String> encodings = resolveOptional(ENCODING);
+        if (encodings.isPresent()) {
+            return encodings;
+        }
+        return Optional.of(getPreferredEncodings());
     }
 
     public boolean isAssumeLiteralNamesInMetadataCallsForNonConformingClients()

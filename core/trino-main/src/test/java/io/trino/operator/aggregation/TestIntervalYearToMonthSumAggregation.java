@@ -29,7 +29,7 @@ public class TestIntervalYearToMonthSumAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = INTERVAL_YEAR_MONTH.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = INTERVAL_YEAR_MONTH.createFixedSizeBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             INTERVAL_YEAR_MONTH.writeLong(blockBuilder, i);
         }

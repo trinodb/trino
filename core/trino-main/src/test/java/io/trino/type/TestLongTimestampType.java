@@ -37,7 +37,7 @@ public class TestLongTimestampType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = TIMESTAMP_NANOS.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = TIMESTAMP_NANOS.createFixedSizeBlockBuilder(15);
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(1111_123, 123_000));
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(1111_123, 123_000));
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(1111_123, 123_000));
@@ -102,7 +102,5 @@ public class TestLongTimestampType
                 .isEmpty();
     }
 
-    record MaxPrecision(int precision, LongTimestamp expectedMax)
-    {
-    }
+    record MaxPrecision(int precision, LongTimestamp expectedMax) {}
 }

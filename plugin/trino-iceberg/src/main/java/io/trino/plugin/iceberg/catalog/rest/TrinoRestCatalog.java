@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -69,6 +71,7 @@ import org.apache.iceberg.view.ViewBuilder;
 import org.apache.iceberg.view.ViewRepresentation;
 import org.apache.iceberg.view.ViewVersion;
 
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -78,6 +81,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -90,8 +94,10 @@ import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_RUN_AS_OWNER;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.view.ViewProperties.COMMENT;
 
 public class TrinoRestCatalog
@@ -100,14 +106,20 @@ public class TrinoRestCatalog
     private static final Logger log = Logger.get(TrinoRestCatalog.class);
 
     private static final int PER_QUERY_CACHE_SIZE = 1000;
+    private static final String NAMESPACE_SEPARATOR = ".";
 
     private final RESTSessionCatalog restSessionCatalog;
     private final CatalogName catalogName;
     private final TypeManager typeManager;
     private final SessionType sessionType;
     private final Map<String, String> credentials;
+    private final Namespace parentNamespace;
+    private final boolean nestedNamespaceEnabled;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
+    private final boolean caseInsensitiveNameMatching;
+    private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
+    private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
 
     private final Cache<SchemaTableName, Table> tableCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -118,30 +130,58 @@ public class TrinoRestCatalog
             CatalogName catalogName,
             SessionType sessionType,
             Map<String, String> credentials,
+            Namespace parentNamespace,
+            boolean nestedNamespaceEnabled,
             String trinoVersion,
             TypeManager typeManager,
-            boolean useUniqueTableLocation)
+            boolean useUniqueTableLocation,
+            boolean caseInsensitiveNameMatching,
+            Cache<Namespace, Namespace> remoteNamespaceMappingCache,
+            Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache)
     {
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.sessionType = requireNonNull(sessionType, "sessionType is null");
         this.credentials = ImmutableMap.copyOf(requireNonNull(credentials, "credentials is null"));
+        this.parentNamespace = requireNonNull(parentNamespace, "parentNamespace is null");
+        this.nestedNamespaceEnabled = nestedNamespaceEnabled;
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        this.remoteNamespaceMappingCache = requireNonNull(remoteNamespaceMappingCache, "remoteNamespaceMappingCache is null");
+        this.remoteTableMappingCache = requireNonNull(remoteTableMappingCache, "remoteTableMappingCache is null");
+    }
+
+    @Override
+    public Optional<String> getNamespaceSeparator()
+    {
+        return Optional.of(NAMESPACE_SEPARATOR);
     }
 
     @Override
     public boolean namespaceExists(ConnectorSession session, String namespace)
     {
-        return restSessionCatalog.namespaceExists(convert(session), Namespace.of(namespace));
+        return restSessionCatalog.namespaceExists(convert(session), toRemoteNamespace(session, toNamespace(namespace)));
     }
 
     @Override
     public List<String> listNamespaces(ConnectorSession session)
     {
-        return restSessionCatalog.listNamespaces(convert(session)).stream()
-                .map(Namespace::toString)
+        if (nestedNamespaceEnabled) {
+            return collectNamespaces(session, parentNamespace);
+        }
+        return restSessionCatalog.listNamespaces(convert(session), parentNamespace).stream()
+                .map(this::toSchemaName)
+                .collect(toImmutableList());
+    }
+
+    private List<String> collectNamespaces(ConnectorSession session, Namespace parentNamespace)
+    {
+        return restSessionCatalog.listNamespaces(convert(session), parentNamespace).stream()
+                .flatMap(childNamespace -> Stream.concat(
+                        Stream.of(childNamespace.toString()),
+                        collectNamespaces(session, childNamespace).stream()))
                 .collect(toImmutableList());
     }
 
@@ -149,13 +189,16 @@ public class TrinoRestCatalog
     public void dropNamespace(ConnectorSession session, String namespace)
     {
         try {
-            restSessionCatalog.dropNamespace(convert(session), Namespace.of(namespace));
+            restSessionCatalog.dropNamespace(convert(session), toRemoteNamespace(session, toNamespace(namespace)));
         }
         catch (NoSuchNamespaceException e) {
             throw new SchemaNotFoundException(namespace);
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to drop namespace: %s", namespace), e);
+        }
+        if (caseInsensitiveNameMatching) {
+            remoteNamespaceMappingCache.invalidate(toNamespace(namespace));
         }
     }
 
@@ -164,7 +207,7 @@ public class TrinoRestCatalog
     {
         try {
             // Return immutable metadata as direct modifications will not be reflected on the namespace
-            return ImmutableMap.copyOf(restSessionCatalog.loadNamespaceMetadata(convert(session), Namespace.of(namespace)));
+            return ImmutableMap.copyOf(restSessionCatalog.loadNamespaceMetadata(convert(session), toRemoteNamespace(session, toNamespace(namespace))));
         }
         catch (NoSuchNamespaceException e) {
             throw new SchemaNotFoundException(namespace);
@@ -183,7 +226,7 @@ public class TrinoRestCatalog
     {
         restSessionCatalog.createNamespace(
                 convert(session),
-                Namespace.of(namespace),
+                toNamespace(namespace),
                 Maps.transformValues(properties, property -> {
                     if (property instanceof String stringProperty) {
                         return stringProperty;
@@ -212,11 +255,11 @@ public class TrinoRestCatalog
 
         ImmutableList.Builder<TableInfo> tables = ImmutableList.builder();
         for (Namespace restNamespace : namespaces) {
-            listTableIdentifiers(restNamespace, () -> restSessionCatalog.listTables(sessionContext, restNamespace)).stream()
-                    .map(id -> new TableInfo(SchemaTableName.schemaTableName(id.namespace().toString(), id.name()), TableInfo.ExtendedRelationType.TABLE))
+            listTableIdentifiers(restNamespace, () -> restSessionCatalog.listTables(sessionContext, toRemoteNamespace(session, restNamespace))).stream()
+                    .map(id -> new TableInfo(SchemaTableName.schemaTableName(toSchemaName(id.namespace()), id.name()), TableInfo.ExtendedRelationType.TABLE))
                     .forEach(tables::add);
-            listTableIdentifiers(restNamespace, () -> restSessionCatalog.listViews(sessionContext, restNamespace)).stream()
-                    .map(id -> new TableInfo(SchemaTableName.schemaTableName(id.namespace().toString(), id.name()), TableInfo.ExtendedRelationType.OTHER_VIEW))
+            listTableIdentifiers(restNamespace, () -> restSessionCatalog.listViews(sessionContext, toRemoteNamespace(session, restNamespace))).stream()
+                    .map(id -> new TableInfo(SchemaTableName.schemaTableName(toSchemaName(id.namespace()), id.name()), TableInfo.ExtendedRelationType.OTHER_VIEW))
                     .forEach(tables::add);
         }
         return tables.build();
@@ -230,7 +273,7 @@ public class TrinoRestCatalog
 
         ImmutableList.Builder<SchemaTableName> viewNames = ImmutableList.builder();
         for (Namespace restNamespace : namespaces) {
-            listTableIdentifiers(restNamespace, () -> restSessionCatalog.listViews(sessionContext, restNamespace)).stream()
+            listTableIdentifiers(restNamespace, () -> restSessionCatalog.listViews(sessionContext, toRemoteNamespace(session, restNamespace))).stream()
                     .map(id -> SchemaTableName.schemaTableName(id.namespace().toString(), id.name()))
                     .forEach(viewNames::add);
         }
@@ -284,7 +327,7 @@ public class TrinoRestCatalog
             String location,
             Map<String, String> properties)
     {
-        return restSessionCatalog.buildTable(convert(session), toIdentifier(schemaTableName), schema)
+        return restSessionCatalog.buildTable(convert(session), toRemoteTable(session, schemaTableName, true), schema)
                 .withPartitionSpec(partitionSpec)
                 .withSortOrder(sortOrder)
                 .withLocation(location)
@@ -302,7 +345,7 @@ public class TrinoRestCatalog
             String location,
             Map<String, String> properties)
     {
-        return restSessionCatalog.buildTable(convert(session), toIdentifier(schemaTableName), schema)
+        return restSessionCatalog.buildTable(convert(session), toRemoteTable(session, schemaTableName, true), schema)
                 .withPartitionSpec(partitionSpec)
                 .withSortOrder(sortOrder)
                 .withLocation(location)
@@ -313,25 +356,28 @@ public class TrinoRestCatalog
     @Override
     public void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata)
     {
-        restSessionCatalog.registerTable(convert(session), toIdentifier(tableName), tableMetadata.metadataFileLocation());
+        TableIdentifier tableIdentifier = TableIdentifier.of(toRemoteNamespace(session, toNamespace(tableName.getSchemaName())), tableName.getTableName());
+        restSessionCatalog.registerTable(convert(session), tableIdentifier, tableMetadata.metadataFileLocation());
     }
 
     @Override
     public void unregisterTable(ConnectorSession session, SchemaTableName tableName)
     {
-        if (!restSessionCatalog.dropTable(convert(session), toIdentifier(tableName))) {
+        if (!restSessionCatalog.dropTable(convert(session), toRemoteTable(session, tableName, true))) {
             throw new TableNotFoundException(tableName);
         }
         invalidateTableCache(tableName);
+        invalidateTableMappingCache(tableName);
     }
 
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        if (!restSessionCatalog.purgeTable(convert(session), toIdentifier(schemaTableName))) {
+        if (!restSessionCatalog.purgeTable(convert(session), toRemoteTable(session, schemaTableName, true))) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to drop table: %s", schemaTableName));
         }
         invalidateTableCache(schemaTableName);
+        invalidateTableMappingCache(schemaTableName);
     }
 
     @Override
@@ -346,23 +392,25 @@ public class TrinoRestCatalog
     public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
     {
         try {
-            restSessionCatalog.renameTable(convert(session), toIdentifier(from), toIdentifier(to));
+            restSessionCatalog.renameTable(convert(session), toRemoteTable(session, from, true), toRemoteTable(session, to, true));
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to rename table %s to %s", from, to), e);
         }
         invalidateTableCache(from);
+        invalidateTableMappingCache(from);
     }
 
     @Override
     public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        Namespace namespace = toNamespace(schemaTableName.getSchemaName());
         try {
             return uncheckedCacheGet(
                     tableCache,
                     schemaTableName,
                     () -> {
-                        BaseTable baseTable = (BaseTable) restSessionCatalog.loadTable(convert(session), toIdentifier(schemaTableName));
+                        BaseTable baseTable = (BaseTable) restSessionCatalog.loadTable(convert(session), toRemoteObject(session, schemaTableName));
                         // Creating a new base table is necessary to adhere to Trino's expectations for quoted table names
                         return new BaseTable(baseTable.operations(), quotedTableName(schemaTableName));
                     });
@@ -371,8 +419,25 @@ public class TrinoRestCatalog
             if (e.getCause() instanceof NoSuchTableException) {
                 throw new TableNotFoundException(schemaTableName, e.getCause());
             }
-            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to load table: %s", schemaTableName), e.getCause());
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to load table: %s in %s namespace", schemaTableName.getTableName(), namespace), e.getCause());
         }
+    }
+
+    private TableIdentifier toRemoteObject(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        TableIdentifier remoteTable = toRemoteTable(session, schemaTableName, false);
+        if (!remoteTable.name().equals(schemaTableName.getTableName())) {
+            return remoteTable;
+        }
+
+        TableIdentifier remoteView = toRemoteView(session, schemaTableName, false);
+        if (!remoteView.name().equals(schemaTableName.getTableName())) {
+            return remoteView;
+        }
+        if (remoteView.name().equals(schemaTableName.getTableName()) && remoteTable.name().equals(schemaTableName.getTableName())) {
+            return remoteTable;
+        }
+        throw new RuntimeException("Unable to find remote object");
     }
 
     @Override
@@ -384,7 +449,7 @@ public class TrinoRestCatalog
     @Override
     public void updateTableComment(ConnectorSession session, SchemaTableName schemaTableName, Optional<String> comment)
     {
-        Table icebergTable = restSessionCatalog.loadTable(convert(session), toIdentifier(schemaTableName));
+        Table icebergTable = restSessionCatalog.loadTable(convert(session), toRemoteTable(session, schemaTableName, true));
         if (comment.isEmpty()) {
             icebergTable.updateProperties().remove(TABLE_COMMENT).commit();
         }
@@ -428,10 +493,10 @@ public class TrinoRestCatalog
         definition.getOwner().ifPresent(owner -> properties.put(ICEBERG_VIEW_RUN_AS_OWNER, owner));
         definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
         Schema schema = IcebergUtil.schemaFromViewColumns(typeManager, definition.getColumns());
-        ViewBuilder viewBuilder = restSessionCatalog.buildView(convert(session), toIdentifier(schemaViewName));
+        ViewBuilder viewBuilder = restSessionCatalog.buildView(convert(session), toRemoteView(session, schemaViewName, true));
         viewBuilder = viewBuilder.withSchema(schema)
                 .withQuery("trino", definition.getOriginalSql())
-                .withDefaultNamespace(Namespace.of(schemaViewName.getSchemaName()))
+                .withDefaultNamespace(toRemoteNamespace(session, toNamespace(schemaViewName.getSchemaName())))
                 .withDefaultCatalog(definition.getCatalog().orElse(null))
                 .withProperties(properties.buildOrThrow())
                 .withLocation(defaultTableLocation(session, schemaViewName));
@@ -447,7 +512,8 @@ public class TrinoRestCatalog
     @Override
     public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
-        restSessionCatalog.renameView(convert(session), toIdentifier(source), toIdentifier(target));
+        restSessionCatalog.renameView(convert(session), toRemoteView(session, source, true), toRemoteView(session, target, true));
+        invalidateTableMappingCache(source);
     }
 
     @Override
@@ -459,7 +525,8 @@ public class TrinoRestCatalog
     @Override
     public void dropView(ConnectorSession session, SchemaTableName schemaViewName)
     {
-        restSessionCatalog.dropView(convert(session), toIdentifier(schemaViewName));
+        restSessionCatalog.dropView(convert(session), toRemoteView(session, schemaViewName, true));
+        invalidateTableMappingCache(schemaViewName);
     }
 
     @Override
@@ -468,7 +535,7 @@ public class TrinoRestCatalog
         SessionContext sessionContext = convert(session);
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
         for (Namespace restNamespace : listNamespaces(session, namespace)) {
-            for (TableIdentifier restView : restSessionCatalog.listViews(sessionContext, restNamespace)) {
+            for (TableIdentifier restView : restSessionCatalog.listViews(sessionContext, toRemoteNamespace(session, restNamespace))) {
                 SchemaTableName schemaTableName = SchemaTableName.schemaTableName(restView.namespace().toString(), restView.name());
                 try {
                     getView(session, schemaTableName).ifPresent(view -> views.put(schemaTableName, view));
@@ -489,7 +556,7 @@ public class TrinoRestCatalog
     @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
-        return getIcebergView(session, viewName).flatMap(view -> {
+        return getIcebergView(session, viewName, false).flatMap(view -> {
             SQLViewRepresentation sqlView = view.sqlFor("trino");
             if (!sqlView.dialect().equalsIgnoreCase("trino")) {
                 throw new TrinoException(ICEBERG_UNSUPPORTED_VIEW_DIALECT, "Cannot read unsupported dialect '%s' for view '%s'".formatted(sqlView.dialect(), viewName));
@@ -509,10 +576,10 @@ public class TrinoRestCatalog
         });
     }
 
-    private Optional<View> getIcebergView(ConnectorSession session, SchemaTableName viewName)
+    private Optional<View> getIcebergView(ConnectorSession session, SchemaTableName viewName, boolean getCached)
     {
         try {
-            return Optional.of(restSessionCatalog.loadView(convert(session), toIdentifier(viewName)));
+            return Optional.of(restSessionCatalog.loadView(convert(session), toRemoteView(session, viewName, getCached)));
         }
         catch (NoSuchViewException e) {
             return Optional.empty();
@@ -584,7 +651,7 @@ public class TrinoRestCatalog
     @Override
     public void updateViewComment(ConnectorSession session, SchemaTableName schemaViewName, Optional<String> comment)
     {
-        View view = getIcebergView(session, schemaViewName).orElseThrow(() -> new ViewNotFoundException(schemaViewName));
+        View view = getIcebergView(session, schemaViewName, true).orElseThrow(() -> new ViewNotFoundException(schemaViewName));
         UpdateViewProperties updateViewProperties = view.updateProperties();
         comment.ifPresentOrElse(
                 value -> updateViewProperties.set(COMMENT, value),
@@ -595,7 +662,7 @@ public class TrinoRestCatalog
     @Override
     public void updateViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment)
     {
-        View view = getIcebergView(session, schemaViewName)
+        View view = getIcebergView(session, schemaViewName, true)
                 .orElseThrow(() -> new ViewNotFoundException(schemaViewName));
 
         ViewVersion current = view.currentVersion();
@@ -653,19 +720,139 @@ public class TrinoRestCatalog
         tableCache.invalidate(schemaTableName);
     }
 
-    private static TableIdentifier toIdentifier(SchemaTableName schemaTableName)
+    private void invalidateTableMappingCache(SchemaTableName schemaTableName)
     {
-        return TableIdentifier.of(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        if (caseInsensitiveNameMatching) {
+            remoteTableMappingCache.invalidate(toIdentifier(schemaTableName));
+        }
+    }
+
+    private Namespace toNamespace(String schemaName)
+    {
+        if (!nestedNamespaceEnabled && schemaName.contains(NAMESPACE_SEPARATOR)) {
+            throw new TrinoException(NOT_SUPPORTED, "Nested namespace is not enabled for this catalog");
+        }
+        if (!parentNamespace.isEmpty()) {
+            schemaName = parentNamespace + NAMESPACE_SEPARATOR + schemaName;
+        }
+        return Namespace.of(Splitter.on(NAMESPACE_SEPARATOR).omitEmptyStrings().trimResults().splitToList(schemaName).toArray(new String[0]));
+    }
+
+    private String toSchemaName(Namespace namespace)
+    {
+        if (this.parentNamespace.isEmpty()) {
+            if (!nestedNamespaceEnabled && namespace.length() != 1) {
+                throw new TrinoException(NOT_SUPPORTED, "Nested namespace is not enabled for this catalog");
+            }
+            return namespace.toString();
+        }
+        if (!nestedNamespaceEnabled && ((namespace.length() - parentNamespace.length()) > 1)) {
+            throw new TrinoException(NOT_SUPPORTED, "Nested namespace is not enabled for this catalog");
+        }
+        return Arrays.stream(namespace.levels(), this.parentNamespace.length(), namespace.length())
+                .collect(joining(NAMESPACE_SEPARATOR));
+    }
+
+    private TableIdentifier toIdentifier(SchemaTableName schemaTableName)
+    {
+        return TableIdentifier.of(toNamespace(schemaTableName.getSchemaName()), schemaTableName.getTableName());
     }
 
     private List<Namespace> listNamespaces(ConnectorSession session, Optional<String> namespace)
     {
         if (namespace.isEmpty()) {
             return listNamespaces(session).stream()
-                    .map(Namespace::of)
+                    .map(this::toNamespace)
                     .collect(toImmutableList());
         }
 
-        return ImmutableList.of(Namespace.of(namespace.get()));
+        return ImmutableList.of(toNamespace(namespace.get()));
+    }
+
+    private TableIdentifier toRemoteTable(ConnectorSession session, SchemaTableName schemaTableName, boolean getCached)
+    {
+        TableIdentifier tableIdentifier = toIdentifier(schemaTableName);
+        return toRemoteObject(tableIdentifier, () -> findRemoteTable(session, tableIdentifier), getCached);
+    }
+
+    private TableIdentifier findRemoteTable(ConnectorSession session, TableIdentifier tableIdentifier)
+    {
+        Namespace remoteNamespace = toRemoteNamespace(session, tableIdentifier.namespace());
+        List<TableIdentifier> tableIdentifiers = restSessionCatalog.listTables(convert(session), remoteNamespace);
+        TableIdentifier matchingTable = null;
+        for (TableIdentifier identifier : tableIdentifiers) {
+            if (identifier.name().equalsIgnoreCase(tableIdentifier.name())) {
+                if (matchingTable != null) {
+                    throw new TrinoException(NOT_SUPPORTED, "Duplicate table names are not supported with Iceberg REST catalog: "
+                            + Joiner.on(", ").join(matchingTable, identifier.name()));
+                }
+                matchingTable = identifier;
+            }
+        }
+        return matchingTable == null ? TableIdentifier.of(remoteNamespace, tableIdentifier.name()) : matchingTable;
+    }
+
+    private TableIdentifier toRemoteView(ConnectorSession session, SchemaTableName schemaViewName, boolean getCached)
+    {
+        TableIdentifier tableIdentifier = toIdentifier(schemaViewName);
+        return toRemoteObject(tableIdentifier, () -> findRemoteView(session, tableIdentifier), getCached);
+    }
+
+    private TableIdentifier findRemoteView(ConnectorSession session, TableIdentifier tableIdentifier)
+    {
+        Namespace remoteNamespace = toRemoteNamespace(session, tableIdentifier.namespace());
+        List<TableIdentifier> tableIdentifiers = restSessionCatalog.listViews(convert(session), remoteNamespace);
+        TableIdentifier matchingView = null;
+        for (TableIdentifier identifier : tableIdentifiers) {
+            if (identifier.name().equalsIgnoreCase(tableIdentifier.name())) {
+                if (matchingView != null) {
+                    throw new TrinoException(NOT_SUPPORTED, "Duplicate view names are not supported with Iceberg REST catalog: "
+                            + Joiner.on(", ").join(matchingView.name(), identifier.name()));
+                }
+                matchingView = identifier;
+            }
+        }
+        return matchingView == null ? TableIdentifier.of(remoteNamespace, tableIdentifier.name()) : matchingView;
+    }
+
+    private TableIdentifier toRemoteObject(TableIdentifier tableIdentifier, Supplier<TableIdentifier> remoteObjectProvider, boolean getCached)
+    {
+        if (caseInsensitiveNameMatching) {
+            if (getCached) {
+                return uncheckedCacheGet(remoteTableMappingCache, tableIdentifier, remoteObjectProvider);
+            }
+            return remoteObjectProvider.get();
+        }
+        return tableIdentifier;
+    }
+
+    private Namespace toRemoteNamespace(ConnectorSession session, Namespace trinoNamespace)
+    {
+        if (caseInsensitiveNameMatching) {
+            return uncheckedCacheGet(remoteNamespaceMappingCache, trinoNamespace, () -> findRemoteNamespace(session, trinoNamespace));
+        }
+        return trinoNamespace;
+    }
+
+    private Namespace findRemoteNamespace(ConnectorSession session, Namespace trinoNamespace)
+    {
+        List<Namespace> matchingRemoteNamespaces = listNamespaces(session, Namespace.empty()).stream()
+                .filter(ns -> toTrinoNamespace(ns).equals(trinoNamespace))
+                .collect(toImmutableList());
+        if (matchingRemoteNamespaces.size() > 1) {
+            throw new TrinoException(NOT_SUPPORTED, "Duplicate namespace names are not supported with Iceberg REST catalog: " + matchingRemoteNamespaces);
+        }
+        return matchingRemoteNamespaces.isEmpty() ? trinoNamespace : matchingRemoteNamespaces.getFirst();
+    }
+
+    private List<Namespace> listNamespaces(ConnectorSession session, Namespace parentNamespace)
+    {
+        List<Namespace> childNamespaces = restSessionCatalog.listNamespaces(convert(session), parentNamespace);
+        return childNamespaces.stream().flatMap(childNamespace -> Stream.concat(Stream.of(childNamespace), listNamespaces(session, childNamespace).stream())).toList();
+    }
+
+    private static Namespace toTrinoNamespace(Namespace namespace)
+    {
+        return Namespace.of(Arrays.stream(namespace.levels()).map(level -> level.toLowerCase(ENGLISH)).toArray(String[]::new));
     }
 }

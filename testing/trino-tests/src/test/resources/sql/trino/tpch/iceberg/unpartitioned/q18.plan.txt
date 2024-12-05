@@ -2,25 +2,26 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
-                final aggregation over (custkey_0, name, orderdate, orderkey, totalprice)
+                final aggregation over (custkey_0, name, orderdate, orderkey_4, totalprice)
                     local exchange (GATHER, SINGLE, [])
-                        partial aggregation over (custkey_0, name, orderdate, orderkey, totalprice)
+                        partial aggregation over (custkey_0, name, orderdate, orderkey_4, totalprice)
                             join (INNER, PARTITIONED):
-                                join (INNER, PARTITIONED):
+                                remote exchange (REPARTITION, HASH, [orderkey_4])
+                                    dynamic filter (orderkey_4::EQUAL)
+                                        scan lineitem
+                                local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [orderkey])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [custkey_0])
-                                                dynamic filter (custkey_0::EQUAL, orderkey::EQUAL, orderkey::EQUAL)
-                                                    scan orders
+                                                join (INNER, PARTITIONED):
+                                                    remote exchange (REPARTITION, HASH, [orderkey])
+                                                        dynamic filter (custkey_0::EQUAL, orderkey::EQUAL)
+                                                            scan orders
+                                                    final aggregation over (orderkey_8)
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPARTITION, HASH, [orderkey_8])
+                                                                partial aggregation over (orderkey_8)
+                                                                    scan lineitem
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [custkey])
                                                     scan customer
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, [orderkey_4])
-                                            dynamic filter (orderkey_4::EQUAL)
-                                                scan lineitem
-                                final aggregation over (orderkey_8)
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, [orderkey_8])
-                                            partial aggregation over (orderkey_8)
-                                                scan lineitem

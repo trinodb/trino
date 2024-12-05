@@ -110,7 +110,7 @@ public final class DeltaLakeSchemaSupport
     private static final String APPEND_ONLY_FEATURE_NAME = "appendOnly";
     public static final String CHANGE_DATA_FEED_FEATURE_NAME = "changeDataFeed";
     private static final String CHECK_CONSTRAINTS_FEATURE_NAME = "checkConstraints";
-    private static final String COLUMN_MAPPING_FEATURE_NAME = "columnMapping";
+    public static final String COLUMN_MAPPING_FEATURE_NAME = "columnMapping";
     public static final String DELETION_VECTORS_FEATURE_NAME = "deletionVectors";
     private static final String ICEBERG_COMPATIBILITY_V1_FEATURE_NAME = "icebergCompatV1";
     private static final String ICEBERG_COMPATIBILITY_V2_FEATURE_NAME = "icebergCompatV2";
@@ -202,6 +202,18 @@ public final class DeltaLakeSchemaSupport
             return false;
         }
         return parseBoolean(metadataEntry.getConfiguration().get(DELETION_VECTORS_CONFIGURATION_KEY));
+    }
+
+    public static int getRandomPrefixLength(MetadataEntry metadataEntry)
+    {
+        boolean randomizeFilePrefixes = parseBoolean(metadataEntry.getConfiguration().get("delta.randomizeFilePrefixes"));
+        if (randomizeFilePrefixes) {
+            // 2 is the default value in Delta Lake
+            int randomPrefixLength = Integer.parseInt(metadataEntry.getConfiguration().getOrDefault("delta.randomPrefixLength", "2"));
+            checkArgument(randomPrefixLength >= 0, "randomPrefixLength must be >= 0: %s", randomPrefixLength);
+            return randomPrefixLength;
+        }
+        return 0;
     }
 
     public static List<String> enabledUniversalFormats(MetadataEntry metadataEntry)

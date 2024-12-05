@@ -1,4 +1,4 @@
--- database: presto; groups: tpch; tables: lineitem,part
+-- database: trino; groups: tpch; tables: lineitem,part
 SELECT sum(l_extendedprice) / 7.0 AS avg_yearly
 FROM
   lineitem,

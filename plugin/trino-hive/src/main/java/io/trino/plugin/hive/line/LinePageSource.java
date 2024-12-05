@@ -41,7 +41,7 @@ public class LinePageSource
     private final LineBuffer lineBuffer;
     private final Location filePath;
 
-    private PageBuilder pageBuilder;
+    private final PageBuilder pageBuilder;
     private long completedPositions;
 
     public LinePageSource(LineReader lineReader, LineDeserializer deserializer, LineBuffer lineBuffer, Location filePath)
@@ -63,7 +63,7 @@ public class LinePageSource
             }
             Page page = pageBuilder.build();
             completedPositions += page.getPositionCount();
-            pageBuilder = pageBuilder.newPageBuilderLike();
+            pageBuilder.reset();
             return page;
         }
         catch (TrinoException e) {

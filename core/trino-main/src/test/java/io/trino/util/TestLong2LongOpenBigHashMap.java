@@ -30,7 +30,7 @@ public class TestLong2LongOpenBigHashMap
         map.defaultReturnValue(-1);
 
         assertThat(map).isEmpty();
-        assertThat(map.size()).isEqualTo(0);
+        assertThat(map).isEmpty();
         assertThat(map.get(0)).isEqualTo(-1);
         assertThat(map.get(1)).isEqualTo(-1);
 
@@ -42,7 +42,7 @@ public class TestLong2LongOpenBigHashMap
             count++;
             assertThat(map.put(key, count - 1)).isEqualTo(-1);
             assertThat(map).isNotEmpty();
-            assertThat(map.size()).isEqualTo(count);
+            assertThat(map).hasSize(count);
         }
 
         // Replace
@@ -51,7 +51,7 @@ public class TestLong2LongOpenBigHashMap
             count++;
             assertThat(map.replace(key, count - 1, count)).isTrue();
             assertThat(map).isNotEmpty();
-            assertThat(map.size()).isEqualTo(values.size());
+            assertThat(map).hasSize(values.size());
         }
 
         // Get
