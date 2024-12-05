@@ -22,7 +22,6 @@ import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.json.JsonCodec;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
-import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.connector.ConnectorCatalogServiceProvider;
@@ -76,6 +75,8 @@ import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.tracing.Tracing.noopTracer;
+import static io.opentelemetry.api.OpenTelemetry.noop;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
@@ -102,7 +103,7 @@ public class TestLocalDispatchQuery
                 transactionManager,
                 emptyEventListenerManager(),
                 new AccessControlConfig(),
-                OpenTelemetry.noop(),
+                noop(),
                 new SecretsResolver(ImmutableMap.of()),
                 DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
@@ -128,7 +129,7 @@ public class TestLocalDispatchQuery
                 JsonCodec.jsonCodec(OperatorStats.class),
                 JsonCodec.jsonCodec(ExecutionFailureInfo.class),
                 JsonCodec.jsonCodec(StatsAndCosts.class),
-                new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of())),
+                new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()), noop(), noopTracer(), new NodeVersion("test")),
                 new NodeInfo("node"),
                 new NodeVersion("version"),
                 new SessionPropertyManager(),
