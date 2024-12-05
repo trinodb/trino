@@ -137,7 +137,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testSelectAll()
     {
         // List columns explicitly, as there's no defined order in Elasticsearch
-        assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment  FROM orders");
+        assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment FROM orders");
     }
 
     @Override
@@ -213,13 +213,14 @@ public abstract class BaseElasticsearchConnectorTest
     {
         String indexName = "null_predicate1";
         @Language("JSON")
-        String properties = "" +
-                "{" +
-                "  \"properties\":{" +
-                "    \"null_keyword\":   { \"type\": \"keyword\" }," +
-                "    \"custkey\":   { \"type\": \"keyword\" }" +
-                "  }" +
-                "}";
+        String properties = """
+                            {
+                              "properties": {
+                                "null_keyword": { "type": "keyword" },
+                                "custkey": { "type": "keyword" }
+                              }
+                            }
+                            """;
         createIndex(indexName, properties);
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("null_keyword", 32)
@@ -229,25 +230,31 @@ public abstract class BaseElasticsearchConnectorTest
         assertQueryReturnsEmptyResult("SELECT * FROM null_predicate1 WHERE null_keyword IS NULL");
         assertQueryReturnsEmptyResult("SELECT * FROM null_predicate1 WHERE null_keyword = '10' OR null_keyword IS NULL");
 
-        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, 32)");
-        assertQuery("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301)");
+        assertThat(query("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL"))
+                .matches("VALUES (VARCHAR '1301', VARCHAR '32')");
+        assertThat(query("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NULL"))
+                .matches("VALUES (VARCHAR '1301')");
 
         // not null filter
         // filtered column is selected
-        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword IS NOT NULL", "VALUES (1301, 32)");
-        assertQuery("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL", "VALUES (1301, 32)");
+        assertThat(query("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword IS NOT NULL"))
+                .matches("VALUES (VARCHAR '1301', VARCHAR '32')");
+        assertThat(query("SELECT custkey, null_keyword FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL"))
+                .matches("VALUES (VARCHAR '1301', VARCHAR '32')");
 
         // filtered column is not selected
-        assertQuery("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL", "VALUES (1301)");
+        assertThat(query("SELECT custkey FROM null_predicate1 WHERE null_keyword = '32' OR null_keyword IS NOT NULL"))
+                .matches("VALUES (VARCHAR '1301')");
 
         indexName = "null_predicate2";
-        properties = "" +
-                "{" +
-                "  \"properties\":{" +
-                "    \"null_keyword\":   { \"type\": \"keyword\" }," +
-                "    \"custkey\":   { \"type\": \"keyword\" }" +
-                "  }" +
-                "}";
+        properties = """
+                     {
+                       "properties": {
+                         "null_keyword": { "type": "keyword" },
+                         "custkey": { "type": "keyword" }
+                       }
+                     }
+                     """;
         createIndex(indexName, properties);
         index(indexName, ImmutableMap.of("custkey", 1301));
 
@@ -256,19 +263,24 @@ public abstract class BaseElasticsearchConnectorTest
         assertQueryReturnsEmptyResult("SELECT * FROM null_predicate2 WHERE null_keyword = '10' OR null_keyword IS NOT NULL");
 
         // filtered column is selected
-        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword IS NULL", "VALUES (1301, NULL)");
-        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, NULL)");
+        assertThat(query("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword IS NULL"))
+                .matches("VALUES (VARCHAR '1301', CAST(NULL AS VARCHAR))");
+        assertThat(query("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL"))
+                .matches("VALUES (VARCHAR '1301', CAST(NULL AS VARCHAR))");
 
         // filtered column is not selected
-        assertQuery("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301)");
+        assertThat(query("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL"))
+                .matches("VALUES (VARCHAR '1301')");
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("null_keyword", 32)
                 .put("custkey", 1302)
                 .buildOrThrow());
 
-        assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, NULL), (1302, 32)");
-        assertQuery("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301), (1302)");
+        assertThat(query("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL"))
+                .matches("VALUES (VARCHAR '1301', CAST(NULL AS VARCHAR)), (VARCHAR '1302', VARCHAR '32')");
+        assertThat(query("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL"))
+                .matches("VALUES (VARCHAR '1301'), (VARCHAR '1302')");
     }
 
     @Test
@@ -282,9 +294,8 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("fields.fieldb", "valueb")
                 .buildOrThrow());
 
-        assertQuery(
-                "SELECT name, fields.fielda, fields.fieldb FROM data",
-                "VALUES ('nestfield', 32, 'valueb')");
+        assertThat(query("SELECT name, fields.fielda, fields.fieldb FROM data"))
+                .matches("VALUES (VARCHAR 'nestfield', BIGINT '32', VARCHAR 'valueb')");
     }
 
     @Test
@@ -298,9 +309,8 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("conflict", "conflict2")
                 .buildOrThrow());
 
-        assertQuery(
-                "SELECT * FROM name_conflict",
-                "VALUES ('value')");
+        assertThat(query("SELECT * FROM name_conflict"))
+                .matches("VALUES (VARCHAR 'value')");
     }
 
     @Test
@@ -310,83 +320,84 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "test_arrays";
 
         @Language("JSON")
-        String mapping = "" +
-                "{" +
-                "      \"_meta\": {" +
-                "        \"trino\": {" +
-                "          \"a\": {" +
-                "            \"b\": {" +
-                "              \"y\": {" +
-                "                \"isArray\": true" +
-                "              }" +
-                "            }" +
-                "          }," +
-                "          \"c\": {" +
-                "            \"f\": {" +
-                "              \"g\": {" +
-                "                \"isArray\": true" +
-                "              }," +
-                "              \"isArray\": true" +
-                "            }" +
-                "          }," +
-                "          \"j\": {" +
-                "            \"isArray\": true" +
-                "          }," +
-                "          \"k\": {" +
-                "            \"isArray\": true" +
-                "          }" +
-                "        }" +
-                "      }," +
-                "      \"properties\":{" +
-                "        \"a\": {" +
-                "          \"type\": \"object\"," +
-                "          \"properties\": {" +
-                "            \"b\": {" +
-                "              \"type\": \"object\"," +
-                "              \"properties\": {" +
-                "                \"x\": {" +
-                "                  \"type\": \"integer\"" +
-                "                }," +
-                "                \"y\": {" +
-                "                  \"type\": \"keyword\"" +
-                "                }" +
-                "              } " +
-                "            }" +
-                "          }" +
-                "        }," +
-                "        \"c\": {" +
-                "          \"type\": \"object\"," +
-                "          \"properties\": {" +
-                "            \"d\": {" +
-                "              \"type\": \"keyword\"" +
-                "            }," +
-                "            \"e\": {" +
-                "              \"type\": \"keyword\"" +
-                "            }," +
-                "            \"f\": {" +
-                "              \"type\": \"object\"," +
-                "              \"properties\": {" +
-                "                \"g\": {" +
-                "                  \"type\": \"integer\"" +
-                "                }," +
-                "                \"h\": {" +
-                "                  \"type\": \"integer\"" +
-                "                }" +
-                "              } " +
-                "            }" +
-                "          }" +
-                "        }," +
-                "        \"i\": {" +
-                "          \"type\": \"long\"" +
-                "        }," +
-                "        \"j\": {" +
-                "          \"type\": \"long\"" +
-                "        }," +
-                "        \"k\": {" +
-                "          \"type\": \"long\"" +
-                "        }" +
-                "      }" +
-                "}";
+        String mapping = """
+                         {
+                           "_meta": {
+                             "trino": {
+                               "a": {
+                                 "b": {
+                                   "y": {
+                                     "isArray": true
+                                   }
+                                 }
+                               },
+                               "c": {
+                                 "f": {
+                                   "g": {
+                                     "isArray": true
+                                   },
+                                   "isArray": true
+                                 }
+                               },
+                               "j": {
+                                 "isArray": true
+                               },
+                               "k": {
+                                 "isArray": true
+                               }
+                             }
+                           },
+                           "properties":{
+                             "a": {
+                               "type": "object",
+                               "properties": {
+                                 "b": {
+                                   "type": "object",
+                                   "properties": {
+                                     "x": {
+                                       "type": "integer"
+                                     },
+                                     "y": {
+                                       "type": "keyword"
+                                     }
+                                   }\s
+                                 }
+                               }
+                             },
+                             "c": {
+                               "type": "object",
+                               "properties": {
+                                 "d": {
+                                   "type": "keyword"
+                                 },
+                                 "e": {
+                                   "type": "keyword"
+                                 },
+                                 "f": {
+                                   "type": "object",
+                                   "properties": {
+                                     "g": {
+                                       "type": "integer"
+                                     },
+                                     "h": {
+                                       "type": "integer"
+                                     }
+                                   }\s
+                                 }
+                               }
+                             },
+                             "i": {
+                               "type": "long"
+                             },
+                             "j": {
+                               "type": "long"
+                             },
+                             "k": {
+                               "type": "long"
+                             }
+                           }
+                         }
+                         """;
 
         createIndex(indexName, mapping);
 
@@ -426,9 +437,8 @@ public abstract class BaseElasticsearchConnectorTest
                         .build())
                 .buildOrThrow());
 
-        assertQuery(
-                "SELECT a.b.y[1], c.f[1].g[2], c.f[2].g[1], j[2], k[1] FROM test_arrays",
-                "VALUES ('hello', 20, 30, 60, NULL)");
+        assertThat(query("SELECT a.b.y[1], c.f[1].g[2], c.f[2].g[1], j[2], k[1] FROM test_arrays"))
+                .matches("VALUES (VARCHAR 'hello', 20, 30, BIGINT '60', CAST(NULL AS BIGINT))");
     }
 
     @Test
@@ -438,89 +448,90 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "raw_json_" + randomNameSuffix();
 
         @Language("JSON")
-        String mapping = "" +
-                "{" +
-                "  \"_meta\": {" +
-                "    \"trino\": {" +
-                "      \"es_object\": {" +
-                "        \"array_of_string_arrays\": {" +
-                "          \"asRawJson\": true" +
-                "        }," +
-                "        \"arrayOfIntArrays\": {" +
-                "          \"asRawJson\": true" +
-                "        }" +
-                "      }," +
-                "      \"es_array_object\": {" +
-                "        \"isArray\": true," +
-                "        \"array_of_string_arrays\": {" +
-                "          \"asRawJson\": true" +
-                "        }," +
-                "        \"arrayOfIntArrays\": {" +
-                "          \"asRawJson\": true" +
-                "        }" +
-                "      }," +
-                "      \"es_raw_object\": {" +
-                "        \"asRawJson\": true," +
-                "        \"array_of_string_arrays\": {" +
-                "          \"isArray\": true" +
-                "        }," +
-                "        \"arrayOfIntArrays\": {" +
-                "          \"isArray\": true" +
-                "        }" +
-                "      }," +
-                "      \"array_of_string_arrays\": {" +
-                "        \"asRawJson\": true" +
-                "      }," +
-                "      \"array_of_long_arrays\": {" +
-                "        \"asRawJson\": true" +
-                "      }" +
-                "    }" +
-                "  }," +
-                "  \"properties\": {" +
-                "    \"es_object\": {" +
-                "      \"type\": \"object\"," +
-                "      \"properties\": {" +
-                "        \"array_of_string_arrays\": {" +
-                "          \"type\": \"keyword\"" +
-                "        }," +
-                "        \"arrayOfIntArrays\": {" +
-                "          \"type\": \"integer\"" +
-                "        }" +
-                "      }" +
-                "    }," +
-                "    \"es_array_object\": {" +
-                "      \"type\": \"object\"," +
-                "      \"properties\": {" +
-                "        \"array_of_string_arrays\": {" +
-                "          \"type\": \"keyword\"" +
-                "        }," +
-                "        \"arrayOfIntArrays\": {" +
-                "          \"type\": \"integer\"" +
-                "        }" +
-                "      }" +
-                "    }," +
-                "    \"es_raw_object\": {" +
-                "      \"type\": \"object\"," +
-                "      \"properties\": {" +
-                "        \"array_of_string_arrays\": {" +
-                "          \"type\": \"keyword\"" +
-                "        }," +
-                "        \"arrayOfIntArrays\": {" +
-                "          \"type\": \"integer\"" +
-                "        }" +
-                "      }" +
-                "    }," +
-                "    \"array_of_string_arrays\": {" +
-                "      \"type\": \"text\"" +
-                "    }," +
-                "    \"array_of_long_arrays\": {" +
-                "      \"type\": \"long\"" +
-                "    }," +
-                "    \"order_field\": {" +
-                "      \"type\": \"integer\"" +
-                "    }" +
-                "  }" +
-                "}";
+        String mapping = """
+                         {
+                           "_meta": {
+                             "trino": {
+                               "es_object": {
+                                 "array_of_string_arrays": {
+                                   "asRawJson": true
+                                 },
+                                 "arrayOfIntArrays": {
+                                   "asRawJson": true
+                                 }
+                               },
+                               "es_array_object": {
+                                 "isArray": true,
+                                 "array_of_string_arrays": {
+                                   "asRawJson": true
+                                 },
+                                 "arrayOfIntArrays": {
+                                   "asRawJson": true
+                                 }
+                               },
+                               "es_raw_object": {
+                                 "asRawJson": true,
+                                 "array_of_string_arrays": {
+                                   "isArray": true
+                                 },
+                                 "arrayOfIntArrays": {
+                                   "isArray": true
+                                 }
+                               },
+                               "array_of_string_arrays": {
+                                 "asRawJson": true
+                               },
+                               "array_of_long_arrays": {
+                                 "asRawJson": true
+                               }
+                             }
+                           },
+                           "properties": {
+                             "es_object": {
+                               "type": "object",
+                               "properties": {
+                                 "array_of_string_arrays": {
+                                   "type": "keyword"
+                                 },
+                                 "arrayOfIntArrays": {
+                                   "type": "integer"
+                                 }
+                               }
+                             },
+                             "es_array_object": {
+                               "type": "object",
+                               "properties": {
+                                 "array_of_string_arrays": {
+                                   "type": "keyword"
+                                 },
+                                 "arrayOfIntArrays": {
+                                   "type": "integer"
+                                 }
+                               }
+                             },
+                             "es_raw_object": {
+                               "type": "object",
+                               "properties": {
+                                 "array_of_string_arrays": {
+                                   "type": "keyword"
+                                 },
+                                 "arrayOfIntArrays": {
+                                   "type": "integer"
+                                 }
+                               }
+                             },
+                             "array_of_string_arrays": {
+                               "type": "text"
+                             },
+                             "array_of_long_arrays": {
+                               "type": "long"
+                             },
+                             "order_field": {
+                               "type": "integer"
+                             }
+                           }
+                         }
+                         """;
 
         createIndex(indexName, mapping);
 
@@ -604,17 +615,19 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("order_field", 2)
                 .buildOrThrow());
 
-        MaterializedResult rows = computeActual("" +
-                "SELECT " +
-                "json_extract(array_of_string_arrays, '$[0][0]'), " +
-                "json_extract(array_of_string_arrays, '$[0][1]'), " +
-                "array_of_string_arrays, " +
-                "json_extract(array_of_long_arrays, '$[0]'), " +
-                "try(json_extract(array_of_long_arrays, '$[1][0]')), " +
-                "try(json_extract(array_of_long_arrays, '$[1][1]')), " +
-                "array_of_long_arrays " +
-                "FROM " + indexName + " " +
-                "ORDER BY order_field");
+        MaterializedResult rows = computeActual(
+                """
+                SELECT
+                    json_extract(array_of_string_arrays, '$[0][0]'),
+                    json_extract(array_of_string_arrays, '$[0][1]'),
+                    array_of_string_arrays,
+                    json_extract(array_of_long_arrays, '$[0]'),
+                    try(json_extract(array_of_long_arrays, '$[1][0]')),
+                    try(json_extract(array_of_long_arrays, '$[1][1]')),
+                    array_of_long_arrays
+                FROM %s
+                ORDER BY order_field
+                """.formatted(indexName));
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
@@ -623,17 +636,19 @@ public abstract class BaseElasticsearchConnectorTest
 
         assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
 
-        MaterializedResult nestedRows = computeActual("" +
-                "SELECT " +
-                "json_extract(es_object.array_of_string_arrays, '$[0][0]'), " +
-                "json_extract(es_object.array_of_string_arrays, '$[0][1]'), " +
-                "es_object.array_of_string_arrays, " +
-                "json_extract(es_object.arrayOfIntArrays, '$[0]'), " +
-                "try(json_extract(es_object.arrayOfIntArrays, '$[1][0]')), " +
-                "try(json_extract(es_object.arrayOfIntArrays, '$[1][1]')), " +
-                "es_object.arrayOfIntArrays " +
-                "FROM " + indexName + " " +
-                "ORDER BY order_field");
+        MaterializedResult nestedRows = computeActual(
+                """
+                SELECT
+                    json_extract(es_object.array_of_string_arrays, '$[0][0]'),
+                    json_extract(es_object.array_of_string_arrays, '$[0][1]'),
+                    es_object.array_of_string_arrays,
+                    json_extract(es_object.arrayOfIntArrays, '$[0]'),
+                    try(json_extract(es_object.arrayOfIntArrays, '$[1][0]')),
+                    try(json_extract(es_object.arrayOfIntArrays, '$[1][1]')),
+                    es_object.arrayOfIntArrays
+                FROM %s
+                ORDER BY order_field
+                """.formatted(indexName));
 
         MaterializedResult nestedExpected = resultBuilder(getSession(), nestedRows.getTypes())
                 .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
@@ -642,17 +657,19 @@ public abstract class BaseElasticsearchConnectorTest
 
         assertThat(nestedRows.getMaterializedRows()).isEqualTo(nestedExpected.getMaterializedRows());
 
-        MaterializedResult arrayRows = computeActual("" +
-                "SELECT " +
-                "json_extract(es_array_object[1].array_of_string_arrays, '$[0][0]'), " +
-                "json_extract(es_array_object[1].array_of_string_arrays, '$[0][1]'), " +
-                "es_array_object[1].array_of_string_arrays, " +
-                "json_extract(es_array_object[1].arrayOfIntArrays, '$[0]'), " +
-                "try(json_extract(es_array_object[1].arrayOfIntArrays, '$[1][0]')), " +
-                "try(json_extract(es_array_object[1].arrayOfIntArrays, '$[1][1]')), " +
-                "es_array_object[1].arrayOfIntArrays " +
-                "FROM " + indexName + " " +
-                "ORDER BY order_field");
+        MaterializedResult arrayRows = computeActual(
+                """
+                SELECT
+                    json_extract(es_array_object[1].array_of_string_arrays, '$[0][0]'),
+                    json_extract(es_array_object[1].array_of_string_arrays, '$[0][1]'),
+                    es_array_object[1].array_of_string_arrays,
+                    json_extract(es_array_object[1].arrayOfIntArrays, '$[0]'),
+                    try(json_extract(es_array_object[1].arrayOfIntArrays, '$[1][0]')),
+                    try(json_extract(es_array_object[1].arrayOfIntArrays, '$[1][1]')),
+                    es_array_object[1].arrayOfIntArrays
+                FROM %s
+                ORDER BY order_field
+                """.formatted(indexName));
 
         MaterializedResult arrayExpected = resultBuilder(getSession(), arrayRows.getTypes())
                 .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
@@ -661,17 +678,19 @@ public abstract class BaseElasticsearchConnectorTest
 
         assertThat(arrayRows.getMaterializedRows()).isEqualTo(arrayExpected.getMaterializedRows());
 
-        MaterializedResult rawRows = computeActual("" +
-                "SELECT " +
-                "json_extract(es_raw_object, '$.array_of_string_arrays[0][0]'), " +
-                "json_extract(es_raw_object, '$.array_of_string_arrays[0][1]'), " +
-                "json_extract(es_raw_object, '$.array_of_string_arrays'), " +
-                "json_extract(es_raw_object, '$.arrayOfIntArrays[0]'), " +
-                "try(json_extract(es_raw_object, '$.arrayOfIntArrays[1][0]')), " +
-                "try(json_extract(es_raw_object, '$.arrayOfIntArrays[1][1]')), " +
-                "json_extract(es_raw_object, '$.arrayOfIntArrays') " +
-                "FROM " + indexName + " " +
-                "ORDER BY order_field");
+        MaterializedResult rawRows = computeActual(
+                """
+                SELECT
+                    json_extract(es_raw_object, '$.array_of_string_arrays[0][0]'),
+                    json_extract(es_raw_object, '$.array_of_string_arrays[0][1]'),
+                    json_extract(es_raw_object, '$.array_of_string_arrays'),
+                    json_extract(es_raw_object, '$.arrayOfIntArrays[0]'),
+                    try(json_extract(es_raw_object, '$.arrayOfIntArrays[1][0]')),
+                    try(json_extract(es_raw_object, '$.arrayOfIntArrays[1][1]')),
+                    json_extract(es_raw_object, '$.arrayOfIntArrays')
+                FROM %s
+                ORDER BY order_field
+                """.formatted(indexName));
 
         MaterializedResult rawRowsExpected = resultBuilder(getSession(), rawRows.getTypes())
                 .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
@@ -688,66 +707,66 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "raw_json_primitive_" + randomNameSuffix();
 
         @Language("JSON")
-        String mapping = "" +
-                "{" +
-                "  \"_meta\": {" +
-                "    \"trino\": {" +
-                "      \"es_binary\": {" +
-                "        \"asRawJson\": true" +
-                "      }," +
-                "      \"es_boolean\": {" +
-                "        \"asRawJson\": true" +
-                "      }," +
-                "      \"es_long\": {" +
-                "        \"asRawJson\": true" +
-                "      }," +
-                "      \"es_integer\": {" +
-                "        \"asRawJson\": true" +
-                "      }," +
-                "      \"es_short\": {" +
-                "        \"asRawJson\": true" +
-                "      }," +
-                "      \"es_byte\": {" +
-                "        \"asRawJson\": true" +
-                "      }," +
-                "      \"es_double\": {" +
-                "        \"asRawJson\": true" +
-                "      }," +
-                "      \"es_float\": {" +
-                "        \"asRawJson\": true" +
-                "      }" +
-                "    }" +
-                "  }," +
-                "  \"properties\": {" +
-                "    \"es_binary\": {" +
-                "      \"type\": \"binary\"" +
-                "    }," +
-                "    \"es_boolean\": {" +
-                "      \"type\": \"boolean\"" +
-                "    }," +
-                "    \"es_long\": {" +
-                "      \"type\": \"long\"" +
-                "    }," +
-                "    \"es_integer\": {" +
-                "      \"type\": \"integer\"" +
-                "    }," +
-                "    \"es_short\": {" +
-                "      \"type\": \"short\"" +
-                "    }," +
-                "    \"es_byte\": {" +
-                "      \"type\": \"byte\"" +
-                "    }," +
-                "    \"es_double\": {" +
-                "      \"type\": \"double\"" +
-                "    }," +
-                "    \"es_float\": {" +
-                "      \"type\": \"float\"" +
-                "    }," +
-                "    \"order_field\": {" +
-                "      \"type\": \"integer\"" +
-                "    }" +
-                "  }" +
-                "}";
+        String mapping = """
+                         {
+                           "_meta": {
+                             "trino": {
+                               "es_binary": {
+                                 "asRawJson": true
+                               },
+                               "es_boolean": {
+                                 "asRawJson": true
+                               },
+                               "es_long": {
+                                 "asRawJson": true
+                               },
+                               "es_integer": {
+                                 "asRawJson": true
+                               },
+                               "es_short": {
+                                 "asRawJson": true
+                               },
+                               "es_byte": {
+                                 "asRawJson": true
+                               },
+                               "es_double": {
+                                 "asRawJson": true
+                               },
+                               "es_float": {
+                                 "asRawJson": true
+                               }
+                             }
+                           },
+                           "properties": {
+                             "es_binary": {
+                               "type": "binary"
+                             },
+                             "es_boolean": {
+                               "type": "boolean"
+                             },
+                             "es_long": {
+                               "type": "long"
+                             },
+                             "es_integer": {
+                               "type": "integer"
+                             },
+                             "es_short": {
+                               "type": "short"
+                             },
+                             "es_byte": {
+                               "type": "byte"
+                             },
+                             "es_double": {
+                               "type": "double"
+                             },
+                             "es_float": {
+                               "type": "float"
+                             },
+                             "order_field": {
+                               "type": "integer"
+                             }
+                           }
+                         }""";
 
         createIndex(indexName, mapping);
 
@@ -763,18 +782,20 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("order_field", 1)
                 .buildOrThrow());
 
-        MaterializedResult rows = computeActual("" +
-                "SELECT " +
-                "es_binary, " +
-                "es_boolean, " +
-                "es_long, " +
-                "es_integer, " +
-                "es_short, " +
-                "es_byte, " +
-                "es_double, " +
-                "es_float " +
-                "FROM " + indexName + " " +
-                "ORDER BY order_field");
+        MaterializedResult rows = computeActual(
+                """
+                SELECT
+                    es_binary,
+                    es_boolean,
+                    es_long,
+                    es_integer,
+                    es_short,
+                    es_byte,
+                    es_double,
+                    es_float
+                FROM %s
+                ORDER BY order_field
+                """.formatted(indexName));
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row("\"dGVzdA==\"", "true", "123", "123", "123", "123", "123.0", "123.0")
@@ -794,33 +815,33 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "raw_json_cases_" + randomNameSuffix();
 
         @Language("JSON")
-        String mapping = "" +
-                "{" +
-                "  \"_meta\": {" +
-                "    \"trino\": {" +
-                "      \"es_binary\": {" +
-                "        \"asRawJson\": true" +
-                "      }," +
-                "      \"es_boolean\": {" +
-                "        \"asRawJson\": true" +
-                "      }," +
-                "      \"es_timestamp\": {" +
-                "        \"asRawJson\": true" +
-                "      }" +
-                "    }" +
-                "  }," +
-                "  \"properties\": {" +
-                "    \"es_binary\": {" +
-                "      \"type\": \"binary\"" +
-                "    }," +
-                "    \"es_boolean\": {" +
-                "      \"type\": \"boolean\"" +
-                "    }," +
-                "    \"es_timestamp\": {" +
-                "      \"type\": \"date\"" +
-                "    }" +
-                "  }" +
-                "}";
+        String mapping = """
+                         {
+                           "_meta": {
+                             "trino": {
+                               "es_binary": {
+                                 "asRawJson": true
+                               },
+                               "es_boolean": {
+                                 "asRawJson": true
+                               },
+                               "es_timestamp": {
+                                 "asRawJson": true
+                               }
+                             }
+                           },
+                           "properties": {
+                             "es_binary": {
+                               "type": "binary"
+                             },
+                             "es_boolean": {
+                               "type": "boolean"
+                             },
+                             "es_timestamp": {
+                               "type": "date"
+                             }
+                           }
+                         }""";
 
         createIndex(indexName, mapping);
 
@@ -830,12 +851,14 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("es_timestamp", 123)
                 .buildOrThrow());
 
-        MaterializedResult rows = computeActual("" +
-                "SELECT " +
-                "es_binary, " +
-                "es_boolean, " +
-                "es_timestamp " +
-                "FROM " + indexName);
+        MaterializedResult rows = computeActual(
+                """
+                SELECT
+                    es_binary,
+                    es_boolean,
+                    es_timestamp
+                FROM %s
+                """.formatted(indexName));
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row("\"dGVzdA==\"", "true", "123")
@@ -855,22 +878,23 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "raw_json_array_exception" + randomNameSuffix();
 
         @Language("JSON")
-        String mapping = "" +
-                "{" +
-                "  \"_meta\": {" +
-                "    \"trino\": {" +
-                "      \"array_raw_field\": {" +
-                "        \"asRawJson\": true," +
-                "        \"isArray\": true" +
-                "      }" +
-                "    }" +
-                "  }," +
-                "  \"properties\": {" +
-                "    \"array_raw_field\": {" +
-                "      \"type\": \"text\"" +
-                "    }" +
-                "  }" +
-                "}";
+        String mapping = """
+                         {
+                           "_meta": {
+                             "trino": {
+                               "array_raw_field": {
+                                 "asRawJson": true,
+                                 "isArray": true
+                               }
+                             }
+                           },
+                           "properties": {
+                             "array_raw_field": {
+                               "type": "text"
+                             }
+                           }
+                         }
+                         """;
 
         createIndex(indexName, mapping);
 
@@ -891,21 +915,22 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "test_mixed_arrays";
 
         @Language("JSON")
-        String mapping = "" +
-                "{" +
-                "      \"_meta\": {" +
-                "        \"trino\": {" +
-                "          \"a\": {" +
-                "                \"isArray\": true" +
-                "          }" +
-                "        }" +
-                "      }," +
-                "      \"properties\": {" +
-                "        \"a\": {" +
-                "          \"type\": \"keyword\"" +
-                "        }" +
-                "      }" +
-                "}";
+        String mapping = """
+                         {
+                           "_meta": {
+                             "trino": {
+                               "a": {
+                                 "isArray": true
+                               }
+                             }
+                           },
+                           "properties": {
+                             "a": {
+                               "type": "keyword"
+                             }
+                           }
+                         }
+                         """;
 
         createIndex(indexName, mapping);
 
@@ -915,9 +940,8 @@ public abstract class BaseElasticsearchConnectorTest
 
         index(indexName, ImmutableMap.of("a", ImmutableList.of("foo", "bar")));
 
-        assertQuery(
-                "SELECT a FROM test_mixed_arrays",
-                "VALUES NULL, ARRAY['hello'], ARRAY['foo', 'bar']");
+        assertThat(query("SELECT a FROM test_mixed_arrays"))
+                .matches("VALUES NULL, ARRAY[VARCHAR 'hello'], ARRAY[VARCHAR 'foo', VARCHAR 'bar']");
     }
 
     @Test
@@ -927,18 +951,19 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "emptynumeric";
 
         @Language("JSON")
-        String mapping = "" +
-                "{" +
-                "  \"properties\": { " +
-                "    \"byte_column\":         {\"type\": \"byte\"}," +
-                "    \"short_column\":        {\"type\": \"short\"}," +
-                "    \"integer_column\":      {\"type\": \"integer\"}," +
-                "    \"long_column\":         {\"type\": \"long\"}," +
-                "    \"float_column\":        {\"type\": \"float\"}," +
-                "    \"scaled_float_column\": {\"type\": \"scaled_float\", \"scaling_factor\": 100}," +
-                "    \"double_column\":       {\"type\": \"double\"}" +
-                "  }" +
-                "}";
+        String mapping = """
+                         {
+                           "properties": {
+                             "byte_column":         {"type": "byte"},
+                             "short_column":        {"type": "short"},
+                             "integer_column":      {"type": "integer"},
+                             "long_column":         {"type": "long"},
+                             "float_column":        {"type": "float"},
+                             "scaled_float_column": {"type": "scaled_float", "scaling_factor": 100},
+                             "double_column":       {"type": "double"}
+                           }
+                         }
+                         """;
 
         createIndex(indexName, mapping);
         index(indexName, ImmutableMap.<String, Object>builder()
@@ -951,9 +976,8 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("double_column", "")
                 .buildOrThrow());
 
-        assertQuery(
-                "SELECT byte_column, short_column, integer_column, long_column, float_column, scaled_float_column, double_column FROM emptynumeric",
-                "VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
+        assertThat(query("SELECT byte_column, short_column, integer_column, long_column, float_column, scaled_float_column, double_column FROM emptynumeric"))
+                .matches("VALUES (CAST(NULL AS TINYINT), CAST(NULL AS SMALLINT), CAST(NULL AS INTEGER), CAST(NULL AS BIGINT), CAST(NULL AS REAL), CAST(NULL AS DOUBLE), CAST(NULL AS DOUBLE))");
 
         deleteIndex(indexName);
     }
@@ -970,9 +994,8 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("fields.fieldb", ImmutableMap.of())
                 .buildOrThrow());
 
-        assertQuery(
-                "SELECT name, fields.fielda FROM emptyobject",
-                "VALUES ('stringfield', 32)");
+        assertThat(query("SELECT name, fields.fielda FROM emptyobject"))
+                .matches("VALUES (VARCHAR 'stringfield', BIGINT '32')");
     }
 
     @Test
@@ -1000,9 +1023,8 @@ public abstract class BaseElasticsearchConnectorTest
         index(indexName,
                 ImmutableMap.of("a.b.c", "value4"));
 
-        assertQuery(
-                "SELECT a.b.c FROM nested_variants",
-                "VALUES 'value1', 'value2', 'value3', 'value4'");
+        assertThat(query("SELECT a.b.c FROM nested_variants"))
+                .matches("VALUES VARCHAR 'value1', VARCHAR 'value2', VARCHAR 'value3', VARCHAR 'value4'");
     }
 
     @Test
@@ -1012,13 +1034,14 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "like_test";
 
         @Language("JSON")
-        String mappings = "" +
-                "{" +
-                "  \"properties\": { " +
-                "    \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "    \"text_column\":      { \"type\": \"text\" }" +
-                "  }" +
-                "}";
+        String mappings = """
+                          {
+                            "properties": {
+                              "keyword_column":   { "type": "keyword" },
+                              "text_column":      { "type": "text" }
+                            }
+                          }
+                          """;
 
         createIndex(indexName, mappings);
 
@@ -1130,23 +1153,24 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "types";
 
         @Language("JSON")
-        String mappings = "" +
-                "{" +
-                "  \"properties\": { " +
-                "    \"boolean_column\":      { \"type\": \"boolean\" }," +
-                "    \"float_column\":        { \"type\": \"float\" }," +
-                "    \"double_column\":       { \"type\": \"double\" }," +
-                "    \"integer_column\":      { \"type\": \"integer\" }," +
-                "    \"long_column\":         { \"type\": \"long\" }," +
-                "    \"keyword_column\":      { \"type\": \"keyword\" }," +
-                "    \"text_column\":         { \"type\": \"text\" }," +
-                "    \"binary_column\":       { \"type\": \"binary\" }," +
-                "    \"timestamp_column\":    { \"type\": \"date\" }," +
-                "    \"ipv4_column\":         { \"type\": \"ip\" }," +
-                "    \"ipv6_column\":         { \"type\": \"ip\" }," +
-                "    \"scaled_float_column\": { \"type\": \"scaled_float\", \"scaling_factor\": 100 }" +
-                "  }" +
-                "}";
+        String mappings = """
+                          {
+                            "properties": {
+                              "boolean_column":      { "type": "boolean" },
+                              "float_column":        { "type": "float" },
+                              "double_column":       { "type": "double" },
+                              "integer_column":      { "type": "integer" },
+                              "long_column":         { "type": "long" },
+                              "keyword_column":      { "type": "keyword" },
+                              "text_column":         { "type": "text" },
+                              "binary_column":       { "type": "binary" },
+                              "timestamp_column":    { "type": "date" },
+                              "ipv4_column":         { "type": "ip" },
+                              "ipv6_column":         { "type": "ip" },
+                              "scaled_float_column": { "type": "scaled_float", "scaling_factor": 100 }
+                            }
+                          }
+                          """;
 
         createIndex(indexName, mappings);
 
@@ -1165,21 +1189,23 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("scaled_float_column", 123456.78d)
                 .buildOrThrow());
 
-        MaterializedResult rows = computeActual("" +
-                "SELECT " +
-                "boolean_column, " +
-                "float_column, " +
-                "double_column, " +
-                "integer_column, " +
-                "long_column, " +
-                "keyword_column, " +
-                "text_column, " +
-                "binary_column, " +
-                "timestamp_column, " +
-                "ipv4_column, " +
-                "ipv6_column, " +
-                "scaled_float_column " +
-                "FROM types");
+        MaterializedResult rows = computeActual(
+                """
+                SELECT
+                    boolean_column,
+                    float_column,
+                    double_column,
+                    integer_column,
+                    long_column,
+                    keyword_column,
+                    text_column,
+                    binary_column,
+                    timestamp_column,
+                    ipv4_column,
+                    ipv6_column,
+                    scaled_float_column
+                FROM types
+                """);
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row(
@@ -1207,13 +1233,14 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "unsupported_types";
 
         @Language("JSON")
-        String mappings = "" +
-                "{" +
-                "  \"properties\": { " +
-                "    \"long_column\":      { \"type\": \"long\" }," +
-                "    \"unsupported_type\": { \"type\": \"completion\"}" +
-                "  }" +
-                "}";
+        String mappings = """
+                          {
+                            "properties": {
+                              "long_column":      { "type": "long" },
+                              "unsupported_type": { "type": "completion"}
+                            }
+                          }
+                          """;
 
         createIndex(indexName, mappings);
 
@@ -1237,12 +1264,13 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "booleans";
 
         @Language("JSON")
-        String mappings = "" +
-                "{" +
-                "  \"properties\": { " +
-                "    \"boolean_column\":   { \"type\": \"boolean\" }" +
-                "  }" +
-                "}";
+        String mappings = """
+                          {
+                            "properties": {
+                              "boolean_column":   { "type": "boolean" }
+                            }
+                          }
+                          """;
 
         createIndex(indexName, mappings);
 
@@ -1276,12 +1304,13 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "timestamps";
 
         @Language("JSON")
-        String mappings = "" +
-                "{" +
-                "  \"properties\": { " +
-                "    \"timestamp_column\":   { \"type\": \"date\" }" +
-                "  }" +
-                "}";
+        String mappings = """
+                          {
+                            "properties": {
+                              "timestamp_column":   { "type": "date" }
+                            }
+                          }
+                          """;
 
         createIndex(indexName, mappings);
 
@@ -1312,16 +1341,17 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "nested_timestamps";
 
         @Language("JSON")
-        String mappings = "" +
-                "{" +
-                "  \"properties\":{" +
-                "    \"field\": {" +
-                "      \"properties\": {" +
-                "        \"timestamp_column\": { \"type\": \"date\" }" +
-                "      }" +
-                "    }" +
-                "  }" +
-                "}";
+        String mappings = """
+                          {
+                            "properties":{
+                              "field": {
+                                "properties": {
+                                  "timestamp_column": { "type": "date" }
+                                }
+                              }
+                            }
+                          }
+                          """;
 
         createIndex(indexName, mappings);
 
@@ -1343,13 +1373,14 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "scaled_float_type";
 
         @Language("JSON")
-        String mappings = "" +
-                "{" +
-                "  \"properties\": { " +
-                "    \"text_column\":         { \"type\": \"text\" }," +
-                "    \"scaled_float_column\": { \"type\": \"scaled_float\", \"scaling_factor\": 100 }" +
-                "  }" +
-                "}";
+        String mappings = """
+                          {
+                            "properties": {
+                              "text_column":         { "type": "text" },
+                              "scaled_float_column": { "type": "scaled_float", "scaling_factor": 100 }
+                            }
+                          }
+                          """;
 
         createIndex(indexName, mappings);
 
@@ -1387,15 +1418,16 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "coercions";
 
         @Language("JSON")
-        String mappings = "" +
-                "{" +
-                "  \"properties\": { " +
-                "    \"float_column\":     { \"type\": \"float\" }," +
-                "    \"double_column\":    { \"type\": \"double\" }," +
-                "    \"integer_column\":   { \"type\": \"integer\" }," +
-                "    \"long_column\":      { \"type\": \"long\" }" +
-                "  }" +
-                "}";
+        String mappings = """
+                          {
+                            "properties": {
+                              "float_column":     { "type": "float" },
+                              "double_column":    { "type": "double" },
+                              "integer_column":   { "type": "integer" },
+                              "long_column":      { "type": "long" }
+                            }
+                          }
+                          """;
 
         createIndex(indexName, mappings);
 
@@ -1406,13 +1438,15 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("long_column", "1")
                 .buildOrThrow());
 
-        MaterializedResult rows = computeActual("" +
-                "SELECT " +
-                "float_column, " +
-                "double_column, " +
-                "integer_column, " +
-                "long_column " +
-                "FROM coercions");
+        MaterializedResult rows = computeActual(
+                """
+                SELECT
+                    float_column,
+                    double_column,
+                    integer_column,
+                    long_column
+                FROM coercions
+                """);
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row(1.0f, 1.0d, 1, 1L)
@@ -1428,22 +1462,23 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "filter_pushdown";
 
         @Language("JSON")
-        String mappings = "" +
-                "{" +
-                "  \"properties\": { " +
-                "    \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "    \"float_column\":     { \"type\": \"float\" }," +
-                "    \"double_column\":    { \"type\": \"double\" }," +
-                "    \"integer_column\":   { \"type\": \"integer\" }," +
-                "    \"long_column\":      { \"type\": \"long\" }," +
-                "    \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "    \"text_column\":      { \"type\": \"text\" }," +
-                "    \"binary_column\":    { \"type\": \"binary\" }," +
-                "    \"timestamp_column\": { \"type\": \"date\" }," +
-                "    \"ipv4_column\":      { \"type\": \"ip\" }," +
-                "    \"ipv6_column\":      { \"type\": \"ip\" }" +
-                "  }" +
-                "}";
+        String mappings = """
+                          {
+                            "properties": {
+                              "boolean_column":   { "type": "boolean" },
+                              "float_column":     { "type": "float" },
+                              "double_column":    { "type": "double" },
+                              "integer_column":   { "type": "integer" },
+                              "long_column":      { "type": "long" },
+                              "keyword_column":   { "type": "keyword" },
+                              "text_column":      { "type": "text" },
+                              "binary_column":    { "type": "binary" },
+                              "timestamp_column": { "type": "date" },
+                              "ipv4_column":      { "type": "ip" },
+                              "ipv6_column":      { "type": "ip" }
+                            }
+                          }
+                          """;
 
         createIndex(indexName, mappings);
 
@@ -1464,81 +1499,134 @@ public abstract class BaseElasticsearchConnectorTest
                 .buildOrThrow());
 
         // _score column
-        assertQuery("SELECT count(*) FROM \"filter_pushdown: cool\" WHERE _score > 0", "VALUES 1");
+        assertThat(query("SELECT count(*) FROM \"filter_pushdown: cool\" WHERE _score > 0"))
+                .matches("VALUES BIGINT '1'");
 
         // boolean
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE boolean_column = true", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE boolean_column = false", "VALUES 0");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE boolean_column = true"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE boolean_column = false"))
+                .matches("VALUES BIGINT '0'");
 
         // tinyint
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column = 1", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column = 0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column > 1", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column < 1", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column > 0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column < 10", "VALUES 1");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE byte_column = 1"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE byte_column = 0"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE byte_column > 1"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE byte_column < 1"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE byte_column > 0"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE byte_column < 10"))
+                .matches("VALUES BIGINT '1'");
 
         // smallint
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column = 2", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column > 2", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column < 2", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column = 0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column > 0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column < 10", "VALUES 1");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE short_column = 2"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE short_column > 2"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE short_column < 2"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE short_column = 0"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE short_column > 0"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE short_column < 10"))
+                .matches("VALUES BIGINT '1'");
 
         // integer
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column = 3", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column > 3", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column < 3", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column = 0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column > 0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column < 10", "VALUES 1");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE integer_column = 3"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE integer_column > 3"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE integer_column < 3"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE integer_column = 0"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE integer_column > 0"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE integer_column < 10"))
+                .matches("VALUES BIGINT '1'");
 
         // bigint
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column = 4", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column > 4", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column < 4", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column = 0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column > 0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column < 10", "VALUES 1");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE long_column = 4"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE long_column > 4"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE long_column < 4"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE long_column = 0"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE long_column > 0"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE long_column < 10"))
+                .matches("VALUES BIGINT '1'");
 
         // real
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column = 1.0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column > 1.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column < 1.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column = 0.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column > 0.0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column < 10.0", "VALUES 1");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE float_column = 1.0"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE float_column > 1.0"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE float_column < 1.0"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE float_column = 0.0"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE float_column > 0.0"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE float_column < 10.0"))
+                .matches("VALUES BIGINT '1'");
 
         // double
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column = 1.0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column > 1.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column < 1.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column = 0.0", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column > 0.0", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column < 10.0", "VALUES 1");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE double_column = 1.0"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE double_column > 1.0"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE double_column < 1.0"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE double_column = 0.0"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE double_column > 0.0"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE double_column < 10.0"))
+                .matches("VALUES BIGINT '1'");
 
         // varchar
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE keyword_column = 'cool'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE keyword_column = 'bar'", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE text_column = 'some text'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE text_column = 'some'", "VALUES 0");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE keyword_column = 'cool'"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE keyword_column = 'bar'"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE text_column = 'some text'"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE text_column = 'some'"))
+                .matches("VALUES BIGINT '0'");
 
         // binary
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE binary_column = x'CAFE'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE binary_column = x'ABCD'", "VALUES 0");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE binary_column = x'CAFE'"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE binary_column = x'ABCD'"))
+                .matches("VALUES BIGINT '0'");
 
         // timestamp
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column = TIMESTAMP '2019-10-01 00:00:00'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column > TIMESTAMP '2019-10-01 00:00:00'", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column < TIMESTAMP '2019-10-01 00:00:00'", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column = TIMESTAMP '2019-10-02 00:00:00'", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column > TIMESTAMP '2001-01-01 00:00:00'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column < TIMESTAMP '2030-01-01 00:00:00'", "VALUES 1");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE timestamp_column = TIMESTAMP '2019-10-01 00:00:00'"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE timestamp_column > TIMESTAMP '2019-10-01 00:00:00'"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE timestamp_column < TIMESTAMP '2019-10-01 00:00:00'"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE timestamp_column = TIMESTAMP '2019-10-02 00:00:00'"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE timestamp_column > TIMESTAMP '2001-01-01 00:00:00'"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE timestamp_column < TIMESTAMP '2030-01-01 00:00:00'"))
+                .matches("VALUES BIGINT '1'");
 
         // ipaddress
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv4_column = IPADDRESS '1.2.3.4'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv6_column = IPADDRESS '2001:db8::1:0:0:1'", "VALUES 1");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE ipv4_column = IPADDRESS '1.2.3.4'"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_pushdown WHERE ipv6_column = IPADDRESS '2001:db8::1:0:0:1'"))
+                .matches("VALUES BIGINT '1'");
     }
 
     @Test
@@ -1565,13 +1653,19 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("text_column", "Türkiye")
                 .buildOrThrow());
 
-        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE keyword_column = 'Türkiye'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE keyword_column = 'bar'", "VALUES 0");
-        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE text_column = 'Türkiye'", "VALUES 1");
-        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE text_column = 'some'", "VALUES 0");
+        assertThat(query("SELECT count(*) FROM filter_charset_pushdown WHERE keyword_column = 'Türkiye'"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_charset_pushdown WHERE keyword_column = 'bar'"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT count(*) FROM filter_charset_pushdown WHERE text_column = 'Türkiye'"))
+                .matches("VALUES BIGINT '1'");
+        assertThat(query("SELECT count(*) FROM filter_charset_pushdown WHERE text_column = 'some'"))
+                .matches("VALUES BIGINT '0'");
 
-        assertQuery("SELECT keyword_column FROM filter_charset_pushdown WHERE keyword_column = 'Türkiye'", "VALUES ('Türkiye')");
-        assertQuery("SELECT text_column FROM filter_charset_pushdown WHERE text_column = 'Türkiye'", "VALUES ('Türkiye')");
+        assertThat(query("SELECT keyword_column FROM filter_charset_pushdown WHERE keyword_column = 'Türkiye'"))
+                .matches("VALUES (VARCHAR 'Türkiye')");
+        assertThat(query("SELECT text_column FROM filter_charset_pushdown WHERE text_column = 'Türkiye'"))
+                .matches("VALUES (VARCHAR 'Türkiye')");
     }
 
     @Test
@@ -1588,26 +1682,27 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "types_nested";
 
         @Language("JSON")
-        String properties = "" +
-                "{" +
-                "  \"properties\":{" +
-                "    \"field\": {" +
-                "      \"properties\": {" +
-                "        \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "        \"float_column\":     { \"type\": \"float\" }," +
-                "        \"double_column\":    { \"type\": \"double\" }," +
-                "        \"integer_column\":   { \"type\": \"integer\" }," +
-                "        \"long_column\":      { \"type\": \"long\" }," +
-                "        \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "        \"text_column\":      { \"type\": \"text\" }," +
-                "        \"binary_column\":    { \"type\": \"binary\" }," +
-                "        \"timestamp_column\": { \"type\": \"date\" }," +
-                "        \"ipv4_column\":      { \"type\": \"ip\" }," +
-                "        \"ipv6_column\":      { \"type\": \"ip\" }" +
-                "      }" +
-                "    }" +
-                "  }" +
-                "}";
+        String properties = """
+                            {
+                              "properties": {
+                                "field": {
+                                  "properties": {
+                                    "boolean_column":   { "type": "boolean" },
+                                    "float_column":     { "type": "float" },
+                                    "double_column":    { "type": "double" },
+                                    "integer_column":   { "type": "integer" },
+                                    "long_column":      { "type": "long" },
+                                    "keyword_column":   { "type": "keyword" },
+                                    "text_column":      { "type": "text" },
+                                    "binary_column":    { "type": "binary" },
+                                    "timestamp_column": { "type": "date" },
+                                    "ipv4_column":      { "type": "ip" },
+                                    "ipv6_column":      { "type": "ip" }
+                                  }
+                                }
+                              }
+                            }
+                            """;
 
         createIndex(indexName, properties);
 
@@ -1627,20 +1722,22 @@ public abstract class BaseElasticsearchConnectorTest
                         .put("ipv6_column", "2001:db8:0:0:1:0:0:1")
                         .buildOrThrow()));
 
-        MaterializedResult rows = computeActual("" +
-                "SELECT " +
-                "field.boolean_column, " +
-                "field.float_column, " +
-                "field.double_column, " +
-                "field.integer_column, " +
-                "field.long_column, " +
-                "field.keyword_column, " +
-                "field.text_column, " +
-                "field.binary_column, " +
-                "field.timestamp_column, " +
-                "field.ipv4_column, " +
-                "field.ipv6_column " +
-                "FROM types_nested");
+        MaterializedResult rows = computeActual(
+                """
+                SELECT
+                    field.boolean_column,
+                    field.float_column,
+                    field.double_column,
+                    field.integer_column,
+                    field.long_column,
+                    field.keyword_column,
+                    field.text_column,
+                    field.binary_column,
+                    field.timestamp_column,
+                    field.ipv4_column,
+                    field.ipv6_column
+                FROM types_nested
+                """);
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
@@ -1657,27 +1754,28 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "nested_type_nested";
 
         @Language("JSON")
-        String mappings = "" +
-                "{" +
-                "  \"properties\":{" +
-                "    \"nested_field\": {" +
-                "      \"type\":\"nested\"," +
-                "      \"properties\": {" +
-                "        \"boolean_column\":   { \"type\": \"boolean\" }," +
-                "        \"float_column\":     { \"type\": \"float\" }," +
-                "        \"double_column\":    { \"type\": \"double\" }," +
-                "        \"integer_column\":   { \"type\": \"integer\" }," +
-                "        \"long_column\":      { \"type\": \"long\" }," +
-                "        \"keyword_column\":   { \"type\": \"keyword\" }," +
-                "        \"text_column\":      { \"type\": \"text\" }," +
-                "        \"binary_column\":    { \"type\": \"binary\" }," +
-                "        \"timestamp_column\": { \"type\": \"date\" }," +
-                "        \"ipv4_column\":      { \"type\": \"ip\" }," +
-                "        \"ipv6_column\":      { \"type\": \"ip\" }" +
-                "      }" +
-                "    }" +
-                "  }" +
-                "}";
+        String mappings = """
+                          {
+                            "properties": {
+                              "nested_field": {
+                                "type":"nested",
+                                "properties": {
+                                  "boolean_column":   { "type": "boolean" },
+                                  "float_column":     { "type": "float" },
+                                  "double_column":    { "type": "double" },
+                                  "integer_column":   { "type": "integer" },
+                                  "long_column":      { "type": "long" },
+                                  "keyword_column":   { "type": "keyword" },
+                                  "text_column":      { "type": "text" },
+                                  "binary_column":    { "type": "binary" },
+                                  "timestamp_column": { "type": "date" },
+                                  "ipv4_column":      { "type": "ip" },
+                                  "ipv6_column":      { "type": "ip" }
+                                }
+                              }
+                            }
+                          }
+                          """;
 
         createIndex(indexName, mappings);
 
@@ -1697,20 +1795,22 @@ public abstract class BaseElasticsearchConnectorTest
                         .put("ipv6_column", "2001:db8:0:0:1:0:0:1")
                         .buildOrThrow()));
 
-        MaterializedResult rows = computeActual("" +
-                "SELECT " +
-                "nested_field.boolean_column, " +
-                "nested_field.float_column, " +
-                "nested_field.double_column, " +
-                "nested_field.integer_column, " +
-                "nested_field.long_column, " +
-                "nested_field.keyword_column, " +
-                "nested_field.text_column, " +
-                "nested_field.binary_column, " +
-                "nested_field.timestamp_column, " +
-                "nested_field.ipv4_column, " +
-                "nested_field.ipv6_column " +
-                "FROM nested_type_nested");
+        MaterializedResult rows = computeActual(
+                """
+                SELECT
+                    nested_field.boolean_column,
+                    nested_field.float_column,
+                    nested_field.double_column,
+                    nested_field.integer_column,
+                    nested_field.long_column,
+                    nested_field.keyword_column,
+                    nested_field.text_column,
+                    nested_field.binary_column,
+                    nested_field.timestamp_column,
+                    nested_field.ipv4_column,
+                    nested_field.ipv6_column
+                FROM nested_type_nested
+                """);
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
@@ -1723,7 +1823,8 @@ public abstract class BaseElasticsearchConnectorTest
     @Test
     public void testQueryString()
     {
-        assertQuery("SELECT count(*) FROM \"orders: +packages -slyly\"", "VALUES 1639");
+        assertThat(query("SELECT count(*) FROM \"orders: +packages -slyly\""))
+                .matches("VALUES BIGINT '1639'");
     }
 
     @Test
@@ -1736,13 +1837,11 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("AGE", 32)
                 .buildOrThrow());
 
-        assertQuery(
-                "SELECT name, age FROM mixed_case",
-                "VALUES ('john', 32)");
+        assertThat(query("SELECT name, age FROM mixed_case"))
+                .matches("VALUES (VARCHAR 'john', BIGINT '32')");
 
-        assertQuery(
-                "SELECT name, age FROM mixed_case WHERE name = 'john'",
-                "VALUES ('john', 32)");
+        assertThat(query("SELECT name, age FROM mixed_case WHERE name = 'john'"))
+                .matches("VALUES (VARCHAR 'john', BIGINT '32')");
     }
 
     @Test
@@ -1751,21 +1850,20 @@ public abstract class BaseElasticsearchConnectorTest
     {
         String indexName = "numeric_keyword";
         @Language("JSON")
-        String properties = "" +
-                "{" +
-                "  \"properties\":{" +
-                "    \"numeric_keyword\":   { \"type\": \"keyword\" }" +
-                "  }" +
-                "}";
+        String properties = """
+                            {
+                              "properties":{
+                                "numeric_keyword":   { "type": "keyword" }
+                              }
+                            }
+                            """;
         createIndex(indexName, properties);
         index(indexName, ImmutableMap.of("numeric_keyword", 20));
 
-        assertQuery(
-                "SELECT numeric_keyword FROM numeric_keyword",
-                "VALUES 20");
-        assertQuery(
-                "SELECT numeric_keyword FROM numeric_keyword where numeric_keyword = '20'",
-                "VALUES 20");
+        assertThat(query("SELECT numeric_keyword FROM numeric_keyword"))
+                .matches("VALUES VARCHAR '20'");
+        assertThat(query("SELECT numeric_keyword FROM numeric_keyword where numeric_keyword = '20'"))
+                .matches("VALUES VARCHAR '20'");
     }
 
     @Test
@@ -1782,9 +1880,8 @@ public abstract class BaseElasticsearchConnectorTest
         String aliasName = format("alias_%s", randomNameSuffix());
         addAlias("orders", aliasName);
 
-        assertQuery(
-                "SELECT count(*) FROM " + aliasName,
-                "SELECT count(*) FROM orders");
+        assertThat(query("SELECT count(*) FROM " + aliasName))
+                .matches("SELECT count(*) FROM orders");
     }
 
     @Test
@@ -1807,9 +1904,8 @@ public abstract class BaseElasticsearchConnectorTest
         addAlias("nation", "multi_alias");
         addAlias("region", "multi_alias");
 
-        assertQuery(
-                "SELECT count(*) FROM multi_alias",
-                "SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
+        assertThat(query("SELECT count(*) FROM multi_alias"))
+                .matches("SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
     }
 
     @Test
@@ -1819,16 +1915,18 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "test_empty_index_with_mappings";
 
         @Language("JSON")
-        String mappings = "" +
-                "{" +
-                "  \"properties\": { " +
-                "    \"dummy_column\":     { \"type\": \"long\" }" +
-                "  }" +
-                "}";
+        String mappings = """
+                          {
+                            "properties": {
+                              "dummy_column":     { "type": "long" }
+                            }
+                          }
+                          """;
 
         createIndex(indexName, mappings);
 
-        assertQuery(format("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", indexName), "VALUES ('dummy_column')");
+        assertThat(query(format("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", indexName)))
+                .matches("VALUES (VARCHAR 'dummy_column')");
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains(indexName);
         assertQueryReturnsEmptyResult("SELECT * FROM " + indexName);
     }
@@ -1867,12 +1965,12 @@ public abstract class BaseElasticsearchConnectorTest
         String catalogName = getSession().getCatalog().orElseThrow();
 
         // select single record
-        assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits._source') " +
+        assertThat(query("SELECT json_query(result, 'lax $[0][0].hits.hits._source') " +
                         format("FROM TABLE(%s.system.raw_query(", catalogName) +
                         "schema => 'tpch', " +
                         "index => 'nation', " +
-                        "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}')) t(result)",
-                "VALUES '{\"nationkey\":0,\"name\":\"ALGERIA\",\"regionkey\":0,\"comment\":\" haggle. carefully final deposits detect slyly agai\"}'");
+                        "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}')) t(result)"))
+                .matches("VALUES VARCHAR '{\"nationkey\":0,\"name\":\"ALGERIA\",\"regionkey\":0,\"comment\":\" haggle. carefully final deposits detect slyly agai\"}'");
 
         // parameters
         Session session = Session.builder(getSession())
@@ -1880,47 +1978,49 @@ public abstract class BaseElasticsearchConnectorTest
                         "my_query",
                         format("SELECT json_query(result, 'lax $[0][0].hits.hits._source') FROM TABLE(%s.system.raw_query(schema => ?, index => ?, query => ?))", catalogName))
                 .build();
-        assertQuery(
-                session,
-                "EXECUTE my_query USING 'tpch', 'nation', '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}'",
-                "VALUES '{\"nationkey\":0,\"name\":\"ALGERIA\",\"regionkey\":0,\"comment\":\" haggle. carefully final deposits detect slyly agai\"}'");
+        assertThat(query(session, "EXECUTE my_query USING 'tpch', 'nation', '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}'"))
+                .matches("VALUES VARCHAR '{\"nationkey\":0,\"name\":\"ALGERIA\",\"regionkey\":0,\"comment\":\" haggle. carefully final deposits detect slyly agai\"}'");
 
         // select multiple records by range. Use array wrapper to wrap multiple results
-        assertQuery("SELECT array_sort(CAST(json_parse(json_query(result, 'lax $[0][0].hits.hits._source.name' WITH ARRAY WRAPPER)) AS array(varchar))) " +
+        assertThat(query("SELECT array_sort(CAST(json_parse(json_query(result, 'lax $[0][0].hits.hits._source.name' WITH ARRAY WRAPPER)) AS array(varchar))) " +
                         format("FROM TABLE(%s.system.raw_query(", catalogName) +
                         "schema => 'tpch', " +
                         "index => 'nation', " +
-                        "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)",
-                "VALUES ARRAY['ALGERIA', 'ARGENTINA', 'BRAZIL', 'CANADA']");
+                        "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)"))
+                .matches("VALUES CAST(ARRAY['ALGERIA', 'ARGENTINA', 'BRAZIL', 'CANADA'] AS ARRAY(VARCHAR))");
 
         // use aggregations
         @Language("JSON")
-        String query = "{\n" +
-                "    \"size\": 0,\n" +
-                "    \"aggs\" : {\n" +
-                "        \"max_orderkey\" : { \"max\" : { \"field\" : \"orderkey\" } },\n" +
-                "        \"sum_orderkey\" : { \"sum\" : { \"field\" : \"orderkey\" } }\n" +
-                "    }\n" +
-                "}";
+        String query = """
+                       {
+                           "size": 0,
+                           "aggs" : {
+                               "max_orderkey" : { "max" : { "field" : "orderkey" } },
+                               "sum_orderkey" : { "sum" : { "field" : "orderkey" } }
+                           }
+                       }
+                       """;
 
-        assertQuery(
-                format("WITH data(r) AS (" +
-                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
-                        "   FROM TABLE(%s.system.raw_query(" +
-                        "                        schema => 'tpch', " +
-                        "                        index => 'orders', " +
-                        "                        query => '%s'))) " +
-                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
-                        "FROM data", catalogName, query),
-                "VALUES (60000, 449872500)");
+        assertThat(query(
+                """
+                WITH data(r) AS (
+                   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT))))
+                   FROM TABLE(%s.system.raw_query(
+                                        schema => 'tpch',
+                                        index => 'orders',
+                                        query => '%s')))
+                SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value
+                FROM data
+                """.formatted(catalogName, query)))
+                .matches("VALUES (BIGINT '60000', BIGINT '449872500')");
 
         // no matches
-        assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits') " +
+        assertThat(query("SELECT json_query(result, 'lax $[0][0].hits.hits') " +
                         format("FROM TABLE(%s.system.raw_query(", catalogName) +
                         "schema => 'tpch', " +
                         "index => 'nation', " +
-                        "query => '{\"query\": {\"match\": {\"name\": \"UTOPIA\"}}}')) t(result)",
-                "VALUES '[]'");
+                        "query => '{\"query\": {\"match\": {\"name\": \"UTOPIA\"}}}')) t(result)"))
+                .matches("VALUES VARCHAR '[]'");
 
         // syntax error
         assertThat(query("SELECT * " +

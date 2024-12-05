@@ -408,11 +408,11 @@ public class IcebergSplitSource
             return true;
         }
 
-        if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().path().toString()))) {
+        if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().location()))) {
             return true;
         }
         if (!fileModifiedTimeDomain.isAll()) {
-            long fileModifiedTime = getModificationTime(fileScanTask.file().path().toString(), fileSystemFactory.create(session.getIdentity(), fileIoProperties));
+            long fileModifiedTime = getModificationTime(fileScanTask.file().location(), fileSystemFactory.create(session.getIdentity(), fileIoProperties));
             if (!fileModifiedTimeDomain.includesNullableValue(packDateTimeWithZone(fileModifiedTime, UTC_KEY))) {
                 return true;
             }
@@ -662,7 +662,7 @@ public class IcebergSplitSource
     {
         FileScanTask task = taskWithDomain.fileScanTask();
         return new IcebergSplit(
-                task.file().path().toString(),
+                task.file().location(),
                 task.start(),
                 task.length(),
                 task.file().fileSizeInBytes(),
@@ -676,7 +676,7 @@ public class IcebergSplitSource
                 SplitWeight.fromProportion(clamp(getSplitWeight(task), minimumAssignedSplitWeight, 1.0)),
                 taskWithDomain.fileStatisticsDomain(),
                 fileIoProperties,
-                cachingHostAddressProvider.getHosts(task.file().path().toString(), ImmutableList.of()),
+                cachingHostAddressProvider.getHosts(task.file().location(), ImmutableList.of()),
                 task.file().dataSequenceNumber());
     }
 

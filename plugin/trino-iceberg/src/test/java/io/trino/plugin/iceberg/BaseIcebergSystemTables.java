@@ -295,6 +295,45 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    void testAllManifests()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_all_manifests", "AS SELECT 1 x")) {
+            assertThat(query("SHOW COLUMNS FROM \"" + table.getName() + "$all_manifests\""))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "('path', 'varchar', '', '')," +
+                            "('length', 'bigint', '', '')," +
+                            "('partition_spec_id', 'integer', '', '')," +
+                            "('added_snapshot_id', 'bigint', '', '')," +
+                            "('added_data_files_count', 'integer', '', '')," +
+                            "('existing_data_files_count', 'integer', '', '')," +
+                            "('deleted_data_files_count', 'integer', '', '')," +
+                            "('partition_summaries', 'array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))', '', '')");
+
+            assertThat((String) computeScalar("SELECT path FROM \"" + table.getName() + "$all_manifests\"")).endsWith("-m0.avro");
+            assertThat((Long) computeScalar("SELECT length FROM \"" + table.getName() + "$all_manifests\"")).isPositive();
+            assertThat((Integer) computeScalar("SELECT partition_spec_id FROM \"" + table.getName() + "$all_manifests\"")).isZero();
+            assertThat((Long) computeScalar("SELECT added_snapshot_id FROM \"" + table.getName() + "$all_manifests\"")).isPositive();
+            assertThat((Integer) computeScalar("SELECT added_data_files_count FROM \"" + table.getName() + "$all_manifests\"")).isEqualTo(1);
+            assertThat((Integer) computeScalar("SELECT existing_data_files_count FROM \"" + table.getName() + "$all_manifests\"")).isZero();
+            assertThat((Integer) computeScalar("SELECT deleted_data_files_count FROM \"" + table.getName() + "$all_manifests\"")).isZero();
+            assertThat((List<?>) computeScalar("SELECT partition_summaries FROM \"" + table.getName() + "$all_manifests\"")).isEmpty();
+
+            assertUpdate("DELETE FROM " + table.getName(), 1);
+            assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\"")).isEqualTo(2);
+        }
+    }
+
+    @Test
+    void testAllManifestsWithPartitionTable()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_all_manifests", "WITH (partitioning = ARRAY['dt']) AS SELECT 1 x, DATE '2021-01-01' dt")) {
+            assertThat(query("SELECT partition_summaries FROM \"" + table.getName() + "$all_manifests\""))
+                    .matches("VALUES CAST(ARRAY[ROW(false, false, VARCHAR '2021-01-01', VARCHAR '2021-01-01')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))");
+        }
+    }
+
+    @Test
     public void testManifestsTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$manifests\"",

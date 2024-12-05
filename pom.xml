@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>200</version>
+        <version>203</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -183,16 +183,16 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>287</dep.airlift.version>
+        <dep.airlift.version>289</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
         <dep.aws-sdk.version>1.12.779</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.7.1</dep.confluent.version>
-        <dep.docker.images.version>105</dep.docker.images.version>
+        <dep.docker.images.version>106</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
-        <dep.flyway.version>11.0.0</dep.flyway.version>
+        <dep.flyway.version>11.0.1</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.11.0</dep.frontend-node.version>
         <dep.frontend-npm.version>10.9.0</dep.frontend-npm.version>
@@ -204,9 +204,8 @@
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>3.9.0</dep.kafka-clients.version>
-        <dep.launcher.version>300</dep.launcher.version>
         <dep.okio.version>3.9.1</dep.okio.version>
-        <dep.parquet.version>1.14.4</dep.parquet.version>
+        <dep.parquet.version>1.15.0</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.5</dep.protobuf.version>
         <dep.snowflake.version>3.19.1</dep.snowflake.version>
@@ -231,7 +230,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.29</version>
+                <version>1.2.30</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -239,7 +238,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.50.0</version>
+                <version>26.51.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -311,7 +310,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.29.21</version>
+                <version>2.29.29</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -1607,7 +1606,7 @@
             <dependency>
                 <groupId>io.trino.coral</groupId>
                 <artifactId>coral</artifactId>
-                <version>2.2.14-2</version>
+                <version>2.2.49-1</version>
             </dependency>
 
             <dependency>
@@ -1639,7 +1638,7 @@
             <dependency>
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache-jdbc</artifactId>
-                <version>0.13.1-9</version>
+                <version>0.13.1-10</version>
             </dependency>
 
             <dependency>
@@ -2205,7 +2204,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.48.2</version>
+                <version>3.48.3</version>
             </dependency>
 
             <dependency>
@@ -2579,6 +2578,14 @@
                             <requirePropertyDiverges>
                                 <property>project.description</property>
                             </requirePropertyDiverges>
+                            <requireJavaVendor>
+                                <message>Trino requires Temurin or Oracle JDK for development. Other vendors are not recommended due to lack of testing coverage.</message>
+                                <includes>
+                                    <include>Eclipse Adoptium</include>
+                                    <!-- For testing beta/ea builds locally -->
+                                    <include>Oracle Corporation</include>
+                                </includes>
+                            </requireJavaVendor>
                         </rules>
                     </configuration>
                 </plugin>

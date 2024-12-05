@@ -47,6 +47,9 @@ system support:
     Azure from every node. Defaults to double the number of processors on the
     node. Minimum `1`. Use this property to reduce the number of requests when
     you encounter rate limiting issues.
+* - `azure.application-id`
+  - Specify the application identifier appended to the `User-Agent` header
+    for all requests sent to Azure Storage. Defaults to `Trino`. 
 :::
 
 (azure-access-key-authentication)=

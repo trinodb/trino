@@ -654,6 +654,7 @@ public class IcebergMetadata
             case METADATA_LOG_ENTRIES -> Optional.of(new MetadataLogEntriesTable(tableName, table));
             case SNAPSHOTS -> Optional.of(new SnapshotsTable(tableName, typeManager, table));
             case PARTITIONS -> Optional.of(new PartitionsTable(tableName, typeManager, table, getCurrentSnapshotId(table)));
+            case ALL_MANIFESTS -> Optional.of(new AllManifestsTable(tableName, table));
             case MANIFESTS -> Optional.of(new ManifestsTable(tableName, table, getCurrentSnapshotId(table)));
             case FILES -> Optional.of(new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table)));
             case PROPERTIES -> Optional.of(new PropertiesTable(tableName, table));
@@ -1774,7 +1775,7 @@ public class IcebergMetadata
             cleanExtraOutputFiles(
                     session,
                     newFiles.stream()
-                            .map(dataFile -> dataFile.path().toString())
+                            .map(ContentFile::location)
                             .collect(toImmutableSet()));
         }
 
@@ -2004,7 +2005,7 @@ public class IcebergMetadata
                 validMetadataFileNames.add(fileName(manifest.path()));
                 try (ManifestReader<? extends ContentFile<?>> manifestReader = readerForManifest(table, manifest)) {
                     for (ContentFile<?> contentFile : manifestReader) {
-                        validDataFileNames.add(fileName(contentFile.path().toString()));
+                        validDataFileNames.add(fileName(contentFile.location()));
                     }
                 }
                 catch (IOException e) {

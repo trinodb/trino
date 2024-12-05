@@ -19,10 +19,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TimeZoneKey;
-import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
-
-import java.util.Map;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -63,17 +60,14 @@ public class MetadataLogEntriesTable
     }
 
     @Override
-    protected void addRow(PageListBuilder pagesBuilder, StructLike structLike, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema)
+    protected void addRow(PageListBuilder pagesBuilder, Row row, TimeZoneKey timeZoneKey)
     {
         pagesBuilder.beginRow();
-
-        pagesBuilder.appendTimestampTzMillis(
-                structLike.get(columnNameToPositionInSchema.get(TIMESTAMP_COLUMN_NAME), Long.class) / MICROSECONDS_PER_MILLISECOND,
-                timeZoneKey);
-        pagesBuilder.appendVarchar(structLike.get(columnNameToPositionInSchema.get(FILE_COLUMN_NAME), String.class));
-        pagesBuilder.appendBigint(structLike.get(columnNameToPositionInSchema.get(LATEST_SNAPSHOT_ID_COLUMN_NAME), Long.class));
-        pagesBuilder.appendInteger(structLike.get(columnNameToPositionInSchema.get(LATEST_SCHEMA_ID_COLUMN_NAME), Integer.class));
-        pagesBuilder.appendBigint(structLike.get(columnNameToPositionInSchema.get(LATEST_SEQUENCE_NUMBER_COLUMN_NAME), Long.class));
+        pagesBuilder.appendTimestampTzMillis(row.get(TIMESTAMP_COLUMN_NAME, Long.class) / MICROSECONDS_PER_MILLISECOND, timeZoneKey);
+        pagesBuilder.appendVarchar(row.get(FILE_COLUMN_NAME, String.class));
+        pagesBuilder.appendBigint(row.get(LATEST_SNAPSHOT_ID_COLUMN_NAME, Long.class));
+        pagesBuilder.appendInteger(row.get(LATEST_SCHEMA_ID_COLUMN_NAME, Integer.class));
+        pagesBuilder.appendBigint(row.get(LATEST_SEQUENCE_NUMBER_COLUMN_NAME, Long.class));
         pagesBuilder.endRow();
     }
 }

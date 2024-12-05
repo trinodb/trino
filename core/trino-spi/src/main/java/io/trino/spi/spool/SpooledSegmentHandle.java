@@ -11,13 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake;
+package io.trino.spi.spool;
 
-public enum DeltaLakeTableType
+import io.trino.spi.Experimental;
+
+import java.time.Instant;
+
+/**
+ * SpooledSegmentHandle is used to uniquely identify a spooled segment and to manage its lifecycle.
+ */
+@Experimental(eta = "2025-05-31")
+public interface SpooledSegmentHandle
 {
-    DATA,
-    HISTORY,
-    TRANSACTIONS,
-    PROPERTIES,
-    PARTITIONS,
+    String identifier();
+
+    String encoding();
+
+    Instant expirationTime();
 }

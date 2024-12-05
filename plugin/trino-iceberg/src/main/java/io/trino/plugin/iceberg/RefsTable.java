@@ -19,11 +19,9 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TimeZoneKey;
-import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 
 import java.util.List;
-import java.util.Map;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -52,15 +50,15 @@ public class RefsTable
     }
 
     @Override
-    protected void addRow(PageListBuilder pagesBuilder, StructLike structLike, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema)
+    protected void addRow(PageListBuilder pagesBuilder, Row row, TimeZoneKey timeZoneKey)
     {
         pagesBuilder.beginRow();
-        pagesBuilder.appendVarchar(structLike.get(columnNameToPositionInSchema.get("name"), String.class));
-        pagesBuilder.appendVarchar(structLike.get(columnNameToPositionInSchema.get("type"), String.class));
-        pagesBuilder.appendBigint(structLike.get(columnNameToPositionInSchema.get("snapshot_id"), Long.class));
-        pagesBuilder.appendBigint(structLike.get(columnNameToPositionInSchema.get("max_reference_age_in_ms"), Long.class));
-        pagesBuilder.appendInteger(structLike.get(columnNameToPositionInSchema.get("min_snapshots_to_keep"), Integer.class));
-        pagesBuilder.appendBigint(structLike.get(columnNameToPositionInSchema.get("max_snapshot_age_in_ms"), Long.class));
+        pagesBuilder.appendVarchar(row.get("name", String.class));
+        pagesBuilder.appendVarchar(row.get("type", String.class));
+        pagesBuilder.appendBigint(row.get("snapshot_id", Long.class));
+        pagesBuilder.appendBigint(row.get("max_reference_age_in_ms", Long.class));
+        pagesBuilder.appendInteger(row.get("min_snapshots_to_keep", Integer.class));
+        pagesBuilder.appendBigint(row.get("max_snapshot_age_in_ms", Long.class));
         pagesBuilder.endRow();
     }
 }

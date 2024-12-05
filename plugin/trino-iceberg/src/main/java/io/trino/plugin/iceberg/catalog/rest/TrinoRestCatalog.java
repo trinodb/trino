@@ -97,7 +97,6 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
-import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.view.ViewProperties.COMMENT;
 
 public class TrinoRestCatalog
@@ -113,7 +112,6 @@ public class TrinoRestCatalog
     private final TypeManager typeManager;
     private final SessionType sessionType;
     private final Map<String, String> credentials;
-    private final Namespace parentNamespace;
     private final boolean nestedNamespaceEnabled;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
@@ -130,7 +128,6 @@ public class TrinoRestCatalog
             CatalogName catalogName,
             SessionType sessionType,
             Map<String, String> credentials,
-            Namespace parentNamespace,
             boolean nestedNamespaceEnabled,
             String trinoVersion,
             TypeManager typeManager,
@@ -143,7 +140,6 @@ public class TrinoRestCatalog
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.sessionType = requireNonNull(sessionType, "sessionType is null");
         this.credentials = ImmutableMap.copyOf(requireNonNull(credentials, "credentials is null"));
-        this.parentNamespace = requireNonNull(parentNamespace, "parentNamespace is null");
         this.nestedNamespaceEnabled = nestedNamespaceEnabled;
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -169,9 +165,9 @@ public class TrinoRestCatalog
     public List<String> listNamespaces(ConnectorSession session)
     {
         if (nestedNamespaceEnabled) {
-            return collectNamespaces(session, parentNamespace);
+            return collectNamespaces(session, Namespace.empty());
         }
-        return restSessionCatalog.listNamespaces(convert(session), parentNamespace).stream()
+        return restSessionCatalog.listNamespaces(convert(session)).stream()
                 .map(this::toSchemaName)
                 .collect(toImmutableList());
     }
@@ -732,25 +728,15 @@ public class TrinoRestCatalog
         if (!nestedNamespaceEnabled && schemaName.contains(NAMESPACE_SEPARATOR)) {
             throw new TrinoException(NOT_SUPPORTED, "Nested namespace is not enabled for this catalog");
         }
-        if (!parentNamespace.isEmpty()) {
-            schemaName = parentNamespace + NAMESPACE_SEPARATOR + schemaName;
-        }
         return Namespace.of(Splitter.on(NAMESPACE_SEPARATOR).omitEmptyStrings().trimResults().splitToList(schemaName).toArray(new String[0]));
     }
 
     private String toSchemaName(Namespace namespace)
     {
-        if (this.parentNamespace.isEmpty()) {
-            if (!nestedNamespaceEnabled && namespace.length() != 1) {
-                throw new TrinoException(NOT_SUPPORTED, "Nested namespace is not enabled for this catalog");
-            }
-            return namespace.toString();
-        }
-        if (!nestedNamespaceEnabled && ((namespace.length() - parentNamespace.length()) > 1)) {
+        if (!nestedNamespaceEnabled && namespace.length() != 1) {
             throw new TrinoException(NOT_SUPPORTED, "Nested namespace is not enabled for this catalog");
         }
-        return Arrays.stream(namespace.levels(), this.parentNamespace.length(), namespace.length())
-                .collect(joining(NAMESPACE_SEPARATOR));
+        return String.join(NAMESPACE_SEPARATOR, namespace.levels());
     }
 
     private TableIdentifier toIdentifier(SchemaTableName schemaTableName)

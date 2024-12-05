@@ -70,7 +70,8 @@ public class TestS3FileSystemConfig
                 .setHttpProxyUsername(null)
                 .setHttpProxyPassword(null)
                 .setHttpProxyPreemptiveBasicProxyAuth(false)
-                .setSupportsExclusiveCreate(true));
+                .setSupportsExclusiveCreate(true)
+                .setApplicationId("Trino"));
     }
 
     @Test
@@ -109,6 +110,7 @@ public class TestS3FileSystemConfig
                 .put("s3.http-proxy.password", "test")
                 .put("s3.http-proxy.preemptive-basic-auth", "true")
                 .put("s3.exclusive-create", "false")
+                .put("s3.application-id", "application id")
                 .buildOrThrow();
 
         S3FileSystemConfig expected = new S3FileSystemConfig()
@@ -143,7 +145,8 @@ public class TestS3FileSystemConfig
                 .setHttpProxyUsername("test")
                 .setHttpProxyPassword("test")
                 .setHttpProxyPreemptiveBasicProxyAuth(true)
-                .setSupportsExclusiveCreate(false);
+                .setSupportsExclusiveCreate(false)
+                .setApplicationId("application id");
 
         assertFullMapping(properties, expected);
     }

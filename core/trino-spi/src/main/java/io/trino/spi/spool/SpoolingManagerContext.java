@@ -11,16 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.protocol;
+package io.trino.spi.spool;
 
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.Experimental;
 
-import java.util.Map;
-
 @Experimental(eta = "2025-05-31")
-public interface SpoolingManagerFactory
+public interface SpoolingManagerContext
 {
-    String getName();
+    default OpenTelemetry getOpenTelemetry()
+    {
+        throw new UnsupportedOperationException();
+    }
 
-    SpoolingManager create(Map<String, String> config, SpoolingManagerContext context);
+    default Tracer getTracer()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default boolean isCoordinator()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

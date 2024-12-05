@@ -28,7 +28,7 @@ record GcsLocation(Location location)
 
         requireNonNull(location, "location");
         checkArgument(location.scheme().isPresent(), "No scheme for GCS location: %s", location);
-        checkArgument(location.scheme().get().equals("gs"), "Wrong scheme for S3 location: %s", location);
+        checkArgument(location.scheme().get().equals("gs"), "Wrong scheme for GCS location: %s", location);
         checkArgument(location.host().isPresent(), "No bucket for GCS location: %s", location);
         checkArgument(location.userInfo().isEmpty(), "GCS location contains user info: %s", location);
         checkArgument(location.port().isEmpty(), "GCS location contains port: %s", location);

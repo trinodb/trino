@@ -21,9 +21,9 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
-import io.trino.spi.protocol.SpooledLocation;
-import io.trino.spi.protocol.SpooledLocation.CoordinatorLocation;
-import io.trino.spi.protocol.SpooledLocation.DirectLocation;
+import io.trino.spi.spool.SpooledLocation;
+import io.trino.spi.spool.SpooledLocation.CoordinatorLocation;
+import io.trino.spi.spool.SpooledLocation.DirectLocation;
 import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
 

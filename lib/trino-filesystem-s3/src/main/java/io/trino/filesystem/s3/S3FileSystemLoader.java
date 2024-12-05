@@ -271,6 +271,7 @@ final class S3FileSystemLoader
                 .retryStrategy(getRetryStrategy(config.getRetryMode()).toBuilder()
                         .maxAttempts(config.getMaxErrorRetries())
                         .build())
+                .appId(config.getApplicationId())
                 .addMetricPublisher(metricPublisher)
                 .build();
     }

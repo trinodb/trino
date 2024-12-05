@@ -11,25 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.protocol;
+package io.trino.plugin.iceberg;
 
-import io.trino.spi.Experimental;
-import io.trino.spi.QueryId;
+import com.google.inject.Inject;
+import io.trino.spi.NodeManager;
+import org.apache.iceberg.EnvironmentContext;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.EnvironmentContext.ENGINE_NAME;
+import static org.apache.iceberg.EnvironmentContext.ENGINE_VERSION;
 
-@Experimental(eta = "2025-05-31")
-public record SpoolingContext(String encoding, QueryId queryId, long rows, long size)
+public class IcebergEnvironmentContext
 {
-    public SpoolingContext
+    @Inject
+    public IcebergEnvironmentContext(NodeManager nodeManager)
     {
-        requireNonNull(queryId, "queryId is null");
-        requireNonNull(encoding, "encoding is null");
-        if (rows < 0) {
-            throw new IllegalArgumentException("rows is negative");
-        }
-        if (size < 0) {
-            throw new IllegalArgumentException("size is negative");
-        }
+        requireNonNull(nodeManager, "nodeManager is null");
+        EnvironmentContext.put(ENGINE_NAME, "trino");
+        EnvironmentContext.put(ENGINE_VERSION, nodeManager.getCurrentNode().getVersion());
     }
 }

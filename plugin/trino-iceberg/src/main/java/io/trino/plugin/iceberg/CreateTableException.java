@@ -13,17 +13,19 @@
  */
 package io.trino.plugin.iceberg;
 
-public enum TableType
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaTableName;
+import org.apache.iceberg.exceptions.CleanableFailure;
+
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
+import static java.lang.String.format;
+
+public class CreateTableException
+        extends TrinoException
+        implements CleanableFailure
 {
-    DATA,
-    HISTORY,
-    METADATA_LOG_ENTRIES,
-    SNAPSHOTS,
-    ALL_MANIFESTS,
-    MANIFESTS,
-    PARTITIONS,
-    FILES,
-    PROPERTIES,
-    REFS,
-    MATERIALIZED_VIEW_STORAGE,
+    public CreateTableException(Throwable throwable, SchemaTableName tableName)
+    {
+        super(ICEBERG_COMMIT_ERROR, format("Failed to create table %s: %s", tableName, throwable.getMessage()), throwable);
+    }
 }

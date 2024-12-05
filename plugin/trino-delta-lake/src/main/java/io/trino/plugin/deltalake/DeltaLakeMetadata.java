@@ -3090,7 +3090,8 @@ public class DeltaLakeMetadata
                 "trino-" + nodeVersion + "-" + nodeId,
                 readVersion,
                 isolationLevel.getValue(),
-                Optional.of(isBlindAppend));
+                Optional.of(isBlindAppend),
+                ImmutableMap.of());
     }
 
     @Override
@@ -4095,6 +4096,12 @@ public class DeltaLakeMetadata
         return switch (tableType.get()) {
             case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
             case HISTORY -> Optional.of(new DeltaLakeHistoryTable(
+                    systemTableName,
+                    tableLocation,
+                    fileSystemFactory,
+                    transactionLogAccess,
+                    typeManager));
+            case TRANSACTIONS -> Optional.of(new DeltaLakeTransactionsTable(
                     systemTableName,
                     tableLocation,
                     fileSystemFactory,

@@ -99,7 +99,7 @@ public class SpoolingConfig
         return allowInlining;
     }
 
-    @ConfigDescription("Allow spooled protocol to inline data")
+    @ConfigDescription("Allow spooling protocol to inline data")
     @Config("protocol.spooling.inlining.enabled")
     public SpoolingConfig setAllowInlining(boolean allowInlining)
     {

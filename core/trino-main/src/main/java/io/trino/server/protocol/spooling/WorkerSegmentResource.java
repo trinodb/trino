@@ -15,8 +15,8 @@ package io.trino.server.protocol.spooling;
 
 import com.google.inject.Inject;
 import io.trino.server.security.ResourceSecurity;
-import io.trino.spi.protocol.SpooledSegmentHandle;
-import io.trino.spi.protocol.SpoolingManager;
+import io.trino.spi.spool.SpooledSegmentHandle;
+import io.trino.spi.spool.SpoolingManager;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;

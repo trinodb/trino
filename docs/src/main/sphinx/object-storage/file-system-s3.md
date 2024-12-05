@@ -102,6 +102,9 @@ support:
     Trino on Amazon EKS and using [IAM roles for service accounts
     (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
     Defaults to `false`.
+* - `s3.application-id`
+  - Specify the application identifier appended to the `User-Agent` header 
+    for all requests sent to S3. Defaults to `Trino`.
 :::
 
 ## Authentication
