@@ -32,7 +32,7 @@ jobs:
       JAVA_TOOL_OPTIONS: " -Xmx8g"
       DOCKER_BUILDKIT: 1
     container:
-      image: uchimera.azurecr.io/cccs/dev/trino-build:465_trino-465_20241121195857_b11263
+      image: uchimera.azurecr.io/cccs/dev/trino-build:465_cccs-main_20241205164426_b11358
       options: --entrypoint="" --user=0
       endpoint: uchimera
       volumes:
