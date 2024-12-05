@@ -22,13 +22,7 @@ public interface SystemAccessControlFactory
 {
     String getName();
 
-    @Deprecated
-    SystemAccessControl create(Map<String, String> config);
-
-    default SystemAccessControl create(Map<String, String> config, SystemAccessControlContext context)
-    {
-        return create(config);
-    }
+    SystemAccessControl create(Map<String, String> config, SystemAccessControlContext context);
 
     interface SystemAccessControlContext
     {

@@ -16,6 +16,7 @@ package io.trino.plugin.opa;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.plugin.base.security.TestingSystemAccessControlContext;
 import io.trino.spi.security.Identity;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
@@ -47,7 +48,9 @@ public final class QueryRunnerHelper
         return new QueryRunnerHelper(
                 new StandaloneQueryRunner(
                         testSession(),
-                        builder -> builder.setSystemAccessControl(new OpaAccessControlFactory().create(opaConfigToDict(opaConfig)))));
+                        builder -> builder.setSystemAccessControl(new OpaAccessControlFactory().create(
+                                opaConfigToDict(opaConfig),
+                                new TestingSystemAccessControlContext()))));
     }
 
     public Set<String> querySetOfStrings(String user, @Language("SQL") String query)
