@@ -35,13 +35,6 @@ public class RangerSystemAccessControlFactory
         return NAME;
     }
 
-    @Deprecated
-    @Override
-    public SystemAccessControl create(Map<String, String> config)
-    {
-        return null;
-    }
-
     @Override
     public SystemAccessControl create(Map<String, String> config, SystemAccessControlContext context)
     {

@@ -53,12 +53,6 @@ public class OpaAccessControlFactory
     }
 
     @Override
-    public SystemAccessControl create(Map<String, String> config)
-    {
-        return create(config, Optional.empty(), Optional.empty());
-    }
-
-    @Override
     public SystemAccessControl create(Map<String, String> config, SystemAccessControlContext context)
     {
         return create(config, Optional.empty(), Optional.ofNullable(context));

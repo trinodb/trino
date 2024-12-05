@@ -225,6 +225,18 @@
                                     <old>interface io.trino.spi.protocol.SpoolingManager</old>
                                     <justification>Spooling package renamed</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.noLongerDefault</code>
+                                    <old>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</old>
+                                    <new>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</new>
+                                    <justification>Old variant was removed and this becomes the new non-default one</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</old>
+                                    <new>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</new>
+                                    <justification>Old variant was removed and this becomes the new non-default one</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

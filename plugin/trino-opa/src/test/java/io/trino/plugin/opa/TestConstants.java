@@ -14,9 +14,8 @@
 package io.trino.plugin.opa;
 
 import com.google.common.collect.ImmutableSet;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.trace.Tracer;
 import io.trino.execution.QueryIdGenerator;
+import io.trino.plugin.base.security.TestingSystemAccessControlContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.security.Identity;
@@ -54,7 +53,7 @@ public final class TestConstants
     public static final HttpClientUtils.MockResponse UNDEFINED_RESPONSE = new HttpClientUtils.MockResponse("{}", 404);
     public static final HttpClientUtils.MockResponse BAD_REQUEST_RESPONSE = new HttpClientUtils.MockResponse("{}", 400);
     public static final HttpClientUtils.MockResponse SERVER_ERROR_RESPONSE = new HttpClientUtils.MockResponse("", 500);
-    public static final SystemAccessControlFactory.SystemAccessControlContext SYSTEM_ACCESS_CONTROL_CONTEXT = new TestingSystemAccessControlContext("TEST_VERSION");
+    public static final SystemAccessControlFactory.SystemAccessControlContext SYSTEM_ACCESS_CONTROL_CONTEXT = new TestingSystemAccessControlContext();
     public static final URI OPA_SERVER_URI = URI.create("http://my-uri/");
     public static final URI OPA_SERVER_BATCH_URI = URI.create("http://my-batch-uri/");
     public static final URI OPA_ROW_FILTERING_URI = URI.create("http://my-row-filtering-uri/");
@@ -82,34 +81,5 @@ public final class TestConstants
     public static OpaConfig columnMaskingOpaConfig()
     {
         return simpleOpaConfig().setOpaColumnMaskingUri(OPA_COLUMN_MASKING_URI);
-    }
-
-    static final class TestingSystemAccessControlContext
-            implements SystemAccessControlFactory.SystemAccessControlContext
-    {
-        private final String trinoVersion;
-
-        public TestingSystemAccessControlContext(String version)
-        {
-            this.trinoVersion = version;
-        }
-
-        @Override
-        public String getVersion()
-        {
-            return this.trinoVersion;
-        }
-
-        @Override
-        public OpenTelemetry getOpenTelemetry()
-        {
-            return OpenTelemetry.noop();
-        }
-
-        @Override
-        public Tracer getTracer()
-        {
-            return OpenTelemetry.noop().getTracer("TEST_TRACER");
-        }
     }
 }

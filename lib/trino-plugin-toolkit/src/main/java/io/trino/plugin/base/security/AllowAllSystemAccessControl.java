@@ -61,7 +61,7 @@ public class AllowAllSystemAccessControl
         }
 
         @Override
-        public SystemAccessControl create(Map<String, String> config)
+        public SystemAccessControl create(Map<String, String> config, SystemAccessControlContext context)
         {
             checkArgument(config.isEmpty(), "This access controller does not support any configuration properties");
             return INSTANCE;
