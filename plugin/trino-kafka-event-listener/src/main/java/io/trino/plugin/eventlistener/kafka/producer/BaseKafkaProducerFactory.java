@@ -15,7 +15,7 @@
 package io.trino.plugin.eventlistener.kafka.producer;
 
 import io.trino.plugin.eventlistener.kafka.KafkaEventListenerConfig;
-import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 
@@ -26,7 +26,7 @@ abstract class BaseKafkaProducerFactory
         implements KafkaProducerFactory
 {
     @Override
-    public KafkaProducer<String, String> producer(Map<String, String> overrides)
+    public Producer<String, String> producer(Map<String, String> overrides)
     {
         throw new UnsupportedOperationException("Cannot call producer() on abstract class");
     }
