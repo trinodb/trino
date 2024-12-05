@@ -29,6 +29,6 @@ final class TestApacheRangerPlugin
     {
         Plugin plugin = new ApacheRangerPlugin();
         SystemAccessControlFactory factory = getOnlyElement(plugin.getSystemAccessControlFactories());
-        factory.create(Map.of("apache-ranger.service.name", "trino"), new TestingSystemAccessControlContext()).shutdown();
+        factory.create(Map.of("ranger.service.name", "trino"), new TestingSystemAccessControlContext()).shutdown();
     }
 }
