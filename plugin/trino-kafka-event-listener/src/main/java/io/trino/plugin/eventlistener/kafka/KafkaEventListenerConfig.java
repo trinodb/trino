@@ -47,7 +47,7 @@ public class KafkaEventListenerConfig
     private Set<String> excludedFields = Collections.emptySet();
     private Map<String, String> kafkaClientOverrides = Collections.emptyMap();
     private Duration requestTimeout = new Duration(10, SECONDS);
-    private boolean terminateOnInitializationFailure = true;
+    private boolean terminateOnInitializationFailure;
     private Optional<String> environmentVariablePrefix = Optional.empty();
 
     public boolean isAnonymizationEnabled()
