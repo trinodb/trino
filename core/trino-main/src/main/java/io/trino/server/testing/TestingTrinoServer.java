@@ -32,6 +32,7 @@ import io.airlift.discovery.client.ServiceSelectorManager;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
+import io.airlift.http.server.tracing.TracingServletFilter;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
@@ -117,6 +118,7 @@ import io.trino.tracing.ForTracing;
 import io.trino.tracing.TracingAccessControl;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerModule;
+import jakarta.servlet.Filter;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
@@ -309,6 +311,9 @@ public class TestingTrinoServer
                 .add(new ServerMainModule(VERSION))
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
+                    newSetBinder(binder, Filter.class)
+                            .addBinding()
+                            .to(TracingServletFilter.class);
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlConfig.class).in(Scopes.SINGLETON);
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
