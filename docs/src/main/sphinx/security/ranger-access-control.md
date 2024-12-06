@@ -1,6 +1,9 @@
-# Apache Ranger access control
+# Ranger access control
 
-The Apache Ranger access control plugin supports use of Apache Ranger policies to authorize data access in Trino on catalogs, schemas, tables, and columns. The plugin also supports column-masking, row-filtering and audit logging.
+The Ranger access control plugin supports use of [Apache
+Ranger](https://ranger.apache.org/) policies to authorize data access in Trino
+on catalogs, schemas, tables, and columns. The plugin also supports
+column-masking, row-filtering and audit logging.
 
 ## Requirements
 
