@@ -439,6 +439,7 @@ jobs:
                 - lib/trino-filesystem-azure
                 - lib/trino-filesystem-alluxio
                 - lib/trino-filesystem-cache-alluxio
+                - lib/trino-filesystem-gcs
                 - lib/trino-filesystem-manager
                 - lib/trino-filesystem-s3
                 - lib/trino-hdfs
