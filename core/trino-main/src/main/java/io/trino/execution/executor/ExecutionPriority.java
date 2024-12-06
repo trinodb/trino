@@ -48,4 +48,9 @@ public record ExecutionPriority(double normalPriorityResourceUsageMultiplier)
         // will truncate it to the Long.MAX_VALUE
         return (long) (elapsed * normalPriorityResourceUsageMultiplier);
     }
+
+    public boolean isLow()
+    {
+        return normalPriorityResourceUsageMultiplier > 1;
+    }
 }

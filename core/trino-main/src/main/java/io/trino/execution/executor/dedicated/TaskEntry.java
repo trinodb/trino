@@ -42,6 +42,7 @@ class TaskEntry
 {
     private final TaskId taskId;
     private final Group group;
+    private final ExecutionPriority priority;
     private final FairScheduler scheduler;
     private final VersionEmbedder versionEmbedder;
     private final Tracer tracer;
@@ -70,7 +71,8 @@ class TaskEntry
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.utilization = requireNonNull(utilization, "utilization is null");
 
-        this.group = scheduler.createGroup(taskId.toString(), requireNonNull(priority, "priority is null"));
+        this.priority = requireNonNull(priority, "priority is null");
+        this.group = scheduler.createGroup(taskId.toString(), priority);
         this.concurrency = new ConcurrencyController(initialConcurrency);
     }
 
@@ -189,6 +191,11 @@ class TaskEntry
     public synchronized int targetConcurrency()
     {
         return concurrency.targetConcurrency();
+    }
+
+    public ExecutionPriority priority()
+    {
+        return priority;
     }
 
     private record QueuedSplit(SplitRunner split, SettableFuture<Void> done) {}

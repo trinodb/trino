@@ -134,7 +134,7 @@ public class TestThreadPerDriverTaskExecutor
     {
         TestingTicker ticker = new TestingTicker();
         FairScheduler scheduler = new FairScheduler(1, "Runner-%d", ticker);
-        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, Integer.MAX_VALUE, Integer.MAX_VALUE);
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 0.01, 1, Integer.MAX_VALUE, Integer.MAX_VALUE);
         executor.start();
 
         try {
@@ -243,7 +243,7 @@ public class TestThreadPerDriverTaskExecutor
                     succinctDuration(30, SECONDS),
                     succinctDuration(10, MILLISECONDS),
                     () -> assertThat(normalSplitsDoneCount).hasValueGreaterThanOrEqualTo(50));
-            assertThat(lowPrioritySplits.stream().filter(SplitRunner::isFinished).count()).isLessThanOrEqualTo(35);
+            assertThat(lowPrioritySplits.stream().filter(SplitRunner::isFinished).count()).isLessThanOrEqualTo(0);
         }
         finally {
             executor.stop();

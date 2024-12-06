@@ -42,4 +42,9 @@ public class ExecutionPriorityManager
             case LOW -> lowPriority;
         };
     }
+
+    public long getNormalToLowPriorityResourceRatio()
+    {
+        return (long) lowPriority.normalPriorityResourceUsageMultiplier();
+    }
 }
