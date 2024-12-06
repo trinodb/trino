@@ -9,25 +9,28 @@ column-masking, row-filtering and audit logging.
 
 * Access to a Apache Ranger deployment with the desired authorization policies.
 * Access to an audit store using Solr, HDFS, Log4J, or S3 to save audit logs.
-* Apache Ranger 2.5.0 and greater include the required Trino service definition. Earlier versions of Apache Ranger require an update of the service definition available in the version [here](
-  https://github.com/apache/ranger/blob/ranger-2.5/agents-common/src/main/resources/service-defs/ranger-servicedef-trino.json).
+* Apache Ranger 2.5.0 and greater include the required Trino service definition.
+  Earlier versions of Apache Ranger require an [update to the service definition
+  available on
+  GitHub](https://github.com/apache/ranger/blob/ranger-2.5/agents-common/src/main/resources/service-defs/ranger-servicedef-trino.json).
 
 ## Configuration
 
-To use only Ranger for access control, create the file `etc/access-control.properties` on the coordinator,
-with the following configuration, and configurations listed in the table below:
+To use only Ranger for access control, create the file
+`etc/access-control.properties` on the coordinator, with the following
+configuration, and configurations listed in the table below:
 
 ```properties
 access-control.name=ranger
 ```
 
-
-To combine Ranger access control with file-based or other access control systems, create the file
-`etc/access-control.properties` on the coordinator, with the following configuration that lists
-multiple access control configuration file paths:
+To combine Ranger access control with file-based or other access control
+systems, create the file `etc/access-control.properties` on the coordinator,
+with the following configuration that lists multiple access control
+configuration file paths:
 
 ```properties
-access-control.config-files=etc/trino/file-based.properties,etc/trino/apache-ranger.properties
+access-control.config-files=etc/trino/file-based.properties,etc/trino/ranger.properties
 ```
 
 Order the configuration files list in the desired order of the different systems
@@ -36,22 +39,25 @@ specified files.
 
 The following table lists the configuration properties for the Ranger access control:
 
-:::{list-table} Apache Ranger access control configuration properties
+:::{list-table} Ranger access control configuration properties
 :widths: 30, 70
 :header-rows: 1
 
 * - Name
   - Description
 * - `ranger.service.name`
-  - Name of the service having policies to be enforced by the plugin
+  - Name of the service on Ranger with the policies to enforce.
 * - `ranger.plugin.config.resource`
-  - List of Ranger plugin configuration files, comma separated. Relative paths will be resolved dynamically by searching in the classpath.
+  - Comma-separated list of Ranger plugin configuration files. Relative paths
+    are resolved dynamically by searching on the classpath.
 * - `ranger.hadoop.config.resource`
-  - List of Hadoop configuration files, comma separated. Relative paths will be resolved dynamically by searching in the classpath.
+  - Comma-separated list of Hadoop configuration files. Relative paths are
+    resolved dynamically by searching on the classpath. 
 :::
 
 ### ranger-trino-security.xml
-```
+
+```xml
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration xmlns:xi="http://www.w3.org/2001/XInclude">
   <property>
@@ -93,7 +99,8 @@ The following table lists the configuration properties for the Ranger access con
 ```
 
 ### ranger-trino-audit.xml
-```
+
+```xml
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration xmlns:xi="http://www.w3.org/2001/XInclude">
   <property>
@@ -117,7 +124,8 @@ The following table lists the configuration properties for the Ranger access con
 ```
 
 ### ranger-policymgr-ssl.xml
-```
+
+```xml
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration xmlns:xi="http://www.w3.org/2001/XInclude">
   <!-- properties used for 2-way SSL between the Trino plugin and Apache Ranger server -->
@@ -161,7 +169,13 @@ The following table lists the configuration properties for the Ranger access con
 
 ## Required policies
 
-* Users will need permission to execute queries in Trino. Without a policy in Apache Ranger to grant this permission, users will not be able to execute any query.
-  * To allow this, create a policy in Apache Ranger for `queryId` resource having value `*`, with `execute` permission for user `{USER}`.
-* Users will need permission to impersonate themselves in Trino. Without a policy in Apache Ranger to grant this permission, users will not be able to execute any query.
-  * To allow this, create a policy in Apache Ranger for `trinouser` resource having value `{USER}`, with `impersonate` permission for user `{USER}`.
+* Users must have permission to execute queries in Trino. Without a policy in
+  Apache Ranger to grant this permission, users are not be able to execute any
+  query.
+  * To allow this, create a policy in Apache Ranger for a `queryId` resource
+    with a value `*` and with the `execute` permission for the user `{USER}`.
+* Users must have permission to impersonate themselves in Trino. Without a
+  policy in Apache Ranger to grant this permission, users are not able to
+  execute any query.
+  * To allow this, create a policy in Apache Ranger for a `trinouser` resource
+    with value `{USER}` and with the `impersonate` permission for user `{USER}`.
