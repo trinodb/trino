@@ -253,7 +253,7 @@ public class ParquetPageSourceFactory
                     start,
                     length,
                     dataSource,
-                    parquetMetadata.getBlocks(),
+                    parquetMetadata.getBlocks(descriptorsByPath.values()),
                     parquetTupleDomains,
                     parquetPredicates,
                     descriptorsByPath,
