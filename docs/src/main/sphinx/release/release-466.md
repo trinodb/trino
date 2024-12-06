@@ -12,7 +12,7 @@
 ## Security
 
 * Add support for [data access control with Apache
-  Ranger](/security/apache-ranger-access-control), including support for
+  Ranger](/security/ranger-access-control), including support for
   column masking, row filtering, and audit logging. ({issue}`22675`)
 
 ## JDBC driver

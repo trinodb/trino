@@ -51,7 +51,7 @@ security/group-file
 security/built-in-system-access-control
 security/file-system-access-control
 security/opa-access-control
-security/apache-ranger-access-control
+security/ranger-access-control
 ```
 
 ## Security inside the cluster
