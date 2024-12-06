@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static io.trino.parquet.reader.MetadataReader.createParquetMetadata;
 import static io.trino.plugin.iceberg.util.ParquetUtil.footerMetrics;
 import static io.trino.plugin.iceberg.util.ParquetUtil.getSplitOffsets;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -83,7 +82,7 @@ public final class IcebergParquetFileWriter
     {
         ParquetMetadata parquetMetadata;
         try {
-            parquetMetadata = createParquetMetadata(parquetFileWriter.getFileMetadata(), new ParquetDataSourceId(location.toString()));
+            parquetMetadata = ParquetMetadata.createParquetMetadata(parquetFileWriter.getFileMetadata(), new ParquetDataSourceId(location.toString()));
         }
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Error creating metadata for Parquet file %s", location), e);
