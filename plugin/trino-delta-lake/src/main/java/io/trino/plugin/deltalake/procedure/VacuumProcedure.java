@@ -24,6 +24,7 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
@@ -257,9 +258,8 @@ public class VacuumProcedure
             long transactionLogFiles = 0;
             long retainedKnownFiles = 0;
             long retainedUnknownFiles = 0;
-            long removedFiles = 0;
+            List<TrinoInputFile> filesToDelete = new ArrayList<>();
 
-            List<Location> filesToDelete = new ArrayList<>();
             FileIterator listing = fileSystem.listFiles(Location.of(tableLocation));
             while (listing.hasNext()) {
                 FileEntry entry = listing.next();
@@ -297,19 +297,20 @@ public class VacuumProcedure
                     retainedUnknownFiles++;
                     continue;
                 }
-
                 log.debug("[%s] deleting file [%s] with modification time %s", queryId, location, modificationTime);
-                filesToDelete.add(entry.location());
-                if (filesToDelete.size() == DELETE_BATCH_SIZE) {
-                    fileSystem.deleteFiles(filesToDelete);
-                    removedFiles += filesToDelete.size();
-                    filesToDelete.clear();
-                }
-            }
 
-            if (!filesToDelete.isEmpty()) {
-                fileSystem.deleteFiles(filesToDelete);
-                removedFiles += filesToDelete.size();
+                Location fileLocation = Location.of(location);
+                TrinoInputFile inputFile = fileSystem.newInputFile(fileLocation);
+                filesToDelete.add(inputFile);
+            }
+            int totalFilesToDelete = filesToDelete.size();
+            int batchCount = (int) Math.ceil((double) totalFilesToDelete / DELETE_BATCH_SIZE);
+            for (int batchNumber = 0; batchNumber < batchCount; batchNumber++) {
+                int start = batchNumber * DELETE_BATCH_SIZE;
+                int end = Math.min(start + DELETE_BATCH_SIZE, totalFilesToDelete);
+
+                List<TrinoInputFile> batch = filesToDelete.subList(start, end);
+                fileSystem.deleteFiles(batch.stream().map(TrinoInputFile::location).collect(toImmutableList()));
             }
 
             log.info(
@@ -321,7 +322,7 @@ public class VacuumProcedure
                     transactionLogFiles,
                     retainedKnownFiles,
                     retainedUnknownFiles,
-                    removedFiles);
+                    totalFilesToDelete);
         }
     }
 }
