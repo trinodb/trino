@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.metastore.HiveType;
@@ -27,7 +27,6 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceProvider;
-import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.spi.Page;
@@ -47,6 +46,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -134,6 +134,22 @@ public class IonPageSourceSmokeTest
     }
 
     @Test
+    public void testPageSourceWithNativeTrinoDisabled()
+            throws IOException
+    {
+        List<HiveColumnHandle> tableColumns = List.of(
+                toHiveBaseColumnHandle("foo", INTEGER, 0),
+                toHiveBaseColumnHandle("bar", VARCHAR, 1));
+
+        TestFixture fixture = new TestFixture(tableColumns)
+                .withNativeIonDisabled();
+        fixture.writeIonTextFile("{ foo: 31, bar: baz } { foo: 31, bar: \"baz\" }");
+
+        Optional<ConnectorPageSource> connectorPageSource = fixture.getOptionalPageSource();
+        Assertions.assertTrue(connectorPageSource.isEmpty(), "Expected empty page source when native Trino is disabled");
+    }
+
+    @Test
     public void testTextEncoding()
             throws IOException
     {
@@ -156,15 +172,14 @@ public class IonPageSourceSmokeTest
     }
 
     private void assertEncoding(List<HiveColumnHandle> tableColumns,
-                                String encoding)
+            String encoding)
             throws IOException
     {
-        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
-        Location location = Location.of(TEST_ION_LOCATION);
-        ConnectorSession session = getHiveSession(new HiveConfig());
-        writeTestData(session, fileSystemFactory, location, encoding, tableColumns);
-        byte[] inputStreamBytes = fileSystemFactory.create(session)
-                .newInputFile(location)
+        TestFixture fixture = new TestFixture(tableColumns)
+                .withEncoding(encoding);
+
+        writeTestData(fixture.getFileWriter());
+        byte[] inputStreamBytes = fixture.getTrinoInputFile()
                 .newStream()
                 .readAllBytes();
 
@@ -177,190 +192,159 @@ public class IonPageSourceSmokeTest
         }
     }
 
-    @Test
-    public void testPageSourceWithNativeTrinoDisabled()
-            throws IOException
-    {
-        List<HiveColumnHandle> tableColumns = List.of(
-                toHiveBaseColumnHandle("foo", INTEGER, 0),
-                toHiveBaseColumnHandle("bar", VARCHAR, 1));
-        String ionText = "{ foo: 31, bar: baz } { foo: 31, bar: \"baz\" }";
-
-        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
-        Location location = Location.of(TEST_ION_LOCATION);
-
-        // by default Ion native Trino integration is disabled
-        HiveConfig hiveConfig = new HiveConfig();
-
-        final ConnectorSession session = getHiveSession(hiveConfig);
-
-        writeIonTextFile(ionText, location, fileSystemFactory.create(session));
-
-        final Optional<ReaderPageSource> pageSource = createReaderPageSource(fileSystemFactory,
-                hiveConfig, location, tableColumns, session);
-
-        Assertions.assertTrue(pageSource.isEmpty(), "Expected empty page source when native Trino is disabled");
-    }
-
     private void assertRowCount(List<HiveColumnHandle> tableColumns, List<HiveColumnHandle> projectedColumns, String ionText, int rowCount)
             throws IOException
     {
-        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
-        Location location = Location.of(TEST_ION_LOCATION);
+        TestFixture fixture = new TestFixture(tableColumns, projectedColumns);
+        fixture.writeIonTextFile(ionText);
 
-        HiveConfig hiveConfig = new HiveConfig();
-        // enable Ion native trino integration for testing while the implementation is in progress
-        hiveConfig.setIonNativeTrinoEnabled(true);
-
-        final ConnectorSession session = getHiveSession(hiveConfig);
-
-        writeIonTextFile(ionText, location, fileSystemFactory.create(session));
-
-        try (ConnectorPageSource pageSource = createConnectorPageSource(fileSystemFactory, hiveConfig, location, tableColumns,
-                projectedColumns, session)) {
-            final MaterializedResult result = MaterializedResult.materializeSourceDataStream(session, pageSource, projectedColumns.stream().map(HiveColumnHandle::getType).toList());
+        try (ConnectorPageSource pageSource = fixture.getPageSource()) {
+            final MaterializedResult result = MaterializedResult.materializeSourceDataStream(
+                    fixture.getSession(),
+                    pageSource,
+                    projectedColumns.stream().map(HiveColumnHandle::getType).toList());
             Assertions.assertEquals(rowCount, result.getRowCount());
         }
     }
 
-    /**
-     * todo: At some point, we might need to combine writeIonTextFile with this method and add logic to write iontext to Page.
-     */
-    private static void writeTestData(ConnectorSession session, TrinoFileSystemFactory fileSystemFactory, Location location, String encoding, List<HiveColumnHandle> tableColumns)
-            throws IOException
+    private static void writeTestData(FileWriter ionFileWriter)
     {
-        FileWriter ionFileWriter = new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER)
-                .createFileWriter(
-                        location,
-                        tableColumns.stream().map(HiveColumnHandle::getName).collect(toList()),
-                        ION.toStorageFormat(),
-                        HiveCompressionCodec.NONE,
-                        getTablePropertiesWithEncoding(tableColumns, encoding),
-                        session,
-                        OptionalInt.empty(),
-                        NO_ACID_TRANSACTION,
-                        false,
-                        WriterKind.INSERT)
-                .orElseThrow();
         ionFileWriter.appendRows(new Page(
                 RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.empty(), new int[] {3}), 1),
                 RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.empty(), new int[] {6}), 1)));
         ionFileWriter.commit();
     }
 
-    private int writeIonTextFile(String ionText, Location location, TrinoFileSystem fileSystem)
-            throws IOException
+    private static class TestFixture
     {
-        final TrinoOutputFile outputFile = fileSystem.newOutputFile(location);
-        int written = 0;
-        try (OutputStream outputStream = outputFile.create()) {
-            byte[] bytes = ionText.getBytes(StandardCharsets.UTF_8);
-            outputStream.write(bytes);
-            outputStream.flush();
-            written = bytes.length;
+        private TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
+        private Location fileLocation = Location.of(TEST_ION_LOCATION);
+        private HiveConfig hiveConfig = new HiveConfig();
+        private Map<String, String> tableProperties = new HashMap<>();
+        private List<HiveColumnHandle> columns;
+        private List<HiveColumnHandle> projections;
+
+        private ConnectorSession session;
+
+        TestFixture(List<HiveColumnHandle> columns)
+        {
+            this(columns, columns);
         }
-        return written;
-    }
 
-    /**
-     * todo: this is very similar to what's in TestOrcPredicates, factor out.
-     */
-    private static ConnectorPageSource createConnectorPageSource(
-            TrinoFileSystemFactory fileSystemFactory,
-            HiveConfig hiveConfig,
-            Location location,
-            List<HiveColumnHandle> tableColumns,
-            List<HiveColumnHandle> projectedColumns,
-            ConnectorSession session)
-            throws IOException
-    {
-        final PageSourceParameters pageSourceParameters = preparePageSourceParameters(
-                fileSystemFactory, hiveConfig, location, tableColumns, projectedColumns, session);
+        TestFixture(List<HiveColumnHandle> columns, List<HiveColumnHandle> projections)
+        {
+            this.columns = columns;
+            this.projections = projections;
+            tableProperties.put(LIST_COLUMNS, columns.stream()
+                    .map(HiveColumnHandle::getName)
+                    .collect(Collectors.joining(",")));
+            tableProperties.put(LIST_COLUMN_TYPES, columns.stream().map(HiveColumnHandle::getHiveType)
+                    .map(HiveType::toString)
+                    .collect(Collectors.joining(",")));
+            // the default at runtime is false, but most of our testing obviously assumes it is enabled.
+            hiveConfig.setIonNativeTrinoEnabled(true);
+        }
 
-        return HivePageSourceProvider.createHivePageSource(
-                        ImmutableSet.of(pageSourceParameters.factory()),
-                        session,
-                        location,
-                        OptionalInt.empty(),
-                        0,
-                        pageSourceParameters.length(),
-                        pageSourceParameters.length(),
-                        pageSourceParameters.nowMillis(),
-                        new Schema(ION.getSerde(), false, pageSourceParameters.tableProperties()),
-                        TupleDomain.all(),
-                        TESTING_TYPE_MANAGER,
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        false,
-                        NO_ACID_TRANSACTION,
-                        pageSourceParameters.columnMappings())
-                .orElseThrow();
-    }
+        TestFixture withEncoding(String encoding)
+        {
+            tableProperties.put(ION_ENCODING_PROPERTY, encoding);
+            return this;
+        }
 
-    private static Optional<ReaderPageSource> createReaderPageSource(TrinoFileSystemFactory fileSystemFactory,
-                                                                     HiveConfig hiveConfig, Location location,
-                                                                     List<HiveColumnHandle> tableColumns,
-                                                                     ConnectorSession session)
-            throws IOException
-    {
-        final PageSourceParameters pageSourceParameters = preparePageSourceParameters(
-                fileSystemFactory, hiveConfig, location, tableColumns, ImmutableList.of(), session);
+        TestFixture withNativeIonDisabled()
+        {
+            hiveConfig.setIonNativeTrinoEnabled(false);
+            return this;
+        }
 
-        return pageSourceParameters.factory().createPageSource(
-                session,
-                location,
-                0,
-                pageSourceParameters.length(),
-                pageSourceParameters.length(),
-                pageSourceParameters.nowMillis(),
-                new Schema(ION.getSerde(), false, pageSourceParameters.tableProperties()),
-                tableColumns,
-                TupleDomain.all(),
-                Optional.empty(),
-                OptionalInt.empty(),
-                false,
-                NO_ACID_TRANSACTION);
-    }
+        Optional<ConnectorPageSource> getOptionalPageSource()
+                throws IOException
+        {
+            IonPageSourceFactory pageSourceFactory = new IonPageSourceFactory(fileSystemFactory, hiveConfig);
 
-    private static PageSourceParameters preparePageSourceParameters(TrinoFileSystemFactory fileSystemFactory,
-                                                                         HiveConfig hiveConfig, Location location,
-                                                                         List<HiveColumnHandle> tableColumns,
-                                                                         List<HiveColumnHandle> projectedColumns,
-                                                                         ConnectorSession session)
-            throws IOException
-    {
-        IonPageSourceFactory factory = new IonPageSourceFactory(fileSystemFactory, hiveConfig);
+            long length = fileSystemFactory.create(getSession()).newInputFile(fileLocation).length();
+            long nowMillis = Instant.now().toEpochMilli();
 
-        long length = fileSystemFactory.create(session).newInputFile(location).length();
-        long nowMillis = Instant.now().toEpochMilli();
+            List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
+                    "",
+                    ImmutableList.of(),
+                    projections,
+                    ImmutableList.of(),
+                    ImmutableMap.of(),
+                    fileLocation.toString(),
+                    OptionalInt.empty(),
+                    length,
+                    nowMillis);
 
-        List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
-                "",
-                ImmutableList.of(),
-                projectedColumns,
-                ImmutableList.of(),
-                ImmutableMap.of(),
-                location.toString(),
-                OptionalInt.empty(),
-                length,
-                nowMillis);
+            return HivePageSourceProvider.createHivePageSource(
+                    ImmutableSet.of(pageSourceFactory),
+                    getSession(),
+                    fileLocation,
+                    OptionalInt.empty(),
+                    0,
+                    length,
+                    length,
+                    nowMillis,
+                    new Schema(ION.getSerde(), false, tableProperties),
+                    TupleDomain.all(),
+                    TESTING_TYPE_MANAGER,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    false,
+                    NO_ACID_TRANSACTION,
+                    columnMappings);
+        }
 
-        return new PageSourceParameters(factory, length, nowMillis, columnMappings, getTablePropertiesWithEncoding(tableColumns, BINARY_ENCODING));
-    }
+        ConnectorPageSource getPageSource()
+                throws IOException
+        {
+            return getOptionalPageSource().orElseThrow();
+        }
 
-    private record PageSourceParameters(IonPageSourceFactory factory, long length, long nowMillis, List<HivePageSourceProvider.ColumnMapping> columnMappings, Map<String, String> tableProperties)
-    { }
+        ConnectorSession getSession()
+        {
+            if (session == null) {
+                session = getHiveSession(hiveConfig);
+            }
+            return session;
+        }
 
-    /**
-     * Creates table properties for IonFileWriter with encoding flag.
-     */
-    private static Map<String, String> getTablePropertiesWithEncoding(List<HiveColumnHandle> tableColumns, String encoding)
-    {
-        return ImmutableMap.<String, String>builder()
-                .put(LIST_COLUMNS, tableColumns.stream().map(HiveColumnHandle::getName).collect(Collectors.joining(",")))
-                .put(LIST_COLUMN_TYPES, tableColumns.stream().map(HiveColumnHandle::getHiveType).map(HiveType::toString).collect(Collectors.joining(",")))
-                .put(ION_ENCODING_PROPERTY, encoding)
-                .buildOrThrow();
+        int writeIonTextFile(String ionText)
+                throws IOException
+        {
+            final TrinoOutputFile outputFile = fileSystemFactory.create(getSession()).newOutputFile(fileLocation);
+            int written = 0;
+            try (OutputStream outputStream = outputFile.create()) {
+                byte[] bytes = ionText.getBytes(StandardCharsets.UTF_8);
+                outputStream.write(bytes);
+                outputStream.flush();
+                written = bytes.length;
+            }
+            return written;
+        }
+
+        FileWriter getFileWriter()
+        {
+            return new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER)
+                    .createFileWriter(
+                            fileLocation,
+                            columns.stream().map(HiveColumnHandle::getName).collect(toList()),
+                            ION.toStorageFormat(),
+                            HiveCompressionCodec.NONE,
+                            tableProperties,
+                            getSession(),
+                            OptionalInt.empty(),
+                            NO_ACID_TRANSACTION,
+                            false,
+                            WriterKind.INSERT)
+                    .orElseThrow();
+        }
+
+        TrinoInputFile getTrinoInputFile()
+        {
+            return fileSystemFactory.create(getSession())
+                    .newInputFile(fileLocation);
+        }
     }
 }
