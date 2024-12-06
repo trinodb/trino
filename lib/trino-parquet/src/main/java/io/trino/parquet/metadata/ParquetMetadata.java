@@ -14,6 +14,7 @@
 package io.trino.parquet.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
@@ -35,7 +36,6 @@ import org.apache.parquet.schema.Types;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.parquet.ParquetMetadataConverter.convertEncodingStats;
 import static io.trino.parquet.ParquetMetadataConverter.getEncoding;
 import static io.trino.parquet.ParquetMetadataConverter.getLogicalTypeAnnotation;
@@ -51,57 +52,53 @@ import static io.trino.parquet.ParquetMetadataConverter.getPrimitive;
 import static io.trino.parquet.ParquetMetadataConverter.toColumnIndexReference;
 import static io.trino.parquet.ParquetMetadataConverter.toOffsetIndexReference;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class ParquetMetadata
 {
     private static final Logger log = Logger.get(ParquetMetadata.class);
 
-    private final FileMetadata fileMetaData;
-    private final List<BlockMetadata> blocks;
+    private final FileMetaData fileMetaData;
+    private final ParquetDataSourceId dataSourceId;
+    private final FileMetadata parquetMetadata;
 
-    public ParquetMetadata(FileMetadata fileMetaData, List<BlockMetadata> blocks)
+    public ParquetMetadata(FileMetaData fileMetaData, ParquetDataSourceId dataSourceId)
+            throws ParquetCorruptionException
     {
-        this.fileMetaData = fileMetaData;
-        this.blocks = blocks;
-    }
-
-    public List<BlockMetadata> getBlocks()
-    {
-        return blocks;
+        this.fileMetaData = requireNonNull(fileMetaData, "fileMetaData is null");
+        this.dataSourceId = requireNonNull(dataSourceId, "dataSourceId is null");
+        this.parquetMetadata = new FileMetadata(readMessageType(), keyValueMetaData(fileMetaData), fileMetaData.getCreated_by());
     }
 
     public FileMetadata getFileMetaData()
     {
-        return fileMetaData;
+        return parquetMetadata;
     }
 
     @Override
     public String toString()
     {
-        return "ParquetMetaData{" + fileMetaData + ", blocks: " + blocks + "}";
+        return "ParquetMetaData{" + fileMetaData + "}";
     }
 
-    public static ParquetMetadata createParquetMetadata(FileMetaData fileMetaData, ParquetDataSourceId dataSourceId)
-            throws ParquetCorruptionException
+    public List<BlockMetadata> getBlocks()
     {
         List<SchemaElement> schema = fileMetaData.getSchema();
-        validateParquet(!schema.isEmpty(), dataSourceId, "Schema is empty");
-
         MessageType messageType = readParquetSchema(schema);
         List<BlockMetadata> blocks = new ArrayList<>();
         List<RowGroup> rowGroups = fileMetaData.getRow_groups();
         if (rowGroups != null) {
             for (RowGroup rowGroup : rowGroups) {
                 List<ColumnChunk> columns = rowGroup.getColumns();
-                validateParquet(!columns.isEmpty(), dataSourceId, "No columns in row group: %s", rowGroup);
+                checkState(!columns.isEmpty(), "No columns in row group: %s [%s]", rowGroup, dataSourceId);
                 String filePath = columns.get(0).getFile_path();
                 ImmutableList.Builder<ColumnChunkMetadata> columnMetadataBuilder = ImmutableList.builderWithExpectedSize(columns.size());
                 for (ColumnChunk columnChunk : columns) {
-                    validateParquet(
+                    checkState(
                             (filePath == null && columnChunk.getFile_path() == null)
                                     || (filePath != null && filePath.equals(columnChunk.getFile_path())),
-                            dataSourceId,
-                            "all column chunks of the same row group must be in the same file");
+                            "all column chunks of the same row group must be in the same file [%s]", dataSourceId);
                     ColumnMetaData metaData = columnChunk.meta_data;
                     String[] path = metaData.path_in_schema.stream()
                             .map(value -> value.toLowerCase(Locale.ENGLISH))
@@ -129,18 +126,7 @@ public class ParquetMetadata
             }
         }
 
-        Map<String, String> keyValueMetaData = new HashMap<>();
-        List<KeyValue> keyValueList = fileMetaData.getKey_value_metadata();
-        if (keyValueList != null) {
-            for (KeyValue keyValue : keyValueList) {
-                keyValueMetaData.put(keyValue.key, keyValue.value);
-            }
-        }
-        FileMetadata parquetFileMetadata = new FileMetadata(
-                messageType,
-                keyValueMetaData,
-                fileMetaData.getCreated_by());
-        return new ParquetMetadata(parquetFileMetadata, blocks);
+        return blocks;
     }
 
     private static MessageType readParquetSchema(List<SchemaElement> schema)
@@ -221,5 +207,26 @@ public class ParquetMetadata
             columnEncodings.add(getEncoding(encoding));
         }
         return Collections.unmodifiableSet(columnEncodings);
+    }
+
+    private MessageType readMessageType()
+            throws ParquetCorruptionException
+    {
+        List<SchemaElement> schema = fileMetaData.getSchema();
+        validateParquet(!schema.isEmpty(), dataSourceId, "Schema is empty");
+
+        Iterator<SchemaElement> schemaIterator = schema.iterator();
+        SchemaElement rootSchema = schemaIterator.next();
+        Types.MessageTypeBuilder builder = Types.buildMessage();
+        readTypeSchema(builder, schemaIterator, rootSchema.getNum_children());
+        return builder.named(rootSchema.name);
+    }
+
+    private static Map<String, String> keyValueMetaData(FileMetaData fileMetaData)
+    {
+        if (fileMetaData.getKey_value_metadata() == null) {
+            return ImmutableMap.of();
+        }
+        return fileMetaData.getKey_value_metadata().stream().collect(toMap(KeyValue::getKey, KeyValue::getValue));
     }
 }
