@@ -139,18 +139,20 @@ public final class IcebergTestUtils
     public static boolean checkParquetFileSorting(TrinoInputFile inputFile, String sortColumnName)
     {
         ParquetMetadata parquetMetadata;
+        List<BlockMetadata> blocks;
         try {
             parquetMetadata = MetadataReader.readFooter(
                     new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats()),
                     Optional.empty());
+            blocks = parquetMetadata.getBlocks();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
 
         Comparable previousMax = null;
-        verify(parquetMetadata.getBlocks().size() > 1, "Test must produce at least two row groups");
-        for (BlockMetadata blockMetaData : parquetMetadata.getBlocks()) {
+        verify(blocks.size() > 1, "Test must produce at least two row groups");
+        for (BlockMetadata blockMetaData : blocks) {
             ColumnChunkMetadata columnMetadata = blockMetaData.columns().stream()
                     .filter(column -> getOnlyElement(column.getPath().iterator()).equalsIgnoreCase(sortColumnName))
                     .collect(onlyElement());

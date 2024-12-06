@@ -87,7 +87,7 @@ public final class MetadataReader
         InputStream metadataStream = buffer.slice(buffer.length() - completeFooterSize, metadataLength).getInput();
 
         FileMetaData fileMetaData = readFileMetaData(metadataStream);
-        ParquetMetadata parquetMetadata = ParquetMetadata.createParquetMetadata(fileMetaData, dataSource.getId());
+        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, dataSource.getId());
         validateFileMetadata(dataSource.getId(), parquetMetadata.getFileMetaData(), parquetWriteValidation);
         return parquetMetadata;
     }
