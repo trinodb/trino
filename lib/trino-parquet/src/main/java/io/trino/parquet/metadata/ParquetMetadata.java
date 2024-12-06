@@ -15,10 +15,12 @@ package io.trino.parquet.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.reader.MetadataReader;
+import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.format.ColumnChunk;
 import org.apache.parquet.format.ColumnMetaData;
@@ -35,6 +37,7 @@ import org.apache.parquet.schema.Type;
 import org.apache.parquet.schema.Types;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -45,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.parquet.ParquetMetadataConverter.convertEncodingStats;
 import static io.trino.parquet.ParquetMetadataConverter.getEncoding;
 import static io.trino.parquet.ParquetMetadataConverter.getLogicalTypeAnnotation;
@@ -82,7 +86,22 @@ public class ParquetMetadata
         return "ParquetMetaData{" + fileMetaData + "}";
     }
 
+    public List<BlockMetadata> getBlocks(Collection<ColumnDescriptor> columnDescriptors)
+    {
+        Set<ColumnPath> paths = columnDescriptors.stream()
+                .map(ColumnDescriptor::getPath)
+                .map(ColumnPath::get)
+                .collect(toImmutableSet());
+
+        return buildBlocks(paths);
+    }
+
     public List<BlockMetadata> getBlocks()
+    {
+        return getBlocks(ImmutableSet.of());
+    }
+
+    private List<BlockMetadata> buildBlocks(Set<ColumnPath> paths)
     {
         List<SchemaElement> schema = fileMetaData.getSchema();
         MessageType messageType = readParquetSchema(schema);
@@ -104,6 +123,9 @@ public class ParquetMetadata
                             .map(value -> value.toLowerCase(Locale.ENGLISH))
                             .toArray(String[]::new);
                     ColumnPath columnPath = ColumnPath.get(path);
+                    if (!paths.isEmpty() && !paths.contains(columnPath)) {
+                        continue;
+                    }
                     PrimitiveType primitiveType = messageType.getType(columnPath.toArray()).asPrimitiveType();
                     ColumnChunkMetadata column = ColumnChunkMetadata.get(
                             columnPath,
