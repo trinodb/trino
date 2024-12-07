@@ -40,6 +40,7 @@ public class IcebergMetadataFactory
     private final Optional<HiveMetastoreFactory> metastoreFactory;
     private final boolean addFilesProcedureEnabled;
     private final Predicate<String> allowedExtraProperties;
+    private final int metadataParallelism;
 
     @Inject
     public IcebergMetadataFactory(
@@ -66,6 +67,7 @@ public class IcebergMetadataFactory
         else {
             this.allowedExtraProperties = ImmutableSet.copyOf(requireNonNull(config.getAllowedExtraProperties(), "allowedExtraProperties is null"))::contains;
         }
+        this.metadataParallelism = config.getMetadataParallelism();
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
@@ -79,6 +81,6 @@ public class IcebergMetadataFactory
                 tableStatisticsWriter,
                 metastoreFactory,
                 addFilesProcedureEnabled,
-                allowedExtraProperties);
+                allowedExtraProperties, metadataParallelism);
     }
 }
