@@ -34,7 +34,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
  * Trino with Apache Ranger authorizer plugin
  */
 @TestsEnvironment
-public class EnvMultinodeApacheRanger
+public class EnvMultinodeRanger
         extends EnvironmentProvider
 {
     public static final int MARIADB_PORT = 23306;
@@ -43,7 +43,7 @@ public class EnvMultinodeApacheRanger
     private final PortBinder portBinder;
 
     @Inject
-    public EnvMultinodeApacheRanger(StandardMultinode standardMultinode, DockerFiles dockerFiles, PortBinder portBinder)
+    public EnvMultinodeRanger(StandardMultinode standardMultinode, DockerFiles dockerFiles, PortBinder portBinder)
     {
         super(standardMultinode);
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
@@ -53,7 +53,7 @@ public class EnvMultinodeApacheRanger
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        DockerFiles.ResourceProvider configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-apache-ranger/");
+        DockerFiles.ResourceProvider configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-ranger/");
 
         builder.addConnector("mariadb", forHostPath(configDir.getPath("mariadb.properties")));
         builder.addContainer(createMariaDb());
@@ -62,13 +62,13 @@ public class EnvMultinodeApacheRanger
         builder.configureContainer(COORDINATOR, container -> container.withCopyFileToContainer(forHostPath(configDir.getPath("ranger-trino-security.xml")), CONTAINER_TRINO_ETC + "/ranger-trino-security.xml"));
         builder.configureContainer(COORDINATOR, container -> container.withCopyFileToContainer(forHostPath(configDir.getPath("ranger-trino-audit.xml")), CONTAINER_TRINO_ETC + "/ranger-trino-audit.xml"));
         builder.configureContainer(COORDINATOR, container -> container.withCopyFileToContainer(forHostPath(configDir.getPath("ranger-policymgr-ssl.xml")), CONTAINER_TRINO_ETC + "/ranger-policymgr-ssl.xml"));
-        builder.configureContainer(COORDINATOR, container -> container.withCopyFileToContainer(forHostPath(configDir.getPath("trino-policies.json")), "/tmp/apache-ranger-policycache/trino_dev_trino.json"));
+        builder.configureContainer(COORDINATOR, container -> container.withCopyFileToContainer(forHostPath(configDir.getPath("trino-policies.json")), "/tmp/ranger-policycache/trino_dev_trino.json"));
 
         builder.configureContainer(WORKER, container -> container.withCopyFileToContainer(forHostPath(configDir.getPath("access-control.properties")), CONTAINER_TRINO_ETC + "/access-control.properties"));
         builder.configureContainer(WORKER, container -> container.withCopyFileToContainer(forHostPath(configDir.getPath("ranger-trino-security.xml")), CONTAINER_TRINO_ETC + "/ranger-trino-security.xml"));
         builder.configureContainer(WORKER, container -> container.withCopyFileToContainer(forHostPath(configDir.getPath("ranger-trino-audit.xml")), CONTAINER_TRINO_ETC + "/ranger-trino-audit.xml"));
         builder.configureContainer(WORKER, container -> container.withCopyFileToContainer(forHostPath(configDir.getPath("ranger-policymgr-ssl.xml")), CONTAINER_TRINO_ETC + "/ranger-policymgr-ssl.xml"));
-        builder.configureContainer(WORKER, container -> container.withCopyFileToContainer(forHostPath(configDir.getPath("trino-policies.json")), "/tmp/apache-ranger-policycache/trino_dev_trino.json"));
+        builder.configureContainer(WORKER, container -> container.withCopyFileToContainer(forHostPath(configDir.getPath("trino-policies.json")), "/tmp/ranger-policycache/trino_dev_trino.json"));
     }
 
     private DockerContainer createMariaDb()

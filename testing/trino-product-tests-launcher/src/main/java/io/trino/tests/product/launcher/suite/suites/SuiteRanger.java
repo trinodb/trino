@@ -15,7 +15,7 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeApacheRanger;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeRanger;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -23,15 +23,15 @@ import java.util.List;
 
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
-public class SuiteApacheRanger
+public class SuiteRanger
         extends Suite
 {
     @Override
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
-                testOnEnvironment(EnvMultinodeApacheRanger.class)
-                        .withGroups("configured_features", "apache-ranger")
+                testOnEnvironment(EnvMultinodeRanger.class)
+                        .withGroups("configured_features", "ranger")
                         .build());
     }
 }
