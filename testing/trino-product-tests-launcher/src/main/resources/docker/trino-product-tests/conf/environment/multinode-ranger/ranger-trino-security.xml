@@ -39,7 +39,7 @@
 
     <property>
         <name>ranger.plugin.trino.policy.cache.dir</name>
-        <value>/tmp/apache-ranger-policycache</value>
+        <value>/tmp/ranger-policycache</value>
         <description>
             Directory where Ranger policies are cached after successful retrieval from the source
         </description>
