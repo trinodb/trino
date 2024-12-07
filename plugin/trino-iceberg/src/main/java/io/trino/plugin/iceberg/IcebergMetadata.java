@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -443,7 +444,10 @@ public class IcebergMetadata
             this.executorService = directExecutor();
         }
         else {
-            this.executorService = Executors.newFixedThreadPool(metadataParallelism);
+            this.executorService = Executors.newFixedThreadPool(metadataParallelism, new ThreadFactoryBuilder()
+                    .setNameFormat("iceberg-metadata-pool-%d")
+                    .setDaemon(true) // Optional: Makes threads daemon threads.
+                    .build());
         }
     }
 
