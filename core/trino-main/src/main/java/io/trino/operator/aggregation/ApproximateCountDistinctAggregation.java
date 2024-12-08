@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.trino.operator.aggregation.state.HyperLogLogState;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
@@ -30,9 +31,12 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.Type;
+import io.trino.type.StreamType;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -112,6 +116,7 @@ public final class ApproximateCountDistinctAggregation
     @InputFunction
     @TypeParameter("T")
     public static void input(
+            @TypeParameter("T") Type type,
             @OperatorDependency(
                     operator = XX_HASH_64,
                     argumentTypes = "T",
@@ -123,14 +128,22 @@ public final class ApproximateCountDistinctAggregation
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state, maxStandardError);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
-        long hash;
         try {
-            hash = (long) methodHandle.invoke(value);
+            if (type instanceof StreamType streamType) {
+                checkArgument(value instanceof Block, "value must be a Block");
+                for (Block block : streamType.blockValueIterable((Block) value, 0)) {
+                    long hash = (long) methodHandle.invokeExact(block);
+                    hll.addHash(hash);
+                }
+            }
+            else {
+                long hash = (long) methodHandle.invoke(value);
+                hll.addHash(hash);
+            }
         }
         catch (Throwable t) {
             throw internalError(t);
         }
-        hll.addHash(hash);
         state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
