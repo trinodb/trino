@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -164,18 +163,6 @@ public class TestPageSplitterUtil
         public long getRetainedSizeInBytes()
         {
             return delegate.getRetainedSizeInBytes();
-        }
-
-        @Override
-        public OptionalInt fixedSizeInBytesPerPosition()
-        {
-            return OptionalInt.empty();
-        }
-
-        @Override
-        public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
-        {
-            return delegate.getPositionsSizeInBytes(positions, selectedPositionsCount);
         }
 
         @Override

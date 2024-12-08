@@ -45,7 +45,6 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.util.Arrays.fill;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -238,14 +237,6 @@ public abstract class AbstractTestBlock
         long expectedSecondHalfSize = getCompactedBlockSizeInBytes(secondHalf);
         assertThat(secondHalf.getSizeInBytes()).isEqualTo(expectedSecondHalfSize);
         assertThat(block.getRegionSizeInBytes(firstHalf.getPositionCount(), secondHalf.getPositionCount())).isEqualTo(expectedSecondHalfSize);
-
-        boolean[] positions = new boolean[block.getPositionCount()];
-        fill(positions, 0, firstHalf.getPositionCount(), true);
-        assertThat(block.getPositionsSizeInBytes(positions, firstHalf.getPositionCount())).isEqualTo(expectedFirstHalfSize);
-        fill(positions, true);
-        assertThat(block.getPositionsSizeInBytes(positions, positions.length)).isEqualTo(expectedBlockSize);
-        fill(positions, 0, firstHalf.getPositionCount(), false);
-        assertThat(block.getPositionsSizeInBytes(positions, positions.length - firstHalf.getPositionCount())).isEqualTo(expectedSecondHalfSize);
     }
 
     private <T> void assertBlockPosition(Block block, int position, T expectedValue)
