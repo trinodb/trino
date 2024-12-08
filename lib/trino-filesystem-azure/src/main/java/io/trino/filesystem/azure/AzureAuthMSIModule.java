@@ -13,13 +13,19 @@
  */
 package io.trino.filesystem.azure;
 
-import com.azure.storage.blob.BlobContainerClientBuilder;
-import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-public sealed interface AzureAuth
-        permits AzureAuthAccessKey, AzureAuthDefault, AzureAuthOauth, AzureAuthMSI
+import static io.airlift.configuration.ConfigBinder.configBinder;
+
+public class AzureAuthMSIModule
+        implements Module
 {
-    void setAuth(String storageAccount, BlobContainerClientBuilder builder);
-
-    void setAuth(String storageAccount, DataLakeServiceClientBuilder builder);
+    @Override
+    public void configure(Binder binder)
+    {
+        configBinder(binder).bindConfig(AzureAuthMSIConfig.class);
+        binder.bind(AzureAuth.class).to(AzureAuthMSI.class).in(Scopes.SINGLETON);
+    }
 }

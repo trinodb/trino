@@ -13,13 +13,23 @@
  */
 package io.trino.filesystem.azure;
 
-import com.azure.storage.blob.BlobContainerClientBuilder;
-import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
+import io.airlift.configuration.Config;
+import jakarta.validation.constraints.NotEmpty;
 
-public sealed interface AzureAuth
-        permits AzureAuthAccessKey, AzureAuthDefault, AzureAuthOauth, AzureAuthMSI
+public class AzureAuthMSIConfig
 {
-    void setAuth(String storageAccount, BlobContainerClientBuilder builder);
+    private String clientId;
 
-    void setAuth(String storageAccount, DataLakeServiceClientBuilder builder);
+    @NotEmpty
+    public String getClientId()
+    {
+        return clientId;
+    }
+
+    @Config("azure.msi.client-id")
+    public AzureAuthMSIConfig setClientId(String clientId)
+    {
+        this.clientId = clientId;
+        return this;
+    }
 }
