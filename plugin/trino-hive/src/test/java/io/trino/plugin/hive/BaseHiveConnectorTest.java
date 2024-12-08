@@ -353,6 +353,14 @@ public abstract class BaseHiveConnectorTest
 
     @Test
     @Override
+    public void testUpdateWithNullValues()
+    {
+        assertThatThrownBy(super::testUpdateWithNullValues)
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+    }
+
+    @Test
+    @Override
     public void testRowLevelUpdate()
     {
         assertThatThrownBy(super::testRowLevelUpdate)
