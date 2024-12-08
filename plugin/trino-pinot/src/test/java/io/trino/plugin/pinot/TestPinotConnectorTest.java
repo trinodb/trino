@@ -79,6 +79,7 @@ public class TestPinotConnectorTest
                 .row("clerk", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment", "varchar", "", "")
                 .row("custkey", "bigint", "", "") // Long columns are reported as bigint
+                .row("json", "json", "", "")
                 .row("orderdate", "date", "", "")
                 .row("orderkey", "bigint", "", "")
                 .row("orderpriority", "varchar", "", "")
@@ -106,18 +107,19 @@ public class TestPinotConnectorTest
     protected @Language("SQL") String getOrdersTableWithColumns()
     {
         return """
-               VALUES
-                   ('orders', 'orderkey'),
-                   ('orders', 'custkey'),
-                   ('orders', 'orderstatus'),
-                   ('orders', 'totalprice'),
-                   ('orders', 'orderdate'),
-                   ('orders', 'updated_at_seconds'),
-                   ('orders', 'orderpriority'),
-                   ('orders', 'clerk'),
-                   ('orders', 'shippriority'),
-                   ('orders', 'comment')
-               """;
+                VALUES
+                    ('orders', 'orderkey'),
+                    ('orders', 'custkey'),
+                    ('orders', 'json'),
+                    ('orders', 'orderstatus'),
+                    ('orders', 'totalprice'),
+                    ('orders', 'orderdate'),
+                    ('orders', 'updated_at_seconds'),
+                    ('orders', 'orderpriority'),
+                    ('orders', 'clerk'),
+                    ('orders', 'shippriority'),
+                    ('orders', 'comment')
+                """;
     }
 
     @Test
@@ -131,6 +133,7 @@ public class TestPinotConnectorTest
                            clerk varchar,
                            comment varchar,
                            custkey bigint,
+                           json json,
                            orderdate date,
                            orderkey bigint,
                            orderpriority varchar,
