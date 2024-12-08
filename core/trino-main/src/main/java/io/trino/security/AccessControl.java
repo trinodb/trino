@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.QueryId;
+import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnSchema;
@@ -33,10 +35,12 @@ import io.trino.spi.security.ViewExpression;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 
 public interface AccessControl
@@ -147,7 +151,9 @@ public interface AccessControl
      * Check if identity is allowed to change the specified schema's user/role.
      *
      * @throws AccessDeniedException if not allowed
+     * @deprecated use {@link #checkCanSetEntityAuthorization}
      */
+    @Deprecated
     void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, TrinoPrincipal principal);
 
     /**
@@ -286,7 +292,9 @@ public interface AccessControl
      * Check if identity is allowed to change the specified table's user/role.
      *
      * @throws AccessDeniedException if not allowed
+     * @deprecated use {@link #checkCanSetEntityAuthorization}
      */
+    @Deprecated
     void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, TrinoPrincipal principal);
 
     /**
@@ -342,7 +350,9 @@ public interface AccessControl
      * Check if identity is allowed to change the specified view's user/role.
      *
      * @throws AccessDeniedException if not allowed
+     * @deprecated use {@link #checkCanSetEntityAuthorization}
      */
+    @Deprecated
     default void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, TrinoPrincipal principal)
     {
         denySetViewAuthorization(view.toString(), principal);
@@ -619,5 +629,25 @@ public interface AccessControl
     default Map<ColumnSchema, ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, List<ColumnSchema> columns)
     {
         return ImmutableMap.of();
+    }
+
+    default void checkCanSetEntityAuthorization(SecurityContext context, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        switch (ownedKind.toUpperCase(Locale.ENGLISH)) {
+            case "SCHEMA":
+                checkArgument(name.size() == 2, "Schema name %s must have two components", name);
+                checkCanSetSchemaAuthorization(context, new CatalogSchemaName(name.get(0), name.get(1)), principal);
+                break;
+            case "TABLE":
+                checkArgument(name.size() == 3, "Table name %s must have 3 components", name);
+                checkCanSetTableAuthorization(context, new QualifiedObjectName(name.get(0), name.get(1), name.get(2)), principal);
+                break;
+            case "VIEW":
+                checkArgument(name.size() == 3, "View name %s must have 3 components", name);
+                checkCanSetTableAuthorization(context, new QualifiedObjectName(name.get(0), name.get(1), name.get(2)), principal);
+                break;
+            default:
+                throw new TrinoException(StandardErrorCode.INVALID_ENTITY_KIND, "Unknown entity kind " + ownedKind);
+        }
     }
 }
