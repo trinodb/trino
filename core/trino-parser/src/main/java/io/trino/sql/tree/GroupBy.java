@@ -20,37 +20,61 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.sql.tree.GroupBy.Type.ASTERISK;
+import static io.trino.sql.tree.GroupBy.Type.DISTINCT;
 import static java.util.Objects.requireNonNull;
 
 public class GroupBy
         extends Node
 {
-    private final boolean isDistinct;
+    public enum Type
+    {
+        DISTINCT,
+        ALL,
+        ASTERISK,
+        /**/
+    }
+
+    private final Optional<Type> type;
     private final List<GroupingElement> groupingElements;
 
     @Deprecated
-    public GroupBy(boolean isDistinct, List<GroupingElement> groupingElements)
+    public GroupBy(Optional<Type> type, List<GroupingElement> groupingElements)
     {
-        this(Optional.empty(), isDistinct, groupingElements);
+        this(Optional.empty(), type, groupingElements);
     }
 
-    private GroupBy(Optional<NodeLocation> location, boolean isDistinct, List<GroupingElement> groupingElements)
+    private GroupBy(Optional<NodeLocation> location, Optional<Type> type, List<GroupingElement> groupingElements)
     {
         super(location);
-        this.isDistinct = isDistinct;
+        this.type = requireNonNull(type, "type is null");
         this.groupingElements = ImmutableList.copyOf(requireNonNull(groupingElements));
+        if (type.isPresent() && type.get() != ASTERISK) {
+            checkArgument(!groupingElements.isEmpty(), "groupingElements must not be empty");
+        }
     }
 
-    public GroupBy(NodeLocation location, boolean isDistinct, List<GroupingElement> groupingElements)
+    public Optional<Type> getType()
+    {
+        return type;
+    }
+
+    public GroupBy(NodeLocation location, Optional<Type> type, List<GroupingElement> groupingElements)
     {
         super(location);
-        this.isDistinct = isDistinct;
+        this.type = requireNonNull(type, "type is null");
         this.groupingElements = ImmutableList.copyOf(groupingElements);
     }
 
     public boolean isDistinct()
     {
-        return isDistinct;
+        return type.isPresent() && type.get() == DISTINCT;
+    }
+
+    public boolean isAsterisk()
+    {
+        return type.isPresent() && type.get() == ASTERISK;
     }
 
     public List<GroupingElement> getGroupingElements()
@@ -80,21 +104,21 @@ public class GroupBy
             return false;
         }
         GroupBy groupBy = (GroupBy) o;
-        return isDistinct == groupBy.isDistinct &&
+        return Objects.equals(type, groupBy.type) &&
                 Objects.equals(groupingElements, groupBy.groupingElements);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(isDistinct, groupingElements);
+        return Objects.hash(type, groupingElements);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("isDistinct", isDistinct)
+                .add("type", type.orElse(null))
                 .add("groupingElements", groupingElements)
                 .toString();
     }
@@ -106,6 +130,6 @@ public class GroupBy
             return false;
         }
 
-        return isDistinct == ((GroupBy) other).isDistinct;
+        return type.equals(((GroupBy) other).type);
     }
 }
