@@ -15,24 +15,27 @@ package io.trino.spi.type;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Base64;
+
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlVarbinary
 {
     @Test
-    public void testToString()
+    public void testToHexString()
     {
         for (int lines = 0; lines < 5; lines++) {
             for (int lastLineBytes = 0; lastLineBytes < 32; lastLineBytes++) {
                 byte[] bytes = createBytes(lines, lastLineBytes);
-                String expected = simpleToString(bytes);
-                assertThat(expected).isEqualTo(new SqlVarbinary(bytes).toString());
+                String expectedHex = simpleToHex(bytes);
+                assertThat(expectedHex).isEqualTo(new SqlVarbinary(bytes).toHexString());
+                assertThat(Base64.getEncoder().encodeToString(bytes)).isEqualTo(new SqlVarbinary(bytes).toString());
             }
         }
     }
 
-    private static String simpleToString(byte[] bytes)
+    private static String simpleToHex(byte[] bytes)
     {
         StringBuilder builder = new StringBuilder();
 
