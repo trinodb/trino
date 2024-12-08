@@ -27,6 +27,7 @@ import io.trino.client.StatementClient;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
 import java.sql.Array;
@@ -47,6 +48,7 @@ import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
 import java.time.ZoneId;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -85,6 +87,8 @@ public class TrinoConnection
 {
     private static final Logger logger = Logger.getLogger(TrinoConnection.class.getPackage().getName());
 
+    private static final int CONNECTION_TIMEOUT = 30; // Not configurable
+
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
     private final AtomicInteger isolationLevel = new AtomicInteger(TRANSACTION_READ_UNCOMMITTED);
@@ -119,8 +123,10 @@ public class TrinoConnection
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
     private boolean useExplicitPrepare = true;
     private boolean assumeNullCatalogMeansCurrentCatalog;
+    private final boolean validateConnection;
 
     TrinoConnection(TrinoDriverUri uri, Call.Factory httpCallFactory, Call.Factory segmentHttpCallFactory)
+            throws SQLException
     {
         requireNonNull(uri, "uri is null");
         this.jdbcUri = uri.getUri();
@@ -156,6 +162,21 @@ public class TrinoConnection
 
         uri.getExplicitPrepare().ifPresent(value -> this.useExplicitPrepare = value);
         uri.getAssumeNullCatalogMeansCurrentCatalog().ifPresent(value -> this.assumeNullCatalogMeansCurrentCatalog = value);
+
+        this.validateConnection = uri.isValidateConnection();
+        if (validateConnection) {
+            StatementClient stmtClient = createStatementClient(null, Collections.emptyMap());
+            int timeout = Math.min(CONNECTION_TIMEOUT, networkTimeoutMillis.get() / 1000);
+
+            try {
+                if (!stmtClient.validateCredentials(timeout)) {
+                    throw new SQLException("Invalid authorization specification.", "28000");
+                }
+            }
+            catch (UnsupportedOperationException | IOException e) {
+                throw new SQLException("Unable to connect.", "08001", e);
+            }
+        }
     }
 
     @Override
@@ -526,9 +547,34 @@ public class TrinoConnection
             throws SQLException
     {
         if (timeout < 0) {
-            throw new SQLException("Timeout is negative");
+            throw new SQLException("Timeout is negative.");
         }
-        return !isClosed();
+
+        if (isClosed()) {
+            return false;
+        }
+
+        StatementClient stmtClient = createStatementClient(null, Collections.emptyMap());
+        int effectiveTimeout = 0;
+        if (timeout == 0) {
+            effectiveTimeout = networkTimeoutMillis.get() / 1000;
+        }
+        else {
+            effectiveTimeout = Math.min(CONNECTION_TIMEOUT, networkTimeoutMillis.get() / 1000);
+        }
+
+        try {
+            return stmtClient.validateCredentials(effectiveTimeout);
+        }
+        catch (UnsupportedOperationException e) {
+            // Backward compatible with older Trino server
+            logger.log(Level.FINE, "Remote server does not support validating connection, return false.", e);
+            return true;
+        }
+        catch (IOException e) {
+            logger.log(Level.FINE, "Validating connection failed, return false.", e);
+            return false;
+        }
     }
 
     @Override
@@ -742,43 +788,10 @@ public class TrinoConnection
 
     StatementClient startQuery(String sql, Map<String, String> sessionPropertiesOverride)
     {
-        String source = getActualSource();
+        requireNonNull(sql, "sql is null.");
 
-        Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
-                .split(nullToEmpty(clientInfo.get(CLIENT_TAGS)));
-
-        Map<String, String> allProperties = new HashMap<>(sessionProperties);
-        allProperties.putAll(sessionPropertiesOverride);
-
-        // zero means no timeout, so use a huge value that is effectively unlimited
-        int millis = networkTimeoutMillis.get();
-        Duration timeout = (millis > 0) ? new Duration(millis, MILLISECONDS) : new Duration(999, DAYS);
-
-        ClientSession session = ClientSession.builder()
-                .server(httpUri)
-                .user(user)
-                .sessionUser(sessionUser.get())
-                .authorizationUser(Optional.ofNullable(authorizationUser.get()))
-                .source(source)
-                .traceToken(Optional.ofNullable(clientInfo.get(TRACE_TOKEN)))
-                .clientTags(ImmutableSet.copyOf(clientTags))
-                .clientInfo(clientInfo.get(CLIENT_INFO))
-                .catalog(catalog.get())
-                .schema(schema.get())
-                .path(path.get())
-                .timeZone(timeZoneId.get())
-                .locale(locale.get())
-                .properties(ImmutableMap.copyOf(allProperties))
-                .preparedStatements(ImmutableMap.copyOf(preparedStatements))
-                .roles(ImmutableMap.copyOf(roles))
-                .credentials(extraCredentials)
-                .transactionId(transactionId.get())
-                .clientRequestTimeout(timeout)
-                .compressionDisabled(compressionDisabled)
-                .encoding(encoding)
-                .build();
-
-        return newStatementClient(httpCallFactory, segmentHttpCallFactory, session, sql);
+        StatementClient stmtClient = createStatementClient(sql, sessionPropertiesOverride);
+        return stmtClient;
     }
 
     void updateSession(StatementClient client)
@@ -899,6 +912,47 @@ public class TrinoConnection
             source = applicationName;
         }
         return source;
+    }
+
+    private StatementClient createStatementClient(String sql, Map<String, String> sessionPropertiesOverride)
+    {
+        String source = getActualSource();
+
+        Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
+                .split(nullToEmpty(clientInfo.get(CLIENT_TAGS)));
+
+        Map<String, String> allProperties = new HashMap<>(sessionProperties);
+        allProperties.putAll(sessionPropertiesOverride);
+
+        // zero means no timeout, so use a huge value that is effectively unlimited
+        int millis = networkTimeoutMillis.get();
+        Duration timeout = (millis > 0) ? new Duration(millis, MILLISECONDS) : new Duration(999, DAYS);
+
+        ClientSession session = ClientSession.builder()
+                .server(httpUri)
+                .user(user)
+                .sessionUser(sessionUser.get())
+                .authorizationUser(Optional.ofNullable(authorizationUser.get()))
+                .source(source)
+                .traceToken(Optional.ofNullable(clientInfo.get(TRACE_TOKEN)))
+                .clientTags(ImmutableSet.copyOf(clientTags))
+                .clientInfo(clientInfo.get(CLIENT_INFO))
+                .catalog(catalog.get())
+                .schema(schema.get())
+                .path(path.get())
+                .timeZone(timeZoneId.get())
+                .locale(locale.get())
+                .properties(ImmutableMap.copyOf(allProperties))
+                .preparedStatements(ImmutableMap.copyOf(preparedStatements))
+                .roles(ImmutableMap.copyOf(roles))
+                .credentials(extraCredentials)
+                .transactionId(transactionId.get())
+                .clientRequestTimeout(timeout)
+                .compressionDisabled(compressionDisabled)
+                .encoding(encoding)
+                .build();
+
+        return newStatementClient(httpCallFactory, segmentHttpCallFactory, session, sql);
     }
 
     private static final class SqlExceptionHolder

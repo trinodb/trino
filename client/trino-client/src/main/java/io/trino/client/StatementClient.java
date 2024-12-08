@@ -16,6 +16,7 @@ package io.trino.client;
 import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,12 @@ public interface StatementClient
     boolean isClientError();
 
     boolean isFinished();
+
+    default boolean validateCredentials(int timeout)
+            throws IOException
+    {
+        return true;
+    }
 
     StatementStats getStats();
 

@@ -28,6 +28,7 @@ import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.Request;
 import okhttp3.RequestBody;
+import okhttp3.Response;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -45,6 +46,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -60,6 +62,7 @@ import static io.trino.client.HttpStatusCodes.shouldRetry;
 import static io.trino.client.JsonCodec.jsonCodec;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static java.lang.String.format;
+import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static java.util.Arrays.stream;
@@ -80,6 +83,7 @@ class StatementClientV1
     private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
 
     private final Call.Factory httpCallFactory;
+    private final ClientSession session;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final AtomicReference<ResultRows> currentRows = new AtomicReference<>();
@@ -111,10 +115,10 @@ class StatementClientV1
     {
         requireNonNull(httpCallFactory, "httpCallFactory is null");
         requireNonNull(session, "session is null");
-        requireNonNull(query, "query is null");
 
         this.httpCallFactory = httpCallFactory;
         this.timeZone = session.getTimeZone();
+        this.session = session;
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
         this.user = Stream.of(session.getAuthorizationUser(), session.getSessionUser(), session.getUser())
@@ -132,13 +136,31 @@ class StatementClientV1
 
         this.resultRowsDecoder = new ResultRowsDecoder(new OkHttpSegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null")));
 
-        Request request = buildQueryRequest(session, query, session.getEncoding());
-        // Pass empty as materializedJsonSizeLimit to always materialize the first response
-        // to avoid losing the response body if the initial response parsing fails
-        executeRequest(request, "starting query", OptionalLong.empty(), this::isTransient);
+        if (query != null) {
+            Request request = buildQueryRequest(query);
+            // Pass empty as materializedJsonSizeLimit to always materialize the first response
+            // to avoid losing the response body if the initial response parsing fails
+            executeRequest(request, "starting query", OptionalLong.empty(), this::isTransient);
+        }
     }
 
-    private Request buildQueryRequest(ClientSession session, String query, Optional<String> requestedEncoding)
+    private Request buildQueryRequest(String query)
+    {
+        Request.Builder builder = createRequestBuilder();
+        builder.post(RequestBody.create(query, MEDIA_TYPE_TEXT));
+
+        return builder.build();
+    }
+
+    private Request buildValidationRequest()
+    {
+        Request.Builder builder = createRequestBuilder();
+        builder.head();
+
+        return builder.build();
+    }
+
+    private Request.Builder createRequestBuilder()
     {
         HttpUrl url = HttpUrl.get(session.getServer());
         if (url == null) {
@@ -146,8 +168,7 @@ class StatementClientV1
         }
         url = url.newBuilder().encodedPath("/v1/statement").build();
 
-        Request.Builder builder = prepareRequest(url)
-                .post(RequestBody.create(query, MEDIA_TYPE_TEXT));
+        Request.Builder builder = prepareRequest(url);
 
         if (session.getSource() != null) {
             builder.addHeader(TRINO_HEADERS.requestSource(), session.getSource());
@@ -200,9 +221,9 @@ class StatementClientV1
 
         builder.addHeader(TRINO_HEADERS.requestClientCapabilities(), clientCapabilities);
 
-        requestedEncoding.ifPresent(encoding -> builder.addHeader(TRINO_HEADERS.requestQueryDataEncoding(), encoding));
+        session.getEncoding().ifPresent(encoding -> builder.addHeader(TRINO_HEADERS.requestQueryDataEncoding(), encoding));
 
-        return builder.build();
+        return builder;
     }
 
     @Override
@@ -239,6 +260,63 @@ class StatementClientV1
     public boolean isFinished()
     {
         return state.get() == State.FINISHED;
+    }
+
+    @Override
+    public boolean validateCredentials(int timeout)
+            throws IOException
+    {
+        if (timeout <= 0) {
+            throw new IllegalArgumentException(String.format("Timeout is less than or equal to 0, %s <= 0", timeout));
+        }
+
+        Request request = buildValidationRequest();
+        Exception cause = null;
+        Duration timeoutDuration = new Duration(timeout, TimeUnit.SECONDS);
+        long start = System.nanoTime();
+        long attempts = 0;
+
+        while (true) {
+            if (isClientAborted()) {
+                return false;
+            }
+
+            if (attempts > 0) {
+                Duration sinceStart = Duration.nanosSince(start);
+                if (sinceStart.compareTo(timeoutDuration) > 0) {
+                    throw new IOException(format("ValidateCredentials timed out after %s. Last error: %s.", sinceStart,
+                            cause == null ? "null" : cause.getClass().getName()), cause);
+                }
+                try {
+                    MILLISECONDS.sleep(attempts * 100);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+            attempts++;
+
+            try (Response response = httpCallFactory.newCall(request).execute()) {
+                switch (response.code()) {
+                    case HTTP_OK:
+                        return true;
+                    case HTTP_UNAUTHORIZED:
+                        return false;
+                    case HTTP_BAD_METHOD:
+                        throw new UnsupportedOperationException("Target server does not support HEAD ./v1/statement");
+                    default:
+                        throw new IOException(String.format("Unexpected HTTP status code %d returned from HEAD " +
+                                "./v1/statement", response.code()));
+                }
+            }
+            catch (IOException e) {
+                if (!isTransient(e)) {
+                    throw e;
+                }
+                cause = e;
+            }
+        }
     }
 
     @Override

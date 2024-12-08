@@ -386,7 +386,7 @@ public class Query
         if (debug && (error.getFailureInfo() != null)) {
             error.getFailureInfo().toException().printStackTrace(out);
         }
-        if (error.getErrorLocation() != null) {
+        if (client.getQuery() != null && error.getErrorLocation() != null) {
             renderErrorLocation(client.getQuery(), error.getErrorLocation(), out);
         }
         out.println();
