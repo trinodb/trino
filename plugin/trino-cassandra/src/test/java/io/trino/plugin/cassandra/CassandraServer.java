@@ -63,7 +63,7 @@ public class CassandraServer
     public CassandraServer()
             throws Exception
     {
-        this("cassandra:3.0", "cu-cassandra.yaml");
+        this("cassandra:4.0", "cu-cassandra.yaml");
     }
 
     public CassandraServer(String imageName, String configFileName)

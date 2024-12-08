@@ -55,7 +55,7 @@ public final class EnvMultinodeCassandra
 
     private DockerContainer createCassandra()
     {
-        DockerContainer container = new DockerContainer("cassandra:3.9", "cassandra")
+        DockerContainer container = new DockerContainer("cassandra:4.0", "cassandra")
                 .withEnv("HEAP_NEWSIZE", "128M")
                 .withEnv("MAX_HEAP_SIZE", "512M")
                 .withCommand(
