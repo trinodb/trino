@@ -28,6 +28,7 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordSet;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -167,7 +168,7 @@ public class ThriftIndexPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (finished) {
             return null;
@@ -214,7 +215,7 @@ public class ThriftIndexPageSource
             // can get more data
             sendDataRequest(resultContext, pageResult.getNextToken());
             updateSignalAndStatusFutures();
-            return page;
+            return SourcePage.create(page);
         }
 
         // are there more splits available
@@ -233,7 +234,10 @@ public class ThriftIndexPageSource
             statusFuture = null;
             finished = true;
         }
-        return page;
+        if (page == null) {
+            return null;
+        }
+        return SourcePage.create(page);
     }
 
     private boolean loadAllSplits()

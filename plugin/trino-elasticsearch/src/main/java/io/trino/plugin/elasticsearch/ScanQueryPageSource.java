@@ -23,6 +23,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -151,7 +152,7 @@ public class ScanQueryPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         long size = 0;
         while (size < PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES && iterator.hasNext()) {
@@ -178,7 +179,7 @@ public class ScanQueryPageSource
             columnBuilders[i] = columnBuilders[i].newBlockBuilderLike(null);
         }
 
-        return new Page(blocks);
+        return SourcePage.create(new Page(blocks));
     }
 
     public static Object getField(Map<String, Object> document, String field)

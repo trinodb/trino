@@ -33,7 +33,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
@@ -139,9 +138,7 @@ public final class DeltaLakeWriter
                 Block originalBlock = originalPage.getBlock(index);
                 Function<Block, Block> coercer = coercers.get(index);
                 if (coercer != null) {
-                    translatedBlocks[index] = new LazyBlock(
-                            originalBlock.getPositionCount(),
-                            new CoercionLazyBlockLoader(originalBlock, coercer));
+                    translatedBlocks[index] = coercer.apply(originalBlock);
                 }
                 else {
                     translatedBlocks[index] = originalBlock;

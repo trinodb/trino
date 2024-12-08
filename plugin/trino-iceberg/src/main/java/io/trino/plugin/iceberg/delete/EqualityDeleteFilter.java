@@ -19,9 +19,9 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.delete.DeleteManager.DeletePageSourceProvider;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Schema;
@@ -114,7 +114,7 @@ public final class EqualityDeleteFilter
 
                 StructLikeWrapper wrapper = StructLikeWrapper.forType(deleteSchema.asStruct());
                 while (!pageSource.isFinished()) {
-                    Page page = pageSource.getNextPage();
+                    SourcePage page = pageSource.getNextSourcePage();
                     if (page == null) {
                         continue;
                     }

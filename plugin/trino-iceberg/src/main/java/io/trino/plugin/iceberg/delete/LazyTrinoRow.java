@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.iceberg.delete;
 
-import io.trino.spi.Page;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.StructLike;
 
@@ -29,11 +29,11 @@ final class LazyTrinoRow
         implements StructLike
 {
     private final Type[] types;
-    private final Page page;
+    private final SourcePage page;
     private final int position;
     private final Object[] values;
 
-    public LazyTrinoRow(Type[] types, Page page, int position)
+    public LazyTrinoRow(Type[] types, SourcePage page, int position)
     {
         checkArgument(types.length == page.getChannelCount(), "mismatched types for page");
         this.types = requireNonNull(types, "types is null");

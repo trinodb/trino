@@ -22,6 +22,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -173,7 +174,7 @@ public class BenchmarkDynamicPageFilter
         long rowsProcessed = 0;
         long rowsFiltered = 0;
         for (Page page : inputData) {
-            FilterEvaluator.SelectionResult result = filterEvaluator.evaluate(FULL_CONNECTOR_SESSION, positionsRange(0, page.getPositionCount()), page);
+            FilterEvaluator.SelectionResult result = filterEvaluator.evaluate(FULL_CONNECTOR_SESSION, positionsRange(0, page.getPositionCount()), SourcePage.create(page));
             SelectedPositions selectedPositions = result.selectedPositions();
             int selectedPositionCount = selectedPositions.size();
             rowsProcessed += page.getPositionCount();

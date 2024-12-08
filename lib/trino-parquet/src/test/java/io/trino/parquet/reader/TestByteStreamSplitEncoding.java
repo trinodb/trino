@@ -18,9 +18,9 @@ import com.google.common.io.Resources;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.ParquetMetadata;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -79,7 +79,7 @@ public class TestByteStreamSplitEncoding
     {
         int rowCount = 0;
         int pageCount = 0;
-        Page page = reader.nextPage();
+        SourcePage page = reader.nextPage();
         while (page != null) {
             assertThat(page.getChannelCount()).isEqualTo(2);
             if (pageCount % 2 == 1) { // Skip loading every alternative page
