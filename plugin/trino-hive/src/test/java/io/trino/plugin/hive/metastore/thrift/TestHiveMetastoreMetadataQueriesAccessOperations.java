@@ -379,12 +379,13 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     @Test
     public void testSelectColumnsWithLikeOverSchema()
     {
+        // schema_prefix <= MAX_PREFIXES_COUNT and table_prefix > MAX_PREFIXES_COUNT
         assertMetastoreInvocations(
                 "SELECT * FROM information_schema.columns WHERE table_schema LIKE 'test%'",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
-                        .addCopies(GET_TABLES, TEST_SCHEMAS_COUNT)
-                        .addCopies(GET_TABLE, TEST_ALL_TABLES_COUNT)
+                        .addCopies(GET_TABLES, TEST_SCHEMAS_COUNT - 1)
+                        .addCopies(GET_TABLE, TEST_ALL_TABLES_COUNT - TEST_TABLES_IN_SCHEMA_COUNT)
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.columns WHERE table_schem LIKE 'test%'",
