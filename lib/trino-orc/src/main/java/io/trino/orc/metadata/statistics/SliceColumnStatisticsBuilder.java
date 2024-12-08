@@ -26,6 +26,8 @@ public interface SliceColumnStatisticsBuilder
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 addValue(type.getSlice(block, position));
+            } else {
+                setHasNull(true);
             }
         }
     }

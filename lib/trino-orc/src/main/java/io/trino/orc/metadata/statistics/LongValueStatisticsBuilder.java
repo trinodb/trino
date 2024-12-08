@@ -25,6 +25,8 @@ public interface LongValueStatisticsBuilder
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 addValue(getValueFromBlock(type, block, position));
+            } else {
+                setHasNull(true);
             }
         }
     }

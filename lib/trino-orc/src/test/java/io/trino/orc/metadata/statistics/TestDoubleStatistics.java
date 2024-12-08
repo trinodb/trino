@@ -29,7 +29,7 @@ public class TestDoubleStatistics
     @Override
     protected DoubleStatistics getCreateStatistics(Double min, Double max)
     {
-        return new DoubleStatistics(min, max);
+        return new DoubleStatistics(min, max, true);
     }
 
     @Test
@@ -46,13 +46,13 @@ public class TestDoubleStatistics
     @Test
     public void testNaN()
     {
-        assertThatThrownBy(() -> new DoubleStatistics(0.0, NaN))
+        assertThatThrownBy(() -> new DoubleStatistics(0.0, NaN, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("maximum is NaN");
-        assertThatThrownBy(() -> new DoubleStatistics(NaN, 0.0))
+        assertThatThrownBy(() -> new DoubleStatistics(NaN, 0.0, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("minimum is NaN");
-        assertThatThrownBy(() -> new DoubleStatistics(NaN, NaN))
+        assertThatThrownBy(() -> new DoubleStatistics(NaN, NaN, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("minimum is NaN");
     }
