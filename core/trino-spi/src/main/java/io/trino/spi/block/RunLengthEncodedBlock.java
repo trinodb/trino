@@ -15,9 +15,7 @@ package io.trino.spi.block;
 
 import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.Type;
-import jakarta.annotation.Nullable;
 
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -102,12 +100,6 @@ public final class RunLengthEncodedBlock
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.empty(); // size does not vary per position selected
-    }
-
-    @Override
     public long getSizeInBytes()
     {
         return value.getSizeInBytes() * positionCount;
@@ -163,12 +155,6 @@ public final class RunLengthEncodedBlock
     public long getRegionSizeInBytes(int position, int length)
     {
         return value.getSizeInBytes() * length;
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(@Nullable boolean[] positions, int selectedPositionCount)
-    {
-        return value.getSizeInBytes() * selectedPositionCount;
     }
 
     @Override
