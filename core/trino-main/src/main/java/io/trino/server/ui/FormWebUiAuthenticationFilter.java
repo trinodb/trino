@@ -63,6 +63,10 @@ public class FormWebUiAuthenticationFilter
     public static final String UI_LOCATION = "/ui/";
     static final String UI_LOGIN = "/ui/login";
     static final String UI_LOGOUT = "/ui/logout";
+    static final String UI_PREVIEW_LOGIN_FORM = "/ui/preview/";
+    static final String UI_PREVIEW_AUTH_INFO = "/ui/preview/auth/info";
+    static final String UI_PREVIEW_LOGIN = "/ui/preview/auth/login";
+    static final String UI_PREVIEW_LOGOUT = "/ui/preview/auth/logout";
 
     private final JwtParser jwtParser;
     private final Function<String, String> jwtGenerator;
@@ -116,7 +120,7 @@ public class FormWebUiAuthenticationFilter
         }
 
         // login and logout resource is not visible to protocol authenticators
-        if ((path.equals(UI_LOGIN) && request.getMethod().equals("POST")) || path.equals(UI_LOGOUT)) {
+        if (isLoginResource(path, request.getMethod())) {
             return;
         }
 
@@ -143,7 +147,7 @@ public class FormWebUiAuthenticationFilter
             return;
         }
 
-        if (path.equals(LOGIN_FORM)) {
+        if (path.equals(LOGIN_FORM) || path.equals(UI_PREVIEW_LOGIN)) {
             return;
         }
 
@@ -169,6 +173,26 @@ public class FormWebUiAuthenticationFilter
         builder.rawReplaceQuery(path);
 
         return builder.build();
+    }
+
+    private static boolean isLoginResource(String path, String method)
+    {
+        if (path.equals(UI_LOGIN) && method.equals("POST")) {
+            return true;
+        }
+        if (path.equals(UI_PREVIEW_LOGIN) && method.equals("POST")) {
+            return true;
+        }
+        if (path.equals(UI_LOGOUT) || path.equals(UI_PREVIEW_LOGOUT)) {
+            return true;
+        }
+        if (path.equals(UI_PREVIEW_LOGIN_FORM) && method.equals("GET")) {
+            return true;
+        }
+        if (path.equals(UI_PREVIEW_AUTH_INFO) && method.equals("GET")) {
+            return true;
+        }
+        return false;
     }
 
     private static void handleProtocolLoginRequest(Authenticator authenticator, ContainerRequestContext request)
@@ -227,7 +251,7 @@ public class FormWebUiAuthenticationFilter
                 .map(user -> createAuthenticationCookie(user, secure));
     }
 
-    private Optional<String> getAuthenticatedUsername(ContainerRequestContext request)
+    Optional<String> getAuthenticatedUsername(ContainerRequestContext request)
     {
         try {
             return MULTIPART_COOKIE.read(request.getCookies()).map(this::parseJwt);

@@ -16,9 +16,14 @@ package io.trino.server.ui;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.server.security.SecurityConfig;
 
+import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static java.util.Locale.ENGLISH;
 
 public class WebUiModule
         extends AbstractConfigurationAwareModule
@@ -38,10 +43,48 @@ public class WebUiModule
 
             if (buildConfigObject(WebUiConfig.class).isPreviewEnabled()) {
                 jaxrsBinder(binder).bind(WebUiPreviewStaticResource.class);
+                String authentication = getAuthenticationType();
+                switch (authentication) {
+                    case "insecure":
+                    case "form":
+                    case "jwt":
+                    case "kerberos":
+                        jaxrsBinder(binder).bind(LoginPreviewResource.class);
+                        break;
+                    case "fixed":
+                        jaxrsBinder(binder).bind(FixedUserPreviewResource.class);
+                        break;
+                    case "oauth2":
+                        jaxrsBinder(binder).bind(OAuth2WebUiPreviewResource.class);
+                        break;
+                    case "none":
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unknown authentication type: " + authentication);
+                }
             }
         }
         else {
             binder.bind(WebUiAuthenticationFilter.class).to(DisabledWebUiAuthenticationFilter.class).in(Scopes.SINGLETON);
         }
+    }
+
+    private String getAuthenticationType()
+    {
+        String authentication = buildConfigObject(WebUiAuthenticationConfig.class).getAuthentication();
+        if (authentication != null) {
+            return authentication.toLowerCase(ENGLISH);
+        }
+
+        // no authenticator explicitly set for the web ui, so choose a default:
+        // If there is a password authenticator, use that.
+        List<String> authenticationTypes = buildConfigObject(SecurityConfig.class).getAuthenticationTypes().stream()
+                .map(type -> type.toLowerCase(ENGLISH))
+                .collect(toImmutableList());
+        if (authenticationTypes.contains("password")) {
+            return "form";
+        }
+        // otherwise use the first authenticator type
+        return authenticationTypes.stream().findFirst().orElseThrow(() -> new IllegalArgumentException("authenticatorTypes is empty"));
     }
 }
