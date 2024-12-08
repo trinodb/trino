@@ -14,7 +14,7 @@
 package io.trino.operator.aggregation;
 
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.operator.aggregation.state.LongAndDoubleState;
+import io.trino.operator.aggregation.state.LongState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -24,9 +24,13 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
 
-import static io.trino.spi.type.DoubleType.DOUBLE;
+import java.math.BigDecimal;
+
+import static io.trino.spi.type.DecimalType.createDecimalType;
 
 @AggregationFunction("avg")
 public final class LongAverageAggregations
@@ -34,29 +38,32 @@ public final class LongAverageAggregations
     private LongAverageAggregations() {}
 
     @InputFunction
-    public static void input(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void input(@AggregationState LongState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        state.setLong(state.getLong() + 1);
-        state.setDouble(state.getDouble() + value);
+        state.setValue(state.getValue() + value);
+        state.setCount(state.getCount() + 1);
     }
 
     @CombineFunction
-    public static void combine(@AggregationState LongAndDoubleState state, @AggregationState LongAndDoubleState otherState)
+    public static void combine(@AggregationState LongState state, @AggregationState LongState otherState)
     {
-        state.setLong(state.getLong() + otherState.getLong());
-        state.setDouble(state.getDouble() + otherState.getDouble());
+        state.setValue(state.getValue() + otherState.getValue());
+        state.setCount(state.getCount() + otherState.getCount());
     }
 
-    @OutputFunction(StandardTypes.DOUBLE)
-    public static void output(@AggregationState LongAndDoubleState state, BlockBuilder out)
+    @OutputFunction("decimal(38,6)")
+    public static void output(@AggregationState LongState state, BlockBuilder out)
     {
-        long count = state.getLong();
+        long count = state.getCount();
         if (count == 0) {
             out.appendNull();
         }
         else {
-            double value = state.getDouble();
-            DOUBLE.writeDouble(out, value / count);
+            BigDecimal sum = BigDecimal.valueOf(state.getValue());
+            BigDecimal average = sum.divide(BigDecimal.valueOf(count), createDecimalType(38, 6).getScale(), BigDecimal.ROUND_HALF_UP);
+
+            Int128 encodedAverage = Decimals.encodeScaledValue(average, 6);
+            createDecimalType(38, 6).writeObject(out, encodedAverage);
         }
     }
 
@@ -64,12 +71,12 @@ public final class LongAverageAggregations
             implements WindowAccumulator
     {
         private long count;
-        private double sum;
+        private BigDecimal sum = BigDecimal.ZERO;
 
         @UsedByGeneratedCode
         public LongAverageWindowAccumulator() {}
 
-        private LongAverageWindowAccumulator(long count, double sum)
+        private LongAverageWindowAccumulator(long count, BigDecimal sum)
         {
             this.count = count;
             this.sum = sum;
@@ -78,7 +85,7 @@ public final class LongAverageAggregations
         @Override
         public long getEstimatedSize()
         {
-            return Long.BYTES + Double.BYTES;
+            return Long.BYTES + sum.unscaledValue().bitLength() / 8;
         }
 
         @Override
@@ -92,7 +99,7 @@ public final class LongAverageAggregations
         {
             for (int i = startPosition; i <= endPosition; i++) {
                 if (!index.isNull(0, i)) {
-                    sum += index.getLong(0, i);
+                    sum = sum.add(BigDecimal.valueOf(index.getLong(0, i)));
                     count++;
                 }
             }
@@ -101,14 +108,9 @@ public final class LongAverageAggregations
         @Override
         public boolean removeInput(WindowIndex index, int startPosition, int endPosition)
         {
-            // If sum is finite, all value to be removed are finite
-            if (!Double.isFinite(sum)) {
-                return false;
-            }
-
             for (int i = startPosition; i <= endPosition; i++) {
                 if (!index.isNull(0, i)) {
-                    sum -= index.getLong(0, i);
+                    sum = sum.subtract(BigDecimal.valueOf(index.getLong(0, i)));
                     count--;
                 }
             }
@@ -122,7 +124,8 @@ public final class LongAverageAggregations
                 blockBuilder.appendNull();
             }
             else {
-                DOUBLE.writeDouble(blockBuilder, sum / count);
+                BigDecimal average = sum.divide(BigDecimal.valueOf(count), createDecimalType(38, 6).getScale(), BigDecimal.ROUND_HALF_UP);
+                createDecimalType(38, 6).writeObject(blockBuilder, average);
             }
         }
     }
