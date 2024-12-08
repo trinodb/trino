@@ -135,6 +135,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/hsqldb">
+        <artifact id="${project.groupId}:trino-hsqldb:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/http-event-listener">
         <artifact id="${project.groupId}:trino-http-event-listener:zip:${project.version}">
             <unpack />
