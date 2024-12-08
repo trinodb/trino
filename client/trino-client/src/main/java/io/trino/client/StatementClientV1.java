@@ -130,7 +130,11 @@ class StatementClientV1
                 .collect(toImmutableSet())));
         this.compressionDisabled = session.isCompressionDisabled();
 
-        this.resultRowsDecoder = new ResultRowsDecoder(new OkHttpSegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null")));
+        this.resultRowsDecoder = new ResultRowsDecoder(
+                new OkHttpSegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null")),
+                session.getPrefetchBufferSize(),
+                session.getDecoderExecutorService(),
+                session.getSegmentLoaderExecutorService());
 
         Request request = buildQueryRequest(session, query, session.getEncoding());
         // Pass empty as materializedJsonSizeLimit to always materialize the first response
