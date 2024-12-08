@@ -93,6 +93,14 @@ additional synchronization when collecting results. Enabling this optimization c
 `UNION ALL` speed, when write speed is not yet saturated. However, it may slow down queries
 in an already heavily loaded system.
 
+## `optimizer.push-filter-into-values-max-row-count`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `100`
+- **Minimum value:** `0`
+ 
+Maximum number of rows in values for which filter is pushed down into values.
+
 ## `optimizer.join-reordering-strategy`
 
 - **Type:** {ref}`prop-type-string`
