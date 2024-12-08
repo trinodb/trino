@@ -72,12 +72,12 @@ public class TestRunLengthEncodedBlock
         boolean[] positions = new boolean[rleBlock.getPositionCount()];
         positions[0] = true;
         positions[1] = true;
-        assertThat(rleBlock.getPositionsSizeInBytes(positions, 2)).isEqualTo(valueBlock.getSizeInBytes());
+        assertThat(rleBlock.getPositionsSizeInBytes(positions, 2)).isEqualTo(valueBlock.getSizeInBytes() * 2);
         // Accepts null positions array with count only
-        assertThat(rleBlock.getPositionsSizeInBytes(null, 2)).isEqualTo(valueBlock.getSizeInBytes());
-        // Always reports the same size in bytes regardless of positions
+        assertThat(rleBlock.getPositionsSizeInBytes(null, 2)).isEqualTo(valueBlock.getSizeInBytes() * 2);
+        // Size value count * position count
         for (int positionCount = 0; positionCount < rleBlock.getPositionCount(); positionCount++) {
-            assertThat(rleBlock.getPositionsSizeInBytes(null, positionCount)).isEqualTo(valueBlock.getSizeInBytes());
+            assertThat(rleBlock.getPositionsSizeInBytes(null, positionCount)).isEqualTo(valueBlock.getSizeInBytes() * positionCount);
         }
     }
 
