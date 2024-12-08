@@ -40,5 +40,7 @@ public class PreviewUiQueryRunner
     {
         builder.addProperty("web-ui.preview.enabled", "true");
         builder.addProperty("http-server.http.port", "8080");
+        builder.addProperty("web-ui.authentication.type", "fixed");
+        builder.addProperty("web-ui.user", "webapp-preview-user");
     }
 }
