@@ -324,6 +324,110 @@
                                     <code>java.method.parameterTypeChanged</code>
                                     <old>method void io.trino.spi.eventlistener.StageTaskStatistics::&lt;init&gt;(int, int, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.ArrayBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.ArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.Block::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Block::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.ByteArrayBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.ByteArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.DictionaryBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.DictionaryBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.Fixed12Block::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Fixed12Block::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.Int128ArrayBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Int128ArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.IntArrayBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.IntArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.LongArrayBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.LongArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.MapBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.MapBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.RowBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.RowBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.RunLengthEncodedBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.RunLengthEncodedBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.ShortArrayBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.ShortArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.OptionalInt io.trino.spi.block.VariableWidthBlock::fixedSizeInBytesPerPosition()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.VariableWidthBlock::getPositionsSizeInBytes(boolean[], int)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -17,7 +17,6 @@ import io.trino.spi.Experimental;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -73,12 +72,6 @@ public final class IntArrayBlock
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.of(SIZE_IN_BYTES_PER_POSITION);
-    }
-
-    @Override
     public long getSizeInBytes()
     {
         return SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
@@ -88,12 +81,6 @@ public final class IntArrayBlock
     public long getRegionSizeInBytes(int position, int length)
     {
         return SIZE_IN_BYTES_PER_POSITION * (long) length;
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
-    {
-        return (long) SIZE_IN_BYTES_PER_POSITION * selectedPositionsCount;
     }
 
     @Override
