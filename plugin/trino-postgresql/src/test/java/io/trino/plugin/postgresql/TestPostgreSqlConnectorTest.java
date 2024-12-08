@@ -182,8 +182,7 @@ public class TestPostgreSqlConnectorTest
 
     private void testTimestampPrecisionOnCreateTable(String inputType, String expectedType)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = createTable(
                 "test_coercion_show_create_table",
                 format("(a %s)", inputType))) {
             assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(expectedType);
@@ -222,8 +221,7 @@ public class TestPostgreSqlConnectorTest
 
     private void testTimestampPrecisionOnCreateTableAsSelect(String inputType, String tableType, String tableValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = createTable(
                 "test_coercion_show_create_table",
                 format("AS SELECT %s a", inputType))) {
             assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(tableType);
@@ -265,8 +263,7 @@ public class TestPostgreSqlConnectorTest
 
     private void testTimestampPrecisionOnCreateTableAsSelectWithNoData(String inputType, String tableType)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = createTable(
                 "test_coercion_show_create_table",
                 format("AS SELECT %s a WITH NO DATA", inputType))) {
             assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(tableType);
@@ -821,8 +818,7 @@ public class TestPostgreSqlConnectorTest
         assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%'"))
                 .isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = createTable(
                 "test_like_predicate_pushdown",
                 "(id integer, a_varchar varchar(1))",
                 List.of(
@@ -844,8 +840,7 @@ public class TestPostgreSqlConnectorTest
         assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%' ESCAPE '\\'"))
                 .isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = createTable(
                 "test_like_with_escape_predicate_pushdown",
                 "(id integer, a_varchar varchar(4))",
                 List.of(
@@ -866,8 +861,7 @@ public class TestPostgreSqlConnectorTest
         assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL")).isFullyPushedDown();
         assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL OR regionkey = 4")).isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = createTable(
                 "test_is_null_predicate_pushdown",
                 "(a_int integer, a_varchar varchar(1))",
                 List.of(
@@ -884,8 +878,7 @@ public class TestPostgreSqlConnectorTest
     {
         assertThat(query("SELECT nationkey FROM nation WHERE name IS NOT NULL OR regionkey = 4")).isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = createTable(
                 "test_is_not_null_predicate_pushdown",
                 "(a_int integer, a_varchar varchar(1))",
                 List.of(
@@ -923,8 +916,7 @@ public class TestPostgreSqlConnectorTest
     {
         assertThat(query("SELECT nationkey FROM nation WHERE NOT(name LIKE '%A%' ESCAPE '\\')")).isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = createTable(
                 "test_is_not_predicate_pushdown",
                 "(a_int integer, a_varchar varchar(2))",
                 List.of(
@@ -940,8 +932,7 @@ public class TestPostgreSqlConnectorTest
     @Test
     public void testInPredicatePushdown()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = createTable(
                 "test_in_predicate_pushdown",
                 "(id varchar(1), id2 varchar(1))",
                 List.of(
@@ -1083,8 +1074,7 @@ public class TestPostgreSqlConnectorTest
     @Test
     public void testReverseFunctionProjectionPushDown()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = createTable(
                 "test_reverse_pushdown_for_project",
                 "(id BIGINT, varchar_col VARCHAR)",
                 ImmutableList.of("1, 'abc'", "2, null"))) {
@@ -1139,8 +1129,7 @@ public class TestPostgreSqlConnectorTest
     @Test
     public void testPartialProjectionPushDown()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = createTable(
                 "test_partial_projection_pushdown",
                 "(id BIGINT, cola VARCHAR, colb VARCHAR)",
                 ImmutableList.of("1, 'abc', 'def'"))) {
@@ -1190,8 +1179,7 @@ public class TestPostgreSqlConnectorTest
     @Test
     public void testProjectionsNotPushDownWhenFilterAppliedOnProjectedColumn()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = createTable(
                 "test_projection_push_down_with_filter",
                 "(id BIGINT, cola VARCHAR, colb VARCHAR)",
                 ImmutableList.of("1, 'abc', 'def'"))) {
