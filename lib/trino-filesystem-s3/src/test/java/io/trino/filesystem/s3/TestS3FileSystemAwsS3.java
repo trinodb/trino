@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestS3FileSystemAwsS3
@@ -73,11 +72,6 @@ public class TestS3FileSystemAwsS3
                 .setRegion(region)
                 .setSupportsExclusiveCreate(true)
                 .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
-    }
-
-    private static String environmentVariable(String name)
-    {
-        return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
     }
 
     @Test
