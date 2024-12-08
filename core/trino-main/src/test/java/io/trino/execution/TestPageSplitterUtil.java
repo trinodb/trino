@@ -15,15 +15,19 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.spi.Experimental;
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.SequencePageBuilder.createSequencePage;
@@ -76,13 +80,13 @@ public class TestPageSplitterUtil
     {
         int positionCount = 100;
         int maxPageSizeInBytes = 1;
-        List<Type> types = ImmutableList.of(VARCHAR);
 
         Slice expectedValue = wrappedBuffer("test".getBytes(UTF_8));
         VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1, expectedValue.length());
-        blockBuilder.writeEntry(expectedValue);
-        Block rleBlock = RunLengthEncodedBlock.create(blockBuilder.build(), positionCount);
-        Page initialPage = new Page(rleBlock);
+        for (int i = 0; i < positionCount; i++) {
+            blockBuilder.writeEntry(expectedValue);
+        }
+        Page initialPage = new Page(new FixedDataSizeBlock(expectedValue.length(), blockBuilder.buildValueBlock()));
         List<Page> pages = splitPage(initialPage, maxPageSizeInBytes);
 
         // the page should only be split in half as the recursion should terminate
@@ -95,8 +99,101 @@ public class TestPageSplitterUtil
         assertThat((int) first.getSizeInBytes()).isGreaterThan(maxPageSizeInBytes);
         assertThat((int) second.getSizeInBytes()).isGreaterThan(maxPageSizeInBytes);
         assertPositionCount(pages, positionCount);
-        MaterializedResult actual = toMaterializedResult(TEST_SESSION, types, pages);
-        MaterializedResult expected = toMaterializedResult(TEST_SESSION, types, ImmutableList.of(initialPage));
-        assertThat(actual).containsExactlyElementsOf(expected);
+    }
+
+    // Fake block that has retains a fixed size when split
+    private record FixedDataSizeBlock(long fixedSize, ValueBlock delegate)
+            implements ValueBlock
+    {
+        @Override
+        public ValueBlock copyPositions(int[] positions, int offset, int length)
+        {
+            return new FixedDataSizeBlock(fixedSize, delegate.copyPositions(positions, offset, length));
+        }
+
+        @Override
+        public ValueBlock getRegion(int positionOffset, int length)
+        {
+            return new FixedDataSizeBlock(fixedSize, delegate.getRegion(positionOffset, length));
+        }
+
+        @Override
+        public ValueBlock copyRegion(int position, int length)
+        {
+            return new FixedDataSizeBlock(fixedSize, delegate.copyRegion(position, length));
+        }
+
+        @Override
+        public ValueBlock copyWithAppendedNull()
+        {
+            return new FixedDataSizeBlock(fixedSize, delegate.copyWithAppendedNull());
+        }
+
+        @Experimental(eta = "2025-01-01")
+        @Override
+        public Optional<ByteArrayBlock> getNulls()
+        {
+            return delegate.getNulls();
+        }
+
+        @Override
+        public ValueBlock getSingleValueBlock(int position)
+        {
+            return delegate.getSingleValueBlock(position);
+        }
+
+        @Override
+        public int getPositionCount()
+        {
+            return delegate.getPositionCount();
+        }
+
+        @Override
+        public long getSizeInBytes()
+        {
+            return fixedSize;
+        }
+
+        @Override
+        public long getRegionSizeInBytes(int position, int length)
+        {
+            return delegate.getRegionSizeInBytes(position, length);
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return delegate.getRetainedSizeInBytes();
+        }
+
+        @Override
+        public OptionalInt fixedSizeInBytesPerPosition()
+        {
+            return OptionalInt.empty();
+        }
+
+        @Override
+        public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
+        {
+            return delegate.getPositionsSizeInBytes(positions, selectedPositionsCount);
+        }
+
+        @Override
+        public long getEstimatedDataSizeForStats(int position)
+        {
+            return delegate.getEstimatedDataSizeForStats(position);
+        }
+
+        @Override
+        public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+        {
+            delegate.retainedBytesForEachPart(consumer);
+        }
+
+        @Override
+        public boolean isNull(int position)
+        {
+            return delegate.isNull(position);
+        }
     }
 }

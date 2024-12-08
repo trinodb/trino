@@ -110,7 +110,7 @@ public final class RunLengthEncodedBlock
     @Override
     public long getSizeInBytes()
     {
-        return value.getSizeInBytes();
+        return value.getSizeInBytes() * positionCount;
     }
 
     @Override
@@ -162,13 +162,13 @@ public final class RunLengthEncodedBlock
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
-        return value.getSizeInBytes();
+        return value.getSizeInBytes() * length;
     }
 
     @Override
     public long getPositionsSizeInBytes(@Nullable boolean[] positions, int selectedPositionCount)
     {
-        return value.getSizeInBytes();
+        return value.getSizeInBytes() * selectedPositionCount;
     }
 
     @Override
