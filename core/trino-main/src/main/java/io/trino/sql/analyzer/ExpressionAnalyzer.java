@@ -766,7 +766,7 @@ public class ExpressionAnalyzer
             }
 
             if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
-                tableColumnReferences.put(field.getOriginTable().get(), field.getOriginColumnName().get());
+                tableColumnReferences.put(field.getOriginTable().get(), field.getOriginColumnName().get().toLowerCase(ENGLISH));
             }
 
             sourceFields.add(field);

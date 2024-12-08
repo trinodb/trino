@@ -406,6 +406,16 @@ public class TestAccessControl
                 "SELECT * FROM " + columnAccessViewName,
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
+        // a view which exposes underlying columns with different case
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW " + columnAccessViewName + "_uppercase AS SELECT orderkey AS ORDERKEY FROM orders");
+        // access control should "see" lowercase name
+        assertAccessDenied(
+                "SELECT * FROM " + columnAccessViewName + "_uppercase",
+                "Cannot select from columns \\[orderkey] in table or view .*_uppercase",
+                privilege(getSession().getUser(), columnAccessViewName + "_uppercase.orderkey", SELECT_COLUMN));
+
         Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(Identity.ofUser("test_nested_view_access_owner"))
                 .setCatalog(getSession().getCatalog())
