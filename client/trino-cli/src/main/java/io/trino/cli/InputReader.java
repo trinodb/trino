@@ -36,6 +36,7 @@ import static org.jline.reader.LineReader.Option.HISTORY_IGNORE_SPACE;
 import static org.jline.reader.LineReader.Option.HISTORY_TIMESTAMPED;
 import static org.jline.reader.LineReader.SECONDARY_PROMPT_PATTERN;
 import static org.jline.utils.AttributedStyle.BRIGHT;
+import static org.jline.utils.AttributedStyle.CYAN;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 
 public class InputReader
@@ -93,6 +94,6 @@ public class InputReader
 
     private static String colored(String value)
     {
-        return new AttributedString(value, DEFAULT.foreground(BRIGHT)).toAnsi();
+        return new AttributedString(value, DEFAULT.foreground(CYAN | BRIGHT)).toAnsi();
     }
 }
