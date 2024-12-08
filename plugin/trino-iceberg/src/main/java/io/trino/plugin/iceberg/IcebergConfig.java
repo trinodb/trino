@@ -407,12 +407,14 @@ public class IcebergConfig
         return this;
     }
 
+    @Deprecated
     @NotNull
     public Optional<String> getMaterializedViewsStorageSchema()
     {
         return materializedViewsStorageSchema;
     }
 
+    @Deprecated
     @Config("iceberg.materialized-views.storage-schema")
     @ConfigDescription("Schema for creating materialized views storage tables")
     public IcebergConfig setMaterializedViewsStorageSchema(String materializedViewsStorageSchema)
