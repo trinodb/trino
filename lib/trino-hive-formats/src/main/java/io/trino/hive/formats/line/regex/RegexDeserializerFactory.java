@@ -24,6 +24,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.hive.formats.HiveClassNames.REGEX_SERDE_CLASS;
+import static io.trino.hive.formats.line.LineDeserializerUtils.STRICT_PARSING;
 
 public class RegexDeserializerFactory
         implements LineDeserializerFactory
@@ -43,6 +44,7 @@ public class RegexDeserializerFactory
         String regex = serdeProperties.get(REGEX_KEY);
         checkArgument(regex != null, "Schema does not have required '%s' property", REGEX_KEY);
         boolean caseSensitive = Boolean.parseBoolean(serdeProperties.get(REGEX_CASE_SENSITIVE_KEY));
-        return new RegexDeserializer(columns, regex, caseSensitive);
+        boolean strictParsing = Boolean.parseBoolean(serdeProperties.getOrDefault(STRICT_PARSING, "false"));
+        return new RegexDeserializer(columns, regex, caseSensitive, strictParsing);
     }
 }

@@ -38,6 +38,7 @@ import java.util.regex.Pattern;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveTimestamp;
+import static io.trino.hive.formats.line.LineDeserializerUtils.throwParseErrorOrNull;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -66,11 +67,13 @@ public class RegexDeserializer
 {
     private final Pattern inputPattern;
     private final List<Column> columns;
+    private final boolean strictParsing;
 
-    public RegexDeserializer(List<Column> columns, String regex, boolean caseSensitive)
+    public RegexDeserializer(List<Column> columns, String regex, boolean caseSensitive, boolean strictParsing)
     {
         this.inputPattern = Pattern.compile(regex, DOTALL + (caseSensitive ? Pattern.CASE_INSENSITIVE : 0));
         this.columns = ImmutableList.copyOf(columns);
+        this.strictParsing = strictParsing;
     }
 
     @Override
@@ -103,11 +106,11 @@ public class RegexDeserializer
                 blockBuilder.appendNull();
                 continue;
             }
-            serializeValue(value, column, blockBuilder);
+            serializeValue(value, column, blockBuilder, this.strictParsing);
         }
     }
 
-    private static void serializeValue(String value, Column column, BlockBuilder builder)
+    private static void serializeValue(String value, Column column, BlockBuilder builder, boolean strictParsing)
     {
         try {
             Type type = column.type();
@@ -157,7 +160,7 @@ public class RegexDeserializer
         }
         catch (RuntimeException e) {
             // invalid columns are ignored
-            builder.appendNull();
+            throwParseErrorOrNull(e.getMessage(), e, builder, strictParsing);
         }
     }
 

@@ -24,6 +24,7 @@ import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -32,7 +33,6 @@ import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
@@ -63,15 +63,16 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveTimestamp;
 import static io.trino.hive.formats.HiveFormatUtils.scaleDecimal;
-import static io.trino.hive.formats.line.openxjson.JsonWriter.canonicalizeJsonString;
-import static io.trino.hive.formats.line.openxjson.JsonWriter.writeJsonArray;
-import static io.trino.hive.formats.line.openxjson.JsonWriter.writeJsonObject;
+import static io.trino.hive.formats.line.LineDeserializerUtils.parseError;
+import static io.trino.hive.formats.line.LineDeserializerUtils.throwParseErrorOrNull;
+import static io.trino.hive.formats.line.LineDeserializerUtils.writeDecimal;
+import static io.trino.hive.formats.line.LineDeserializerUtils.writeDouble;
+import static io.trino.hive.formats.line.LineDeserializerUtils.writeJson;
+import static io.trino.hive.formats.line.LineDeserializerUtils.writeSlice;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -81,7 +82,6 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Character.toLowerCase;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.StrictMath.floorDiv;
@@ -101,7 +101,7 @@ public final class OpenXJsonDeserializer
     private final OpenXJsonOptions options;
     private final RowDecoder rowDecoder;
 
-    public OpenXJsonDeserializer(List<Column> columns, OpenXJsonOptions options)
+    public OpenXJsonDeserializer(List<Column> columns, OpenXJsonOptions options, boolean strictParsing)
     {
         this.options = requireNonNull(options, "options is null");
 
@@ -127,7 +127,7 @@ public final class OpenXJsonDeserializer
                 options,
                 columns.stream()
                         .map(Column::type)
-                        .map(fieldType -> createDecoder(fieldType, options, timestampFormatters))
+                        .map(fieldType -> createDecoder(fieldType, options, timestampFormatters, strictParsing))
                         .collect(toImmutableList()),
                 ordinal -> topLevelOrdinalMap.getOrDefault(ordinal, -1));
     }
@@ -153,7 +153,7 @@ public final class OpenXJsonDeserializer
             }
             catch (InvalidJsonException e) {
                 if (!options.isIgnoreMalformedJson()) {
-                    throw e;
+                    throw parseError(e.getMessage(), e);
                 }
             }
         }
@@ -170,37 +170,37 @@ public final class OpenXJsonDeserializer
         }
     }
 
-    private static Decoder createDecoder(Type type, OpenXJsonOptions options, List<DateTimeFormatter> timestampFormatters)
+    private static Decoder createDecoder(Type type, OpenXJsonOptions options, List<DateTimeFormatter> timestampFormatters, boolean strictParsing)
     {
         if (BOOLEAN.equals(type)) {
             return new BooleanDecoder();
         }
         if (BIGINT.equals(type)) {
-            return new BigintDecoder();
+            return new BigintDecoder(strictParsing);
         }
         if (INTEGER.equals(type)) {
-            return new IntegerDecoder();
+            return new IntegerDecoder(strictParsing);
         }
         if (SMALLINT.equals(type)) {
-            return new SmallintDecoder();
+            return new SmallintDecoder(strictParsing);
         }
         if (TINYINT.equals(type)) {
-            return new TinyintDecoder();
+            return new TinyintDecoder(strictParsing);
         }
         if (type instanceof DecimalType decimalType) {
-            return new DecimalDecoder(decimalType);
+            return new DecimalDecoder(decimalType, strictParsing);
         }
         if (REAL.equals(type)) {
-            return new RealDecoder();
+            return new RealDecoder(strictParsing);
         }
         if (DOUBLE.equals(type)) {
-            return new DoubleDecoder();
+            return new DoubleDecoder(strictParsing);
         }
         if (DATE.equals(type)) {
-            return new DateDecoder();
+            return new DateDecoder(strictParsing);
         }
         if (type instanceof TimestampType timestampType) {
-            return new TimestampDecoder(timestampType, timestampFormatters);
+            return new TimestampDecoder(timestampType, timestampFormatters, strictParsing);
         }
         if (VARBINARY.equals(type)) {
             return new VarbinaryDecoder();
@@ -212,13 +212,13 @@ public final class OpenXJsonDeserializer
             return new CharDecoder(charType);
         }
         if (type instanceof ArrayType arrayType) {
-            return new ArrayDecoder(createDecoder(arrayType.getElementType(), options, timestampFormatters));
+            return new ArrayDecoder(createDecoder(arrayType.getElementType(), options, timestampFormatters, strictParsing));
         }
         if (type instanceof MapType mapType) {
             return new MapDecoder(
                     mapType,
-                    createDecoder(mapType.getKeyType(), options, timestampFormatters),
-                    createDecoder(mapType.getValueType(), options, timestampFormatters));
+                    createDecoder(mapType.getKeyType(), options, timestampFormatters, strictParsing),
+                    createDecoder(mapType.getValueType(), options, timestampFormatters, strictParsing));
         }
         if (type instanceof RowType rowType) {
             return new RowDecoder(
@@ -226,7 +226,7 @@ public final class OpenXJsonDeserializer
                     options,
                     rowType.getFields().stream()
                             .map(Field::getType)
-                            .map(fieldType -> createDecoder(fieldType, options, timestampFormatters))
+                            .map(fieldType -> createDecoder(fieldType, options, timestampFormatters, strictParsing))
                             .collect(toImmutableList()),
                     ordinal -> ordinal < rowType.getFields().size() ? ordinal : -1);
         }
@@ -268,89 +268,116 @@ public final class OpenXJsonDeserializer
     private static class BigintDecoder
             extends Decoder
     {
+        private final boolean strictParsing;
+
+        public BigintDecoder(boolean strictParsing)
+        {
+            this.strictParsing = strictParsing;
+        }
+
         @Override
         void decodeValue(Object jsonValue, BlockBuilder builder)
         {
             if (!(jsonValue instanceof JsonString jsonString)) {
-                throw invalidJson("%s can not be coerced to a BIGINT".formatted(jsonValue.getClass().getSimpleName()));
+                throw parseError("%s can not be coerced to a BIGINT".formatted(jsonValue.getClass().getSimpleName()));
             }
 
             try {
                 BIGINT.writeLong(builder, parseLong(jsonString.value()));
-                return;
             }
-            catch (NumberFormatException | ArithmeticException _) {
+            catch (NumberFormatException | ArithmeticException e) {
+                throwParseErrorOrNull(e.getMessage(), e, builder, strictParsing);
             }
-            builder.appendNull();
         }
     }
 
     private static class IntegerDecoder
             extends Decoder
     {
+        private final boolean strictParsing;
+
+        public IntegerDecoder(boolean strictParsing)
+        {
+            this.strictParsing = strictParsing;
+        }
+
         @Override
         void decodeValue(Object jsonValue, BlockBuilder builder)
         {
             if (!(jsonValue instanceof JsonString jsonString)) {
-                throw invalidJson("%s can not be coerced to an INTEGER".formatted(jsonValue.getClass().getSimpleName()));
+                throw parseError("%s can not be coerced to an INTEGER".formatted(jsonValue.getClass().getSimpleName()));
             }
 
             try {
                 long longValue = parseLong(jsonString.value());
-                if ((int) longValue == longValue) {
-                    INTEGER.writeLong(builder, longValue);
-                    return;
-                }
+                INTEGER.writeLong(builder, longValue);
             }
-            catch (NumberFormatException | ArithmeticException _) {
+            catch (TrinoException e) {
+                throwParseErrorOrNull(e.getMessage(), builder, strictParsing);
             }
-            builder.appendNull();
+            catch (NumberFormatException | ArithmeticException e) {
+                throwParseErrorOrNull(e.getMessage(), e, builder, strictParsing);
+            }
         }
     }
 
     private static class SmallintDecoder
             extends Decoder
     {
+        private final boolean strictParsing;
+
+        public SmallintDecoder(boolean strictParsing)
+        {
+            this.strictParsing = strictParsing;
+        }
+
         @Override
         void decodeValue(Object jsonValue, BlockBuilder builder)
         {
             if (!(jsonValue instanceof JsonString jsonString)) {
-                throw invalidJson("%s can not be coerced to a SMALLINT".formatted(jsonValue.getClass().getSimpleName()));
+                throw parseError("%s can not be coerced to a SMALLINT".formatted(jsonValue.getClass().getSimpleName()));
             }
 
             try {
                 long longValue = parseLong(jsonString.value());
-                if ((short) longValue == longValue) {
-                    SMALLINT.writeLong(builder, longValue);
-                    return;
-                }
+                SMALLINT.writeLong(builder, longValue);
             }
-            catch (NumberFormatException | ArithmeticException _) {
+            catch (TrinoException e) {
+                throwParseErrorOrNull(e.getMessage(), builder, strictParsing);
             }
-            builder.appendNull();
+            catch (NumberFormatException | ArithmeticException e) {
+                throwParseErrorOrNull(e.getMessage(), e, builder, strictParsing);
+            }
         }
     }
 
     private static class TinyintDecoder
             extends Decoder
     {
+        private final boolean strictParsing;
+
+        public TinyintDecoder(boolean strictParsing)
+        {
+            this.strictParsing = strictParsing;
+        }
+
         @Override
         void decodeValue(Object jsonValue, BlockBuilder builder)
         {
             if (!(jsonValue instanceof JsonString jsonString)) {
-                throw invalidJson("%s can not be coerced to a TINYINT".formatted(jsonValue.getClass().getSimpleName()));
+                throw parseError("%s can not be coerced to a TINYINT".formatted(jsonValue.getClass().getSimpleName()));
             }
 
             try {
                 long longValue = parseLong(jsonString.value());
-                if ((byte) longValue == longValue) {
-                    TINYINT.writeLong(builder, longValue);
-                    return;
-                }
+                TINYINT.writeLong(builder, longValue);
             }
-            catch (NumberFormatException | ArithmeticException _) {
+            catch (TrinoException e) {
+                throwParseErrorOrNull(e.getMessage(), builder, strictParsing);
             }
-            builder.appendNull();
+            catch (NumberFormatException | ArithmeticException e) {
+                throwParseErrorOrNull(e.getMessage(), e, builder, strictParsing);
+            }
         }
     }
 
@@ -358,52 +385,53 @@ public final class OpenXJsonDeserializer
             extends Decoder
     {
         private final DecimalType decimalType;
+        private final boolean strictParsing;
 
-        public DecimalDecoder(DecimalType decimalType)
+        public DecimalDecoder(DecimalType decimalType, boolean strictParsing)
         {
             this.decimalType = decimalType;
+            this.strictParsing = strictParsing;
         }
 
         @Override
         void decodeValue(Object jsonValue, BlockBuilder builder)
         {
             if (!(jsonValue instanceof JsonString jsonString)) {
-                throw invalidJson("%s can not be coerced to a %s".formatted(jsonValue.getClass().getSimpleName(), decimalType));
+                throw parseError("%s can not be coerced to a %s".formatted(jsonValue.getClass().getSimpleName(), decimalType));
             }
 
             try {
                 BigDecimal bigDecimal = scaleDecimal(new BigDecimal(jsonString.value()), decimalType);
-                if (!overflows(bigDecimal, decimalType.getPrecision())) {
-                    if (decimalType.isShort()) {
-                        decimalType.writeLong(builder, bigDecimal.unscaledValue().longValueExact());
-                    }
-                    else {
-                        decimalType.writeObject(builder, Int128.valueOf(bigDecimal.unscaledValue()));
-                    }
-                    return;
-                }
+                writeDecimal(decimalType, builder, jsonString.value(), bigDecimal, strictParsing);
             }
-            catch (NumberFormatException _) {
+            catch (NumberFormatException e) {
+                throwParseErrorOrNull(e.getMessage(), e, builder, strictParsing);
             }
-            builder.appendNull();
         }
     }
 
     private static class RealDecoder
             extends Decoder
     {
+        private final boolean strictParsing;
+
+        public RealDecoder(boolean strictParsing)
+        {
+            this.strictParsing = strictParsing;
+        }
+
         @Override
         void decodeValue(Object jsonValue, BlockBuilder builder)
         {
             if (!(jsonValue instanceof JsonString jsonString)) {
-                throw invalidJson("%s can not be coerced to a REAL".formatted(jsonValue.getClass().getSimpleName()));
+                throw parseError("%s can not be coerced to a REAL".formatted(jsonValue.getClass().getSimpleName()));
             }
 
             try {
                 REAL.writeLong(builder, floatToRawIntBits(Float.parseFloat(jsonString.value())));
             }
-            catch (NumberFormatException _) {
-                builder.appendNull();
+            catch (NumberFormatException e) {
+                throwParseErrorOrNull(e.getMessage(), e, builder, strictParsing);
             }
         }
     }
@@ -411,18 +439,25 @@ public final class OpenXJsonDeserializer
     private static class DoubleDecoder
             extends Decoder
     {
+        private final boolean strictParsing;
+
+        public DoubleDecoder(boolean strictParsing)
+        {
+            this.strictParsing = strictParsing;
+        }
+
         @Override
         void decodeValue(Object jsonValue, BlockBuilder builder)
         {
             if (!(jsonValue instanceof JsonString jsonString)) {
-                throw invalidJson("%s can not be coerced to a DOUBLE".formatted(jsonValue.getClass().getSimpleName()));
+                throw parseError("%s can not be coerced to a DOUBLE".formatted(jsonValue.getClass().getSimpleName()));
             }
 
             try {
-                DOUBLE.writeDouble(builder, Double.parseDouble(jsonString.value()));
+                writeDouble(builder, Double.parseDouble(jsonString.value()));
             }
             catch (NumberFormatException e) {
-                builder.appendNull();
+                throwParseErrorOrNull(e.getMessage(), e, builder, strictParsing);
             }
         }
     }
@@ -430,11 +465,18 @@ public final class OpenXJsonDeserializer
     private static class DateDecoder
             extends Decoder
     {
+        private final boolean strictParsing;
+
+        public DateDecoder(boolean strictParsing)
+        {
+            this.strictParsing = strictParsing;
+        }
+
         @Override
         void decodeValue(Object jsonValue, BlockBuilder builder)
         {
             if (!(jsonValue instanceof JsonString jsonString)) {
-                throw invalidJson("%s can not be coerced to a DATE".formatted(jsonValue.getClass().getSimpleName()));
+                throw parseError("%s can not be coerced to a DATE".formatted(jsonValue.getClass().getSimpleName()));
             }
 
             String dateString = jsonString.value();
@@ -446,11 +488,10 @@ public final class OpenXJsonDeserializer
             }
             try {
                 DATE.writeLong(builder, toIntExact(parseDecimalHexOctalLong(dateString)));
-                return;
             }
-            catch (NumberFormatException | ArithmeticException _) {
+            catch (NumberFormatException | ArithmeticException e) {
+                throwParseErrorOrNull(e.getMessage(), builder, strictParsing);
             }
-            builder.appendNull();
         }
     }
 
@@ -460,26 +501,28 @@ public final class OpenXJsonDeserializer
         private final TimestampType timestampType;
         private final List<DateTimeFormatter> timestampFormatters;
         private final TrinoTimestampEncoder<? extends Comparable<?>> timestampEncoder;
+        private final boolean strictParsing;
 
-        public TimestampDecoder(TimestampType timestampType, List<DateTimeFormatter> timestampFormatters)
+        public TimestampDecoder(TimestampType timestampType, List<DateTimeFormatter> timestampFormatters, boolean strictParsing)
         {
             this.timestampType = timestampType;
             this.timestampFormatters = timestampFormatters;
             this.timestampEncoder = createTimestampEncoder(timestampType, UTC);
+            this.strictParsing = strictParsing;
         }
 
         @Override
         void decodeValue(Object jsonValue, BlockBuilder builder)
         {
             if (!(jsonValue instanceof JsonString jsonString)) {
-                throw invalidJson("%s can not be coerced to a %s".formatted(jsonValue.getClass().getSimpleName(), timestampType));
+                throw parseError("%s can not be coerced to a %s".formatted(jsonValue.getClass().getSimpleName(), timestampType));
             }
             try {
                 DecodedTimestamp timestamp = parseTimestamp(jsonString.value(), timestampFormatters);
                 timestampEncoder.write(timestamp, builder);
             }
             catch (DateTimeParseException | NumberFormatException | ArithmeticException e) {
-                builder.appendNull();
+                throwParseErrorOrNull(e.getMessage(), e, builder, strictParsing);
             }
         }
 
@@ -582,15 +625,15 @@ public final class OpenXJsonDeserializer
         void decodeValue(Object jsonValue, BlockBuilder builder)
         {
             if (!(jsonValue instanceof JsonString jsonString)) {
-                throw invalidJson("%s can not be coerced to a VARBINARY".formatted(jsonValue.getClass().getSimpleName()));
+                throw parseError("%s can not be coerced to a VARBINARY".formatted(jsonValue.getClass().getSimpleName()));
             }
 
             if (!jsonString.quoted()) {
-                throw invalidJson("Unquoted JSON string is not allowed for VARBINARY: " + jsonValue.getClass().getSimpleName());
+                throw parseError("Unquoted JSON string is not allowed for VARBINARY: " + jsonValue.getClass().getSimpleName());
             }
 
             Slice binaryValue = Slices.wrappedBuffer(Base64.getDecoder().decode(jsonString.value()));
-            VARBINARY.writeSlice(builder, binaryValue);
+            writeSlice(VARBINARY, builder, binaryValue);
         }
     }
 
@@ -607,18 +650,7 @@ public final class OpenXJsonDeserializer
         @Override
         void decodeValue(Object jsonValue, BlockBuilder builder)
         {
-            String string;
-            if (jsonValue instanceof Map<?, ?> jsonObject) {
-                string = writeJsonObject(jsonObject);
-            }
-            else if (jsonValue instanceof List<?> jsonList) {
-                string = writeJsonArray(jsonList);
-            }
-            else {
-                JsonString jsonString = (JsonString) jsonValue;
-                string = canonicalizeJsonString(jsonString);
-            }
-            varcharType.writeSlice(builder, truncateToLength(Slices.utf8Slice(string), varcharType));
+            writeJson(varcharType, builder, jsonValue);
         }
     }
 
@@ -635,18 +667,7 @@ public final class OpenXJsonDeserializer
         @Override
         void decodeValue(Object jsonValue, BlockBuilder builder)
         {
-            String string;
-            if (jsonValue instanceof Map<?, ?> jsonObject) {
-                string = writeJsonObject(jsonObject);
-            }
-            else if (jsonValue instanceof List<?> jsonList) {
-                string = writeJsonArray(jsonList);
-            }
-            else {
-                JsonString jsonString = (JsonString) jsonValue;
-                string = canonicalizeJsonString(jsonString);
-            }
-            charType.writeSlice(builder, truncateToLengthAndTrimSpaces(Slices.utf8Slice(string), charType));
+            writeJson(charType, builder, jsonValue);
         }
     }
 
@@ -710,7 +731,7 @@ public final class OpenXJsonDeserializer
             if (jsonValue instanceof JsonString jsonString) {
                 // string containing only whitespace is coerced to null
                 if (!jsonString.value().trim().isEmpty()) {
-                    throw invalidJson("Primitive can not be coerced to a MAP");
+                    throw parseError("Primitive can not be coerced to a MAP");
                 }
                 builder.appendNull();
                 return;
@@ -794,7 +815,7 @@ public final class OpenXJsonDeserializer
                 decodeValueFromList(jsonArray, fieldBuilders);
             }
             else {
-                throw invalidJson("Expected JSON object: " + jsonValue.getClass().getSimpleName());
+                throw parseError("Expected JSON object: " + jsonValue.getClass().getSimpleName());
             }
         }
 
@@ -802,7 +823,7 @@ public final class OpenXJsonDeserializer
         {
             // string containing only whitespace is coerced to a row with all fields set to  null; otherwise an exception is thrown
             if (!jsonString.value().trim().isEmpty()) {
-                throw invalidJson("Primitive can not be coerced to a ROW");
+                throw parseError("Primitive can not be coerced to a ROW");
             }
 
             for (int i = 0; i < fieldDecoders.size(); i++) {
@@ -916,11 +937,6 @@ public final class OpenXJsonDeserializer
     {
         int digit = (int) c - (int) '0';
         return digit >= 0 && digit <= 8;
-    }
-
-    private static RuntimeException invalidJson(String message)
-    {
-        return new RuntimeException("Invalid JSON: " + message);
     }
 
     private static final class FieldName

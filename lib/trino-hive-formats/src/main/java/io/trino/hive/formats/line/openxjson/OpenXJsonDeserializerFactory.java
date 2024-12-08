@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static io.trino.hive.formats.line.LineDeserializerUtils.STRICT_PARSING;
 import static io.trino.hive.formats.line.openxjson.OpenXJsonOptions.HIVE_SERDE_CLASS_NAMES;
 
 public class OpenXJsonDeserializerFactory
@@ -35,6 +36,7 @@ public class OpenXJsonDeserializerFactory
     @Override
     public LineDeserializer create(List<Column> columns, Map<String, String> serdeProperties)
     {
-        return new OpenXJsonDeserializer(columns, OpenXJsonOptions.fromSchema(serdeProperties));
+        boolean strictParsing = Boolean.parseBoolean(serdeProperties.getOrDefault(STRICT_PARSING, "true"));
+        return new OpenXJsonDeserializer(columns, OpenXJsonOptions.fromSchema(serdeProperties), strictParsing);
     }
 }
