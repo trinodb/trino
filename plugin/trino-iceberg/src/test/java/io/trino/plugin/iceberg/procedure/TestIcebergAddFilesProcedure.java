@@ -676,4 +676,32 @@ final class TestIcebergAddFilesProcedure
 
         assertUpdate("DROP TABLE iceberg.tpch." + tableName);
     }
+
+    @Test
+    void testAddHiddenFiles()
+            throws Exception
+    {
+        String hiveTableName = "test_hidden_files_" + randomNameSuffix();
+        String icebergTableName = "test_hidden_files_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " AS SELECT 1 x", 1);
+        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = 'ORC') AS SELECT 2 x", 1);
+        String path = (String) computeScalar("SELECT \"$path\" FROM hive.tpch." + hiveTableName);
+        assertUpdate("INSERT INTO hive.tpch." + hiveTableName + " VALUES (3)", 1);
+
+        String fileName = Location.of(path).fileName();
+        Path tableLocation = dataDirectory.resolve("tpch").resolve(hiveTableName);
+        Files.createDirectory(tableLocation.resolve(".hidden"));
+        Files.move(tableLocation.resolve(fileName), tableLocation.resolve(".hidden").resolve(fileName));
+
+        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + tableLocation.resolve(".hidden") + "', 'ORC', 'true')");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES 1");
+        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + tableLocation.resolve(".hidden/") + "', 'ORC', 'true')");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES 1");
+        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + tableLocation + "', 'ORC', 'true')");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1), (3)");
+
+        assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
+        assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
+    }
 }
