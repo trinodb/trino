@@ -580,11 +580,33 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Add the specified column
+     * @deprecated Use {@link #addColumn(ConnectorSession, ConnectorTableHandle, ColumnMetadata, ColumnPosition)}
      */
+    @Deprecated
     default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns");
+    }
+
+    /**
+     * Add the specified column
+     */
+    default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
+    {
+        switch (position) {
+            case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            case ColumnPosition.After _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+            case ColumnPosition.Last _ -> addColumn(session, tableHandle, column);
+        }
+    }
+
+    /**
+     * @deprecated Use {@link #addField(ConnectorSession, ConnectorTableHandle, List, String, Type, ColumnPosition, boolean)}
+     */
+    @Deprecated
+    default void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding fields");
     }
 
     /**
@@ -592,10 +614,14 @@ public interface ConnectorMetadata
      *
      * @param parentPath path to a field within the column, without leaf field name.
      */
-    @Experimental(eta = "2023-06-01") // TODO add support for rows inside arrays and maps and for anonymous row fields
-    default void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    @Experimental(eta = "2024-12-01") // TODO add support for rows inside arrays and maps and for anonymous row fields
+    default void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, ColumnPosition position, boolean ignoreExisting)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding fields");
+        switch (position) {
+            case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding fields with FIRST clause");
+            case ColumnPosition.After _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding fields with AFTER clause");
+            case ColumnPosition.Last _ -> addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+        }
     }
 
     /**

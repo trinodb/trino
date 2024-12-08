@@ -26,14 +26,16 @@ public class AddColumn
 {
     private final QualifiedName name;
     private final ColumnDefinition column;
+    private final ColumnPosition position;
     private final boolean tableExists;
     private final boolean columnNotExists;
 
-    public AddColumn(NodeLocation location, QualifiedName name, ColumnDefinition column, boolean tableExists, boolean columnNotExists)
+    public AddColumn(NodeLocation location, QualifiedName name, ColumnDefinition column, ColumnPosition position, boolean tableExists, boolean columnNotExists)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.column = requireNonNull(column, "column is null");
+        this.position = requireNonNull(position, "position is null");
         this.tableExists = tableExists;
         this.columnNotExists = columnNotExists;
     }
@@ -46,6 +48,11 @@ public class AddColumn
     public ColumnDefinition getColumn()
     {
         return column;
+    }
+
+    public ColumnPosition getPosition()
+    {
+        return position;
     }
 
     public boolean isTableExists()
@@ -67,13 +74,18 @@ public class AddColumn
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(column);
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.add(column);
+        if (position instanceof ColumnPosition.After after) {
+            nodes.add(after.column());
+        }
+        return nodes.build();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, column);
+        return Objects.hash(name, column, position);
     }
 
     @Override
@@ -87,7 +99,8 @@ public class AddColumn
         }
         AddColumn o = (AddColumn) obj;
         return Objects.equals(name, o.name) &&
-                Objects.equals(column, o.column);
+                Objects.equals(column, o.column) &&
+                Objects.equals(position, o.position);
     }
 
     @Override
@@ -96,6 +109,7 @@ public class AddColumn
         return toStringHelper(this)
                 .add("name", name)
                 .add("column", column)
+                .add("position", position)
                 .toString();
     }
 }
