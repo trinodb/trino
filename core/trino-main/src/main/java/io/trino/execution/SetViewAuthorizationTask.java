@@ -19,6 +19,8 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareViewHandle;
+import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.Expression;
@@ -64,6 +66,16 @@ public class SetViewAuthorizationTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
+
+        RedirectionAwareViewHandle redirectionView = metadata.getRedirectionAwareViewHandle(session, viewName);
+        Optional<QualifiedObjectName> targetViewName = redirectionView.redirectedViewName();
+        if (targetViewName.isPresent()) {
+            Optional<ViewDefinition> targetView = metadata.getView(session, targetViewName.get());
+            if (targetView.isPresent()) {
+                viewName = targetViewName.get();
+            }
+        }
+
         getRequiredCatalogHandle(metadata, session, statement, viewName.catalogName());
         if (!metadata.isView(session, viewName)) {
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);

@@ -34,6 +34,7 @@ import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.RedirectionAwareTableHandle;
+import io.trino.metadata.RedirectionAwareViewHandle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.ResolvedIndex;
 import io.trino.metadata.TableExecuteHandle;
@@ -1502,6 +1503,24 @@ public class TracingMetadata
         Span span = startSpan("getRedirectionAwareTableHandle", tableName);
         try (var _ = scopedSpan(span)) {
             return delegate.getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion);
+        }
+    }
+
+    @Override
+    public RedirectionAwareViewHandle getRedirectionAwareViewHandle(Session session, QualifiedObjectName viewName)
+    {
+        Span span = startSpan("getRedirectionAwareViewHandle", viewName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getRedirectionAwareViewHandle(session, viewName);
+        }
+    }
+
+    @Override
+    public RedirectionAwareViewHandle getRedirectionAwareViewHandle(Session session, QualifiedObjectName viewName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    {
+        Span span = startSpan("getRedirectionAwareViewHandle", viewName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getRedirectionAwareViewHandle(session, viewName, startVersion, endVersion);
         }
     }
 
