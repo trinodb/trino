@@ -34,6 +34,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
 import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.SNAPSHOT;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
@@ -140,7 +141,7 @@ public class ReadSessionCreator
     {
         TableDefinition tableDefinition = remoteTable.getDefinition();
         TableDefinition.Type tableType = tableDefinition.getType();
-        if (tableType == TABLE || tableType == SNAPSHOT) {
+        if (tableType == TABLE || tableType == SNAPSHOT || tableType == EXTERNAL) {
             return remoteTable;
         }
         if (tableType == VIEW || tableType == MATERIALIZED_VIEW) {
@@ -152,7 +153,7 @@ public class ReadSessionCreator
             // get it from the view
             return client.getCachedTable(viewExpiration, remoteTable, requiredColumns, filter);
         }
-        // Storage API doesn't support reading other table types (materialized views, external)
+        // Storage API doesn't support reading other table types (materialized views, external except BigLake tables)
         throw new TrinoException(NOT_SUPPORTED, format("Table type '%s' of table '%s.%s' is not supported",
                 tableType, remoteTable.getTableId().getDataset(), remoteTable.getTableId().getTable()));
     }

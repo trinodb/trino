@@ -78,6 +78,7 @@ public abstract class BaseBigQueryConnectorTest
 {
     protected BigQuerySqlExecutor bigQuerySqlExecutor;
     private String gcpStorageBucket;
+    private String bigQueryConnectionId;
 
     @BeforeAll
     public void initBigQueryExecutor()
@@ -85,6 +86,7 @@ public abstract class BaseBigQueryConnectorTest
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
         // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
         this.gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
+        this.bigQueryConnectionId = requiredNonEmptySystemProperty("testing.bigquery-connection-id");
     }
 
     @Override
@@ -774,10 +776,83 @@ public abstract class BaseBigQueryConnectorTest
 
             assertUpdate("DROP TABLE test." + externalTable);
             assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + externalTable + "'");
+
+            verifyThatStreamApiWasNotUsed(externalTable);
         }
         finally {
             onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + externalTable);
         }
+    }
+
+    @Test
+    public void testBigLakeExternalTable()
+    {
+        String biglakeExternalTable = "test_biglake_external" + randomNameSuffix();
+        try {
+            onBigQuery("CREATE EXTERNAL TABLE test." + biglakeExternalTable +
+                    " WITH CONNECTION `" + bigQueryConnectionId + "`" +
+                    " OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + biglakeExternalTable + "'", "VALUES 'BASE TABLE'");
+
+            assertThat(query("DESCRIBE test." + biglakeExternalTable)).matches("DESCRIBE tpch.region");
+            assertThat(query("SELECT * FROM test." + biglakeExternalTable)).matches("SELECT * FROM tpch.region");
+
+            assertUpdate("DROP TABLE test." + biglakeExternalTable);
+            assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + biglakeExternalTable + "'");
+
+            // BigLake tables should not run queries, since they are read directly using the storage read API.
+            verifyThatStreamApiWasUsed(biglakeExternalTable);
+        }
+        finally {
+            onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + biglakeExternalTable);
+        }
+    }
+
+    @Test
+    public void testExternalObjectTable()
+    {
+        String objectTableConnectionId = bigQueryConnectionId;
+
+        String objectExternalTable = "test_object_external" + randomNameSuffix();
+
+        try {
+            onBigQuery("CREATE EXTERNAL TABLE test." + objectExternalTable +
+                       " WITH CONNECTION `" + objectTableConnectionId + "`" +
+                       " OPTIONS (object_metadata = 'SIMPLE', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + objectExternalTable + "'", "VALUES 'BASE TABLE'");
+
+            assertThat(query("SELECT uri FROM test." + objectExternalTable)).succeeds();
+
+            assertUpdate("DROP TABLE test." + objectExternalTable);
+            assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + objectExternalTable + "'");
+
+            // BigLake tables should not run queries, since they are read directly using the storage read API.
+            verifyThatStreamApiWasNotUsed(objectExternalTable);
+        }
+        finally {
+            onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + objectExternalTable);
+        }
+    }
+
+    private void verifyThatStreamApiWasUsed(String externalTable)
+    {
+        verifyHowManyTimesTableWasReferencedInJobs(externalTable, 0);
+    }
+
+    private void verifyThatStreamApiWasNotUsed(String externalTable)
+    {
+        verifyHowManyTimesTableWasReferencedInJobs(externalTable, 1);
+    }
+
+    private void verifyHowManyTimesTableWasReferencedInJobs(String externalTable, long noOfReferences)
+    {
+        assertThat(bigQuerySqlExecutor.executeQuery("""
+                 SELECT count(*) FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
+                     SELECT * FROM UNNEST(referenced_tables) AS referenced_table
+                         WHERE referenced_table.table_id = '%s')
+                """.formatted(externalTable)).getValues())
+                .extracting(fieldValues -> fieldValues.getFirst().getLongValue())
+                .containsExactly(noOfReferences);
     }
 
     @Test
