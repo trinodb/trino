@@ -48,6 +48,7 @@ public final class RowBlock
     private final int fixedSizePerRow;
 
     private volatile long sizeInBytes = -1;
+    private volatile long retainedSizeInBytes = -1;
 
     /**
      * Create a row block directly from field blocks. The returned RowBlock will not contain any null rows, although the fields may contain null values.
@@ -191,9 +192,13 @@ public final class RowBlock
     @Override
     public long getRetainedSizeInBytes()
     {
-        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(fieldBlocks) + sizeOf(rowIsNull);
-        for (Block fieldBlock : fieldBlocks) {
-            retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
+        long retainedSizeInBytes = this.retainedSizeInBytes;
+        if (retainedSizeInBytes < 0) {
+            retainedSizeInBytes = INSTANCE_SIZE + sizeOf(fieldBlocks) + sizeOf(rowIsNull);
+            for (Block fieldBlock : fieldBlocks) {
+                retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
+            }
+            this.retainedSizeInBytes = retainedSizeInBytes;
         }
         return retainedSizeInBytes;
     }
