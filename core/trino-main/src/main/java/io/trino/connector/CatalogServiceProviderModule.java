@@ -31,6 +31,7 @@ import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControlManager;
+import io.trino.spi.cache.ConnectorCacheMetadata;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -56,6 +57,13 @@ public class CatalogServiceProviderModule
     public static CatalogServiceProvider<ConnectorSplitManager> createSplitManagerProvider(ConnectorServicesProvider connectorServicesProvider)
     {
         return new ConnectorCatalogServiceProvider<>("split manager", connectorServicesProvider, connector -> connector.getSplitManager().orElse(null));
+    }
+
+    @Provides
+    @Singleton
+    public static CatalogServiceProvider<Optional<ConnectorCacheMetadata>> createCacheMetadata(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ConnectorCatalogServiceProvider<>("cache metadata", connectorServicesProvider, ConnectorServices::getCacheMetadata);
     }
 
     @Provides

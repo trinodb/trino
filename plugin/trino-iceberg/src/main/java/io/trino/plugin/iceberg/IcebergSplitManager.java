@@ -16,12 +16,16 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesSplitSource;
+import io.trino.spi.SplitWeight;
+import io.trino.spi.cache.CacheSplitId;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -39,6 +43,7 @@ import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.util.SnapshotUtil;
 
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
@@ -56,6 +61,7 @@ public class IcebergSplitManager
     private final IcebergFileSystemFactory fileSystemFactory;
     private final ListeningExecutorService splitSourceExecutor;
     private final ExecutorService icebergPlanningExecutor;
+    private final JsonCodec<IcebergCacheSplitId> splitIdCodec;
     private final CachingHostAddressProvider cachingHostAddressProvider;
 
     @Inject
@@ -65,6 +71,7 @@ public class IcebergSplitManager
             IcebergFileSystemFactory fileSystemFactory,
             @ForIcebergSplitManager ListeningExecutorService splitSourceExecutor,
             @ForIcebergScanPlanning ExecutorService icebergPlanningExecutor,
+            JsonCodec<IcebergCacheSplitId> splitIdCodec,
             CachingHostAddressProvider cachingHostAddressProvider)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -72,6 +79,7 @@ public class IcebergSplitManager
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.splitSourceExecutor = requireNonNull(splitSourceExecutor, "splitSourceExecutor is null");
         this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
+        this.splitIdCodec = requireNonNull(splitIdCodec, "splitIdCodec is null");
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
     }
 
@@ -159,5 +167,38 @@ public class IcebergSplitManager
         }
 
         throw new IllegalStateException("Unknown table function: " + function);
+    }
+
+    @Override
+    public Optional<CacheSplitId> getCacheSplitId(ConnectorSplit split)
+    {
+        IcebergSplit icebergSplit = (IcebergSplit) split;
+
+        // ensure cache id generation is revisited whenever handle classes change
+        icebergSplit = new IcebergSplit(
+                // database and table names are already part of table id
+                icebergSplit.getPath(),
+                icebergSplit.getStart(),
+                icebergSplit.getLength(),
+                icebergSplit.getFileSize(),
+                icebergSplit.getFileRecordCount(),
+                icebergSplit.getFileFormat(),
+                icebergSplit.getPartitionSpecJson(),
+                icebergSplit.getPartitionDataJson(),
+                icebergSplit.getDeletes(),
+                // weight does not impact split rows
+                SplitWeight.standard(),
+                icebergSplit.getFileStatisticsDomain(),
+                icebergSplit.getFileIoProperties(),
+                icebergSplit.getDataSequenceNumber());
+
+        return Optional.of(new CacheSplitId(splitIdCodec.toJson(new IcebergCacheSplitId(
+                icebergSplit.getPath(),
+                icebergSplit.getStart(),
+                icebergSplit.getLength(),
+                icebergSplit.getFileSize(),
+                icebergSplit.getPartitionSpecJson(),
+                icebergSplit.getPartitionDataJson(),
+                icebergSplit.getDeletes()))));
     }
 }

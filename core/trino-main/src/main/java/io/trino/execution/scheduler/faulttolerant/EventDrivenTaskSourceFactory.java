@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
+import io.trino.cache.SplitAdmissionControllerProvider;
 import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TableExecuteContextManager;
@@ -117,7 +118,8 @@ public class EventDrivenTaskSourceFactory
             Map<PlanFragmentId, Exchange> sourceExchanges,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
             LongConsumer getSplitTimeRecorder,
-            Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates)
+            Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates,
+            SplitAdmissionControllerProvider splitAdmissionControllerProvider)
     {
         ImmutableSetMultimap.Builder<PlanNodeId, PlanFragmentId> remoteSources = ImmutableSetMultimap.builder();
         for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
@@ -132,7 +134,7 @@ public class EventDrivenTaskSourceFactory
                 tableExecuteContextManager,
                 sourceExchanges,
                 remoteSources.build(),
-                () -> splitSourceFactory.createSplitSources(session, stageSpan, fragment),
+                () -> splitSourceFactory.createSplitSources(session, stageSpan, fragment, splitAdmissionControllerProvider),
                 createSplitAssigner(
                         session,
                         fragment,

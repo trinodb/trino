@@ -17,6 +17,7 @@ import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
+import io.trino.cache.SplitAdmissionControllerProvider;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.metadata.InternalNode;
@@ -42,5 +43,6 @@ public interface RemoteTaskFactory
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             Set<DynamicFilterId> outboundDynamicFilterIds,
             Optional<DataSize> estimatedMemory,
-            boolean summarizeTaskInfo);
+            boolean summarizeTaskInfo,
+            SplitAdmissionControllerProvider splitAdmissionControllerProvider);
 }

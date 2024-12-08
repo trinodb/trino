@@ -15,14 +15,19 @@ package io.trino.split;
 
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
+import io.trino.cache.CacheSplitSource;
+import io.trino.cache.ConnectorAwareAddressProvider;
+import io.trino.cache.SplitAdmissionControllerProvider;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -130,6 +135,34 @@ public class SplitManager
 
         Span span = splitSourceSpan(parentSpan, catalogHandle);
         return new TracingSplitSource(splitSource, tracer, Optional.of(span), "split-buffer");
+    }
+
+    public ConnectorSplitManager getConnectorSplitManager(TableHandle tableHandle)
+    {
+        return splitManagerProvider.getService(tableHandle.catalogHandle());
+    }
+
+    public CacheSplitSource getCacheSplitSource(
+            PlanSignature signature,
+            TableHandle tableHandle,
+            SplitSource delegate,
+            ConnectorAwareAddressProvider connectorAwareAddressProvider,
+            NodeInfo nodeInfo,
+            SplitAdmissionControllerProvider splitAdmissionControllerProvider,
+            boolean schedulerIncludeCoordinator,
+            int minScheduleSplitBatchSize)
+    {
+        return new CacheSplitSource(
+                signature,
+                getConnectorSplitManager(tableHandle),
+                delegate,
+                connectorAwareAddressProvider,
+                nodeInfo,
+                splitAdmissionControllerProvider,
+                schedulerIncludeCoordinator,
+                minScheduleSplitBatchSize,
+                // Use the same executor as the one used by BufferingSplitSource
+                executor);
     }
 
     private Span splitSourceSpan(Span parentSpan, CatalogHandle catalogHandle)
