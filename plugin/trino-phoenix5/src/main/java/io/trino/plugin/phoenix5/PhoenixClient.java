@@ -49,7 +49,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
@@ -61,7 +60,6 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -130,8 +128,6 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterators.tryFind;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -805,6 +801,25 @@ public class PhoenixClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 
+    @Override
+    public boolean supportsMerge()
+    {
+        return true;
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        JdbcTableHandle plainTable = new JdbcTableHandle(remoteTableName.getSchemaTableName(), remoteTableName, Optional.empty());
+        Map<String, Object> tableProperties = getTableProperties(session, plainTable);
+        List<JdbcColumnHandle> primaryKeys = getColumns(session, remoteTableName.getSchemaTableName(), remoteTableName)
+                .stream()
+                .filter(columnHandle -> PhoenixColumnProperties.isPrimaryKey(columnHandle.getColumnMetadata(), tableProperties))
+                .collect(toImmutableList());
+        verify(!primaryKeys.isEmpty(), "Phoenix primary keys is empty");
+        return primaryKeys;
+    }
+
     private static LongReadFunction dateReadFunction()
     {
         return (resultSet, index) -> {
@@ -941,87 +956,5 @@ public class PhoenixClient
         catch (IOException e) {
             throw new TrinoException(PhoenixErrorCode.PHOENIX_INTERNAL_ERROR, "Error while copying scan", e);
         }
-    }
-
-    public JdbcTableHandle buildPlainTable(JdbcTableHandle handle)
-    {
-        checkArgument(handle.isNamedRelation(), "Only allow build plain table from named relation table");
-
-        SchemaTableName schemaTableName = handle.getRequiredNamedRelation().getSchemaTableName();
-        RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
-        return new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty());
-    }
-
-    public JdbcTableHandle updatedScanColumnTable(ConnectorSession session, ConnectorTableHandle table, Optional<List<JdbcColumnHandle>> originalColumns, JdbcColumnHandle mergeRowIdColumnHandle)
-    {
-        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
-        if (originalColumns.isEmpty()) {
-            return tableHandle;
-        }
-        List<JdbcColumnHandle> scanColumnHandles = originalColumns.get();
-        checkArgument(!scanColumnHandles.isEmpty(), "Scan columns should not empty");
-        checkArgument(tryFind(scanColumnHandles.iterator(), column -> MERGE_ROW_ID_COLUMN_NAME.equalsIgnoreCase(column.getColumnName())).isPresent(), "Merge row id column must exist in original columns");
-
-        return new JdbcTableHandle(
-                tableHandle.getRelationHandle(),
-                tableHandle.getConstraint(),
-                tableHandle.getConstraintExpressions(),
-                tableHandle.getSortOrder(),
-                tableHandle.getLimit(),
-                Optional.of(getUpdatedScanColumnHandles(session, tableHandle, scanColumnHandles, mergeRowIdColumnHandle)),
-                tableHandle.getOtherReferencedTables(),
-                tableHandle.getNextSyntheticColumnId(),
-                tableHandle.getAuthorization(),
-                tableHandle.getUpdateAssignments());
-    }
-
-    private List<JdbcColumnHandle> getUpdatedScanColumnHandles(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> scanColumnHandles, JdbcColumnHandle mergeRowIdColumnHandle)
-    {
-        RowType columnType = (RowType) mergeRowIdColumnHandle.getColumnType();
-        List<JdbcColumnHandle> primaryKeyColumnHandles = getPrimaryKeyColumnHandles(session, tableHandle);
-        Set<String> mergeRowIdFieldNames = columnType.getFields().stream()
-                .map(RowType.Field::getName)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(toImmutableSet());
-        Set<String> primaryKeyColumnNames = primaryKeyColumnHandles.stream()
-                .map(JdbcColumnHandle::getColumnName)
-                .collect(toImmutableSet());
-        checkArgument(mergeRowIdFieldNames.containsAll(primaryKeyColumnNames), "Merge row id fields should contains all primary keys");
-
-        ImmutableList.Builder<JdbcColumnHandle> columnHandleBuilder = ImmutableList.builder();
-        scanColumnHandles.stream()
-                .filter(jdbcColumnHandle -> !MERGE_ROW_ID_COLUMN_NAME.equalsIgnoreCase(jdbcColumnHandle.getColumnName()))
-                .forEach(columnHandleBuilder::add);
-        // Add merge row id fields
-        for (JdbcColumnHandle columnHandle : primaryKeyColumnHandles) {
-            String columnName = columnHandle.getColumnName();
-            if (ROWKEY.equalsIgnoreCase(columnName)) {
-                checkArgument(primaryKeyColumnHandles.size() == 1, "Wrong primary keys");
-                columnHandleBuilder.add(ROWKEY_COLUMN_HANDLE);
-                break;
-            }
-
-            if (!tryFind(scanColumnHandles.iterator(), column -> column.getColumnName().equalsIgnoreCase(columnName)).isPresent()) {
-                columnHandleBuilder.add(columnHandle);
-            }
-        }
-
-        return columnHandleBuilder.build();
-    }
-
-    public List<JdbcColumnHandle> getPrimaryKeyColumnHandles(ConnectorSession session, JdbcTableHandle tableHandle)
-    {
-        if (tableHandle.getColumns().isPresent()) {
-            tableHandle = buildPlainTable(tableHandle);
-        }
-
-        Map<String, Object> tableProperties = getTableProperties(session, tableHandle);
-        List<JdbcColumnHandle> primaryKeyColumnHandles = getColumns(session, tableHandle.getRequiredNamedRelation().getSchemaTableName(), tableHandle.getRequiredNamedRelation().getRemoteTableName())
-                .stream()
-                .filter(columnHandle -> PhoenixColumnProperties.isPrimaryKey(columnHandle.getColumnMetadata(), tableProperties))
-                .collect(toImmutableList());
-        verify(!primaryKeyColumnHandles.isEmpty(), "Phoenix primary key is empty");
-        return primaryKeyColumnHandles;
     }
 }

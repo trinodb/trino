@@ -4649,7 +4649,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "update_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+        try (TestTable table = createTestTableForWrites("update_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)", "not_null_col")) {
             assertUpdate(format("INSERT INTO %s (nullable_col, not_null_col) VALUES (1, 10)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 10)");
             assertQueryFails("UPDATE " + table.getName() + " SET not_null_col = NULL WHERE nullable_col = 1", "NULL value not allowed for NOT NULL column: not_null_col");
@@ -4788,7 +4788,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_complex_", "AS SELECT * FROM nation")) {
+        try (TestTable table = createTestTableForWrites("test_delete_complex_", "AS SELECT * FROM nation", "nationkey")) {
             // delete half the table, then delete the rest
             assertUpdate("DELETE FROM " + table.getName() + " WHERE nationkey % 2 = 0", "SELECT count(*) FROM nation WHERE nationkey % 2 = 0");
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation WHERE nationkey % 2 <> 0");
@@ -4807,7 +4807,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_subquery", "AS SELECT * FROM nation")) {
+        try (TestTable table = createTestTableForWrites("test_delete_subquery", "AS SELECT * FROM nation", "nationkey")) {
             // delete using a subquery
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%')", 15);
             assertQuery(
@@ -4816,7 +4816,7 @@ public abstract class BaseConnectorTest
         }
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_subquery", "AS SELECT * FROM orders")) {
+        try (TestTable table = createTestTableForWrites("test_delete_subquery", "AS SELECT * FROM orders", "orderkey")) {
             // delete using a scalar and EXISTS subquery
             assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey = (SELECT orderkey FROM orders ORDER BY orderkey LIMIT 1)", 1);
             assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey = (SELECT orderkey FROM orders WHERE false)", 0);
@@ -4824,7 +4824,7 @@ public abstract class BaseConnectorTest
             assertUpdate("DELETE FROM " + table.getName() + " WHERE EXISTS(SELECT 1)", "SELECT count(*) - 1 FROM orders");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_correlated_exists_subquery", "AS SELECT * FROM nation")) {
+        try (TestTable table = createTestTableForWrites("test_delete_correlated_exists_subquery", "AS SELECT * FROM nation", "nationkey")) {
             // delete using correlated EXISTS subquery
             assertUpdate(format("DELETE FROM %1$s WHERE EXISTS(SELECT regionkey FROM region WHERE regionkey = %1$s.regionkey AND name LIKE 'A%%')", table.getName()), 15);
             assertQuery(
@@ -4832,7 +4832,7 @@ public abstract class BaseConnectorTest
                     "SELECT * FROM nation WHERE regionkey IN (SELECT regionkey FROM region WHERE name NOT LIKE 'A%')");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_correlated_exists_subquery", "AS SELECT * FROM nation")) {
+        try (TestTable table = createTestTableForWrites("test_delete_correlated_exists_subquery", "AS SELECT * FROM nation", "nationkey")) {
             // delete using correlated IN subquery
             assertUpdate(format("DELETE FROM %1$s WHERE regionkey IN (SELECT regionkey FROM region WHERE regionkey = %1$s.regionkey AND name LIKE 'A%%')", table.getName()), 15);
             assertQuery(
@@ -4841,18 +4841,27 @@ public abstract class BaseConnectorTest
         }
     }
 
+    protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, String primaryKey)
+    {
+        return new TestTable(getQueryRunner()::execute, namePrefix, tableDefinition);
+    }
+
+    protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, List<String> rowsToInsert, String primaryKey)
+    {
+        return new TestTable(getQueryRunner()::execute, namePrefix, tableDefinition, rowsToInsert);
+    }
+
     @Test
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
-        String tableName = "test_delete_" + randomNameSuffix();
-
-        // delete using a subquery
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
-        assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%' LIMIT 1)",
-                "SemiJoin.*");
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = createTestTableForWrites("test_delete_", "AS SELECT * FROM nation", "nationkey")) {
+            String tableName = table.getName();
+            // delete using a subquery
+            assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%' LIMIT 1)",
+                    "SemiJoin.*");
+        }
     }
 
     @Test
@@ -4861,7 +4870,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_semijoin", "AS SELECT * FROM nation")) {
+        try (TestTable table = createTestTableForWrites("test_delete_semijoin", "AS SELECT * FROM nation", "nationkey")) {
             // delete with multiple SemiJoin
             assertUpdate(
                     "DELETE FROM " + table.getName() + " " +
@@ -4876,7 +4885,7 @@ public abstract class BaseConnectorTest
         }
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_semijoin", "AS SELECT * FROM orders")) {
+        try (TestTable table = createTestTableForWrites("test_delete_semijoin", "AS SELECT * FROM orders", "orderkey")) {
             // delete with SemiJoin null handling
             assertUpdate(
                     "DELETE FROM " + table.getName() + "\n" +
@@ -5014,7 +5023,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update", "AS TABLE tpch.tiny.nation")) {
+        try (TestTable table = createTestTableForWrites("test_update", "AS TABLE tpch.tiny.nation", "name,regionkey")) {
             String tableName = table.getName();
             assertUpdate("UPDATE " + tableName + " SET nationkey = 100 + nationkey WHERE regionkey = 2", 5);
             assertThat(query("SELECT * FROM " + tableName))
@@ -5054,21 +5063,21 @@ public abstract class BaseConnectorTest
         int threads = 4;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = createTestTableForWrites(
                 "test_concurrent_update",
-                IntStream.range(0, threads)
+                IntStream.range(0, threads + 1)
                         .mapToObj(i -> format("col%s integer", i))
-                        .collect(joining(", ", "(", ")")))) {
+                        .collect(joining(", ", "(", ")")),
+                "col" + threads)) {
             String tableName = table.getName();
-            assertUpdate(format("INSERT INTO %s VALUES (%s)", tableName, join(",", nCopies(threads, "0"))), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (%s)", tableName, join(",", nCopies(threads + 1, "0"))), 1);
 
             List<Future<Boolean>> futures = IntStream.range(0, threads)
                     .mapToObj(threadNumber -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
                             String columnName = "col" + threadNumber;
-                            getQueryRunner().execute(format("UPDATE %s SET %s = %s + 1", tableName, columnName, columnName));
+                            getQueryRunner().execute(getSession(), format("UPDATE %s SET %s = %s + 1", tableName, columnName, columnName));
                             return true;
                         }
                         catch (Exception e) {
@@ -5090,7 +5099,7 @@ public abstract class BaseConnectorTest
             String expected = futures.stream()
                     .map(future -> tryGetFutureValue(future, 10, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
                     .map(success -> success ? "1" : "0")
-                    .collect(joining(",", "VALUES (", ")"));
+                    .collect(joining(",", "VALUES (", ", 0)"));
 
             assertThat(query("TABLE " + tableName))
                     .matches(expected);
@@ -5339,7 +5348,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_with_predicates", "(a INT, b INT, c INT)")) {
+        try (TestTable table = createTestTableForWrites("test_update_with_predicates", "(a INT, b INT, c INT)", "a")) {
             String tableName = table.getName();
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2, 3), (11, 12, 13), (21, 22, 23)", 3);
             assertUpdate("UPDATE " + tableName + " SET a = a - 1 WHERE c = 3", 1);
@@ -5402,7 +5411,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_all_columns", "(a INT, b INT, c INT)")) {
+        try (TestTable table = createTestTableForWrites("test_update_all_columns", "(a INT, b INT, c INT)", "a")) {
             String tableName = table.getName();
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2, 3), (11, 12, 13), (21, 22, 23)", 3);
             assertUpdate("UPDATE " + tableName + " SET a = a + 1, b = b - 1, c = c * 2", 3);
@@ -6199,7 +6208,7 @@ public abstract class BaseConnectorTest
                         (4, 'd', 'dd')
                 ) AS t (id, name, value)
                 """;
-        assertUpdate(createTableSql.formatted(target), 4);
+        createTableForWrites(createTableSql, target, Optional.of("id"), OptionalInt.of(4));
         assertUpdate(createTableSql.formatted(source), 4);
 
         assertQuery("SELECT COUNT(*) FROM " + target, "VALUES 4");
@@ -6212,9 +6221,14 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + source);
     }
 
-    protected String createTableForWrites(String createTable)
+    protected void createTableForWrites(String createTable, String tableName, Optional<String> primaryKey)
     {
-        return createTable;
+        createTableForWrites(createTable, tableName, primaryKey, OptionalInt.empty());
+    }
+
+    protected void createTableForWrites(String createTable, String tableName, Optional<String> primaryKey, OptionalInt updateCount)
+    {
+        updateCount.ifPresentOrElse(count -> assertUpdate(format(createTable, tableName), count), () -> assertUpdate(format(createTable, tableName)));
     }
 
     @Test
@@ -6224,7 +6238,7 @@ public abstract class BaseConnectorTest
 
         String tableName = "test_merge_" + randomNameSuffix();
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (orderkey BIGINT, custkey BIGINT, totalprice DOUBLE)", tableName)));
+        createTableForWrites("CREATE TABLE %s (orderkey BIGINT, custkey BIGINT, totalprice DOUBLE)", tableName, Optional.of("orderkey"));
 
         assertUpdate(
                 format("INSERT INTO %s SELECT orderkey, custkey, totalprice FROM tpch.sf1.orders", tableName),
@@ -6258,11 +6272,11 @@ public abstract class BaseConnectorTest
 
         String targetTable = "merge_simple_target_" + randomNameSuffix();
         String sourceTable = "merge_simple_source_" + randomNameSuffix();
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("customer"));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable, Optional.empty());
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable), 4);
 
@@ -6284,11 +6298,11 @@ public abstract class BaseConnectorTest
 
         String targetTable = "merge_various_target_" + randomNameSuffix();
         String sourceTable = "merge_various_source_" + randomNameSuffix();
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR)", targetTable, Optional.of("customer"));
 
         assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable), 3);
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR)", sourceTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR)", sourceTable, Optional.empty());
 
         assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Craig', 'candles'), ('Len', 'limes'), ('Joe', 'jellybeans')", sourceTable), 3);
 
@@ -6310,7 +6324,7 @@ public abstract class BaseConnectorTest
 
         int targetCustomerCount = 32;
         String targetTable = "merge_multiple_" + randomNameSuffix();
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, zipcode INT, spouse VARCHAR, address VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, zipcode INT, spouse VARCHAR, address VARCHAR)", targetTable, Optional.of("customer"));
 
         String originalInsertFirstHalf = IntStream.range(1, targetCustomerCount / 2)
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 1000, 91000, intValue, intValue))
@@ -6375,7 +6389,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_MERGE));
 
         String targetTable = "merge_query_" + randomNameSuffix();
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("customer"));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
 
@@ -6398,7 +6412,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_MERGE));
 
         String targetTable = "merge_inserts_" + randomNameSuffix();
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("customer"));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena')", targetTable), 2);
 
@@ -6419,7 +6433,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_MERGE));
 
         String targetTable = "merge_join_false_" + randomNameSuffix();
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("customer"));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena')", targetTable), 2);
 
@@ -6467,11 +6481,11 @@ public abstract class BaseConnectorTest
 
         String targetTable = "merge_all_columns_updated_target_" + randomNameSuffix();
         String sourceTable = "merge_all_columns_updated_source_" + randomNameSuffix();
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("customer"));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Dave', 11, 'Devon'), ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge')", targetTable), 4);
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable, Optional.empty());
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Dave', 11, 'Darbyshire'), ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Ed', 7, 'Etherville')", sourceTable), 4);
 
@@ -6492,11 +6506,11 @@ public abstract class BaseConnectorTest
 
         String targetTable = "merge_all_matches_deleted_target_" + randomNameSuffix();
         String sourceTable = "merge_all_matches_deleted_source_" + randomNameSuffix();
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("customer"));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable, Optional.empty());
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire'), ('Ed', 7, 'Etherville')", sourceTable), 4);
 
@@ -6518,11 +6532,11 @@ public abstract class BaseConnectorTest
         String targetTable = "merge_multiple_fail_target_" + randomNameSuffix();
         String sourceTable = "merge_multiple_fail_source_" + randomNameSuffix();
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("customer"));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch')", targetTable), 2);
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (id INT, customer VARCHAR, purchases INT, address VARCHAR)", sourceTable)));
+        createTableForWrites("CREATE TABLE %s (id INT, customer VARCHAR, purchases INT, address VARCHAR)", sourceTable, Optional.empty());
 
         assertUpdate(format("INSERT INTO %s (id, customer, purchases, address) VALUES (1, 'Aaron', 6, 'Adelphi'), (2, 'Aaron', 8, 'Ashland')", sourceTable), 2);
 
@@ -6545,7 +6559,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_MERGE));
 
         String targetTable = "merge_strange_capitalization_" + randomNameSuffix();
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("customer"));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
 
@@ -6569,11 +6583,11 @@ public abstract class BaseConnectorTest
 
         String targetTable = "test_without_aliases_target_" + randomNameSuffix();
         String sourceTable = "test_without_aliases_source_" + randomNameSuffix();
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("customer"));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable, Optional.empty());
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable), 4);
 
@@ -6598,11 +6612,11 @@ public abstract class BaseConnectorTest
         String targetTable = "merge_predicates_target_" + randomNameSuffix();
         String sourceTable = "merge_predicates_source_" + randomNameSuffix();
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (id INT, customer VARCHAR, purchases INT, address VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (id INT, customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("id"));
 
         assertUpdate(format("INSERT INTO %s (id, customer, purchases, address) VALUES (1, 'Aaron', 5, 'Antioch'), (2, 'Bill', 7, 'Buena'), (3, 'Carol', 3, 'Cambridge'), (4, 'Dave', 11, 'Devon')", targetTable), 4);
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (id INT, customer VARCHAR, purchases INT, address VARCHAR)", sourceTable)));
+        createTableForWrites("CREATE TABLE %s (id INT, customer VARCHAR, purchases INT, address VARCHAR)", sourceTable, Optional.empty());
 
         assertUpdate(format("INSERT INTO %s (id, customer, purchases, address) VALUES (5, 'Aaron', 6, 'Arches'), (6, 'Carol', 9, 'Centreville'), (7, 'Dave', 11, 'Darbyshire'), (8, 'Ed', 7, 'Etherville')", sourceTable), 4);
 
@@ -6646,11 +6660,11 @@ public abstract class BaseConnectorTest
         String targetTable = "merge_predicates_target_" + randomNameSuffix();
         String sourceTable = "merge_predicates_source_" + randomNameSuffix();
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (id INT, customer VARCHAR, purchases INT, address VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (id INT, customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.of("id"));
 
         assertUpdate(format("INSERT INTO %s (id, customer, purchases, address) VALUES (1, 'Dave', 11, 'Devon'), (2, 'Dave', 11, 'Darbyshire')", targetTable), 2);
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable)));
+        createTableForWrites("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable, Optional.empty());
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Dave', 11, 'Darbyshire')", sourceTable), 1);
 
@@ -6674,11 +6688,11 @@ public abstract class BaseConnectorTest
         String targetTable = "merge_cast_target_" + randomNameSuffix();
         String sourceTable = "merge_cast_source_" + randomNameSuffix();
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (col1 INT, col2 DOUBLE, col3 INT, col4 BIGINT, col5 REAL, col6 DOUBLE)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (col1 INT, col2 DOUBLE, col3 INT, col4 BIGINT, col5 REAL, col6 DOUBLE)", targetTable, Optional.of("col1"));
 
         assertUpdate(format("INSERT INTO %s VALUES (1, 2, 3, 4, 5, 6)", targetTable), 1);
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (col1 BIGINT, col2 REAL, col3 DOUBLE, col4 INT, col5 INT, col6 REAL)", sourceTable)));
+        createTableForWrites("CREATE TABLE %s (col1 BIGINT, col2 REAL, col3 DOUBLE, col4 INT, col5 INT, col6 REAL)", sourceTable, Optional.empty());
 
         assertUpdate(format("INSERT INTO %s VALUES (2, 3, 4, 5, 6, 7)", sourceTable), 1);
 
@@ -6701,11 +6715,11 @@ public abstract class BaseConnectorTest
         String targetTable = "merge_nation_target_" + randomNameSuffix();
         String sourceTable = "merge_nation_source_" + randomNameSuffix();
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", targetTable, Optional.of("nation_name"));
 
         assertUpdate(format("INSERT INTO %s (nation_name, region_name) VALUES ('FRANCE', 'EUROPE'), ('ALGERIA', 'AFRICA'), ('GERMANY', 'EUROPE')", targetTable), 3);
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", sourceTable)));
+        createTableForWrites("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", sourceTable, Optional.empty());
 
         assertUpdate(format("INSERT INTO %s VALUES ('ALGERIA', 'AFRICA'), ('FRANCE', 'EUROPE'), ('EGYPT', 'MIDDLE EAST'), ('RUSSIA', 'EUROPE')", sourceTable), 4);
 
@@ -6731,7 +6745,7 @@ public abstract class BaseConnectorTest
 
         String targetTable = "merge_non_nullable_target_" + randomNameSuffix();
 
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR NOT NULL)", targetTable)));
+        createTableForWrites("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR NOT NULL)", targetTable, Optional.of("nation_name"));
 
         assertUpdate(format("INSERT INTO %s (nation_name, region_name) VALUES ('FRANCE', 'EUROPE'), ('ALGERIA', 'AFRICA'), ('GERMANY', 'EUROPE')", targetTable), 3);
 
@@ -6774,7 +6788,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_MERGE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
 
         String targetTable = "merge_update_columns_reversed_" + randomNameSuffix();
-        assertUpdate(createTableForWrites("CREATE TABLE " + targetTable + " (a, b, c) AS VALUES (1, 2, 3)"), 1);
+        createTableForWrites("CREATE TABLE " + targetTable + " (a, b, c) AS VALUES (1, 2, 3)", targetTable, Optional.of("a"), OptionalInt.of(1));
         assertUpdate(
                 """
                 MERGE INTO %s t USING (VALUES(1)) AS s(a) ON (t.a = s.a)

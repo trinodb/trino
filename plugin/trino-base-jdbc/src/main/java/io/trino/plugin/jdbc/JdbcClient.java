@@ -166,6 +166,8 @@ public interface JdbcClient
 
     boolean isLimitGuaranteed(ConnectorSession session);
 
+    boolean supportsMerge();
+
     default Optional<String> getTableComment(ResultSet resultSet)
             throws SQLException
     {
@@ -261,5 +263,14 @@ public interface JdbcClient
     default OptionalInt getMaxColumnNameLength(ConnectorSession session)
     {
         return OptionalInt.empty();
+    }
+
+    /**
+     * Retrieves primary keys for remote table used in the merge process.
+     * These primary keys are unique identifiers of each row in table, commonly mapping to primary or unique keys in the database.
+     */
+    default List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        return List.of();
     }
 }

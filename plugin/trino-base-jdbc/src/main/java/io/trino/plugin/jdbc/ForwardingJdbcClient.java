@@ -354,6 +354,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public boolean supportsMerge()
+    {
+        return delegate().supportsMerge();
+    }
+
+    @Override
     public Optional<String> getTableComment(ResultSet resultSet)
             throws SQLException
     {
@@ -496,5 +502,11 @@ public abstract class ForwardingJdbcClient
     public OptionalInt getMaxColumnNameLength(ConnectorSession session)
     {
         return delegate().getMaxColumnNameLength(session);
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        return delegate().getPrimaryKeys(session, remoteTableName);
     }
 }

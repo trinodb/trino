@@ -441,6 +441,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public boolean supportsMerge()
+    {
+        return delegate().supportsMerge();
+    }
+
+    @Override
     public void createSchema(ConnectorSession session, String schemaName)
     {
         stats.getCreateSchema().wrap(() -> delegate().createSchema(session, schemaName));
@@ -516,5 +522,11 @@ public final class StatisticsAwareJdbcClient
     public OptionalInt getMaxColumnNameLength(ConnectorSession session)
     {
         return delegate().getMaxColumnNameLength(session);
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        return stats.getGetPrimaryKeys().wrap(() -> delegate().getPrimaryKeys(session, remoteTableName));
     }
 }

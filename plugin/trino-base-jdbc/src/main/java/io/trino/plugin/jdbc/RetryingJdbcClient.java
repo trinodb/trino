@@ -273,6 +273,13 @@ public class RetryingJdbcClient
     }
 
     @Override
+    public boolean supportsMerge()
+    {
+        // there should be no remote database interaction
+        return delegate.supportsMerge();
+    }
+
+    @Override
     public Optional<String> getTableComment(ResultSet resultSet)
             throws SQLException
     {
@@ -520,5 +527,11 @@ public class RetryingJdbcClient
     public OptionalInt getMaxColumnNameLength(ConnectorSession session)
     {
         return retry(policy, () -> delegate.getMaxColumnNameLength(session));
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        return retry(policy, () -> delegate.getPrimaryKeys(session, remoteTableName));
     }
 }

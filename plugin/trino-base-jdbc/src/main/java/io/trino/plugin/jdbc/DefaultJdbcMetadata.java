@@ -32,6 +32,7 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -71,6 +72,7 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
 import java.sql.Types;
@@ -112,6 +114,7 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isComplexJoinPu
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalInsert;
+import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalMerge;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
@@ -123,9 +126,9 @@ import static java.util.Objects.requireNonNull;
 public class DefaultJdbcMetadata
         implements JdbcMetadata
 {
+    public static final String MERGE_ROW_ID = "$merge_row_id";
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
     private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
-    private static final String MERGE_ROW_ID = "$merge_row_id";
 
     private final JdbcClient jdbcClient;
     private final TimestampTimeZoneDomain timestampTimeZoneDomain;
@@ -1274,11 +1277,70 @@ public class DefaultJdbcMetadata
     public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         verify(!isTableHandleForProcedure(tableHandle), "Not a table reference: %s", tableHandle);
-        // The column is used for row-level merge, which is not supported, but it's required during analysis anyway.
+        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+
+        List<RowType.Field> primaryKeyFields = jdbcClient.getPrimaryKeys(session, handle.getRequiredNamedRelation().getRemoteTableName()).stream()
+                .map(columnHandle -> new RowType.Field(Optional.of(columnHandle.getColumnName()), columnHandle.getColumnType()))
+                .collect(toImmutableList());
+        if (!primaryKeyFields.isEmpty()) {
+            return new JdbcColumnHandle(
+                    MERGE_ROW_ID,
+                    new JdbcTypeHandle(Types.ROWID, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+                    RowType.from(primaryKeyFields));
+        }
         return new JdbcColumnHandle(
+                // The column is used for row-level merge, which is not supported, but it's required during analysis anyway.
                 MERGE_ROW_ID,
                 new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
                 BIGINT);
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateColumnHandles, RetryMode retryMode)
+    {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support MERGE with fault-tolerant execution");
+        }
+
+        if (!jdbcClient.supportsMerge()) {
+            throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+        }
+
+        if (!isNonTransactionalMerge(session)) {
+            throw new TrinoException(NOT_SUPPORTED, "Non-transactional MERGE is disabled");
+        }
+
+        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+        checkArgument(handle.isNamedRelation(), "Merge target must be named relation table");
+
+        List<JdbcColumnHandle> primaryKeys = jdbcClient.getPrimaryKeys(session, handle.getRequiredNamedRelation().getRemoteTableName());
+        if (primaryKeys.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "The connector can not perform merge on the target table without primary keys");
+        }
+
+        SchemaTableName schemaTableName = handle.getRequiredNamedRelation().getSchemaTableName();
+        RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
+
+        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, schemaTableName, remoteTableName);
+        JdbcOutputTableHandle jdbcOutputTableHandle = (JdbcOutputTableHandle) beginInsert(
+                session,
+                new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty()),
+                ImmutableList.copyOf(columns),
+                retryMode);
+
+        return new JdbcMergeTableHandle(handle, jdbcOutputTableHandle, primaryKeys, columns, updateColumnHandles);
+    }
+
+    @Override
+    public void finishMerge(
+            ConnectorSession session,
+            ConnectorMergeTableHandle tableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        JdbcMergeTableHandle handle = (JdbcMergeTableHandle) tableHandle;
+        finishInsert(session, handle.getOutputTableHandle(), ImmutableList.of(), fragments, computedStatistics);
     }
 
     @Override

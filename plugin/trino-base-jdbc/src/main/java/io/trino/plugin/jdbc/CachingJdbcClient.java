@@ -90,6 +90,7 @@ public class CachingJdbcClient
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
     private final Cache<TableListingCacheKey, List<RelationCommentMetadata>> tableCommentsCache;
     private final Cache<JdbcTableHandle, TableStatistics> statisticsCache;
+    private final Cache<RemoteTableName, List<JdbcColumnHandle>> tablePrimaryKeysCache;
 
     @Inject
     public CachingJdbcClient(
@@ -138,6 +139,7 @@ public class CachingJdbcClient
         columnsCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
         tableCommentsCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
         statisticsCache = buildCache(ticker, cacheMaximumSize, statisticsCachingTtl);
+        tablePrimaryKeysCache = buildCache(ticker, cacheMaximumSize, statisticsCachingTtl);
     }
 
     private static <K, V> Cache<K, V> buildCache(Ticker ticker, long cacheSize, Duration cachingTtl)
@@ -350,6 +352,12 @@ public class CachingJdbcClient
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return delegate.isLimitGuaranteed(session);
+    }
+
+    @Override
+    public boolean supportsMerge()
+    {
+        return delegate.supportsMerge();
     }
 
     @Override
@@ -606,6 +614,12 @@ public class CachingJdbcClient
     public OptionalInt getMaxColumnNameLength(ConnectorSession session)
     {
         return delegate.getMaxColumnNameLength(session);
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        return get(tablePrimaryKeysCache, remoteTableName, () -> delegate.getPrimaryKeys(session, remoteTableName));
     }
 
     public void onDataChanged(SchemaTableName table)

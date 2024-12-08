@@ -11,29 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.phoenix5;
+package io.trino.plugin.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 
 import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static java.util.Objects.requireNonNull;
 
-public class PhoenixPageSource
+public class MergeJdbcPageSource
         implements ConnectorPageSource
 {
     private final ConnectorPageSource delegate;
     private final List<ColumnAdaptation> columnAdaptations;
 
-    public PhoenixPageSource(ConnectorPageSource delegate, List<ColumnAdaptation> columnAdaptations)
+    public MergeJdbcPageSource(ConnectorPageSource delegate, List<ColumnAdaptation> columnAdaptations)
     {
-        this.delegate = delegate;
-        this.columnAdaptations = columnAdaptations;
+        this.delegate = requireNonNull(delegate, "delegate is null");
+        this.columnAdaptations = ImmutableList.copyOf(requireNonNull(columnAdaptations, "columnAdaptations is null"));
     }
 
     @Override
@@ -91,19 +92,9 @@ public class PhoenixPageSource
     public interface ColumnAdaptation
     {
         Block getBlock(Page sourcePage);
-
-        static ColumnAdaptation sourceColumn(int index)
-        {
-            return new SourceColumn(index);
-        }
-
-        static ColumnAdaptation mergedRowColumns(List<Integer> mergeRowIdSourceChannels)
-        {
-            return new MergedRowAdaptation(mergeRowIdSourceChannels);
-        }
     }
 
-    private static final class MergedRowAdaptation
+    public static final class MergedRowAdaptation
             implements ColumnAdaptation
     {
         private final List<Integer> mergeRowIdSourceChannels;
@@ -121,14 +112,14 @@ public class PhoenixPageSource
             for (int i = 0; i < mergeRowIdBlocks.length; i++) {
                 mergeRowIdBlocks[i] = page.getBlock(mergeRowIdSourceChannels.get(i));
             }
-            return fromFieldBlocks(page.getPositionCount(), mergeRowIdBlocks);
+            return RowBlock.fromFieldBlocks(page.getPositionCount(), mergeRowIdBlocks);
         }
     }
 
-    private record SourceColumn(int sourceChannel)
+    public record SourceColumn(int sourceChannel)
             implements ColumnAdaptation
     {
-        private SourceColumn
+        public SourceColumn
         {
             checkArgument(sourceChannel >= 0, "sourceChannel is negative");
         }
