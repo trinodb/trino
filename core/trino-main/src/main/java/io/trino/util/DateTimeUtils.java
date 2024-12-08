@@ -408,8 +408,6 @@ public final class DateTimeUtils
             int bestValidPos = position;
             ReadWritablePeriod bestValidPeriod = null;
 
-            int bestInvalidPos = position;
-
             for (PeriodParser parser : parsers) {
                 ReadWritablePeriod parsedPeriod = new MutablePeriod();
                 int parsePos = parser.parseInto(parsedPeriod, text, position, locale);
@@ -423,22 +421,13 @@ public final class DateTimeUtils
                     }
                 }
                 else if (parsePos < 0) {
-                    parsePos = ~parsePos;
-                    if (parsePos > bestInvalidPos) {
-                        bestInvalidPos = parsePos;
-                    }
+                    return ~parsePos;
                 }
             }
 
-            if (bestValidPos > position || (bestValidPos == position)) {
-                // Restore the state to the best valid parse.
-                if (bestValidPeriod != null) {
-                    period.setPeriod(bestValidPeriod);
-                }
-                return bestValidPos;
-            }
-
-            return ~bestInvalidPos;
+            // Restore the state to the best valid parse.
+            period.setPeriod(bestValidPeriod);
+            return bestValidPos;
         }
     }
 }
