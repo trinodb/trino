@@ -16,14 +16,12 @@ package io.trino.spi.block;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
-import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
@@ -141,22 +139,6 @@ public final class DictionaryBlock
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        if (uniqueIds == positionCount) {
-            // Each position is unique, so the per-position fixed size of the dictionary plus the dictionary id overhead
-            // is our fixed size per position
-            OptionalInt dictionarySizePerPosition = dictionary.fixedSizeInBytesPerPosition();
-            // Nested dictionaries should not include the additional id array overhead in the result
-            if (dictionarySizePerPosition.isPresent()) {
-                dictionarySizePerPosition = OptionalInt.of(dictionarySizePerPosition.getAsInt() + Integer.BYTES);
-            }
-            return dictionarySizePerPosition;
-        }
-        return OptionalInt.empty();
-    }
-
-    @Override
     public long getSizeInBytes()
     {
         long sizeInBytes = this.sizeInBytes;
@@ -203,20 +185,6 @@ public final class DictionaryBlock
 
         double averageEntrySize = dictionary.getSizeInBytes() / (double) dictionary.getPositionCount();
         return (long) (averageEntrySize * length) + (Integer.BYTES * (long) length);
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
-    {
-        checkValidPositions(positions, positionCount);
-        if (selectedPositionsCount == 0) {
-            return 0;
-        }
-        if (selectedPositionsCount == positionCount) {
-            return getSizeInBytes();
-        }
-        double averageEntrySize = dictionary.getSizeInBytes() / (double) dictionary.getPositionCount();
-        return (long) (averageEntrySize * selectedPositionsCount) + (Integer.BYTES * (long) selectedPositionsCount);
     }
 
     @Override

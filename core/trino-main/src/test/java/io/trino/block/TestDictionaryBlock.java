@@ -25,7 +25,6 @@ import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
@@ -328,13 +327,6 @@ public class TestDictionaryBlock
         int secondHalfLength = entryCount - firstHalfLength;
         int[] firstHalfIds = IntStream.range(0, firstHalfLength).toArray();
         int[] secondHalfIds = IntStream.range(firstHalfLength, entryCount).toArray();
-
-        boolean[] selectedPositions = new boolean[entryCount];
-        selectedPositions[0] = true;
-        assertThat(DictionaryBlock.create(allIds.length, dictionary, allIds).getPositionsSizeInBytes(selectedPositions, 1)).isEqualTo(((long) averageEntrySize) + Integer.BYTES);
-
-        Arrays.fill(selectedPositions, true);
-        assertThat(DictionaryBlock.create(allIds.length, dictionary, allIds).getPositionsSizeInBytes(selectedPositions, entryCount)).isEqualTo((long) (averageEntrySize * entryCount) + (Integer.BYTES * (long) entryCount));
 
         assertThat(DictionaryBlock.create(firstHalfIds.length, dictionary, firstHalfIds).getSizeInBytes()).isEqualTo((long) (averageEntrySize * firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
         assertThat(DictionaryBlock.create(secondHalfIds.length, dictionary, secondHalfIds).getSizeInBytes()).isEqualTo((long) (averageEntrySize * secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
