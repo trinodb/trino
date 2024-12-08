@@ -20,8 +20,8 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tests.product.TestGroups.APACHE_RANGER;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.TestGroups.RANGER;
 import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestApacheRanger
         extends ProductTest
 {
-    @Test(groups = {APACHE_RANGER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {RANGER, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
         String tableName = "mariadb.test.nation_" + randomNameSuffix();
