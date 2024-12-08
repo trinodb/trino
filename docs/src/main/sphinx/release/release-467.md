@@ -27,7 +27,7 @@
 * {{breaking}} Remove the deprecated `schema` and `table` arguments from the
   `table_changes` table function. Use `schema_name` and `table_name` instead. ({issue}`24324`)
 * {{breaking}} Use the `iceberg.rest-catalog.warehouse` configuration property
-  instead of `iceberg.rest-catalog.parent-namespace` with Unity catalogs.
+  instead of `iceberg.rest-catalog.parent-namespace` with Unity catalogs. ({issue}`24269`)
 * Fix failure when writing concurrently with [transformed
   partition](https://iceberg.apache.org/spec/#partition-transforms) columns.
   ({issue}`24160`)
