@@ -57,6 +57,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -86,17 +87,16 @@ public class TestTrinoHiveCatalogWithHiveMetastore
         extends BaseTrinoCatalogTest
 {
     private static final Logger LOG = Logger.get(TestTrinoHiveCatalogWithHiveMetastore.class);
+    protected static final String bucketName = "test-hive-catalog-with-hms-" + randomNameSuffix();
 
     private AutoCloseableCloser closer = AutoCloseableCloser.create();
     // Use MinIO for storage, since HDFS is hard to get working in a unit test
     private HiveMinioDataLake dataLake;
     private TrinoFileSystem fileSystem;
-    private String bucketName;
 
     @BeforeAll
     public void setUp()
     {
-        bucketName = "test-hive-catalog-with-hms-" + randomNameSuffix();
         dataLake = closer.register(new HiveMinioDataLake(bucketName, HIVE3_IMAGE));
         dataLake.start();
     }
@@ -117,7 +117,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                         new HdfsConfigurationInitializer(
                                 new HdfsConfig(),
                                 Set.of(new TrinoS3ConfigurationInitializer(new HiveS3Config()
-                                        .setS3Endpoint(dataLake.getMinio().getMinioAddress())
+                                        .setS3Endpoint(minioAddress())
                                         .setS3SslEnabled(false)
                                         .setS3AwsAccessKey(MINIO_ACCESS_KEY)
                                         .setS3AwsSecretKey(MINIO_SECRET_KEY)
@@ -130,7 +130,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                 .thriftMetastoreConfig(new ThriftMetastoreConfig()
                         // Read timed out sometimes happens with the default timeout
                         .setReadTimeout(new Duration(1, MINUTES)))
-                .metastoreClient(dataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                .metastoreClient(hiveMetastoreEndpoint())
                 .build(closer::register);
         CachingHiveMetastore metastore = createPerTransactionCache(new BridgingHiveMetastore(thriftMetastore), 1000);
         fileSystem = fileSystemFactory.create(SESSION);
@@ -227,6 +227,16 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                 LOG.warn("Failed to clean up namespace: %s", namespace);
             }
         }
+    }
+
+    protected URI hiveMetastoreEndpoint()
+    {
+        return dataLake.getHiveHadoop().getHiveMetastoreEndpoint();
+    }
+
+    protected String minioAddress()
+    {
+        return dataLake.getMinio().getMinioAddress();
     }
 
     @Override
