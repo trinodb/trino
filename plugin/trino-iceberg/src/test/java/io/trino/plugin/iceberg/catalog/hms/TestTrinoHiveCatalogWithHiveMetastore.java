@@ -34,6 +34,7 @@ import io.trino.metastore.TableInfo;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
@@ -87,17 +88,22 @@ public class TestTrinoHiveCatalogWithHiveMetastore
 {
     private static final Logger LOG = Logger.get(TestTrinoHiveCatalogWithHiveMetastore.class);
 
-    private AutoCloseableCloser closer = AutoCloseableCloser.create();
+    private final AutoCloseableCloser closer = AutoCloseableCloser.create();
     // Use MinIO for storage, since HDFS is hard to get working in a unit test
-    private Hive3MinioDataLake dataLake;
+    private HiveMinioDataLake dataLake;
     private TrinoFileSystem fileSystem;
-    private String bucketName;
+    protected String bucketName;
+
+    HiveMinioDataLake hiveMinioDataLake()
+    {
+        return new Hive3MinioDataLake(bucketName, HIVE3_IMAGE);
+    }
 
     @BeforeAll
     public void setUp()
     {
         bucketName = "test-hive-catalog-with-hms-" + randomNameSuffix();
-        dataLake = closer.register(new Hive3MinioDataLake(bucketName, HIVE3_IMAGE));
+        dataLake = closer.register(hiveMinioDataLake());
         dataLake.start();
     }
 
