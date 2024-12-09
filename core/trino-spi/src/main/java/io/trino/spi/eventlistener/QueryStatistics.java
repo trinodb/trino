@@ -75,6 +75,7 @@ public class QueryStatistics
     private final List<StageCpuDistribution> cpuTimeDistribution;
     private final List<StageOutputBufferUtilization> outputBufferUtilization;
     private final List<StageTaskStatistics> taskStatistics;
+    private final List<StageOutputBufferMetrics> outputBufferMetrics;
 
     /**
      * Operator summaries serialized to JSON. Serialization format and structure
@@ -131,6 +132,7 @@ public class QueryStatistics
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
             List<StageOutputBufferUtilization> outputBufferUtilization,
+            List<StageOutputBufferMetrics> outputBufferMetrics,
             List<StageTaskStatistics> taskStatistics,
             List<String> operatorSummaries,
             List<QueryPlanOptimizerStatistics> optimizerRulesSummaries,
@@ -177,6 +179,7 @@ public class QueryStatistics
                 complete,
                 cpuTimeDistribution,
                 outputBufferUtilization,
+                outputBufferMetrics,
                 taskStatistics,
                 () -> operatorSummaries,
                 optimizerRulesSummaries,
@@ -224,6 +227,7 @@ public class QueryStatistics
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
             List<StageOutputBufferUtilization> outputBufferUtilization,
+            List<StageOutputBufferMetrics> outputBufferMetrics,
             List<StageTaskStatistics> taskStatistics,
             Supplier<List<String>> operatorSummariesProvider,
             List<QueryPlanOptimizerStatistics> optimizerRulesSummaries,
@@ -269,6 +273,7 @@ public class QueryStatistics
         this.complete = complete;
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.outputBufferUtilization = requireNonNull(outputBufferUtilization, "outputBufferUtilization is null");
+        this.outputBufferMetrics = requireNonNull(outputBufferMetrics, "outputBufferMetrics is null");
         this.taskStatistics = requireNonNull(taskStatistics, "taskStatistics is null");
         this.operatorSummariesProvider = requireNonNull(operatorSummariesProvider, "operatorSummariesProvider is null");
         this.optimizerRulesSummaries = requireNonNull(optimizerRulesSummaries, "optimizerRulesSummaries is null");
@@ -513,6 +518,12 @@ public class QueryStatistics
     public List<StageOutputBufferUtilization> getOutputBufferUtilization()
     {
         return outputBufferUtilization;
+    }
+
+    @JsonProperty
+    public List<StageOutputBufferMetrics> getOutputBufferMetrics()
+    {
+        return outputBufferMetrics;
     }
 
     @JsonProperty
