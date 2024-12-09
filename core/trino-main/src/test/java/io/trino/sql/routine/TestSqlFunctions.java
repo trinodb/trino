@@ -620,7 +620,7 @@ class TestSqlFunctions
         SqlRoutineAnalysis analysis = analyzer.analyze(session, new AllowAllAccessControl(), function);
 
         SqlRoutinePlanner planner = new SqlRoutinePlanner(PLANNER_CONTEXT);
-        IrRoutine routine = planner.planSqlFunction(session, function, analysis);
+        IrRoutine routine = planner.planSqlFunction(session, analysis);
 
         if (serialize) {
             // Simulate worker communication

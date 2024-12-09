@@ -17,8 +17,10 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class FunctionSpecification
@@ -28,7 +30,8 @@ public final class FunctionSpecification
     private final List<ParameterDeclaration> parameters;
     private final ReturnsClause returnsClause;
     private final List<RoutineCharacteristic> routineCharacteristics;
-    private final ControlStatement statement;
+    private final Optional<ControlStatement> statement;
+    private final Optional<StringLiteral> definition;
 
     public FunctionSpecification(
             NodeLocation location,
@@ -36,7 +39,8 @@ public final class FunctionSpecification
             List<ParameterDeclaration> parameters,
             ReturnsClause returnsClause,
             List<RoutineCharacteristic> routineCharacteristics,
-            ControlStatement statement)
+            Optional<ControlStatement> statement,
+            Optional<StringLiteral> definition)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -44,6 +48,8 @@ public final class FunctionSpecification
         this.returnsClause = requireNonNull(returnsClause, "returnClause is null");
         this.routineCharacteristics = ImmutableList.copyOf(requireNonNull(routineCharacteristics, "routineCharacteristics is null"));
         this.statement = requireNonNull(statement, "statement is null");
+        this.definition = requireNonNull(definition, "definition is null");
+        checkArgument(statement.isPresent() != definition.isPresent(), "exactly one of statement and definition must be present");
     }
 
     public QualifiedName getName()
@@ -66,20 +72,25 @@ public final class FunctionSpecification
         return routineCharacteristics;
     }
 
-    public ControlStatement getStatement()
+    public Optional<ControlStatement> getStatement()
     {
         return statement;
+    }
+
+    public Optional<StringLiteral> getDefinition()
+    {
+        return definition;
     }
 
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.<Node>builder()
+        ImmutableList.Builder<Node> nodes = ImmutableList.<Node>builder()
                 .addAll(parameters)
                 .add(returnsClause)
-                .addAll(routineCharacteristics)
-                .add(statement)
-                .build();
+                .addAll(routineCharacteristics);
+        statement.ifPresent(nodes::add);
+        return nodes.build();
     }
 
     @Override
@@ -96,13 +107,14 @@ public final class FunctionSpecification
                 Objects.equals(parameters, other.parameters) &&
                 Objects.equals(returnsClause, other.returnsClause) &&
                 Objects.equals(routineCharacteristics, other.routineCharacteristics) &&
-                Objects.equals(statement, other.statement);
+                Objects.equals(statement, other.statement) &&
+                Objects.equals(definition, other.definition);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, parameters, returnsClause, routineCharacteristics, statement);
+        return Objects.hash(name, parameters, returnsClause, routineCharacteristics, statement, definition);
     }
 
     @Override
@@ -113,7 +125,9 @@ public final class FunctionSpecification
                 .add("parameters", parameters)
                 .add("returnsClause", returnsClause)
                 .add("routineCharacteristics", routineCharacteristics)
-                .add("statement", statement)
+                .add("statement", statement.orElse(null))
+                .add("definition", definition.orElse(null))
+                .omitNullValues()
                 .toString();
     }
 }

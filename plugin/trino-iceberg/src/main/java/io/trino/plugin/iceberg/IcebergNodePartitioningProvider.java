@@ -15,19 +15,22 @@ package io.trino.plugin.iceberg;
 
 import com.google.inject.Inject;
 import io.trino.spi.connector.BucketFunction;
+import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-import org.apache.iceberg.Schema;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.function.ToIntFunction;
 
-import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
-import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
+import static io.trino.plugin.iceberg.IcebergPartitionFunction.Transform.BUCKET;
+import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 
 public class IcebergNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
@@ -41,6 +44,23 @@ public class IcebergNodePartitioningProvider
     }
 
     @Override
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorPartitioningHandle partitioningHandle)
+    {
+        IcebergPartitioningHandle handle = (IcebergPartitioningHandle) partitioningHandle;
+
+        List<IcebergPartitionFunction> partitionFunctions = handle.partitionFunctions();
+        // when there is a single bucket partition function, inform the engine there is a limit on the number of buckets
+        // TODO: when there are multiple bucket partition functions, we could compute the product of bucket counts, but this causes the engine to create too many writers
+        if (partitionFunctions.size() == 1 && partitionFunctions.getFirst().transform() == BUCKET) {
+            return Optional.of(createBucketNodeMap(partitionFunctions.getFirst().size().orElseThrow()).withCacheKeyHint(handle.getCacheKeyHint()));
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public BucketFunction getBucketFunction(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
@@ -48,16 +68,21 @@ public class IcebergNodePartitioningProvider
             List<Type> partitionChannelTypes,
             int bucketCount)
     {
-        if (partitioningHandle instanceof IcebergUpdateHandle) {
+        IcebergPartitioningHandle handle = (IcebergPartitioningHandle) partitioningHandle;
+        if (handle.update()) {
             return new IcebergUpdateBucketFunction(bucketCount);
         }
 
-        IcebergPartitioningHandle handle = (IcebergPartitioningHandle) partitioningHandle;
-        Schema schema = schemaFromHandles(handle.partitioningColumns());
-        return new IcebergBucketFunction(
-                typeOperators,
-                parsePartitionFields(schema, handle.partitioning()),
-                handle.partitioningColumns(),
-                bucketCount);
+        return new IcebergBucketFunction(handle, typeOperators, bucketCount);
+    }
+
+    @Override
+    public ToIntFunction<ConnectorSplit> getSplitBucketFunction(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorPartitioningHandle partitioningHandle,
+            int bucketCount)
+    {
+        return new IcebergBucketFunction((IcebergPartitioningHandle) partitioningHandle, typeOperators, bucketCount);
     }
 }

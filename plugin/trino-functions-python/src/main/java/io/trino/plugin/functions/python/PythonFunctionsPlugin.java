@@ -11,12 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.functions.python;
 
-import io.trino.spi.connector.ConnectorPartitioningHandle;
+import io.trino.spi.Plugin;
+import io.trino.spi.function.LanguageFunctionEngine;
 
-public enum IcebergUpdateHandle
-        implements ConnectorPartitioningHandle
+import java.util.List;
+
+public final class PythonFunctionsPlugin
+        implements Plugin
 {
-    INSTANCE
+    @Override
+    public Iterable<LanguageFunctionEngine> getLanguageFunctionEngines()
+    {
+        return List.of(new PythonFunctionEngine());
+    }
 }

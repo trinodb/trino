@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.inject.Inject;
@@ -36,10 +37,12 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.LanguageFunction;
+import io.trino.spi.function.LanguageFunctionEngine;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
@@ -53,8 +56,13 @@ import io.trino.sql.routine.SqlRoutineCompiler;
 import io.trino.sql.routine.SqlRoutineHash;
 import io.trino.sql.routine.SqlRoutinePlanner;
 import io.trino.sql.routine.ir.IrRoutine;
+import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionSpecification;
+import io.trino.sql.tree.Node;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.ParameterDeclaration;
+import io.trino.sql.tree.Property;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -67,13 +75,21 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.metadata.PropertyUtil.evaluateProperties;
+import static io.trino.metadata.PropertyUtil.toSqlProperties;
 import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.routine.SqlRoutineAnalyzer.extractFunctionMetadata;
+import static io.trino.sql.routine.SqlRoutineAnalyzer.getLanguage;
+import static io.trino.sql.routine.SqlRoutineAnalyzer.getLanguageName;
+import static io.trino.sql.routine.SqlRoutineAnalyzer.getProperties;
 import static io.trino.sql.routine.SqlRoutineAnalyzer.isRunAsInvoker;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -87,17 +103,25 @@ public class LanguageFunctionManager
     private final TypeManager typeManager;
     private final GroupProvider groupProvider;
     private final BlockEncodingSerde blockEncodingSerde;
+    private final LanguageFunctionEngineManager engineManager;
+    private PlannerContext plannerContext;
     private SqlRoutineAnalyzer analyzer;
     private SqlRoutinePlanner planner;
     private final Map<QueryId, QueryFunctions> queryFunctions = new ConcurrentHashMap<>();
 
     @Inject
-    public LanguageFunctionManager(SqlParser parser, TypeManager typeManager, GroupProvider groupProvider, BlockEncodingSerde blockEncodingSerde)
+    public LanguageFunctionManager(
+            SqlParser parser,
+            TypeManager typeManager,
+            GroupProvider groupProvider,
+            BlockEncodingSerde blockEncodingSerde,
+            LanguageFunctionEngineManager engineManager)
     {
         this.parser = requireNonNull(parser, "parser is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.engineManager = requireNonNull(engineManager, "engineManager is null");
     }
 
     // There is a circular dependency between LanguageFunctionManager and MetadataManager.
@@ -106,7 +130,8 @@ public class LanguageFunctionManager
     // language function manager to resolve language functions.
     public synchronized void setPlannerContext(PlannerContext plannerContext)
     {
-        checkState(analyzer == null, "plannerContext already set");
+        checkState(this.plannerContext == null, "plannerContext already set");
+        this.plannerContext = plannerContext;
         analyzer = new SqlRoutineAnalyzer(plannerContext, WarningCollector.NOOP);
         planner = new SqlRoutinePlanner(plannerContext);
     }
@@ -130,7 +155,7 @@ public class LanguageFunctionManager
     }
 
     @Override
-    public void registerTask(TaskId taskId, Map<FunctionId, IrRoutine> languageFunctions)
+    public void registerTask(TaskId taskId, Map<FunctionId, LanguageFunctionData> languageFunctions)
     {
         // the functions are already registered in the query, so we don't need to do anything here
     }
@@ -182,7 +207,7 @@ public class LanguageFunctionManager
                 .orElseThrow(() -> new IllegalStateException("Unknown function implementation: " + functionId));
     }
 
-    public Map<FunctionId, IrRoutine> serializeFunctionsForWorkers(Session session)
+    public Map<FunctionId, LanguageFunctionData> serializeFunctionsForWorkers(Session session)
     {
         return getQueryFunctions(session).serializeFunctionsForWorkers();
     }
@@ -236,12 +261,51 @@ public class LanguageFunctionManager
                 .collect(joining(",", "(", ")"));
     }
 
+    public List<Property> materializeFunctionProperties(Session session, FunctionSpecification function, Map<NodeRef<Parameter>, Expression> parameters, AccessControl accessControl)
+    {
+        LanguageFunctionEngine engine = getLanguageFunctionEngine(function);
+        return toSqlProperties(
+                "function language " + engine.getLanguage(),
+                INVALID_FUNCTION_PROPERTY,
+                evaluateFunctionProperties(session, function, parameters, accessControl),
+                engine.getFunctionProperties());
+    }
+
+    private Map<String, Object> evaluateFunctionProperties(Session session, FunctionSpecification function, Map<NodeRef<Parameter>, Expression> parameters, AccessControl accessControl)
+    {
+        LanguageFunctionEngine engine = getLanguageFunctionEngine(function);
+        Map<String, Optional<Object>> nullableValues = evaluateProperties(
+                getProperties(function),
+                session,
+                plannerContext,
+                accessControl,
+                parameters,
+                true,
+                Maps.uniqueIndex(engine.getFunctionProperties(), PropertyMetadata::getName),
+                INVALID_FUNCTION_PROPERTY,
+                "function language %s property".formatted(engine.getLanguage()));
+
+        return nullableValues.entrySet().stream()
+                .filter(entry -> entry.getValue().isPresent())
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().orElseThrow()));
+    }
+
+    private LanguageFunctionEngine getLanguageFunctionEngine(FunctionSpecification function)
+    {
+        String language = getLanguageName(function);
+        return engineManager.getLanguageFunctionEngine(language)
+                .orElseThrow(() -> {
+                    Node node = getLanguage(function).map(Node.class::cast).orElse(function);
+                    return semanticException(NOT_SUPPORTED, node, "Unsupported function language: %s", language);
+                });
+    }
+
     private class QueryFunctions
     {
         private final Session session;
         private final Map<FunctionKey, FunctionListing> functionListing = new ConcurrentHashMap<>();
         private final Map<FunctionId, LanguageFunctionImplementation> implementationsById = new ConcurrentHashMap<>();
-        private final Map<FunctionId, IrRoutine> usedFunctions = new ConcurrentHashMap<>();
+        private final Map<FunctionId, LanguageFunctionData> usedFunctions = new ConcurrentHashMap<>();
 
         public QueryFunctions(Session session)
         {
@@ -275,24 +339,39 @@ public class LanguageFunctionManager
             LanguageFunctionImplementation function = implementationsById.get(functionId);
             checkArgument(function != null, "Unknown function implementation: %s", functionId);
 
-            // verify the function and check permissions of nexted function calls
+            // verify the function and check permissions of nested function calls
             function.analyzeAndPlan(accessControl);
 
-            IrRoutine routine = function.getRoutine();
+            LanguageFunctionData data = function.getFunctionData();
             FunctionId resolvedFunctionId = function.getResolvedFunctionId();
 
             // mark the function as used, so it is serialized for workers
-            usedFunctions.put(resolvedFunctionId, routine);
+            usedFunctions.put(resolvedFunctionId, data);
             return resolvedFunctionId;
         }
 
         public Optional<ScalarFunctionImplementation> specialize(FunctionId functionId, InvocationConvention invocationConvention, FunctionManager functionManager)
         {
-            IrRoutine routine = usedFunctions.get(functionId);
-            if (routine == null) {
+            LanguageFunctionData data = usedFunctions.get(functionId);
+            if (data == null) {
                 return Optional.empty();
             }
 
+            if (data.definition().isPresent()) {
+                LanguageFunctionDefinition definition = data.definition().get();
+
+                LanguageFunctionEngine engine = engineManager.getLanguageFunctionEngine(definition.language())
+                        .orElseThrow(() -> new IllegalStateException("No language function engine for language: " + definition.language()));
+
+                return Optional.of(engine.getScalarFunctionImplementation(
+                        definition.returnType(),
+                        definition.argumentTypes(),
+                        definition.definition(),
+                        definition.properties(),
+                        invocationConvention));
+            }
+
+            IrRoutine routine = data.irRoutine().orElseThrow();
             SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager).compile(routine);
             return Optional.of(function.getScalarFunctionImplementation(invocationConvention));
         }
@@ -304,7 +383,7 @@ public class LanguageFunctionManager
             return function.getFunctionMetadata();
         }
 
-        public Map<FunctionId, IrRoutine> serializeFunctionsForWorkers()
+        public Map<FunctionId, LanguageFunctionData> serializeFunctionsForWorkers()
         {
             return ImmutableMap.copyOf(usedFunctions);
         }
@@ -396,6 +475,9 @@ public class LanguageFunctionManager
             private final SqlPath path;
             private final Optional<String> owner;
             private final Optional<RunAsIdentityLoader> identityLoader;
+            private final String language;
+            private final boolean engineFunction;
+            private LanguageFunctionData data;
             private IrRoutine routine;
             private FunctionId resolvedFunctionId;
             private boolean analyzing;
@@ -407,6 +489,8 @@ public class LanguageFunctionManager
                 this.path = requireNonNull(path, "path is null");
                 this.owner = requireNonNull(owner, "owner is null");
                 this.identityLoader = requireNonNull(identityLoader, "identityLoader is null");
+                this.language = getLanguageName(function);
+                this.engineFunction = !language.equalsIgnoreCase("SQL");
             }
 
             public FunctionMetadata getFunctionMetadata()
@@ -418,14 +502,23 @@ public class LanguageFunctionManager
             {
                 checkState(identityLoader.isEmpty(), "create should not enforce security");
                 analyzeAndPlan(accessControl);
-                new SqlRoutineCompiler(functionManager).compile(routine);
+                if (!engineFunction) {
+                    new SqlRoutineCompiler(functionManager).compile(routine);
+                }
             }
 
             private synchronized void analyzeAndPlan(AccessControl accessControl)
             {
-                if (routine != null) {
+                if (data != null) {
                     return;
                 }
+
+                if (engineFunction) {
+                    data = LanguageFunctionData.ofDefinition(analyzeEngineFunction(functionContext(accessControl)));
+                    resolvedFunctionId = functionMetadata.getFunctionId();
+                    return;
+                }
+
                 if (analyzing) {
                     String error = "Recursive language functions are not supported: " + nameSignature();
                     if (originalAst()) {
@@ -436,8 +529,9 @@ public class LanguageFunctionManager
 
                 analyzing = true;
 
-                SqlRoutineAnalysis analysis = analyze(functionContext(accessControl));
-                routine = planner.planSqlFunction(session, functionSpecification, analysis);
+                SqlRoutineAnalysis analysis = analyzeSqlFunction(functionContext(accessControl));
+                routine = planner.planSqlFunction(session, analysis);
+                data = LanguageFunctionData.ofIrRoutine(routine);
 
                 Hasher hasher = Hashing.sha256().newHasher();
                 SqlRoutineHash.hash(routine, hasher, blockEncodingSerde);
@@ -446,7 +540,7 @@ public class LanguageFunctionManager
                 analyzing = false;
             }
 
-            private SqlRoutineAnalysis analyze(FunctionContext context)
+            private SqlRoutineAnalysis analyzeSqlFunction(FunctionContext context)
             {
                 try {
                     return analyzer.analyze(context.session(), context.accessControl(), functionSpecification);
@@ -462,20 +556,70 @@ public class LanguageFunctionManager
                 }
             }
 
+            private LanguageFunctionDefinition analyzeEngineFunction(FunctionContext context)
+            {
+                LanguageFunctionDefinition definition = engineFunctionDefinition(context);
+                validateEngineFunction(definition);
+                return definition;
+            }
+
+            private LanguageFunctionDefinition engineFunctionDefinition(FunctionContext context)
+            {
+                Type returnType = typeManager.getType(functionMetadata.getSignature().getReturnType());
+
+                List<Type> argumentTypes = functionMetadata.getSignature().getArgumentTypes().stream()
+                        .map(typeManager::getType)
+                        .collect(toImmutableList());
+
+                String definition = functionSpecification.getDefinition().orElseThrow().getValue();
+
+                Map<String, Object> properties = engineFunctionProperties(context);
+
+                return new LanguageFunctionDefinition(language, returnType, argumentTypes, definition, properties);
+            }
+
+            private Map<String, Object> engineFunctionProperties(FunctionContext context)
+            {
+                try {
+                    return evaluateFunctionProperties(context.session(), functionSpecification, Map.of(), context.accessControl());
+                }
+                catch (TrinoException e) {
+                    if (originalAst()) {
+                        throw e;
+                    }
+                    throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Error analyzing stored function: " + nameSignature(), e);
+                }
+            }
+
+            private void validateEngineFunction(LanguageFunctionDefinition definition)
+            {
+                try {
+                    LanguageFunctionEngine engine = getLanguageFunctionEngine(functionSpecification);
+                    engine.validateScalarFunction(definition.returnType(), definition.argumentTypes(), definition.definition(), definition.properties());
+                }
+                catch (TrinoException e) {
+                    if (originalAst()) {
+                        String message = "Invalid function '%s': %s".formatted(functionMetadata.getCanonicalName(), e.getMessage());
+                        throw new TrinoException(e::getErrorCode, extractLocation(functionSpecification), message, e);
+                    }
+                    throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Error validating stored function: " + nameSignature(), e);
+                }
+            }
+
             private String nameSignature()
             {
                 return functionMetadata.getCanonicalName() + functionMetadata.getSignature();
             }
 
-            public synchronized IrRoutine getRoutine()
+            public synchronized LanguageFunctionData getFunctionData()
             {
-                checkState(routine != null, "function not yet analyzed");
-                return routine;
+                checkState(data != null, "function not yet analyzed");
+                return data;
             }
 
             public synchronized FunctionId getResolvedFunctionId()
             {
-                checkState(routine != null, "function not yet analyzed");
+                checkState(resolvedFunctionId != null, "function not yet analyzed");
                 return resolvedFunctionId;
             }
 

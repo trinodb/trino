@@ -248,11 +248,11 @@ public class TracingMetadata
     }
 
     @Override
-    public TableHandle makeCompatiblePartitioning(Session session, TableHandle table, PartitioningHandle partitioningHandle)
+    public Optional<TableHandle> applyPartitioning(Session session, TableHandle tableHandle, Optional<PartitioningHandle> partitioning, List<ColumnHandle> columns)
     {
-        Span span = startSpan("makeCompatiblePartitioning", table);
+        Span span = startSpan("applyPartitioning", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.makeCompatiblePartitioning(session, table, partitioningHandle);
+            return delegate.applyPartitioning(session, tableHandle, partitioning, columns);
         }
     }
 

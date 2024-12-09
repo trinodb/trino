@@ -191,7 +191,11 @@ public class TestColocatedJoin
         }
 
         @Override
-        public ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+        public ToIntFunction<ConnectorSplit> getSplitBucketFunction(
+                ConnectorTransactionHandle transactionHandle,
+                ConnectorSession session,
+                ConnectorPartitioningHandle partitioningHandle,
+                int bucketCount)
         {
             throw new UnsupportedOperationException();
         }

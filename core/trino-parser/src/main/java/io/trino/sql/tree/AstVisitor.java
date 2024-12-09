@@ -1272,6 +1272,11 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitPropertiesCharacteristic(PropertiesCharacteristic node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitReturnStatement(ReturnStatement node, C context)
     {
         return visitNode(node, context);

@@ -900,21 +900,21 @@ public class BackgroundHiveSplitLoader
         private final int readBucketCount;
         private final IntPredicate bucketFilter;
 
-        public static Optional<BucketSplitInfo> createBucketSplitInfo(Optional<HiveBucketHandle> bucketHandle, Optional<HiveBucketFilter> bucketFilter)
+        public static Optional<BucketSplitInfo> createBucketSplitInfo(Optional<HiveTablePartitioning> tablePartitioning, Optional<HiveBucketFilter> bucketFilter)
         {
-            requireNonNull(bucketHandle, "bucketHandle is null");
+            requireNonNull(tablePartitioning, "tablePartitioning is null");
             requireNonNull(bucketFilter, "bucketFilter is null");
 
-            if (bucketHandle.isEmpty()) {
-                checkArgument(bucketFilter.isEmpty(), "bucketHandle must be present if bucketFilter is present");
+            if (tablePartitioning.isEmpty()) {
+                checkArgument(bucketFilter.isEmpty(), "tablePartitioning must be present if bucketFilter is present");
                 return Optional.empty();
             }
 
-            BucketingVersion bucketingVersion = bucketHandle.get().bucketingVersion();
-            int tableBucketCount = bucketHandle.get().tableBucketCount();
-            int readBucketCount = bucketHandle.get().readBucketCount();
+            BucketingVersion bucketingVersion = tablePartitioning.get().partitioningHandle().getBucketingVersion();
+            int tableBucketCount = tablePartitioning.get().tableBucketCount();
+            int readBucketCount = tablePartitioning.get().partitioningHandle().getBucketCount();
 
-            List<HiveColumnHandle> bucketColumns = bucketHandle.get().columns();
+            List<HiveColumnHandle> bucketColumns = tablePartitioning.get().columns();
             IntPredicate predicate = bucketFilter
                     .<IntPredicate>map(filter -> filter.getBucketsToKeep()::contains)
                     .orElse(bucket -> true);

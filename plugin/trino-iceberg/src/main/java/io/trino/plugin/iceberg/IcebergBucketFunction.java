@@ -13,172 +13,141 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.plugin.iceberg.PartitionTransforms.ValueTransform;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.BucketFunction;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.type.TypeOperators;
-import org.apache.iceberg.PartitionSpec;
 
 import java.lang.invoke.MethodHandle;
-import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
+import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
-import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
+import static io.trino.plugin.iceberg.IcebergPartitionFunction.Transform.BUCKET;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class IcebergBucketFunction
-        implements BucketFunction
+        implements BucketFunction, ToIntFunction<ConnectorSplit>
 {
     private final int bucketCount;
+    private final List<HashFunction> functions;
 
-    private final List<PartitionColumn> partitionColumns;
-    private final List<MethodHandle> hashCodeInvokers;
+    private final boolean singleBucketFunction;
 
-    public IcebergBucketFunction(
-            TypeOperators typeOperators,
-            PartitionSpec partitionSpec,
-            List<IcebergColumnHandle> partitioningColumns,
-            int bucketCount)
+    public IcebergBucketFunction(IcebergPartitioningHandle partitioningHandle, TypeOperators typeOperators, int bucketCount)
     {
-        requireNonNull(partitionSpec, "partitionSpec is null");
-        checkArgument(!partitionSpec.isUnpartitioned(), "empty partitionSpec");
-        requireNonNull(partitioningColumns, "partitioningColumns is null");
+        requireNonNull(partitioningHandle, "partitioningHandle is null");
         requireNonNull(typeOperators, "typeOperators is null");
         checkArgument(bucketCount > 0, "Invalid bucketCount: %s", bucketCount);
 
         this.bucketCount = bucketCount;
-
-        Map<String, FieldInfo> nameToFieldInfo = buildNameToFieldInfo(partitioningColumns);
-        partitionColumns = partitionSpec.fields().stream()
-                .map(field -> {
-                    String fieldName = partitionSpec.schema().findColumnName(field.sourceId());
-                    FieldInfo fieldInfo = nameToFieldInfo.get(fieldName);
-                    checkArgument(fieldInfo != null, "partition field not found: %s", field);
-                    ColumnTransform transform = getColumnTransform(field, fieldInfo.type());
-                    return new PartitionColumn(fieldInfo.sourceChannel(), transform.valueTransform(), transform.type(), fieldInfo.path());
-                })
+        List<IcebergPartitionFunction> partitionFunctions = partitioningHandle.partitionFunctions();
+        this.functions = partitionFunctions.stream()
+                .map(partitionFunction -> HashFunction.create(partitionFunction, typeOperators))
                 .collect(toImmutableList());
-        hashCodeInvokers = partitionColumns.stream()
-                .map(PartitionColumn::resultType)
-                .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL)))
-                .collect(toImmutableList());
-    }
 
-    private static void addFieldInfo(
-            Map<String, FieldInfo> nameToFieldInfo,
-            int sourceChannel,
-            String fieldName,
-            List<ColumnIdentity> children,
-            Type type,
-            List<Integer> path)
-    {
-        if (type instanceof RowType rowType) {
-            List<RowType.Field> fields = rowType.getFields();
-            checkArgument(children.size() == fields.size(), format("children size (%s) == fields size (%s) is not equal", children.size(), fields.size()));
-            for (int i = 0; i < fields.size(); i++) {
-                ColumnIdentity child = children.get(i);
-                String qualifiedFieldName = fieldName + "." + child.getName();
-                path.add(i);
-                if (fields.get(i).getType() instanceof RowType) {
-                    addFieldInfo(nameToFieldInfo, sourceChannel, qualifiedFieldName, child.getChildren(), fields.get(i).getType(), path);
-                }
-                else {
-                    nameToFieldInfo.put(qualifiedFieldName, new FieldInfo(sourceChannel, qualifiedFieldName, fields.get(i).getType(), ImmutableList.copyOf(path)));
-                }
-                path.removeLast();
-            }
-        }
-        else {
-            nameToFieldInfo.put(fieldName, new FieldInfo(sourceChannel, fieldName, type, ImmutableList.copyOf(path)));
-        }
+        this.singleBucketFunction = partitionFunctions.size() == 1 &&
+                partitionFunctions.getFirst().transform() == BUCKET &&
+                partitionFunctions.getFirst().size().orElseThrow() == bucketCount;
     }
 
     @Override
     public int getBucket(Page page, int position)
     {
-        long hash = 0;
+        if (singleBucketFunction) {
+            long bucket = (long) requireNonNullElse(functions.getFirst().getValue(page, position), 0L);
+            checkArgument(0 <= bucket && bucket < bucketCount, "Bucket value out of range: %s (bucketCount: %s)", bucket, bucketCount);
+            return (int) bucket;
+        }
 
-        for (int i = 0; i < partitionColumns.size(); i++) {
-            PartitionColumn partitionColumn = partitionColumns.get(i);
-            Block block = page.getBlock(partitionColumn.sourceChannel());
-            for (int index : partitionColumn.path()) {
-                block = getRowFieldsFromBlock(block).get(index);
-            }
-            Object value = partitionColumn.valueTransform().apply(block, position);
-            long valueHash = hashValue(hashCodeInvokers.get(i), value);
+        long hash = 0;
+        for (HashFunction function : functions) {
+            long valueHash = function.computeHash(page, position);
             hash = (31 * hash) + valueHash;
         }
 
         return (int) ((hash & Long.MAX_VALUE) % bucketCount);
     }
 
-    private static Map<String, FieldInfo> buildNameToFieldInfo(List<IcebergColumnHandle> partitioningColumns)
+    @Override
+    public int applyAsInt(ConnectorSplit split)
     {
-        Map<String, FieldInfo> nameToFieldInfo = new HashMap<>();
-        for (int channel = 0; channel < partitioningColumns.size(); channel++) {
-            IcebergColumnHandle partitionColumn = partitioningColumns.get(channel);
-            addFieldInfo(
-                    nameToFieldInfo,
-                    channel,
-                    partitionColumn.getName(),
-                    partitionColumn.getColumnIdentity().getChildren(),
-                    partitionColumn.getType(),
-                    new LinkedList<>());
+        List<Object> partitionValues = ((IcebergSplit) split).getPartitionValues()
+                .orElseThrow(() -> new IllegalArgumentException("Split does not contain partition values"));
+
+        if (singleBucketFunction) {
+            long bucket = (long) requireNonNullElse(partitionValues.getFirst(), 0);
+            checkArgument(0 <= bucket && bucket < bucketCount, "Bucket value out of range: %s (bucketCount: %s)", bucket, bucketCount);
+            return (int) bucket;
         }
-        return nameToFieldInfo;
+
+        long hash = 0;
+        for (int i = 0; i < functions.size(); i++) {
+            long valueHash = functions.get(i).computeHash(partitionValues.get(i));
+            hash = (31 * hash) + valueHash;
+        }
+
+        return (int) ((hash & Long.MAX_VALUE) % bucketCount);
     }
 
-    private static long hashValue(MethodHandle method, Object value)
+    private record HashFunction(List<Integer> dataPath, ValueTransform valueTransform, MethodHandle hashCodeOperator)
     {
-        if (value == null) {
-            return NULL_HASH_CODE;
+        private static HashFunction create(IcebergPartitionFunction partitionFunction, TypeOperators typeOperators)
+        {
+            PartitionTransforms.ColumnTransform columnTransform = PartitionTransforms.getColumnTransform(partitionFunction);
+            return new HashFunction(
+                    partitionFunction.dataPath(),
+                    columnTransform.valueTransform(),
+                    typeOperators.getHashCodeOperator(columnTransform.type(), simpleConvention(FAIL_ON_NULL, NEVER_NULL)));
         }
-        try {
-            return (long) method.invoke(value);
-        }
-        catch (Throwable throwable) {
-            if (throwable instanceof Error) {
-                throw (Error) throwable;
-            }
-            if (throwable instanceof RuntimeException) {
-                throw (RuntimeException) throwable;
-            }
-            throw new RuntimeException(throwable);
-        }
-    }
 
-    private record PartitionColumn(int sourceChannel, ValueTransform valueTransform, Type resultType, List<Integer> path)
-    {
-        private PartitionColumn
+        private HashFunction
         {
             requireNonNull(valueTransform, "valueTransform is null");
-            requireNonNull(resultType, "resultType is null");
-            path = ImmutableList.copyOf(requireNonNull(path, "path is null"));
+            requireNonNull(hashCodeOperator, "hashCodeOperator is null");
         }
-    }
 
-    private record FieldInfo(int sourceChannel, String name, Type type, List<Integer> path)
-    {
-        FieldInfo
+        public Object getValue(Page page, int position)
         {
-            requireNonNull(name, "name is null");
-            requireNonNull(type, "type is null");
-            path = ImmutableList.copyOf(requireNonNull(path, "path is null"));
+            Block block = page.getBlock(dataPath.getFirst());
+            for (int i = 1; i < dataPath.size(); i++) {
+                position = block.getUnderlyingValuePosition(position);
+                block = ((RowBlock) block.getUnderlyingValueBlock()).getFieldBlock(dataPath.get(i));
+            }
+            return valueTransform.apply(block, position);
+        }
+
+        public long computeHash(Page page, int position)
+        {
+            return computeHash(getValue(page, position));
+        }
+
+        private long computeHash(Object value)
+        {
+            if (value == null) {
+                return NULL_HASH_CODE;
+            }
+            try {
+                return (long) hashCodeOperator.invoke(value);
+            }
+            catch (Throwable throwable) {
+                if (throwable instanceof Error) {
+                    throw (Error) throwable;
+                }
+                if (throwable instanceof RuntimeException) {
+                    throw (RuntimeException) throwable;
+                }
+                throw new RuntimeException(throwable);
+            }
         }
     }
 }
