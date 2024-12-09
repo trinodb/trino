@@ -34,9 +34,9 @@ import io.trino.plugin.thrift.api.TrinoThriftSplitBatch;
 import io.trino.plugin.thrift.api.TrinoThriftTableMetadata;
 import io.trino.plugin.thrift.api.TrinoThriftTupleDomain;
 import io.trino.plugin.tpch.DecimalTypeMapping;
-import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.tpch.TpchColumn;
@@ -238,9 +238,9 @@ public class ThriftTpchService
         int skipPages = nextToken != null ? Ints.fromByteArray(nextToken.getId()) : 0;
         skipPages(pageSource, skipPages);
 
-        Page page = null;
+        SourcePage page = null;
         while (!pageSource.isFinished() && page == null) {
-            page = pageSource.getNextPage();
+            page = pageSource.getNextSourcePage();
             skipPages++;
         }
         TrinoThriftId newNextToken = pageSource.isFinished() ? null : new TrinoThriftId(Ints.toByteArray(skipPages));
@@ -248,7 +248,7 @@ public class ThriftTpchService
         return toThriftPage(page, types(tableName, columnNames), newNextToken);
     }
 
-    private static TrinoThriftPageResult toThriftPage(Page page, List<Type> columnTypes, @Nullable TrinoThriftId nextToken)
+    private static TrinoThriftPageResult toThriftPage(SourcePage page, List<Type> columnTypes, @Nullable TrinoThriftId nextToken)
     {
         if (page == null) {
             checkState(nextToken == null, "there must be no more data when page is null");
@@ -267,7 +267,7 @@ public class ThriftTpchService
     {
         for (int i = 0; i < skipPages; i++) {
             checkState(!pageSource.isFinished(), "pageSource is unexpectedly finished");
-            pageSource.getNextPage();
+            pageSource.getNextSourcePage();
         }
     }
 

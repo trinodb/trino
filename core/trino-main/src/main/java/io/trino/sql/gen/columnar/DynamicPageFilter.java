@@ -18,10 +18,10 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.operator.project.SelectedPositions;
-import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
@@ -150,7 +150,7 @@ public final class DynamicPageFilter
         }
 
         @Override
-        public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, Page page)
+        public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, SourcePage page)
         {
             long filterTimeNanos = 0;
             for (int filterIndex = 0; filterIndex < subFilterEvaluators.size(); filterIndex++) {

@@ -17,6 +17,7 @@ import com.google.common.collect.AbstractIterator;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.tpch.TpchTable;
@@ -56,12 +57,12 @@ public final class TpchTables
                     return endOfData();
                 }
 
-                Page page = pageSource.getNextPage();
+                SourcePage page = pageSource.getNextSourcePage();
                 if (page == null) {
                     return computeNext();
                 }
 
-                return page.getLoadedPage();
+                return page.getPage();
             }
         };
     }

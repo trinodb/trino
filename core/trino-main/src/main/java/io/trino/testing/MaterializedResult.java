@@ -23,6 +23,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTime;
@@ -335,11 +336,11 @@ public class MaterializedResult
     {
         MaterializedResult.Builder builder = resultBuilder(session, types);
         while (!pageSource.isFinished()) {
-            Page outputPage = pageSource.getNextPage();
+            SourcePage outputPage = pageSource.getNextSourcePage();
             if (outputPage == null) {
                 continue;
             }
-            builder.page(outputPage);
+            builder.page(outputPage.getPage());
         }
         return builder.build();
     }

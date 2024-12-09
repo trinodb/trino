@@ -23,17 +23,19 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.CompletedWork;
 import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.TestingSourcePage;
 import io.trino.operator.Work;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionProfiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
 import io.trino.sql.relational.CallExpression;
+import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -94,7 +96,7 @@ public class TestPageProcessor
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.empty(), Optional.empty(), ImmutableList.of(), OptionalInt.of(MAX_BATCH_SIZE));
 
-        Page inputPage = new Page(createLongSequenceBlock(0, 100));
+        SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 100));
 
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
 
@@ -110,7 +112,7 @@ public class TestPageProcessor
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new TestingPageFilter(positionsRange(0, 50)))), ImmutableList.of());
 
-        Page inputPage = new Page(createLongSequenceBlock(0, 100));
+        SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 100));
 
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
         Iterator<Optional<Page>> output = pageProcessor.process(SESSION, new DriverYieldSignal(), memoryContext, inputPage);
@@ -132,7 +134,7 @@ public class TestPageProcessor
                 ImmutableList.of(new InputPageProjection(0, BIGINT)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
-        Page inputPage = new Page(createLongSequenceBlock(0, 100));
+        SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 100));
 
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
 
@@ -150,7 +152,7 @@ public class TestPageProcessor
                 ImmutableList.of(new InputPageProjection(0, BIGINT)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
-        Page inputPage = new Page(createLongSequenceBlock(0, 100));
+        SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 100));
 
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
 
@@ -164,7 +166,7 @@ public class TestPageProcessor
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectNoneFilter())), ImmutableList.of(new InputPageProjection(0, BIGINT)));
 
-        Page inputPage = new Page(createLongSequenceBlock(0, 100));
+        SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 100));
 
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
         Iterator<Optional<Page>> output = pageProcessor.process(SESSION, new DriverYieldSignal(), memoryContext, inputPage);
@@ -179,7 +181,7 @@ public class TestPageProcessor
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectAllFilter())), ImmutableList.of(new InputPageProjection(0, BIGINT)));
 
-        Page inputPage = new Page(createLongSequenceBlock(0, 0));
+        SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 0));
 
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
         Iterator<Optional<Page>> output = pageProcessor.process(SESSION, new DriverYieldSignal(), memoryContext, inputPage);
@@ -196,9 +198,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectNoneFilter())), ImmutableList.of(new InputPageProjection(1, BIGINT)));
 
         // if channel 1 is loaded, test will fail
-        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, () -> {
-            throw new AssertionError("Lazy block should not be loaded");
-        }));
+        SourcePage inputPage = new TestingSourcePage(100, createLongSequenceBlock(0, 100), null);
 
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
         Iterator<Optional<Page>> output = pageProcessor.process(SESSION, new DriverYieldSignal(), memoryContext, inputPage);
@@ -217,9 +217,7 @@ public class TestPageProcessor
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         // if channel 1 is loaded, test will fail
-        Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, () -> {
-            throw new AssertionError("Lazy block should not be loaded");
-        }));
+        SourcePage inputPage = new TestingSourcePage(100, createLongSequenceBlock(0, 100), null);
 
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
         Iterator<Optional<Page>> output = pageProcessor.process(SESSION, new DriverYieldSignal(), memoryContext, inputPage);
@@ -238,7 +236,7 @@ public class TestPageProcessor
                 ImmutableList.of(new InputPageProjection(0, BIGINT)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
-        Page inputPage = new Page(createLongSequenceBlock(0, (int) (MAX_BATCH_SIZE * 2.5)));
+        SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, (int) (MAX_BATCH_SIZE * 2.5)));
 
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
 
@@ -264,7 +262,7 @@ public class TestPageProcessor
         // process large page which will reduce batch size
         Slice[] slices = new Slice[(int) (MAX_BATCH_SIZE * 2.5)];
         Arrays.fill(slices, Slices.allocate(4096));
-        Page inputPage = new Page(createSlicesBlock(slices));
+        SourcePage inputPage = SourcePage.create(createSlicesBlock(slices));
 
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, new DriverYieldSignal(), inputPage);
 
@@ -280,7 +278,7 @@ public class TestPageProcessor
 
         // process small page which will increase batch size
         Arrays.fill(slices, Slices.allocate(128));
-        inputPage = new Page(createSlicesBlock(slices));
+        inputPage = SourcePage.create(createSlicesBlock(slices));
 
         output = processAndAssertRetainedPageSize(pageProcessor, new DriverYieldSignal(), inputPage);
 
@@ -310,7 +308,7 @@ public class TestPageProcessor
         // process large page which will reduce batch size
         Slice[] slices = new Slice[(int) (MAX_BATCH_SIZE * 2.5)];
         Arrays.fill(slices, Slices.allocate(4096));
-        Page inputPage = new Page(createSlicesBlock(slices));
+        SourcePage inputPage = SourcePage.create(createSlicesBlock(slices));
 
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
 
@@ -354,7 +352,7 @@ public class TestPageProcessor
         // this can force previouslyComputedResults to be saved given the page is 48MB in size
         String value = join("", nCopies(30_000, "a"));
         List<String> values = nCopies(800, value);
-        Page inputPage = new Page(createStringsBlock(values), createStringsBlock(values));
+        SourcePage inputPage = SourcePage.create(new Page(createStringsBlock(values), createStringsBlock(values)));
 
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, new DriverYieldSignal(), memoryContext, inputPage);
@@ -365,7 +363,7 @@ public class TestPageProcessor
 
         // verify we do not count block sizes twice
         // comparing with the input page, the output page also contains an extra instance size for previouslyComputedResults
-        assertThat(memoryContext.getBytes() - instanceSize(VariableWidthBlock.class)).isEqualTo(inputPage.getRetainedSizeInBytes());
+        assertThat(memoryContext.getBytes() - instanceSize(VariableWidthBlock.class)).isCloseTo(inputPage.getRetainedSizeInBytes(), Offset.offset(200L));
     }
 
     @Test
@@ -384,7 +382,7 @@ public class TestPageProcessor
 
         Slice[] slices = new Slice[rows];
         Arrays.fill(slices, Slices.allocate(rows));
-        Page inputPage = new Page(createSlicesBlock(slices));
+        SourcePage inputPage = SourcePage.create(createSlicesBlock(slices));
 
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, yieldSignal, inputPage);
 
@@ -425,7 +423,7 @@ public class TestPageProcessor
         PageFunctionCompiler functionCompiler = functionResolution.getPageFunctionCompiler();
         Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(add10Expression, Optional.empty());
         PageProjection projection = projectionSupplier.get();
-        Page page = new Page(createLongSequenceBlock(1, 11));
+        SourcePage page = SourcePage.create(createLongSequenceBlock(1, 11));
         ExpressionProfiler profiler = new ExpressionProfiler(testingTicker, SPLIT_RUN_QUANTA);
         for (int i = 0; i < 100; i++) {
             profiler.start();
@@ -462,7 +460,7 @@ public class TestPageProcessor
 
         Slice[] slices = new Slice[rows];
         Arrays.fill(slices, Slices.allocate(rows));
-        Page inputPage = new Page(createSlicesBlock(slices));
+        SourcePage inputPage = SourcePage.create(createSlicesBlock(slices));
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
 
         long previousPositionCount = 1;
@@ -497,7 +495,7 @@ public class TestPageProcessor
 
         Slice[] slices = new Slice[rows];
         Arrays.fill(slices, Slices.allocate(rows));
-        Page inputPage = new Page(createSlicesBlock(slices));
+        SourcePage inputPage = SourcePage.create(createSlicesBlock(slices));
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
 
         long previousPositionCount = 1;
@@ -515,17 +513,17 @@ public class TestPageProcessor
         }
     }
 
-    private Iterator<Optional<Page>> processAndAssertRetainedPageSize(PageProcessor pageProcessor, Page inputPage)
+    private Iterator<Optional<Page>> processAndAssertRetainedPageSize(PageProcessor pageProcessor, SourcePage inputPage)
     {
         return processAndAssertRetainedPageSize(pageProcessor, new DriverYieldSignal(), inputPage);
     }
 
-    private Iterator<Optional<Page>> processAndAssertRetainedPageSize(PageProcessor pageProcessor, DriverYieldSignal yieldSignal, Page inputPage)
+    private Iterator<Optional<Page>> processAndAssertRetainedPageSize(PageProcessor pageProcessor, DriverYieldSignal yieldSignal, SourcePage inputPage)
     {
         return processAndAssertRetainedPageSize(pageProcessor, yieldSignal, newSimpleAggregatedMemoryContext(), inputPage);
     }
 
-    private Iterator<Optional<Page>> processAndAssertRetainedPageSize(PageProcessor pageProcessor, DriverYieldSignal yieldSignal, AggregatedMemoryContext memoryContext, Page inputPage)
+    private Iterator<Optional<Page>> processAndAssertRetainedPageSize(PageProcessor pageProcessor, DriverYieldSignal yieldSignal, AggregatedMemoryContext memoryContext, SourcePage inputPage)
     {
         Iterator<Optional<Page>> output = pageProcessor.process(
                 SESSION,
@@ -534,11 +532,6 @@ public class TestPageProcessor
                 inputPage);
         assertThat(memoryContext.getBytes()).isEqualTo(0);
         return output;
-    }
-
-    private static LazyBlock lazyWrapper(Block block)
-    {
-        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
     }
 
     private static class InvocationCountPageProjection
@@ -571,7 +564,7 @@ public class TestPageProcessor
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
         {
             setInvocationCount(getInvocationCount() + 1);
             return delegate.project(session, yieldSignal, page, selectedPositions);
@@ -597,7 +590,7 @@ public class TestPageProcessor
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
         {
             return new YieldPageProjectionWork(session, yieldSignal, page, selectedPositions);
         }
@@ -608,7 +601,7 @@ public class TestPageProcessor
             private final DriverYieldSignal yieldSignal;
             private final Work<Block> work;
 
-            public YieldPageProjectionWork(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+            public YieldPageProjectionWork(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
             {
                 this.yieldSignal = yieldSignal;
                 this.work = delegate.project(session, yieldSignal, page, selectedPositions);
@@ -653,7 +646,7 @@ public class TestPageProcessor
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
         {
             return new CompletedWork<>(page.getBlock(0).getLoadedBlock());
         }
@@ -682,7 +675,7 @@ public class TestPageProcessor
         }
 
         @Override
-        public SelectedPositions filter(ConnectorSession session, Page page)
+        public SelectedPositions filter(ConnectorSession session, SourcePage page)
         {
             return selectedPositions;
         }
@@ -704,7 +697,7 @@ public class TestPageProcessor
         }
 
         @Override
-        public SelectedPositions filter(ConnectorSession session, Page page)
+        public SelectedPositions filter(ConnectorSession session, SourcePage page)
         {
             return positionsRange(0, page.getPositionCount());
         }
@@ -726,7 +719,7 @@ public class TestPageProcessor
         }
 
         @Override
-        public SelectedPositions filter(ConnectorSession session, Page page)
+        public SelectedPositions filter(ConnectorSession session, SourcePage page)
         {
             return positionsRange(0, 0);
         }

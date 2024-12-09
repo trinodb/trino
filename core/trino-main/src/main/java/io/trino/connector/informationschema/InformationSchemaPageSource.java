@@ -28,6 +28,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.RoleGrant;
@@ -175,7 +176,7 @@ public class InformationSchemaPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (isFinished()) {
             return null;
@@ -194,7 +195,7 @@ public class InformationSchemaPageSource
         memoryUsageBytes -= page.getRetainedSizeInBytes();
         Page outputPage = projection.apply(page);
         completedBytes += outputPage.getSizeInBytes();
-        return outputPage;
+        return SourcePage.create(outputPage);
     }
 
     @Override

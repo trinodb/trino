@@ -20,6 +20,7 @@ import io.trino.operator.window.matcher.ArrayView;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -104,7 +105,7 @@ public class MeasureComputation
         }
 
         // wrap block array into a single-row page
-        Page page = new Page(1, blocks);
+        SourcePage page = SourcePage.create(new Page(1, blocks));
 
         // evaluate expression
         Work<Block> work = projection.project(session, new DriverYieldSignal(), projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
@@ -174,7 +175,7 @@ public class MeasureComputation
         }
 
         // wrap block array into a single-row page
-        Page page = new Page(1, blocks);
+        SourcePage page = SourcePage.create(new Page(1, blocks));
 
         // evaluate expression
         Work<Block> work = projection.project(session, new DriverYieldSignal(), projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));

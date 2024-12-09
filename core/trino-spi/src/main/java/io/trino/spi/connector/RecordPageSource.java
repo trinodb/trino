@@ -81,6 +81,7 @@ public class RecordPageSource
     }
 
     @Override
+    @SuppressWarnings("removal")
     public Page getNextPage()
     {
         if (!closed) {

@@ -42,6 +42,7 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
@@ -143,7 +144,7 @@ class TestOrcPredicates
         try (ConnectorPageSource pageSource = createPageSource(fileSystemFactory, location, effectivePredicate, columnsToRead, session)) {
             int filteredRows = 0;
             while (!pageSource.isFinished()) {
-                Page page = pageSource.getNextPage();
+                SourcePage page = pageSource.getNextSourcePage();
                 if (page != null) {
                     filteredRows += page.getPositionCount();
                 }

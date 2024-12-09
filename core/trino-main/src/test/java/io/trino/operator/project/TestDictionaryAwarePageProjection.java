@@ -16,7 +16,6 @@ package io.trino.operator.project;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.Work;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
@@ -25,6 +24,7 @@ import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -198,13 +198,13 @@ public class TestDictionaryAwarePageProjection
         Block secondDictionaryBlock = DictionaryBlock.create(4, dictionary, new int[] {3, 2, 1, 0});
 
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        Work<Block> firstWork = projection.project(null, yieldSignal, new Page(firstDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
+        Work<Block> firstWork = projection.project(null, yieldSignal, SourcePage.create(firstDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
 
         assertThat(firstWork.process()).isTrue();
         Block firstOutputBlock = firstWork.getResult();
         assertThat(firstOutputBlock).isInstanceOf(DictionaryBlock.class);
 
-        Work<Block> secondWork = projection.project(null, yieldSignal, new Page(secondDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
+        Work<Block> secondWork = projection.project(null, yieldSignal, SourcePage.create(secondDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
 
         assertThat(secondWork.process()).isTrue();
         Block secondOutputBlock = secondWork.getResult();
@@ -290,7 +290,7 @@ public class TestDictionaryAwarePageProjection
         }
 
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsRange(5, 10));
+        Work<Block> work = projection.project(null, yieldSignal, SourcePage.create(block), SelectedPositions.positionsRange(5, 10));
         Block result;
         if (forceYield) {
             result = projectWithYield(work, yieldSignal);
@@ -322,7 +322,7 @@ public class TestDictionaryAwarePageProjection
 
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
         int[] positions = {0, 2, 4, 6, 8, 10};
-        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsList(positions, 0, positions.length));
+        Work<Block> work = projection.project(null, yieldSignal, SourcePage.create(block), SelectedPositions.positionsList(positions, 0, positions.length));
         Block result;
         if (forceYield) {
             result = projectWithYield(work, yieldSignal);
@@ -353,7 +353,7 @@ public class TestDictionaryAwarePageProjection
         }
 
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsRange(5, 10));
+        Work<Block> work = projection.project(null, yieldSignal, SourcePage.create(block), SelectedPositions.positionsRange(5, 10));
         yieldSignal.setWithDelay(1, executor);
         yieldSignal.forceYieldForTesting();
 
@@ -411,7 +411,7 @@ public class TestDictionaryAwarePageProjection
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
         {
             return new TestPageProjectionWork(yieldSignal, page, selectedPositions);
         }
@@ -427,7 +427,7 @@ public class TestDictionaryAwarePageProjection
             private int nextIndexOrPosition;
             private Block result;
 
-            public TestPageProjectionWork(DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+            public TestPageProjectionWork(DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
             {
                 this.yieldSignal = yieldSignal;
                 this.block = page.getBlock(0);

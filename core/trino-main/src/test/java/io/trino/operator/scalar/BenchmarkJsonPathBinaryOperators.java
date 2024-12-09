@@ -29,6 +29,7 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
@@ -92,7 +93,7 @@ public class BenchmarkJsonPathBinaryOperators
                         FULL_CONNECTOR_SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPageConstantTypes()));
+                        SourcePage.create(data.getPageConstantTypes())));
     }
 
     @Benchmark
@@ -104,7 +105,7 @@ public class BenchmarkJsonPathBinaryOperators
                         FULL_CONNECTOR_SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPageVaryingTypes()));
+                        SourcePage.create(data.getPageVaryingTypes())));
     }
 
     @Benchmark
@@ -116,7 +117,7 @@ public class BenchmarkJsonPathBinaryOperators
                         FULL_CONNECTOR_SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPageMultipleVaryingTypes()));
+                        SourcePage.create(data.getPageMultipleVaryingTypes())));
     }
 
     @SuppressWarnings("FieldMayBeFinal")

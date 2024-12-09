@@ -14,13 +14,13 @@
 package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -190,7 +190,7 @@ public class TestDictionaryAwarePageFilter
 
     private static void testFilter(DictionaryAwarePageFilter filter, Block block, boolean filterRange)
     {
-        IntSet actualSelectedPositions = toSet(filter.filter(null, new Page(block)));
+        IntSet actualSelectedPositions = toSet(filter.filter(null, SourcePage.create(block)));
 
         block = block.getLoadedBlock();
 
@@ -272,7 +272,7 @@ public class TestDictionaryAwarePageFilter
         }
 
         @Override
-        public SelectedPositions filter(ConnectorSession session, Page page)
+        public SelectedPositions filter(ConnectorSession session, SourcePage page)
         {
             assertThat(page.getChannelCount()).isEqualTo(1);
             Block block = page.getBlock(0);

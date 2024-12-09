@@ -23,6 +23,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.spi.predicate.TupleDomain;
@@ -153,7 +154,7 @@ public class TableChangesFunctionProcessor
             return FINISHED;
         }
 
-        Page dataPage = pageSource.getNextPage();
+        SourcePage dataPage = pageSource.getNextSourcePage();
         if (dataPage == null) {
             return TableFunctionProcessorState.Processed.produced(EMPTY_PAGE);
         }
