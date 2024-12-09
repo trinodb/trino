@@ -15,11 +15,13 @@ package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.spi.Page;
@@ -36,6 +38,8 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.schema.Types;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -52,11 +56,13 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
+import static io.trino.parquet.reader.MetadataReader.POST_SCRIPT_SIZE;
 import static io.trino.parquet.reader.ParquetReader.COLUMN_INDEX_ROWS_FILTERED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -79,7 +85,7 @@ public class TestParquetReader
                         columnNames,
                         generateInputPages(types, 100, 5)),
                 new ParquetReaderOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty(), Optional.empty());
         assertThat(parquetMetadata.getBlocks().size()).isGreaterThan(1);
         // Verify file has only non-dictionary encodings as dictionary memory usage is already tested in TestFlatColumnReader#testMemoryUsage
         parquetMetadata.getBlocks().forEach(block -> {
@@ -132,7 +138,7 @@ public class TestParquetReader
         ParquetDataSource dataSource = new FileParquetDataSource(
                 new File(Resources.getResource("lineitem_sorted_by_shipdate/data.parquet").toURI()),
                 new ParquetReaderOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty(), Optional.empty());
         assertThat(parquetMetadata.getBlocks()).hasSize(2);
         // The predicate and the file are prepared so that page indexes will result in non-overlapping row ranges and eliminate the entire first row group
         // while the second row group still has to be read
@@ -186,6 +192,47 @@ public class TestParquetReader
                 .isInstanceOf(TrinoException.class);
     }
 
+    @Test
+    public void testOffsetColumnFilter()
+            throws IOException
+    {
+        // Write a file with 100 rows per row-group
+        List<String> columnNames = ImmutableList.of("columna", "columnb");
+        List<Type> types = ImmutableList.of(INTEGER, BIGINT);
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxBlockSize(DataSize.ofBytes(1000))
+                                .build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, 5)),
+                new ParquetReaderOptions());
+
+        long estimatedSize = dataSource.getEstimatedSize();
+        long estimatedDataSize = estimatedSize - POST_SCRIPT_SIZE - dataSource.readFully(0, (int) estimatedSize).getInt((int) estimatedSize - POST_SCRIPT_SIZE);
+
+        // Read single column, 1 row group
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"columnb"}, Types.optional(INT64).named(""), 0, 0);
+        ParquetMetadata parquetMetadata1 = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.of(100L), Optional.of(101L));
+        List<BlockMetadata> columnBlocks1 = parquetMetadata1.getBlocks(ImmutableSet.of(columnDescriptor));
+        assertThat(columnBlocks1.stream().allMatch(block -> block.columns().size() == 1)).isTrue();
+        assertThat(columnBlocks1.stream().mapToLong(BlockMetadata::rowCount).sum()).isEqualTo(100);
+
+        // Read both columns, half row groups
+        ParquetMetadata parquetMetadata2 = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.of(0L), Optional.of(estimatedDataSize / 2));
+        List<BlockMetadata> columnBlocks2 = parquetMetadata2.getBlocks();
+        assertThat(columnBlocks2.stream().allMatch(block -> block.columns().size() == 2)).isTrue();
+        assertThat(columnBlocks2.stream().mapToLong(BlockMetadata::rowCount).sum()).isEqualTo(300);
+
+        // Read both columns, all row groups
+        ParquetMetadata parquetMetadata3 = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty(), Optional.empty());
+        List<BlockMetadata> columnBlocks3 = parquetMetadata3.getBlocks();
+        assertThat(columnBlocks3.stream().allMatch(block -> block.columns().size() == 2)).isTrue();
+        assertThat(columnBlocks3.stream().mapToLong(BlockMetadata::rowCount).sum()).isEqualTo(500);
+    }
+
     private void testReadingOldParquetFiles(File file, List<String> columnNames, Type columnType, List<?> expectedValues)
             throws IOException
     {
@@ -193,7 +240,7 @@ public class TestParquetReader
                 file,
                 new ParquetReaderOptions());
         ConnectorSession session = TestingConnectorSession.builder().build();
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty(), Optional.empty());
         try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), ImmutableList.of(columnType), columnNames)) {
             Page page = reader.nextPage();
             Iterator<?> expected = expectedValues.iterator();

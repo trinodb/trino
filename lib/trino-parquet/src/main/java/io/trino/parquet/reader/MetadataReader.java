@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.reader;
 
-import io.airlift.log.Logger;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.ParquetCorruptionException;
@@ -44,16 +44,15 @@ import static org.apache.parquet.format.Util.readFileMetaData;
 
 public final class MetadataReader
 {
-    private static final Logger log = Logger.get(MetadataReader.class);
-
     private static final Slice MAGIC = Slices.utf8Slice("PAR1");
-    private static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
+    @VisibleForTesting
+    static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
     // Typical 1GB files produced by Trino were found to have footer size between 30-40KB
     private static final int EXPECTED_FOOTER_SIZE = 48 * 1024;
 
     private MetadataReader() {}
 
-    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<ParquetWriteValidation> parquetWriteValidation)
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<ParquetWriteValidation> parquetWriteValidation, Optional<Long> offset, Optional<Long> length)
             throws IOException
     {
         // Parquet File Layout:
@@ -90,7 +89,7 @@ public final class MetadataReader
         InputStream metadataStream = buffer.slice(buffer.length() - completeFooterSize, metadataLength).getInput();
 
         FileMetaData fileMetaData = readFileMetaData(metadataStream);
-        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, dataSource.getId());
+        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, dataSource.getId(), offset, length);
         validateFileMetadata(dataSource.getId(), parquetMetadata.getFileMetaData(), parquetWriteValidation);
         return parquetMetadata;
     }

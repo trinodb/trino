@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.parquet.ParquetMetadataConverter.convertEncodingStats;
@@ -66,12 +67,18 @@ public class ParquetMetadata
     private final FileMetaData fileMetaData;
     private final ParquetDataSourceId dataSourceId;
     private final FileMetadata parquetMetadata;
+    private final Optional<Long> offset;
+    private final Optional<Long> length;
 
-    public ParquetMetadata(FileMetaData fileMetaData, ParquetDataSourceId dataSourceId)
+    public ParquetMetadata(FileMetaData fileMetaData, ParquetDataSourceId dataSourceId, Optional<Long> offset, Optional<Long> length)
             throws ParquetCorruptionException
     {
         this.fileMetaData = requireNonNull(fileMetaData, "fileMetaData is null");
         this.dataSourceId = requireNonNull(dataSourceId, "dataSourceId is null");
+        this.offset = requireNonNull(offset, "offset is null");
+        this.length = requireNonNull(length, "length is null");
+        checkArgument(offset.isEmpty() && length.isEmpty() || (offset.isPresent() && length.isPresent()),
+                "Both offset and length must be present or absent");
         this.parquetMetadata = new FileMetadata(readMessageType(), keyValueMetaData(fileMetaData), fileMetaData.getCreated_by());
     }
 
@@ -98,7 +105,7 @@ public class ParquetMetadata
 
     public List<BlockMetadata> getBlocks()
     {
-        return getBlocks(ImmutableSet.of());
+        return buildBlocks(ImmutableSet.of());
     }
 
     private List<BlockMetadata> buildBlocks(Set<ColumnPath> paths)
@@ -108,10 +115,20 @@ public class ParquetMetadata
         List<BlockMetadata> blocks = new ArrayList<>();
         List<RowGroup> rowGroups = fileMetaData.getRow_groups();
         if (rowGroups != null) {
-            for (RowGroup rowGroup : rowGroups) {
+            for (int i = 0; i < rowGroups.size(); i++) {
+                RowGroup rowGroup = rowGroups.get(i);
                 List<ColumnChunk> columns = rowGroup.getColumns();
                 checkState(!columns.isEmpty(), "No columns in row group: %s [%s]", rowGroup, dataSourceId);
                 String filePath = columns.get(0).getFile_path();
+
+                if (offset.isPresent() && length.isPresent() && rowGroup.isSetFile_offset()) {
+                    if (rowGroup.file_offset >= offset.get() + length.get()) {
+                        break;
+                    }
+                    if (i < rowGroups.size() - 1 && rowGroups.get(i + 1).isSetFile_offset() && offset.get() >= rowGroups.get(i + 1).file_offset) {
+                        continue;
+                    }
+                }
                 ImmutableList.Builder<ColumnChunkMetadata> columnMetadataBuilder = ImmutableList.builderWithExpectedSize(columns.size());
                 for (ColumnChunk columnChunk : columns) {
                     checkState(

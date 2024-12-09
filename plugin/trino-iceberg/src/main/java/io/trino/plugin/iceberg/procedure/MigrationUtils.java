@@ -152,7 +152,7 @@ public final class MigrationUtils
     private static Metrics parquetMetrics(TrinoInputFile file, MetricsConfig metricsConfig, NameMapping nameMapping)
     {
         try (ParquetDataSource dataSource = new TrinoParquetDataSource(file, new ParquetReaderOptions(), new FileFormatDataSourceStats())) {
-            ParquetMetadata metadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            ParquetMetadata metadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty(), Optional.empty());
             return ParquetUtil.footerMetrics(metadata, Stream.empty(), metricsConfig, nameMapping);
         }
         catch (IOException e) {

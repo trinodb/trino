@@ -50,7 +50,7 @@ public class TestByteStreamSplitEncoding
         ParquetDataSource dataSource = new FileParquetDataSource(
                 new File(Resources.getResource("byte_stream_split_float_and_double.parquet").toURI()),
                 new ParquetReaderOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty(), Optional.empty());
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames);
 
         readAndCompare(reader, getExpectedValues());

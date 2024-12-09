@@ -183,7 +183,7 @@ public final class DeltaLakeWriter
     {
         Location path = rootTableLocation.appendPath(relativeFilePath);
         FileMetaData fileMetaData = fileWriter.getFileMetadata();
-        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, new ParquetDataSourceId(path.toString()));
+        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, new ParquetDataSourceId(path.toString()), Optional.empty(), Optional.empty());
 
         return new DataFileInfo(
                 relativeFilePath,
