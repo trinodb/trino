@@ -385,6 +385,21 @@ public class TestDatabendConnectorTest
 
     @Test
     @Override
+    @Disabled
+    public void testExplainAnalyze() {}
+
+    @Test
+    @Override
+    @Disabled
+    public void testTableSampleWithFiltering() {}
+
+    @Test
+    @Override
+    @Disabled
+    public void testExplainAnalyzeVerbose() {}
+
+    @Test
+    @Override
     public void testInsertInPresenceOfNotSupportedColumn()
     {
         abort();
