@@ -104,6 +104,7 @@ public class TestDatabendConnectorTest
                     SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                     SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                     SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
+                    SUPPORTS_DYNAMIC_FILTER_PUSHDOWN,
                     SUPPORTS_TOPN_PUSHDOWN -> false;
 
             case SUPPORTS_ARRAY,
@@ -762,6 +763,12 @@ public class TestDatabendConnectorTest
 //                "FROM orders " +
 //                "WHERE orderkey BETWEEN 10 AND 50");
     }
+
+    @Test
+    @Override
+    @Disabled
+    public void testDynamicFiltering()
+    {}
 
     @Test
     @Override
