@@ -262,6 +262,7 @@ public class SpoolingExchangeOutputBuffer
             if (failure != null) {
                 log.warn(failure, "Error aborting exchange sink");
             }
+            finalSinkMetrics = sink.getMetrics();
             exchangeSink = null;
             forceFreeMemory();
         });

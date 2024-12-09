@@ -166,6 +166,7 @@ final class TestHttpServerEventListener
                 Collections.emptyList(),
                 Collections.emptyList(),
                 Collections.emptyList(),
+                Collections.emptyList(),
                 Optional.empty());
 
         queryCompleteEvent = new QueryCompletedEvent(

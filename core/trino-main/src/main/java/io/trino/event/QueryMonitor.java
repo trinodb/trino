@@ -62,6 +62,7 @@ import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryOutputMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.StageCpuDistribution;
+import io.trino.spi.eventlistener.StageOutputBufferMetrics;
 import io.trino.spi.eventlistener.StageOutputBufferUtilization;
 import io.trino.spi.eventlistener.StageTaskStatistics;
 import io.trino.spi.metrics.Metrics;
@@ -238,6 +239,7 @@ public class QueryMonitor
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(),
+                        ImmutableList.of(),
                         Optional.empty()),
                 createQueryContext(
                         queryInfo.getSession(),
@@ -351,6 +353,7 @@ public class QueryMonitor
                 queryInfo.isFinalQueryInfo(),
                 getCpuDistributions(queryInfo),
                 getStageOutputBufferUtilizations(queryInfo),
+                getStageOutputBufferMetrics(queryInfo),
                 getStageTaskStatistics(queryInfo),
                 memoize(() -> operatorStats.stream().map(operatorStatsCodec::toJson).toList()),
                 ImmutableList.copyOf(queryInfo.getQueryStats().getOptimizerRulesSummaries()),
@@ -777,6 +780,29 @@ public class QueryMonitor
                 });
         for (StageInfo subStage : stageInfo.getSubStages()) {
             populateStageOutputBufferUtilization(subStage, utilizations);
+        }
+    }
+
+    private static List<StageOutputBufferMetrics> getStageOutputBufferMetrics(QueryInfo queryInfo)
+    {
+        if (queryInfo.getOutputStage().isEmpty()) {
+            return ImmutableList.of();
+        }
+        ImmutableList.Builder<StageOutputBufferMetrics> builder = ImmutableList.builder();
+        populateStageOutputBufferMetrics(queryInfo.getOutputStage().get(), builder);
+
+        return builder.build();
+    }
+
+    private static void populateStageOutputBufferMetrics(StageInfo stageInfo, ImmutableList.Builder<StageOutputBufferMetrics> accumulator)
+    {
+        Metrics metrics = stageInfo.getStageStats().getOutputBufferMetrics();
+        if (!metrics.getMetrics().isEmpty()) {
+            accumulator.add(new StageOutputBufferMetrics(stageInfo.getStageId().getId(), metrics));
+        }
+
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            populateStageOutputBufferMetrics(subStage, accumulator);
         }
     }
 
