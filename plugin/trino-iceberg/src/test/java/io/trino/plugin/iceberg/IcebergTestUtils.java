@@ -131,7 +131,7 @@ public final class IcebergTestUtils
         try {
             parquetMetadata = MetadataReader.readFooter(
                     new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats()),
-                    Optional.empty());
+                    Optional.empty(), Optional.empty(), Optional.empty());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
