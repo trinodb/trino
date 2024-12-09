@@ -9,6 +9,11 @@ variables:
   m2RepoNodePath: /datadisks/disk1/.m2/repository
   m2RepoContainerPath: /tmp/m2/repository
 
+parameters:
+- name: skipChecks
+  type: boolean
+  default: false
+
 jobs:
   - job: PrepareNode
     displayName: Prepare the node for the Container Build
@@ -24,13 +29,15 @@ jobs:
     dependsOn:
       - PrepareNode
     displayName: Maven Build (Container)
-    pool: cauldron-vmss
+    pool: cybertron-build-pool
     variables:
       containerRegistry: uchimera
       imageRepository: cccs/trino-base
       buildTimestamp: $[format('{0:yyyyMMddHHmmss}', pipeline.startTime)]
-      JAVA_TOOL_OPTIONS: " -Xmx8g"
       DOCKER_BUILDKIT: 1
+      MAVEN_INSTALL_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_FAST_INSTALL: "-B -V -T 1C -DskipTests -Dmaven.source.skip=true"
+      SKIPPED_PROJECTS: "!:trino-docs,!:trino-server-rpm,!:trino-blackhole,!:trino-exasol,!:trino-faker,!:trino-hdfs,!:trino-hive,!:trino-hudi,!:trino-ignite,!:trino-kafka,!:trino-kafka-event-listener,!:trino-kinesis,!:trino-ml,!:trino-phoenix5,!:trino-pinot,!:trino-snowflake,!:trino-example-http,!:trino-google-sheets,!:trino-geospatial,!:trino-druid,!:trino-exchange-hdfs,!:trino-openlineage,!:trino-jmx,!:trino-thrift-api,!:trino-thrift-testing-server,!:trino-thrift,!:trino-clickhouse,!:trino-spooling-filesystem,!:trino-opensearch,!:trino-vertica,!:trino-singlestore,!:trino-teradata-functions,!:trino-elasticsearch,!:trino-kudu,!:trino-bigquery,!:trino-testing-resources,!:trino-delta-lake,!:trino-prometheus,!:trino-cassandra,!:trino-sqlserver,!:trino-mariadb,!:trino-redis,!:trino-redshift,!:trino-example-jdbc,!:trino-proxy,!:trino-verifier,!:trino-benchmark-queries,!:trino-benchto-benchmarks,!:trino-tests,!:trino-faulttolerant-tests,!:trino-plugin-reader,!:trino-product-tests-groups,!:trino-product-tests,!:trino-product-tests-launcher,!:trino-server-dev,!:trino-test-jdbc-compatibility-old-driver,!:trino-test-jdbc-compatibility-old-server,!:trino-testing-services,!:trino-testing,!:trino-testing-containers,!:trino-testing-kafka"
     container:
       image: uchimera.azurecr.io/cccs/dev/trino-build:465_cccs-main_20241205164426_b11358
       options: --entrypoint="" --user=0
@@ -54,7 +61,17 @@ jobs:
         inputs:
           targetType: 'inline'
           script: |
-            $(Build.SourcesDirectory)/mvnw clean install -e -DskipTests -pl '!:trino-docs' -Dmaven.repo.local=${{ variables.m2RepoContainerPath }}
+            MAVEN_OPTS="${{ variables.MAVEN_INSTALL_OPTS }}"
+            $(Build.SourcesDirectory)/mvnw clean install ${{ variables.MAVEN_FAST_INSTALL }} -e -pl '${{ variables.SKIPPED_PROJECTS }}' -Dsmartbuilder.profiling=true -Dmaven.repo.local=${{ variables.m2RepoContainerPath }}
+        condition: ne('${{ parameters.skipChecks }}', true)
+      - task: Bash@3
+        displayName: Maven build without checks
+        inputs:
+          targetType: 'inline'
+          script: |
+            MAVEN_OPTS="${{ variables.MAVEN_INSTALL_OPTS }}"
+            $(Build.SourcesDirectory)/mvnw clean install ${{ variables.MAVEN_FAST_INSTALL }} -Dair.check.skip-all -e -pl '${{ variables.SKIPPED_PROJECTS }}' -Dsmartbuilder.profiling=true -Dmaven.repo.local=${{ variables.m2RepoContainerPath }}
+        condition: eq('${{ parameters.skipChecks }}', true)
       - task: Docker@2
         displayName: Login to ${{ variables.containerRegistry }}
         inputs:
