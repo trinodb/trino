@@ -91,6 +91,12 @@ public class ParquetMetadata
     public List<BlockMetadata> getBlocks()
             throws ParquetCorruptionException
     {
+        return getBlocks(0, Long.MAX_VALUE);
+    }
+
+    public List<BlockMetadata> getBlocks(long splitStart, long splitLength)
+            throws ParquetCorruptionException
+    {
         List<SchemaElement> schema = parquetMetadata.getSchema();
         validateParquet(!schema.isEmpty(), dataSourceId, "Schema is empty");
 
@@ -99,6 +105,14 @@ public class ParquetMetadata
         List<RowGroup> rowGroups = parquetMetadata.getRow_groups();
         if (rowGroups != null) {
             for (RowGroup rowGroup : rowGroups) {
+                if (rowGroup.isSetFile_offset()) {
+                    long rowGroupStart = rowGroup.getFile_offset();
+                    boolean splitContainsRowGroup = splitStart <= rowGroupStart && rowGroupStart < splitStart + splitLength;
+                    if (!splitContainsRowGroup) {
+                        continue;
+                    }
+                }
+
                 List<ColumnChunk> columns = rowGroup.getColumns();
                 validateParquet(!columns.isEmpty(), dataSourceId, "No columns in row group: %s", rowGroup);
                 String filePath = columns.get(0).getFile_path();
