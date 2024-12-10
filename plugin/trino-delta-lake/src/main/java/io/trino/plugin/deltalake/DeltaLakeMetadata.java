@@ -165,7 +165,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -259,16 +258,12 @@ import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMe
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.verifyDeltaLakeTable;
 import static io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId.OPTIMIZE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.APPEND_ONLY_CONFIGURATION_KEY;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.CHANGE_DATA_FEED_FEATURE_NAME;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.COLUMN_MAPPING_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.COLUMN_MAPPING_PHYSICAL_NAME_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.ID;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.DELETION_VECTORS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.IsolationLevel;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.MAX_COLUMN_ID_CONFIGURATION_KEY;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.TIMESTAMP_NTZ_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.deserializeType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.enabledUniversalFormats;
@@ -286,10 +281,10 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.is
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeColumnType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.unsupportedReaderFeatures;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.unsupportedWriterFeatures;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.validateType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.verifySupportedColumnMapping;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedReaderFeatures;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedWriterFeatures;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.configurationForNewTable;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getMandatoryCurrentVersion;
@@ -389,16 +384,14 @@ public class DeltaLakeMetadata
     // The highest reader and writer versions Trino supports
     private static final int MAX_READER_VERSION = 3;
     public static final int MAX_WRITER_VERSION = 7;
-    // The lowest versions Delta Lake supports reader and writer features
-    private static final int MIN_READER_FEATURE_VERSION = 3;
-    private static final int MIN_WRITER_FEATURE_VERSION = 7;
-    private static final int CDF_SUPPORTED_WRITER_VERSION = 4;
-    private static final int COLUMN_MAPPING_MODE_SUPPORTED_READER_VERSION = 2;
-    private static final int COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION = 5;
-    private static final int TIMESTAMP_NTZ_SUPPORTED_READER_VERSION = 3;
-    private static final int TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION = 7;
-    private static final int DELETION_VECTORS_SUPPORTED_READER_VERSION = 3;
-    private static final int DELETION_VECTORS_SUPPORTED_WRITER_VERSION = 7;
+
+    public static final int CDF_SUPPORTED_WRITER_VERSION = 4;
+    public static final int COLUMN_MAPPING_MODE_SUPPORTED_READER_VERSION = 2;
+    public static final int COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION = 5;
+    public static final int TIMESTAMP_NTZ_SUPPORTED_READER_VERSION = 3;
+    public static final int TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION = 7;
+    public static final int DELETION_VECTORS_SUPPORTED_READER_VERSION = 3;
+    public static final int DELETION_VECTORS_SUPPORTED_WRITER_VERSION = 7;
     private static final RetryPolicy<Object> TRANSACTION_CONFLICT_RETRY_POLICY = RetryPolicy.builder()
             .handleIf(throwable -> Throwables.getCausalChain(throwable).stream().anyMatch(TransactionConflictException.class::isInstance))
             .withDelay(Duration.ofMillis(400))
@@ -1259,12 +1252,12 @@ public class DeltaLakeMetadata
                             transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, Optional.empty()));
                         }
                     }
-                    protocolEntry = protocolEntryForTable(tableHandle.getProtocolEntry(), containsTimestampType, tableMetadata.getProperties());
+                    protocolEntry = protocolEntryForTable(tableHandle.getProtocolEntry().minReaderVersion(), tableHandle.getProtocolEntry().minWriterVersion(), containsTimestampType, tableMetadata.getProperties());
                     statisticsAccess.deleteExtendedStatistics(session, schemaTableName, location);
                 }
                 else {
                     setRollback(() -> deleteRecursivelyIfExists(fileSystem, deltaLogDirectory));
-                    protocolEntry = protocolEntryForNewTable(containsTimestampType, tableMetadata.getProperties());
+                    protocolEntry = protocolEntryForTable(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, containsTimestampType, tableMetadata.getProperties());
                 }
 
                 appendTableEntries(
@@ -1442,13 +1435,13 @@ public class DeltaLakeMetadata
         ProtocolEntry protocolEntry;
 
         if (replaceExistingTable) {
-            protocolEntry = protocolEntryForTable(handle.getProtocolEntry(), containsTimestampType, tableMetadata.getProperties());
+            protocolEntry = protocolEntryForTable(handle.getProtocolEntry().minReaderVersion(), handle.getProtocolEntry().minWriterVersion(), containsTimestampType, tableMetadata.getProperties());
             readVersion = OptionalLong.of(handle.getReadVersion());
         }
         else {
             checkPathContainsNoFiles(session, finalLocation);
             setRollback(() -> deleteRecursivelyIfExists(fileSystemFactory.create(session), finalLocation));
-            protocolEntry = protocolEntryForNewTable(containsTimestampType, tableMetadata.getProperties());
+            protocolEntry = protocolEntryForTable(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, containsTimestampType, tableMetadata.getProperties());
         }
 
         return new DeltaLakeOutputTableHandle(
@@ -1817,9 +1810,11 @@ public class DeltaLakeMetadata
         ProtocolEntry protocolEntry = handle.getProtocolEntry();
         checkSupportedWriterVersion(handle);
         ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry(), protocolEntry);
-        if (changeDataFeedEnabled(handle.getMetadataEntry(), protocolEntry).orElse(false) && CHANGE_DATA_FEED_COLUMN_NAMES.contains(newColumnMetadata.getName())) {
+        Optional<Boolean> changeDataFeedEnabled = changeDataFeedEnabled(handle.getMetadataEntry(), protocolEntry);
+        if (changeDataFeedEnabled.orElse(false) && CHANGE_DATA_FEED_COLUMN_NAMES.contains(newColumnMetadata.getName())) {
             throw new TrinoException(NOT_SUPPORTED, "Column name %s is forbidden when change data feed is enabled".formatted(newColumnMetadata.getName()));
         }
+        boolean deletionVectorEnabled = isDeletionVectorEnabled(handle.getMetadataEntry(), protocolEntry);
         checkUnsupportedWriterFeatures(protocolEntry);
 
         if (!newColumnMetadata.isNullable()) {
@@ -1868,7 +1863,12 @@ public class DeltaLakeMetadata
                     transactionLogWriter,
                     ADD_COLUMN_OPERATION,
                     session,
-                    buildProtocolEntryForNewColumn(protocolEntry, newColumnMetadata.getType()),
+                    protocolEntry(
+                            ProtocolEntry.builder(protocolEntry),
+                            containsTimestampType(newColumnMetadata.getType()),
+                            changeDataFeedEnabled,
+                            columnMappingMode,
+                            deletionVectorEnabled),
                     MetadataEntry.builder(handle.getMetadataEntry())
                             .setSchemaString(schemaString)
                             .setConfiguration(configuration));
@@ -1884,25 +1884,6 @@ public class DeltaLakeMetadata
         catch (Exception e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to add '%s' column for: %s.%s %s", newColumnMetadata.getName(), handle.getSchemaName(), handle.getTableName(), firstNonNull(e.getMessage(), e)), e);
         }
-    }
-
-    private ProtocolEntry buildProtocolEntryForNewColumn(ProtocolEntry protocolEntry, Type type)
-    {
-        if (!containsTimestampType(type)) {
-            return protocolEntry;
-        }
-
-        return new ProtocolEntry(
-                max(protocolEntry.minReaderVersion(), TIMESTAMP_NTZ_SUPPORTED_READER_VERSION),
-                max(protocolEntry.minWriterVersion(), TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION),
-                Optional.of(ImmutableSet.<String>builder()
-                        .addAll(protocolEntry.readerFeatures().orElse(ImmutableSet.of()))
-                        .add(TIMESTAMP_NTZ_FEATURE_NAME)
-                        .build()),
-                Optional.of(ImmutableSet.<String>builder()
-                        .addAll(protocolEntry.writerFeatures().orElse(ImmutableSet.of()))
-                        .add(TIMESTAMP_NTZ_FEATURE_NAME)
-                        .build()));
     }
 
     @Override
@@ -2931,50 +2912,36 @@ public class DeltaLakeMetadata
         return getSnapshot(session, table.getSchemaTableName(), table.getLocation(), Optional.of(table.getReadVersion()));
     }
 
-    private ProtocolEntry protocolEntryForNewTable(boolean containsTimestampType, Map<String, Object> properties)
+    private ProtocolEntry protocolEntryForTable(int readerVersion, int writerVersion, boolean containsTimestampType, Map<String, Object> properties)
     {
-        return protocolEntry(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, containsTimestampType, properties);
+        return protocolEntry(
+                ProtocolEntry.builder(readerVersion, writerVersion),
+                containsTimestampType,
+                getChangeDataFeedEnabled(properties),
+                getColumnMappingMode(properties),
+                getDeletionVectorsEnabled(properties));
     }
 
-    private ProtocolEntry protocolEntryForTable(ProtocolEntry existingProtocolEntry, boolean containsTimestampType, Map<String, Object> properties)
+    private ProtocolEntry protocolEntry(
+            ProtocolEntry.Builder protocolEntry,
+            boolean containsTimestampType,
+            Optional<Boolean> changeDataFeedEnabled,
+            ColumnMappingMode columnMappingMode,
+            boolean deletionVectorsEnabled)
     {
-        return protocolEntry(existingProtocolEntry.minReaderVersion(), existingProtocolEntry.minWriterVersion(), containsTimestampType, properties);
-    }
-
-    private ProtocolEntry protocolEntry(int readerVersion, int writerVersion, boolean containsTimestampType, Map<String, Object> properties)
-    {
-        Set<String> readerFeatures = new HashSet<>();
-        Set<String> writerFeatures = new HashSet<>();
-        Optional<Boolean> changeDataFeedEnabled = getChangeDataFeedEnabled(properties);
         if (changeDataFeedEnabled.isPresent() && changeDataFeedEnabled.get()) {
-            // Enabling cdf (change data feed) requires setting the writer version to 4
-            writerVersion = CDF_SUPPORTED_WRITER_VERSION;
-            writerFeatures.add(CHANGE_DATA_FEED_FEATURE_NAME);
+            protocolEntry.enableChangeDataFeed();
         }
-        ColumnMappingMode columnMappingMode = getColumnMappingMode(properties);
         if (columnMappingMode == ID || columnMappingMode == NAME) {
-            readerVersion = max(readerVersion, COLUMN_MAPPING_MODE_SUPPORTED_READER_VERSION);
-            writerVersion = max(writerVersion, COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION);
-            readerFeatures.add(COLUMN_MAPPING_FEATURE_NAME);
-            writerFeatures.add(COLUMN_MAPPING_FEATURE_NAME);
+            protocolEntry.enableColumnMapping();
         }
         if (containsTimestampType) {
-            readerVersion = max(readerVersion, TIMESTAMP_NTZ_SUPPORTED_READER_VERSION);
-            writerVersion = max(writerVersion, TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION);
-            readerFeatures.add(TIMESTAMP_NTZ_FEATURE_NAME);
-            writerFeatures.add(TIMESTAMP_NTZ_FEATURE_NAME);
+            protocolEntry.enableTimestampNtz();
         }
-        if (getDeletionVectorsEnabled(properties)) {
-            readerVersion = max(readerVersion, DELETION_VECTORS_SUPPORTED_READER_VERSION);
-            writerVersion = max(writerVersion, DELETION_VECTORS_SUPPORTED_WRITER_VERSION);
-            readerFeatures.add(DELETION_VECTORS_FEATURE_NAME);
-            writerFeatures.add(DELETION_VECTORS_FEATURE_NAME);
+        if (deletionVectorsEnabled) {
+            protocolEntry.enableDeletionVector();
         }
-        return new ProtocolEntry(
-                readerVersion,
-                writerVersion,
-                readerVersion < MIN_READER_FEATURE_VERSION || readerFeatures.isEmpty() ? Optional.empty() : Optional.of(readerFeatures),
-                writerVersion < MIN_WRITER_FEATURE_VERSION || writerFeatures.isEmpty() ? Optional.empty() : Optional.of(writerFeatures));
+        return protocolEntry.build();
     }
 
     private void writeCheckpointIfNeeded(
