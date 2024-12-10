@@ -340,6 +340,7 @@ jobs:
             !:trino-delta-lake,
             !:trino-docs,
             !:trino-druid,
+            !:trino-duckdb,
             !:trino-elasticsearch,
             !:trino-exasol,
             !:trino-faulttolerant-tests,
@@ -456,6 +457,7 @@ jobs:
             - { modules: plugin/trino-delta-lake, profile: cloud-tests }
             - { modules: plugin/trino-delta-lake, profile: fte-tests }
             - { modules: plugin/trino-druid }
+            - { modules: plugin/trino-duckdb }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-exasol }
             - { modules: plugin/trino-google-sheets }
