@@ -37,27 +37,25 @@ List all SQL routines and plugin functions in the `default` schema of the
 SHOW FUNCTIONS FROM example.default;
 ```
 
-List all functions with a name beginning with `array`:
+Example output:
 
-```sql
-SHOW FUNCTIONS LIKE 'array%';
+```text
+ Function | Return Type | Argument Types | Function Type | Deterministic |   Description
+----------+-------------+----------------+---------------+---------------+-----------------
+ answer   | bigint      |                | scalar        | true          | meaning of life
 ```
 
-List all functions with a name beginning with `cf`:
+List all functions with a name beginning with `ans`:
 
 ```sql
-SHOW FUNCTIONS LIKE 'cf%';
+SHOW FUNCTIONS like 'ans%';
 ```
 
 Example output:
 
-```text
-     Function      | Return Type | Argument Types | Function Type | Deterministic |               Description
- ------------------+-------------+----------------+---------------+---------------+-----------------------------------------
- cf_getgroups      | varchar     |                | scalar        | true          | Returns the current session's groups
- cf_getprincipal   | varchar     |                | scalar        | true          | Returns the current session's principal
- cf_getuser        | varchar     |                | scalar        | true          | Returns the current session's user
-```
+ Function | Return Type | Argument Types | Function Type | Deterministic |   Description
+----------+-------------+----------------+---------------+---------------+-----------------
+ answer   | bigint      |                | scalar        | true          | meaning of life
 
 ## See also
 
