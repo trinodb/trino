@@ -19,11 +19,14 @@ import jakarta.annotation.Nullable;
 
 import java.util.Objects;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeTransactionLogEntry
 {
+    private static final int INSTANCE_SIZE = instanceSize(DeltaLakeTransactionLogEntry.class);
+
     private final TransactionEntry txn;
     private final AddFileEntry add;
     private final RemoveFileEntry remove;
@@ -218,5 +221,19 @@ public class DeltaLakeTransactionLogEntry
     public String toString()
     {
         return format("DeltaLakeTransactionLogEntry{%s, %s, %s, %s, %s, %s, %s, %s, %s}", txn, add, remove, metaData, protocol, commitInfo, cdcEntry, sidecar, checkpointMetadata);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + (txn == null ? 0 : txn.getRetainedSizeInBytes())
+                + (add == null ? 0 : add.getRetainedSizeInBytes())
+                + (remove == null ? 0 : remove.getRetainedSizeInBytes())
+                + (metaData == null ? 0 : metaData.getRetainedSizeInBytes())
+                + (protocol == null ? 0 : protocol.getRetainedSizeInBytes())
+                + (commitInfo == null ? 0 : commitInfo.getRetainedSizeInBytes())
+                + (cdcEntry == null ? 0 : cdcEntry.getRetainedSizeInBytes())
+                + (sidecar == null ? 0 : sidecar.getRetainedSizeInBytes())
+                + (checkpointMetadata == null ? 0 : checkpointMetadata.getRetainedSizeInBytes());
     }
 }
