@@ -165,6 +165,7 @@ import org.apache.iceberg.UpdateStatistics;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.CommitStateUnknownException;
+import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Term;
@@ -3089,9 +3090,16 @@ public class IcebergMetadata
             Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
             Set<Integer> partitionSpecIds = table.getSnapshotId().map(
-                            snapshot -> icebergTable.snapshot(snapshot).allManifests(icebergTable.io()).stream()
-                                    .map(ManifestFile::partitionSpecId)
-                                    .collect(toImmutableSet()))
+                            snapshot -> {
+                                try {
+                                    return icebergTable.snapshot(snapshot).allManifests(icebergTable.io()).stream()
+                                            .map(ManifestFile::partitionSpecId)
+                                            .collect(toImmutableSet());
+                                }
+                                catch (NotFoundException | UncheckedIOException e) {
+                                    throw new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing manifest file for table %s".formatted(icebergTable.name()), e);
+                                }
+                            })
                     // No snapshot, so no data. This case doesn't matter.
                     .orElseGet(() -> ImmutableSet.copyOf(icebergTable.specs().keySet()));
 
