@@ -8,9 +8,9 @@ RETURN expression
 
 ## Description
 
-Provide the value from a [SQL routines](/routines/introduction) to the caller.
-The value is the result of evaluating the expression. It can be a static value,
-a declared variable or a more complex expression.
+Provide the value from a [](/udf/sql) to the caller. The value is the result of
+evaluating the expression. It can be a static value, a declared variable or a
+more complex expression.
 
 ## Examples
 
@@ -24,13 +24,13 @@ RETURN x;
 ```
 
 Further examples of varying complexity that cover usage of the `RETURN`
-statement in combination with other statements are available in the [SQL
-routines examples documentation](/routines/examples).
+statement in combination with other statements are available in the
+[](/udf/sql/examples).
 
 All routines must contain a `RETURN` statement at the end of the top-level
 block in the `FUNCTION` declaration, even if it's unreachable.
 
 ## See also
 
-* [](/routines/introduction)
-* [](/routines/function)
+* [](/udf/sql)
+* [](/udf/function)

@@ -1,22 +1,20 @@
 # Example SQL routines
 
-
-After learning about [SQL routines from the
-introduction](/routines/introduction), the following sections show numerous
-examples of valid SQL routines. The routines are suitable as [inline
+After learning about [](/udf/sql), the following sections show numerous examples
+of valid SQL routines. The routines are suitable as [inline
 routines](routine-inline) or [catalog routines](routine-catalog), after
 adjusting the name and the example invocations.
 
 The examples combine numerous supported statements. Refer to the specific
 statement documentation for further details:
 
-* [](/routines/function) for general SQL routine declaration
-* [](/routines/begin) and [](/routines/declare) for routine blocks
-* [](/routines/set) for assigning values to variables
-* [](/routines/return) for returning routine results
-* [](/routines/case) and [](/routines/if) for conditional flows
-* [](/routines/loop), [](/routines/repeat), and [](/routines/while) for looping constructs
-* [](/routines/iterate) and [](/routines/leave) for flow control
+* [](/udf/function) for general SQL routine declaration
+* [](/udf/sql/begin) and [](/udf/sql/declare) for routine blocks
+* [](/udf/sql/set) for assigning values to variables
+* [](/udf/sql/return) for returning routine results
+* [](/udf/sql/case) and [](/udf/sql/if) for conditional flows
+* [](/udf/sql/loop), [](/udf/sql/repeat), and [](/udf/sql/while) for looping constructs
+* [](/udf/sql/iterate) and [](/udf/sql/leave) for flow control
 
 A very simple routine that returns a static value without requiring any input:
 

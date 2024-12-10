@@ -10,7 +10,7 @@ CREATE [OR REPLACE] FUNCTION
 ## Description
 
 Create or replace a [](routine-catalog). The `routine_definition` is composed of
-the usage of [](/routines/function) and nested statements. The name of the
+the usage of [](/udf/function) and nested statements. The name of the
 routine must be fully qualified with catalog and schema location, unless the
 [default SQL routine storage catalog and
 schema](/admin/properties-sql-environment) are configured. The connector used in
@@ -42,12 +42,12 @@ CREATE FUNCTION meaning_of_life() RETURNS bigint RETURN 42;
 
 Further examples of varying complexity that cover usage of the `FUNCTION`
 statement in combination with other statements are available in the [SQL
-routines examples documentation](/routines/examples).
+routines examples documentation](/udf/sql/examples).
 
 ## See also
 
 * [](/sql/drop-function)
 * [](/sql/show-create-function)
 * [](/sql/show-functions)
-* [](/routines/introduction)
+* [](/udf)
 * [](/admin/properties-sql-environment)
