@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 
@@ -48,5 +49,27 @@ public class RecordPageSourceProvider
             DynamicFilter dynamicFilter)
     {
         return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, table, columns));
+    }
+
+    @Override
+    public TupleDomain<ColumnHandle> getUnenforcedPredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            TupleDomain<ColumnHandle> dynamicFilter)
+    {
+        // record page source doesn't support dynamic predicates
+        return TupleDomain.all();
+    }
+
+    @Override
+    public TupleDomain<ColumnHandle> prunePredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle tableHandle,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        // record page source doesn't support pruning of predicates
+        return predicate;
     }
 }

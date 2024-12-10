@@ -42,6 +42,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
+import io.trino.cache.SplitAdmissionControllerProvider;
 import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StaticRuntimeInfoProvider;
 import io.trino.exchange.ExchangeContextInstance;
@@ -741,6 +742,8 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private boolean queryOutputSet;
 
+        private final SplitAdmissionControllerProvider splitAdmissionControllerProvider;
+
         public Scheduler(
                 QueryStateMachine queryStateMachine,
                 Metadata metadata,
@@ -821,6 +824,9 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
 
             planInTopologicalOrder = sortPlanInTopologicalOrder(plan);
+            splitAdmissionControllerProvider = new SplitAdmissionControllerProvider(
+                    planInTopologicalOrder.stream().map(SubPlan::getFragment).collect(toImmutableList()),
+                    queryStateMachine.getSession());
             noEventsStopwatch.start();
         }
 
@@ -1414,7 +1420,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                         queryStateMachine.getStateMachineExecutor(),
                         tracer,
                         schedulerSpan,
-                        schedulerStats);
+                        schedulerStats,
+                        splitAdmissionControllerProvider);
                 closer.register(stage::abort);
                 stageRegistry.add(stage);
                 stage.addFinalStageInfoListener(_ -> queryStateMachine.updateQueryInfo(Optional.ofNullable(stageRegistry.getStageInfo())));
@@ -1452,7 +1459,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                         sourceExchanges,
                         partitioningSchemeFactory.get(fragment.getPartitioning(), fragment.getPartitionCount()),
                         stage::recordGetSplitTime,
-                        outputDataSizeEstimates.buildOrThrow()));
+                        outputDataSizeEstimates.buildOrThrow(),
+                        splitAdmissionControllerProvider));
 
                 FaultTolerantPartitioningScheme sinkPartitioningScheme = partitioningSchemeFactory.get(
                         fragment.getOutputPartitioningScheme().getPartitioning().getHandle(),

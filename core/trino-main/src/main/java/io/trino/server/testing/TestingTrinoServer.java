@@ -45,6 +45,9 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.trino.Session;
 import io.trino.SystemSessionPropertiesProvider;
+import io.trino.cache.CacheManagerModule;
+import io.trino.cache.CacheManagerRegistry;
+import io.trino.cache.CacheMetadata;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.CatalogStoreManager;
@@ -189,6 +192,7 @@ public class TestingTrinoServer
     private final TestingHttpServer server;
     private final TransactionManager transactionManager;
     private final TablePropertyManager tablePropertyManager;
+    private final CacheMetadata cacheMetadata;
     private final PlannerContext plannerContext;
     private final QueryExplainer queryExplainer;
     private final SessionPropertyManager sessionPropertyManager;
@@ -216,6 +220,7 @@ public class TestingTrinoServer
     private final FailureInjector failureInjector;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final SpoolingManagerRegistry spoolingManagerRegistry;
+    private final CacheManagerRegistry cacheManagerRegistry;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -309,6 +314,7 @@ public class TestingTrinoServer
                 .add(new CatalogManagerModule())
                 .add(new TransactionManagerModule())
                 .add(new ServerMainModule(VERSION))
+                .add(new CacheManagerModule())
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
                     newSetBinder(binder, Filter.class)
@@ -393,6 +399,7 @@ public class TestingTrinoServer
         server = injector.getInstance(TestingHttpServer.class);
         transactionManager = injector.getInstance(TransactionManager.class);
         tablePropertyManager = injector.getInstance(TablePropertyManager.class);
+        cacheMetadata = injector.getInstance(CacheMetadata.class);
         globalFunctionCatalog = injector.getInstance(GlobalFunctionCatalog.class);
         plannerContext = injector.getInstance(PlannerContext.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
@@ -433,6 +440,8 @@ public class TestingTrinoServer
         failureInjector = injector.getInstance(FailureInjector.class);
         exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
         spoolingManagerRegistry = injector.getInstance(SpoolingManagerRegistry.class);
+        cacheManagerRegistry = injector.getInstance(CacheManagerRegistry.class);
+        cacheManagerRegistry.loadCacheManager();
 
         systemAccessControlConfiguration.ifPresentOrElse(
                 configuration -> {
@@ -529,6 +538,11 @@ public class TestingTrinoServer
         spoolingManagerRegistry.loadSpoolingManager(name, properties);
     }
 
+    public CacheManagerRegistry getCacheManagerRegistry()
+    {
+        return cacheManagerRegistry;
+    }
+
     /**
      * Add the event listeners from connectors.  Connector event listeners are
      * only supported for statically loaded catalogs, and this doesn't match up
@@ -582,6 +596,11 @@ public class TestingTrinoServer
     public TablePropertyManager getTablePropertyManager()
     {
         return tablePropertyManager;
+    }
+
+    public CacheMetadata getCacheMetadata()
+    {
+        return cacheMetadata;
     }
 
     public PlannerContext getPlannerContext()
@@ -683,10 +702,19 @@ public class TestingTrinoServer
 
     public Connector getConnector(String catalogName)
     {
+        return getConnector(getCatalogHandle(catalogName));
+    }
+
+    public CatalogHandle getCatalogHandle(String catalogName)
+    {
         checkState(coordinator, "not a coordinator");
-        CatalogHandle catalogHandle = catalogManager.orElseThrow().getCatalog(new CatalogName(catalogName))
+        return catalogManager.orElseThrow().getCatalog(new CatalogName(catalogName))
                 .orElseThrow(() -> new IllegalArgumentException("Catalog '%s' not found".formatted(catalogName)))
                 .getCatalogHandle();
+    }
+
+    public Connector getConnector(CatalogHandle catalogHandle)
+    {
         return injector.getInstance(ConnectorServicesProvider.class)
                 .getConnectorServices(catalogHandle)
                 .getConnector();

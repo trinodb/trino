@@ -15,6 +15,7 @@ package io.trino.sql;
 
 import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.cache.CacheMetadata;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionResolver;
@@ -38,6 +39,7 @@ public class PlannerContext
     // throughout the analyzer and planner, so it is easy to create
     // circular dependencies, just create a junk drawer of services.
     private final Metadata metadata;
+    private final CacheMetadata cacheMetadata;
     private final TypeOperators typeOperators;
     private final BlockEncodingSerde blockEncodingSerde;
     private final TypeManager typeManager;
@@ -47,6 +49,7 @@ public class PlannerContext
 
     @Inject
     public PlannerContext(Metadata metadata,
+            CacheMetadata cacheMetadata,
             TypeOperators typeOperators,
             BlockEncodingSerde blockEncodingSerde,
             TypeManager typeManager,
@@ -55,6 +58,7 @@ public class PlannerContext
             Tracer tracer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.cacheMetadata = requireNonNull(cacheMetadata, "cacheMetadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -66,6 +70,11 @@ public class PlannerContext
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public CacheMetadata getCacheMetadata()
+    {
+        return cacheMetadata;
     }
 
     public TypeOperators getTypeOperators()

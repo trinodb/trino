@@ -14,6 +14,7 @@
 package io.trino.spi.connector;
 
 import io.trino.spi.Experimental;
+import io.trino.spi.cache.ConnectorCacheMetadata;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -63,6 +64,14 @@ public interface Connector
      * @throws UnsupportedOperationException if this connector does not support tables with splits
      */
     default ConnectorSplitManager getSplitManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * @throws UnsupportedOperationException if this connector does not support cache ids
+     */
+    default ConnectorCacheMetadata getCacheMetadata()
     {
         throw new UnsupportedOperationException();
     }

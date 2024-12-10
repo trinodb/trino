@@ -29,6 +29,7 @@ import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
+import io.trino.cache.CacheMetadata;
 import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
 import io.trino.connector.CoordinatorDynamicCatalogManager;
@@ -423,6 +424,12 @@ public class DistributedQueryRunner
     public TransactionManager getTransactionManager()
     {
         return coordinator.getTransactionManager();
+    }
+
+    @Override
+    public CacheMetadata getCacheMetadata()
+    {
+        return coordinator.getCacheMetadata();
     }
 
     @Override
@@ -994,7 +1001,8 @@ public class DistributedQueryRunner
 
     private static TestingTrinoClient createClient(TestingTrinoServer testingTrinoServer, Session session, String encoding)
     {
-        return new TestingTrinoClient(testingTrinoServer, new TestingStatementClientFactory() {
+        return new TestingTrinoClient(testingTrinoServer, new TestingStatementClientFactory()
+        {
             @Override
             public StatementClient create(OkHttpClient httpClient, Session session, ClientSession clientSession, String query)
             {

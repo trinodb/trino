@@ -243,6 +243,11 @@ public final class Patterns
         return typeOf(ExceptNode.class);
     }
 
+    public static Pattern<ChooseAlternativeNode> chooseAlternative()
+    {
+        return typeOf(ChooseAlternativeNode.class);
+    }
+
     public static Pattern<RemoteSourceNode> remoteSourceNode()
     {
         return typeOf(RemoteSourceNode.class);

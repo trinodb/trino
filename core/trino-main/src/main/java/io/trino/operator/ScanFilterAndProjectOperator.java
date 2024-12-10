@@ -57,6 +57,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.cache.CacheDriverContext.getDynamicFilter;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
@@ -500,7 +501,7 @@ public class ScanFilterAndProjectOperator
                     pageProcessor.apply(dynamicFilter),
                     table,
                     columns,
-                    dynamicFilter,
+                    getDynamicFilter(operatorContext, dynamicFilter),
                     types,
                     minOutputPageSize,
                     minOutputPageRowCount);

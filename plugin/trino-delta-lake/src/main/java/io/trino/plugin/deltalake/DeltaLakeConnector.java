@@ -21,6 +21,7 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.spi.cache.ConnectorCacheMetadata;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
@@ -57,6 +58,7 @@ public class DeltaLakeConnector
     private final Injector injector;
     private final LifeCycleManager lifeCycleManager;
     private final ConnectorSplitManager splitManager;
+    private final ConnectorCacheMetadata cacheMetadata;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
@@ -78,6 +80,7 @@ public class DeltaLakeConnector
             Injector injector,
             LifeCycleManager lifeCycleManager,
             ConnectorSplitManager splitManager,
+            ConnectorCacheMetadata cacheMetadata,
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
             ConnectorNodePartitioningProvider nodePartitioningProvider,
@@ -96,6 +99,7 @@ public class DeltaLakeConnector
         this.injector = requireNonNull(injector, "injector is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.cacheMetadata = requireNonNull(cacheMetadata, "cacheMetadata is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
@@ -126,6 +130,12 @@ public class DeltaLakeConnector
     public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    @Override
+    public ConnectorCacheMetadata getCacheMetadata()
+    {
+        return cacheMetadata;
     }
 
     @Override

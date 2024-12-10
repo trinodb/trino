@@ -39,7 +39,7 @@ public class TestDeltaLakeAlluxioCacheMinioAndHmsConnectorSmokeTest
     public void init()
             throws Exception
     {
-        cacheDirectory = Files.createTempDirectory("cache");
+        cacheDirectory = Files.createTempDirectory("deltalake-cache");
         super.init();
     }
 

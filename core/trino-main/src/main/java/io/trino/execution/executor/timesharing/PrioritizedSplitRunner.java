@@ -25,8 +25,10 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.execution.SplitRunner;
+import io.trino.spi.cache.CacheSplitId;
 import io.trino.tracing.TrinoAttributes;
 
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -283,6 +285,11 @@ public final class PrioritizedSplitRunner
                 (int) (cpuTimeNanos.get() / 1.0e6),
                 (int) (waitNanos.get() / 1.0e6),
                 processCalls.get());
+    }
+
+    public Optional<CacheSplitId> getCacheSplitId()
+    {
+        return split.getCacheSplitId();
     }
 
     @Override

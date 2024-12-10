@@ -33,6 +33,7 @@ import io.trino.FeaturesConfig;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.block.BlockJsonSerde;
+import io.trino.cache.CacheMetadata;
 import io.trino.client.NodeVersion;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
@@ -109,6 +110,7 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
@@ -302,6 +304,7 @@ public class ServerMainModule
 
         binder.bind(MultilevelSplitQueue.class).in(Scopes.SINGLETON);
         newExporter(binder).export(MultilevelSplitQueue.class).withGeneratedName();
+        jsonCodecBinder(binder).bindJsonCodec(TupleDomain.class);
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(CompilerConfig.class);
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
@@ -427,6 +430,9 @@ public class ServerMainModule
 
         // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
+
+        // cache metadata
+        binder.bind(CacheMetadata.class).in(Scopes.SINGLETON);
 
         // node partitioning manager
         binder.bind(NodePartitioningManager.class).in(Scopes.SINGLETON);
