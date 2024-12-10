@@ -40,17 +40,18 @@ public class StringStatisticsBuilder
     private Slice minimum;
     private Slice maximum;
     private long sum;
+    private boolean hasNull;
     private final BloomFilterBuilder bloomFilterBuilder;
     private final boolean shouldCompactMinMax;
 
     public StringStatisticsBuilder(int stringStatisticsLimitInBytes, BloomFilterBuilder bloomFilterBuilder)
     {
-        this(stringStatisticsLimitInBytes, 0, null, null, 0, bloomFilterBuilder, true);
+        this(stringStatisticsLimitInBytes, 0, null, null, 0, bloomFilterBuilder, true, false);
     }
 
     public StringStatisticsBuilder(int stringStatisticsLimitInBytes, BloomFilterBuilder bloomFilterBuilder, boolean shouldCompactMinMax)
     {
-        this(stringStatisticsLimitInBytes, 0, null, null, 0, bloomFilterBuilder, shouldCompactMinMax);
+        this(stringStatisticsLimitInBytes, 0, null, null, 0, bloomFilterBuilder, shouldCompactMinMax, false);
     }
 
     private StringStatisticsBuilder(
@@ -60,7 +61,8 @@ public class StringStatisticsBuilder
             Slice maximum,
             long sum,
             BloomFilterBuilder bloomFilterBuilder,
-            boolean shouldCompactMinMax)
+            boolean shouldCompactMinMax,
+            boolean hasNull)
     {
         this.stringStatisticsLimitInBytes = stringStatisticsLimitInBytes;
         this.nonNullValueCount = nonNullValueCount;
@@ -69,6 +71,7 @@ public class StringStatisticsBuilder
         this.sum = sum;
         this.bloomFilterBuilder = requireNonNull(bloomFilterBuilder, "bloomFilterBuilder");
         this.shouldCompactMinMax = shouldCompactMinMax;
+        this.hasNull = hasNull;
     }
 
     public long getNonNullValueCount()
@@ -124,6 +127,7 @@ public class StringStatisticsBuilder
 
         nonNullValueCount += valueCount;
         sum = addExact(sum, value.getSum());
+        hasNull |= value.hasNull();
     }
 
     private Optional<StringStatistics> buildStringStatistics()
@@ -138,7 +142,7 @@ public class StringStatisticsBuilder
             // This corresponds to the behavior of metadata reader.
             return Optional.empty();
         }
-        return Optional.of(new StringStatistics(minimum, maximum, sum));
+        return Optional.of(new StringStatistics(minimum, maximum, sum, hasNull));
     }
 
     @Override
@@ -159,6 +163,11 @@ public class StringStatisticsBuilder
                 null,
                 null,
                 bloomFilterBuilder.buildBloomFilter());
+    }
+
+    @Override
+    public void setHasNull(boolean hasNull) {
+        this.hasNull = hasNull;
     }
 
     public static Optional<StringStatistics> mergeStringStatistics(List<ColumnStatistics> stats)

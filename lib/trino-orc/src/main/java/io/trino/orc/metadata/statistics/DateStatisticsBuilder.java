@@ -24,6 +24,7 @@ public class DateStatisticsBuilder
         implements LongValueStatisticsBuilder
 {
     private long nonNullValueCount;
+    private boolean hasNull;
     private int minimum = Integer.MAX_VALUE;
     private int maximum = Integer.MIN_VALUE;
     private final BloomFilterBuilder bloomFilterBuilder;
@@ -42,6 +43,7 @@ public class DateStatisticsBuilder
         minimum = Math.min(intValue, minimum);
         maximum = Math.max(intValue, maximum);
         bloomFilterBuilder.addLong(value);
+        hasNull = false;
     }
 
     private void addDateStatistics(long valueCount, DateStatistics value)
@@ -53,6 +55,7 @@ public class DateStatisticsBuilder
         nonNullValueCount += valueCount;
         minimum = Math.min(value.getMin(), minimum);
         maximum = Math.max(value.getMax(), maximum);
+        hasNull |= value.hasNull();
     }
 
     private Optional<DateStatistics> buildDateStatistics()
@@ -60,7 +63,7 @@ public class DateStatisticsBuilder
         if (nonNullValueCount == 0) {
             return Optional.empty();
         }
-        return Optional.of(new DateStatistics(minimum, maximum));
+        return Optional.of(new DateStatistics(minimum, maximum, hasNull));
     }
 
     @Override
@@ -80,6 +83,11 @@ public class DateStatisticsBuilder
                 null,
                 null,
                 bloomFilterBuilder.buildBloomFilter());
+    }
+
+    @Override
+    public void setHasNull(boolean hasNull) {
+        this.hasNull = hasNull;
     }
 
     public static Optional<DateStatistics> mergeDateStatistics(List<ColumnStatistics> stats)

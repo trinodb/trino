@@ -35,7 +35,9 @@ public class DoubleStatistics
     private final double minimum;
     private final double maximum;
 
-    public DoubleStatistics(Double minimum, Double maximum)
+    private final boolean hasNull;
+
+    public DoubleStatistics(Double minimum, Double maximum, boolean hasNull)
     {
         checkArgument(minimum == null || !minimum.isNaN(), "minimum is NaN");
         checkArgument(maximum == null || !maximum.isNaN(), "maximum is NaN");
@@ -46,6 +48,8 @@ public class DoubleStatistics
 
         this.hasMaximum = maximum != null;
         this.maximum = hasMaximum ? maximum : 0;
+
+        this.hasNull = hasNull;
     }
 
     @Override
@@ -67,6 +71,11 @@ public class DoubleStatistics
     }
 
     @Override
+    public boolean hasNull() {
+        return hasNull;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -77,13 +86,14 @@ public class DoubleStatistics
         }
         DoubleStatistics that = (DoubleStatistics) o;
         return Objects.equals(getMin(), that.getMin()) &&
-                Objects.equals(getMax(), that.getMax());
+                Objects.equals(getMax(), that.getMax()) &&
+                Objects.equals(hasNull(), that.hasNull());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getMin(), getMax());
+        return Objects.hash(getMin(), getMax(), hasNull());
     }
 
     @Override
@@ -92,6 +102,7 @@ public class DoubleStatistics
         return toStringHelper(this)
                 .add("min", getMin())
                 .add("max", getMax())
+                .add("hasNull", hasNull())
                 .toString();
     }
 

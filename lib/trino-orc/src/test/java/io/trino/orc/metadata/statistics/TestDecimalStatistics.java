@@ -36,7 +36,7 @@ public class TestDecimalStatistics
     @Override
     protected DecimalStatistics getCreateStatistics(BigDecimal min, BigDecimal max)
     {
-        return new DecimalStatistics(min, max, LONG_DECIMAL_VALUE_BYTES);
+        return new DecimalStatistics(min, max, LONG_DECIMAL_VALUE_BYTES, true);
     }
 
     @Test

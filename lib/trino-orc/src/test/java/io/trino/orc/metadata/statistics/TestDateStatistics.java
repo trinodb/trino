@@ -27,7 +27,7 @@ public class TestDateStatistics
     @Override
     protected DateStatistics getCreateStatistics(Integer min, Integer max)
     {
-        return new DateStatistics(min, max);
+        return new DateStatistics(min, max, true);
     }
 
     @Test

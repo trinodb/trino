@@ -40,7 +40,7 @@ public class TestStringStatistics
     protected StringStatistics getCreateStatistics(Slice min, Slice max)
     {
         // a fake sum is ok
-        return new StringStatistics(min, max, 100L);
+        return new StringStatistics(min, max, 100L, true);
     }
 
     @Test
