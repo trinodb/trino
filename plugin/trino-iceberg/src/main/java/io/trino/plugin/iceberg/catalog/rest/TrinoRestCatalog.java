@@ -31,7 +31,6 @@ import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.spi.TrinoException;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -108,12 +107,10 @@ public class TrinoRestCatalog
     private static final String NAMESPACE_SEPARATOR = ".";
 
     private final RESTSessionCatalog restSessionCatalog;
-    private final CatalogName catalogName;
     private final TypeManager typeManager;
     private final SessionType sessionType;
     private final Map<String, String> credentials;
     private final boolean nestedNamespaceEnabled;
-    private final String trinoVersion;
     private final boolean useUniqueTableLocation;
     private final boolean caseInsensitiveNameMatching;
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
@@ -125,11 +122,9 @@ public class TrinoRestCatalog
 
     public TrinoRestCatalog(
             RESTSessionCatalog restSessionCatalog,
-            CatalogName catalogName,
             SessionType sessionType,
             Map<String, String> credentials,
             boolean nestedNamespaceEnabled,
-            String trinoVersion,
             TypeManager typeManager,
             boolean useUniqueTableLocation,
             boolean caseInsensitiveNameMatching,
@@ -137,11 +132,9 @@ public class TrinoRestCatalog
             Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache)
     {
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.sessionType = requireNonNull(sessionType, "sessionType is null");
         this.credentials = ImmutableMap.copyOf(requireNonNull(credentials, "credentials is null"));
         this.nestedNamespaceEnabled = nestedNamespaceEnabled;
-        this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
@@ -682,11 +675,12 @@ public class TrinoRestCatalog
             case NONE -> new SessionContext(randomUUID().toString(), null, credentials, ImmutableMap.of(), session.getIdentity());
             case USER -> {
                 String sessionId = format("%s-%s", session.getUser(), session.getSource().orElse("default"));
+                String trinoVersion = requireNonNull(restSessionCatalog.properties().get("trino-version"), "trino-version is null");
 
                 Map<String, String> properties = ImmutableMap.of(
                         "user", session.getUser(),
                         "source", session.getSource().orElse(""),
-                        "trinoCatalog", catalogName.toString(),
+                        "trinoCatalog", restSessionCatalog.name(),
                         "trinoVersion", trinoVersion);
 
                 Map<String, Object> claims = ImmutableMap.<String, Object>builder()

@@ -24,7 +24,6 @@ import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -73,21 +72,18 @@ public class TestTrinoRestCatalog
         File warehouseLocation = Files.newTemporaryFolder();
         warehouseLocation.deleteOnExit();
 
-        String catalogName = "iceberg_rest";
         RESTSessionCatalog restSessionCatalog = DelegatingRestSessionCatalog
                 .builder()
                 .delegate(backendCatalog(warehouseLocation))
                 .build();
 
-        restSessionCatalog.initialize(catalogName, properties);
+        restSessionCatalog.initialize("iceberg_rest", properties);
 
         return new TrinoRestCatalog(
                 restSessionCatalog,
-                new CatalogName(catalogName),
                 NONE,
                 ImmutableMap.of(),
                 false,
-                "test",
                 new TestingTypeManager(),
                 useUniqueTableLocations,
                 false,

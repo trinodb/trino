@@ -139,11 +139,9 @@ public class TrinoIcebergRestCatalogFactory
 
         return new TrinoRestCatalog(
                 icebergCatalog,
-                catalogName,
                 sessionType,
                 credentials,
                 nestedNamespaceEnabled,
-                trinoVersion,
                 typeManager,
                 uniqueTableLocation,
                 caseInsensitiveNameMatching,
