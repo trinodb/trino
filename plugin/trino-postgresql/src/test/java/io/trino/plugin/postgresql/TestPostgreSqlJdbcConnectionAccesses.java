@@ -130,15 +130,10 @@ public class TestPostgreSqlJdbcConnectionAccesses
     {
         assertJdbcConnections("CREATE TABLE copy_of_customer AS SELECT * FROM customer", 15, Optional.empty());
 
-        addPrimaryKeyToCopyTable();
+        postgreSqlServer.execute("ALTER TABLE copy_of_customer ADD CONSTRAINT t_copy_of_customer PRIMARY KEY (custkey)");
         assertJdbcConnections("DELETE FROM copy_of_customer WHERE abs(custkey) = 1", 24, Optional.empty());
         assertJdbcConnections("UPDATE copy_of_customer SET name = 'POLAND' WHERE abs(custkey) = 1", 32, Optional.empty());
         assertJdbcConnections("MERGE INTO copy_of_customer c USING customer r ON r.custkey = c.custkey WHEN MATCHED THEN DELETE", 28, Optional.empty());
-    }
-
-    private void addPrimaryKeyToCopyTable()
-    {
-        postgreSqlServer.execute("ALTER TABLE copy_of_customer ADD CONSTRAINT t_copy_of_customer PRIMARY KEY (custkey)");
     }
 
     private static final class TestingPostgreSqlModule
