@@ -195,7 +195,7 @@ public class TestTimeSharingTaskExecutor
         taskExecutor.start();
         try {
             ticker.increment(20, MILLISECONDS);
-            TimeSharingTaskHandle testTaskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TimeSharingTaskHandle testTaskHandle = (TimeSharingTaskHandle) taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
             Phaser globalPhaser = new Phaser();
             globalPhaser.bulkRegister(3); // 2 taskExecutor threads + test thread
@@ -312,7 +312,7 @@ public class TestTimeSharingTaskExecutor
         taskExecutor.start();
         try {
             TaskId taskId = new TaskId(new StageId("test", 0), 0, 0);
-            TimeSharingTaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TimeSharingTaskHandle taskHandle = (TimeSharingTaskHandle) taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
             Phaser beginPhase = new Phaser();
             beginPhase.register();

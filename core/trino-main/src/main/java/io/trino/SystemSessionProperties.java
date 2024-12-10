@@ -21,6 +21,7 @@ import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.buffer.CompressionCodec;
+import io.trino.execution.executor.QueryExecutionPriority;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
@@ -62,6 +63,7 @@ public final class SystemSessionProperties
 {
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
+    public static final String QUERY_EXECUTION_PRIORITY = "query_execution_priority";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
     public static final String DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED = "determine_partition_count_for_write_enabled";
@@ -277,6 +279,12 @@ public final class SystemSessionProperties
                         false,
                         value -> validateDoubleRange(value, JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, 0.0, 1.0),
                         value -> value),
+                enumProperty(
+                        QUERY_EXECUTION_PRIORITY,
+                        "Query execution priority",
+                        QueryExecutionPriority.class,
+                        QueryExecutionPriority.NORMAL,
+                        false),
                 booleanProperty(
                         DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED,
                         "Determine the number of partitions based on amount of data read and processed by the query for write queries",
@@ -1160,6 +1168,11 @@ public final class SystemSessionProperties
     public static double getJoinMultiClauseIndependenceFactor(Session session)
     {
         return session.getSystemProperty(JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, Double.class);
+    }
+
+    public static QueryExecutionPriority getQueryExecutionPriority(Session session)
+    {
+        return session.getSystemProperty(QUERY_EXECUTION_PRIORITY, QueryExecutionPriority.class);
     }
 
     public static boolean isDeterminePartitionCountForWriteEnabled(Session session)

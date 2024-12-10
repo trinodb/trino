@@ -35,6 +35,7 @@ import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
+import io.trino.execution.executor.ExecutionPriorityManager;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
 import io.trino.memory.MemoryPool;
@@ -142,6 +143,7 @@ public class TestSqlTaskExecution
                     taskContext,
                     Span.getInvalid(),
                     outputBuffer,
+                    new ExecutionPriorityManager(0.1),
                     localExecutionPlan,
                     taskExecutor,
                     createTestSplitMonitor(),

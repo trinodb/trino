@@ -33,6 +33,7 @@ import io.opentelemetry.context.Context;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.executor.ExecutionPriority;
 import io.trino.execution.executor.RunningSplitInfo;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
@@ -271,6 +272,7 @@ public class TimeSharingTaskExecutor
     @Override
     public synchronized TimeSharingTaskHandle addTask(
             TaskId taskId,
+            ExecutionPriority taskExecutionPriority,
             DoubleSupplier utilizationSupplier,
             int initialSplitConcurrency,
             Duration splitConcurrencyAdjustFrequency,
