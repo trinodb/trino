@@ -302,6 +302,7 @@ public class TestDatabendConnectorTest
         }
     }
 
+    @Override
     protected void testColumnName(String columnName, boolean delimited)
     {
         String nameInSql = toColumnNameInSql(columnName, delimited);
@@ -341,6 +342,7 @@ public class TestDatabendConnectorTest
         return nameInSql;
     }
 
+    @Override
     public List<String> testColumnNameDataProvider()
     {
         return testColumnNameTestData().stream()
@@ -365,6 +367,7 @@ public class TestDatabendConnectorTest
     }
 
     @Test
+    @Override
     public void testTrySelectTableVersion()
     {
         abort("skip this");
@@ -529,6 +532,7 @@ public class TestDatabendConnectorTest
         }
     }
 
+    @Override
     protected void testAddColumnWithCommentSpecialCharacter(String comment)
     {
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN_WITH_COMMENT));
@@ -553,6 +557,7 @@ public class TestDatabendConnectorTest
     }
 
     @Test
+    @Override
     public void testInsert()
     {
         if (!hasBehavior(SUPPORTS_INSERT)) {
