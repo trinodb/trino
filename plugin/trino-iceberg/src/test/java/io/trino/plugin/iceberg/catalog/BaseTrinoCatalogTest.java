@@ -120,7 +120,7 @@ public abstract class BaseTrinoCatalogTest
                     new TableStatisticsWriter(new NodeVersion("test-version")),
                     Optional.empty(),
                     false,
-                    _ -> false);
+                    _ -> false, 8);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
