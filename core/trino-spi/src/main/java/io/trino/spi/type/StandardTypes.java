@@ -45,6 +45,9 @@ public final class StandardTypes
     public static final String IPADDRESS = "ipaddress";
     public static final String GEOMETRY = "Geometry";
     public static final String UUID = "uuid";
+    public static final String MULTISET = "multiset";
+    public static final String EMPTY_ROW = "empty row";
+    public static final String VOID = "void";
 
     private StandardTypes() {}
 }
