@@ -56,6 +56,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -116,11 +117,14 @@ public class TrinoConnection
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final Call.Factory httpCallFactory;
     private final Call.Factory segmentHttpCallFactory;
+    private final ExecutorService decoder;
+    private final ExecutorService segmentLoader;
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
     private boolean useExplicitPrepare = true;
     private boolean assumeNullCatalogMeansCurrentCatalog;
+    private final String prefetchBufferSize;
 
-    TrinoConnection(TrinoDriverUri uri, Call.Factory httpCallFactory, Call.Factory segmentHttpCallFactory)
+    TrinoConnection(TrinoDriverUri uri, Call.Factory httpCallFactory, Call.Factory segmentHttpCallFactory, ExecutorService decoder, ExecutorService segmentLoader)
     {
         requireNonNull(uri, "uri is null");
         this.jdbcUri = uri.getUri();
@@ -145,6 +149,8 @@ public class TrinoConnection
 
         this.httpCallFactory = requireNonNull(httpCallFactory, "httpCallFactory is null");
         this.segmentHttpCallFactory = requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null");
+        this.decoder = requireNonNull(decoder, "decoder is null");
+        this.segmentLoader = requireNonNull(segmentLoader, "segmentLoader is null");
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
         uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, Joiner.on(",").join(tags)));
         uri.getTraceToken().ifPresent(tags -> clientInfo.put(TRACE_TOKEN, tags));
@@ -156,6 +162,7 @@ public class TrinoConnection
 
         uri.getExplicitPrepare().ifPresent(value -> this.useExplicitPrepare = value);
         uri.getAssumeNullCatalogMeansCurrentCatalog().ifPresent(value -> this.assumeNullCatalogMeansCurrentCatalog = value);
+        this.prefetchBufferSize = uri.getPrefetchBufferSize();
     }
 
     @Override
@@ -776,6 +783,9 @@ public class TrinoConnection
                 .clientRequestTimeout(timeout)
                 .compressionDisabled(compressionDisabled)
                 .encoding(encoding)
+                .prefetchBufferSize(prefetchBufferSize)
+                .decoderExecutorService(decoder)
+                .segmentLoaderExecutorService(segmentLoader)
                 .build();
 
         return newStatementClient(httpCallFactory, segmentHttpCallFactory, session, sql);
