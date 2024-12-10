@@ -111,6 +111,7 @@
         <module>plugin/trino-snowflake</module>
         <module>plugin/trino-spooling-filesystem</module>
         <module>plugin/trino-sqlserver</module>
+        <module>plugin/trino-storage</module>
         <module>plugin/trino-teradata-functions</module>
         <module>plugin/trino-thrift</module>
         <module>plugin/trino-thrift-api</module>
@@ -1497,6 +1498,12 @@
                 <artifactId>trino-sqlserver</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-storage</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
