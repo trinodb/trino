@@ -34,6 +34,11 @@
       "name": "long_numbers",
       "dataType": "LONG",
       "singleValueField": false
+    },
+    {
+      "name": "json",
+      "dataType": "JSON",
+      "singleValueField": true
     }
   ],
   "metricFieldSpecs": [

@@ -47,6 +47,7 @@ public class TestPinotConfig
                         .setMaxRowsForBrokerQueries(50_000)
                         .setAggregationPushdownEnabled(true)
                         .setCountDistinctPushdownEnabled(true)
+                        .setJsonPredicatePushdownEnabled(false)
                         .setProxyEnabled(false)
                         .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE)));
     }
@@ -67,6 +68,7 @@ public class TestPinotConfig
                 .put("pinot.max-rows-for-broker-queries", "5000")
                 .put("pinot.aggregation-pushdown.enabled", "false")
                 .put("pinot.count-distinct-pushdown.enabled", "false")
+                .put("pinot.json-predicate-pushdown.enabled", "true")
                 .put("pinot.proxy.enabled", "true")
                 .put("pinot.target-segment-page-size", "2MB")
                 .buildOrThrow();
@@ -84,6 +86,7 @@ public class TestPinotConfig
                 .setMaxRowsForBrokerQueries(5000)
                 .setAggregationPushdownEnabled(false)
                 .setCountDistinctPushdownEnabled(false)
+                .setJsonPredicatePushdownEnabled(true)
                 .setProxyEnabled(true)
                 .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE));
 
