@@ -93,6 +93,7 @@
         <module>plugin/trino-mongodb</module>
         <module>plugin/trino-mysql</module>
         <module>plugin/trino-mysql-event-listener</module>
+        <module>plugin/trino-neo4j</module>
         <module>plugin/trino-opa</module>
         <module>plugin/trino-openlineage</module>
         <module>plugin/trino-opensearch</module>
