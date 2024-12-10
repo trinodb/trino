@@ -42,7 +42,7 @@ public class TestDeltaLakeConfig
         assertRecordedDefaults(recordDefaults(DeltaLakeConfig.class)
                 .setDataFileCacheSize(DeltaLakeConfig.DEFAULT_DATA_FILE_CACHE_SIZE)
                 .setDataFileCacheTtl(new Duration(30, MINUTES))
-                .setMetadataCacheTtl(new Duration(5, TimeUnit.MINUTES))
+                .setMetadataCacheTtl(new Duration(30, TimeUnit.MINUTES))
                 .setMetadataCacheMaxRetainedSize(DeltaLakeConfig.DEFAULT_METADATA_CACHE_MAX_RETAINED_SIZE)
                 .setDomainCompactionThreshold(1000)
                 .setMaxSplitsPerSecond(Integer.MAX_VALUE)
