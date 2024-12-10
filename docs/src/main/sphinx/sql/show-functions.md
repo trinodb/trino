@@ -10,7 +10,7 @@ SHOW FUNCTIONS [ FROM schema ] [ LIKE pattern ]
 
 List functions in `schema` or all functions in the current session path. This
 can include built-in functions, [functions from a custom
-plugin](/develop/functions), and [SQL routines](/routines).
+plugin](/develop/functions), and [](/udf).
 
 For each function returned, the following information is displayed:
 
@@ -62,7 +62,7 @@ Example output:
 ## See also
 
 * [](/functions)
-* [](/routines)
+* [](/udf)
 * [](/develop/functions)
 * [](/sql/create-function)
 * [](/sql/drop-function)

@@ -12,9 +12,9 @@ optimizer
 connector
 object-storage
 functions
+udf
 language
 sql
-routines
 develop
 glossary
 appendix

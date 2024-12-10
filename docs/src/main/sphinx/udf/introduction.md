@@ -95,28 +95,28 @@ testing of your SQL routines.
 (routine-declaration)=
 ## Routine declaration
 
-Refer to the documentation for the [](/routines/function) keyword for more
+Refer to the documentation for the [](/udf/function) keyword for more
 details about declaring the routine overall. The routine body is composed with
 statements from the following list:
 
-* [](/routines/begin)
-* [](/routines/case)
-* [](/routines/declare)
-* [](/routines/if)
-* [](/routines/iterate)
-* [](/routines/leave)
-* [](/routines/loop)
-* [](/routines/repeat)
-* [](/routines/return)
-* [](/routines/set)
-* [](/routines/while)
+* [](/udf/sql/begin)
+* [](/udf/sql/case)
+* [](/udf/sql/declare)
+* [](/udf/sql/if)
+* [](/udf/sql/iterate)
+* [](/udf/sql/leave)
+* [](/udf/sql/loop)
+* [](/udf/sql/repeat)
+* [](/udf/sql/return)
+* [](/udf/sql/set)
+* [](/udf/sql/while)
 
 Statements can also use [built-in functions and operators](/functions) as well
 as other routines, although recursion is not supported for routines.
 
-Find simple examples in each statement documentation, and refer to the [example
-documentation](/routines/examples) for more complex use cases that combine
-multiple statements.
+Find simple examples in each statement documentation, and refer to the
+[](/udf/sql/examples) for more complex use cases that combine multiple
+statements.
 
 :::{note}
 User-defined functions can alternatively be written in Java and deployed as a

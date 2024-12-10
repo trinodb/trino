@@ -25,7 +25,7 @@ END
 ## Description
 
 The `CASE` statement is an optional construct to allow conditional processing
-in [SQL routines](/routines/introduction).
+in [](/udf/sql).
 
 The `WHEN` clauses are evaluated sequentially, stopping after the first match,
 and therefore the order of the statements is significant. The statements of the
@@ -54,10 +54,9 @@ FUNCTION simple_case(a bigint)
 ```
 
 Further examples of varying complexity that cover usage of the `CASE` statement
-in combination with other statements are available in the [SQL routines examples
-documentation](/routines/examples).
+in combination with other statements are available in the [](/udf/sql/examples).
 
 ## See also
 
-* [](/routines/introduction)
+* [](/udf/sql)
 * [Conditional expressions using `CASE`](case-expression)

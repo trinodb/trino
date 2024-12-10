@@ -31,7 +31,7 @@ client overrides this default.
 
 - **Type:** [](prop-type-string)
 
-Set the default catalog for [SQL routine](/routines) storage for all clients.
+Set the default catalog for [](/udf) storage for all clients.
 The connector used in the catalog must support [](sql-routine-management). Any
 usage of a fully qualified name for a routine overrides this default.
 

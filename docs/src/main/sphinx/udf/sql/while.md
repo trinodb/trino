@@ -10,10 +10,9 @@ END WHILE
 
 ## Description
 
-The `WHILE` statement is an optional construct in [SQL
-routines](/routines/introduction) to allow processing of a block of statements
-as long as a condition is met. The condition is validated as a first step of
-each iteration.
+The `WHILE` statement is an optional construct in [](/udf/sql) to allow
+processing of a block of statements as long as a condition is met. The condition
+is validated as a first step of each iteration.
 
 The expression that defines the `condition` is evaluated at least once. If the
 result is `true`, processing moves to `DO`, through following `statements` and
@@ -37,11 +36,10 @@ END WHILE;
 ```
 
 Further examples of varying complexity that cover usage of the `WHILE` statement
-in combination with other statements are available in the [SQL routines examples
-documentation](/routines/examples).
+in combination with other statements are available in the [](/udf/sql/examples).
 
 ## See also
 
-* [](/routines/introduction)
-* [](/routines/loop)
-* [](/routines/repeat)
+* [](/udf/sql)
+* [](/udf/sql/loop)
+* [](/udf/sql/repeat)

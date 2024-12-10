@@ -14,11 +14,11 @@ END IF
 ## Description
 
 The `IF THEN` statement is an optional construct to allow conditional processing
-in [SQL routines](/routines/introduction). Each `condition`  following an `IF`
-or `ELSEIF` must evaluate to a boolean. The result of processing the expression
-must result in a boolean `true` value to process the `statements` in the `THEN`
-block. A result of `false` results in skipping the `THEN` block and moving to
-evaluate the next `ELSEIF` and `ELSE` blocks in order.
+in [](/udf/sql). Each `condition`  following an `IF` or `ELSEIF` must evaluate
+to a boolean. The result of processing the expression must result in a boolean
+`true` value to process the `statements` in the `THEN` block. A result of
+`false` results in skipping the `THEN` block and moving to evaluate the next
+`ELSEIF` and `ELSE` blocks in order.
 
 The `ELSEIF` and `ELSE` segments are optional.
 
@@ -39,10 +39,9 @@ FUNCTION simple_if(a bigint)
 ```
 
 Further examples of varying complexity that cover usage of the `IF` statement in
-combination with other statements are available in the [SQL routines examples
-documentation](/routines/examples).
+combination with other statements are available in the [](/udf/sql/examples).
 
 ## See also
 
-* [](/routines/introduction)
+* [](/udf/sql)
 * [Conditional expressions using `IF`](if-expression)
