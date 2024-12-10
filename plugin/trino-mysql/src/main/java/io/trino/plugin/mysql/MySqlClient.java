@@ -112,9 +112,11 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
@@ -1014,6 +1016,12 @@ public class MySqlClient
     }
 
     @Override
+    public boolean supportsMerge()
+    {
+        return true;
+    }
+
+    @Override
     public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
         for (JdbcSortItem sortItem : sortOrder) {
@@ -1194,6 +1202,43 @@ public class MySqlClient
 
             tableStatistics.setRowCount(Estimate.of(rowCount));
             return tableStatistics.build();
+        }
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        SchemaTableName tableName = new SchemaTableName(remoteTableName.getCatalogName().orElse(null), remoteTableName.getTableName());
+        List<JdbcColumnHandle> columns = getColumns(session, tableName, remoteTableName);
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            DatabaseMetaData metaData = connection.getMetaData();
+
+            ResultSet primaryKeys = metaData.getPrimaryKeys(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName());
+
+            Set<String> primaryKeyNames = new HashSet<>();
+            while (primaryKeys.next()) {
+                primaryKeyNames.add(primaryKeys.getString("COLUMN_NAME"));
+            }
+            if (primaryKeyNames.isEmpty()) {
+                return ImmutableList.of();
+            }
+            ImmutableList.Builder<JdbcColumnHandle> primaryKeysBuilder = ImmutableList.builder();
+            for (JdbcColumnHandle columnHandle : columns) {
+                String name = columnHandle.getColumnName();
+                if (!primaryKeyNames.contains(name)) {
+                    continue;
+                }
+                JdbcTypeHandle handle = columnHandle.getJdbcTypeHandle();
+                primaryKeysBuilder.add(new JdbcColumnHandle(
+                        name,
+                        // make sure the primary keys that are varchar/char relate types can be pushdown
+                        new JdbcTypeHandle(handle.jdbcType(), handle.jdbcTypeName(), handle.columnSize(), handle.decimalDigits(), handle.arrayDimensions(), Optional.of(CASE_SENSITIVE)),
+                        columnHandle.getColumnType()));
+            }
+            return primaryKeysBuilder.build();
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 

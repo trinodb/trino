@@ -553,4 +553,11 @@ public class TestIgniteConnectorTest
             assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
         }
     }
+
+    @Test
+    @Override
+    public void testMergeTargetWithoutPrimaryKeys()
+    {
+        abort("Ignite table always has primary key");
+    }
 }
