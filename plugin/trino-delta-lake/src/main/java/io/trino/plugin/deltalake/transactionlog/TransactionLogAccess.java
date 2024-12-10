@@ -132,8 +132,9 @@ public class TransactionLogAccess
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
 
         tableSnapshots = EvictableCacheBuilder.newBuilder()
+                .weigher((Weigher<TableLocation, TableSnapshot>) (key, value) -> Ints.saturatedCast(key.getRetainedSizeInBytes() + value.getRetainedSizeInBytes()))
+                .maximumWeight(deltaLakeConfig.getMetadataCacheMaxRetainedSize().toBytes())
                 .expireAfterWrite(deltaLakeConfig.getMetadataCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
-                .maximumSize(deltaLakeConfig.getMetadataCacheMaxSize())
                 .shareNothingWhenDisabled()
                 .recordStats()
                 .build();

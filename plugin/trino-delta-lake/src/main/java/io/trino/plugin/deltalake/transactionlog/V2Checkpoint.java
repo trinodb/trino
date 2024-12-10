@@ -13,12 +13,21 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public record V2Checkpoint(String path)
 {
+    private static final int INSTANCE_SIZE = instanceSize(V2Checkpoint.class);
+
     public V2Checkpoint
     {
         requireNonNull(path, "path is null");
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(path);
     }
 }
