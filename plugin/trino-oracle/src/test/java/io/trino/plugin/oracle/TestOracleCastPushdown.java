@@ -93,6 +93,13 @@ public class TestOracleCastPushdown
                 .addColumn("c_number_15", "decimal(15)", asList(1, 2, null))
                 .addColumn("c_number_10_2", "decimal(10, 2)", asList(1.23, 2.67, null))
                 .addColumn("c_number_30_2", "decimal(30, 2)", asList(1.23, 2.67, null))
+                .addColumn("c_decimal_2_2", "decimal(2, 2)", asList(0.23, 0.67, null))
+                .addColumn("c_decimal_2_0", "decimal(2, 0)", asList(1, 2, null))
+                .addColumn("c_decimal_10_2", "decimal(10, 2)", asList(1.23, 2.67, null))
+                .addColumn("c_decimal_10_1", "decimal(10, 1)", asList(1.2, 2.6, null))
+                .addColumn("c_decimal_10_0", "decimal(10, 0)", asList(1, 2, null))
+                .addColumn("c_decimal_19_2", "decimal(19, 2)", asList(1.23, 2.67, "99999999999999999.99"))
+                .addColumn("c_decimal_30_2", "decimal(30, 2)", asList(1.23, 2.67, null))
                 .addColumn("c_char_10", "char(10)", asList("'India'", "'Poland'", null))
                 .addColumn("c_char_50", "char(50)", asList("'India'", "'Poland'", null))
                 .addColumn("c_char_501", "char(501)", asList("'India'", "'Poland'", null)) // greater than ORACLE_CHAR_MAX_CHARS
@@ -150,6 +157,13 @@ public class TestOracleCastPushdown
                 .addColumn("c_number_15", "decimal(15)", asList(1, 22, null))
                 .addColumn("c_number_10_2", "decimal(10, 2)", asList(1.23, 22.67, null))
                 .addColumn("c_number_30_2", "decimal(30, 2)", asList(1.23, 22.67, null))
+                .addColumn("c_decimal_2_2", "decimal(2, 2)", asList(0.23, 0.6, null))
+                .addColumn("c_decimal_2_0", "decimal(2, 0)", asList(1, 0.12, null))
+                .addColumn("c_decimal_10_2", "decimal(10, 2)", asList(1.23, 22.67, null))
+                .addColumn("c_decimal_10_1", "decimal(10, 1)", asList(1.2, 2.7, null))
+                .addColumn("c_decimal_10_0", "decimal(10, 0)", asList(1, 22, null))
+                .addColumn("c_decimal_19_2", "decimal(19, 2)", asList(1.23, 22.67, "99999999999999999.99"))
+                .addColumn("c_decimal_30_2", "decimal(30, 2)", asList(1.23, 22.67, null))
                 .addColumn("c_char_10", "char(10)", asList("'India'", "'France'", null))
                 .addColumn("c_char_50", "char(50)", asList("'India'", "'France'", null))
                 .addColumn("c_char_501", "char(501)", asList("'India'", "'France'", null)) // greater than ORACLE_CHAR_MAX_CHARS
@@ -324,6 +338,45 @@ public class TestOracleCastPushdown
                 .isNotFullyPushedDown(ProjectNode.class);
     }
 
+    @Test
+    public void testCastPushdownForDecimals()
+    {
+        Session withoutPushdown = Session.builder(getSession())
+                .setSystemProperty("allow_pushdown_into_connectors", "false")
+                .build();
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                getSession().getSchema().orElseThrow() + ".decimals",
+                "(id INT, c_decimal_5_2 DECIMAL(5, 2), c_int bigint, c_varchar VARCHAR(10))",
+                List.of(
+                        "1, '123.94', 1,         '0'",
+                        "2, '123.45', 113,       '11'",
+                        "3, '-123.46', 12345,     '22'",
+                        "4, '1.46',   123456789, '3.0'"))) {
+            // rounding down
+            assertThat(query("SELECT id, CAST(c_decimal_5_2 AS DECIMAL(5, 1)) from %s".formatted(table.getName())))
+                    .isFullyPushedDown();
+            // cutting precision
+            assertThat(query("SELECT id, CAST(c_decimal_5_2 AS DECIMAL(3, 2)) from %s WHERE id=4".formatted(table.getName())))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id, CAST(c_decimal_5_2 AS DECIMAL(3, 2)) from %s".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Overflow occurred computing an expression involving");
+            assertThat(query(withoutPushdown, "SELECT id, CAST(c_decimal_5_2 AS DECIMAL(3, 2)) from %s".formatted(table.getName())))
+                    .failure()
+                    .hasMessageMatching("Cannot cast DECIMAL\\(5, 2\\) (.*) to DECIMAL\\(3, 2\\)");
+            // cast from integral
+            assertThat(query("SELECT id, CAST(c_int AS DECIMAL(12, 2)) from %s".formatted(table.getName())))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id, CAST(c_int AS DECIMAL(3, 2)) from %s".formatted(table.getName())))
+                    .failure()
+                    .hasMessageContaining("Overflow occurred computing an expression involving");
+            assertThat(query(withoutPushdown, "SELECT id, CAST(c_int AS DECIMAL(3, 2)) from %s".formatted(table.getName())))
+                    .failure()
+                    .hasMessageMatching("Cannot cast BIGINT (.*) to DECIMAL\\(3, 2\\)");
+        }
+    }
+
     @Override
     protected List<CastTestCase> supportedCastTypePushdown()
     {
@@ -364,7 +417,15 @@ public class TestOracleCastPushdown
                 new CastTestCase("c_varchar_unicode", "varchar(50)", "c_varchar_50"),
                 new CastTestCase("c_nvarchar_unicode", "varchar(50)", "c_varchar_50"),
                 new CastTestCase("c_clob_unicode", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_nclob_unicode", "varchar(50)", "c_varchar_50"));
+                new CastTestCase("c_nclob_unicode", "varchar(50)", "c_varchar_50"),
+
+                new CastTestCase("c_decimal_10_2", "decimal(19,2)", "c_decimal_19_2"),
+                new CastTestCase("c_decimal_10_2", "decimal(10,0)", "c_decimal_10_0"),
+                new CastTestCase("c_decimal_10_2", "decimal(10,1)", "c_decimal_10_1"),
+                new CastTestCase("c_byteint", "decimal(10,0)", "c_decimal_10_0"),
+                new CastTestCase("c_smallint", "decimal(10,0)", "c_decimal_10_0"),
+                new CastTestCase("c_integer", "decimal(10,0)", "c_decimal_10_0"),
+                new CastTestCase("c_bigint", "decimal(10,0)", "c_decimal_10_0"));
     }
 
     @Override
