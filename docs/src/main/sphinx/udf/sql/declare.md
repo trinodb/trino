@@ -8,8 +8,8 @@ DECLARE identifier [, ...] type [ DEFAULT expression ]
 
 ## Description
 
-Use the `DECLARE` statement directly after the [](/routines/begin) keyword in
-[](/routines) to define one or more variables with an `identifier` as name. Each
+Use the `DECLARE` statement directly after the [](/udf/sql/begin) keyword in
+[](/udf/sql) to define one or more variables with an `identifier` as name. Each
 statement must specify the [data type](/language/types) of the variable with
 `type`. It can optionally include a default, initial value defined by an
 `expression`. The default value is `NULL` if not specified.
@@ -43,10 +43,10 @@ DECLARE start_time timestamp(3) with time zone DEFAULT now();
 ```
 
 Further examples of varying complexity that cover usage of the `DECLARE`
-statement in combination with other statements are available in the [SQL
-routines examples documentation](/routines/examples).
+statement in combination with other statements are available in the
+[](/udf/sql/examples).
 
 ## See also
 
-* [](/routines/introduction)
+* [](/udf/sql)
 * [](/language/types)

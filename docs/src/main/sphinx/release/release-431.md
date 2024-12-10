@@ -2,7 +2,7 @@
 
 ## General
 
-* Add support for [](/routines). ({issue}`19308`)
+* Add support for [](/udf/sql). ({issue}`19308`)
 * Add support for [](/sql/create-function) and [](/sql/drop-function) statements. ({issue}`19308`)
 * Add support for the `REPLACE` modifier to the `CREATE TABLE` statement. ({issue}`13180`)
 * Disallow a `null` offset for the {func}`lead` and {func}`lag` functions. ({issue}`19003`)

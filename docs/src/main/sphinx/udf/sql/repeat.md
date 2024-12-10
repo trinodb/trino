@@ -11,10 +11,9 @@ END REPEAT
 
 ## Description
 
-The `REPEAT UNTIL` statement is an optional construct in [SQL
-routines](/routines/introduction) to allow processing of a block of statements
-as long as a condition is met. The condition is validated as a last step of each
-iteration.
+The `REPEAT UNTIL` statement is an optional construct in [](/udf/sql) to allow
+processing of a block of statements as long as a condition is met. The condition
+is validated as a last step of each iteration.
 
 The block of statements is processed at least once. After the first, and every
 subsequent processing the expression `condidtion` is validated. If the result is
@@ -60,11 +59,11 @@ SELECT test_repeat(12); -- 13
 ```
 
 Further examples of varying complexity that cover usage of the `REPEAT`
-statement in combination with other statements are available in the [SQL
-routines examples documentation](/routines/examples).
+statement in combination with other statements are available in the
+[](/udf/sql/examples).
 
 ## See also
 
-* [](/routines/introduction)
-* [](/routines/loop)
-* [](/routines/while)
+* [](/udf/sql)
+* [](/udf/sql/loop)
+* [](/udf/sql/while)
