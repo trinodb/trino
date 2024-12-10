@@ -155,19 +155,19 @@ default inspections, with some modifications.
 
 Enable the following inspections:
 
-- ``Java | Internationalization | Implicit platform default charset``,
-- ``Java | Control flow issues | Redundant 'else'`` (including
-  ``Report when there are no more statements after the 'if' statement`` option),
 - ``Java | Class structure | Utility class is not 'final'``,
 - ``Java | Class structure | Utility class with 'public' constructor``,
-- ``Java | Class structure | Utility class without 'private' constructor``.
+- ``Java | Class structure | Utility class without 'private' constructor``,
+- ``Java | Control flow issues | Redundant 'else'`` (including
+  ``Report when there are no more statements after the 'if' statement`` option), 
+- ``Java | Internationalization | Implicit platform default charset``.
 
 Disable the following inspections:
 
-- ``Java | Performance | Call to 'Arrays.asList()' with too few arguments``,
 - ``Java | Abstraction issues | 'Optional' used as field or parameter type``,
 - ``Java | Code style issues | Local variable or parameter can be 'final'``,
-- ``Java | Data flow | Boolean method is always inverted``.
+- ``Java | Data flow | Boolean method is always inverted``,
+- ``Java | Performance | Call to 'Arrays.asList()' with too few arguments``.
 
 Update the following inspections:
 
