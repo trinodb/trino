@@ -38,7 +38,7 @@ public class AzureFileSystemModule
     protected void setup(Binder binder)
     {
         binder.bind(AzureFileSystemFactory.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, NodeManager.class);
+        newOptionalBinder(binder, NodeManager.class).setDefault().toInstance(null);
         nodeManager.ifPresent(manager -> newOptionalBinder(binder, NodeManager.class).setBinding().toInstance(manager));
         Module module = switch (buildConfigObject(AzureFileSystemConfig.class).getAuthType()) {
             case ACCESS_KEY -> new AzureAuthAccessKeyModule();
