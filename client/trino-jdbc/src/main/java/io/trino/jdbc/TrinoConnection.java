@@ -26,7 +26,14 @@ import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
+import okhttp3.HttpUrl;
+import okhttp3.Request;
+import okhttp3.Response;
 
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.ProtocolException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
 import java.sql.Array;
@@ -56,23 +63,31 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.Maps.fromProperties;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.jdbc.ClientInfoProperty.APPLICATION_NAME;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_INFO;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_TAGS;
 import static io.trino.jdbc.ClientInfoProperty.TRACE_TOKEN;
 import static java.lang.String.format;
+import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
+import static java.net.HttpURLConnection.HTTP_OK;
+import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
@@ -84,6 +99,8 @@ public class TrinoConnection
         implements Connection
 {
     private static final Logger logger = Logger.getLogger(TrinoConnection.class.getPackage().getName());
+
+    private static final int CONNECTION_TIMEOUT_SECONDS = 30; // Not configurable
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
@@ -119,8 +136,10 @@ public class TrinoConnection
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
     private boolean useExplicitPrepare = true;
     private boolean assumeNullCatalogMeansCurrentCatalog;
+    private final boolean validateConnection;
 
     TrinoConnection(TrinoDriverUri uri, Call.Factory httpCallFactory, Call.Factory segmentHttpCallFactory)
+            throws SQLException
     {
         requireNonNull(uri, "uri is null");
         this.jdbcUri = uri.getUri();
@@ -156,6 +175,88 @@ public class TrinoConnection
 
         uri.getExplicitPrepare().ifPresent(value -> this.useExplicitPrepare = value);
         uri.getAssumeNullCatalogMeansCurrentCatalog().ifPresent(value -> this.assumeNullCatalogMeansCurrentCatalog = value);
+
+        this.validateConnection = uri.isValidateConnection();
+        if (validateConnection) {
+            try {
+                if (!validateCredentials(CONNECTION_TIMEOUT_SECONDS)) {
+                    throw new SQLException("Invalid authorization specification.", "28000");
+                }
+            }
+            catch (UnsupportedOperationException | IOException e) {
+                throw new SQLException("Unable to connect.", "08001", e);
+            }
+        }
+    }
+
+    private boolean validateCredentials(int timeout)
+            throws IOException
+    {
+        HttpUrl url = HttpUrl.get(httpUri);
+        url = url.newBuilder().encodedPath("/v1/statement").build();
+
+        Request.Builder builder = new Request.Builder()
+                .url(url)
+                .head();
+        Optional<String> requestUser =
+                Stream.of(Optional.ofNullable(authorizationUser.get()), sessionUser.get(), user).filter(Optional::isPresent).map(Optional::get).findFirst();
+        requestUser.ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestUser(), value));
+        Optional<String> originalUser =
+                Stream.of(sessionUser.get(), user).filter(Optional::isPresent).map(Optional::get).findFirst();
+        originalUser.ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestOriginalUser(), value));
+        source.ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestSource(), value));
+        if (clientInfo.containsKey(TRACE_TOKEN) && !isNullOrEmpty(clientInfo.get(TRACE_TOKEN))) {
+            builder.addHeader(TRINO_HEADERS.requestTraceToken(), clientInfo.get(TRACE_TOKEN));
+        }
+        if (this.clientInfo.containsKey(CLIENT_INFO) && !isNullOrEmpty(this.clientInfo.get(CLIENT_INFO))) {
+            builder.addHeader(TRINO_HEADERS.requestClientTags(), this.clientInfo.get(CLIENT_INFO));
+        }
+        Request request = builder.build();
+
+        Exception lastException = null;
+        Duration timeoutDuration = new Duration(timeout, TimeUnit.SECONDS);
+        long start = System.nanoTime();
+
+        while (true) {
+            Duration sinceStart = Duration.nanosSince(start);
+            if (timeout > 0 && sinceStart.compareTo(timeoutDuration) > 0) {
+                throw new IOException(format("ValidateCredentials timed out after %s. Last error: %s", sinceStart,
+                        lastException == null ? "null" : lastException.getClass().getName()), lastException);
+            }
+
+            try (Response response = httpCallFactory.newCall(request).execute()) {
+                switch (response.code()) {
+                    case HTTP_OK:
+                        return true;
+                    case HTTP_UNAUTHORIZED:
+                        return false;
+                    case HTTP_BAD_METHOD:
+                        throw new UnsupportedOperationException("Target server does not support HEAD ./v1/statement");
+                    default:
+                        throw new IOException(String.format("Unexpected HTTP status code %d returned from HEAD " +
+                                "./v1/statement", response.code()));
+                }
+            }
+            catch (IOException ioe) {
+                if (getCausalChain(ioe).stream()
+                        .anyMatch(e -> (e instanceof InterruptedIOException
+                                || e instanceof ProtocolException
+                                || e instanceof SocketTimeoutException))) {
+                    lastException = ioe;
+                }
+                else {
+                    throw ioe;
+                }
+            }
+
+            try {
+                MILLISECONDS.sleep(100);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
     }
 
     @Override
@@ -526,9 +627,25 @@ public class TrinoConnection
             throws SQLException
     {
         if (timeout < 0) {
-            throw new SQLException("Timeout is negative");
+            throw new SQLException("Timeout is negative.");
         }
-        return !isClosed();
+
+        if (isClosed()) {
+            return false;
+        }
+
+        try {
+            return validateCredentials(timeout);
+        }
+        catch (UnsupportedOperationException e) {
+            // Backward compatible with older Trino server
+            logger.log(Level.FINE, "Remote server does not support validating connection, return false.", e);
+            return true;
+        }
+        catch (IOException e) {
+            logger.log(Level.FINE, "Validating connection failed, return false.", e);
+            return false;
+        }
     }
 
     @Override
