@@ -58,7 +58,7 @@ public class DeltaLakeConfig
     @VisibleForTesting
     static final DataSize DEFAULT_METADATA_CACHE_MAX_RETAINED_SIZE = DataSize.succinctBytes(Math.floorDiv(Runtime.getRuntime().maxMemory(), 20L));
 
-    private Duration metadataCacheTtl = new Duration(5, TimeUnit.MINUTES);
+    private Duration metadataCacheTtl = new Duration(30, TimeUnit.MINUTES);
     private DataSize metadataCacheMaxRetainedSize = DEFAULT_METADATA_CACHE_MAX_RETAINED_SIZE;
     private DataSize dataFileCacheSize = DEFAULT_DATA_FILE_CACHE_SIZE;
     private Duration dataFileCacheTtl = new Duration(30, TimeUnit.MINUTES);
