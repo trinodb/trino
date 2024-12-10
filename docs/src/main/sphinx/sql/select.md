@@ -88,7 +88,7 @@ SELECT hello('Finn') || ' and ' || bye('Joe');
 ```
 
 Find further information about routines in general, inline routines, all
-supported statements, and examples in [](/routines).
+supported statements, and examples in [](/udf).
 
 ## WITH clause
 

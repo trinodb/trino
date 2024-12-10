@@ -91,12 +91,11 @@ SELECT meaning_of_life();
 
 Further examples of varying complexity that cover usage of the `FUNCTION`
 statement in combination with other statements are available in the [SQL
-routines examples documentation](/routines/examples).
+UDF examples documentation](/udf/sql/examples).
 
 ## See also
 
-* [](/routines/introduction)
-* [](/routines/begin)
-* [](/routines/return)
+* [](/udf)
+* [](/udf/sql)
 * [](/sql/create-function)
 

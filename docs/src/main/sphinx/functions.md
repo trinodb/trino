@@ -12,7 +12,7 @@ Refer to the following sections for further details:
 In addition, Trino supports implementation of [custom
 functions](/develop/functions) or [custom table
 functions](/develop/table-functions) provided by a plugin, and creation of
-user-defined functions as [SQL routines](/routines).
+[](/udf).
 
 ## Functions by name
 

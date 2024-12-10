@@ -8,9 +8,9 @@ SET identifier = expression
 
 ## Description
 
-Use the `SET` statement in [SQL routines](/routines/introduction) to assign a
-value to a variable, referenced by comma-separated `identifier`s. The
-value is determined by evaluating the `expression` after the `=` sign.
+Use the `SET` statement in [](/udf/sql) to assign a value to a variable,
+referenced by comma-separated `identifier`s. The value is determined by
+evaluating the `expression` after the `=` sign.
 
 Before the assignment the variable must be defined with a `DECLARE` statement.
 The data type of the variable must be identical to the data type of evaluating
@@ -34,10 +34,9 @@ FUNCTION one()
 ```
 
 Further examples of varying complexity that cover usage of the `SET` statement
-in combination with other statements are available in the [SQL routines examples
-documentation](/routines/examples).
+in combination with other statements are available in the [](/udf/sql/examples).
 
 ## See also
 
-* [](/routines/introduction)
-* [](/routines/declare)
+* [](/udf/sql)
+* [](/udf/sql/declare)
