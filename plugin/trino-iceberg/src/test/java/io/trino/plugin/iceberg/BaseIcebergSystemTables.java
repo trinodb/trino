@@ -347,22 +347,22 @@ public abstract class BaseIcebergSystemTables
                         "('existing_rows_count', 'bigint', '', '')," +
                         "('deleted_data_files_count', 'integer', '', '')," +
                         "('deleted_rows_count', 'bigint', '', '')," +
-                        "('partitions', 'array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))', '', '')");
+                        "('partition_summaries', 'array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$manifests\"");
-        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partitions FROM test_schema.\"test_table$manifests\""))
+        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table$manifests\""))
                 .matches(
                         "VALUES " +
                                 "    (2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))) , " +
                                 "    (2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-09', '2019-09-10')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
 
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_multilevel_partitions$manifests\"");
-        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partitions FROM test_schema.\"test_table_multilevel_partitions$manifests\""))
+        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table_multilevel_partitions$manifests\""))
                 .matches(
                         "VALUES " +
                                 "(3, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '0', '1'), ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
 
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_with_dml$manifests\"");
-        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partitions FROM test_schema.\"test_table_with_dml$manifests\""))
+        assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table_with_dml$manifests\""))
                 .matches(
                         "VALUES " +
                                 // INSERT on '2022-01-01', '2022-02-02', '2022-03-03' partitions
