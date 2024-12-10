@@ -51,6 +51,8 @@ public final class StandardTypes
     public static final String BING_TILE = "BingTile"; // BingTileType.NAME
     public static final String KDB_TREE = "KdbTree"; // KdbTreeType.NAME
     public static final String COLOR = "color"; // Color.NAME
+    public static final String MULTISET = "multiset";
+    public static final String EMPTY_ROW = "empty row";
 
     private StandardTypes() {}
 }

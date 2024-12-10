@@ -1,0 +1,110 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.sql.dialect.trino.operation;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.trino.sql.newir.FormatOptions;
+import io.trino.sql.newir.Operation;
+import io.trino.sql.newir.Region;
+import io.trino.sql.newir.Value;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
+import static java.util.Objects.requireNonNull;
+
+public final class NullIf
+        extends Operation
+{
+    private static final String NAME = "null_if";
+
+    private final Result result;
+    private final Value first;
+    private final Value second;
+    private final Map<AttributeKey, Object> attributes;
+
+    public NullIf(String resultName, Value first, Value second, List<Map<AttributeKey, Object>> sourceAttributes)
+    {
+        super(TRINO, NAME);
+        requireNonNull(resultName, "resultName is null");
+        requireNonNull(first, "first is null");
+        requireNonNull(second, "second is null");
+        requireNonNull(sourceAttributes, "sourceAttributes is null");
+
+        // TODO: verify that first and second can be coerced to the same type
+        this.result = new Result(resultName, first.type());
+
+        this.first = first;
+
+        this.second = second;
+
+        // TODO derive attributes from source attributes
+        this.attributes = ImmutableMap.of();
+    }
+
+    @Override
+    public Result result()
+    {
+        return result;
+    }
+
+    @Override
+    public List<Value> arguments()
+    {
+        return ImmutableList.of(first, second);
+    }
+
+    @Override
+    public List<Region> regions()
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public Map<AttributeKey, Object> attributes()
+    {
+        return attributes;
+    }
+
+    @Override
+    public String prettyPrint(int indentLevel, FormatOptions formatOptions)
+    {
+        return "null_if :)";
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (obj == this) {
+            return true;
+        }
+        if (obj == null || obj.getClass() != this.getClass()) {
+            return false;
+        }
+        var that = (NullIf) obj;
+        return Objects.equals(this.result, that.result) &&
+                Objects.equals(this.first, that.first) &&
+                Objects.equals(this.second, that.second) &&
+                Objects.equals(this.attributes, that.attributes);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(result, first, second, attributes);
+    }
+}
