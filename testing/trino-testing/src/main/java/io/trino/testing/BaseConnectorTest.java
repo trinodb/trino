@@ -4776,7 +4776,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_with_like_", "AS SELECT * FROM nation")) {
+        try (TestTable table = createTestTableForWrites("test_with_like_", "AS SELECT * FROM nation", "nationkey")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%a%'", "VALUES 0");
             assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%A%'", "SELECT count(*) FROM nation WHERE name LIKE '%A%'");
         }
@@ -5023,7 +5023,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = createTestTableForWrites("test_update", "AS TABLE tpch.tiny.nation", "name,regionkey")) {
+        try (TestTable table = createTestTableForWrites("test_update", "AS TABLE tpch.tiny.nation", "nationkey,regionkey")) {
             String tableName = table.getName();
             assertUpdate("UPDATE " + tableName + " SET nationkey = 100 + nationkey WHERE regionkey = 2", 5);
             assertThat(query("SELECT * FROM " + tableName))
