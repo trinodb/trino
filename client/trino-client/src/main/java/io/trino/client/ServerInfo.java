@@ -34,6 +34,7 @@ public class ServerInfo
 
     // optional to maintain compatibility with older servers
     private final Optional<Duration> uptime;
+    private final Optional<String> coordinatorId;
 
     @JsonCreator
     public ServerInfo(
@@ -41,13 +42,15 @@ public class ServerInfo
             @JsonProperty("environment") String environment,
             @JsonProperty("coordinator") boolean coordinator,
             @JsonProperty("starting") boolean starting,
-            @JsonProperty("uptime") Optional<Duration> uptime)
+            @JsonProperty("uptime") Optional<Duration> uptime,
+            @JsonProperty("coordinatorId") Optional<String> coordinatorId)
     {
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.coordinator = coordinator;
         this.starting = starting;
         this.uptime = requireNonNull(uptime, "uptime is null");
+        this.coordinatorId = requireNonNull(coordinatorId, "coordinatorId is null");
     }
 
     @JsonProperty
@@ -80,6 +83,12 @@ public class ServerInfo
         return uptime;
     }
 
+    @JsonProperty
+    public Optional<String> getCoordinatorId()
+    {
+        return coordinatorId;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -109,6 +118,7 @@ public class ServerInfo
                 .add("environment", environment)
                 .add("coordinator", coordinator)
                 .add("uptime", uptime.orElse(null))
+                .add("coordinatorId", coordinatorId.orElse(null))
                 .omitNullValues()
                 .toString();
     }
