@@ -463,7 +463,7 @@ public class PlanTester
                 ImmutableSet.of(new ExcludeColumnsFunction()));
 
         exchangeManagerRegistry = new ExchangeManagerRegistry(noop(), noopTracer(), secretsResolver);
-        spoolingManagerRegistry = new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer(), new TestingNodeManager());
+        spoolingManagerRegistry = new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 Optional.empty(),
@@ -895,7 +895,7 @@ public class PlanTester
                 new PlanSanityChecker(true),
                 idAllocator,
                 getPlannerContext(),
-                new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer(), new TestingNodeManager()),
+                new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer()),
                 statsCalculator,
                 costCalculator,
                 warningCollector,

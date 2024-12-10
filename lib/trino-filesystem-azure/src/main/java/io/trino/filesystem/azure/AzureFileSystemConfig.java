@@ -22,8 +22,6 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-import java.util.Optional;
-
 public class AzureFileSystemConfig
 {
     public enum AuthType
@@ -40,7 +38,7 @@ public class AzureFileSystemConfig
     private int maxWriteConcurrency = 8;
     private DataSize maxSingleUploadSize = DataSize.of(4, Unit.MEGABYTE);
     private Integer maxHttpRequests = 2 * Runtime.getRuntime().availableProcessors();
-    private String applicationId;
+    private String applicationId = "Trino";
 
     @NotNull
     public AuthType getAuthType()
@@ -133,9 +131,11 @@ public class AzureFileSystemConfig
         return this;
     }
 
-    public Optional<@Size(max = 50) String> getApplicationId()
+    @Size(max = 50)
+    @NotNull
+    public String getApplicationId()
     {
-        return Optional.ofNullable(applicationId);
+        return applicationId;
     }
 
     @Config("azure.application-id")
