@@ -45,6 +45,7 @@ import io.trino.sql.tree.ExplainType.Type;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Statement;
+import io.trino.testing.TestingNodeManager;
 
 import java.util.List;
 import java.util.Optional;
@@ -173,7 +174,7 @@ public class QueryExplainer
                 planOptimizers,
                 idAllocator,
                 plannerContext,
-                new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer()),
+                new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer(), new TestingNodeManager()),
                 statsCalculator,
                 costCalculator,
                 warningCollector,

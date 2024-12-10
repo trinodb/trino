@@ -31,6 +31,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.encryption.EncryptionEnforcingFileSystem;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.testing.TestingNodeManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -112,6 +113,7 @@ public abstract class AbstractTestAzureFileSystem
         fileSystemFactory = new AzureFileSystemFactory(
                 OpenTelemetry.noop(),
                 azureAuth,
+                new TestingNodeManager(),
                 new AzureFileSystemConfig());
         fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser("test"));
 

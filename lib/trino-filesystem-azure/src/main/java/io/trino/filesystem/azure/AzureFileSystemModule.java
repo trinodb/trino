@@ -17,10 +17,20 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.spi.NodeManager;
+
+import static java.util.Objects.requireNonNull;
 
 public class AzureFileSystemModule
         extends AbstractConfigurationAwareModule
 {
+    private final NodeManager nodeManager;
+
+    public AzureFileSystemModule(NodeManager nodeManager)
+    {
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {

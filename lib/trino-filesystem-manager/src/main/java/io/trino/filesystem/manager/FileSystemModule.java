@@ -97,7 +97,7 @@ public class FileSystemModule
         }
 
         if (config.isNativeAzureEnabled()) {
-            install(new AzureFileSystemModule());
+            install(new AzureFileSystemModule(nodeManager));
             factories.addBinding("abfs").to(AzureFileSystemFactory.class);
             factories.addBinding("abfss").to(AzureFileSystemFactory.class);
             factories.addBinding("wasb").to(AzureFileSystemFactory.class);
