@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import io.trino.Session;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.EntityKindAndName;
@@ -25,8 +26,13 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 
+import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.INVALID_ENTITY_KIND;
 
 public interface SystemSecurityMetadata
 {
@@ -161,12 +167,18 @@ public interface SystemSecurityMetadata
 
     /**
      * Set the owner of the specified schema
+     *
+     * @deprecated {Use {@link #setEntityOwner(Session, String, List, TrinoPrincipal)}
      */
+    @Deprecated
     void setSchemaOwner(Session session, CatalogSchemaName schema, TrinoPrincipal principal);
 
     /**
      * Set the owner of the specified table
+     *
+     * @deprecated {Use {@link #setEntityOwner(Session, String, List, TrinoPrincipal)}
      */
+    @Deprecated
     void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal);
 
     /**
@@ -176,7 +188,10 @@ public interface SystemSecurityMetadata
 
     /**
      * Set the owner of the specified view
+     *
+     * @deprecated {Use {@link #setEntityOwner(Session, String, List, TrinoPrincipal)}
      */
+    @Deprecated
     void setViewOwner(Session session, CatalogSchemaTableName view, TrinoPrincipal principal);
 
     /**
@@ -238,4 +253,30 @@ public interface SystemSecurityMetadata
      * Column's NOT NULL constraint was dropped
      */
     void columnNotNullConstraintDropped(Session session, CatalogSchemaTableName table, String column);
+
+    default void setEntityOwner(Session session, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        switch (ownedKind.toUpperCase(Locale.ENGLISH)) {
+            case "SCHEMA":
+                if (name.size() != 2) {
+                    throw new TrinoException(INVALID_ARGUMENTS, "A schema name %s must have two parts".formatted(name));
+                }
+                setSchemaOwner(session, new CatalogSchemaName(name.get(0), name.get(1)), principal);
+                break;
+            case "TABLE":
+                if (name.size() != 3) {
+                    throw new TrinoException(INVALID_ARGUMENTS, "A table name %s must have three parts".formatted(name));
+                }
+                setTableOwner(session, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
+                break;
+            case "VIEW":
+                if (name.size() != 3) {
+                    throw new TrinoException(INVALID_ARGUMENTS, "A view name %s must have 3 parts".formatted(name));
+                }
+                setViewOwner(session, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
+                break;
+            default:
+                throw new TrinoException(INVALID_ENTITY_KIND, "Unknown entity kind %s".formatted(ownedKind));
+        }
+    }
 }
