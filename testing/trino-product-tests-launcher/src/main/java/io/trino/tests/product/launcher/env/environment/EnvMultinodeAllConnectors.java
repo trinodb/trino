@@ -58,6 +58,7 @@ public final class EnvMultinodeAllConnectors
                         "hudi",
                         "iceberg",
                         "ignite",
+                        "influxdb",
                         "kafka",
                         "kinesis",
                         "kudu",
