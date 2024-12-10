@@ -137,10 +137,10 @@ public class TestPostgreSqlConnectorTest
             case SUPPORTS_CANCELLATION,
                     SUPPORTS_JOIN_PUSHDOWN,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR,
+                    SUPPORTS_MERGE,
                     SUPPORTS_ROW_LEVEL_UPDATE,
-                    SUPPORTS_MERGE -> true;
+                    SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
