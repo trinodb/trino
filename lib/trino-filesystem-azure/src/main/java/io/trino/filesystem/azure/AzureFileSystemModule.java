@@ -19,17 +19,14 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.spi.NodeManager;
 
-import java.util.Optional;
-
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.Objects.requireNonNull;
 
 public class AzureFileSystemModule
         extends AbstractConfigurationAwareModule
 {
-    private final Optional<NodeManager> nodeManager;
+    private final NodeManager nodeManager;
 
-    public AzureFileSystemModule(Optional<NodeManager> nodeManager)
+    public AzureFileSystemModule(NodeManager nodeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
@@ -38,8 +35,6 @@ public class AzureFileSystemModule
     protected void setup(Binder binder)
     {
         binder.bind(AzureFileSystemFactory.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, NodeManager.class).setDefault().toInstance(null);
-        nodeManager.ifPresent(manager -> newOptionalBinder(binder, NodeManager.class).setBinding().toInstance(manager));
         Module module = switch (buildConfigObject(AzureFileSystemConfig.class).getAuthType()) {
             case ACCESS_KEY -> new AzureAuthAccessKeyModule();
             case OAUTH -> new AzureAuthOAuthModule();

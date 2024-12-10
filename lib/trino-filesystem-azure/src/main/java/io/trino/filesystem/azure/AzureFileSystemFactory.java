@@ -50,7 +50,7 @@ public class AzureFileSystemFactory
     private final HttpClient httpClient;
 
     @Inject
-    public AzureFileSystemFactory(OpenTelemetry openTelemetry, AzureAuth azureAuth, Optional<NodeManager> nodeManager, AzureFileSystemConfig config)
+    public AzureFileSystemFactory(OpenTelemetry openTelemetry, AzureAuth azureAuth, NodeManager nodeManager, AzureFileSystemConfig config)
     {
         this(openTelemetry,
                 azureAuth,
@@ -67,7 +67,7 @@ public class AzureFileSystemFactory
     public AzureFileSystemFactory(
             OpenTelemetry openTelemetry,
             AzureAuth azureAuth,
-            Optional<NodeManager> nodeManager,
+            NodeManager nodeManager,
             String endpoint,
             DataSize readBlockSize,
             DataSize writeBlockSize,
@@ -95,7 +95,7 @@ public class AzureFileSystemFactory
         clientOptions.setTracingOptions(tracingOptions);
         applicationId.ifPresentOrElse(
                 clientOptions::setApplicationId,
-                () -> nodeManager.ifPresent(manager -> clientOptions.setApplicationId("Trino/" + manager.getCurrentNode().getVersion())));
+                () -> clientOptions.setApplicationId("Trino/" + nodeManager.getCurrentNode().getVersion()));
         httpClient = createAzureHttpClient(okHttpClient, clientOptions);
     }
 

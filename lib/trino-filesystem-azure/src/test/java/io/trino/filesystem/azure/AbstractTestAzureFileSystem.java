@@ -39,7 +39,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 
 import java.io.IOException;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ROOT;
@@ -114,7 +113,7 @@ public abstract class AbstractTestAzureFileSystem
         fileSystemFactory = new AzureFileSystemFactory(
                 OpenTelemetry.noop(),
                 azureAuth,
-                Optional.of(new TestingNodeManager()),
+                new TestingNodeManager(),
                 new AzureFileSystemConfig());
         fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser("test"));
 

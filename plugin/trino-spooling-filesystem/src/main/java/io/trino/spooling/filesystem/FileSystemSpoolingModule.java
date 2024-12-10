@@ -29,11 +29,11 @@ import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
+import io.trino.spi.NodeManager;
 import io.trino.spi.spool.SpoolingManager;
 import io.trino.spi.spool.SpoolingManagerContext;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
@@ -45,15 +45,18 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.spooling.filesystem.FileSystemSpoolingConfig.Layout.PARTITIONED;
 import static io.trino.spooling.filesystem.FileSystemSpoolingConfig.Layout.SIMPLE;
+import static java.util.Objects.requireNonNull;
 
 public class FileSystemSpoolingModule
         extends AbstractConfigurationAwareModule
 {
     private final boolean coordinator;
+    private final NodeManager nodeManager;
 
-    public FileSystemSpoolingModule(boolean coordinator)
+    public FileSystemSpoolingModule(boolean coordinator, NodeManager nodeManager)
     {
         this.coordinator = coordinator;
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
@@ -62,7 +65,7 @@ public class FileSystemSpoolingModule
         FileSystemSpoolingConfig config = buildConfigObject(FileSystemSpoolingConfig.class);
         var factories = newMapBinder(binder, String.class, TrinoFileSystemFactory.class);
         if (config.isAzureEnabled()) {
-            install(new AzureFileSystemModule(Optional.empty()));
+            install(new AzureFileSystemModule(nodeManager));
             factories.addBinding("abfs").to(AzureFileSystemFactory.class);
         }
         if (config.isS3Enabled()) {
