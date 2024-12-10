@@ -135,7 +135,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 ")\n" +
                                 "WITH (\n" +
                                 "   format = 'PARQUET',\n" +
-                                "   format_version = 2,\n" +
+                                "   format_version = 3,\n" +
                                 "   location = '%2$s/%1$s.db/region-\\E.*\\Q'\n" +
                                 ")\\E",
                         schemaName,
