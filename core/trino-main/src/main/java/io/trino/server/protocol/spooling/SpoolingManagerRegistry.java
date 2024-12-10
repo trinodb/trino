@@ -20,7 +20,6 @@ import io.airlift.log.Logger;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.server.ServerConfig;
-import io.trino.spi.NodeManager;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.spool.SpoolingManager;
 import io.trino.spi.spool.SpoolingManagerContext;
@@ -55,17 +54,15 @@ public class SpoolingManagerRegistry
     private final boolean coordinator;
     private final OpenTelemetry openTelemetry;
     private final Tracer tracer;
-    private final NodeManager nodeManager;
     private volatile SpoolingManager spoolingManager;
 
     @Inject
-    public SpoolingManagerRegistry(ServerConfig serverConfig, SpoolingEnabledConfig config, OpenTelemetry openTelemetry, Tracer tracer, NodeManager nodeManager)
+    public SpoolingManagerRegistry(ServerConfig serverConfig, SpoolingEnabledConfig config, OpenTelemetry openTelemetry, Tracer tracer)
     {
         this.enabled = config.isEnabled();
         this.coordinator = serverConfig.isCoordinator();
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     public void addSpoolingManagerFactory(SpoolingManagerFactory factory)
@@ -128,12 +125,6 @@ public class SpoolingManagerRegistry
             public boolean isCoordinator()
             {
                 return coordinator;
-            }
-
-            @Override
-            public NodeManager getNodeManager()
-            {
-                return nodeManager;
             }
         };
 
