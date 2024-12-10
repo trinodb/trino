@@ -34,4 +34,9 @@ public interface SpoolingManagerContext
     {
         throw new UnsupportedOperationException();
     }
+
+    default String getNodeVersion()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

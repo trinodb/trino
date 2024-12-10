@@ -44,15 +44,18 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.spooling.filesystem.FileSystemSpoolingConfig.Layout.PARTITIONED;
 import static io.trino.spooling.filesystem.FileSystemSpoolingConfig.Layout.SIMPLE;
+import static java.util.Objects.requireNonNull;
 
 public class FileSystemSpoolingModule
         extends AbstractConfigurationAwareModule
 {
     private final boolean coordinator;
+    private final String nodeVersion;
 
-    public FileSystemSpoolingModule(boolean coordinator)
+    public FileSystemSpoolingModule(boolean coordinator, String nodeVersion)
     {
         this.coordinator = coordinator;
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
     }
 
     @Override
@@ -61,7 +64,7 @@ public class FileSystemSpoolingModule
         FileSystemSpoolingConfig config = buildConfigObject(FileSystemSpoolingConfig.class);
         var factories = newMapBinder(binder, String.class, TrinoFileSystemFactory.class);
         if (config.isAzureEnabled()) {
-            install(new AzureFileSystemModule());
+            install(new AzureFileSystemModule(nodeVersion));
             factories.addBinding("abfs").to(AzureFileSystemFactory.class);
         }
         if (config.isS3Enabled()) {

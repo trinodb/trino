@@ -21,6 +21,7 @@ import com.azure.core.util.TracingOptions;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
+import io.trino.filesystem.ForAppId;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
@@ -29,6 +30,7 @@ import okhttp3.ConnectionPool;
 import okhttp3.Dispatcher;
 import okhttp3.OkHttpClient;
 
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -48,10 +50,11 @@ public class AzureFileSystemFactory
     private final HttpClient httpClient;
 
     @Inject
-    public AzureFileSystemFactory(OpenTelemetry openTelemetry, AzureAuth azureAuth, AzureFileSystemConfig config)
+    public AzureFileSystemFactory(OpenTelemetry openTelemetry, AzureAuth azureAuth, @ForAppId String nodeVersion, AzureFileSystemConfig config)
     {
         this(openTelemetry,
                 azureAuth,
+                nodeVersion,
                 config.getEndpoint(),
                 config.getReadBlockSize(),
                 config.getWriteBlockSize(),
@@ -64,13 +67,14 @@ public class AzureFileSystemFactory
     public AzureFileSystemFactory(
             OpenTelemetry openTelemetry,
             AzureAuth azureAuth,
+            String nodeVersion,
             String endpoint,
             DataSize readBlockSize,
             DataSize writeBlockSize,
             int maxWriteConcurrency,
             DataSize maxSingleUploadSize,
             int maxHttpRequests,
-            String applicationId)
+            Optional<String> applicationId)
     {
         this.auth = requireNonNull(azureAuth, "azureAuth is null");
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
@@ -89,7 +93,9 @@ public class AzureFileSystemFactory
                 .build();
         HttpClientOptions clientOptions = new HttpClientOptions();
         clientOptions.setTracingOptions(tracingOptions);
-        clientOptions.setApplicationId(applicationId);
+        applicationId.ifPresentOrElse(
+                clientOptions::setApplicationId,
+                () -> clientOptions.setApplicationId("Trino/" + nodeVersion));
         httpClient = createAzureHttpClient(okHttpClient, clientOptions);
     }
 
