@@ -177,4 +177,17 @@ public class IcebergModule
                 config.getSplitManagerThreads(),
                 daemonThreadsNamed("iceberg-split-manager-" + catalogName + "-%s"));
     }
+
+    @Provides
+    @Singleton
+    @ForIcebergSystemTableScanPlanning
+    public ExecutorService createSystemTableScanPlanningExecutor(CatalogName catalogName, IcebergConfig config)
+    {
+        if (config.getSystemTableThreads() == 0) {
+            return newDirectExecutorService();
+        }
+        return newFixedThreadPool(
+                config.getSystemTableThreads(),
+                daemonThreadsNamed("iceberg-system-table-scan-planning-" + catalogName + "-%s"));
+    }
 }
