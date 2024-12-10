@@ -21,4 +21,8 @@ public interface LongState
     long getValue();
 
     void setValue(long value);
+
+    long getCount();
+
+    void setCount(long count);
 }
