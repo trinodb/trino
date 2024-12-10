@@ -156,7 +156,7 @@ public class AvroPageSourceFactory
             // will error if UUID is same name as base column for underlying storage table but should never
             // return false data. If file data has f+uuid column in schema then resolution of read null from not null will fail.
             SchemaBuilder.FieldAssembler<Schema> nullSchema = SchemaBuilder.record("null_only").fields();
-            for (int i = 0; i < Math.max(projectedReaderColumns.size(), 1); i++) {
+            for (int i = 0; i < Math.max(columns.size(), 1); i++) {
                 String notAColumnName = null;
                 while (Objects.isNull(notAColumnName) || Objects.nonNull(tableSchema.getField(notAColumnName))) {
                     notAColumnName = "f" + UUID.randomUUID().toString().replace('-', '_');
