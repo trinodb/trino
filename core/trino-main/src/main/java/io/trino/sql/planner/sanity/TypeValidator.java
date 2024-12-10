@@ -17,6 +17,7 @@ import com.google.common.collect.ListMultimap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -31,6 +32,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.type.FunctionType;
+import io.trino.type.StreamType;
 import io.trino.type.UnknownType;
 
 import java.util.List;
@@ -176,6 +178,9 @@ public final class TypeValidator
                         .toList();
 
                 checkArgument(expectedFieldType.equals(actualFieldTypes), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol.name(), expected, actual);
+            }
+            else if (actual instanceof StreamType streamType && expected instanceof ArrayType arrayType) {
+                checkArgument(arrayType.equals(streamType.getArrayType()), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol.name(), expected, actual);
             }
             else if (!(actual instanceof UnknownType)) { // UNKNOWN should be considered as a wildcard type, which matches all the other types
                 checkArgument(expected.equals(actual), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol.name(), expected, actual);

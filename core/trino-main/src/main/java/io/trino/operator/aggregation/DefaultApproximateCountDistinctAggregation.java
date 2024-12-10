@@ -28,6 +28,7 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
@@ -82,6 +83,7 @@ public final class DefaultApproximateCountDistinctAggregation
     @InputFunction
     @TypeParameter("T")
     public static void input(
+            @TypeParameter("T") Type type,
             @OperatorDependency(
                     operator = XX_HASH_64,
                     argumentTypes = "T",
@@ -90,7 +92,7 @@ public final class DefaultApproximateCountDistinctAggregation
             @AggregationState HyperLogLogState state,
             @SqlType("T") Object value)
     {
-        ApproximateCountDistinctAggregation.input(methodHandle, state, value, DEFAULT_STANDARD_ERROR);
+        ApproximateCountDistinctAggregation.input(type, methodHandle, state, value, DEFAULT_STANDARD_ERROR);
     }
 
     @CombineFunction

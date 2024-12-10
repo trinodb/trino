@@ -11,21 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.window;
+package io.trino.operator.scalar;
 
-import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.spi.block.Block;
-import io.trino.spi.function.WindowIndex;
-import io.trino.spi.type.Type;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
 
-public interface InternalWindowIndex
-        extends WindowIndex
+@ScalarFunction("stream")
+@Description("Return stream of array")
+public final class StreamFunction
 {
-    @UsedByGeneratedCode
-    Block getRawBlock(int channel, int position);
+    @TypeParameter("E")
+    public StreamFunction()
+    {
+    }
 
-    @UsedByGeneratedCode
-    int getRawBlockPosition(int position);
-
-    Type getType(int channel);
+    @TypeParameter("E")
+    @SqlType("stream(E)")
+    public Block stream(@SqlType("E") Block block)
+    {
+        return block;
+    }
 }
