@@ -1041,6 +1041,13 @@ public class TestPhoenixConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    @Override
+    public void testMergeTargetWithoutPrimaryKeys()
+    {
+        abort("Phoenix table always has primary key");
+    }
+
     private byte[] getActualQualifier(String tableName, String columnName)
     {
         String query = "SELECT COLUMN_QUALIFIER FROM SYSTEM.CATALOG WHERE TABLE_NAME = ? AND COLUMN_NAME = ?";

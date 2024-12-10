@@ -338,6 +338,7 @@ following features:
 - [](/sql/insert), see also [](mysql-insert)
 - [](/sql/update), see also [](mysql-update)
 - [](/sql/delete), see also [](mysql-delete)
+- [](/sql/merge), see also [](mysql-merge)
 - [](/sql/truncate)
 - [](/sql/create-table)
 - [](/sql/create-table-as)
@@ -357,6 +358,10 @@ following features:
 
 (mysql-delete)=
 ```{include} sql-delete-limitation.fragment
+```
+
+(mysql-merge)=
+```{include} non-transactional-merge.fragment
 ```
 
 (mysql-procedures)=
