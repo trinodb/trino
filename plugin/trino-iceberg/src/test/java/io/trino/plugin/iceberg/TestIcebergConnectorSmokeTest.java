@@ -15,9 +15,11 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -150,5 +152,14 @@ public class TestIcebergConnectorSmokeTest
                 WHEN NOT MATCHED THEN INSERT VALUES (%s)
                 """.formatted(mergeTable.getName(), table.getName(), matchedClause, notMatchedClause),
                 1);
+    }
+
+    @Override
+    protected BaseTable loadTable(String tableName)
+    {
+        String catalog = getQueryRunner().getDefaultSession().getCatalog().orElseThrow();
+        TrinoFileSystemFactory fileSystemFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector(catalog))
+                .getInjector().getInstance(TrinoFileSystemFactory.class);
+        return IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, catalog, getSession().getSchema().orElseThrow());
     }
 }

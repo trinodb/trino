@@ -67,6 +67,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     private String warehouseLocation;
     private IcebergRestCatalogBackendContainer restCatalogBackendContainer;
     private Minio minio;
+    private RESTSessionCatalog catalog;
 
     public TestIcebergVendingRestCatalogConnectorSmokeTest()
     {
@@ -111,6 +112,8 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                 assumeRoleResponse.credentials().secretAccessKey(),
                 assumeRoleResponse.credentials().sessionToken()));
         restCatalogBackendContainer.start();
+        catalog = closeAfterClass(new RESTSessionCatalog());
+        catalog.initialize("rest-catalog", ImmutableMap.of(CatalogProperties.URI, "http://" + restCatalogBackendContainer.getRestCatalogEndpoint()));
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
@@ -333,5 +336,17 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     private TableIdentifier toIdentifier(String tableName)
     {
         return TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
+    }
+
+    @Override
+    protected BaseTable loadTable(String tableName)
+    {
+        SessionCatalog.SessionContext context = new SessionCatalog.SessionContext(
+                "user-default",
+                "user",
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                SESSION.getIdentity());
+        return ((BaseTable) catalog.loadTable(context, toIdentifier(tableName)));
     }
 }

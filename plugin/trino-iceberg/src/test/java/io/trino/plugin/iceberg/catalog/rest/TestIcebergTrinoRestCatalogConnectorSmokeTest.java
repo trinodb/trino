@@ -271,4 +271,10 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     {
         return TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
     }
+
+    @Override
+    protected BaseTable loadTable(String tableName)
+    {
+        return (BaseTable) backend.loadTable(toIdentifier(tableName));
+    }
 }

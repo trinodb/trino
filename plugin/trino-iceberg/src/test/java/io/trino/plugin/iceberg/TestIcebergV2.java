@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
@@ -74,6 +75,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -96,6 +98,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTableWithSchema;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -113,6 +116,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
+import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1514,6 +1519,39 @@ public class TestIcebergV2
             assertThat(icebergTable.currentSnapshot().summary())
                     .contains(entry("engine-name", "trino"), entry("engine-version", "testversion"));
         }
+    }
+
+    @Test
+    public void testMetadataDeleteAfterCommitEnabled()
+            throws IOException
+    {
+        int metadataPreviousVersionCount = 5;
+        String tableName = "test_metadata_delete_after_commit_enabled" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(_bigint BIGINT, _varchar VARCHAR)");
+        BaseTable icebergTable = loadTable(tableName);
+        String location = icebergTable.location();
+        icebergTable.updateProperties()
+                .set(METADATA_DELETE_AFTER_COMMIT_ENABLED, "true")
+                .set(METADATA_PREVIOUS_VERSIONS_MAX, String.valueOf(metadataPreviousVersionCount))
+                .commit();
+
+        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
+        Map<String, Long> historyMetadataFiles = getMetadataFileAndUpdatedMillis(trinoFileSystem, location);
+        for (int i = 0; i < 10; i++) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+            Map<String, Long> metadataFiles = getMetadataFileAndUpdatedMillis(trinoFileSystem, location);
+            historyMetadataFiles.putAll(metadataFiles);
+            assertThat(metadataFiles.size()).isLessThanOrEqualTo(1 + metadataPreviousVersionCount);
+            Set<String> expectMetadataFiles = historyMetadataFiles
+                    .entrySet()
+                    .stream()
+                    .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                    .limit(metadataPreviousVersionCount + 1)
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toSet());
+            assertThat(metadataFiles.keySet()).containsAll(expectMetadataFiles);
+        }
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private void testHighlyNestedFieldPartitioningWithTimestampTransform(String partitioning, String partitionDirectoryRegex, Set<String> expectedPartitionDirectories)

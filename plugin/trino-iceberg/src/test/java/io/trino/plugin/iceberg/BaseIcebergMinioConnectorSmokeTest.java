@@ -16,11 +16,13 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import io.minio.messages.Event;
 import io.trino.Session;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -300,5 +302,18 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
             minio.removeObject(bucketName, file);
         }
         assertThat(minio.listObjects(bucketName, key)).isEmpty();
+    }
+
+    @Override
+    protected BaseTable loadTable(String tableName)
+    {
+        String catalog = getQueryRunner().getDefaultSession().getCatalog().orElseThrow();
+        HiveMetastore metastore = new BridgingHiveMetastore(
+                testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                        .build(this::closeAfterClass));
+        TrinoFileSystemFactory fileSystemFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector(catalog))
+                .getInjector().getInstance(TrinoFileSystemFactory.class);
+        return IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, catalog, schemaName);
     }
 }

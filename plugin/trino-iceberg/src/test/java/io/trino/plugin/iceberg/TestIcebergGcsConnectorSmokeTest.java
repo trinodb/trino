@@ -17,11 +17,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -207,5 +209,18 @@ public class TestIcebergGcsConnectorSmokeTest
     protected boolean isFileSorted(Location path, String sortColumnName)
     {
         return checkOrcFileSorting(fileSystem, path, sortColumnName);
+    }
+
+    @Override
+    protected BaseTable loadTable(String tableName)
+    {
+        String catalog = getQueryRunner().getDefaultSession().getCatalog().orElseThrow();
+        HiveMetastore metastore = new BridgingHiveMetastore(
+                testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
+                        .build(this::closeAfterClass));
+        TrinoFileSystemFactory fileSystemFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector(catalog))
+                .getInjector().getInstance(TrinoFileSystemFactory.class);
+        return IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, catalog, schema);
     }
 }

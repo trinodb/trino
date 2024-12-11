@@ -390,4 +390,10 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
     {
         return Files.exists(Path.of(location));
     }
+
+    @Override
+    protected BaseTable loadTable(String tableName)
+    {
+        return (BaseTable) catalog.loadTable(TableIdentifier.of("tpch", tableName));
+    }
 }
