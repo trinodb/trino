@@ -21,7 +21,7 @@ subsequent processing the expression `condidtion` is validated. If the result is
 the function. If the result is `false`, the statements are processed again.
 
 The optional `label` before the `REPEAT` keyword can be used to [name the
-block](routine-label).
+block](udf-sql-label).
 
 Note that a `WHILE` statement is very similar, with the difference that for
 `REPEAT` the statements are processed at least once, and for `WHILE` blocks the
@@ -29,7 +29,7 @@ statements might not be processed at all.
 
 ## Examples
 
-The following routine shows a routine with a `REPEAT` statement that runs until
+The following SQL UDF shows a UDF with a `REPEAT` statement that runs until
 the value of `a` is greater or equal to `10`.
 
 ```sql
@@ -45,7 +45,7 @@ FUNCTION test_repeat(a bigint)
 ```
 
 Since `a` is also the input value and it is increased before the check the
-routine always returns `10` for input values of `9` or less, and the input value
+UDF always returns `10` for input values of `9` or less, and the input value
 + 1 for all higher values.
 
 Following are a couple of example invocations with result and explanation:

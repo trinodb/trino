@@ -19,7 +19,7 @@ of processing from the beginning starts. `LEAVE` statements are typically
 wrapped in an `IF` statement that declares a condition to stop the loop.
 
 The optional `label` before the `LOOP` keyword can be used to [name the
-block](routine-label).
+block](udf-sql-label).
 
 ## Examples
 
@@ -54,7 +54,7 @@ SELECT to_one_hundred(12, 3); -- 30
 ```
 
 Further examples of varying complexity that cover usage of the `LOOP` statement
-in combination with other statements are available in the [SQL routines examples
+in combination with other statements are available in the [SQL UDF examples
 documentation](/udf/sql/examples).
 
 ## See also

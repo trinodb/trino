@@ -20,7 +20,7 @@ back to `WHILE` and the `condition`. If the result is `false`, processing moves
 to `END WHILE`  and continues with the next statement in the function.
 
 The optional `label` before the `WHILE` keyword can be used to [name the
-block](routine-label).
+block](udf-sql-label).
 
 Note that a `WHILE` statement is very similar, with the difference that for
 `REPEAT` the statements are processed at least once, and for `WHILE` blocks the
