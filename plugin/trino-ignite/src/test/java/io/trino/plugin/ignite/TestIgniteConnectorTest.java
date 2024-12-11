@@ -14,6 +14,7 @@
 package io.trino.plugin.ignite;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -29,6 +30,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_MERGE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -53,6 +55,15 @@ public class TestIgniteConnectorTest
     }
 
     @Override
+    protected Session getSession()
+    {
+        Session session = super.getSession();
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), NON_TRANSACTIONAL_MERGE, "true")
+                .build();
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return igniteServer::execute;
@@ -64,7 +75,9 @@ public class TestIgniteConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_MERGE,
                  SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
+                 SUPPORTS_ROW_LEVEL_UPDATE,
                  SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_ADD_COLUMN_WITH_COMMENT,
