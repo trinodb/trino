@@ -41,6 +41,8 @@ import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.sql.gen.columnar.ColumnarBloomFilterGenerator.canUseBloomFilter;
+import static io.trino.sql.gen.columnar.ColumnarBloomFilterGenerator.createBloomFilterEvaluator;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
 import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
@@ -107,17 +109,7 @@ public final class DynamicPageFilter
             isBlocked = dynamicFilter.isBlocked();
             boolean isAwaitable = dynamicFilter.isAwaitable();
             TupleDomain<Symbol> currentPredicate = dynamicFilter.getCurrentPredicate().transformKeys(columnHandles::get);
-            List<Expression> expressionConjuncts = domainTranslator.toPredicateConjuncts(currentPredicate)
-                    .stream()
-                    // Run the expression derived from TupleDomain through IR optimizer to simplify predicates. E.g. SimplifyContinuousInValues
-                    .map(expression -> irExpressionOptimizer.process(expression, session, ImmutableMap.of()).orElse(expression))
-                    .collect(toImmutableList());
-            // We translate each conjunct into separate RowExpression to make it easy to profile selectivity
-            // of dynamic filter per column and drop them if they're ineffective
-            List<RowExpression> rowExpression = expressionConjuncts.stream()
-                    .map(expression -> translate(expression, sourceLayout, metadata, typeManager))
-                    .collect(toImmutableList());
-            compiledDynamicFilter = createDynamicFilterEvaluator(rowExpression, compiler, selectivityThreshold);
+            compiledDynamicFilter = createDynamicFilterEvaluator(compiler, currentPredicate);
             if (!isAwaitable) {
                 isBlocked = null; // Dynamic filter will not narrow down anymore
             }
@@ -125,10 +117,25 @@ public final class DynamicPageFilter
         return compiledDynamicFilter;
     }
 
-    private static Supplier<FilterEvaluator> createDynamicFilterEvaluator(List<RowExpression> rowExpressions, ColumnarFilterCompiler compiler, double selectivityThreshold)
+    private Supplier<FilterEvaluator> createDynamicFilterEvaluator(ColumnarFilterCompiler compiler, TupleDomain<Symbol> currentPredicate)
     {
-        List<Supplier<FilterEvaluator>> subExpressionEvaluators = rowExpressions.stream()
-                .map(expression -> createColumnarFilterEvaluator(expression, compiler))
+        if (currentPredicate.isNone()) {
+            return SelectNoneEvaluator::new;
+        }
+        // We translate each conjunct into separate FilterEvaluator to make it easy to profile selectivity
+        // of dynamic filter per column and drop them if they're ineffective
+        List<Supplier<FilterEvaluator>> subExpressionEvaluators = currentPredicate.getDomains().orElseThrow()
+                .entrySet().stream()
+                .map(entry -> {
+                    if (canUseBloomFilter(entry.getValue())) {
+                        return Optional.of(createBloomFilterEvaluator(entry.getValue(), sourceLayout.get(entry.getKey())));
+                    }
+                    Expression expression = domainTranslator.toPredicate(entry.getValue(), entry.getKey().toSymbolReference());
+                    // Run the expression derived from TupleDomain through IR optimizer to simplify predicates. E.g. SimplifyContinuousInValues
+                    expression = irExpressionOptimizer.process(expression, session, ImmutableMap.of()).orElse(expression);
+                    RowExpression rowExpression = translate(expression, sourceLayout, metadata, typeManager);
+                    return createColumnarFilterEvaluator(rowExpression, compiler);
+                })
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toImmutableList());
