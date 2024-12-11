@@ -74,7 +74,7 @@ public abstract class BasePostgresFailureRecoveryTest
     @Override
     protected void testUpdateWithSubquery()
     {
-        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Unexpected Join over for-update table scan");
+        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Non-transactional MERGE is disabled");
         abort("skipped");
     }
 
