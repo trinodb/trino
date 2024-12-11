@@ -22,7 +22,6 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
@@ -64,6 +63,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
@@ -1115,9 +1115,7 @@ public abstract class BaseIcebergMaterializedViewTest
     private TableMetadata getStorageTableMetadata(String materializedViewName)
     {
         QueryRunner queryRunner = getQueryRunner();
-        TrinoFileSystem fileSystemFactory = ((IcebergConnector) queryRunner.getCoordinator().getConnector("iceberg")).getInjector()
-                .getInstance(TrinoFileSystemFactory.class)
-                .create(ConnectorIdentity.ofUser("test"));
+        TrinoFileSystem fileSystemFactory = getFileSystemFactory(queryRunner).create(ConnectorIdentity.ofUser("test"));
         Location metadataLocation = Location.of(getStorageMetadataLocation(materializedViewName));
         return TableMetadataParser.read(new ForwardingFileIo(fileSystemFactory), metadataLocation.toString());
     }
