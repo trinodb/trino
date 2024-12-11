@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
@@ -103,7 +102,9 @@ public class PushJoinIntoTableScan
         TableScanNode left = captures.get(LEFT_TABLE_SCAN);
         TableScanNode right = captures.get(RIGHT_TABLE_SCAN);
 
-        verify(!left.isUpdateTarget() && !right.isUpdateTarget(), "Unexpected Join over for-update table scan");
+        if (left.isUpdateTarget() && !right.isUpdateTarget()) {
+            return Result.empty();
+        }
 
         Expression effectiveFilter = getEffectiveFilter(joinNode);
         ConnectorExpressionTranslation translation = ConnectorExpressionTranslator.translateConjuncts(
