@@ -15,6 +15,7 @@ package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.FullConnectorSession;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
@@ -52,6 +53,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.util.DynamicFiltersTestUtil.createDynamicFilterEvaluator;
 import static java.lang.Float.floatToIntBits;
@@ -87,6 +89,7 @@ public class BenchmarkDynamicPageFilter
             "INT64_RANDOM",
             "INT64_FIXED_32K", // LongBitSetFilter
             "REAL_RANDOM",
+            "VARCHAR_RANDOM", // BloomFilter
     })
     public DataSet inputDataSet;
 
@@ -99,6 +102,11 @@ public class BenchmarkDynamicPageFilter
         INT64_RANDOM(BIGINT, (block, r) -> BIGINT.writeLong(block, r.nextLong())),
         INT64_FIXED_32K(BIGINT, (block, r) -> BIGINT.writeLong(block, r.nextLong() % 32768)),
         REAL_RANDOM(REAL, (block, r) -> REAL.writeLong(block, floatToIntBits(r.nextFloat()))),
+        VARCHAR_RANDOM(VARCHAR, (block, r) -> {
+            byte[] buffer = new byte[25];
+            r.nextBytes(buffer);
+            VARCHAR.writeSlice(block, Slices.wrappedBuffer(buffer, 0, buffer.length));
+        }),
         /**/;
 
         private final Type type;
