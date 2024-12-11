@@ -480,7 +480,7 @@
             <dependency>
                 <groupId>com.exasol</groupId>
                 <artifactId>exasol-jdbc</artifactId>
-                <version>24.2.0</version>
+                <version>24.2.1</version>
             </dependency>
 
             <dependency>
