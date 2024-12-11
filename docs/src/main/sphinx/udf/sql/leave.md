@@ -9,7 +9,7 @@ LEAVE label
 ## Description
 
 The `LEAVE` statement allows processing of blocks in [](/udf/sql) to move out of
-a specified context. Contexts are defined by a [`label`](routine-label). If no
+a specified context. Contexts are defined by a [`label`](udf-sql-label). If no
 label is found, the functions fails with an error message.
 
 ## Examples

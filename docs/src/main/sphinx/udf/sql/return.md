@@ -27,8 +27,8 @@ Further examples of varying complexity that cover usage of the `RETURN`
 statement in combination with other statements are available in the
 [](/udf/sql/examples).
 
-All routines must contain a `RETURN` statement at the end of the top-level
-block in the `FUNCTION` declaration, even if it's unreachable.
+All SQL UDFs must contain a `RETURN` statement at the end of the top-level block
+in the `FUNCTION` declaration, even if it's unreachable.
 
 ## See also
 
