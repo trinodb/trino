@@ -10,7 +10,7 @@ ITERATE label
 
 The `ITERATE` statement allows processing of blocks in [](/udf/sql) to move
 processing back to the start of a context block. Contexts are defined by a
-[`label`](routine-label). If no label is found, the functions fails with an
+[`label`](udf-sql-label). If no label is found, the functions fails with an
 error message.
 
 ## Examples
