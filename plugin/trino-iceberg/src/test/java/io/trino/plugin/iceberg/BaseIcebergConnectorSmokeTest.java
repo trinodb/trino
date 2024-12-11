@@ -38,23 +38,32 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
+import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -887,6 +896,39 @@ public abstract class BaseIcebergConnectorSmokeTest
         return () -> {};
     }
 
+    @Test
+    public void testMetadataDeleteAfterCommitEnabled()
+            throws IOException
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            return;
+        }
+
+        int metadataPreviousVersionCount = 5;
+        String tableName = "test_metadata_delete_after_commit_enabled" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(_bigint BIGINT, _varchar VARCHAR)");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['write.metadata.delete-after-commit.enabled'], ARRAY['true'])");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['write.metadata.previous-versions-max'], ARRAY['" + metadataPreviousVersionCount + "'])");
+        String tableLocation = getTableLocation(tableName);
+
+        Map<String, Long> historyMetadataFiles = getMetadataFileAndUpdatedMillis(fileSystem, tableLocation);
+        for (int i = 0; i < 10; i++) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+            Map<String, Long> metadataFiles = getMetadataFileAndUpdatedMillis(fileSystem, tableLocation);
+            historyMetadataFiles.putAll(metadataFiles);
+            assertThat(metadataFiles.size()).isLessThanOrEqualTo(1 + metadataPreviousVersionCount);
+            Set<String> expectMetadataFiles = historyMetadataFiles
+                    .entrySet()
+                    .stream()
+                    .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                    .limit(metadataPreviousVersionCount + 1)
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toSet());
+            assertThat(metadataFiles.keySet()).containsAll(expectMetadataFiles);
+        }
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private long getMostRecentSnapshotId(String tableName)
     {
         return (long) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName))
@@ -901,7 +943,14 @@ public abstract class BaseIcebergConnectorSmokeTest
 
     protected String getTableLocation(String tableName)
     {
-        return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName);
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        if (m.find()) {
+            String location = m.group(1);
+            verify(!m.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
     protected abstract void dropTableFromMetastore(String tableName);
