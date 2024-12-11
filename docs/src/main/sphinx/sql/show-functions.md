@@ -30,8 +30,8 @@ filter the results to the desired subset.
 
 ## Examples
 
-List all SQL routines and plugin functions in the `default` schema of the
-`example` catalog:
+List all UDFs and plugin functions in the `default` schema of the `example`
+catalog:
 
 ```sql
 SHOW FUNCTIONS FROM example.default;

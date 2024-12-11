@@ -18,7 +18,7 @@ within a [](/udf/function). Blocks can also be nested.
 
 After the `BEGIN` keyword, you can add variable declarations using
 [](/udf/sql/declare) statements, followed by one or more statements that define
-the main body of the routine, separated by `;`. The following statements can be
+the main body of the SQL UDF, separated by `;`. The following statements can be
 used:
 
 * [](/udf/sql/case)

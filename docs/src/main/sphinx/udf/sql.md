@@ -1,4 +1,4 @@
-# SQL routines
+# SQL user-defined functions
 
 ```{toctree}
 :titlesonly: true
