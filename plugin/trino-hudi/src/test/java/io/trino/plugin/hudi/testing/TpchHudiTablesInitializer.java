@@ -214,9 +214,10 @@ public class TpchHudiTablesInitializer
         StorageConfiguration<?> conf = new HadoopStorageConfiguration(hdfsEnvironment.getConfiguration(CONTEXT, tablePath));
 
         try {
-            HoodieTableMetaClient.withPropertyBuilder()
+            HoodieTableMetaClient.newTableBuilder()
                     .setTableType(COPY_ON_WRITE)
                     .setTableName(table.getTableName())
+                    .setTimelineLayoutVersion(1)
                     .setBootstrapIndexClass(NoOpBootstrapIndex.class.getName())
                     .setPayloadClassName(HoodieAvroPayload.class.getName())
                     .setRecordKeyFields(FIELD_UUID)
