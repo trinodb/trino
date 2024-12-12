@@ -18,7 +18,6 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
@@ -39,7 +38,7 @@ final class TestFakerSplitManager
         ConnectorSplitSource splitSource = new FakerSplitManager().getSplits(
                 TestingTransactionHandle.create(),
                 TestingConnectorSession.SESSION,
-                new FakerTableHandle(new SchemaTableName("schema", "table"), TupleDomain.all(), expectedRows),
+                new FakerTableHandle(new SchemaTableName("schema", "table"), expectedRows),
                 DynamicFilter.EMPTY,
                 Constraint.alwaysTrue());
         List<ConnectorSplit> splits = splitSource.getNextBatch(1_000_000).get().getSplits();
