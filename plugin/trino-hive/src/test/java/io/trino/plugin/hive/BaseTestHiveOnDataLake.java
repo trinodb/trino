@@ -25,8 +25,7 @@ import io.trino.metastore.Partition;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.PartitionWithStatistics;
 import io.trino.metastore.Table;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
-import io.trino.plugin.hive.containers.HiveHadoop;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.spi.connector.SchemaTableName;
@@ -36,6 +35,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -73,27 +73,31 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
-public class BaseTestHiveOnDataLake
+abstract class BaseTestHiveOnDataLake
         extends AbstractTestQueryFramework
 {
     private static final String HIVE_TEST_SCHEMA = "hive_datalake";
     private static final DataSize HIVE_S3_STREAMING_PART_SIZE = DataSize.of(5, MEGABYTE);
 
-    private String bucketName;
-    private Hive3MinioDataLake hiveMinioDataLake;
+    private final HiveMinioDataLake hiveMinioDataLake;
+    private final String bucketName;
+
     private HiveMetastore metastoreClient;
+
+    public BaseTestHiveOnDataLake(String bucketName, HiveMinioDataLake hiveMinioDataLake)
+    {
+        this.bucketName = bucketName;
+        this.hiveMinioDataLake = hiveMinioDataLake;
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.bucketName = "test-hive-insert-overwrite-" + randomNameSuffix();
-        this.hiveMinioDataLake = closeAfterClass(
-                new Hive3MinioDataLake(bucketName, HiveHadoop.HIVE3_IMAGE));
         this.hiveMinioDataLake.start();
         this.metastoreClient = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
-                        .metastoreClient(this.hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                        .metastoreClient(hiveMinioDataLake.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
         return S3HiveQueryRunner.builder(hiveMinioDataLake)
                 .addExtraProperty("sql.path", "hive.functions")
@@ -122,6 +126,13 @@ public class BaseTestHiveOnDataLake
                 HIVE_TEST_SCHEMA,
                 bucketName));
         computeActual("CREATE SCHEMA hive.functions");
+    }
+
+    @AfterAll
+    public void destroy()
+            throws Exception
+    {
+        hiveMinioDataLake.close();
     }
 
     @Test
@@ -456,7 +467,7 @@ public class BaseTestHiveOnDataLake
                         ")");
 
         assertThat(
-                hiveMinioDataLake.getHiveHadoop()
+                hiveMinioDataLake
                         .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+projection\\.short name\\.type[ |]+enum[ |]+")
@@ -533,7 +544,7 @@ public class BaseTestHiveOnDataLake
                         "  partition_projection_location_template='" + storageFormat + "' " +
                         ")");
         assertThat(
-                hiveMinioDataLake.getHiveHadoop()
+                hiveMinioDataLake
                         .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(schemaName, tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+storage\\.location\\.template[ |]+" + quote(storageFormat) + "[ |]+")
@@ -553,7 +564,7 @@ public class BaseTestHiveOnDataLake
                 this.bucketName,
                 HIVE_TEST_SCHEMA,
                 tableName);
-        hiveMinioDataLake.getHiveHadoop().runOnHive(
+        hiveMinioDataLake.runOnHive(
                 "CREATE TABLE " + getHiveTestTableName(tableName) + " ( " +
                         "  name varchar(25), " +
                         "  comment varchar(152), " +
@@ -628,7 +639,7 @@ public class BaseTestHiveOnDataLake
                         ")");
 
         assertThat(
-                hiveMinioDataLake.getHiveHadoop()
+                hiveMinioDataLake
                         .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
@@ -685,7 +696,7 @@ public class BaseTestHiveOnDataLake
                         "  partition_projection_enabled=true " +
                         ")");
         assertThat(
-                hiveMinioDataLake.getHiveHadoop()
+                hiveMinioDataLake
                         .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
@@ -700,7 +711,7 @@ public class BaseTestHiveOnDataLake
     public void testIntegerPartitionProjectionOnVarcharColumnWithDigitsAlignCreatedOnHive()
     {
         String tableName = "nation_" + randomNameSuffix();
-        hiveMinioDataLake.getHiveHadoop().runOnHive(
+        hiveMinioDataLake.runOnHive(
                 "CREATE TABLE " + getHiveTestTableName(tableName) + " ( " +
                         "  name varchar(25), " +
                         "  comment varchar(152), " +
@@ -783,7 +794,7 @@ public class BaseTestHiveOnDataLake
                         ")");
 
         assertThat(
-                hiveMinioDataLake.getHiveHadoop()
+                hiveMinioDataLake
                         .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
@@ -843,7 +854,7 @@ public class BaseTestHiveOnDataLake
                         ")");
 
         assertThat(
-                hiveMinioDataLake.getHiveHadoop()
+                hiveMinioDataLake
                         .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
@@ -903,7 +914,7 @@ public class BaseTestHiveOnDataLake
                         ")");
 
         assertThat(
-                hiveMinioDataLake.getHiveHadoop()
+                hiveMinioDataLake
                         .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
@@ -980,7 +991,7 @@ public class BaseTestHiveOnDataLake
                         ")");
 
         assertThat(
-                hiveMinioDataLake.getHiveHadoop()
+                hiveMinioDataLake
                         .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
@@ -1054,7 +1065,7 @@ public class BaseTestHiveOnDataLake
                         "  partition_projection_enabled=true " +
                         ")");
         assertThat(
-                hiveMinioDataLake.getHiveHadoop()
+                hiveMinioDataLake
                         .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
@@ -1071,7 +1082,7 @@ public class BaseTestHiveOnDataLake
     {
         String tableName = getRandomTestTableName();
         String dateProjectionFormat = "yyyy-MM-dd HH:mm:ss";
-        hiveMinioDataLake.getHiveHadoop().runOnHive(
+        hiveMinioDataLake.runOnHive(
                 "CREATE TABLE " + getHiveTestTableName(tableName) + " ( " +
                         "  name varchar(25), " +
                         "  comment varchar(152), " +
@@ -1153,7 +1164,7 @@ public class BaseTestHiveOnDataLake
                         ")");
 
         assertThat(
-                hiveMinioDataLake.getHiveHadoop()
+                hiveMinioDataLake
                         .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
@@ -1227,7 +1238,7 @@ public class BaseTestHiveOnDataLake
                         ")");
 
         assertThat(
-                hiveMinioDataLake.getHiveHadoop()
+                hiveMinioDataLake
                         .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
@@ -1300,7 +1311,7 @@ public class BaseTestHiveOnDataLake
                         ")");
 
         assertThat(
-                hiveMinioDataLake.getHiveHadoop()
+                hiveMinioDataLake
                         .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
@@ -1404,7 +1415,7 @@ public class BaseTestHiveOnDataLake
                         ")");
 
         assertThat(
-                hiveMinioDataLake.getHiveHadoop()
+                hiveMinioDataLake
                         .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
@@ -1643,7 +1654,7 @@ public class BaseTestHiveOnDataLake
         String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
 
         // Create corrupted configuration
-        hiveMinioDataLake.getHiveHadoop().runOnHive(
+        hiveMinioDataLake.runOnHive(
                 "CREATE TABLE " + hiveTestTableName + " ( " +
                         "  name varchar(25) " +
                         ") PARTITIONED BY (" +
@@ -1662,7 +1673,7 @@ public class BaseTestHiveOnDataLake
                         "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Unparseable date: \"2001-01-01\"");
 
         // Append kill switch table property to ignore Partition Projection properties
-        hiveMinioDataLake.getHiveHadoop().runOnHive(
+        hiveMinioDataLake.runOnHive(
                 "ALTER TABLE " + hiveTestTableName + " SET TBLPROPERTIES ( 'trino.partition_projection.ignore'='TRUE' )");
         // Flush cache to get new definition
         computeActual("CALL system.flush_metadata_cache(schema_name => '" + HIVE_TEST_SCHEMA + "', table_name => '" + tableName + "')");
@@ -1966,9 +1977,9 @@ public class BaseTestHiveOnDataLake
         String schemaName = "test_unsupported_drop_schema_cascade_" + randomNameSuffix();
         String icebergTableName = "test_dummy_iceberg_table" + randomNameSuffix();
 
-        hiveMinioDataLake.getHiveHadoop().runOnHive("CREATE DATABASE %2$s LOCATION 's3a://%1$s/%2$s'".formatted(bucketName, schemaName));
+        hiveMinioDataLake.runOnHive("CREATE DATABASE %2$s LOCATION 's3a://%1$s/%2$s'".formatted(bucketName, schemaName));
         try {
-            hiveMinioDataLake.getHiveHadoop().runOnHive("CREATE TABLE " + schemaName + "." + icebergTableName + " TBLPROPERTIES ('table_type'='iceberg') AS SELECT 1 a");
+            hiveMinioDataLake.runOnHive("CREATE TABLE " + schemaName + "." + icebergTableName + " TBLPROPERTIES ('table_type'='iceberg') AS SELECT 1 a");
 
             assertQueryFails("DROP SCHEMA " + schemaName + " CASCADE", "\\QCannot query Iceberg table '%s.%s'".formatted(schemaName, icebergTableName));
 
@@ -1977,7 +1988,7 @@ public class BaseTestHiveOnDataLake
             assertThat(hiveMinioDataLake.getMinioClient().listObjects(bucketName, schemaName).stream()).isNotEmpty();
         }
         finally {
-            hiveMinioDataLake.getHiveHadoop().runOnHive("DROP DATABASE IF EXISTS " + schemaName + " CASCADE");
+            hiveMinioDataLake.runOnHive("DROP DATABASE IF EXISTS " + schemaName + " CASCADE");
         }
     }
 
@@ -1986,12 +1997,12 @@ public class BaseTestHiveOnDataLake
     {
         String viewName = HIVE_TEST_SCHEMA + ".test_unsupported_comment_on_hive_view_" + randomNameSuffix();
 
-        hiveMinioDataLake.getHiveHadoop().runOnHive("CREATE VIEW " + viewName + " AS SELECT 1 x");
+        hiveMinioDataLake.runOnHive("CREATE VIEW " + viewName + " AS SELECT 1 x");
         try {
             assertQueryFails("COMMENT ON COLUMN " + viewName + ".x IS NULL", "Hive views are not supported.*");
         }
         finally {
-            hiveMinioDataLake.getHiveHadoop().runOnHive("DROP VIEW " + viewName);
+            hiveMinioDataLake.runOnHive("DROP VIEW " + viewName);
         }
     }
 
