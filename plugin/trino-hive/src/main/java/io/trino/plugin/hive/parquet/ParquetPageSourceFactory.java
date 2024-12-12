@@ -221,7 +221,7 @@ public class ParquetPageSourceFactory
             AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
             dataSource = createDataSource(inputFile, estimatedFileSize, options, memoryContext, stats);
 
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetWriteValidation);
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetWriteValidation, Optional.empty(), Optional.empty());
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             fileSchema = fileMetaData.getSchema();
 
@@ -253,7 +253,7 @@ public class ParquetPageSourceFactory
                     start,
                     length,
                     dataSource,
-                    parquetMetadata.getBlocks(),
+                    parquetMetadata.getBlocks(descriptorsByPath.values()),
                     parquetTupleDomains,
                     parquetPredicates,
                     descriptorsByPath,

@@ -303,7 +303,7 @@ public class DeltaLakePageSourceProvider
     public Map<Integer, String> loadParquetIdAndNameMapping(TrinoInputFile inputFile, ParquetReaderOptions options)
     {
         try (ParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, options, fileFormatDataSourceStats)) {
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty(), Optional.empty());
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 
