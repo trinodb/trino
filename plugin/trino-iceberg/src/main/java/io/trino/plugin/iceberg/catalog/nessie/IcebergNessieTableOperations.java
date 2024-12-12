@@ -38,6 +38,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.catalog.nessie.IcebergNessieUtil.toIdentifier;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.CatalogUtil.deleteRemovedMetadataFiles;
 
 public class IcebergNessieTableOperations
         extends AbstractIcebergTableOperations
@@ -149,6 +150,7 @@ public class IcebergNessieTableOperations
             // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
             throw new CommitFailedException(e, "Cannot commit: ref hash is out of date. Update the ref '%s' and try again", nessieClient.refName());
         }
+        deleteRemovedMetadataFiles(io(), base, metadata);
         shouldRefresh = true;
     }
 
