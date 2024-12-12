@@ -83,12 +83,13 @@ values. Typical usage does not require you to configure them.
   - Description
   - Default
 * - `delta.metadata.cache-ttl`
-  - Frequency of checks for metadata updates equivalent to transactions to
-    update the metadata cache specified in [](prop-type-duration).
-  - `5m`
-* - `delta.metadata.cache-size`
-  - The maximum number of Delta table metadata entries to cache.
-  - `1000`
+  - Caching duration for Delta Lake tables metadata.
+  - `30m`
+* - `delta.metadata.cache-max-retained-size`
+  - Maximum retained size of Delta table metadata stored in cache. Must be
+    specified in [](prop-type-data-size) values such as `64MB`. Default is
+    calculated to 5% of the maximum memory allocated to the JVM.
+  - 
 * - `delta.metadata.live-files.cache-size`
   - Amount of memory allocated for caching information about files. Must be
     specified in [](prop-type-data-size) values such as `64MB`. Default is
