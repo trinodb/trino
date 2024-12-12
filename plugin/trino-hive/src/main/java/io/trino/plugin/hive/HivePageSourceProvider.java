@@ -58,6 +58,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -108,7 +109,8 @@ public class HivePageSourceProvider
         HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
         HiveSplit hiveSplit = (HiveSplit) split;
 
-        if (shouldSkipBucket(hiveTable, hiveSplit, dynamicFilter)) {
+        TupleDomain<ColumnHandle> effectivePredicate = getUnenforcedPredicate(session, split, tableHandle, dynamicFilter.getCurrentPredicate());
+        if (effectivePredicate.isNone()) {
             return new EmptyPageSource();
         }
 
@@ -129,12 +131,6 @@ public class HivePageSourceProvider
                 hiveSplit.getEstimatedFileSize(),
                 hiveSplit.getFileModifiedTime());
 
-        // Perform dynamic partition pruning in case coordinator didn't prune split.
-        // This can happen when dynamic filters are collected after partition splits were listed.
-        if (shouldSkipSplit(columnMappings, dynamicFilter)) {
-            return new EmptyPageSource();
-        }
-
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 pageSourceFactories,
                 session,
@@ -145,9 +141,7 @@ public class HivePageSourceProvider
                 hiveSplit.getEstimatedFileSize(),
                 hiveSplit.getFileModifiedTime(),
                 hiveSplit.getSchema(),
-                hiveTable.getCompactEffectivePredicate().intersect(
-                                dynamicFilter.getCurrentPredicate().transformKeys(HiveColumnHandle.class::cast))
-                        .simplify(domainCompactionThreshold),
+                effectivePredicate.transformKeys(HiveColumnHandle.class::cast),
                 typeManager,
                 hiveSplit.getBucketConversion(),
                 hiveSplit.getBucketValidation(),
@@ -238,18 +232,83 @@ public class HivePageSourceProvider
         return Optional.empty();
     }
 
-    private static boolean shouldSkipBucket(HiveTableHandle hiveTable, HiveSplit hiveSplit, DynamicFilter dynamicFilter)
+    @Override
+    public TupleDomain<ColumnHandle> getUnenforcedPredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle tableHandle,
+            TupleDomain<ColumnHandle> dynamicFilter)
+    {
+        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+        return prunePredicate(
+                session,
+                split,
+                hiveTableHandle,
+                dynamicFilter.intersect(hiveTableHandle.getCompactEffectivePredicate()))
+                .simplify(domainCompactionThreshold);
+    }
+
+    @Override
+    public TupleDomain<ColumnHandle> prunePredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle tableHandle,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        if (predicate.isNone()) {
+            return TupleDomain.none();
+        }
+
+        HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
+        HiveSplit hiveSplit = (HiveSplit) split;
+
+        if (shouldSkipBucket(hiveTable, hiveSplit, predicate)) {
+            return TupleDomain.none();
+        }
+
+        List<HiveColumnHandle> hiveColumns = predicate.getDomains().orElseThrow().keySet().stream()
+                .map(HiveColumnHandle.class::cast)
+                .collect(toImmutableList());
+
+        List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
+                hiveSplit.getPartitionName(),
+                hiveSplit.getPartitionKeys(),
+                hiveColumns,
+                hiveSplit.getBucketConversion().map(BucketConversion::bucketColumnHandles).orElse(ImmutableList.of()),
+                hiveSplit.getHiveColumnCoercions(),
+                hiveSplit.getPath(),
+                hiveSplit.getTableBucketNumber(),
+                hiveSplit.getEstimatedFileSize(),
+                hiveSplit.getFileModifiedTime());
+
+        // Perform dynamic partition pruning in case coordinator didn't prune split.
+        // This can happen when dynamic filters are collected after partition splits were listed.
+        if (shouldSkipSplit(columnMappings, predicate)) {
+            return TupleDomain.none();
+        }
+
+        Set<ColumnHandle> prefilledColumns = columnMappings.stream()
+                .filter(mapping -> mapping.getKind() == PREFILLED)
+                .map(ColumnMapping::getHiveColumnHandle)
+                .collect(toImmutableSet());
+
+        // Exclude prefilled columns because such columns won't be used
+        // to filter split data when reading files.
+        return predicate
+                .filter((columnHandle, domain) -> !prefilledColumns.contains(columnHandle));
+    }
+
+    private static boolean shouldSkipBucket(HiveTableHandle hiveTable, HiveSplit hiveSplit, TupleDomain<ColumnHandle> predicate)
     {
         if (hiveSplit.getTableBucketNumber().isEmpty()) {
             return false;
         }
-        Optional<HiveBucketFilter> hiveBucketFilter = getHiveBucketFilter(hiveTable, dynamicFilter.getCurrentPredicate());
+        Optional<HiveBucketFilter> hiveBucketFilter = getHiveBucketFilter(hiveTable, predicate);
         return hiveBucketFilter.map(filter -> !filter.getBucketsToKeep().contains(hiveSplit.getTableBucketNumber().getAsInt())).orElse(false);
     }
 
-    private static boolean shouldSkipSplit(List<ColumnMapping> columnMappings, DynamicFilter dynamicFilter)
+    private static boolean shouldSkipSplit(List<ColumnMapping> columnMappings, TupleDomain<ColumnHandle> predicate)
     {
-        TupleDomain<ColumnHandle> predicate = dynamicFilter.getCurrentPredicate();
         if (predicate.isNone()) {
             return true;
         }
