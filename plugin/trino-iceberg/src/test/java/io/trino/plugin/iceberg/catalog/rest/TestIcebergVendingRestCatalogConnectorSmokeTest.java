@@ -19,6 +19,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemStats;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
@@ -309,6 +310,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
 
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
+            throws ParquetCorruptionException
     {
         if (format == PARQUET) {
             return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);

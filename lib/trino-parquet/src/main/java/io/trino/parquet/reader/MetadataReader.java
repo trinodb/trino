@@ -16,6 +16,7 @@ package io.trino.parquet.reader;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
@@ -52,7 +53,7 @@ public final class MetadataReader
 
     private MetadataReader() {}
 
-    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<ParquetWriteValidation> parquetWriteValidation, Optional<Long> offset, Optional<Long> length)
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<ParquetWriteValidation> parquetWriteValidation, Optional<DiskRange> diskRange)
             throws IOException
     {
         // Parquet File Layout:
@@ -89,7 +90,7 @@ public final class MetadataReader
         InputStream metadataStream = buffer.slice(buffer.length() - completeFooterSize, metadataLength).getInput();
 
         FileMetaData fileMetaData = readFileMetaData(metadataStream);
-        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, dataSource.getId(), offset, length);
+        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, dataSource.getId(), diskRange);
         validateFileMetadata(dataSource.getId(), parquetMetadata.getFileMetaData(), parquetWriteValidation);
         return parquetMetadata;
     }

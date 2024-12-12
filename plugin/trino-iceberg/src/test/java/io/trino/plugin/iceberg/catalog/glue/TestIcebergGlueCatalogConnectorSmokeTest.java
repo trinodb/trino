@@ -34,6 +34,7 @@ import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -248,6 +249,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
 
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
+            throws ParquetCorruptionException
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
         return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);

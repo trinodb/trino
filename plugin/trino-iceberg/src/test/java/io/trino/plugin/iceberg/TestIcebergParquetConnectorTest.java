@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.operator.OperatorStats;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
@@ -151,6 +152,7 @@ public class TestIcebergParquetConnectorTest
 
     @Override
     protected boolean isFileSorted(String path, String sortColumnName)
+            throws ParquetCorruptionException
     {
         return checkParquetFileSorting(fileSystem.newInputFile(Location.of(path)), sortColumnName);
     }

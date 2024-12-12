@@ -152,16 +152,15 @@ public class ParquetTestUtils
                 columnName -> descriptorsByPath.get(ImmutableList.of(columnName.toLowerCase(ENGLISH))));
         TupleDomainParquetPredicate parquetPredicate = buildPredicate(fileSchema, parquetTupleDomain, descriptorsByPath, UTC);
         List<RowGroupInfo> rowGroups = getFilteredRowGroups(
-                0,
-                input.getEstimatedSize(),
+                parquetMetadata,
                 input,
-                parquetMetadata.getBlocks(),
                 ImmutableList.of(parquetTupleDomain),
                 ImmutableList.of(parquetPredicate),
                 descriptorsByPath,
                 UTC,
                 1000,
                 options);
+
         return new ParquetReader(
                 Optional.ofNullable(fileMetaData.getCreatedBy()),
                 columnFields.build(),

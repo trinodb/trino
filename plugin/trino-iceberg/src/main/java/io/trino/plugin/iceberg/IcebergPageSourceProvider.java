@@ -35,6 +35,7 @@ import io.trino.orc.OrcRecordReader;
 import io.trino.orc.TupleDomainOrcPredicate;
 import io.trino.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.trino.parquet.Column;
+import io.trino.parquet.DiskRange;
 import io.trino.parquet.Field;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
@@ -862,7 +863,7 @@ public class IcebergPageSourceProvider
         ParquetDataSource dataSource = null;
         try {
             dataSource = createDataSource(inputFile, OptionalLong.of(fileSize), options, memoryContext, fileFormatDataSourceStats);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.of(start), Optional.of(length));
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.of(new DiskRange(start, length)));
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
             if (nameMapping.isPresent() && !ParquetSchemaUtil.hasIds(fileSchema)) {
@@ -888,10 +889,8 @@ public class IcebergPageSourceProvider
             TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
 
             List<RowGroupInfo> rowGroups = getFilteredRowGroups(
-                    start,
-                    length,
+                    parquetMetadata,
                     dataSource,
-                    parquetMetadata.getBlocks(),
                     ImmutableList.of(parquetTupleDomain),
                     ImmutableList.of(parquetPredicate),
                     descriptorsByPath,

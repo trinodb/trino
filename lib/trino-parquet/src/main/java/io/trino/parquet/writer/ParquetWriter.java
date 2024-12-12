@@ -24,12 +24,10 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
-import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
-import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.parquet.writer.ColumnWriter.BufferData;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
@@ -77,7 +75,6 @@ import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
-import static io.trino.parquet.metadata.PrunedBlockMetadata.createPrunedColumnsMetadata;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -240,7 +237,7 @@ public class ParquetWriter
         checkState(validationBuilder.isPresent(), "validation is not enabled");
         ParquetWriteValidation writeValidation = validationBuilder.get().build();
         try {
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(input, Optional.of(writeValidation), Optional.empty(), Optional.empty());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(input, Optional.of(writeValidation), Optional.empty());
             try (ParquetReader parquetReader = createParquetReader(input, parquetMetadata, writeValidation)) {
                 for (Page page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
                     // fully load the page
@@ -277,16 +274,10 @@ public class ParquetWriter
                             .orElseThrow()));
         }
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileMetaData.getSchema(), fileMetaData.getSchema());
-        long nextStart = 0;
-        ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
-        for (BlockMetadata block : parquetMetadata.getBlocks()) {
-            rowGroupInfoBuilder.add(new RowGroupInfo(createPrunedColumnsMetadata(block, input.getId(), descriptorsByPath), nextStart, Optional.empty()));
-            nextStart += block.rowCount();
-        }
         return new ParquetReader(
                 Optional.ofNullable(fileMetaData.getCreatedBy()),
                 columnFields.build(),
-                rowGroupInfoBuilder.build(),
+                parquetMetadata.getRowGroupInfo(Optional.of(input), Optional.of(descriptorsByPath)),
                 input,
                 parquetTimeZone.orElseThrow(),
                 newSimpleAggregatedMemoryContext(),

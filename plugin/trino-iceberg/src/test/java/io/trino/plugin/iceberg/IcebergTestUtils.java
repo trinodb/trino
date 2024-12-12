@@ -26,11 +26,13 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.statistics.StringStatistics;
 import io.trino.orc.metadata.statistics.StripeStatistics;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -128,20 +130,22 @@ public final class IcebergTestUtils
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static boolean checkParquetFileSorting(TrinoInputFile inputFile, String sortColumnName)
+            throws ParquetCorruptionException
     {
         ParquetMetadata parquetMetadata;
         try {
             parquetMetadata = MetadataReader.readFooter(
                     new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats()),
-                    Optional.empty(), Optional.empty(), Optional.empty());
+                    Optional.empty(), Optional.empty());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
 
         Comparable previousMax = null;
-        verify(parquetMetadata.getBlocks().size() > 1, "Test must produce at least two row groups");
-        for (BlockMetadata blockMetaData : parquetMetadata.getBlocks()) {
+        verify(parquetMetadata.getRowGroupInfo().size() > 1, "Test must produce at least two row groups");
+        for (RowGroupInfo rowGroupInfo : parquetMetadata.getRowGroupInfo()) {
+            BlockMetadata blockMetaData = rowGroupInfo.prunedBlockMetadata().getBlockMetadata();
             ColumnChunkMetadata columnMetadata = blockMetaData.columns().stream()
                     .filter(column -> getOnlyElement(column.getPath().iterator()).equalsIgnoreCase(sortColumnName))
                     .collect(onlyElement());

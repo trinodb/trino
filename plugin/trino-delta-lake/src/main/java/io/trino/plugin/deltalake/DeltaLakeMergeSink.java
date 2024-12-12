@@ -25,9 +25,10 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
+import io.trino.parquet.metadata.PrunedBlockMetadata;
 import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.delete.RoaringBitmapArray;
@@ -381,8 +382,11 @@ public class DeltaLakeMergeSink
         }
         TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(path.toStringUtf8()));
         try (ParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, parquetReaderOptions, fileFormatDataSourceStats)) {
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty(), Optional.empty());
-            long rowCount = parquetMetadata.getBlocks().stream().map(BlockMetadata::rowCount).mapToLong(Long::longValue).sum();
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty());
+            long rowCount = parquetMetadata.getRowGroupInfo(Optional.of(dataSource), Optional.empty()).stream()
+                    .map(RowGroupInfo::prunedBlockMetadata)
+                    .mapToLong(PrunedBlockMetadata::getRowCount)
+                    .sum();
             RoaringBitmapArray rowsRetained = new RoaringBitmapArray();
             rowsRetained.addRange(0, rowCount - 1);
             rowsRetained.andNot(deletedRows);

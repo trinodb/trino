@@ -35,7 +35,6 @@ import org.apache.parquet.schema.PrimitiveType;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -140,7 +139,7 @@ public class TrinoColumnIndexStore
     public static Optional<ColumnIndexStore> getColumnIndexStore(
             ParquetDataSource dataSource,
             BlockMetadata blockMetadata,
-            Map<List<String>, ColumnDescriptor> descriptorsByPath,
+            Set<ColumnPath> columnsReadPaths,
             TupleDomain<ColumnDescriptor> parquetTupleDomain,
             ParquetReaderOptions options)
     {
@@ -158,11 +157,6 @@ public class TrinoColumnIndexStore
 
         if (!hasColumnIndex) {
             return Optional.empty();
-        }
-
-        Set<ColumnPath> columnsReadPaths = new HashSet<>(descriptorsByPath.size());
-        for (List<String> path : descriptorsByPath.keySet()) {
-            columnsReadPaths.add(ColumnPath.get(path.toArray(new String[0])));
         }
 
         Map<ColumnDescriptor, Domain> parquetDomains = parquetTupleDomain.getDomains()

@@ -30,6 +30,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
@@ -1513,6 +1514,7 @@ public abstract class BaseIcebergConnectorTest
 
     @Test
     public void testSortOrderChange()
+            throws ParquetCorruptionException
     {
         Session withSmallRowGroups = withSmallRowGroups(getSession());
         try (TestTable table = new TestTable(
@@ -1542,6 +1544,7 @@ public abstract class BaseIcebergConnectorTest
 
     @Test
     public void testSortingDisabled()
+            throws ParquetCorruptionException
     {
         Session withSortingDisabled = Session.builder(withSmallRowGroups(getSession()))
                 .setCatalogSessionProperty(ICEBERG_CATALOG, "sorted_writing_enabled", "false")
@@ -1560,6 +1563,7 @@ public abstract class BaseIcebergConnectorTest
 
     @Test
     public void testOptimizeWithSortOrder()
+            throws ParquetCorruptionException
     {
         Session withSmallRowGroups = withSmallRowGroups(getSession());
         try (TestTable table = new TestTable(
@@ -1582,6 +1586,7 @@ public abstract class BaseIcebergConnectorTest
 
     @Test
     public void testUpdateWithSortOrder()
+            throws ParquetCorruptionException
     {
         Session withSmallRowGroups = withSmallRowGroups(getSession());
         try (TestTable table = new TestTable(
@@ -1602,7 +1607,8 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
-    protected abstract boolean isFileSorted(String path, String sortColumnName);
+    protected abstract boolean isFileSorted(String path, String sortColumnName)
+            throws ParquetCorruptionException;
 
     @Test
     public void testSortingOnNestedField()

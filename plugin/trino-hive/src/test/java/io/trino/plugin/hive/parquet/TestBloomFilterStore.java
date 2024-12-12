@@ -22,6 +22,7 @@ import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -308,10 +309,11 @@ public class TestBloomFilterStore
         TrinoInputFile inputFile = new LocalInputFile(tempFile.getFile());
         TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats());
 
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty(), Optional.empty());
-        ColumnChunkMetadata columnChunkMetaData = getOnlyElement(getOnlyElement(parquetMetadata.getBlocks()).columns());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty());
+        RowGroupInfo rowGroupInfo = getOnlyElement(parquetMetadata.getRowGroupInfo());
+        ColumnChunkMetadata columnChunkMetaData = getOnlyElement(rowGroupInfo.prunedBlockMetadata().getBlockMetadata().columns());
 
-        return new BloomFilterStore(dataSource, getOnlyElement(parquetMetadata.getBlocks()), Set.of(columnChunkMetaData.getPath()));
+        return new BloomFilterStore(dataSource, rowGroupInfo.prunedBlockMetadata().getBlockMetadata(), Set.of(columnChunkMetaData.getPath()));
     }
 
     private static class BloomFilterTypeTestCase

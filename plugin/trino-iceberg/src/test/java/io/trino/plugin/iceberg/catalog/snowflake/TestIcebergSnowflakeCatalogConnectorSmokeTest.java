@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.snowflake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -686,6 +687,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
 
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
+            throws ParquetCorruptionException
     {
         if (format == PARQUET) {
             return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
