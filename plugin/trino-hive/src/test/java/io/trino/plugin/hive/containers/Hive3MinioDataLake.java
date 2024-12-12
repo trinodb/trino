@@ -14,40 +14,17 @@
 package io.trino.plugin.hive.containers;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.base.util.AutoCloseableCloser;
-import io.trino.testing.containers.Minio;
-import io.trino.testing.minio.MinioClient;
-import org.testcontainers.containers.Network;
 
-import java.util.List;
+import java.net.URI;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkState;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.plugin.hive.containers.HiveMinioDataLake.State.STARTED;
 import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
-import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.Network.newNetwork;
 
 public class Hive3MinioDataLake
-        implements AutoCloseable
+        extends HiveMinioDataLake
 {
-    /**
-     * In S3 this region is implicitly the default one. In Minio, however,
-     * if we set an empty region, it will accept any.
-     * So setting it by default to `us-east-1` simulates S3 better
-     */
-    public static final String MINIO_DEFAULT_REGION = "us-east-1";
-
-    private final String bucketName;
-    private final Minio minio;
     private final HiveHadoop hiveHadoop;
-
-    private final AutoCloseableCloser closer = AutoCloseableCloser.create();
-    private final Network network;
-
-    private State state = State.INITIAL;
-    private MinioClient minioClient;
 
     public Hive3MinioDataLake(String bucketName)
     {
@@ -61,18 +38,7 @@ public class Hive3MinioDataLake
 
     public Hive3MinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage)
     {
-        this.bucketName = requireNonNull(bucketName, "bucketName is null");
-        network = closer.register(newNetwork());
-        this.minio = closer.register(
-                Minio.builder()
-                        .withNetwork(network)
-                        .withEnvVars(ImmutableMap.<String, String>builder()
-                                .put("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY)
-                                .put("MINIO_SECRET_KEY", MINIO_SECRET_KEY)
-                                .put("MINIO_REGION", MINIO_DEFAULT_REGION)
-                                .buildOrThrow())
-                        .build());
-
+        super(bucketName);
         HiveHadoop.Builder hiveHadoopBuilder = HiveHadoop.builder()
                 .withImage(hiveHadoopImage)
                 .withNetwork(network)
@@ -80,77 +46,29 @@ public class Hive3MinioDataLake
         this.hiveHadoop = closer.register(hiveHadoopBuilder.build());
     }
 
+    @Override
     public void start()
     {
-        checkState(state == State.INITIAL, "Already started: %s", state);
-        state = State.STARTING;
-        minio.start();
+        super.start();
         hiveHadoop.start();
-        minioClient = closer.register(minio.createMinioClient());
-        minio.createBucket(bucketName);
-        state = State.STARTED;
+        state = STARTED;
     }
 
-    public void stop()
-            throws Exception
+    @Override
+    public String runOnHive(String sql)
     {
-        closer.close();
-        state = State.STOPPED;
+        return hiveHadoop.runOnHive(sql);
     }
 
-    public Network getNetwork()
-    {
-        return network;
-    }
-
-    public MinioClient getMinioClient()
-    {
-        checkState(state == State.STARTED, "Can't provide client when MinIO state is: %s", state);
-        return minioClient;
-    }
-
-    public void copyResources(String resourcePath, String target)
-    {
-        minio.copyResources(resourcePath, bucketName, target);
-    }
-
-    public void writeFile(byte[] contents, String target)
-    {
-        minio.writeFile(contents, bucketName, target);
-    }
-
-    public List<String> listFiles(String targetDirectory)
-    {
-        return getMinioClient().listObjects(getBucketName(), targetDirectory);
-    }
-
-    public Minio getMinio()
-    {
-        return minio;
-    }
-
+    @Override
     public HiveHadoop getHiveHadoop()
     {
         return hiveHadoop;
     }
 
-    public String getBucketName()
-    {
-        return bucketName;
-    }
-
     @Override
-    public void close()
-            throws Exception
+    public URI getHiveMetastoreEndpoint()
     {
-        stop();
-    }
-
-    private enum State
-    {
-        INITIAL,
-        STARTING,
-        STARTED,
-        STOPPED,
+        return hiveHadoop.getHiveMetastoreEndpoint();
     }
 }
