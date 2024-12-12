@@ -37,6 +37,7 @@ public class PinotSessionProperties
     private static final String SEGMENTS_PER_SPLIT = "segments_per_split";
     private static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     private static final String COUNT_DISTINCT_PUSHDOWN_ENABLED = "count_distinct_pushdown_enabled";
+    private static final String JSON_PREDICATE_PUSHDOWN_ENABLED = "json_predicate_pushdown_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -84,6 +85,11 @@ public class PinotSessionProperties
                         COUNT_DISTINCT_PUSHDOWN_ENABLED,
                         "Enable count distinct pushdown",
                         pinotConfig.isCountDistinctPushdownEnabled(),
+                        false),
+                booleanProperty(
+                        JSON_PREDICATE_PUSHDOWN_ENABLED,
+                        "Enable json predicate pushdown",
+                        pinotConfig.isJsonPredicatePushdownEnabled(),
                         false));
     }
 
@@ -128,6 +134,11 @@ public class PinotSessionProperties
         // This should never fail as this method would never be called unless aggregation pushdown is enabled
         verify(isAggregationPushdownEnabled(session), "%s must be enabled when %s is enabled", AGGREGATION_PUSHDOWN_ENABLED, COUNT_DISTINCT_PUSHDOWN_ENABLED);
         return session.getProperty(COUNT_DISTINCT_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isJsonPredicatePushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(JSON_PREDICATE_PUSHDOWN_ENABLED, Boolean.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
