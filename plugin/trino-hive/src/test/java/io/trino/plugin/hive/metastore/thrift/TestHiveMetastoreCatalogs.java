@@ -79,7 +79,7 @@ public class TestHiveMetastoreCatalogs
     {
         return ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "thrift")
-                .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
+                .put("hive.metastore.uri", hiveMinioDataLake.getHiveMetastoreEndpoint().toString())
                 .put("fs.hadoop.enabled", "false")
                 .put("fs.native-s3.enabled", "true")
                 .put("s3.path-style-access", "true")

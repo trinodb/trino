@@ -57,7 +57,7 @@ public class TestHiveCustomCatalogConnectorSmokeTest
 
         QueryRunner queryRunner = HiveQueryRunner.builder()
                 .addHiveProperty("hive.metastore", "thrift")
-                .addHiveProperty("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
+                .addHiveProperty("hive.metastore.uri", hiveMinioDataLake.getHiveMetastoreEndpoint().toString())
                 .addHiveProperty("hive.metastore.thrift.catalog-name", HIVE_CUSTOM_CATALOG)
                 .addHiveProperty("fs.hadoop.enabled", "false")
                 .addHiveProperty("fs.native-s3.enabled", "true")

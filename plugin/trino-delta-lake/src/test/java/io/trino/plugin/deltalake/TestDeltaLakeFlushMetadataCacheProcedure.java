@@ -43,7 +43,7 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
         hiveMinioDataLake.start();
         metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
-                        .metastoreClient(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                        .metastoreClient(hiveMinioDataLake.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
 
         return DeltaLakeQueryRunner.builder("default")
