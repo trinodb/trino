@@ -82,7 +82,6 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
-import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
@@ -581,7 +580,7 @@ public class TrinoGlueCatalog
     }
 
     @Override
-    public Table loadTable(ConnectorSession session, SchemaTableName table)
+    public BaseTable loadTable(ConnectorSession session, SchemaTableName table)
     {
         if (viewCache.asMap().containsKey(table) || materializedViewCache.asMap().containsKey(table)) {
             throw new TableNotFoundException(table);
@@ -694,7 +693,7 @@ public class TrinoGlueCatalog
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        BaseTable table = (BaseTable) loadTable(session, schemaTableName);
+        BaseTable table = loadTable(session, schemaTableName);
         try {
             deleteTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
         }

@@ -375,8 +375,8 @@ public class IcebergMetadata
 {
     private static final Logger log = Logger.get(IcebergMetadata.class);
     private static final Pattern PATH_PATTERN = Pattern.compile("(.*)/[^/]+");
-    private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 2;
-    private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 2;
+    private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 3;
+    private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 3;
     private static final String RETENTION_THRESHOLD = "retention_threshold";
     private static final String UNKNOWN_SNAPSHOT_TOKEN = "UNKNOWN";
     public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.<String>builder()
@@ -493,7 +493,7 @@ public class IcebergMetadata
 
         BaseTable table;
         try {
-            table = (BaseTable) catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), tableName.getTableName()));
+            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), tableName.getTableName()));
         }
         catch (TableNotFoundException e) {
             return null;
@@ -1773,11 +1773,11 @@ public class IcebergMetadata
             IcebergTableHandle table)
     {
         IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.procedureHandle();
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        BaseTable icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
         validateNotModifyingOldSnapshot(table, icebergTable);
 
-        int tableFormatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
+        int tableFormatVersion = icebergTable.operations().current().formatVersion();
         if (tableFormatVersion > OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION) {
             throw new TrinoException(NOT_SUPPORTED, format(
                     "%s is not supported for Iceberg table format version > %d. Table %s format version is %s.",
@@ -1972,7 +1972,7 @@ public class IcebergMetadata
     {
         IcebergExpireSnapshotsHandle expireSnapshotsHandle = (IcebergExpireSnapshotsHandle) executeHandle.procedureHandle();
 
-        Table table = catalog.loadTable(session, executeHandle.schemaTableName());
+        BaseTable table = catalog.loadTable(session, executeHandle.schemaTableName());
         Duration retention = requireNonNull(expireSnapshotsHandle.retentionThreshold(), "retention is null");
         validateTableExecuteParameters(
                 table,
@@ -2014,7 +2014,7 @@ public class IcebergMetadata
     }
 
     private static void validateTableExecuteParameters(
-            Table table,
+            BaseTable table,
             SchemaTableName schemaTableName,
             String procedureName,
             Duration retentionThreshold,
@@ -2022,7 +2022,7 @@ public class IcebergMetadata
             String minRetentionParameterName,
             String sessionMinRetentionParameterName)
     {
-        int tableFormatVersion = ((BaseTable) table).operations().current().formatVersion();
+        int tableFormatVersion = table.operations().current().formatVersion();
         if (tableFormatVersion > CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION) {
             // It is not known if future version won't bring any new kind of metadata or data files
             // because of the way procedures are implemented it is safer to fail here than to potentially remove
@@ -2054,7 +2054,7 @@ public class IcebergMetadata
     {
         IcebergRemoveOrphanFilesHandle removeOrphanFilesHandle = (IcebergRemoveOrphanFilesHandle) executeHandle.procedureHandle();
 
-        Table table = catalog.loadTable(session, executeHandle.schemaTableName());
+        BaseTable table = catalog.loadTable(session, executeHandle.schemaTableName());
         Duration retention = requireNonNull(removeOrphanFilesHandle.retentionThreshold(), "retention is null");
         validateTableExecuteParameters(
                 table,
@@ -2812,7 +2812,12 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         verifyTableVersionForUpdate(table);
 
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        BaseTable icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        int formatVersion = icebergTable.operations().current().formatVersion();
+        if (formatVersion >= 3) {
+            // TODO https://github.com/trinodb/trino/issues/24457 Add support for deletion vector
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support modifying rows on tables with format version 3 or higher");
+        }
         validateNotModifyingOldSnapshot(table, icebergTable);
 
         beginTransaction(icebergTable);
