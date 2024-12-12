@@ -403,6 +403,7 @@ class StatementClientV1
             if (attempts > 0) {
                 Duration sinceStart = Duration.nanosSince(start);
                 if (sinceStart.compareTo(requestTimeoutNanos) > 0) {
+                    close();
                     state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                     throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart), cause);
                 }
