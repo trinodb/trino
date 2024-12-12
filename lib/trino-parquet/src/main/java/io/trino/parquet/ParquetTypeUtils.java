@@ -39,8 +39,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.StandardTypes.JSON;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
@@ -291,6 +294,13 @@ public final class ParquetTypeUtils
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
         int repetitionLevel = columnIO.getRepetitionLevel();
         int definitionLevel = columnIO.getDefinitionLevel();
+        if (isVariantType(type, columnIO)) {
+            checkArgument(type.getTypeParameters().isEmpty(), "Variant type should not have parameters");
+            GroupColumnIO groupColumnIo = (GroupColumnIO) columnIO;
+            Field valueField = constructField(VARBINARY, groupColumnIo.getChild(0), false).orElseThrow();
+            Field metadataField = constructField(VARBINARY, groupColumnIo.getChild(1), false).orElseThrow();
+            return Optional.of(new VariantField(type, repetitionLevel, definitionLevel, required, valueField, metadataField));
+        }
         if (type instanceof RowType rowType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
@@ -349,5 +359,14 @@ public final class ParquetTypeUtils
             throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, primitiveColumnIO.getColumnDescriptor()));
         }
         return Optional.of(new PrimitiveField(type, required, primitiveColumnIO.getColumnDescriptor(), primitiveColumnIO.getId()));
+    }
+
+    private static boolean isVariantType(Type type, ColumnIO columnIO)
+    {
+        return type.getTypeSignature().getBase().equals(JSON) &&
+                columnIO instanceof GroupColumnIO groupColumnIo &&
+                groupColumnIo.getChildrenCount() == 2 &&
+                groupColumnIo.getChild("value") != null &&
+                groupColumnIo.getChild("metadata") != null;
     }
 }
