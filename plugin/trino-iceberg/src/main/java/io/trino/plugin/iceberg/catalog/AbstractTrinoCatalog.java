@@ -246,7 +246,7 @@ public abstract class AbstractTrinoCatalog
         BaseTable table;
         Optional<TableMetadata> metadata = Optional.empty();
         try {
-            table = (BaseTable) loadTable(session, new SchemaTableName(schemaTableName.getSchemaName(), schemaTableName.getTableName()));
+            table = loadTable(session, new SchemaTableName(schemaTableName.getSchemaName(), schemaTableName.getTableName()));
             metadata = Optional.of(table.operations().current());
         }
         catch (TableNotFoundException _) {
