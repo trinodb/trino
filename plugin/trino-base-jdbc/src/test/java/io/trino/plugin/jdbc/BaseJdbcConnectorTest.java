@@ -1002,7 +1002,7 @@ public abstract class BaseJdbcConnectorTest
         // with TopN over varchar column
         assertConditionallyPushedDown(
                 getSession(),
-                "SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5",
+                "SELECT * FROM (SELECT regionkey FROM nation ORDER BY name DESC LIMIT 10) LIMIT 5",
                 hasBehavior(SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR),
                 topnOverTableScan);
 
