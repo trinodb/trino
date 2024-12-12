@@ -163,12 +163,17 @@ public class TestQueryResource
         assertThat(infos).isEmpty();
         assertStateCounts(infos, 0, 0, 0);
 
+        infos = getQueryInfos("/v1/query?state=finished&state=failed&state=running");
+        assertThat(infos).hasSize(3);
+        assertStateCounts(infos, 2, 1, 0);
+
         server.getAccessControl().deny(privilege("query", VIEW_QUERY));
         try {
             assertThat(getQueryInfos("/v1/query")).isEmpty();
             assertThat(getQueryInfos("/v1/query?state=finished")).isEmpty();
             assertThat(getQueryInfos("/v1/query?state=failed")).isEmpty();
             assertThat(getQueryInfos("/v1/query?state=running")).isEmpty();
+            assertThat(getQueryInfos("/v1/query?state=finished&state=failed&state=running")).isEmpty();
         }
         finally {
             server.getAccessControl().reset();
