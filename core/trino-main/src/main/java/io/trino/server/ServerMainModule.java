@@ -354,21 +354,13 @@ public class ServerMainModule
 
         // exchange client
         binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
-
-        InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
-
         install(internalHttpClientModule("exchange", ForExchange.class)
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
+                    config.setMaxConnectionsPerServer(64);
                     config.setMaxContentLength(DataSize.of(32, MEGABYTE));
                     config.setMaxRequestsQueuedPerDestination(65536);
-                    if (internalCommunicationConfig.isHttp2Enabled()) {
-                        config.setMaxConnectionsPerServer(64);
-                    }
-                    else {
-                        config.setMaxConnectionsPerServer(250);
-                    }
                 }).build());
 
         configBinder(binder).bindConfig(DirectExchangeClientConfig.class);
