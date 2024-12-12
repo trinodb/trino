@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.execution.QueryState.FINISHED;
@@ -63,21 +64,23 @@ public class TestingDirectTrinoClient
     {
         MaterializedQueryResultsListener queryResultsListener = new MaterializedQueryResultsListener();
         DispatchQuery dispatchQuery = directTrinoClient.execute(sessionContext, sql, queryResultsListener);
-        return new Result(dispatchQuery.getQueryId(), toMaterializedRows(dispatchQuery, queryResultsListener.columnTypes(), queryResultsListener.columnNames(), queryResultsListener.pages()));
+
+        if (dispatchQuery.getState() != FINISHED) {
+            QueryInfo queryInfo = dispatchQuery.getFullQueryInfo();
+            if (queryInfo.getFailureInfo() == null) {
+                throw new QueryFailedException(dispatchQuery.getQueryId(), "Query failed without failure info");
+            }
+            RuntimeException remoteException = queryInfo.getFailureInfo().toException();
+            throw new QueryFailedException(dispatchQuery.getQueryId(), Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString), remoteException);
+        }
+
+        return new Result(dispatchQuery.getQueryId(), () -> toMaterializedRows(dispatchQuery, queryResultsListener.columnTypes(), queryResultsListener.columnNames(), queryResultsListener.pages()));
     }
 
     private static MaterializedResult toMaterializedRows(DispatchQuery dispatchQuery, List<Type> columnTypes, List<String> columnNames, List<Page> pages)
     {
         QueryInfo queryInfo = dispatchQuery.getFullQueryInfo();
         ConnectorSession session = dispatchQuery.getSession().toConnectorSession();
-
-        if (queryInfo.getState() != FINISHED) {
-            if (queryInfo.getFailureInfo() == null) {
-                throw new QueryFailedException(queryInfo.getQueryId(), "Query failed without failure info");
-            }
-            RuntimeException remoteException = queryInfo.getFailureInfo().toException();
-            throw new QueryFailedException(queryInfo.getQueryId(), Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString), remoteException);
-        }
 
         if (pages.isEmpty() && columnTypes == null) {
             // the query did not produce any output
@@ -137,9 +140,9 @@ public class TestingDirectTrinoClient
         return rows.build();
     }
 
-    record Result(QueryId queryId, MaterializedResult result)
+    public record Result(QueryId queryId, Supplier<MaterializedResult> result)
     {
-        Result
+        public Result
         {
             requireNonNull(queryId, "queryId is null");
             requireNonNull(result, "result is null");
