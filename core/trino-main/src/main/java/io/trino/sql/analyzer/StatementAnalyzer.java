@@ -579,8 +579,21 @@ class StatementAnalyzer
             // analyze the query that creates the data
             Scope queryScope = analyze(insert.getQuery(), Optional.empty(), false);
 
+            String catalogName = targetTable.catalogName();
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, insert, catalogName);
+
+            Map<String, Object> properties = tablePropertyManager.getProperties(
+                    catalogName,
+                    catalogHandle,
+                    insert.getTable().getProperties(),
+                    session,
+                    plannerContext,
+                    accessControl,
+                    analysis.getParameters(),
+                    true);
+
             // verify the insert destination columns match the query
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable);
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable, Optional.empty(), Optional.empty(), properties);
             Optional<TableHandle> targetTableHandle = redirection.tableHandle();
             targetTable = redirection.redirectedTableName().orElse(targetTable);
             if (targetTableHandle.isEmpty()) {
@@ -821,7 +834,19 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
+            String catalogName = originalName.catalogName();
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, node, catalogName);
+            Map<String, Object> properties = tablePropertyManager.getProperties(
+                    catalogName,
+                    catalogHandle,
+                    node.getTable().getProperties(),
+                    session,
+                    plannerContext,
+                    accessControl,
+                    analysis.getParameters(),
+                    true);
+
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName, Optional.empty(), Optional.empty(), properties);
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
             TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
@@ -3375,7 +3400,19 @@ class StatementAnalyzer
 
             analysis.setUpdateType("UPDATE");
 
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
+            String catalogName = originalName.catalogName();
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, update, catalogName);
+            Map<String, Object> properties = tablePropertyManager.getProperties(
+                    catalogName,
+                    catalogHandle,
+                    update.getTable().getProperties(),
+                    session,
+                    plannerContext,
+                    accessControl,
+                    analysis.getParameters(),
+                    true);
+
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName, Optional.empty(), Optional.empty(), properties);
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
             TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
@@ -3505,7 +3542,19 @@ class StatementAnalyzer
 
             analysis.setUpdateType("MERGE");
 
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName);
+            String catalogName = originalTableName.catalogName();
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, merge, catalogName);
+            Map<String, Object> properties = tablePropertyManager.getProperties(
+                    catalogName,
+                    catalogHandle,
+                    merge.getTargetTable().getProperties(),
+                    session,
+                    plannerContext,
+                    accessControl,
+                    analysis.getParameters(),
+                    true);
+
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName, Optional.empty(), Optional.empty(), properties);
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalTableName);
             TableHandle targetTableHandle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
@@ -5860,12 +5909,25 @@ class StatementAnalyzer
          */
         private RedirectionAwareTableHandle getTableHandle(Table table, QualifiedObjectName name, Optional<Scope> scope)
         {
+            String catalogName = name.catalogName();
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, table, catalogName);
+
+            Map<String, Object> properties = tablePropertyManager.getProperties(
+                    catalogName,
+                    catalogHandle,
+                    table.getProperties(),
+                    session,
+                    plannerContext,
+                    accessControl,
+                    analysis.getParameters(),
+                    true);
+
             if (table.getQueryPeriod().isPresent()) {
                 Optional<TableVersion> startVersion = extractTableVersion(table, table.getQueryPeriod().get().getStart(), scope);
                 Optional<TableVersion> endVersion = extractTableVersion(table, table.getQueryPeriod().get().getEnd(), scope);
-                return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion);
+                return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion, properties);
             }
-            return metadata.getRedirectionAwareTableHandle(session, name);
+            return metadata.getRedirectionAwareTableHandle(session, name, Optional.empty(), Optional.empty(), properties);
         }
 
         /**

@@ -61,6 +61,7 @@ public class IcebergTableProperties
     public static final String PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY = "parquet_bloom_filter_columns";
     public static final String OBJECT_STORE_LAYOUT_ENABLED_PROPERTY = "object_store_layout_enabled";
     public static final String DATA_LOCATION_PROPERTY = "data_location";
+    public static final String TARGET_BRANCH_PROPERTY = "target_branch";
     public static final String EXTRA_PROPERTIES_PROPERTY = "extra_properties";
 
     public static final Set<String> SUPPORTED_PROPERTIES = ImmutableSet.<String>builder()
@@ -73,6 +74,7 @@ public class IcebergTableProperties
             .add(ORC_BLOOM_FILTER_FPP_PROPERTY)
             .add(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
             .add(DATA_LOCATION_PROPERTY)
+            .add(TARGET_BRANCH_PROPERTY)
             .add(EXTRA_PROPERTIES_PROPERTY)
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
             .build();
@@ -190,6 +192,11 @@ public class IcebergTableProperties
                         "File system location URI for the table's data files",
                         null,
                         false))
+                .add(stringProperty(
+                        TARGET_BRANCH_PROPERTY,
+                        "Target branch name",
+                        null,
+                        true))
                 .build();
 
         checkState(SUPPORTED_PROPERTIES.containsAll(tableProperties.stream()
@@ -272,6 +279,11 @@ public class IcebergTableProperties
     public static Optional<String> getDataLocation(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((String) tableProperties.get(DATA_LOCATION_PROPERTY));
+    }
+
+    public static Optional<String> getTargetBranch(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((String) tableProperties.get(TARGET_BRANCH_PROPERTY));
     }
 
     public static Optional<Map<String, String>> getExtraProperties(Map<String, Object> tableProperties)
