@@ -22,6 +22,7 @@ import io.trino.spi.type.TimeZoneKey;
 import org.apache.iceberg.Table;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -41,12 +42,13 @@ public class RefsTable
             .add(new ColumnMetadata("max_snapshot_age_in_ms", BIGINT))
             .build();
 
-    public RefsTable(SchemaTableName tableName, Table icebergTable)
+    public RefsTable(SchemaTableName tableName, Table icebergTable, ExecutorService executor)
     {
         super(
                 requireNonNull(icebergTable, "icebergTable is null"),
                 new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"), COLUMNS),
-                REFS);
+                REFS,
+                executor);
     }
 
     @Override
