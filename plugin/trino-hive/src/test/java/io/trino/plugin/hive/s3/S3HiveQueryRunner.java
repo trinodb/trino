@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.plugin.hive.containers.Hive4MinioDataLake;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
@@ -60,6 +61,17 @@ public final class S3HiveQueryRunner
     {
         return builder()
                 .setHiveMetastoreEndpoint(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                .setS3Endpoint("http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
+                .setS3Region(MINIO_REGION)
+                .setS3AccessKey(MINIO_ACCESS_KEY)
+                .setS3SecretKey(MINIO_SECRET_KEY)
+                .setBucketName(hiveMinioDataLake.getBucketName());
+    }
+
+    public static Builder builder(Hive4MinioDataLake hiveMinioDataLake)
+    {
+        return builder()
+                .setHiveMetastoreEndpoint(hiveMinioDataLake.getHiveMetastore().getHiveMetastoreEndpoint())
                 .setS3Endpoint("http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
                 .setS3Region(MINIO_REGION)
                 .setS3AccessKey(MINIO_ACCESS_KEY)
@@ -185,5 +197,25 @@ public final class S3HiveQueryRunner
         Logger log = Logger.get(S3HiveQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+    }
+
+    public static class S3Hive4QueryRunner
+    {
+        public static void main(String[] args)
+                throws Exception
+        {
+            Hive4MinioDataLake hiveMinioDataLake = new Hive4MinioDataLake("tpch");
+            hiveMinioDataLake.start();
+
+            QueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
+                    .setSkipTimezoneSetup(true)
+                    .setInitialTables(TpchTable.getTables())
+                    .build();
+            Logger log = Logger.get(S3HiveQueryRunner.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
     }
 }

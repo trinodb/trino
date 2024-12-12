@@ -15,32 +15,36 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive4MinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
+import static org.junit.jupiter.api.Assumptions.abort;
 
-public class TestHive3OnDataLake
+@Execution(ExecutionMode.SAME_THREAD) // TODO Make custom hive4 image to support running queries concurrently
+class TestHive4OnDataLake
         extends BaseTestHiveOnDataLake
 {
-    private HiveMinioDataLake hiveMinioDataLake;
+    private Hive4MinioDataLake hiveMinioDataLake;
     private HiveMetastore metastoreClient;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.hiveMinioDataLake = closeAfterClass(
-                new HiveMinioDataLake(bucketName(), HiveHadoop.HIVE3_IMAGE));
+        this.hiveMinioDataLake = closeAfterClass(new Hive4MinioDataLake(bucketName()));
+
         this.hiveMinioDataLake.start();
         this.metastoreClient = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
-                        .metastoreClient(this.hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                        .metastoreClient(this.hiveMinioDataLake.getHiveMetastore().getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
         return S3HiveQueryRunner.builder(hiveMinioDataLake)
                 .addExtraProperty("sql.path", "hive.functions")
@@ -82,6 +86,34 @@ public class TestHive3OnDataLake
     @Override
     String runOnHive(String query)
     {
-        return hiveMinioDataLake.getHiveHadoop().runOnHive(query);
+        return hiveMinioDataLake.getHiveServer().runOnHive(query);
+    }
+
+    @Override
+    @Test
+    public void testSyncPartitionOnBucketRoot()
+    {
+        abort("Fails with `location must not be root path`");
+    }
+
+    @Override
+    @Test
+    public void testUnpartitionedTableExternalLocationOnTopOfTheBucket()
+    {
+        abort("Fails with `location must not be root path`");
+    }
+
+    @Override
+    @Test
+    public void testPartitionedTableExternalLocationOnTopOfTheBucket()
+    {
+        abort("Fails with `location must not be root path`");
+    }
+
+    @Override
+    @Test
+    public void testInsertOverwritePartitionedAndBucketedAcidTable()
+    {
+        abort("Fails with `Processor has no capabilities, cannot create an ACID table`");
     }
 }
