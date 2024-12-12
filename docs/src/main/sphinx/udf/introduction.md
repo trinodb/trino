@@ -1,15 +1,24 @@
-# Introduction to user-defined functions
+# Introduction to UDFs
 
 A user-defined function (UDF) is a custom function authored by a user of Trino
 in a client application. UDFs are scalar functions that return a single output
 value, similar to [built-in functions](/functions).
 
-[Declare the UDF](udf-declaration) with a `FUNCTION` definition using the
-supported statements. A UDF can be declared and used as an [inline
-UDF](udf-inline) or declared as a [catalog UDF](udf-catalog) and used
-repeatedly.
-
 UDFs are defined and written using the [SQL routine language](/udf/sql). 
+
+:::{note}
+User-defined functions can alternatively be written in Java and deployed as a
+plugin. Details are available in the [developer guide](/develop/functions).
+:::
+
+(udf-declaration)=
+## UDF declaration
+
+Declare the UDF with a [](/udf/function) keyword using the supported statements
+for [](/udf/sql).
+
+A UDF can be declared and used as an [inline UDF](udf-inline) or declared as a
+[catalog UDF](udf-catalog) and used repeatedly.
 
 (udf-inline)=
 ## Inline user-defined functions
@@ -20,10 +29,11 @@ query:
 
 ```sql
 WITH
-  FUNCTION abc(x integer)
+  FUNCTION doubleup(x integer)
     RETURNS integer
     RETURN x * 2
-SELECT abc(21);
+SELECT doubleup(21);
+-- 42
 ```
 
 Inline UDF names must follow SQL identifier naming conventions, and cannot
@@ -39,13 +49,14 @@ invocation.
 
 ```sql
 WITH
-  FUNCTION abc(x integer)
+  FUNCTION doubleup(x integer)
     RETURNS integer
     RETURN x * 2,
-  FUNCTION xyz(x integer)
+  FUNCTION doubleupplusone(x integer)
     RETURNS integer
-    RETURN abc(x) + 1
-SELECT xyz(21);
+    RETURN doubleup(x) + 1
+SELECT doubleupplusone(21);
+-- 43
 ```
 
 Note that inline UDFs can mask and override the meaning of a built-in function:
@@ -94,75 +105,11 @@ Use the [](/connector/memory) in a catalog for simple storing and
 testing of your UDFs.
 :::
 
-(udf-declaration)=
-## UDF declaration
-
-Refer to the documentation for the [](/udf/function) keyword for more
-details about declaring the UDF overall. The UDF body is composed with
-statements from the following list:
-
-* [](/udf/sql/begin)
-* [](/udf/sql/case)
-* [](/udf/sql/declare)
-* [](/udf/sql/if)
-* [](/udf/sql/iterate)
-* [](/udf/sql/leave)
-* [](/udf/sql/loop)
-* [](/udf/sql/repeat)
-* [](/udf/sql/return)
-* [](/udf/sql/set)
-* [](/udf/sql/while)
-
-Statements can also use [built-in functions and operators](/functions) as well
-as other UDFs, although recursion is not supported for UDFs.
-
-Find simple examples in each statement documentation, and refer to the
-[](/udf/sql/examples) for more complex use cases that combine multiple
-statements.
-
-:::{note}
-User-defined functions can alternatively be written in Java and deployed as a
-plugin. Details are available in the [developer guide](/develop/functions).
-:::
-
-(udf-sql-label)=
-## Labels
-
-SQL UDFs can contain labels as markers for a specific block in the declaration
-before the following keywords:
-
-* `CASE`
-* `IF`
-* `LOOP`
-* `REPEAT`
-* `WHILE`
-
-The label is used to name the block to continue processing with the `ITERATE`
-statement or exit the block with the `LEAVE` statement. This flow control is
-supported for nested blocks, allowing to continue or exit an outer block, not
-just the innermost block. For example, the following snippet uses the label
-`top` to name the complete block from `REPEAT` to `END REPEAT`:
-
-```sql
-top: REPEAT
-  SET a = a + 1;
-  IF a <= 3 THEN
-    ITERATE top;
-  END IF;
-  SET b = b + 1;
-  UNTIL a >= 10
-END REPEAT;
-```
-
-Labels can be used with the `ITERATE` and `LEAVE` statements to continue
-processing the block or leave the block. This flow control is also supported for
-nested blocks and labels.
-
 ## Recommendations
 
 Processing UDFs can potentially be resource intensive on the cluster in
 terms of memory and processing. Take the following considerations into account
-when writing and running SQL UDFs:
+when writing and running UDFs:
 
 * Some checks for the runtime behavior of UDF are in place. For example,
   UDFs that take longer to process than a hardcoded threshold are
@@ -181,14 +128,14 @@ when writing and running SQL UDFs:
 
 ## Limitations
 
-The following limitations apply to SQL UDFs.
+The following limitations apply to UDFs.
 
-* SQL UDFs must be declared before they are referenced.
+* UDFs must be declared before they are referenced.
 * Recursion cannot be declared or processed.
 * Mutual recursion can not be declared or processed.
-* Queries cannot be processed in a SQL UDF.
+* Queries cannot be processed in a UDF.
 
-Specifically this means that SQL UDFs can not use `SELECT` queries to retrieve
+Specifically this means that UDFs can not use `SELECT` queries to retrieve
 data or any other queries to process data within the UDF. Instead queries can
 use UDFs to process data. UDFs only work on data provided as input values and
 only provide output data from the `RETURN` statement.
