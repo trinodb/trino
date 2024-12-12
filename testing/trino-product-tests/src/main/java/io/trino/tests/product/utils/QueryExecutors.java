@@ -88,6 +88,11 @@ public final class QueryExecutors
         return testContext().getDependency(QueryExecutor.class, "mysql");
     }
 
+    public static QueryExecutor onDatabend()
+    {
+        return testContext().getDependency(QueryExecutor.class, "databend");
+    }
+
     public static QueryExecutor onSpark()
     {
         return new QueryExecutor() {
