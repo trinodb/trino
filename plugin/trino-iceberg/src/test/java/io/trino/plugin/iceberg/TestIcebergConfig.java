@@ -57,7 +57,7 @@ public class TestIcebergConfig
                 .setCollectExtendedStatisticsOnWrite(true)
                 .setProjectionPushdownEnabled(true)
                 .setHiveCatalogName(null)
-                .setFormatVersion(2)
+                .setFormatVersion(3)
                 .setExpireSnapshotsMinRetention(new Duration(7, DAYS))
                 .setRemoveOrphanFilesMinRetention(new Duration(7, DAYS))
                 .setDeleteSchemaLocationsFallback(false)
