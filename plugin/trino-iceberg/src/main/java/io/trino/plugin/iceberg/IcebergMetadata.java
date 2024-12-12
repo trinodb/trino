@@ -382,8 +382,8 @@ public class IcebergMetadata
 {
     private static final Logger log = Logger.get(IcebergMetadata.class);
     private static final Pattern PATH_PATTERN = Pattern.compile("(.*)/[^/]+");
-    private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 2;
-    private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 2;
+    private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 3;
+    private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 3;
     private static final String RETENTION_THRESHOLD = "retention_threshold";
     private static final String UNKNOWN_SNAPSHOT_TOKEN = "UNKNOWN";
     public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.<String>builder()
@@ -2283,6 +2283,10 @@ public class IcebergMetadata
             // UpdateProperties#commit will trigger any necessary metadata updates required for the new spec version
             int formatVersion = (int) properties.get(FORMAT_VERSION_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The format_version property cannot be empty"));
+            if (formatVersion == 3) {
+                // // TODO https://github.com/trinodb/trino/issues/24457 Allow upgrading to v3 once the connector supports deletion vectors
+                throw new TrinoException(NOT_SUPPORTED, "Cannot upgrade a table to v3");
+            }
             updateProperties.set(FORMAT_VERSION, Integer.toString(formatVersion));
         }
 
@@ -2844,7 +2848,12 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         verifyTableVersionForUpdate(table);
 
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        BaseTable icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        int formatVersion = icebergTable.operations().current().formatVersion();
+        if (formatVersion >= 3) {
+            // TODO https://github.com/trinodb/trino/issues/24457 Add support for deletion vector
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support modifying rows on tables with format version 3 or higher");
+        }
         validateNotModifyingOldSnapshot(table, icebergTable);
 
         beginTransaction(icebergTable);

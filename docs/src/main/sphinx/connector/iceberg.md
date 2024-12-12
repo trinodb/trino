@@ -7,7 +7,7 @@
 Apache Iceberg is an open table format for huge analytic datasets. The Iceberg
 connector allows querying data stored in files written in Iceberg format, as
 defined in the [Iceberg Table Spec](https://iceberg.apache.org/spec/). The
-connector supports Apache Iceberg table spec versions 1 and 2.
+connector supports Apache Iceberg table spec versions 1, 2 and 3.
 
 The table state is maintained in metadata files. All changes to table
 state create a new metadata file and replace the old metadata with an atomic
@@ -865,8 +865,8 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Optionally specifies the file system location URI for the table.
 * - `format_version`
   - Optionally specifies the format version of the Iceberg specification to use
-    for new tables; either `1` or `2`. Defaults to `2`. Version `2` is required
-    for row level deletes.
+    for new tables; either `1`, `2` or `3`. Defaults to `2`. Only version `2`
+    supports row level deletes.
 * - `orc_bloom_filter_columns`
   - Comma-separated list of columns to use for ORC bloom filter. It improves the
     performance of queries using Equality and IN predicates when reading ORC
