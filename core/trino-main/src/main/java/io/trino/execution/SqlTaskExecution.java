@@ -31,6 +31,7 @@ import io.trino.event.SplitMonitor;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffer;
+import io.trino.execution.executor.ExecutionPriorityManager;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
 import io.trino.metadata.Split;
@@ -92,6 +93,7 @@ public class SqlTaskExecution
 
     private final TaskHandle taskHandle;
     private final TaskExecutor taskExecutor;
+    private final ExecutionPriorityManager executionPriorityManager;
 
     private final Executor notificationExecutor;
 
@@ -122,6 +124,7 @@ public class SqlTaskExecution
             TaskContext taskContext,
             Span taskSpan,
             OutputBuffer outputBuffer,
+            ExecutionPriorityManager executionPriorityManager,
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
@@ -133,6 +136,7 @@ public class SqlTaskExecution
         this.taskSpan = requireNonNull(taskSpan, "taskSpan is null");
         this.taskContext = requireNonNull(taskContext, "taskContext is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+        this.executionPriorityManager = executionPriorityManager;
 
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -212,7 +216,7 @@ public class SqlTaskExecution
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
-    private static TaskHandle createTaskHandle(
+    private TaskHandle createTaskHandle(
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
             OutputBuffer outputBuffer,
@@ -222,6 +226,7 @@ public class SqlTaskExecution
     {
         TaskHandle taskHandle = taskExecutor.addTask(
                 taskStateMachine.getTaskId(),
+                executionPriorityManager.getPriority(taskContext.getSession()),
                 outputBuffer::getUtilization,
                 getInitialSplitsPerNode(taskContext.getSession()),
                 getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
