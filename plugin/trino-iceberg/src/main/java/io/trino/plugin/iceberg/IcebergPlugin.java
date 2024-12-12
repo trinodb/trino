@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
+import io.trino.plugin.iceberg.functions.IcebergBucketFunction;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
@@ -33,6 +34,6 @@ public class IcebergPlugin
     @Override
     public Set<Class<?>> getFunctions()
     {
-        return ImmutableSet.of(IcebergThetaSketchForStats.class);
+        return ImmutableSet.of(IcebergThetaSketchForStats.class, IcebergBucketFunction.class);
     }
 }
