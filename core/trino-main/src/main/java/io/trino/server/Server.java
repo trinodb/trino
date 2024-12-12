@@ -128,7 +128,7 @@ public class Server
                 new CatalogManagerModule(),
                 new TransactionManagerModule(),
                 new ServerMainModule(trinoVersion),
-                new GracefulShutdownModule(),
+                new NodeStateManagerModule(),
                 new WarningCollectorModule());
 
         modules.addAll(getAdditionalModules());

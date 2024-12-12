@@ -75,7 +75,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
-import io.trino.server.GracefulShutdownHandler;
+import io.trino.server.NodeStateManager;
 import io.trino.server.PluginInstaller;
 import io.trino.server.PrefixObjectNameGeneratorModule;
 import io.trino.server.QuerySessionSupplier;
@@ -209,7 +209,7 @@ public class TestingTrinoServer
     private final DispatchManager dispatchManager;
     private final SqlQueryManager queryManager;
     private final SqlTaskManager taskManager;
-    private final GracefulShutdownHandler gracefulShutdownHandler;
+    private final NodeStateManager nodeStateManager;
     private final ShutdownAction shutdownAction;
     private final MBeanServer mBeanServer;
     private final boolean coordinator;
@@ -327,7 +327,7 @@ public class TestingTrinoServer
                     binder.bind(AccessControl.class).annotatedWith(ForTracing.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControl.class).to(TracingAccessControl.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
-                    binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
+                    binder.bind(NodeStateManager.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
                     spanProcessor.ifPresent(processor -> newSetBinder(binder, SpanProcessor.class).addBinding().toInstance(processor));
@@ -426,7 +426,7 @@ public class TestingTrinoServer
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
-        gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
+        nodeStateManager = injector.getInstance(NodeStateManager.class);
         taskManager = injector.getInstance(SqlTaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         mBeanServer = injector.getInstance(MBeanServer.class);
@@ -666,9 +666,9 @@ public class TestingTrinoServer
         return mBeanServer;
     }
 
-    public GracefulShutdownHandler getGracefulShutdownHandler()
+    public NodeStateManager getNodeStateManager()
     {
-        return gracefulShutdownHandler;
+        return nodeStateManager;
     }
 
     public SqlTaskManager getTaskManager()
