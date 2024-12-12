@@ -20,6 +20,7 @@ import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
@@ -56,7 +57,7 @@ public final class S3HiveQueryRunner
                 .build();
     }
 
-    public static Builder builder(Hive3MinioDataLake hiveMinioDataLake)
+    public static Builder builder(HiveMinioDataLake hiveMinioDataLake)
     {
         return builder()
                 .setHiveMetastoreEndpoint(hiveMinioDataLake.getHiveMetastoreEndpoint())
