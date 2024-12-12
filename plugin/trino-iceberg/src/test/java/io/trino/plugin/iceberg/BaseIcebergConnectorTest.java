@@ -6472,6 +6472,19 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    void testUnsupportedOperationsWithFormatVersion3()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_v3", "WITH (format_version = 3) AS SELECT 1 x")) {
+            assertQueryFails("UPDATE " + table.getName() + " SET x = 0",
+                    "This connector does not support modifying rows on tables with format version 3 or higher");
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE x = 0",
+                    "This connector does not support modifying rows on tables with format version 3 or higher");
+            assertQueryFails("MERGE INTO " + table.getName() + " t USING " + table.getName() + " s ON (t.x = s.x) WHEN MATCHED THEN UPDATE SET x = s.x",
+                    "This connector does not support modifying rows on tables with format version 3 or higher");
+        }
+    }
+
+    @Test
     public void testUpdatingFileFormat()
     {
         String tableName = "test_updating_file_format_" + randomNameSuffix();
