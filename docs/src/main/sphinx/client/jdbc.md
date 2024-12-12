@@ -142,7 +142,7 @@ may not be specified using both methods.
   - Client tags for selecting resource groups. Example: `abc,xyz`
 * - `path`
   - Set the default [SQL path](/sql/set-path) for the session. Useful for
-    setting a catalog and schema location for [catalog routines](routine-catalog).
+    setting a catalog and schema location for [](udf-catalog).
 * - `traceToken`
   - Trace token for correlating requests across systems.
 * - `source`

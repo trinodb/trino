@@ -23,5 +23,5 @@ SHOW CREATE FUNCTION example.default.meaning_of_life;
 * [](/sql/create-function)
 * [](/sql/drop-function)
 * [](/sql/show-functions)
-* [](/routines/introduction)
+* [](/udf)
 * [](/admin/properties-sql-environment)

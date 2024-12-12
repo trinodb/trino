@@ -1,24 +1,21 @@
-# Example SQL routines
+# Example SQL UDFs
 
-
-After learning about [SQL routines from the
-introduction](/routines/introduction), the following sections show numerous
-examples of valid SQL routines. The routines are suitable as [inline
-routines](routine-inline) or [catalog routines](routine-catalog), after
-adjusting the name and the example invocations.
+After learning about [](/udf/sql), the following sections show numerous examples
+of valid SQL UDFs. The UDFs are suitable as [](udf-inline) or [](udf-catalog),
+after adjusting the name and the example invocations.
 
 The examples combine numerous supported statements. Refer to the specific
 statement documentation for further details:
 
-* [](/routines/function) for general SQL routine declaration
-* [](/routines/begin) and [](/routines/declare) for routine blocks
-* [](/routines/set) for assigning values to variables
-* [](/routines/return) for returning routine results
-* [](/routines/case) and [](/routines/if) for conditional flows
-* [](/routines/loop), [](/routines/repeat), and [](/routines/while) for looping constructs
-* [](/routines/iterate) and [](/routines/leave) for flow control
+* [](/udf/function) for general UDF declaration
+* [](/udf/sql/begin) and [](/udf/sql/declare) for SQL UDF blocks
+* [](/udf/sql/set) for assigning values to variables
+* [](/udf/sql/return) for returning results
+* [](/udf/sql/case) and [](/udf/sql/if) for conditional flows
+* [](/udf/sql/loop), [](/udf/sql/repeat), and [](/udf/sql/while) for looping constructs
+* [](/udf/sql/iterate) and [](/udf/sql/leave) for flow control
 
-A very simple routine that returns a static value without requiring any input:
+A very simple SQL UDF that returns a static value without requiring any input:
 
 ```sql
 FUNCTION answer()
@@ -26,10 +23,10 @@ RETURNS BIGINT
 RETURN 42
 ```
 
-## Inline and catalog routines
+## Inline and catalog UDFs
 
-A full example of this routine as inline routine and usage in a string
-concatenation with a cast:
+A full example of this UDF as inline UDF and usage in a string concatenation
+with a cast:
 
 ```sql
 WITH
@@ -40,8 +37,8 @@ SELECT 'The answer is ' || CAST(answer() as varchar);
 -- The answer is 42
 ```
 
-Provided the catalog `example` supports routine storage in the `default` schema,
-you can use the following:
+Provided the catalog `example` supports UDF storage in the `default` schema, you
+can use the following:
 
 ```sql
 USE example.default;
@@ -50,8 +47,8 @@ CREATE FUNCTION example.default.answer()
   RETURN 42;
 ```
 
-With the routine stored in the catalog, you can run the routine multiple times
-without repeated definition:
+With the UDF stored in the catalog, you can run the UDF multiple times without
+repeated definition:
 
 ```sql
 SELECT example.default.answer() + 1; -- 43
@@ -59,14 +56,14 @@ SELECT 'The answer is' || CAST(example.default.answer() as varchar); -- The answ
 ```
 
 Alternatively, you can configure the SQL environment in the
-[](config-properties) to a catalog and schema that support SQL routine storage:
+[](config-properties) to a catalog and schema that support UDF storage:
 
 ```properties
 sql.default-function-catalog=example
 sql.default-function-schema=default
 ```
 
-Now you can manage SQL routines without the full path:
+Now you can manage UDFs without the full path:
 
 ```sql
 CREATE FUNCTION answer()
@@ -74,7 +71,7 @@ CREATE FUNCTION answer()
   RETURN 42;
 ```
 
-SQL routine invocation works without the full path:
+UDF invocation works without the full path:
 
 ```sql
 SELECT answer() + 5; -- 47
@@ -82,7 +79,7 @@ SELECT answer() + 5; -- 47
 
 ## Declaration examples
 
-The result of calling the routine `answer()` is always identical, so you can
+The result of calling the UDF `answer()` is always identical, so you can
 declare it as deterministic, and add some other information:
 
 ```sql
@@ -94,10 +91,10 @@ COMMENT 'Provide the answer to the question about life, the universe, and everyt
 RETURN 42
 ```
 
-The comment and other information about the routine is visible in the output of
+The comment and other information about the UDF is visible in the output of
 [](/sql/show-functions).
 
-A simple routine that returns a greeting back to the input string `fullname`
+A simple UDF that returns a greeting back to the input string `fullname`
 concatenating two strings and the input value:
 
 ```sql
@@ -112,7 +109,7 @@ Following is an example invocation:
 SELECT hello('Jane Doe'); -- Hello, Jane Doe!
 ```
 
-A first example routine, that uses multiple statements in a `BEGIN` block. It
+A first example UDF, that uses multiple statements in a `BEGIN` block. It
 calculates the result of a multiplication of the input integer with `99`. The
 `bigint` data type is used for all variables and values. The value of integer
 `99` is cast to `bigint` in the default value assignment for the variable `x`:
@@ -134,7 +131,7 @@ SELECT times_ninety_nine(CAST(2 as bigint)); -- 198
 
 ## Conditional flows
 
-A first example of conditional flow control in a routine using the `CASE`
+A first example of conditional flow control in a SQL UDF using the `CASE`
 statement. The simple `bigint` input value is compared to a number of values:
 
 ```sql
@@ -165,7 +162,7 @@ SELECT simple_case(100); -- other (from else clause)
 SELECT simple_case(null); -- null .. but really??
 ```
 
-A second example of a routine with a `CASE` statement, this time with two
+A second example of a SQL UDF with a `CASE` statement, this time with two
 parameters, showcasing the importance of the order of the conditions:
 
 ```sql
@@ -200,15 +197,15 @@ SELECT simple_case(null,null); -- null .. but really??
 
 ## Fibonacci example
 
-This routine calculates the `n`-th value in the Fibonacci series, in which each
-number is the sum of the two preceding ones. The two initial values are set
-to `1` as the defaults for `a` and `b`. The routine uses an `IF` statement
-condition to return `1` for all input values of `2` or less. The `WHILE` block
-then starts to calculate each number in the series, starting with `a=1` and
-`b=1` and iterates until it reaches the `n`-th position. In each iteration is
-sets `a` and `b` for the preceding to values, so it can calculate the sum, and
-finally return it. Note that processing the routine takes longer and longer with
-higher `n` values, and the result is deterministic:
+This SQL UDF calculates the `n`-th value in the Fibonacci series, in which each
+number is the sum of the two preceding ones. The two initial values are set to
+`1` as the defaults for `a` and `b`. The UDF uses an `IF` statement condition to
+return `1` for all input values of `2` or less. The `WHILE` block then starts to
+calculate each number in the series, starting with `a=1` and `b=1` and iterates
+until it reaches the `n`-th position. In each iteration it sets `a` and `b` for
+the preceding to values, so it can calculate the sum, and finally return it.
+Note that processing the UDF takes longer and longer with higher `n` values, and
+the result is deterministic:
 
 ```sql
 FUNCTION fib(n bigint)
@@ -246,13 +243,13 @@ SELECT fib(8); -- 21
 
 ## Labels and loops
 
-This routine uses the `top` label to name the `WHILE` block, and then controls
+This SQL UDF uses the `top` label to name the `WHILE` block, and then controls
 the flow with conditional statements, `ITERATE`, and `LEAVE`. For the values of
 `a=1` and `a=2` in the first two iterations of the loop the `ITERATE` call moves
 the flow up to `top` before `b` is ever increased. Then `b` is increased for the
 values `a=3`, `a=4`, `a=5`, `a=6`, and `a=7`, resulting in `b=5`. The `LEAVE`
 call then causes the exit of the block before a is increased further to `10` and
-therefore the result of the routine is `5`:
+therefore the result of the UDF is `5`:
 
 ```sql
 FUNCTION labels()
@@ -273,9 +270,9 @@ BEGIN
 END
 ```
 
-This routine implements calculating the `n` to the power of `p` by repeated
+This SQL UDF implements calculating the `n` to the power of `p` by repeated
 multiplication and keeping track of the number of multiplications performed.
-Note that this routine does not return the correct `0` for `p=0` since the `top`
+Note that this SQL UDF does not return the correct `0` for `p=0` since the `top`
 block is merely escaped and the value of `n` is returned. The same incorrect
 behavior happens for negative values of `p`:
 
@@ -305,7 +302,7 @@ SELECT power(3, 0); -- 3, which is wrong
 SELECT power(3, -2); -- 3, which is wrong
 ```
 
-This routine returns `7` as a result of the increase of `b` in the loop from
+This SQL UDF returns `7` as a result of the increase of `b` in the loop from
 `a=3` to `a=10`:
 
 ```sql
@@ -326,7 +323,7 @@ BEGIN
 END
 ```
 
-This routine returns `2` and shows that labels can be repeated and label usage
+This SQL UDF returns `2` and shows that labels can be repeated and label usage
 within a block refers to the label of that block:
 
 ```sql
@@ -346,10 +343,10 @@ BEGIN
 END
 ```
 
-## Routines and built-in functions
+## SQL UDFs and built-in functions
 
-This routine show that multiple data types and built-in functions like
-`length()` and `cardinality()` can be used in a routine. The two nested `BEGIN`
+This SQL UDF shows that multiple data types and built-in functions like
+`length()` and `cardinality()` can be used in a UDF. The two nested `BEGIN`
 blocks also show how variable names are local within these blocks `x`, but the
 global `r` from the top-level block can be accessed in the nested blocks:
 
@@ -372,13 +369,13 @@ END
 
 ## Optional parameter example
 
-Routines can invoke other routines and other functions. The full signature of a
-routine is composed of the routine name and parameters, and determines the exact
-routine to use. You can declare multiple routines with the same name, but with a
-different number of arguments or different argument types. One example use case
-is to implement an optional parameter.
+UDFs can invoke other UDFs and other functions. The full signature of a UDF is
+composed of the UDF name and parameters, and determines the exact UDF to use.
+You can declare multiple UDFs with the same name, but with a different number of
+arguments or different argument types. One example use case is to implement an
+optional parameter.
 
-The following routine truncates a string to the specified length including three
+The following SQL UDF truncates a string to the specified length including three
 dots at the end of the output:
 
 ```sql
@@ -401,8 +398,8 @@ SELECT	dots('A short string',15);
 -- A short string
 ```
 
-If you want to provide a routine with the same name, but without the parameter
-for length, you can create another routine that invokes the preceding routine:
+If you want to provide a UDF with the same name, but without the parameter
+for length, you can create another UDF that invokes the preceding UDF:
 
 ```sql
 FUNCTION dots(input varchar)
@@ -410,7 +407,7 @@ RETURNS varchar
 RETURN dots(input, 15);
 ```
 
-You can now use both routines. When the length parameter is omitted, the default
+You can now use both UDFs. When the length parameter is omitted, the default
 value from the second declaration is used.
 
 ```sql
@@ -424,18 +421,18 @@ SELECT dots('A long string that will be shortened',20);
 
 ## Date string parsing example
 
-This example routine parses a date string of type `VARCHAR` into `TIMESTAMP WITH
+This example SQL UDF parses a date string of type `VARCHAR` into `TIMESTAMP WITH
 TIME ZONE`. Date strings are commonly represented by ISO 8601 standard, such as
 `2023-12-01`, `2023-12-01T23`. Date strings are also often represented in the
 `YYYYmmdd` and `YYYYmmddHH` format, such as `20230101` and `2023010123`. Hive
 tables can use this format to represent day and hourly partitions, for example
 `/day=20230101`, `/hour=2023010123`.
 
-This routine parses date strings in a best-effort fashion and can be used as a
+This UDF parses date strings in a best-effort fashion and can be used as a
 replacement for date string manipulation functions such as `date`, `date_parse`,
 `from_iso8601_date`,  and `from_iso8601_timestamp`.
 
-Note that the routine defaults the time value to `00:00:00.000` and the time
+Note that the UDF defaults the time value to `00:00:00.000` and the time
 zone to the session time zone:
 
 ```sql
@@ -475,7 +472,7 @@ SELECT human_readable_seconds(134823);
 -- 1 day, 13 hours, 27 minutes, 3 seconds
 ```
 
-The example routine `hrd` formats a number of days into a human readable text
+The example SQL UDF `hrd` formats a number of days into a human readable text
 that provides the approximate number of years and months:
 
 ```sql
@@ -523,16 +520,16 @@ SELECT hrd(1100); -- About 3 years
 SELECT hrd(5000); -- About 13 years and 8 months
 ```
 
-Improvements of the routine could include the following modifications:
+Improvements of the SQL UDF could include the following modifications:
 
 * Take into account that one month equals 30.4375 days.
 * Take into account that one year equals 365.25 days.
 * Add weeks to the output.
-* Expand to cover decades, centuries, and millenia.
+* Expand to cover decades, centuries, and millennia.
 
 ## Truncating long strings
 
-This example routine `strtrunc` truncates strings longer than 60 characters,
+This example SQL UDF `strtrunc` truncates strings longer than 60 characters,
 leaving the first 30 and the last 25 characters, and cutting out extra
 characters in the middle:
 
@@ -550,10 +547,10 @@ The preceding declaration is very compact and consists of only one complex
 statement with a [`CASE` expression](case-expression) and multiple function
 calls. It can therefore define the complete logic in the `RETURN` clause.
 
-The following statement shows the same capability within the routine itself.
+The following statement shows the same capability within the SQL UDF itself.
 Note the duplicate `RETURN` inside and outside the `CASE` statement and the
-required `END CASE;`. The second `RETURN` statement is required, because a
-routine must end with a `RETURN` statement. As a result the `ELSE` clause can be
+required `END CASE;`. The second `RETURN` statement is required, because a SQL
+UDF must end with a `RETURN` statement. As a result the `ELSE` clause can be
 omitted:
 
 ```sql
@@ -601,8 +598,8 @@ FROM data
 ORDER BY data.value;
 ```
 
-The preceding query produces the following output with all variants of the
-routine:
+The preceding query produces the following output with all variants of the SQL
+UDF:
 
 ```
                                       value                                       |                           truncated
@@ -623,7 +620,7 @@ A possible improvement is to introduce parameters for the total length.
 ## Formatting bytes
 
 Trino includes a built-in `format_number()` function. However, it is using units
-that do not work well with bytes. The following `format_data_size` routine can
+that do not work well with bytes. The following `format_data_size` SQL UDF can
 format large values of bytes into a human readable string:
 
 ```sql
@@ -745,7 +742,7 @@ The preceding query produces the following output:
 
 Trino already has a built-in `bar()` [color function](/functions/color), but it
 is using ANSI escape codes to output colors, and thus is only usable for
-displaying results in a terminal. The following example shows a similar routine
+displaying results in a terminal. The following example shows a similar SQL UDF
 that only uses ASCII characters:
 
 ```sql
@@ -818,7 +815,7 @@ The preceding query produces the following output:
  3.1 | 0.0416 | ▋
 ```
 
-It is also possible to draw more compacted charts. Following is a routine
+It is also possible to draw more compacted charts. Following is a SQL UDF
 drawing vertical bars:
 
 ```sql
@@ -898,7 +895,7 @@ Trino already has a built-in [aggregate function](/functions/aggregate) called
 values. It returns a map with values as keys and number of occurrences as
 values. Maps are not ordered, so when displayed, the entries can change places
 on subsequent runs of the same query, and readers must still compare all
-frequencies to find the one most frequent value. The following is a routine that
+frequencies to find the one most frequent value. The following is a SQL UDF that
 returns ordered results as a string:
 
 ```sql
