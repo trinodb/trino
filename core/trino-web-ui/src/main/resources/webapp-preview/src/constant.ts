@@ -18,6 +18,7 @@ export enum StoreKey {
 export const Texts = {
     Error: {
         NotImplemented: 'This feature is not implemented',
+        Communication: 'Communication error to Trino.',
     },
     Menu: {
         Header: {
@@ -30,6 +31,7 @@ export const Texts = {
             Dashboard: 'Dashboard',
             Workers: 'Workers',
             QueryHistory: 'Query History',
+            DemoComponents: 'Demo Components',
         },
     },
 }
