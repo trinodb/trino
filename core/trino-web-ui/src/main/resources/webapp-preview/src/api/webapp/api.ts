@@ -11,22 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import {
-  Box,
-  Typography
-} from "@mui/material";
+import { api, ApiResponse } from '../base.ts'
 
-export const Workers = () => {
-  return (
-    <>
-      <Box sx={{ pb: 2 }}>
-        <Typography variant="h4">
-          Workers
-        </Typography>
-      </Box>
-      <Typography paragraph>
-        Placeholder for Workers
-      </Typography>
-    </>
-  );
+export interface Stats {
+    runningQueries: number;
+    blockedQueries: number;
+    queuedQueries: number;
+    activeCoordinators: number;
+    activeWorkers: number;
+    runningDrivers: number;
+    totalAvailableProcessors: number;
+    reservedMemory: number;
+    totalInputRows: number;
+    totalInputBytes: number;
+    totalCpuTimeSecs: number;
+}
+
+export async function statsApi(): Promise<ApiResponse<Stats>> {
+    return await api.get<Stats>('/ui/api/stats')
 }
