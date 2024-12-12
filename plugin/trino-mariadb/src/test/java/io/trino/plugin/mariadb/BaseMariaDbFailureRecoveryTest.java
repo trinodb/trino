@@ -57,14 +57,6 @@ public abstract class BaseMariaDbFailureRecoveryTest
 
     @Test
     @Override
-    protected void testUpdateWithSubquery()
-    {
-        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Unexpected Join over for-update table scan");
-        abort("skipped");
-    }
-
-    @Test
-    @Override
     protected void testUpdate()
     {
         // This simple update on JDBC ends up as a very simple, single-fragment, coordinator-only plan,

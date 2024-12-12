@@ -103,7 +103,11 @@ public class PushJoinIntoTableScan
         TableScanNode left = captures.get(LEFT_TABLE_SCAN);
         TableScanNode right = captures.get(RIGHT_TABLE_SCAN);
 
-        verify(!left.isUpdateTarget() && !right.isUpdateTarget(), "Unexpected Join over for-update table scan");
+        if (left.isUpdateTarget()) {
+            return Result.empty();
+        }
+
+        verify(!right.isUpdateTarget(), "Unexpected Join over for-update table scan");
 
         Expression effectiveFilter = getEffectiveFilter(joinNode);
         ConnectorExpressionTranslation translation = ConnectorExpressionTranslator.translateConjuncts(
