@@ -82,6 +82,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -1440,6 +1441,18 @@ public class AccessControlManager
         catch (IllegalArgumentException exception) {
             throw new TrinoException(INVALID_COLUMN_MASK, "Multiple masks for the same column found", exception);
         }
+    }
+
+    @Override
+    public void checkCanSetEntityAuthorization(SecurityContext context, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        requireNonNull(context, "context is null");
+        requireNonNull(ownedKind, "ownedKind is null");
+        requireNonNull(name, "name is null");
+        checkArgument(!name.isEmpty(), "name is empty");
+        requireNonNull(principal, "principal is null");
+
+        systemAuthorizationCheck(control -> control.checkCanSetEntityAuthorization(context.toSystemSecurityContext(), ownedKind, name, principal));
     }
 
     private ConnectorAccessControl getConnectorAccessControl(TransactionId transactionId, String catalogName)

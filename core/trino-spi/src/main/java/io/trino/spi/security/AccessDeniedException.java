@@ -19,12 +19,14 @@ import io.trino.spi.function.FunctionKind;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 public class AccessDeniedException
         extends TrinoException
@@ -744,6 +746,21 @@ public class AccessDeniedException
     public static void denyShowCreateFunction(String functionName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot show create function for %s%s", functionName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denySetEntityAuthorization(String ownedKind, List<String> name)
+    {
+        throw new AccessDeniedException(format("Cannot set authorization for %s %s", ownedKind, entityNameString(name)));
+    }
+
+    public static void denySetEntityAuthorization(String ownedKind, List<String> name, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set authorization for %s %s%s", ownedKind, entityNameString(name), extraInfo));
+    }
+
+    private static String entityNameString(List<String> name)
+    {
+        return name.stream().collect(joining("."));
     }
 
     private static Object formatExtraInfo(String extraInfo)
