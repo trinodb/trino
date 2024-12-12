@@ -909,8 +909,8 @@ class StatementAnalyzer
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
 
-            Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
-            if (targetTableHandle.isPresent() && node.getSaveMode() != REPLACE) {
+            RedirectionAwareTableHandle tableHandle = metadata.getRedirectionAwareTableHandle(session, targetTable);
+            if (tableHandle.tableHandle().isPresent() && node.getSaveMode() != REPLACE) {
                 if (node.getSaveMode() == IGNORE) {
                     analysis.setCreate(new Analysis.Create(
                             Optional.of(targetTable),
@@ -920,7 +920,7 @@ class StatementAnalyzer
                             true,
                             false));
                     analysis.setUpdateType("CREATE TABLE");
-                    analysis.setUpdateTarget(targetTableHandle.get().catalogHandle().getVersion(), targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
+                    analysis.setUpdateTarget(tableHandle.tableHandle().get().catalogHandle().getVersion(), targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
                     return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
                 }
                 throw semanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
