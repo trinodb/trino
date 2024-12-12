@@ -277,4 +277,10 @@ public class ProjectingPagesWindowIndex
                 .add("projected channels", projectedTypes.size())
                 .toString();
     }
+
+    @Override
+    public Type getType(int channel)
+    {
+        return pagesIndex.getType(channel);
+    }
 }
