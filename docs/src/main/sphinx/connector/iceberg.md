@@ -876,6 +876,7 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
     Parquet files. Requires Parquet format. Defaults to `[]`.
 * - `object_store_layout_enabled`
   - Whether Iceberg's [object store file layout](https://iceberg.apache.org/docs/latest/aws/#object-store-file-layout) is enabled. 
+    Defaults to `false`. 
 * - `data_location`
   - Optionally specifies the file system location URI for the table's data files
 * - `extra_properties`
