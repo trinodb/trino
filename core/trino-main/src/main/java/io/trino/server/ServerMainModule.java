@@ -19,6 +19,7 @@ import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.google.inject.multibindings.OptionalBinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -44,6 +45,7 @@ import io.trino.execution.LocationFactory;
 import io.trino.execution.MemoryRevokingScheduler;
 import io.trino.execution.NoOpFailureInjector;
 import io.trino.execution.NodeTaskMap;
+import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TableExecuteContextManager;
@@ -455,6 +457,7 @@ public class ServerMainModule
 
         // server info resource
         jaxrsBinder(binder).bind(ServerInfoResource.class);
+        OptionalBinder.newOptionalBinder(binder, QueryIdGenerator.class);
 
         // node status resource
         jaxrsBinder(binder).bind(StatusResource.class);
