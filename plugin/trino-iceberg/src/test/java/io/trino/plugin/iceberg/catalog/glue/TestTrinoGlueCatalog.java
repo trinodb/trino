@@ -139,7 +139,8 @@ public class TestTrinoGlueCatalog
                     new TableStatisticsWriter(new NodeVersion("test-version")),
                     Optional.empty(),
                     false,
-                    _ -> false);
+                    _ -> false,
+                    directExecutor());
             assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, trinoSchemaName)).as("icebergMetadata.schemaExists(trinoSchemaName)")

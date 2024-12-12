@@ -198,7 +198,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -208,6 +210,7 @@ import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -410,6 +413,8 @@ public class IcebergMetadata
     private Transaction transaction;
     private Optional<Long> fromSnapshotForRefresh = Optional.empty();
 
+    private final Executor metadataFetchingExecutor;
+
     public IcebergMetadata(
             TypeManager typeManager,
             CatalogHandle trinoCatalogHandle,
@@ -419,7 +424,8 @@ public class IcebergMetadata
             TableStatisticsWriter tableStatisticsWriter,
             Optional<HiveMetastoreFactory> metastoreFactory,
             boolean addFilesProcedureEnabled,
-            Predicate<String> allowedExtraProperties)
+            Predicate<String> allowedExtraProperties,
+            Executor metadataFetchingExecutor)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoCatalogHandle = requireNonNull(trinoCatalogHandle, "trinoCatalogHandle is null");
@@ -430,6 +436,7 @@ public class IcebergMetadata
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.addFilesProcedureEnabled = addFilesProcedureEnabled;
         this.allowedExtraProperties = requireNonNull(allowedExtraProperties, "allowedExtraProperties is null");
+        this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
     }
 
     @Override
@@ -976,23 +983,30 @@ public class IcebergMetadata
                         tableMetadatas.add(TableColumnsMetadata.forTable(tableName, columns));
                     });
 
-                    for (SchemaTableName tableName : remainingTables) {
-                        try {
-                            Table icebergTable = catalog.loadTable(session, tableName);
-                            List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema(), typeManager);
-                            tableMetadatas.add(TableColumnsMetadata.forTable(tableName, columns));
-                        }
-                        catch (TableNotFoundException e) {
-                            // Table disappeared during listing operation
-                        }
-                        catch (UnknownTableTypeException e) {
-                            // Skip unsupported table type in case that the table redirects are not enabled
-                        }
-                        catch (RuntimeException e) {
-                            // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
-                            log.warn(e, "Failed to access metadata of table %s during streaming table columns for %s", tableName, prefix);
-                        }
-                    }
+                    List<CompletableFuture<Void>> futures = remainingTables.stream()
+                            .map(tableName -> CompletableFuture.runAsync(() -> {
+                                try {
+                                    Table icebergTable = catalog.loadTable(session, tableName);
+                                    List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema(), typeManager);
+                                    synchronized (tableMetadatas) {
+                                        tableMetadatas.add(TableColumnsMetadata.forTable(tableName, columns));
+                                    }
+                                }
+                                catch (TableNotFoundException e) {
+                                    // Table disappeared during listing operation
+                                }
+                                catch (UnknownTableTypeException e) {
+                                    // Skip unsupported table type in case that the table redirects are not enabled
+                                }
+                                catch (RuntimeException e) {
+                                    // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
+                                    log.warn(e, "Failed to access metadata of table %s during streaming table columns for %s", tableName, prefix);
+                                }
+                            }, metadataFetchingExecutor))
+                            .collect(Collectors.toList());
+
+                    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
                     return tableMetadatas.build();
                 })
                 .flatMap(List::stream)
@@ -1177,8 +1191,7 @@ public class IcebergMetadata
         TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
         try {
             if (!replace && fileSystem.listFiles(location).hasNext()) {
-                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
-                        "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
+                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
                         "to use unique table locations for every table.", location));
             }
             return newWritableTableHandle(tableMetadata.getTable(), transaction.table(), retryMode);
