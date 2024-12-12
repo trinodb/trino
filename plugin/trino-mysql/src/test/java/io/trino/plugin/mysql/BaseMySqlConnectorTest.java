@@ -30,15 +30,19 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
+import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_MERGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -56,7 +60,9 @@ public abstract class BaseMySqlConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_AGGREGATION_PUSHDOWN,
-                 SUPPORTS_JOIN_PUSHDOWN -> true;
+                 SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
@@ -77,6 +83,32 @@ public abstract class BaseMySqlConnectorTest
                  SUPPORTS_SET_COLUMN_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    protected Session getSession()
+    {
+        Session session = super.getSession();
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), NON_TRANSACTIONAL_MERGE, "true")
+                .build();
+    }
+
+    @Test
+    public void testMergeTargetWithNoPrimaryKeys()
+    {
+        String tableName = "test_merge_target_no_pks_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a int, b int)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1), (2, 2)", 2);
+
+        assertQueryFails(format("DELETE FROM %s WHERE a IS NOT NULL AND abs(a + b) > 10", tableName), "The connector can not perform merge on the target table without primary keys");
+        assertQueryFails(format("UPDATE %s SET a = a+b WHERE a IS NOT NULL AND (a + b) > 10", tableName), "The connector can not perform merge on the target table without primary keys");
+        assertQueryFails(format("MERGE INTO %s t USING (VALUES (3, 3)) AS s(x, y) " +
+                "   ON t.a = s.x " +
+                "   WHEN MATCHED THEN UPDATE SET b = y " +
+                "   WHEN NOT MATCHED THEN INSERT (a, b) VALUES (s.x, s.y) ", tableName), "The connector can not perform merge on the target table without primary keys");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Override
@@ -179,14 +211,6 @@ public abstract class BaseMySqlConnectorTest
                         "   shippriority integer,\n" +
                         "   comment varchar(255)\n" +
                         ")");
-    }
-
-    @Test
-    @Override
-    public void testDeleteWithLike()
-    {
-        assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
     @Test
@@ -627,5 +651,45 @@ public abstract class BaseMySqlConnectorTest
                 }
             }
         }
+    }
+
+    @Override
+    protected void createTableForWrites(String createTable, String tableName, Optional<String> primaryKey, OptionalInt updateCount)
+    {
+        super.createTableForWrites(createTable, tableName, primaryKey, updateCount);
+        primaryKey.ifPresent(key -> addPrimaryKey(createTable, tableName, key));
+    }
+
+    private void addPrimaryKey(String createTable, String tableName, String primaryKey)
+    {
+        Matcher matcher = Pattern.compile("CREATE TABLE .* \\(.*\\b" + primaryKey + "\\b\\s+([a-zA-Z0-9()]+).*", Pattern.CASE_INSENSITIVE).matcher(createTable);
+        if (matcher.matches()) {
+            String type = matcher.group(1).toLowerCase(Locale.ENGLISH);
+            if (type.contains("varchar") || type.contains("char")) {
+                onRemoteDatabase().execute(format("ALTER TABLE %s ADD PRIMARY KEY (%s(255))", tableName, primaryKey));
+                return;
+            }
+        }
+
+        // ctas or the type is not varchar/char
+        onRemoteDatabase().execute(format("ALTER TABLE %s ADD PRIMARY KEY (%s)", tableName, primaryKey));
+    }
+
+    @Override
+    protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, String primaryKey)
+    {
+        TestTable testTable = super.createTestTableForWrites(namePrefix, tableDefinition, primaryKey);
+        String tableName = testTable.getName();
+        onRemoteDatabase().execute(format("ALTER TABLE %s ADD PRIMARY KEY (%s)", tableName, primaryKey));
+        return testTable;
+    }
+
+    @Override
+    protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, List<String> rowsToInsert, String primaryKey)
+    {
+        TestTable testTable = super.createTestTableForWrites(namePrefix, tableDefinition, rowsToInsert, primaryKey);
+        String tableName = testTable.getName();
+        onRemoteDatabase().execute(format("ALTER TABLE %s ADD PRIMARY KEY (%s)", tableName, primaryKey));
+        return testTable;
     }
 }
