@@ -313,18 +313,19 @@ public class OrcMetadataReader
             return new ColumnStatistics(null, 0, null, null, null, null, null, null, null, null, null, null);
         }
 
+        boolean hasNull = statistics.hasHasNull() ? statistics.getHasNull() : true;
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
                 minAverageValueBytes,
-                statistics.hasBucketStatistics() ? toBooleanStatistics(statistics.getBucketStatistics()) : null,
-                statistics.hasIntStatistics() ? toIntegerStatistics(statistics.getIntStatistics()) : null,
-                statistics.hasDoubleStatistics() ? toDoubleStatistics(statistics.getDoubleStatistics()) : null,
+                statistics.hasBucketStatistics() ? toBooleanStatistics(statistics.getBucketStatistics(), hasNull) : null,
+                statistics.hasIntStatistics() ? toIntegerStatistics(statistics.getIntStatistics(), hasNull) : null,
+                statistics.hasDoubleStatistics() ? toDoubleStatistics(statistics.getDoubleStatistics(), hasNull) : null,
                 null,
-                statistics.hasStringStatistics() ? toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup) : null,
-                statistics.hasDateStatistics() ? toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup) : null,
-                statistics.hasTimestampStatistics() ? toTimestampStatistics(hiveWriterVersion, statistics.getTimestampStatistics(), isRowGroup) : null,
-                statistics.hasDecimalStatistics() ? toDecimalStatistics(statistics.getDecimalStatistics()) : null,
-                statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics()) : null,
+                statistics.hasStringStatistics() ? toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup, hasNull) : null,
+                statistics.hasDateStatistics() ? toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup, hasNull) : null,
+                statistics.hasTimestampStatistics() ? toTimestampStatistics(hiveWriterVersion, statistics.getTimestampStatistics(), isRowGroup, hasNull) : null,
+                statistics.hasDecimalStatistics() ? toDecimalStatistics(statistics.getDecimalStatistics(), hasNull) : null,
+                statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics(), hasNull) : null,
                 null);
     }
 
@@ -347,24 +348,25 @@ public class OrcMetadataReader
         return mapBuilder.buildOrThrow();
     }
 
-    private static BooleanStatistics toBooleanStatistics(OrcProto.BucketStatistics bucketStatistics)
+    private static BooleanStatistics toBooleanStatistics(OrcProto.BucketStatistics bucketStatistics, boolean hasNull)
     {
         if (bucketStatistics.getCountCount() == 0) {
             return null;
         }
 
-        return new BooleanStatistics(bucketStatistics.getCount(0));
+        return new BooleanStatistics(bucketStatistics.getCount(0), hasNull);
     }
 
-    private static IntegerStatistics toIntegerStatistics(OrcProto.IntegerStatistics integerStatistics)
+    private static IntegerStatistics toIntegerStatistics(OrcProto.IntegerStatistics integerStatistics, boolean hasNull)
     {
         return new IntegerStatistics(
                 integerStatistics.hasMinimum() ? integerStatistics.getMinimum() : null,
                 integerStatistics.hasMaximum() ? integerStatistics.getMaximum() : null,
-                integerStatistics.hasSum() ? integerStatistics.getSum() : null);
+                integerStatistics.hasSum() ? integerStatistics.getSum() : null,
+                hasNull);
     }
 
-    private static DoubleStatistics toDoubleStatistics(OrcProto.DoubleStatistics doubleStatistics)
+    private static DoubleStatistics toDoubleStatistics(OrcProto.DoubleStatistics doubleStatistics, boolean hasNull)
     {
         // TODO remove this when double statistics are changed to correctly deal with NaNs
         // if either min, max, or sum is NaN, ignore the stat
@@ -376,10 +378,11 @@ public class OrcMetadataReader
 
         return new DoubleStatistics(
                 doubleStatistics.hasMinimum() ? doubleStatistics.getMinimum() : null,
-                doubleStatistics.hasMaximum() ? doubleStatistics.getMaximum() : null);
+                doubleStatistics.hasMaximum() ? doubleStatistics.getMaximum() : null,
+                hasNull);
     }
 
-    static StringStatistics toStringStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.StringStatistics stringStatistics, boolean isRowGroup)
+    static StringStatistics toStringStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.StringStatistics stringStatistics, boolean isRowGroup, boolean hasNull)
     {
         if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
             return null;
@@ -388,25 +391,25 @@ public class OrcMetadataReader
         Slice maximum = stringStatistics.hasMaximum() ? maxStringTruncateToValidRange(byteStringToSlice(stringStatistics.getMaximumBytes()), hiveWriterVersion) : null;
         Slice minimum = stringStatistics.hasMinimum() ? minStringTruncateToValidRange(byteStringToSlice(stringStatistics.getMinimumBytes()), hiveWriterVersion) : null;
         long sum = stringStatistics.hasSum() ? stringStatistics.getSum() : 0;
-        return new StringStatistics(minimum, maximum, sum);
+        return new StringStatistics(minimum, maximum, sum, hasNull);
     }
 
-    private static DecimalStatistics toDecimalStatistics(OrcProto.DecimalStatistics decimalStatistics)
+    private static DecimalStatistics toDecimalStatistics(OrcProto.DecimalStatistics decimalStatistics, boolean hasNull)
     {
         BigDecimal minimum = decimalStatistics.hasMinimum() ? new BigDecimal(decimalStatistics.getMinimum()) : null;
         BigDecimal maximum = decimalStatistics.hasMaximum() ? new BigDecimal(decimalStatistics.getMaximum()) : null;
 
         // could be long (16 bytes) or short (8 bytes); use short for estimation
-        return new DecimalStatistics(minimum, maximum, SHORT_DECIMAL_VALUE_BYTES);
+        return new DecimalStatistics(minimum, maximum, SHORT_DECIMAL_VALUE_BYTES, hasNull);
     }
 
-    private static BinaryStatistics toBinaryStatistics(OrcProto.BinaryStatistics binaryStatistics)
+    private static BinaryStatistics toBinaryStatistics(OrcProto.BinaryStatistics binaryStatistics, boolean hasNull)
     {
         if (!binaryStatistics.hasSum()) {
             return null;
         }
 
-        return new BinaryStatistics(binaryStatistics.getSum());
+        return new BinaryStatistics(binaryStatistics.getSum(), hasNull);
     }
 
     private static Slice byteStringToSlice(ByteString value)
@@ -503,7 +506,7 @@ public class OrcMetadataReader
         return position;
     }
 
-    private static DateStatistics toDateStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.DateStatistics dateStatistics, boolean isRowGroup)
+    private static DateStatistics toDateStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.DateStatistics dateStatistics, boolean isRowGroup, boolean hasNull)
     {
         if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
             return null;
@@ -511,10 +514,11 @@ public class OrcMetadataReader
 
         return new DateStatistics(
                 dateStatistics.hasMinimum() ? dateStatistics.getMinimum() : null,
-                dateStatistics.hasMaximum() ? dateStatistics.getMaximum() : null);
+                dateStatistics.hasMaximum() ? dateStatistics.getMaximum() : null,
+                hasNull);
     }
 
-    private static TimestampStatistics toTimestampStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.TimestampStatistics timestampStatistics, boolean isRowGroup)
+    private static TimestampStatistics toTimestampStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.TimestampStatistics timestampStatistics, boolean isRowGroup, boolean hasNull)
     {
         if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
             return null;
@@ -522,7 +526,8 @@ public class OrcMetadataReader
 
         return new TimestampStatistics(
                 timestampStatistics.hasMinimumUtc() ? timestampStatistics.getMinimumUtc() : null,
-                timestampStatistics.hasMaximumUtc() ? timestampStatistics.getMaximumUtc() : null);
+                timestampStatistics.hasMaximumUtc() ? timestampStatistics.getMaximumUtc() : null,
+                hasNull);
     }
 
     private static OrcType toType(OrcProto.Type type)

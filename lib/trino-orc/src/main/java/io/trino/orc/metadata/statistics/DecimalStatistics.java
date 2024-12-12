@@ -39,13 +39,15 @@ public class DecimalStatistics
     private final BigDecimal minimum;
     private final BigDecimal maximum;
     private final long retainedSizeInBytes;
+    private final boolean hasNull;
 
     @SuppressWarnings({"NumberEquality", "BoxedPrimitiveEquality"})
-    public DecimalStatistics(BigDecimal minimum, BigDecimal maximum, long decimalSizeInBytes)
+    public DecimalStatistics(BigDecimal minimum, BigDecimal maximum, long decimalSizeInBytes, boolean hasNull)
     {
         checkArgument(minimum == null || maximum == null || minimum.compareTo(maximum) <= 0, "minimum is not less than or equal to maximum: %s, %s", minimum, maximum);
         this.minimum = minimum;
         this.maximum = maximum;
+        this.hasNull = hasNull;
 
         long retainedSizeInBytes = 0;
         if (minimum != null) {
@@ -76,6 +78,11 @@ public class DecimalStatistics
     }
 
     @Override
+    public boolean hasNull() {
+        return hasNull;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -86,13 +93,14 @@ public class DecimalStatistics
         }
         DecimalStatistics that = (DecimalStatistics) o;
         return minimum.compareTo(that.minimum) == 0 &&
-                maximum.compareTo(that.maximum) == 0;
+                maximum.compareTo(that.maximum) == 0 &&
+                hasNull == that.hasNull;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(minimum, maximum);
+        return Objects.hash(minimum, maximum, hasNull);
     }
 
     @Override
@@ -101,6 +109,7 @@ public class DecimalStatistics
         return toStringHelper(this)
                 .add("minimum", minimum)
                 .add("maximum", maximum)
+                .add("hasNull", hasNull)
                 .toString();
     }
 
