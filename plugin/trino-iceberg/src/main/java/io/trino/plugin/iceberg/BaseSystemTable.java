@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
@@ -49,12 +50,14 @@ public abstract class BaseSystemTable
     private final Table icebergTable;
     private final ConnectorTableMetadata tableMetadata;
     private final MetadataTableType metadataTableType;
+    private final ExecutorService executor;
 
-    BaseSystemTable(Table icebergTable, ConnectorTableMetadata tableMetadata, MetadataTableType metadataTableType)
+    BaseSystemTable(Table icebergTable, ConnectorTableMetadata tableMetadata, MetadataTableType metadataTableType, ExecutorService executor)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
         this.metadataTableType = requireNonNull(metadataTableType, "metadataTableType is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
@@ -79,7 +82,7 @@ public abstract class BaseSystemTable
     {
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
 
-        TableScan tableScan = createMetadataTableInstance(icebergTable, metadataTableType).newScan();
+        TableScan tableScan = createMetadataTableInstance(icebergTable, metadataTableType).newScan().planWith(executor);
         TimeZoneKey timeZoneKey = session.getTimeZoneKey();
 
         Map<String, Integer> columnNameToPosition = mapWithIndex(tableScan.schema().columns().stream(),
