@@ -213,6 +213,7 @@ import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.PatternSearchMode.Mode.INITIAL;
 import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
 import static io.trino.type.Json2016Type.JSON_2016;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 class RelationPlanner
@@ -441,7 +442,7 @@ class RelationPlanner
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
 
-            io.trino.sql.tree.Expression mask = columnMasks.get(field.getName().orElseThrow());
+            io.trino.sql.tree.Expression mask = columnMasks.get(field.getName().orElseThrow().toLowerCase(ENGLISH));
             Symbol symbol = plan.getFieldMappings().get(i);
             Expression projection = symbol.toSymbolReference();
             if (mask != null) {
