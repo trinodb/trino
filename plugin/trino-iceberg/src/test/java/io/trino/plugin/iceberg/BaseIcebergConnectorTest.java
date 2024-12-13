@@ -2490,6 +2490,80 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testDayTransformTimestamp2()
+    {
+        assertUpdate("CREATE TABLE test_day_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
+
+        @Language("SQL") String values = "VALUES " +
+                "(NULL, 101)," +
+                "(TIMESTAMP '1969-12-25 15:13:12.876543', 8)," +
+                "(TIMESTAMP '1969-12-30 18:47:33.345678', 9)," +
+                "(TIMESTAMP '1969-12-31 00:00:00.000000', 10)," +
+                "(TIMESTAMP '1969-12-31 05:06:07.234567', 11)," +
+                "(TIMESTAMP '1970-01-01 12:03:08.456789', 12)," +
+                "(TIMESTAMP '2015-01-01 10:01:23.123456', 1)," +
+                "(TIMESTAMP '2015-01-01 11:10:02.987654', 2)," +
+                "(TIMESTAMP '2015-01-01 12:55:00.456789', 3)," +
+                "(TIMESTAMP '2015-05-15 13:05:01.234567', 4)," +
+                "(TIMESTAMP '2015-05-15 14:21:02.345678', 5)," +
+                "(TIMESTAMP '2020-02-21 15:11:11.876543', 6)," +
+                "(TIMESTAMP '2020-02-21 16:12:12.654321', 7)";
+        assertUpdate("INSERT INTO test_day_transform_timestamp " + values, 13);
+        assertQuery("SELECT * FROM test_day_transform_timestamp", values);
+
+        @Language("SQL") String expected = "VALUES " +
+                "(NULL, 1, NULL, NULL, 101, 101), " +
+                "(DATE '1969-12-25', 1, TIMESTAMP '1969-12-25 15:13:12.876543', TIMESTAMP '1969-12-25 15:13:12.876543', 8, 8), " +
+                "(DATE '1969-12-30', 1, TIMESTAMP '1969-12-30 18:47:33.345678', TIMESTAMP '1969-12-30 18:47:33.345678', 9, 9), " +
+                "(DATE '1969-12-31', 2, TIMESTAMP '1969-12-31 00:00:00.000000', TIMESTAMP '1969-12-31 05:06:07.234567', 10, 11), " +
+                "(DATE '1970-01-01', 1, TIMESTAMP '1970-01-01 12:03:08.456789', TIMESTAMP '1970-01-01 12:03:08.456789', 12, 12), " +
+                "(DATE '2015-01-01', 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 12:55:00.456789', 1, 3), " +
+                "(DATE '2015-05-15', 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
+                "(DATE '2020-02-21', 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
+        String expectedTimestampStats = "VALUES " +
+                "  ('d', NULL, 12e0, 0.0769231e0, NULL, '1969-12-25 15:13:12.876543', '2020-02-21 16:12:12.654321'), " +
+                "  ('b', NULL, 13e0, 0e0, NULL, '1', '101'), " +
+                "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)";
+
+        if (format == ORC) {
+            expected = "VALUES " +
+                    "(NULL, 1, NULL, NULL, 101, 101), " +
+                    "(DATE '1969-12-25', 1, TIMESTAMP '1969-12-25 15:13:12.876000', TIMESTAMP '1969-12-25 15:13:12.876999', 8, 8), " +
+                    "(DATE '1969-12-30', 1, TIMESTAMP '1969-12-30 18:47:33.345000', TIMESTAMP '1969-12-30 18:47:33.345999', 9, 9), " +
+                    "(DATE '1969-12-31', 2, TIMESTAMP '1969-12-31 00:00:00.000000', TIMESTAMP '1969-12-31 05:06:07.234999', 10, 11), " +
+                    "(DATE '1970-01-01', 1, TIMESTAMP '1970-01-01 12:03:08.456000', TIMESTAMP '1970-01-01 12:03:08.456999', 12, 12), " +
+                    "(DATE '2015-01-01', 3, TIMESTAMP '2015-01-01 10:01:23.123000', TIMESTAMP '2015-01-01 12:55:00.456999', 1, 3), " +
+                    "(DATE '2015-05-15', 2, TIMESTAMP '2015-05-15 13:05:01.234000', TIMESTAMP '2015-05-15 14:21:02.345999', 4, 5), " +
+                    "(DATE '2020-02-21', 2, TIMESTAMP '2020-02-21 15:11:11.876000', TIMESTAMP '2020-02-21 16:12:12.654999', 6, 7)";
+            expectedTimestampStats = "VALUES " +
+                    "  ('d', NULL, 12e0, 0.0769231e0, NULL, '1969-12-25 15:13:12.876000', '2020-02-21 16:12:12.654999'), " +
+                    "  ('b', NULL, 13e0, 0e0, NULL, '1', '101'), " +
+                    "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)";
+        }
+        else if (format == AVRO) {
+            expected = "VALUES " +
+                    "(NULL, 1, NULL, NULL, NULL, NULL), " +
+                    "(DATE '1969-12-25', 1, NULL, NULL, NULL, NULL), " +
+                    "(DATE '1969-12-30', 1, NULL, NULL, NULL, NULL), " +
+                    "(DATE '1969-12-31', 2, NULL, NULL, NULL, NULL), " +
+                    "(DATE '1970-01-01', 1, NULL, NULL, NULL, NULL), " +
+                    "(DATE '2015-01-01', 3, NULL, NULL, NULL, NULL), " +
+                    "(DATE '2015-05-15', 2, NULL, NULL, NULL, NULL), " +
+                    "(DATE '2020-02-21', 2, NULL, NULL, NULL, NULL)";
+            expectedTimestampStats = "VALUES " +
+                    "  ('d', NULL, 12e0, 0.076923e0, NULL, NULL, NULL), " +
+                    "  ('b', NULL, 13e0, 0e0, NULL, NULL, NULL), " +
+                    "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)";
+        }
+
+
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 00:00:00.000001'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+
+    }
+
+    @Test
     public void testDayTransformTimestampWithTimeZone()
     {
         assertUpdate("CREATE TABLE test_day_transform_timestamptz (d timestamp(6) with time zone, b integer) WITH (partitioning = ARRAY['day(d)'])");

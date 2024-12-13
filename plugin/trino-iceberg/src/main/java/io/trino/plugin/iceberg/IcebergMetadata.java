@@ -278,6 +278,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergUtil.buildPath;
 import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInSpecs;
+import static io.trino.plugin.iceberg.IcebergUtil.canEnforcePartialColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.commit;
 import static io.trino.plugin.iceberg.IcebergUtil.createColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
@@ -3004,12 +3005,18 @@ public class IcebergMetadata
             Map<IcebergColumnHandle, Domain> newEnforced = new LinkedHashMap<>();
             Map<IcebergColumnHandle, Domain> newUnenforced = new LinkedHashMap<>();
             Map<IcebergColumnHandle, Domain> domains = predicate.getDomains().orElseThrow(() -> new VerifyException("No domains"));
-            domains.forEach((columnHandle, domain) -> {
+            domains.forEach( (columnHandle, domain) -> {
+                List<Domain> newDomains;
                 if (!isConvertableToIcebergExpression(domain)) {
                     unsupported.put(columnHandle, domain);
                 }
                 else if (canEnforceColumnConstraintInSpecs(typeManager.getTypeOperators(), icebergTable, partitionSpecIds, columnHandle, domain)) {
                     newEnforced.put(columnHandle, domain);
+                }
+                else if (!(newDomains = canEnforcePartialColumnConstraintInSpecs(typeManager.getTypeOperators(), icebergTable, partitionSpecIds, columnHandle, domain)).isEmpty()) {
+                    Domain enforcedDomain = newDomains.stream().reduce(Domain.none(newDomains.getFirst().getType()), Domain::union);
+                    newEnforced.put(columnHandle, enforcedDomain);
+                    newUnenforced.put(columnHandle, domain);
                 }
                 else if (isMetadataColumnId(columnHandle.getId())) {
                     if (columnHandle.isPathColumn() || columnHandle.isFileModifiedTimeColumn()) {
