@@ -145,7 +145,17 @@ public final class DeltaLakeParquetStatisticsUtils
             return (double) jsonValue;
         }
         if (type instanceof DecimalType decimalType) {
-            BigDecimal decimal = new BigDecimal((String) jsonValue);
+            BigDecimal decimal;
+
+            if (jsonValue instanceof Double doubleValue) {
+                decimal = BigDecimal.valueOf(doubleValue);
+            }
+            else if (jsonValue instanceof Long longValue) {
+                decimal = BigDecimal.valueOf(longValue);
+            }
+            else {
+                decimal = new BigDecimal((String) jsonValue);
+            }
 
             if (decimalType.isShort()) {
                 return Decimals.encodeShortScaledValue(decimal, decimalType.getScale());
