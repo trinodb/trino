@@ -385,6 +385,20 @@ public class RetryingJdbcClient
     }
 
     @Override
+    public void finishUpdateTable(ConnectorSession session, JdbcOutputTableHandle handle, List<JdbcColumnHandle> primaryKeys, Set<Long> pageSinkIds)
+    {
+        // no retrying as it could be not idempotent operation
+        delegate.finishUpdateTable(session, handle, primaryKeys, pageSinkIds);
+    }
+
+    @Override
+    public void finishDeleteTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
+    {
+        // no retrying as it could be not idempotent operation
+        delegate.finishDeleteTable(session, handle, pageSinkIds);
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle)
     {
         // no retrying as it could be not idempotent operation

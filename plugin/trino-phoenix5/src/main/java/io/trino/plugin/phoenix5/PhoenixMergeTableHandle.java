@@ -17,12 +17,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcMergeTableHandle;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.spi.connector.ColumnHandle;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class PhoenixMergeTableHandle
         extends JdbcMergeTableHandle
@@ -31,10 +33,12 @@ public class PhoenixMergeTableHandle
     public PhoenixMergeTableHandle(
             @JsonProperty("tableHandle") JdbcTableHandle tableHandle,
             @JsonProperty("outputTableHandle") PhoenixOutputTableHandle phoenixOutputTableHandle,
+            @JsonProperty("updateOutputTableHandle") Map<Integer, JdbcOutputTableHandle> updateOutputTableHandle,
+            @JsonProperty("deleteOutputTableHandle") Optional<JdbcOutputTableHandle> deleteOutputTableHandle,
             @JsonProperty("primaryKeys") List<JdbcColumnHandle> primaryKeys,
             @JsonProperty("dataColumns") List<JdbcColumnHandle> dataColumns,
             @JsonProperty("updateCaseColumns") Map<Integer, Collection<ColumnHandle>> updateCaseColumns)
     {
-        super(tableHandle, phoenixOutputTableHandle, primaryKeys, dataColumns, updateCaseColumns);
+        super(tableHandle, phoenixOutputTableHandle, updateOutputTableHandle, deleteOutputTableHandle, primaryKeys, dataColumns, updateCaseColumns);
     }
 }

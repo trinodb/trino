@@ -38,6 +38,8 @@ public final class JdbcClientStats
     private final JdbcApiStats renameSchema = new JdbcApiStats();
     private final JdbcApiStats dropTable = new JdbcApiStats();
     private final JdbcApiStats finishInsertTable = new JdbcApiStats();
+    private final JdbcApiStats finishUpdateTable = new JdbcApiStats();
+    private final JdbcApiStats finishDeleteTable = new JdbcApiStats();
     private final JdbcApiStats getColumns = new JdbcApiStats();
     private final JdbcApiStats getAllTableComments = new JdbcApiStats();
     private final JdbcApiStats getConnectionWithHandle = new JdbcApiStats();
@@ -209,6 +211,20 @@ public final class JdbcClientStats
     public JdbcApiStats getFinishInsertTable()
     {
         return finishInsertTable;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getFinishUpdateTable()
+    {
+        return finishUpdateTable;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getFinishDeleteTable()
+    {
+        return finishDeleteTable;
     }
 
     @Managed

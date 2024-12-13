@@ -135,7 +135,9 @@ public class DefaultJdbcMetadata
     private final boolean precalculateStatisticsForPushdown;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
-    private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    private final AtomicReference<Runnable> insertRollbackAction = new AtomicReference<>();
+    private final AtomicReference<Runnable> deleteRollbackAction = new AtomicReference<>();
+    private final AtomicReference<List<Runnable>> updateRollBackAction = new AtomicReference<>();
 
     public DefaultJdbcMetadata(
             JdbcClient jdbcClient,
@@ -1155,6 +1157,9 @@ public class DefaultJdbcMetadata
             if (isNonTransactionalInsert(session)) {
                 throw new TrinoException(NOT_SUPPORTED, "Query and task retries are incompatible with non-transactional inserts");
             }
+            if (jdbcClient.supportsMerge() && isNonTransactionalMerge(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Query and task retries are incompatible with non-transactional merge");
+            }
         }
     }
 
@@ -1172,7 +1177,7 @@ public class DefaultJdbcMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
         JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata);
-        setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
+        setInsertRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
         return handle;
     }
 
@@ -1230,15 +1235,27 @@ public class DefaultJdbcMetadata
         }
     }
 
-    private void setRollback(Runnable action)
+    private void setInsertRollback(Runnable action)
     {
-        checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
+        checkState(insertRollbackAction.compareAndSet(null, action), "insert rollback action is already set");
+    }
+
+    private void setUpdateRollback(List<Runnable> actions)
+    {
+        checkState(updateRollBackAction.compareAndSet(null, actions), "update rollback action is already set");
+    }
+
+    private void setDeleteRollbackAction(Runnable action)
+    {
+        checkState(deleteRollbackAction.compareAndSet(null, action), "delete rollback action is already set");
     }
 
     @Override
     public void rollback()
     {
-        Optional.ofNullable(rollbackAction.getAndSet(null)).ifPresent(Runnable::run);
+        Optional.ofNullable(insertRollbackAction.getAndSet(null)).ifPresent(Runnable::run);
+        Optional.ofNullable(updateRollBackAction.getAndSet(null)).ifPresent(actions -> actions.forEach(Runnable::run));
+        Optional.ofNullable(deleteRollbackAction.getAndSet(null)).ifPresent(Runnable::run);
     }
 
     @Override
@@ -1250,7 +1267,7 @@ public class DefaultJdbcMetadata
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
         JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, columnHandles);
-        setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
+        setInsertRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
         return handle;
     }
 
@@ -1298,16 +1315,8 @@ public class DefaultJdbcMetadata
     @Override
     public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateColumnHandles, RetryMode retryMode)
     {
-        if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support MERGE with fault-tolerant execution");
-        }
-
         if (!jdbcClient.supportsMerge()) {
             throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
-        }
-
-        if (!isNonTransactionalMerge(session)) {
-            throw new TrinoException(NOT_SUPPORTED, "Non-transactional MERGE is disabled");
         }
 
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
@@ -1322,13 +1331,69 @@ public class DefaultJdbcMetadata
         RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
 
         List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, schemaTableName, remoteTableName);
-        JdbcOutputTableHandle jdbcOutputTableHandle = (JdbcOutputTableHandle) beginInsert(
+        JdbcOutputTableHandle outputTableHandle = (JdbcOutputTableHandle) beginInsert(
                 session,
                 new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty()),
                 ImmutableList.copyOf(columns),
                 retryMode);
 
-        return new JdbcMergeTableHandle(handle, jdbcOutputTableHandle, primaryKeys, columns, updateColumnHandles);
+        return new JdbcMergeTableHandle(
+                handle,
+                outputTableHandle,
+                beginUpdate(session, handle, primaryKeys, updateColumnHandles, retryMode),
+                beginDelete(session, handle, primaryKeys, retryMode),
+                primaryKeys,
+                columns,
+                updateColumnHandles);
+    }
+
+    private Map<Integer, JdbcOutputTableHandle> beginUpdate(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            List<JdbcColumnHandle> primaryKeys,
+            Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
+            RetryMode retryMode)
+    {
+        if (isNonTransactionalMerge(session)) {
+            return ImmutableMap.of();
+        }
+
+        verifyRetryMode(session, retryMode);
+
+        ImmutableMap.Builder<Integer, JdbcOutputTableHandle> outputHandles = ImmutableMap.builder();
+        ImmutableList.Builder<Runnable> rollbackActions = ImmutableList.builder();
+        for (Map.Entry<Integer, Collection<ColumnHandle>> entry : updateColumnHandles.entrySet()) {
+            int caseNumber = entry.getKey();
+            checkArgument(caseNumber >= 0, "caseNumber shouldn't be negative");
+
+            ImmutableList.Builder<JdbcColumnHandle> columnHandles = ImmutableList.builder();
+            entry.getValue().stream()
+                    .map(JdbcColumnHandle.class::cast)
+                    // TODO: Support it
+                    .peek(column -> checkArgument(!primaryKeys.contains(column), "Update primary key in FTE mode is not supported"))
+                    .forEach(columnHandles::add);
+            columnHandles.addAll(primaryKeys);
+
+            JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, columnHandles.build());
+            rollbackActions.add(() -> jdbcClient.rollbackCreateTable(session, handle));
+            outputHandles.put(caseNumber, handle);
+        }
+        setUpdateRollback(rollbackActions.build());
+
+        return outputHandles.buildOrThrow();
+    }
+
+    private Optional<JdbcOutputTableHandle> beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, List<JdbcColumnHandle> primaryKeys, RetryMode retryMode)
+    {
+        if (isNonTransactionalMerge(session)) {
+            return Optional.empty();
+        }
+
+        verifyRetryMode(session, retryMode);
+
+        JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, primaryKeys);
+        setDeleteRollbackAction(() -> jdbcClient.rollbackCreateTable(session, handle));
+        return Optional.of(handle);
     }
 
     @Override
@@ -1341,6 +1406,11 @@ public class DefaultJdbcMetadata
     {
         JdbcMergeTableHandle handle = (JdbcMergeTableHandle) tableHandle;
         finishInsert(session, handle.getOutputTableHandle(), ImmutableList.of(), fragments, computedStatistics);
+
+        List<JdbcColumnHandle> primaryKeys = handle.getPrimaryKeys();
+
+        handle.getUpdateOutputTableHandle().values().forEach(outputTableHandle -> jdbcClient.finishUpdateTable(session, outputTableHandle, primaryKeys, getSuccessfulPageSinkIds(fragments)));
+        handle.getDeleteOutputTableHandle().ifPresent(outputTableHandle -> jdbcClient.finishDeleteTable(session, outputTableHandle, getSuccessfulPageSinkIds(fragments)));
     }
 
     @Override

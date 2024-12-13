@@ -410,6 +410,20 @@ public class CachingJdbcClient
     }
 
     @Override
+    public void finishUpdateTable(ConnectorSession session, JdbcOutputTableHandle handle, List<JdbcColumnHandle> primaryKeys, Set<Long> pageSinkIds)
+    {
+        delegate.finishUpdateTable(session, handle, primaryKeys, pageSinkIds);
+        onDataChanged(handle.getRemoteTableName().getSchemaTableName());
+    }
+
+    @Override
+    public void finishDeleteTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
+    {
+        delegate.finishDeleteTable(session, handle, pageSinkIds);
+        onDataChanged(handle.getRemoteTableName().getSchemaTableName());
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle)
     {
         delegate.dropTable(session, jdbcTableHandle);

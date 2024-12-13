@@ -211,6 +211,16 @@ public interface JdbcClient
 
     void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds);
 
+    default void finishUpdateTable(ConnectorSession session, JdbcOutputTableHandle handle, List<JdbcColumnHandle> primaryKeys, Set<Long> pageSinkIds)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support MERGE with fault-tolerant execution");
+    }
+
+    default void finishDeleteTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support MERGE with fault-tolerant execution");
+    }
+
     void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle);
 
     void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle);
