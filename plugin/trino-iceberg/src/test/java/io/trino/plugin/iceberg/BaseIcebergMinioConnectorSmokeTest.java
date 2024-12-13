@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.minio.messages.Event;
 import io.trino.Session;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
@@ -50,7 +50,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     private final String schemaName;
     private final String bucketName;
 
-    private HiveMinioDataLake hiveMinioDataLake;
+    private Hive3MinioDataLake hiveMinioDataLake;
 
     protected BaseIcebergMinioConnectorSmokeTest(FileFormat format)
     {
@@ -63,7 +63,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        this.hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
         this.hiveMinioDataLake.start();
 
         return IcebergQueryRunner.builder()

@@ -15,8 +15,8 @@ package io.trino.plugin.hive;
 
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.BaseConnectorSmokeTest;
@@ -49,7 +49,7 @@ public class TestHiveCustomCatalogConnectorSmokeTest
             throws Exception
     {
         String bucketName = "test-hive-metastore-catalog-smoke-test-" + randomNameSuffix();
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, HiveHadoop.HIVE3_IMAGE));
+        Hive3MinioDataLake hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName, HiveHadoop.HIVE3_IMAGE));
         hiveMinioDataLake.start();
 
         // Inserting into metastore's database directly because the Hive does not expose a way to create a custom catalog

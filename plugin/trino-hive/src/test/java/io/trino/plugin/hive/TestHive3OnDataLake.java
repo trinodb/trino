@@ -25,8 +25,8 @@ import io.trino.metastore.Partition;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.PartitionWithStatistics;
 import io.trino.metastore.Table;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.spi.connector.SchemaTableName;
@@ -80,7 +80,7 @@ public class TestHive3OnDataLake
     private static final DataSize HIVE_S3_STREAMING_PART_SIZE = DataSize.of(5, MEGABYTE);
 
     private String bucketName;
-    private HiveMinioDataLake hiveMinioDataLake;
+    private Hive3MinioDataLake hiveMinioDataLake;
     private HiveMetastore metastoreClient;
 
     @Override
@@ -89,7 +89,7 @@ public class TestHive3OnDataLake
     {
         this.bucketName = "test-hive-insert-overwrite-" + randomNameSuffix();
         this.hiveMinioDataLake = closeAfterClass(
-                new HiveMinioDataLake(bucketName, HiveHadoop.HIVE3_IMAGE));
+                new Hive3MinioDataLake(bucketName, HiveHadoop.HIVE3_IMAGE));
         this.hiveMinioDataLake.start();
         this.metastoreClient = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()

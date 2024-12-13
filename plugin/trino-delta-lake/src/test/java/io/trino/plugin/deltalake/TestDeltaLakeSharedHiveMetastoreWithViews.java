@@ -15,7 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
@@ -35,14 +35,14 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
         extends AbstractTestQueryFramework
 {
     private final String bucketName = "delta-lake-shared-hive-with-views-" + randomNameSuffix();
-    private HiveMinioDataLake hiveMinioDataLake;
+    private Hive3MinioDataLake hiveMinioDataLake;
     private String schema;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        this.hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
         this.hiveMinioDataLake.start();
 
         QueryRunner queryRunner = DeltaLakeQueryRunner.builder()
