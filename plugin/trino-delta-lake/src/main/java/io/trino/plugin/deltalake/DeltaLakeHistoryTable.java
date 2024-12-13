@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
@@ -30,6 +31,7 @@ import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -74,13 +76,15 @@ public class DeltaLakeHistoryTable
     }
 
     @Override
-    protected List<Page> buildPages(ConnectorSession session, PageListBuilder pagesBuilder, List<Transaction> transactions)
+    protected List<Page> buildPages(ConnectorSession session, PageListBuilder pagesBuilder, List<Transaction> transactions, TrinoFileSystem fileSystem)
     {
-        List<CommitInfoEntry> commitInfoEntries = transactions.stream()
-                .flatMap(transaction -> transaction.transactionEntries().stream())
+        List<CommitInfoEntry> commitInfoEntries;
+        try (Stream<CommitInfoEntry> commitStream = transactions.stream()
+                .flatMap(transaction -> transaction.transactionEntries().getEntries(fileSystem))
                 .map(DeltaLakeTransactionLogEntry::getCommitInfo)
-                .filter(Objects::nonNull)
-                .collect(toImmutableList());
+                .filter(Objects::nonNull)) {
+            commitInfoEntries = commitStream.collect(toImmutableList());
+        }
 
         TimeZoneKey timeZoneKey = session.getTimeZoneKey();
 
