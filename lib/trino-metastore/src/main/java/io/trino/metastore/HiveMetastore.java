@@ -13,6 +13,7 @@
  */
 package io.trino.metastore;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
@@ -66,6 +67,11 @@ public interface HiveMetastore
     void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates);
 
     List<TableInfo> getTables(String databaseName);
+
+    /**
+     * @param parameterValues is using ImmutableSet to mark that this api does not support filtering by null parameter value.
+     */
+    List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues);
 
     void createDatabase(Database database);
 
