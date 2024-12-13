@@ -14,12 +14,20 @@
 package io.trino.plugin.iceberg.functions;
 
 import com.google.inject.Inject;
+import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionProcessorProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionProcessorProviderFactory;
+import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionSplitProcessor;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProcessorProviderFactory;
+import io.trino.plugin.iceberg.functions.tables.IcebergTablesFunction;
+import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorProviderFactory;
+import io.trino.spi.function.table.TableFunctionSplitProcessor;
 
 import static java.util.Objects.requireNonNull;
 
@@ -39,6 +47,28 @@ public class IcebergFunctionProvider
     {
         if (functionHandle instanceof TableChangesFunctionHandle) {
             return new ClassLoaderSafeTableFunctionProcessorProviderFactory(tableChangesFunctionProcessorProviderFactory, getClass().getClassLoader());
+        }
+        if (functionHandle instanceof IcebergTablesFunction.IcebergTables) {
+            ClassLoader classLoader = getClass().getClassLoader();
+            return new TableFunctionProcessorProviderFactory()
+            {
+                @Override
+                public TableFunctionProcessorProvider createTableFunctionProcessorProvider()
+                {
+                    try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+                        return new ClassLoaderSafeTableFunctionProcessorProvider(new TableFunctionProcessorProvider()
+                        {
+                            @Override
+                            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+                            {
+                                return new ClassLoaderSafeTableFunctionSplitProcessor(
+                                        new IcebergTablesFunction.IcebergTablesProcessor(((IcebergTablesFunction.IcebergTables) split).tables()),
+                                        getClass().getClassLoader());
+                            }
+                        }, classLoader);
+                    }
+                }
+            };
         }
 
         throw new UnsupportedOperationException("Unsupported function: " + functionHandle);
