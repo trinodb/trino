@@ -62,7 +62,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_MERGE;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -105,15 +104,6 @@ public class TestPostgreSqlConnectorTest
         return PostgreSqlQueryRunner.builder(postgreSqlServer)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .withProtocolSpooling("json")
-                .build();
-    }
-
-    @Override
-    protected Session getSession()
-    {
-        Session session = super.getSession();
-        return Session.builder(session)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), NON_TRANSACTIONAL_MERGE, "true")
                 .build();
     }
 

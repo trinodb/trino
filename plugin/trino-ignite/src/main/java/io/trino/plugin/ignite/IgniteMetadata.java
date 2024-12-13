@@ -18,7 +18,6 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcMergeTableHandle;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -137,12 +136,12 @@ public class IgniteMetadata
     public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateColumnHandles, RetryMode retryMode)
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        JdbcMergeTableHandle mergeTableHandle = (JdbcMergeTableHandle) super.beginMerge(session, tableHandle, updateColumnHandles, retryMode);
 
-        List<JdbcColumnHandle> primaryKeys = mergeTableHandle.getPrimaryKeys();
-        List<JdbcColumnHandle> columns = igniteClient.getColumns(session,
-                        handle.getRequiredNamedRelation().getSchemaTableName(),
-                        handle.getRequiredNamedRelation().getRemoteTableName()).stream()
+        SchemaTableName schemaTableName = handle.getRequiredNamedRelation().getSchemaTableName();
+        RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
+
+        List<JdbcColumnHandle> primaryKeys = igniteClient.getPrimaryKeys(session, handle.getRequiredNamedRelation().getRemoteTableName());
+        List<JdbcColumnHandle> columns = igniteClient.getColumns(session, schemaTableName, remoteTableName).stream()
                 .filter(column -> !IGNITE_DUMMY_ID.equalsIgnoreCase(column.getColumnName()))
                 .collect(toImmutableList());
 
@@ -169,10 +168,20 @@ public class IgniteMetadata
 
         return new IgniteMergeTableHandle(
                 handle,
-                (IgniteOutputTableHandle) mergeTableHandle.getOutputTableHandle(),
+                (IgniteOutputTableHandle) beginInsert(session, new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty()), ImmutableList.copyOf(columns), retryMode),
                 primaryKeys,
                 columns,
-                mergeTableHandle.getUpdateCaseColumns());
+                updateColumnHandles);
+    }
+
+    @Override
+    public void finishMerge(
+            ConnectorSession session,
+            ConnectorMergeTableHandle tableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
     }
 
     @Override
