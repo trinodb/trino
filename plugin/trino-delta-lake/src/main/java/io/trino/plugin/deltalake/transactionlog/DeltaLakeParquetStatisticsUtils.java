@@ -183,7 +183,7 @@ public final class DeltaLakeParquetStatisticsUtils
             Map<?, ?> values = (Map<?, ?>) jsonValue;
             List<Type> fieldTypes = rowType.getTypeParameters();
             return buildRowValue(rowType, fields -> {
-                for (int i = 0; i < values.size(); ++i) {
+                for (int i = 0; i < fieldTypes.size(); ++i) {
                     Type fieldType = fieldTypes.get(i);
                     String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist"));
                     Object fieldValue = jsonValueToTrinoValue(fieldType, values.remove(fieldName));
