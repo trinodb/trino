@@ -162,7 +162,11 @@ public final class DeltaLakeParquetStatisticsUtils
             return Instant.parse((String) jsonValue).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
         }
         if (type == TIMESTAMP_MICROS) {
-            Instant instant = Instant.parse((String) jsonValue);
+            String stringValue = (String) jsonValue;
+            if (!stringValue.endsWith("Z")) {
+                stringValue += "Z";
+            }
+            Instant instant = Instant.parse(stringValue);
             return (instant.getEpochSecond() * MICROSECONDS_PER_SECOND) + (instant.getNano() / NANOSECONDS_PER_MICROSECOND);
         }
         if (type instanceof RowType rowType) {
