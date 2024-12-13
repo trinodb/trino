@@ -19,8 +19,8 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -259,7 +259,7 @@ public final class DeltaLakeQueryRunner
         {
             String bucketName = "test-bucket";
 
-            HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
+            Hive3MinioDataLake hiveMinioDataLake = new Hive3MinioDataLake(bucketName);
             hiveMinioDataLake.start();
 
             QueryRunner queryRunner = builder()

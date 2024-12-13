@@ -19,7 +19,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
@@ -47,7 +47,7 @@ public final class S3HiveQueryRunner
     private S3HiveQueryRunner() {}
 
     public static QueryRunner create(
-            HiveMinioDataLake hiveMinioDataLake,
+            Hive3MinioDataLake hiveMinioDataLake,
             Map<String, String> additionalHiveProperties)
             throws Exception
     {
@@ -56,7 +56,7 @@ public final class S3HiveQueryRunner
                 .build();
     }
 
-    public static Builder builder(HiveMinioDataLake hiveMinioDataLake)
+    public static Builder builder(Hive3MinioDataLake hiveMinioDataLake)
     {
         return builder()
                 .setHiveMetastoreEndpoint(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
@@ -173,7 +173,7 @@ public final class S3HiveQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake("tpch");
+        Hive3MinioDataLake hiveMinioDataLake = new Hive3MinioDataLake("tpch");
         hiveMinioDataLake.start();
 
         QueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)

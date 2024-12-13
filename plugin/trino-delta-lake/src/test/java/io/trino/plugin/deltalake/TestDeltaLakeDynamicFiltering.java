@@ -22,7 +22,7 @@ import io.trino.execution.QueryStats;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
@@ -60,14 +60,14 @@ public class TestDeltaLakeDynamicFiltering
         extends AbstractTestQueryFramework
 {
     private final String bucketName = "delta-lake-test-dynamic-filtering-" + randomNameSuffix();
-    private HiveMinioDataLake hiveMinioDataLake;
+    private Hive3MinioDataLake hiveMinioDataLake;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
         hiveMinioDataLake.start();
 
         QueryRunner queryRunner = DeltaLakeQueryRunner.builder()

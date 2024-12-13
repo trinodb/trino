@@ -14,8 +14,8 @@
 package io.trino.plugin.deltalake;
 
 import io.trino.plugin.base.util.AutoCloseableCloser;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.containers.Minio;
 import org.testcontainers.containers.GenericContainer;
 
@@ -26,11 +26,11 @@ public final class SparkDeltaLake
         implements AutoCloseable
 {
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
-    private final HiveMinioDataLake hiveMinio;
+    private final Hive3MinioDataLake hiveMinio;
 
     public SparkDeltaLake(String bucketName)
     {
-        hiveMinio = closer.register(new HiveMinioDataLake(bucketName));
+        hiveMinio = closer.register(new Hive3MinioDataLake(bucketName));
         hiveMinio.start();
 
         closer.register(new GenericContainer<>("ghcr.io/trinodb/testing/spark3-delta:" + getDockerImagesVersion()))

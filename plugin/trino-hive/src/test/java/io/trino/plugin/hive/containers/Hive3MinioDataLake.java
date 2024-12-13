@@ -29,7 +29,7 @@ import static io.trino.testing.containers.TestContainers.getPathFromClassPathRes
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
 
-public class HiveMinioDataLake
+public class Hive3MinioDataLake
         implements AutoCloseable
 {
     /**
@@ -49,17 +49,17 @@ public class HiveMinioDataLake
     private State state = State.INITIAL;
     private MinioClient minioClient;
 
-    public HiveMinioDataLake(String bucketName)
+    public Hive3MinioDataLake(String bucketName)
     {
         this(bucketName, HiveHadoop.HIVE3_IMAGE);
     }
 
-    public HiveMinioDataLake(String bucketName, String hiveHadoopImage)
+    public Hive3MinioDataLake(String bucketName, String hiveHadoopImage)
     {
         this(bucketName, ImmutableMap.of("/etc/hadoop/conf/core-site.xml", getPathFromClassPathResource("hive_minio_datalake/hive-core-site.xml")), hiveHadoopImage);
     }
 
-    public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage)
+    public Hive3MinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage)
     {
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         network = closer.register(newNetwork());
