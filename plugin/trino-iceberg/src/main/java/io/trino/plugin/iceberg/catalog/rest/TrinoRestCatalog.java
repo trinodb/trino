@@ -262,6 +262,21 @@ public class TrinoRestCatalog
     }
 
     @Override
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    {
+        SessionContext sessionContext = convert(session);
+        List<Namespace> namespaces = listNamespaces(session, namespace);
+
+        ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
+        for (Namespace restNamespace : namespaces) {
+            listTableIdentifiers(restNamespace, () -> restSessionCatalog.listTables(sessionContext, toRemoteNamespace(session, restNamespace))).stream()
+                    .map(id -> SchemaTableName.schemaTableName(toSchemaName(id.namespace()), id.name()))
+                    .forEach(tables::add);
+        }
+        return tables.build();
+    }
+
+    @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
     {
         SessionContext sessionContext = convert(session);
