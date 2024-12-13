@@ -22,6 +22,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.testing.BaseConnectorSmokeTest;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
@@ -61,6 +62,7 @@ import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -833,6 +835,56 @@ public abstract class BaseIcebergConnectorSmokeTest
                             "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), snapshotAfterCreateOrReplace, snapshotAfterInsertIntoCreateOrReplace),
                     "SELECT nationkey, name, 'insert', %s, '%s', 0 FROM nation".formatted(snapshotAfterInsertIntoCreateOrReplace, snapshotAfterInsertTimeIntoCreateOrReplace));
         }
+    }
+
+    @Test
+    public void testIcebergTablesFunction()
+            throws Exception
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        String firstSchema = "first_schema_" + randomNameSuffix();
+        String secondSchema = "second_schema_" + randomNameSuffix();
+        String firstSchemaLocation = schemaPath().replaceAll(schemaName, firstSchema);
+        String secondSchemaLocation = schemaPath().replaceAll(schemaName, secondSchema);
+        assertQuerySucceeds("CREATE SCHEMA " + firstSchema + " WITH (location = '%s')".formatted(firstSchemaLocation));
+        assertQuerySucceeds("CREATE SCHEMA " + secondSchema + " WITH (location = '%s')".formatted(secondSchemaLocation));
+        QueryRunner queryRunner = getQueryRunner();
+        Session firstSchemaSession = Session.builder(queryRunner.getDefaultSession()).setSchema(firstSchema).build();
+        Session secondSchemaSession = Session.builder(queryRunner.getDefaultSession()).setSchema(secondSchema).build();
+
+        try (TestTable _ = new TestTable(
+                sql -> getQueryRunner().execute(firstSchemaSession, sql),
+                "first_schema_table1_",
+                "(id int)");
+                TestTable _ = new TestTable(
+                        sql -> getQueryRunner().execute(firstSchemaSession, sql),
+                        "first_schema_table2_",
+                        "(id int)");
+                TestTable secondSchemaTable = new TestTable(
+                        sql -> queryRunner.execute(secondSchemaSession, sql),
+                        "second_schema_table_",
+                        "(id int)");
+                AutoCloseable _ = createAdditionalTables(firstSchema)) {
+            String firstSchemaTablesValues = "VALUES " + getQueryRunner()
+                    .execute("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema='%s'".formatted(firstSchema))
+                    .getMaterializedRows().stream()
+                    .map(row -> "('%s', '%s')".formatted(row.getField(0), row.getField(1)))
+                    .collect(joining(", "));
+            String bothSchemasTablesValues = firstSchemaTablesValues + ", ('%s', '%s')".formatted(secondSchema, secondSchemaTable.getName());
+            assertQuery("SELECT * FROM TABLE(iceberg.system.iceberg_tables(SCHEMA_NAME => '%s'))".formatted(firstSchema), firstSchemaTablesValues);
+            assertQuery("SELECT * FROM TABLE(iceberg.system.iceberg_tables(null)) WHERE table_schema = '%s'".formatted(firstSchema), firstSchemaTablesValues);
+            assertQuery("SELECT * FROM TABLE(iceberg.system.iceberg_tables()) WHERE table_schema in ('%s', '%s')".formatted(firstSchema, secondSchema), bothSchemasTablesValues);
+            assertQuery("SELECT * FROM TABLE(iceberg.system.iceberg_tables(null)) WHERE table_schema in ('%s', '%s')".formatted(firstSchema, secondSchema), bothSchemasTablesValues);
+        }
+        finally {
+            assertQuerySucceeds("DROP SCHEMA " + firstSchema);
+            assertQuerySucceeds("DROP SCHEMA " + secondSchema);
+        }
+    }
+
+    protected AutoCloseable createAdditionalTables(String schema)
+    {
+        return () -> {};
     }
 
     private long getMostRecentSnapshotId(String tableName)
