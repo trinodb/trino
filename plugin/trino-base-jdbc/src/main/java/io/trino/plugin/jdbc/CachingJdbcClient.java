@@ -39,6 +39,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -54,6 +55,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -404,10 +406,36 @@ public class CachingJdbcClient
     }
 
     @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns, List<JdbcColumnHandle> additionalColumns)
+    {
+        return delegate.beginInsertTable(session, tableHandle, columns, additionalColumns);
+    }
+
+    @Override
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
         delegate.finishInsertTable(session, handle, pageSinkIds);
         onDataChanged(handle.getRemoteTableName().getSchemaTableName());
+    }
+
+    @Override
+    public JdbcMergeTableHandle beginMerge(
+            ConnectorSession session,
+            JdbcTableHandle handle,
+            Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
+            MergeRollbackAction rollbackAction,
+            RetryMode retryMode)
+    {
+        return delegate.beginMerge(session, handle, updateColumnHandles, rollbackAction, retryMode);
+    }
+
+    @Override
+    public void finishMerge(ConnectorSession session, JdbcMergeTableHandle handle, Set<Long> pageSinkIds)
+    {
+        delegate.finishMerge(session, handle, pageSinkIds);
+        onDataChanged(handle.getOutputTableHandle().getRemoteTableName().getSchemaTableName());
+        handle.getUpdateOutputTableHandle().values().forEach(tableHandle -> onDataChanged(tableHandle.getRemoteTableName().getSchemaTableName()));
+        handle.getDeleteOutputTableHandle().ifPresent(tableHandle -> onDataChanged(tableHandle.getRemoteTableName().getSchemaTableName()));
     }
 
     @Override
