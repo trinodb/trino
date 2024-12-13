@@ -65,21 +65,21 @@ public abstract class BaseMySqlFailureRecoveryTest
     @Override
     protected void testDeleteWithSubquery()
     {
-        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("Non-transactional MERGE is disabled");
+        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("This connector does not support MERGE with transactional execution");
     }
 
     @Test
     @Override
     protected void testUpdateWithSubquery()
     {
-        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Non-transactional MERGE is disabled");
+        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("This connector does not support MERGE with transactional execution");
     }
 
     @Test
     @Override
     protected void testMerge()
     {
-        assertThatThrownBy(super::testMerge).hasMessageContaining("Non-transactional MERGE is disabled");
+        assertThatThrownBy(super::testMerge).hasMessageContaining("This connector does not support MERGE with transactional execution");
     }
 
     @Test
