@@ -69,13 +69,14 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeComputedStatistics;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.UnsupportedTypeException;
-import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogEntries;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.MetadataAndProtocolEntries;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionConflictException;
@@ -197,6 +198,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.primitives.Ints.max;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.filesystem.Locations.areDirectoryLocationsEquivalent;
 import static io.trino.hive.formats.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
@@ -290,8 +292,6 @@ import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.configurati
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getMandatoryCurrentVersion;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
@@ -630,15 +630,9 @@ public class DeltaLakeMetadata
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         TableSnapshot tableSnapshot = getSnapshot(session, tableName, tableLocation, endVersion.map(version -> getVersion(fileSystem, tableLocation, version)));
 
-        Map<Class<?>, Object> logEntries;
+        MetadataAndProtocolEntries logEntries;
         try {
-            logEntries = transactionLogAccess.getTransactionLogEntries(
-                    session,
-                    tableSnapshot,
-                    ImmutableSet.of(METADATA, PROTOCOL),
-                    entryStream -> entryStream
-                            .filter(entry -> entry.getMetaData() != null || entry.getProtocol() != null)
-                            .map(entry -> firstNonNull(entry.getMetaData(), entry.getProtocol())));
+            logEntries = transactionLogAccess.getMetadataAndProtocolEntry(session, tableSnapshot);
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(DELTA_LAKE_INVALID_SCHEMA.toErrorCode())) {
@@ -646,11 +640,11 @@ public class DeltaLakeMetadata
             }
             throw e;
         }
-        MetadataEntry metadataEntry = (MetadataEntry) logEntries.get(MetadataEntry.class);
+        MetadataEntry metadataEntry = logEntries.metadata().orElse(null);
         if (metadataEntry == null) {
             return new CorruptedDeltaLakeTableHandle(tableName, managed, tableLocation, new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
         }
-        ProtocolEntry protocolEntry = (ProtocolEntry) logEntries.get(ProtocolEntry.class);
+        ProtocolEntry protocolEntry = logEntries.protocol().orElse(null);
         if (protocolEntry == null) {
             return new CorruptedDeltaLakeTableHandle(tableName, managed, tableLocation, new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
         }
@@ -2267,16 +2261,16 @@ public class DeltaLakeMetadata
         if (currentVersion > readVersionValue) {
             String transactionLogDirectory = getTransactionLogDir(tableLocation);
             for (long version = readVersionValue + 1; version <= currentVersion; version++) {
-                List<DeltaLakeTransactionLogEntry> transactionLogEntries;
+                TransactionLogEntries transactionLogEntries;
                 try {
                     long finalVersion = version;
-                    transactionLogEntries = getEntriesFromJson(version, transactionLogDirectory, fileSystem)
+                    transactionLogEntries = getEntriesFromJson(version, transactionLogDirectory, fileSystem, DataSize.of(0, BYTE))
                             .orElseThrow(() -> new TrinoException(DELTA_LAKE_BAD_DATA, "Delta Lake log entries are missing for version " + finalVersion));
                 }
                 catch (IOException e) {
                     throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to access table metadata", e);
                 }
-                DeltaLakeCommitSummary commitSummary = new DeltaLakeCommitSummary(version, transactionLogEntries);
+                DeltaLakeCommitSummary commitSummary = new DeltaLakeCommitSummary(version, transactionLogEntries, fileSystem);
                 checkNoMetadataUpdates(commitSummary);
                 checkNoProtocolUpdates(commitSummary);
 
