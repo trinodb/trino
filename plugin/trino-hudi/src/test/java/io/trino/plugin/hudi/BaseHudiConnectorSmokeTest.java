@@ -32,7 +32,6 @@ public abstract class BaseHudiConnectorSmokeTest
                  SUPPORTS_MERGE,
                  SUPPORTS_CREATE_SCHEMA,
                  SUPPORTS_CREATE_TABLE,
-                 SUPPORTS_RENAME_TABLE,
                  SUPPORTS_CREATE_VIEW,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_COMMENT_ON_COLUMN -> false;

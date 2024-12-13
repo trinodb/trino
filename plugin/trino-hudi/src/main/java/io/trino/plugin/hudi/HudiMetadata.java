@@ -247,6 +247,13 @@ public class HudiMetadata
     }
 
     @Override
+    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    {
+        SchemaTableName schemaTableName = ((HudiTableHandle) tableHandle).getSchemaTableName();
+        metastore.renameTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), newTableName.getSchemaName(), newTableName.getTableName());
+    }
+
+    @Override
     public Iterator<RelationColumnsMetadata> streamRelationColumns(
             ConnectorSession session,
             Optional<String> schemaName,
