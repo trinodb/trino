@@ -353,6 +353,137 @@ public class TestCheckpointWriter
         assertThat(readEntries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
     }
 
+    @Test
+    public void testCheckpointWriteJsonReadParquet()
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format(
+                        "metadataFormatProvider",
+                        ImmutableMap.of(
+                                "formatOptionX", "blah",
+                                "fomatOptionY", "plah")),
+                "{\"type\":\"struct\",\"fields\":" +
+                        "[{\"name\":\"part_key\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"ts_ntz\",\"type\":\"timestamp_ntz\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"str\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"dec_short\",\"type\":\"decimal(5,1)\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"dec_long\",\"type\":\"decimal(25,3)\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"l\",\"type\":\"long\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"in\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"sh\",\"type\":\"short\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"byt\",\"type\":\"byte\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"fl\",\"type\":\"float\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"dou\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"bool\",\"type\":\"boolean\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"bin\",\"type\":\"binary\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"dat\",\"type\":\"date\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"arr\",\"type\":{\"type\":\"array\",\"elementType\":\"integer\",\"containsNull\":true},\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"m\",\"type\":{\"type\":\"map\",\"keyType\":\"integer\",\"valueType\":\"string\",\"valueContainsNull\":true},\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"row\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"s1\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"s2\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]},\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of("part_key"),
+                ImmutableMap.of(
+                        "configOption1", "blah",
+                        "configOption2", "plah"),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
+        TransactionEntry transactionEntry = new TransactionEntry("appId", 1, 1001);
+        AddFileEntry addFileEntryJsonStats = new AddFileEntry(
+                "addFilePathJson",
+                ImmutableMap.of("part_key", "7.0"),
+                1000,
+                1001,
+                true,
+                Optional.of("{" +
+                        "\"numRecords\":20," +
+                        "\"minValues\":{" +
+                        "\"ts\":\"2960-10-31T01:00:00.000Z\"," +
+                        "\"ts_ntz\":\"2020-01-01T01:02:03.123\"," +
+                        "\"str\":\"a\"," +
+                        "\"dec_short\":10.1," +
+                        "\"dec_long\":111111111111.123," +
+                        "\"l\":1000000000," +
+                        "\"in\":100000," +
+                        "\"sh\":100," +
+                        "\"byt\":10," +
+                        "\"fl\":0.100," +
+                        "\"dou\":\"-Infinity\"," +
+                        "\"dat\":\"2000-01-01\"," +
+                        "\"row\":{\"s1\":1,\"s2\":\"a\"}" +
+                        "}," +
+                        "\"maxValues\":{" +
+                        "\"ts\":\"2960-10-31T02:00:00.000Z\"," +
+                        "\"ts_ntz\":\"3000-01-01T01:02:03.123\"," +
+                        "\"str\":\"z\"," +
+                        "\"dec_short\":20.1," +
+                        "\"dec_long\":222222222222.123," +
+                        "\"l\":2000000000," +
+                        "\"in\":200000," +
+                        "\"sh\":200," +
+                        "\"byt\":20," +
+                        "\"fl\":0.200," +
+                        "\"dou\":0.202," +
+                        "\"dat\":\"3000-01-01\"," +
+                        "\"row\":{\"s1\":1,\"s2\":\"a\"}" +
+                        "}," +
+                        "\"nullCount\":{" +
+                        "\"ts\":1," +
+                        "\"str\":2," +
+                        "\"dec_short\":3," +
+                        "\"dec_long\":4," +
+                        "\"l\":5," +
+                        "\"in\":6," +
+                        "\"sh\":7," +
+                        "\"byt\":8," +
+                        "\"fl\":9," +
+                        "\"dou\":10," +
+                        "\"bool\":11," +
+                        "\"bin\":12," +
+                        "\"dat\":13," +
+                        "\"arr\":0,\"m\":14," +
+                        "\"row\":{\"s1\":0,\"s2\":15}}}"),
+                Optional.empty(),
+                ImmutableMap.of(
+                        "someTag", "someValue",
+                        "otherTag", "otherValue"),
+                Optional.empty());
+
+        RemoveFileEntry removeFileEntry = new RemoveFileEntry(
+                "removeFilePath",
+                ImmutableMap.of("part_key", "7.0"),
+                1000,
+                true,
+                Optional.empty());
+
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(transactionEntry),
+                ImmutableSet.of(addFileEntryJsonStats),
+                ImmutableSet.of(removeFileEntry));
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+
+        File targetFile = File.createTempFile("testCheckpointWriteJsonReadParquet-", ".checkpoint.parquet");
+        targetFile.deleteOnExit();
+
+        String targetPath = "file://" + targetFile.getAbsolutePath();
+        targetFile.delete(); // file must not exist when writer is called
+        writer.write(entries, createOutputFile(targetPath));
+
+        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
+        assertThat(readEntries.transactionEntries()).isEqualTo(entries.transactionEntries());
+        assertThat(readEntries.removeFileEntries()).isEqualTo(entries.removeFileEntries());
+        assertThat(readEntries.metadataEntry()).isEqualTo(entries.metadataEntry());
+        assertThat(readEntries.protocolEntry()).isEqualTo(entries.protocolEntry());
+        assertThat(readEntries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+    }
+
     private static long convertToTimestamp(String value)
     {
         LocalDateTime localDateTime = LocalDateTime.parse(value);
