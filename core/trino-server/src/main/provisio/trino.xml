@@ -114,6 +114,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/functions-python">
+        <artifact id="${project.groupId}:trino-functions-python:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/geospatial">
         <artifact id="${project.groupId}:trino-geospatial:zip:${project.version}">
             <unpack />
