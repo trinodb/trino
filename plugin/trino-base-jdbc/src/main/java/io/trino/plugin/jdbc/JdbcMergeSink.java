@@ -99,21 +99,24 @@ public class JdbcMergeSink
         TupleDomain<ColumnHandle> primaryKeysDomain = TupleDomain.withColumnDomains(primaryKeysDomainBuilder.buildOrThrow());
         JdbcNamedRelationHandle relation = mergeHandle.getTableHandle().getRequiredNamedRelation();
         this.insertSink = new JdbcPageSink(session, outputHandle, jdbcClient, pageSinkId, queryModifier, JdbcClient::buildInsertSql);
-        this.deleteSink = createDeleteSink(session, relation, primaryKeysDomain, primaryKeys, jdbcClient, pageSinkId, queryModifier, queryBuilder);
+        this.deleteSink = createDeleteSink(session, mergeHandle.getDeleteOutputTableHandle(), relation, primaryKeysDomain, primaryKeys, jdbcClient, pageSinkId, queryModifier, queryBuilder);
 
         Map<Integer, Collection<ColumnHandle>> updateCaseColumns = mergeHandle.getUpdateCaseColumns();
+        Map<Integer, JdbcOutputTableHandle> updateTableHandles = mergeHandle.getUpdateOutputTableHandle();
         List<JdbcColumnHandle> columns = mergeHandle.getDataColumns();
 
         ImmutableMap.Builder<Integer, Supplier<ConnectorPageSink>> updateSinksBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, int[]> updateCaseChannelsBuilder = ImmutableMap.builder();
         for (Map.Entry<Integer, Collection<ColumnHandle>> entry : updateCaseColumns.entrySet()) {
             int caseNumber = entry.getKey();
+            checkArgument(updateTableHandles.isEmpty() || updateTableHandles.containsKey(caseNumber), "Update handles should contain all case number or empty");
             Set<Integer> columnChannels = entry.getValue().stream()
                     .map(JdbcColumnHandle.class::cast)
                     .map(columns::indexOf)
                     .collect(toImmutableSet());
             Supplier<ConnectorPageSink> updateSupplier = Suppliers.memoize(() -> createUpdateSink(
                     session,
+                    Optional.ofNullable(updateTableHandles.get(caseNumber)),
                     relation,
                     primaryKeysDomain,
                     primaryKeys,
@@ -132,6 +135,7 @@ public class JdbcMergeSink
 
     private static ConnectorPageSink createUpdateSink(
             ConnectorSession session,
+            Optional<JdbcOutputTableHandle> outputTableHandle,
             JdbcNamedRelationHandle relation,
             TupleDomain<ColumnHandle> domain,
             List<JdbcColumnHandle> primaryKeys,
@@ -142,6 +146,10 @@ public class JdbcMergeSink
             List<JdbcColumnHandle> columns,
             Set<Integer> updateChannels)
     {
+        if (outputTableHandle.isPresent()) {
+            return new JdbcPageSink(session, outputTableHandle.get(), jdbcClient, pageSinkId, remoteQueryModifier, JdbcClient::buildInsertSql);
+        }
+
         ImmutableList.Builder<JdbcAssignmentItem> assignmentItemBuilder = ImmutableList.builder();
         ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
@@ -202,6 +210,7 @@ public class JdbcMergeSink
 
     private static ConnectorPageSink createDeleteSink(
             ConnectorSession session,
+            Optional<JdbcOutputTableHandle> outputTableHandle,
             JdbcNamedRelationHandle relation,
             TupleDomain<ColumnHandle> domain,
             List<JdbcColumnHandle> primaryKeys,
@@ -210,6 +219,10 @@ public class JdbcMergeSink
             RemoteQueryModifier remoteQueryModifier,
             QueryBuilder queryBuilder)
     {
+        if (outputTableHandle.isPresent()) {
+            return new JdbcPageSink(session, outputTableHandle.get(), jdbcClient, pageSinkId, remoteQueryModifier, JdbcClient::buildInsertSql);
+        }
+
         ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
         for (JdbcColumnHandle columnHandle : primaryKeys) {

@@ -15,6 +15,7 @@ package io.trino.plugin.ignite;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcMergeTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -23,6 +24,7 @@ import io.trino.spi.connector.ColumnHandle;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class IgniteMergeTableHandle
         extends JdbcMergeTableHandle
@@ -35,6 +37,6 @@ public class IgniteMergeTableHandle
             @JsonProperty("dataColumns") List<JdbcColumnHandle> dataColumns,
             @JsonProperty("updateCaseColumns") Map<Integer, Collection<ColumnHandle>> updateCaseColumns)
     {
-        super(tableHandle, outputTableHandle, primaryKeys, dataColumns, updateCaseColumns);
+        super(tableHandle, outputTableHandle, ImmutableMap.of(), Optional.empty(), primaryKeys, dataColumns, updateCaseColumns);
     }
 }
