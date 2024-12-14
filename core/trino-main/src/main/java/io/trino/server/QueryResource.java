@@ -41,8 +41,9 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.system.KillQueryProcedure.createKillQueryException;
 import static io.trino.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static io.trino.execution.QueryStateMachine.pruneQueryInfo;
@@ -75,16 +76,19 @@ public class QueryResource
     public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") Set<String> stateFilters, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
         Set<QueryState> expectedStates = stateFilters.stream()
-                .map(f -> f.toUpperCase(Locale.ENGLISH))
+                .map(state -> state.toUpperCase(Locale.ENGLISH))
                 .map(QueryState::valueOf)
-                .collect(Collectors.toUnmodifiableSet());
+                .collect(toImmutableSet());
 
         List<BasicQueryInfo> queries = dispatchManager.getQueries();
         queries = filterQueries(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queries, accessControl);
 
+        if (expectedStates.isEmpty()) {
+            return queries;
+        }
         return queries.stream()
-                .filter(q -> expectedStates.isEmpty() || expectedStates.contains(q.getState()))
-                .collect(Collectors.toUnmodifiableList());
+                .filter(query -> expectedStates.contains(query.getState()))
+                .collect(toImmutableList());
     }
 
     @ResourceSecurity(AUTHENTICATED_USER)
