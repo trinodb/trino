@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -75,8 +76,9 @@ public class PartitionsTable
     private final List<RowType> columnMetricTypes;
     private final List<io.trino.spi.type.Type> resultTypes;
     private final ConnectorTableMetadata connectorTableMetadata;
+    private final ExecutorService executor;
 
-    public PartitionsTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
+    public PartitionsTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId, ExecutorService executor)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
@@ -120,6 +122,7 @@ public class PartitionsTable
                 .map(ColumnMetadata::getType)
                 .collect(toImmutableList());
         this.connectorTableMetadata = new ConnectorTableMetadata(tableName, columnMetadata);
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
@@ -202,7 +205,8 @@ public class PartitionsTable
         }
         TableScan tableScan = icebergTable.newScan()
                 .useSnapshot(snapshotId.get())
-                .includeColumnStats();
+                .includeColumnStats()
+                .planWith(executor);
         // TODO make the cursor lazy
         return buildRecordCursor(getStatisticsByPartition(tableScan));
     }

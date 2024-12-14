@@ -14,12 +14,17 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.SizeOf;
 
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.primitives.Ints.max;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CDF_SUPPORTED_WRITER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.COLUMN_MAPPING_MODE_SUPPORTED_READER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION;
@@ -42,6 +47,8 @@ public record ProtocolEntry(
         Optional<Set<String>> readerFeatures,
         Optional<Set<String>> writerFeatures)
 {
+    private static final int INSTANCE_SIZE = instanceSize(ProtocolEntry.class);
+
     public ProtocolEntry
     {
         if (minReaderVersion < MIN_VERSION_SUPPORTS_READER_FEATURES && readerFeatures.isPresent()) {
@@ -72,6 +79,15 @@ public record ProtocolEntry(
     public boolean writerFeaturesContains(String featureName)
     {
         return writerFeatures.map(features -> features.contains(featureName)).orElse(false);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + SIZE_OF_INT
+                + SIZE_OF_INT
+                + sizeOf(readerFeatures, features -> estimatedSizeOf(features, SizeOf::estimatedSizeOf))
+                + sizeOf(writerFeatures, features -> estimatedSizeOf(features, SizeOf::estimatedSizeOf));
     }
 
     public static Builder builder(ProtocolEntry protocolEntry)

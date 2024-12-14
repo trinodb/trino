@@ -31,6 +31,9 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.parseJson;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
@@ -39,6 +42,7 @@ import static java.util.Objects.requireNonNull;
 
 public class TransactionLogTail
 {
+    private static final int INSTANCE_SIZE = instanceSize(TransactionLogTail.class);
     private static final int JSON_LOG_ENTRY_READ_BUFFER_SIZE = 1024 * 1024;
 
     private final List<Transaction> entries;
@@ -157,5 +161,12 @@ public class TransactionLogTail
     public long getVersion()
     {
         return version;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + SIZE_OF_LONG
+                + estimatedSizeOf(entries, Transaction::getRetainedSizeInBytes);
     }
 }

@@ -65,6 +65,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -117,8 +118,9 @@ public class FilesTable
     private final Optional<IcebergPartitionColumn> partitionColumnType;
     private final Map<Integer, Type.PrimitiveType> idToPrimitiveTypeMapping;
     private final List<Types.NestedField> primitiveFields;
+    private final ExecutorService executor;
 
-    public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
+    public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId, ExecutorService executor)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -152,6 +154,7 @@ public class FilesTable
 
         tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"), columns.build());
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
@@ -180,7 +183,8 @@ public class FilesTable
         TableScan tableScan = createMetadataTableInstance(icebergTable, FILES)
                 .newScan()
                 .useSnapshot(snapshotId.get())
-                .includeColumnStats();
+                .includeColumnStats()
+                .planWith(executor);
 
         Map<String, Integer> columnNameToPosition = mapWithIndex(tableScan.schema().columns().stream(),
                 (column, position) -> immutableEntry(column.name(), Long.valueOf(position).intValue()))

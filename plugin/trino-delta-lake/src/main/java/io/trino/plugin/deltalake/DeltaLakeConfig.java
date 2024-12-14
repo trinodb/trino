@@ -43,7 +43,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "delta.experimental.ignore-checkpoint-write-failures",
         "delta.legacy-create-table-with-existing-location.enabled",
         "delta.max-initial-splits",
-        "delta.max-initial-split-size"
+        "delta.max-initial-split-size",
+        "delta.metadata.cache-size",
 })
 public class DeltaLakeConfig
 {
@@ -54,9 +55,11 @@ public class DeltaLakeConfig
     // constant so default configuration for cache size is stable.
     @VisibleForTesting
     static final DataSize DEFAULT_DATA_FILE_CACHE_SIZE = DataSize.succinctBytes(Math.floorDiv(Runtime.getRuntime().maxMemory(), 10L));
+    @VisibleForTesting
+    static final DataSize DEFAULT_METADATA_CACHE_MAX_RETAINED_SIZE = DataSize.succinctBytes(Math.floorDiv(Runtime.getRuntime().maxMemory(), 20L));
 
-    private Duration metadataCacheTtl = new Duration(5, TimeUnit.MINUTES);
-    private long metadataCacheMaxSize = 1000;
+    private Duration metadataCacheTtl = new Duration(30, TimeUnit.MINUTES);
+    private DataSize metadataCacheMaxRetainedSize = DEFAULT_METADATA_CACHE_MAX_RETAINED_SIZE;
     private DataSize dataFileCacheSize = DEFAULT_DATA_FILE_CACHE_SIZE;
     private Duration dataFileCacheTtl = new Duration(30, TimeUnit.MINUTES);
     private int domainCompactionThreshold = 1000;
@@ -105,16 +108,16 @@ public class DeltaLakeConfig
         return this;
     }
 
-    public long getMetadataCacheMaxSize()
+    public DataSize getMetadataCacheMaxRetainedSize()
     {
-        return metadataCacheMaxSize;
+        return metadataCacheMaxRetainedSize;
     }
 
-    @Config("delta.metadata.cache-size")
-    @ConfigDescription("Maximum number of Delta table metadata entries to cache")
-    public DeltaLakeConfig setMetadataCacheMaxSize(long metadataCacheMaxSize)
+    @Config("delta.metadata.cache-max-retained-size")
+    @ConfigDescription("Maximum retained size of Delta table metadata stored in cache")
+    public DeltaLakeConfig setMetadataCacheMaxRetainedSize(DataSize metadataCacheMaxRetainedSize)
     {
-        this.metadataCacheMaxSize = metadataCacheMaxSize;
+        this.metadataCacheMaxRetainedSize = metadataCacheMaxRetainedSize;
         return this;
     }
 

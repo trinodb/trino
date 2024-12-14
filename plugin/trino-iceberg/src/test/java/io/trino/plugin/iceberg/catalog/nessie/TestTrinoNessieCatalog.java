@@ -46,6 +46,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
@@ -189,7 +190,8 @@ public class TestTrinoNessieCatalog
                     new TableStatisticsWriter(new NodeVersion("test-version")),
                     Optional.empty(),
                     false,
-                    _ -> false);
+                    _ -> false,
+                    newDirectExecutorService());
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

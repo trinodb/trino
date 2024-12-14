@@ -55,7 +55,7 @@ public class JdbcWriteConfig
     }
 
     @Config("insert.non-transactional-insert.enabled")
-    @ConfigDescription("Do not create temporary table during insert. " +
+    @ConfigDescription("Enables support for non-transactional INSERT. " +
             "This means that the write operation can fail and leave the table in an inconsistent state.")
     public JdbcWriteConfig setNonTransactionalInsert(boolean nonTransactionalInsert)
     {
