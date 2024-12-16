@@ -4,8 +4,6 @@ A user-defined function (UDF) is a custom function authored by a user of Trino
 in a client application. UDFs are scalar functions that return a single output
 value, similar to [built-in functions](/functions).
 
-UDFs are defined and written using the [SQL routine language](/udf/sql). 
-
 :::{note}
 Custom functions can alternatively be written in Java and deployed as a
 plugin. Details are available in the [developer guide](/develop/functions).
@@ -13,6 +11,9 @@ plugin. Details are available in the [developer guide](/develop/functions).
 
 (udf-declaration)=
 ## UDF declaration
+
+Declare the UDF with the SQL [](/udf/function) keyword and the supported
+statements for [](/udf/sql) or [](/udf/python).
 
 A UDF can be declared as an [inline UDF](udf-inline) to be used in the current
 query, or declared as a [catalog UDF](udf-catalog) to be used in any future
