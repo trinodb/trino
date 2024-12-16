@@ -666,6 +666,11 @@ public final class FormatTestUtils
 
     public static SqlTimestamp toSqlTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
     {
+        return toSqlTimestamp(timestampType, localDateTime, 0);
+    }
+
+    public static SqlTimestamp toSqlTimestamp(TimestampType timestampType, LocalDateTime localDateTime, int picosOfNanos)
+    {
         if (localDateTime == null) {
             return null;
         }
@@ -675,7 +680,7 @@ public final class FormatTestUtils
             return SqlTimestamp.newInstance(timestampType.getPrecision(), micros, 0);
         }
         LongTimestamp longTimestamp = (LongTimestamp) createTimestampEncoder(timestampType, DateTimeZone.UTC).getTimestamp(decodedTimestamp);
-        return SqlTimestamp.newInstance(timestampType.getPrecision(), longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro());
+        return SqlTimestamp.newInstance(timestampType.getPrecision(), longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro() + picosOfNanos);
     }
 
     public static LineBuffer createLineBuffer(String value)

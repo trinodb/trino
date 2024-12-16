@@ -16,12 +16,14 @@ package io.trino.hive.formats.ion;
 import com.amazon.ion.IonException;
 import com.amazon.ion.IonReader;
 import com.amazon.ion.IonType;
+import com.amazon.ion.Timestamp;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.hive.formats.DistinctMapKeys;
 import io.trino.hive.formats.line.Column;
-import io.trino.spi.PageBuilder;
+import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
@@ -31,8 +33,10 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.Chars;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
@@ -42,14 +46,17 @@ import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.Varchars;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.time.ZoneId;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -58,8 +65,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.IntFunction;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public class IonDecoderFactory
 {
@@ -71,13 +76,37 @@ public class IonDecoderFactory
      * The decoder expects to decode the _current_ Ion Value.
      * It also expects that the calling code will manage the PageBuilder.
      * <p>
+     *
+     * @param strictPathing controls behavior when encountering mistyped
+     * values during path extraction. That is outside (before), the trino
+     * type model. The ion-hive-serde used path extraction for navigating
+     * the top-level-values even if no path extractions were configured.
+     * So, in absence of support for path extraction configurations this
+     * still affects the handling of mistyped top-level-values.
+     * todo: revisit the above once path extraction config is supported.
      */
-    public static IonDecoder buildDecoder(List<Column> columns)
+    public static IonDecoder buildDecoder(List<Column> columns, boolean strictPathing)
     {
-        return RowDecoder.forFields(
+        RowDecoder rowDecoder = RowDecoder.forFields(
                 columns.stream()
                         .map(c -> new RowType.Field(Optional.of(c.name()), c.type()))
                         .toList());
+
+        return (ionReader, pageBuilder) -> {
+            IonType ionType = ionReader.getType();
+            IntFunction<BlockBuilder> blockSelector = pageBuilder::getBlockBuilder;
+
+            if (ionType == IonType.STRUCT && !ionReader.isNullValue()) {
+                rowDecoder.decode(ionReader, blockSelector);
+            }
+            else if (ionType == IonType.STRUCT || ionType == IonType.NULL || !strictPathing) {
+                rowDecoder.appendNulls(blockSelector);
+            }
+            else {
+                throw new TrinoException(StandardErrorCode.GENERIC_USER_ERROR,
+                        "Top-level-value of IonType %s is not valid with strict typing.".formatted(ionType));
+            }
+        };
     }
 
     private interface BlockDecoder
@@ -88,22 +117,22 @@ public class IonDecoderFactory
     private static BlockDecoder decoderForType(Type type)
     {
         return switch (type) {
-            case TinyintType _ -> wrapDecoder(byteDecoder, IonType.INT);
-            case SmallintType _ -> wrapDecoder(shortDecoder, IonType.INT);
-            case IntegerType _ -> wrapDecoder(intDecoder, IonType.INT);
-            case BigintType _ -> wrapDecoder(longDecoder, IonType.INT);
-            case RealType _ -> wrapDecoder(realDecoder, IonType.FLOAT);
-            case DoubleType _ -> wrapDecoder(floatDecoder, IonType.FLOAT);
-            case BooleanType _ -> wrapDecoder(boolDecoder, IonType.BOOL);
-            case DateType _ -> wrapDecoder(dateDecoder, IonType.TIMESTAMP);
-            case TimestampType t -> wrapDecoder(timestampDecoder(t), IonType.TIMESTAMP);
-            case DecimalType t -> wrapDecoder(decimalDecoder(t), IonType.DECIMAL);
-            case VarcharType _, CharType _ -> wrapDecoder(stringDecoder, IonType.STRING, IonType.SYMBOL);
-            case VarbinaryType _ -> wrapDecoder(binaryDecoder, IonType.BLOB, IonType.CLOB);
-            case MapType mapType -> wrapDecoder(new MapDecoder(mapType, decoderForType(mapType.getValueType())),
-                    IonType.STRUCT);
-            case RowType r -> wrapDecoder(RowDecoder.forFields(r.getFields()), IonType.STRUCT);
-            case ArrayType a -> wrapDecoder(new ArrayDecoder(decoderForType(a.getElementType())), IonType.LIST, IonType.SEXP);
+            case TinyintType t -> wrapDecoder(byteDecoder, t, IonType.INT);
+            case SmallintType t -> wrapDecoder(shortDecoder, t, IonType.INT);
+            case IntegerType t -> wrapDecoder(intDecoder, t, IonType.INT);
+            case BigintType t -> wrapDecoder(longDecoder, t, IonType.INT);
+            case RealType t -> wrapDecoder(realDecoder, t, IonType.FLOAT);
+            case DoubleType t -> wrapDecoder(floatDecoder, t, IonType.FLOAT);
+            case DecimalType t -> wrapDecoder(decimalDecoder(t), t, IonType.DECIMAL, IonType.INT);
+            case BooleanType t -> wrapDecoder(boolDecoder, t, IonType.BOOL);
+            case DateType t -> wrapDecoder(dateDecoder, t, IonType.TIMESTAMP);
+            case TimestampType t -> wrapDecoder(timestampDecoder(t), t, IonType.TIMESTAMP);
+            case VarcharType t -> wrapDecoder(varcharDecoder(t), t, IonType.STRING, IonType.SYMBOL);
+            case CharType t -> wrapDecoder(charDecoder(t), t, IonType.STRING, IonType.SYMBOL);
+            case VarbinaryType t -> wrapDecoder(binaryDecoder, t, IonType.BLOB, IonType.CLOB);
+            case RowType t -> wrapDecoder(RowDecoder.forFields(t.getFields()), t, IonType.STRUCT);
+            case ArrayType t -> wrapDecoder(new ArrayDecoder(decoderForType(t.getElementType())), t, IonType.LIST, IonType.SEXP);
+            case MapType t -> wrapDecoder(new MapDecoder(t, decoderForType(t.getValueType())), t, IonType.STRUCT);
             default -> throw new IllegalArgumentException(String.format("Unsupported type: %s", type));
         };
     }
@@ -117,16 +146,16 @@ public class IonDecoderFactory
      * <p>
      * This code treats all values as nullable.
      */
-    private static BlockDecoder wrapDecoder(BlockDecoder decoder, IonType... allowedTypes)
+    private static BlockDecoder wrapDecoder(BlockDecoder decoder, Type trinoType, IonType... allowedTypes)
     {
-        final Set<IonType> allowedWithNull = new HashSet<>(Arrays.asList(allowedTypes));
+        Set<IonType> allowedWithNull = new HashSet<>(Arrays.asList(allowedTypes));
         allowedWithNull.add(IonType.NULL);
 
         return (reader, builder) -> {
-            final IonType type = reader.getType();
-            if (!allowedWithNull.contains(type)) {
-                final String expected = allowedWithNull.stream().map(IonType::name).collect(Collectors.joining(", "));
-                throw new IonException(String.format("Encountered value with IonType: %s, required one of %s ", type, expected));
+            final IonType ionType = reader.getType();
+            if (!allowedWithNull.contains(ionType)) {
+                throw new TrinoException(StandardErrorCode.GENERIC_USER_ERROR,
+                        "Cannot coerce IonType %s to Trino type %s".formatted(ionType, trinoType));
             }
             if (reader.isNullValue()) {
                 builder.appendNull();
@@ -138,39 +167,22 @@ public class IonDecoderFactory
     }
 
     /**
-     * Class is both the Top-Level-Value Decoder and the Row Decoder for nested
-     * structs.
+     * The RowDecoder is used as the BlockDecoder for nested RowTypes and is used for decoding
+     * top-level structs into pages.
      */
     private record RowDecoder(Map<String, Integer> fieldPositions, List<BlockDecoder> fieldDecoders)
-            implements IonDecoder, BlockDecoder
+            implements BlockDecoder
     {
         private static RowDecoder forFields(List<RowType.Field> fields)
         {
             ImmutableList.Builder<BlockDecoder> decoderBuilder = ImmutableList.builder();
             ImmutableMap.Builder<String, Integer> fieldPositionBuilder = ImmutableMap.builder();
-            IntStream.range(0, fields.size())
-                    .forEach(position -> {
-                        RowType.Field field = fields.get(position);
-                        decoderBuilder.add(decoderForType(field.getType()));
-                        fieldPositionBuilder.put(field.getName().get().toLowerCase(Locale.ROOT), position);
-                    });
-
+            for (int pos = 0; pos < fields.size(); pos++) {
+                RowType.Field field = fields.get(pos);
+                decoderBuilder.add(decoderForType(field.getType()));
+                fieldPositionBuilder.put(field.getName().get().toLowerCase(Locale.ROOT), pos);
+            }
             return new RowDecoder(fieldPositionBuilder.buildOrThrow(), decoderBuilder.build());
-        }
-
-        @Override
-        public void decode(IonReader ionReader, PageBuilder pageBuilder)
-        {
-            // todo: we could also map an Ion List to a Struct
-            if (ionReader.getType() != IonType.STRUCT) {
-                throw new IonException("RowType must be Structs! Encountered: " + ionReader.getType());
-            }
-            if (ionReader.isNullValue()) {
-                // todo: is this an error or just a null value?
-                //       i think in the hive serde it's a null record.
-                throw new IonException("Top Level Values must not be null!");
-            }
-            decode(ionReader, pageBuilder::getBlockBuilder);
         }
 
         @Override
@@ -187,7 +199,6 @@ public class IonDecoderFactory
             ionReader.stepIn();
 
             while (ionReader.next() != null) {
-                // todo: case insensitivity
                 final Integer fieldIndex = fieldPositions.get(ionReader.getFieldName().toLowerCase(Locale.ROOT));
                 if (fieldIndex == null) {
                     continue;
@@ -209,6 +220,13 @@ public class IonDecoderFactory
             }
 
             ionReader.stepOut();
+        }
+
+        private void appendNulls(IntFunction<BlockBuilder> blockSelector)
+        {
+            for (int i = 0; i < fieldDecoders.size(); i++) {
+                blockSelector.apply(i).appendNull();
+            }
         }
     }
 
@@ -284,82 +302,120 @@ public class IonDecoderFactory
 
     private static BlockDecoder timestampDecoder(TimestampType type)
     {
-        // todo: no attempt is made at handling offsets or lack thereof
-        if (type.isShort()) {
-            return (reader, builder) -> {
-                long micros = reader.timestampValue().getDecimalMillis()
-                        .setScale(type.getPrecision() - 3, RoundingMode.HALF_EVEN)
-                        .movePointRight(3)
-                        .longValue();
-                type.writeLong(builder, micros);
-            };
-        }
-        else {
-            return (reader, builder) -> {
-                BigDecimal decimalMicros = reader.timestampValue().getDecimalMillis()
-                        .movePointRight(3);
-                BigDecimal subMicrosFrac = decimalMicros.remainder(BigDecimal.ONE)
-                        .movePointRight(6);
-                type.writeObject(builder, new LongTimestamp(decimalMicros.longValue(), subMicrosFrac.intValue()));
-            };
-        }
+        // Ion supports arbitrarily precise Timestamps.
+        // Other Hive formats are using the DecodedTimestamp and TrinoTimestampEncoders in
+        // io.trino.plugin.base.type but those don't cover picos.
+        // This code uses same pattern of splitting the parsed timestamp into (seconds, fraction)
+        // then rounding the fraction using Timestamps.round() ensures consistency with the others
+        // while capturing picos if present. Fractional precision beyond picos is ignored.
+        return (reader, builder) -> {
+            BigDecimal decimalSeconds = reader.timestampValue()
+                    .getDecimalMillis()
+                    .movePointLeft(3);
+            BigDecimal decimalPicos = decimalSeconds.remainder(BigDecimal.ONE)
+                    .movePointRight(12);
+
+            long fractionalPicos = Timestamps.round(decimalPicos.longValue(), 12 - type.getPrecision());
+            long epochMicros = decimalSeconds.longValue() * Timestamps.MICROSECONDS_PER_SECOND
+                    + fractionalPicos / Timestamps.PICOSECONDS_PER_MICROSECOND;
+
+            if (type.isShort()) {
+                type.writeLong(builder, epochMicros);
+            }
+            else {
+                type.writeObject(builder,
+                        new LongTimestamp(epochMicros, (int) (fractionalPicos % Timestamps.PICOSECONDS_PER_MICROSECOND)));
+            }
+        };
     }
 
     private static BlockDecoder decimalDecoder(DecimalType type)
     {
-        if (type.isShort()) {
-            return (reader, builder) -> {
-                long unscaled = reader.bigDecimalValue()
-                        .setScale(type.getScale(), RoundingMode.UNNECESSARY)
-                        .unscaledValue()
-                        .longValue();
-                type.writeLong(builder, unscaled);
-            };
-        }
-        else {
-            return (reader, builder) -> {
-                Int128 unscaled = Int128.valueOf(reader.bigDecimalValue()
-                        .setScale(type.getScale(), RoundingMode.UNNECESSARY)
-                        .unscaledValue());
-                type.writeObject(builder, unscaled);
-            };
-        }
+        int precision = type.getPrecision();
+        int scale = type.getScale();
+
+        return (reader, builder) -> {
+            try {
+                BigDecimal decimal = reader.bigDecimalValue();
+                BigInteger unscaled = decimal
+                        .setScale(scale, RoundingMode.UNNECESSARY)
+                        .unscaledValue();
+
+                if (Decimals.overflows(unscaled, precision)) {
+                    throw new TrinoException(StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE,
+                            "Decimal value %s does not fit %d digits of precision and %d of scale!"
+                                    .formatted(decimal, precision, scale));
+                }
+                if (type.isShort()) {
+                    type.writeLong(builder, unscaled.longValue());
+                }
+                else {
+                    type.writeObject(builder, Int128.valueOf(unscaled));
+                }
+            }
+            catch (ArithmeticException e) {
+                throw new TrinoException(StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE,
+                        "Decimal value %s does not fit %d digits of scale!".formatted(reader.bigDecimalValue(), scale));
+            }
+        };
+    }
+
+    private static BlockDecoder varcharDecoder(VarcharType type)
+    {
+        return (ionReader, blockBuilder) ->
+                type.writeSlice(blockBuilder, Varchars.truncateToLength(Slices.utf8Slice(ionReader.stringValue()), type));
+    }
+
+    private static BlockDecoder charDecoder(CharType type)
+    {
+        return (ionReader, blockBuilder) ->
+                type.writeSlice(blockBuilder, Chars.truncateToLengthAndTrimSpaces(Slices.utf8Slice(ionReader.stringValue()), type));
     }
 
     private static final BlockDecoder byteDecoder = (ionReader, blockBuilder) ->
-            TinyintType.TINYINT.writeLong(blockBuilder, ionReader.longValue());
+            TinyintType.TINYINT.writeLong(blockBuilder, readLong(ionReader));
 
     private static final BlockDecoder shortDecoder = (ionReader, blockBuilder) ->
-            SmallintType.SMALLINT.writeLong(blockBuilder, ionReader.longValue());
+            SmallintType.SMALLINT.writeLong(blockBuilder, readLong(ionReader));
 
     private static final BlockDecoder intDecoder = (ionReader, blockBuilder) ->
-            IntegerType.INTEGER.writeLong(blockBuilder, ionReader.longValue());
+            IntegerType.INTEGER.writeLong(blockBuilder, readLong(ionReader));
 
     private static final BlockDecoder longDecoder = (ionReader, blockBuilder) ->
-            BigintType.BIGINT.writeLong(blockBuilder, ionReader.longValue());
+            BigintType.BIGINT.writeLong(blockBuilder, readLong(ionReader));
+
+    private static long readLong(IonReader ionReader)
+    {
+        try {
+            return ionReader.longValue();
+        }
+        catch (IonException e) {
+            throw new TrinoException(StandardErrorCode.GENERIC_USER_ERROR, e.getMessage());
+        }
+    }
 
     private static final BlockDecoder realDecoder = (ionReader, blockBuilder) -> {
         double readValue = ionReader.doubleValue();
         if (readValue == (float) readValue) {
-            RealType.REAL.writeFloat(blockBuilder, (float) ionReader.doubleValue());
+            RealType.REAL.writeFloat(blockBuilder, (float) readValue);
         }
         else {
-            // todo: some kind of "permissive truncate" flag
-            throw new IllegalArgumentException("Won't truncate double precise float to real!");
+            throw new TrinoException(StandardErrorCode.GENERIC_USER_ERROR,
+                    "Won't truncate double precise float to real!");
         }
     };
 
     private static final BlockDecoder floatDecoder = (ionReader, blockBuilder) ->
             DoubleType.DOUBLE.writeDouble(blockBuilder, ionReader.doubleValue());
 
-    private static final BlockDecoder stringDecoder = (ionReader, blockBuilder) ->
-            VarcharType.VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(ionReader.stringValue()));
-
     private static final BlockDecoder boolDecoder = (ionReader, blockBuilder) ->
             BooleanType.BOOLEAN.writeBoolean(blockBuilder, ionReader.booleanValue());
 
-    private static final BlockDecoder dateDecoder = (ionReader, blockBuilder) ->
-            DateType.DATE.writeLong(blockBuilder, ionReader.timestampValue().dateValue().toInstant().atZone(ZoneId.of("UTC")).toLocalDate().toEpochDay());
+    private static final BlockDecoder dateDecoder = (ionReader, blockBuilder) -> {
+        Timestamp ionTs = ionReader.timestampValue();
+        LocalDate localDate = LocalDate.of(ionTs.getZYear(), ionTs.getZMonth(), ionTs.getZDay());
+        DateType.DATE.writeLong(blockBuilder, localDate.toEpochDay());
+    };
 
     private static final BlockDecoder binaryDecoder = (ionReader, blockBuilder) ->
             VarbinaryType.VARBINARY.writeSlice(blockBuilder, Slices.wrappedBuffer(ionReader.newBytes()));
