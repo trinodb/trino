@@ -15,6 +15,7 @@ package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
+import io.trino.Session;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
@@ -32,6 +33,8 @@ import static org.junit.jupiter.api.Assumptions.abort;
 public abstract class BaseOracleFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
 {
+    private TestingOracleServer oracleServer;
+
     public BaseOracleFailureRecoveryTest(RetryPolicy retryPolicy)
     {
         super(retryPolicy);
@@ -45,8 +48,8 @@ public abstract class BaseOracleFailureRecoveryTest
             Module failureInjectionModule)
             throws Exception
     {
-        TestingOracleServer oracleServer = closeAfterClass(new TestingOracleServer());
-        return OracleQueryRunner.builder(oracleServer)
+        this.oracleServer = new TestingOracleServer();
+        return OracleQueryRunner.builder(closeAfterClass(this.oracleServer))
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setAdditionalSetup(runner -> {
@@ -61,10 +64,24 @@ public abstract class BaseOracleFailureRecoveryTest
 
     @Test
     @Override
+    protected void testDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("Non-transactional MERGE is disabled");
+    }
+
+    @Test
+    @Override
     protected void testUpdateWithSubquery()
     {
         assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Unexpected Join over for-update table scan");
         abort("skipped");
+    }
+
+    @Test
+    @Override
+    protected void testMerge()
+    {
+        assertThatThrownBy(super::testMerge).hasMessageContaining("Non-transactional MERGE is disabled");
     }
 
     @Test
@@ -89,5 +106,11 @@ public abstract class BaseOracleFailureRecoveryTest
         // we could not ensure that tmp tables are always promptly removed in Oracle.
         // checking if tmp_trino tables are deleted immediatelly after DML operation renders test flaky.
         return false;
+    }
+
+    @Override
+    protected void addPrimaryKeyForMergeTarget(Session session, String tableName, String primaryKey)
+    {
+        oracleServer.execute("ALTER TABLE %s ADD CONSTRAINT pk_%s PRIMARY KEY (%s)".formatted(tableName, tableName, primaryKey));
     }
 }
