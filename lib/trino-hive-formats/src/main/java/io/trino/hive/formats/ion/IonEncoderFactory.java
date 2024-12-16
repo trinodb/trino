@@ -22,6 +22,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -32,6 +33,7 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
@@ -52,6 +54,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.IntFunction;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class IonEncoderFactory
 {
@@ -85,6 +89,8 @@ public class IonEncoderFactory
             case DecimalType t -> decimalEncoder(t);
             case DateType _ -> dateEncoder;
             case TimestampType t -> timestampEncoder(t);
+            case MapType t -> new MapEncoder(t, t.getKeyType(),
+                    encoderForType(t.getValueType()));
             case RowType t -> RowEncoder.forFields(t.getFields());
             case ArrayType t -> new ArrayEncoder(wrapEncoder(encoderForType(t.getElementType())));
             default -> throw new IllegalArgumentException(String.format("Unsupported type: %s", type));
@@ -152,6 +158,40 @@ public class IonEncoderFactory
                 writer.setFieldName(fieldNames.get(i));
                 fieldEncoders.get(i)
                         .encode(writer, block, position);
+            }
+            writer.stepOut();
+        }
+    }
+
+    private record MapEncoder(MapType mapType, Type keyType,
+                        BlockEncoder encoder)
+            implements BlockEncoder
+    {
+        public MapEncoder(MapType mapType, Type keyType, BlockEncoder encoder)
+
+        {
+            this.mapType = mapType;
+            if (!(keyType instanceof VarcharType _ || keyType instanceof CharType _)) {
+                throw new UnsupportedOperationException("Unsupported map key type: " + keyType);
+            }
+            this.keyType = keyType;
+            this.encoder = encoder;
+        }
+
+        @Override
+        public void encode(IonWriter writer, Block block, int position)
+                throws IOException
+        {
+            SqlMap sqlMap = mapType.getObject(block, position);
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
+
+            writer.stepIn(IonType.STRUCT);
+            for (int i = 0; i < sqlMap.getSize(); i++) {
+                checkArgument(!rawKeyBlock.isNull(rawOffset + i), "map key is null");
+                writer.setFieldName(VarcharType.VARCHAR.getSlice(rawKeyBlock, rawOffset + i).toString(StandardCharsets.UTF_8));
+                encoder.encode(writer, rawValueBlock, rawOffset + i);
             }
             writer.stepOut();
         }
