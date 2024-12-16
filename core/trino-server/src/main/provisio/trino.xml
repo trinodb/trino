@@ -247,13 +247,11 @@
         </artifact>
     </artifactSet>
 
-<!--
     <artifactSet to="plugin/ml">
         <artifact id="${project.groupId}:trino-ml:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
--->
 
     <artifactSet to="plugin/mongodb">
         <artifact id="${project.groupId}:trino-mongodb:zip:${project.version}">
