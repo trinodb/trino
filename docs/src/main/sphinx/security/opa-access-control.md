@@ -67,7 +67,7 @@ The following table lists the configuration properties for the OPA access contro
 * - `opa.log-responses`
   - Configure if OPA response details, including URI, status code, headers and
     the entire body, are logged. Defaults to `false`.
-* - `opa.allow-permission-management`
+* - `opa.allow-permission-management-operations`
   - Configure if permission management operations are allowed. Find more details in
     [](opa-permission-management). Defaults to `false`.
 * - `opa.http-client.*`
@@ -89,7 +89,7 @@ Note that enabling these options produces very large amounts of log data.
 ### Permission management
 
 The following operations are allowed or denied based on the setting of
-`opa.allow-permission-management` If set to `true`, these operations are
+`opa.allow-permission-management-operations` If set to `true`, these operations are
 allowed. If set to `false`, they are denied. In both cases, no request is sent
 to OPA.
 
