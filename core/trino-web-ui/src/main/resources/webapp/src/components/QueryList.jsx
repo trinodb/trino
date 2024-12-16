@@ -470,6 +470,10 @@ export class QueryList extends React.Component {
                 ) {
                     return true
                 }
+
+                if (query.clientTags && query.clientTags.some((item) => item.toLowerCase().includes(term))) {
+                    return true
+                }
             }, this)
         }
     }
@@ -810,7 +814,7 @@ export class QueryList extends React.Component {
                             <input
                                 type="text"
                                 className="form-control form-control-small search-bar"
-                                placeholder="User, source, query ID, query state, resource group, error name, or query text"
+                                placeholder="User, source, query ID, query state, resource group, error name, query text or client tags"
                                 onChange={this.handleSearchStringChange}
                                 value={this.state.searchString}
                             />
