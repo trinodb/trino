@@ -30,6 +30,7 @@ import io.trino.plugin.hive.HivePageSourceProvider;
 import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -42,7 +43,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
@@ -82,18 +82,17 @@ public class IonPageSourceSmokeTest
     private static final String EXPECTED_TEXT = "{foo:3,bar:6}";
 
     public static final String TEST_ION_LOCATION = "memory:///test.ion";
+    public static final List<HiveColumnHandle> FOO_BAR_COLUMNS = List.of(
+            toHiveBaseColumnHandle("foo", INTEGER, 0),
+            toHiveBaseColumnHandle("bar", VARCHAR, 1));
 
     @Test
     public void testReadTwoValues()
             throws IOException
     {
-        List<HiveColumnHandle> tableColumns = List.of(
-                toHiveBaseColumnHandle("foo", INTEGER, 0),
-                toHiveBaseColumnHandle("bar", VARCHAR, 1));
-
         assertRowCount(
-                tableColumns,
-                tableColumns,
+                FOO_BAR_COLUMNS,
+                FOO_BAR_COLUMNS,
                 "{ foo: 31, bar: baz } { foo: 31, bar: \"baz\" }",
                 2);
     }
@@ -110,6 +109,23 @@ public class IonPageSourceSmokeTest
                 tablesColumns,
                 "{ my_seq: ( true false ) } { my_seq: [false, false, true] }",
                 2);
+    }
+
+    @Test
+    public void testStrictAndLaxPathTyping()
+            throws IOException
+    {
+        TestFixture defaultFixture = new TestFixture(FOO_BAR_COLUMNS);
+        defaultFixture.assertRowCount("37 null.timestamp", 2);
+
+        TestFixture laxFixture = new TestFixture(FOO_BAR_COLUMNS);
+        laxFixture.withStrictPathTyping("false");
+        laxFixture.assertRowCount("37 null.timestamp", 2);
+
+        TestFixture strictFixture = new TestFixture(FOO_BAR_COLUMNS);
+        strictFixture.withStrictPathTyping("true");
+        Assertions.assertThrows(TrinoException.class, () ->
+                strictFixture.assertRowCount("37 null.timestamp", 2));
     }
 
     @Test
@@ -137,11 +153,7 @@ public class IonPageSourceSmokeTest
     public void testPageSourceWithNativeTrinoDisabled()
             throws IOException
     {
-        List<HiveColumnHandle> tableColumns = List.of(
-                toHiveBaseColumnHandle("foo", INTEGER, 0),
-                toHiveBaseColumnHandle("bar", VARCHAR, 1));
-
-        TestFixture fixture = new TestFixture(tableColumns)
+        TestFixture fixture = new TestFixture(FOO_BAR_COLUMNS)
                 .withNativeIonDisabled();
         fixture.writeIonTextFile("{ foo: 31, bar: baz } { foo: 31, bar: \"baz\" }");
 
@@ -196,15 +208,7 @@ public class IonPageSourceSmokeTest
             throws IOException
     {
         TestFixture fixture = new TestFixture(tableColumns, projectedColumns);
-        fixture.writeIonTextFile(ionText);
-
-        try (ConnectorPageSource pageSource = fixture.getPageSource()) {
-            final MaterializedResult result = MaterializedResult.materializeSourceDataStream(
-                    fixture.getSession(),
-                    pageSource,
-                    projectedColumns.stream().map(HiveColumnHandle::getType).toList());
-            Assertions.assertEquals(rowCount, result.getRowCount());
-        }
+        fixture.assertRowCount(ionText, rowCount);
     }
 
     private static void writeTestData(FileWriter ionFileWriter)
@@ -254,6 +258,12 @@ public class IonPageSourceSmokeTest
         TestFixture withNativeIonDisabled()
         {
             hiveConfig.setIonNativeTrinoEnabled(false);
+            return this;
+        }
+
+        TestFixture withStrictPathTyping(String strict)
+        {
+            tableProperties.put(IonReaderOptions.STRICT_PATH_TYPING_PROPERTY, strict);
             return this;
         }
 
@@ -313,15 +323,11 @@ public class IonPageSourceSmokeTest
         int writeIonTextFile(String ionText)
                 throws IOException
         {
-            final TrinoOutputFile outputFile = fileSystemFactory.create(getSession()).newOutputFile(fileLocation);
-            int written = 0;
-            try (OutputStream outputStream = outputFile.create()) {
-                byte[] bytes = ionText.getBytes(StandardCharsets.UTF_8);
-                outputStream.write(bytes);
-                outputStream.flush();
-                written = bytes.length;
-            }
-            return written;
+            TrinoOutputFile outputFile = fileSystemFactory.create(getSession()).newOutputFile(fileLocation);
+            byte[] bytes = ionText.getBytes(StandardCharsets.UTF_8);
+            outputFile.createOrOverwrite(bytes);
+
+            return bytes.length;
         }
 
         FileWriter getFileWriter()
@@ -345,6 +351,20 @@ public class IonPageSourceSmokeTest
         {
             return fileSystemFactory.create(getSession())
                     .newInputFile(fileLocation);
+        }
+
+        void assertRowCount(String ionText, int rowCount)
+                throws IOException
+        {
+            writeIonTextFile(ionText);
+
+            try (ConnectorPageSource pageSource = getPageSource()) {
+                final MaterializedResult result = MaterializedResult.materializeSourceDataStream(
+                        getSession(),
+                        pageSource,
+                        projections.stream().map(HiveColumnHandle::getType).toList());
+                Assertions.assertEquals(rowCount, result.getRowCount());
+            }
         }
     }
 }

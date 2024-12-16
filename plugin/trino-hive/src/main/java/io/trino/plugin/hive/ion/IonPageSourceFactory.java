@@ -137,7 +137,8 @@ public class IonPageSourceFactory
             List<Column> decoderColumns = projectedReaderColumns.stream()
                     .map(hc -> new Column(hc.getName(), hc.getType(), hc.getBaseHiveColumnIndex()))
                     .toList();
-            IonDecoder decoder = IonDecoderFactory.buildDecoder(decoderColumns);
+            boolean strictPathing = IonReaderOptions.useStrictPathTyping(schema.serdeProperties());
+            IonDecoder decoder = IonDecoderFactory.buildDecoder(decoderColumns, strictPathing);
             IonPageSource pageSource = new IonPageSource(ionReader, countingInputStream::getCount, decoder, pageBuilder);
 
             return Optional.of(new ReaderPageSource(pageSource, readerProjections));
