@@ -15,6 +15,12 @@ statement documentation for further details:
 * [](/udf/sql/loop), [](/udf/sql/repeat), and [](/udf/sql/while) for looping constructs
 * [](/udf/sql/iterate) and [](/udf/sql/leave) for flow control
 
+## Inline and catalog UDFs
+
+The following section shows the differences in usage with inline and catalog
+UDFs with a simple SQL UDF example. The same pattern applies to all other
+following sections.
+
 A very simple SQL UDF that returns a static value without requiring any input:
 
 ```sql
@@ -22,8 +28,6 @@ FUNCTION answer()
 RETURNS BIGINT
 RETURN 42
 ```
-
-## Inline and catalog UDFs
 
 A full example of this UDF as inline UDF and usage in a string concatenation
 with a cast:
@@ -41,7 +45,6 @@ Provided the catalog `example` supports UDF storage in the `default` schema, you
 can use the following:
 
 ```sql
-USE example.default;
 CREATE FUNCTION example.default.answer()
   RETURNS BIGINT
   RETURN 42;
@@ -52,15 +55,16 @@ repeated definition:
 
 ```sql
 SELECT example.default.answer() + 1; -- 43
-SELECT 'The answer is' || CAST(example.default.answer() as varchar); -- The answer is 42
+SELECT 'The answer is ' || CAST(example.default.answer() as varchar); -- The answer is 42
 ```
 
-Alternatively, you can configure the SQL environment in the
-[](config-properties) to a catalog and schema that support UDF storage:
+Alternatively, you can configure the SQL PATH in the [](config-properties) to a
+catalog and schema that support UDF storage:
 
 ```properties
 sql.default-function-catalog=example
 sql.default-function-schema=default
+sql.path=example.default
 ```
 
 Now you can manage UDFs without the full path:
