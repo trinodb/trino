@@ -11,7 +11,8 @@ FUNCTION name ( [ parameter_name data_type [, ...] ] )
   [ CALLED ON NULL INPUT ]
   [ SECURITY { DEFINER | INVOKER } ]
   [ COMMENT description]
-  statements
+  [ WITH ( property_name = expression [, ...] ) ]
+  { statements | AS definition }
 ```
 
 ## Description
@@ -31,7 +32,9 @@ The `type` value after the `RETURNS` keyword identifies the [data
 type](/language/types) of the UDF output.
 
 The optional `LANGUAGE` characteristic identifies the language used for the UDF
-definition with `language`. Only `SQL` is supported.
+definition with `language`. The `SQL` and `PYTHON` languages are supported by
+default. Additional languages may be supported via a language engine plugin.
+If not specified, the default language is `SQL`.
 
 The optional `DETERMINISTIC` or `NOT DETERMINISTIC` characteristic declares that
 the UDF is deterministic. This means that repeated UDF calls with identical
@@ -58,10 +61,18 @@ The `COMMENT` characteristic can be used to provide information about the
 function to other users as `description`. The information is accessible with
 [](/sql/show-functions).
 
-The body of the UDF can either be a simple single `RETURN` statement with an
-expression, or compound list of `statements` in a `BEGIN` block. UDF must
-contain a `RETURN` statement at the end of the top-level block, even if it's
-unreachable.
+The optional `WITH` clause can be used to specify properties for the function.
+The available properties vary based on the function language. For
+[](/udf/python), the `handler` property specifies the name of the Python
+function to invoke.
+
+For SQL UDFs the body of the UDF can either be a simple single `RETURN`
+statement with an expression, or compound list of `statements` in a `BEGIN`
+block. UDF must contain a `RETURN` statement at the end of the top-level block,
+even if it's unreachable.
+
+For UDFs in other languages, the `definition` is enclosed in a `$$`-quoted
+string.
 
 ## Examples
 
@@ -89,12 +100,14 @@ SELECT meaning_of_life();
 ```
 
 Further examples of varying complexity that cover usage of the `FUNCTION`
-statement in combination with other statements are available in the [SQL
-UDF examples documentation](/udf/sql/examples).
+statement in combination with other statements are available in the [SQL UDF
+documentation](/udf/sql/examples) and the [Python UDF
+documentation](/udf/python).
 
 ## See also
 
 * [](/udf)
 * [](/udf/sql)
+* [](/udf/python)
 * [](/sql/create-function)
 
