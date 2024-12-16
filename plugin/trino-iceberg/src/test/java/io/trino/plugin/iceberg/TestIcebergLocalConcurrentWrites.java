@@ -394,12 +394,21 @@ final class TestIcebergLocalConcurrentWrites
     void testConcurrentOverlappingUpdate()
             throws Exception
     {
+        testConcurrentOverlappingUpdate(false);
+        testConcurrentOverlappingUpdate(true);
+    }
+
+    private void testConcurrentOverlappingUpdate(boolean partitioned)
+            throws Exception
+    {
         int threads = 3;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
         String tableName = "test_concurrent_overlapping_updates_table_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioning = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
+        assertUpdate("CREATE TABLE " + tableName + " (a, part) " +
+                (partitioned ? " WITH (partitioning = ARRAY['part'])" : "") +
+                " AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
