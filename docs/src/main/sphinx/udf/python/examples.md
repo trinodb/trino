@@ -3,6 +3,96 @@
 After learning about [](/udf/python), the following sections show examples
 of valid Python UDFs. 
 
+The UDFs are suitable as [](udf-inline) or [](udf-catalog),
+after adjusting the name and the example invocations.
+
+## Inline and catalog Python UDFs
+
+The following section shows the differences in usage with inline and catalog
+UDFs with a simple Python UDF example. The same pattern applies to all other
+following sections.
+
+A very simple Python UDF that returns the static int value `42` without
+requiring any input:
+
+```text
+FUNCTION answer()
+LANGUAGE PYTHON
+RETURNS int
+WITH (handler='theanswer')
+AS $$
+def theanswer():
+    return 42
+$$
+```
+
+A full example of this UDF as inline UDF and usage in a string concatenation
+with a cast:
+
+```text
+WITH
+  FUNCTION answer()
+  RETURNS int
+  LANGUAGE PYTHON
+  WITH (handler='theanswer')
+  AS $$
+  def theanswer():
+      return 42
+  $$
+SELECT 'The answer is ' || CAST(answer() as varchar);
+-- The answer is 42
+```
+
+Provided the catalog `example` supports UDF storage in the `default` schema, you
+can use the following:
+
+```text
+CREATE FUNCTION example.default.answer()
+  RETURNS int
+  LANGUAGE PYTHON
+  WITH (handler='theanswer')
+  AS $$
+  def theanswer():
+      return 42
+  $$;
+```
+
+With the UDF stored in the catalog, you can run the UDF multiple times without
+repeated definition:
+
+```sql
+SELECT example.default.answer() + 1; -- 43
+SELECT 'The answer is ' || CAST(example.default.answer() as varchar); -- The answer is 42
+```
+
+Alternatively, you can configure the SQL PATH in the [](config-properties) to a
+catalog and schema that support UDF storage:
+
+```properties
+sql.default-function-catalog=example
+sql.default-function-schema=default
+sql.path=example.default
+```
+
+Now you can manage UDFs without the full path:
+
+```text
+CREATE FUNCTION answer()
+  RETURNS int
+  LANGUAGE PYTHON
+  WITH (handler='theanswer')
+  AS $$
+  def theanswer():
+      return 42
+  $$;
+```
+
+UDF invocation works without the full path:
+
+```sql
+SELECT answer() + 5; -- 47
+```
+
 ## XOR
 
 The following example implements a `xor` function for a logical Exclusive OR
