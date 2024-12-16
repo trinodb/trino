@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.concurrent.MoreFutures;
+import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -33,6 +34,7 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.FILE_BASED_CONFLICT_DETECTION_ENABLED;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -361,6 +363,13 @@ final class TestIcebergLocalConcurrentWrites
     void testConcurrentNonOverlappingUpdate()
             throws Exception
     {
+        testConcurrentNonOverlappingUpdate(getSession());
+        testConcurrentNonOverlappingUpdate(withFileBasedConflictDetectionSession());
+    }
+
+    private void testConcurrentNonOverlappingUpdate(Session session)
+            throws InterruptedException
+    {
         int threads = 3;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
@@ -373,17 +382,17 @@ final class TestIcebergLocalConcurrentWrites
             executor.invokeAll(ImmutableList.<Callable<Void>>builder()
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1 WHERE part = 10");
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1 WHERE part = 10");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE part = 20");
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part = 20");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE part IS NULL");
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part IS NULL");
                                 return null;
                             })
                             .build())
@@ -469,6 +478,13 @@ final class TestIcebergLocalConcurrentWrites
     void testConcurrentNonOverlappingUpdateOnNestedPartition()
             throws Exception
     {
+        testConcurrentNonOverlappingUpdateOnNestedPartition(getSession());
+        testConcurrentNonOverlappingUpdateOnNestedPartition(withFileBasedConflictDetectionSession());
+    }
+
+    private void testConcurrentNonOverlappingUpdateOnNestedPartition(Session session)
+            throws Exception
+    {
         int threads = 3;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
@@ -487,17 +503,17 @@ final class TestIcebergLocalConcurrentWrites
             executor.invokeAll(ImmutableList.<Callable<Void>>builder()
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1 WHERE parent.child = 10");
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1 WHERE parent.child = 10");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE parent.child = 20");
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE parent.child = 20");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE parent.child IS NULL");
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE parent.child IS NULL");
                                 return null;
                             })
                             .build())
@@ -671,6 +687,72 @@ final class TestIcebergLocalConcurrentWrites
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
     @RepeatedTest(3)
+    public void testConcurrentMerge()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_merges_table_" + randomNameSuffix();
+        String sourceTableName = "test_concurrent_merges_source_table_" + randomNameSuffix();
+
+        // Helper table to simulate longer query time during MERGE
+        assertUpdate("CREATE TABLE " + sourceTableName + "  (a, part, string_rep)  AS SELECT *, format('a%spart%s', a, part) FROM " +
+                "(select * from UNNEST(SEQUENCE(1, 2000)) AS t(a)) CROSS JOIN (select * from UNNEST(SEQUENCE(1, 2000)) AS t(part))", 4000000);
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioning = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
+        // Add more files in the partition 30
+        assertUpdate("INSERT INTO " + tableName + " VALUES (22, 30)", 1);
+        try {
+            // merge data concurrently by using non-overlapping partition predicate
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        withFileBasedConflictDetectionSession(),
+                                        """
+                                        MERGE INTO %s t USING (select a, part from %s where string_rep LIKE '%%a12part20') AS s
+                                        ON (FALSE)
+                                        WHEN NOT MATCHED THEN INSERT (a, part) VALUES(s.a, s.part)
+                                        """.formatted(tableName, sourceTableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        withFileBasedConflictDetectionSession(),
+                                        """
+                                        MERGE INTO %s t USING (VALUES (21, 30)) AS s(a, part)
+                                        ON (t.part = s.part)
+                                        WHEN MATCHED THEN DELETE
+                                        """.formatted(tableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        withFileBasedConflictDetectionSession(),
+                                        """
+                                        MERGE INTO %s t USING (VALUES (32, 40)) AS s(a, part)
+                                        ON (t.part = s.part)
+                                        WHEN MATCHED THEN UPDATE SET a = s.a
+                                        """.formatted(tableName));
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (12, 20), (32, 40)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentMergeAndInserts()
             throws Exception
     {
@@ -790,6 +872,83 @@ final class TestIcebergLocalConcurrentWrites
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
+    public void testConcurrentMergeWithTimesamptAndDate()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String targetTableName = "test_concurrent_merges_target_table_" + randomNameSuffix();
+        String sourceTableName = "test_concurrent_merges_source_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + sourceTableName + " (timestamp_source TIMESTAMP)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES (TIMESTAMP '2024-01-01 00:00:01'), (TIMESTAMP '2024-01-02 00:00:01'), (TIMESTAMP '2024-01-03 00:00:01')", 3);
+        assertUpdate("CREATE TABLE " + targetTableName + " (a BIGINT, date_target DATE)  WITH (partitioning = ARRAY['date_target'])");
+        assertUpdate("INSERT INTO " + targetTableName + " VALUES (1, DATE '2024-01-01'), (2, DATE '2024-01-02'), (3, DATE '2024-01-03')", 3);
+
+        try {
+            // merge data concurrently by using non-overlapping partition predicate (different day in timestamps)
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        withFileBasedConflictDetectionSession(),
+                                        """
+                                        MERGE INTO %s t USING (SELECT DATE(timestamp_source) AS date_source from %s
+                                                              WHERE timestamp_source BETWEEN TIMESTAMP '2024-01-01 00:00:00' AND TIMESTAMP '2024-01-01 23:59:59.999999') AS s
+                                        ON (t.date_target = s.date_source)
+                                        WHEN MATCHED THEN UPDATE SET
+                                        a = a + 1
+                                        """.formatted(targetTableName, sourceTableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        withFileBasedConflictDetectionSession(),
+                                        """
+                                        MERGE INTO %s t USING (SELECT DATE(timestamp_source) AS date_source from %s
+                                                              WHERE timestamp_source BETWEEN TIMESTAMP '2024-01-02 00:00:00' AND TIMESTAMP '2024-01-02 23:59:59.999999') AS s
+                                        ON (t.date_target = s.date_source)
+                                        WHEN MATCHED THEN UPDATE SET
+                                        a = a + 10
+                                        """.formatted(targetTableName, sourceTableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        withFileBasedConflictDetectionSession(),
+                                        """
+                                        MERGE INTO %s t USING (SELECT DATE(timestamp_source) AS date_source from %s
+                                                              WHERE timestamp_source BETWEEN TIMESTAMP '2024-01-03 00:00:00' AND TIMESTAMP '2024-01-03 23:59:59.999999') AS s
+                                        ON (t.date_target = s.date_source)
+                                        WHEN MATCHED THEN UPDATE SET
+                                        a = a + 100
+                                        """.formatted(targetTableName, sourceTableName));
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + targetTableName))
+                    .matches("""
+                            VALUES
+                            (CAST(2 AS BIGINT), DATE '2024-01-01'),
+                            (CAST(12 AS BIGINT), DATE '2024-01-02'),
+                            (CAST(103 AS BIGINT), DATE '2024-01-03')
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + sourceTableName);
+            assertUpdate("DROP TABLE " + targetTableName);
             executor.shutdownNow();
             assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
@@ -1052,5 +1211,13 @@ final class TestIcebergLocalConcurrentWrites
     private long getCurrentSnapshotId(String tableName)
     {
         return (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
+    }
+
+    private Session withFileBasedConflictDetectionSession()
+    {
+        Session fileBasedConflictDetectionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), FILE_BASED_CONFLICT_DETECTION_ENABLED, "true")
+                .build();
+        return fileBasedConflictDetectionSession;
     }
 }
