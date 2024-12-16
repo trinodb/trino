@@ -7,18 +7,16 @@ value, similar to [built-in functions](/functions).
 UDFs are defined and written using the [SQL routine language](/udf/sql). 
 
 :::{note}
-User-defined functions can alternatively be written in Java and deployed as a
+Custom functions can alternatively be written in Java and deployed as a
 plugin. Details are available in the [developer guide](/develop/functions).
 :::
 
 (udf-declaration)=
 ## UDF declaration
 
-Declare the UDF with a [](/udf/function) keyword using the supported statements
-for [](/udf/sql).
-
-A UDF can be declared and used as an [inline UDF](udf-inline) or declared as a
-[catalog UDF](udf-catalog) and used repeatedly.
+A UDF can be declared as an [inline UDF](udf-inline) to be used in the current
+query, or declared as a [catalog UDF](udf-catalog) to be used in any future
+query.
 
 (udf-inline)=
 ## Inline user-defined functions
@@ -111,9 +109,9 @@ Processing UDFs can potentially be resource intensive on the cluster in
 terms of memory and processing. Take the following considerations into account
 when writing and running UDFs:
 
-* Some checks for the runtime behavior of UDF are in place. For example,
-  UDFs that take longer to process than a hardcoded threshold are
-  automatically terminated.
+* Some checks for the runtime behavior of queries, and therefore UDF processing,
+  are in place. For example, if a query takes longer to process than a hardcoded
+  threshold, processing is automatically terminated.
 * Avoid creation of arrays in a looping construct. Each iteration creates a
   separate new array with all items and copies the data for each modification,
   leaving the prior array in memory for automated clean up later. Use a [lambda
@@ -126,16 +124,3 @@ when writing and running UDFs:
   unless the code has some special handling for null values. You must declare
   this explicitly since `CALLED ON NULL INPUT` is the default characteristic.
 
-## Limitations
-
-The following limitations apply to UDFs.
-
-* UDFs must be declared before they are referenced.
-* Recursion cannot be declared or processed.
-* Mutual recursion can not be declared or processed.
-* Queries cannot be processed in a UDF.
-
-Specifically this means that UDFs can not use `SELECT` queries to retrieve
-data or any other queries to process data within the UDF. Instead queries can
-use UDFs to process data. UDFs only work on data provided as input values and
-only provide output data from the `RETURN` statement.
