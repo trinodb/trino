@@ -49,7 +49,6 @@ public class ResourceAccessType
             // check if the resource class has an access type declared for all methods
             accessType = resourceAccessTypeLoader.getAccessType(resourceInfo.getResourceClass());
             if (accessType.isPresent()) {
-                verifyNotTrinoResource(resourceInfo);
                 return accessType.get();
             }
             // in some cases there the resource is a nested class, so check the parent class
@@ -57,7 +56,6 @@ public class ResourceAccessType
             if (resourceInfo.getResourceClass().getDeclaringClass() != null) {
                 accessType = resourceAccessTypeLoader.getAccessType(resourceInfo.getResourceClass().getDeclaringClass());
                 if (accessType.isPresent()) {
-                    verifyNotTrinoResource(resourceInfo);
                     return accessType.get();
                 }
             }
