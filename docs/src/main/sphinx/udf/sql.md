@@ -91,3 +91,17 @@ END REPEAT;
 Labels can be used with the `ITERATE` and `LEAVE` statements to continue
 processing the block or leave the block. This flow control is also supported for
 nested blocks and labels.
+
+## Limitations
+
+The following limitations apply to SQL UDFs.
+
+* UDFs must be declared before they are referenced.
+* Recursion cannot be declared or processed.
+* Mutual recursion can not be declared or processed.
+* Queries cannot be processed in a UDF.
+
+Specifically this means that UDFs can not use `SELECT` queries to retrieve
+data or any other queries to process data within the UDF. Instead queries can
+use UDFs to process data. UDFs only work on data provided as input values and
+only provide output data from the `RETURN` statement.
