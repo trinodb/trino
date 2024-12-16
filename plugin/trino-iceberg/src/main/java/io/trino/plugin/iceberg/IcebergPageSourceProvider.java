@@ -184,7 +184,6 @@ import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
@@ -349,16 +348,12 @@ public class IcebergPageSourceProvider
                         column -> ((IcebergColumnHandle) column).getType(),
                         IcebergPageSourceProvider::applyProjection));
 
-        List<IcebergColumnHandle> readColumns = dataPageSource.getReaderColumns()
-                .map(readerColumns -> readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toList()))
-                .orElse(requiredColumns);
-
         Supplier<Optional<RowPredicate>> deletePredicate = memoize(() -> getDeleteManager(partitionSpec, partitionData)
                 .getDeletePredicate(
                         path,
                         dataSequenceNumber,
                         deletes,
-                        readColumns,
+                        deleteFilterRequiredColumns.stream().collect(toImmutableList()),
                         tableSchema,
                         readerPageSourceWithRowPositions,
                         (deleteFile, deleteColumns, tupleDomain) -> openDeletes(session, fileSystem, deleteFile, deleteColumns, tupleDomain)));
@@ -366,6 +361,7 @@ public class IcebergPageSourceProvider
         return new IcebergPageSource(
                 icebergColumns,
                 requiredColumns,
+                deleteFilterRequiredColumns,
                 dataPageSource.get(),
                 projectionsAdapter,
                 deletePredicate,
