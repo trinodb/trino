@@ -19,11 +19,14 @@ import com.amazon.ion.IonType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
+import io.trino.hive.formats.DistinctMapKeys;
 import io.trino.hive.formats.line.Column;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -34,6 +37,7 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
@@ -96,6 +100,8 @@ public class IonDecoderFactory
             case DecimalType t -> wrapDecoder(decimalDecoder(t), IonType.DECIMAL);
             case VarcharType _, CharType _ -> wrapDecoder(stringDecoder, IonType.STRING, IonType.SYMBOL);
             case VarbinaryType _ -> wrapDecoder(binaryDecoder, IonType.BLOB, IonType.CLOB);
+            case MapType mapType -> wrapDecoder(new MapDecoder(mapType, decoderForType(mapType.getValueType())),
+                    IonType.STRUCT);
             case RowType r -> wrapDecoder(RowDecoder.forFields(r.getFields()), IonType.STRUCT);
             case ArrayType a -> wrapDecoder(new ArrayDecoder(decoderForType(a.getElementType())), IonType.LIST, IonType.SEXP);
             default -> throw new IllegalArgumentException(String.format("Unsupported type: %s", type));
@@ -202,6 +208,59 @@ public class IonDecoderFactory
                 }
             }
 
+            ionReader.stepOut();
+        }
+    }
+
+    private static class MapDecoder
+            implements BlockDecoder
+    {
+        private final BlockDecoder valueDecoder;
+        private final Type keyType;
+        private final Type valueType;
+        private final DistinctMapKeys distinctMapKeys;
+        private BlockBuilder keyBlockBuilder;
+        private BlockBuilder valueBlockBuilder;
+
+        public MapDecoder(MapType mapType, BlockDecoder valueDecoder)
+        {
+            this.keyType = mapType.getKeyType();
+            if (!(keyType instanceof VarcharType _ || keyType instanceof CharType _)) {
+                throw new UnsupportedOperationException("Unsupported map key type: " + keyType);
+            }
+            this.valueType = mapType.getValueType();
+            this.valueDecoder = valueDecoder;
+            this.distinctMapKeys = new DistinctMapKeys(mapType, true);
+            this.keyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, 128);
+            this.valueBlockBuilder = mapType.getValueType().createBlockBuilder(null, 128);
+        }
+
+        @Override
+        public void decode(IonReader ionReader, BlockBuilder builder)
+        {
+            ionReader.stepIn();
+            // buffer the keys and values
+            while (ionReader.next() != null) {
+                VarcharType.VARCHAR.writeSlice(keyBlockBuilder, Slices.utf8Slice(ionReader.getFieldName()));
+                valueDecoder.decode(ionReader, valueBlockBuilder);
+            }
+            ValueBlock keys = keyBlockBuilder.buildValueBlock();
+            ValueBlock values = valueBlockBuilder.buildValueBlock();
+            keyBlockBuilder = keyType.createBlockBuilder(null, keys.getPositionCount());
+            valueBlockBuilder = valueType.createBlockBuilder(null, values.getPositionCount());
+
+            // copy the distinct key entries to the output
+            boolean[] distinctKeys = distinctMapKeys.selectDistinctKeys(keys);
+
+            ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
+                for (int index = 0; index < distinctKeys.length; index++) {
+                    boolean distinctKey = distinctKeys[index];
+                    if (distinctKey) {
+                        keyBuilder.append(keys, index);
+                        valueBuilder.append(values, index);
+                    }
+                }
+            });
             ionReader.stepOut();
         }
     }
