@@ -71,6 +71,9 @@ import org.apache.iceberg.view.ViewBuilder;
 import org.apache.iceberg.view.ViewRepresentation;
 import org.apache.iceberg.view.ViewVersion;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
@@ -78,6 +81,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -680,12 +684,32 @@ public class TrinoRestCatalog
         replaceViewVersion.commit();
     }
 
+    private String hashCredentials(Map<String, String> credentials)
+    {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            String input = credentials.toString();
+            byte[] hashBytes = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            UUID uuid = UUID.nameUUIDFromBytes(hashBytes);
+            return uuid.toString();
+        }
+        catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Failed to hash credentials and source", e);
+        }
+    }
+
     private SessionCatalog.SessionContext convert(ConnectorSession session)
     {
         return switch (sessionType) {
-            case NONE -> new SessionContext(randomUUID().toString(), null, credentials, ImmutableMap.of(), session.getIdentity());
+            case NONE -> {
+                String sessionId = hashCredentials(credentials);
+                log.debug("Generated sessionId for NONE sessionType: %s", sessionId);
+
+                yield new SessionCatalog.SessionContext(sessionId, null, credentials, ImmutableMap.of(), session.getIdentity());
+            }
             case USER -> {
                 String sessionId = format("%s-%s", session.getUser(), session.getSource().orElse("default"));
+                log.debug("Generated sessionId for USER sessionType: %s", sessionId);
 
                 Map<String, String> properties = ImmutableMap.of(
                         "user", session.getUser(),
