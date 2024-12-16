@@ -13,4 +13,5 @@ More details are available in the following sections:
 udf/introduction
 udf/function
 udf/sql
+udf/python
 ```
