@@ -745,7 +745,9 @@ public class PlanTester
                 indexManager,
                 nodePartitioningManager,
                 pageSinkManager,
-                null,
+                (_, _, _, _, _, _) -> {
+                    throw new UnsupportedOperationException();
+                },
                 expressionCompiler,
                 pageFunctionCompiler,
                 joinFilterFunctionCompiler,
