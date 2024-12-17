@@ -26,4 +26,9 @@ public final class SystemEnvironmentUtils
     {
         return requireNonNull(System.getenv(variable), () -> "environment variable not set: " + variable);
     }
+
+    public static boolean isEnvSet(String variable)
+    {
+        return System.getenv(variable) != null;
+    }
 }
