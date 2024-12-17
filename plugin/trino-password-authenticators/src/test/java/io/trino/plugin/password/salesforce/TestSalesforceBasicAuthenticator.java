@@ -273,9 +273,8 @@ public class TestSalesforceBasicAuthenticator
             fail("Must set SALESFORCE_TEST_ORG environment variable.");
         }
         String username = System.getenv("SALESFORCE_TEST_USERNAME");
-        String password = System.getenv("SALESFORCE_TEST_PASSWORD");
-        if (emptyToNull(username) == null || emptyToNull(password) == null) {
-            fail("Must set SALESFORCE_TEST_USERNAME and SALESFORCE_TEST_PASSWORD environment variables.");
+        if (emptyToNull(username) == null) {
+            fail("Must set SALESFORCE_TEST_USERNAME environment variable.");
         }
 
         SalesforceConfig config = new SalesforceConfig()
