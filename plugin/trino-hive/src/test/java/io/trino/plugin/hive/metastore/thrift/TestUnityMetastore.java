@@ -27,7 +27,7 @@ import java.util.Optional;
 
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.thrift.ThriftHttpMetastoreConfig.AuthenticationMode.BEARER;
-import static java.util.Objects.requireNonNull;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestUnityMetastore
@@ -36,9 +36,9 @@ final class TestUnityMetastore
     void test()
             throws Exception
     {
-        String databricksHost = requireNonNull(System.getenv("DATABRICKS_HOST"), "Environment variable not set: DATABRICKS_HOST");
-        String databricksToken = requireNonNull(System.getenv("DATABRICKS_TOKEN"), "Environment variable not set: DATABRICKS_TOKEN");
-        String databricksCatalogName = requireNonNull(System.getenv("DATABRICKS_UNITY_CATALOG_NAME"), "Environment variable not set: DATABRICKS_UNITY_CATALOG_NAME");
+        String databricksHost = requireEnv("DATABRICKS_HOST");
+        String databricksToken = requireEnv("DATABRICKS_TOKEN");
+        String databricksCatalogName = requireEnv("DATABRICKS_UNITY_CATALOG_NAME");
         URI metastoreUri = URI.create("https://%s:443/api/2.0/unity-hms-proxy/metadata" .formatted(databricksHost));
 
         ThriftHttpMetastoreConfig config = new ThriftHttpMetastoreConfig()
