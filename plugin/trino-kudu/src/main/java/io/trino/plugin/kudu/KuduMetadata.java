@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.trino.plugin.kudu.properties.KuduColumnProperties;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
 import io.trino.plugin.kudu.properties.PartitionDesign;
 import io.trino.spi.TrinoException;
@@ -139,24 +140,24 @@ public class KuduMetadata
         Map<String, Object> properties = new LinkedHashMap<>();
         StringBuilder extra = new StringBuilder();
         if (column.isKey()) {
-            properties.put(KuduTableProperties.PRIMARY_KEY, true);
+            properties.put(KuduColumnProperties.PRIMARY_KEY, true);
             extra.append("primary_key, ");
         }
 
         if (column.isNullable()) {
-            properties.put(KuduTableProperties.NULLABLE, true);
+            properties.put(KuduColumnProperties.NULLABLE, true);
             extra.append("nullable, ");
         }
 
-        String encoding = KuduTableProperties.lookupEncodingString(column.getEncoding());
+        String encoding = KuduColumnProperties.lookupEncodingString(column.getEncoding());
         if (column.getEncoding() != ColumnSchema.Encoding.AUTO_ENCODING) {
-            properties.put(KuduTableProperties.ENCODING, encoding);
+            properties.put(KuduColumnProperties.ENCODING, encoding);
         }
         extra.append("encoding=").append(encoding).append(", ");
 
-        String compression = KuduTableProperties.lookupCompressionString(column.getCompressionAlgorithm());
+        String compression = KuduColumnProperties.lookupCompressionString(column.getCompressionAlgorithm());
         if (column.getCompressionAlgorithm() != ColumnSchema.CompressionAlgorithm.DEFAULT_COMPRESSION) {
-            properties.put(KuduTableProperties.COMPRESSION, compression);
+            properties.put(KuduColumnProperties.COMPRESSION, compression);
         }
         extra.append("compression=").append(compression);
 
@@ -374,7 +375,7 @@ public class KuduMetadata
             String rowId = ROW_ID;
             List<ColumnMetadata> copy = new ArrayList<>(tableMetadata.getColumns());
             Map<String, Object> columnProperties = new HashMap<>();
-            columnProperties.put(KuduTableProperties.PRIMARY_KEY, true);
+            columnProperties.put(KuduColumnProperties.PRIMARY_KEY, true);
             copy.add(0, ColumnMetadata.builder()
                     .setName(rowId)
                     .setType(VarcharType.VARCHAR)
