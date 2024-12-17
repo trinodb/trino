@@ -37,6 +37,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Base64;
 import java.util.UUID;
 
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
@@ -187,10 +188,5 @@ public class EnvMultinodeGcs
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    private static String requireEnv(String variable)
-    {
-        return requireNonNull(System.getenv(variable), () -> "environment variable not set: " + variable);
     }
 }
