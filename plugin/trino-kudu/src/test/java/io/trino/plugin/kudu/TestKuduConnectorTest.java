@@ -1047,7 +1047,6 @@ public class TestKuduConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    @Test
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
