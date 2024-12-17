@@ -53,11 +53,6 @@ public abstract class AbstractTestAzureFileSystem
 {
     private final EncryptionKey key = EncryptionKey.randomAes256();
 
-    protected static String getRequiredEnvironmentVariable(String name)
-    {
-        return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
-    }
-
     protected enum AccountKind
     {
         HIERARCHICAL, FLAT

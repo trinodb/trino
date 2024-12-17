@@ -57,10 +57,10 @@ import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConver
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -82,7 +82,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     public TestIcebergGlueCatalogConnectorSmokeTest()
     {
         super(FileFormat.PARQUET);
-        this.bucketName = requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set");
+        this.bucketName = requireEnv("S3_BUCKET");
         this.schemaName = "test_iceberg_smoke_" + randomNameSuffix();
         glueClient = AWSGlueAsyncClientBuilder.defaultClient();
 
