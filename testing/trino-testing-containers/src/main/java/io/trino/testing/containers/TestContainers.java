@@ -31,6 +31,7 @@ import static com.github.dockerjava.api.model.Ports.Binding.bindPort;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
 import static io.trino.testing.containers.ConditionalPullPolicy.TESTCONTAINERS_NEVER_PULL;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.System.getenv;
@@ -72,7 +73,7 @@ public final class TestContainers
 
     public static void exposeFixedPorts(GenericContainer<?> container)
     {
-        checkState(System.getenv("CONTINUOUS_INTEGRATION") == null, "" +
+        checkState(isEnvSet("CONTINUOUS_INTEGRATION"), "" +
                 "Exposing fixed ports should not be used in regular test code. This could break parallel test execution. " +
                 "This method is supposed to be invoked from local development helpers only e.g. QueryRunner.main(), " +
                 "hence it should never run on CI");

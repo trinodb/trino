@@ -53,6 +53,7 @@ import java.util.concurrent.Callable;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
 import static io.trino.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
@@ -335,7 +336,7 @@ public final class TestRun
                     unsafelyExposePort(container, 5007); // debug port
                 }
 
-                if (System.getenv("CONTINUOUS_INTEGRATION") != null) {
+                if (isEnvSet("CONTINUOUS_INTEGRATION")) {
                     container.withEnv("CONTINUOUS_INTEGRATION", "true");
                 }
 
