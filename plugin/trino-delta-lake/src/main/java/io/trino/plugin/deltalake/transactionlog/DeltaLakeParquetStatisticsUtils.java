@@ -18,6 +18,8 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
+import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
@@ -173,6 +175,7 @@ public final class DeltaLakeParquetStatisticsUtils
         }
         if (type == TIMESTAMP_MICROS) {
             String stringValue = (String) jsonValue;
+            // TIMESTAMP_MICROS stats may or may not have timezone information. We accept both for maximum compatibility, assuming UTC
             if (!stringValue.endsWith("Z")) {
                 stringValue += "Z";
             }
@@ -519,5 +522,14 @@ public final class DeltaLakeParquetStatisticsUtils
 
         LOG.debug("Accumulating Parquet statistics with Trino type: %s and Parquet statistics of type: %s is not supported", type, statistics);
         return Optional.empty();
+    }
+
+    public static DeltaLakeJsonFileStatistics convertParquetToJsonStatistics(Map<String, Type> columnTypeMapping, DeltaLakeParquetFileStatistics parquetFileStatistics)
+    {
+        return new DeltaLakeJsonFileStatistics(
+                parquetFileStatistics.getNumRecords(),
+                parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values)),
+                parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values)),
+                parquetFileStatistics.getNullCount().map(nullCounts -> toNullCounts(columnTypeMapping, nullCounts)));
     }
 }
