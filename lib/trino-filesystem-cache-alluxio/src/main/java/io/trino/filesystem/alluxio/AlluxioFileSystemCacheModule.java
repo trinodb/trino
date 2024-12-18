@@ -16,11 +16,13 @@ package io.trino.filesystem.alluxio;
 import alluxio.metrics.MetricsConfig;
 import alluxio.metrics.MetricsSystem;
 import com.google.inject.Binder;
+import com.google.inject.Provider;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.filesystem.cache.ConsistentHashingHostAddressProvider;
 import io.trino.filesystem.cache.ConsistentHashingHostAddressProviderConfig;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
+import io.trino.spi.catalog.CatalogName;
 
 import java.util.Properties;
 
@@ -45,7 +47,9 @@ public class AlluxioFileSystemCacheModule
         configBinder(binder).bindConfig(AlluxioFileSystemCacheConfig.class);
         configBinder(binder).bindConfig(ConsistentHashingHostAddressProviderConfig.class);
         binder.bind(AlluxioCacheStats.class).in(SINGLETON);
-        newExporter(binder).export(AlluxioCacheStats.class).as(generator -> generator.generatedNameOf(AlluxioCacheStats.class));
+        Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
+        newExporter(binder).export(AlluxioCacheStats.class)
+                .as(generator -> generator.generatedNameOf(AlluxioCacheStats.class, catalogName.get().toString()));
 
         if (isCoordinator) {
             newOptionalBinder(binder, CachingHostAddressProvider.class).setBinding().to(ConsistentHashingHostAddressProvider.class).in(SINGLETON);
