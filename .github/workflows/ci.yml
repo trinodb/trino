@@ -477,6 +477,15 @@ jobs:
             - { modules: plugin/trino-opensearch }
             - { modules: plugin/trino-oracle }
             - { modules: plugin/trino-phoenix5 }
+            - { modules: plugin/trino-phoenix5 }
+            - { modules: plugin/trino-phoenix5 }
+            - { modules: plugin/trino-phoenix5 }
+            - { modules: plugin/trino-phoenix5 }
+            - { modules: plugin/trino-phoenix5 }
+            - { modules: plugin/trino-phoenix5 }
+            - { modules: plugin/trino-phoenix5 }
+            - { modules: plugin/trino-phoenix5 }
+            - { modules: plugin/trino-phoenix5 }
             - { modules: plugin/trino-pinot }
             - { modules: plugin/trino-postgresql }
             - { modules: plugin/trino-redis }
