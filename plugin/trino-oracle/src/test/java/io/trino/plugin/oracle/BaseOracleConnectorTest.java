@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_MERGE;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -46,7 +47,9 @@ public abstract class BaseOracleConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_JOIN_PUSHDOWN -> true;
+            case SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
@@ -62,6 +65,15 @@ public abstract class BaseOracleConnectorTest
                  SUPPORTS_TOPN_PUSHDOWN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    protected Session getSession()
+    {
+        Session session = super.getSession();
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), NON_TRANSACTIONAL_MERGE, "true")
+                .build();
     }
 
     @Override
@@ -533,5 +545,30 @@ public abstract class BaseOracleConnectorTest
     protected String getUser()
     {
         return TEST_USER;
+    }
+
+    @Override
+    protected void createTableForWrites(String createTable, String tableName, Optional<String> primaryKey, OptionalInt updateCount)
+    {
+        super.createTableForWrites(createTable, tableName, primaryKey, updateCount);
+        primaryKey.ifPresent(key -> onRemoteDatabase().execute(format("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)", tableName, "pk_" + tableName, key)));
+    }
+
+    @Override
+    protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, String primaryKey)
+    {
+        TestTable testTable = super.createTestTableForWrites(namePrefix, tableDefinition, primaryKey);
+        String tableName = testTable.getName();
+        onRemoteDatabase().execute(format("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)", tableName, "pk_" + tableName, primaryKey));
+        return testTable;
+    }
+
+    @Override
+    protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, List<String> rowsToInsert, String primaryKey)
+    {
+        TestTable testTable = super.createTestTableForWrites(namePrefix, tableDefinition, rowsToInsert, primaryKey);
+        String tableName = testTable.getName();
+        onRemoteDatabase().execute(format("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)", tableName, "pk_" + tableName, primaryKey));
+        return testTable;
     }
 }
