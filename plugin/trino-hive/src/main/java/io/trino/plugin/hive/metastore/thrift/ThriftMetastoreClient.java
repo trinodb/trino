@@ -37,6 +37,7 @@ import java.io.Closeable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface ThriftMetastoreClient
         extends Closeable
@@ -51,6 +52,9 @@ public interface ThriftMetastoreClient
             throws TException;
 
     List<TableMeta> getTableMeta(String databaseName)
+            throws TException;
+
+    List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
             throws TException;
 
     void createDatabase(Database database)

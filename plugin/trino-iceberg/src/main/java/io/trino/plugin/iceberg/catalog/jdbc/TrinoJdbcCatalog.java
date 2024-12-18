@@ -60,6 +60,7 @@ import org.apache.iceberg.view.ViewRepresentation;
 import org.apache.iceberg.view.ViewVersion;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -198,6 +199,26 @@ public class TrinoJdbcCatalog
             }
         }
         return ImmutableList.copyOf(tablesListBuilder.values());
+    }
+
+    @Override
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    {
+        List<String> namespaces = listNamespaces(session, namespace);
+
+        // Build as a set and convert to list for removing duplicate entries due to case difference
+        Set<SchemaTableName> tablesListBuilder = new HashSet<>();
+        for (String schemaName : namespaces) {
+            try {
+                listTableIdentifiers(schemaName, () -> jdbcCatalog.listTables(Namespace.of(schemaName))).stream()
+                        .map(tableId -> SchemaTableName.schemaTableName(schemaName, tableId.name()))
+                        .forEach(tablesListBuilder::add);
+            }
+            catch (NoSuchNamespaceException e) {
+                // Namespace may have been deleted
+            }
+        }
+        return ImmutableList.copyOf(tablesListBuilder);
     }
 
     @Override

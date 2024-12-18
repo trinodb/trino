@@ -374,8 +374,25 @@ public class TrinoGlueCatalog
     @Override
     public List<TableInfo> listTables(ConnectorSession session, Optional<String> namespace)
     {
+        return listTables(session, namespace, _ -> true);
+    }
+
+    @Override
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    {
+        return listTables(session, namespace, table -> isIcebergTable(getTableParameters(table))).stream()
+                .map(TableInfo::tableName)
+                .collect(toImmutableList());
+    }
+
+    private List<TableInfo> listTables(
+            ConnectorSession session,
+            Optional<String> namespace,
+            Predicate<com.amazonaws.services.glue.model.Table> tablePredicate)
+    {
         List<Callable<List<TableInfo>>> tasks = listNamespaces(session, namespace).stream()
                 .map(glueNamespace -> (Callable<List<TableInfo>>) () -> getGlueTablesWithExceptionHandling(glueNamespace)
+                        .filter(tablePredicate)
                         .map(table -> mapToTableInfo(glueNamespace, table))
                         .collect(toImmutableList()))
                 .collect(toImmutableList());

@@ -123,6 +123,7 @@ public final class CachingHiveMetastore
     private final LoadingCache<HiveTableName, Optional<Table>> tableCache;
     private final LoadingCache<String, List<TableInfo>> tablesCacheNew;
     private final Cache<HiveTableName, AtomicReference<Map<String, HiveColumnStatistics>>> tableColumnStatisticsCache;
+    private final LoadingCache<TablesWithParameterCacheKey, List<String>> tableNamesWithParametersCache;
     private final Cache<HivePartitionName, AtomicReference<Map<String, HiveColumnStatistics>>> partitionStatisticsCache;
     private final Cache<HivePartitionName, AtomicReference<Optional<Partition>>> partitionCache;
     private final LoadingCache<PartitionFilter, Optional<List<String>>> partitionFilterCache;
@@ -206,6 +207,7 @@ public final class CachingHiveMetastore
         tablesCacheNew = cacheFactory.buildCache(this::loadTablesNew);
         tableColumnStatisticsCache = statsCacheFactory.buildCache(this::refreshTableColumnStatistics);
         tableCache = cacheFactory.buildCache(this::loadTable);
+        tableNamesWithParametersCache = cacheFactory.buildCache(this::loadTablesMatchingParameter);
         tablePrivilegesCache = cacheFactory.buildCache(key -> loadTablePrivileges(key.database(), key.table(), key.owner(), key.principal()));
         rolesCache = cacheFactory.buildCache(_ -> loadRoles());
         roleGrantsCache = cacheFactory.buildCache(this::loadRoleGrants);
@@ -223,6 +225,7 @@ public final class CachingHiveMetastore
         tablesCacheNew.invalidateAll();
         databaseCache.invalidateAll();
         tableCache.invalidateAll();
+        tableNamesWithParametersCache.invalidateAll();
         partitionCache.invalidateAll();
         partitionFilterCache.invalidateAll();
         tablePrivilegesCache.invalidateAll();
@@ -566,6 +569,18 @@ public final class CachingHiveMetastore
     }
 
     @Override
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    {
+        TablesWithParameterCacheKey key = new TablesWithParameterCacheKey(databaseName, parameterKey, parameterValues);
+        return get(tableNamesWithParametersCache, key);
+    }
+
+    private List<String> loadTablesMatchingParameter(TablesWithParameterCacheKey key)
+    {
+        return delegate.getTableNamesWithParameters(key.databaseName(), key.parameterKey(), key.parameterValues());
+    }
+
+    @Override
     public void createDatabase(Database database)
     {
         try {
@@ -733,6 +748,7 @@ public final class CachingHiveMetastore
         HiveTableName hiveTableName = new HiveTableName(databaseName, tableName);
         tableCache.invalidate(hiveTableName);
         tablesCacheNew.invalidate(databaseName);
+        tableNamesWithParametersCache.invalidateAll();
         invalidateAllIf(tablePrivilegesCache, userTableKey -> userTableKey.matches(databaseName, tableName));
         tableColumnStatisticsCache.invalidate(hiveTableName);
         invalidatePartitionCache(databaseName, tableName);
@@ -1153,6 +1169,16 @@ public final class CachingHiveMetastore
         return cacheBuilder.build();
     }
 
+    record TablesWithParameterCacheKey(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    {
+        TablesWithParameterCacheKey
+        {
+            requireNonNull(databaseName, "databaseName is null");
+            requireNonNull(parameterKey, "parameterKey is null");
+            requireNonNull(parameterValues, "parameterValues is null");
+        }
+    }
+
     record UserTableKey(Optional<HivePrincipal> principal, String database, String table, Optional<String> owner)
     {
         UserTableKey
@@ -1199,6 +1225,13 @@ public final class CachingHiveMetastore
     public CacheStatsMBean getTableNamesStats()
     {
         return new CacheStatsMBean(tablesCacheNew);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getTableWithParameterStats()
+    {
+        return new CacheStatsMBean(tableNamesWithParametersCache);
     }
 
     @Managed
@@ -1273,6 +1306,11 @@ public final class CachingHiveMetastore
     LoadingCache<HiveTableName, Optional<Table>> getTableCache()
     {
         return tableCache;
+    }
+
+    LoadingCache<TablesWithParameterCacheKey, List<String>> getTableNamesWithParametersCache()
+    {
+        return tableNamesWithParametersCache;
     }
 
     public LoadingCache<String, List<TableInfo>> getTablesCacheNew()
