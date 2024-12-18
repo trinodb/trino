@@ -27,15 +27,23 @@ import static org.testcontainers.utility.MountableFile.forClasspathResource;
 public class TestingClickHouseServer
         implements Closeable
 {
+    // https://clickhouse.com/docs/en/faq/operations/production#how-to-choose-between-clickhouse-releases
+    // * stable is the kind of package we recommend by default.
+    // They are released roughly monthly (and thus provide new features with reasonable delay)
+    // and three latest stable releases are supported in terms of diagnostics and backporting of bugfixes.
+    // * lts are released twice a year and are supported for a year after their initial release.
+    // versioning schema: https://kb.altinity.com/altinity-kb-setup-and-maintenance/clickhouse-versions/
     private static final DockerImageName CLICKHOUSE_IMAGE = DockerImageName.parse("clickhouse/clickhouse-server");
-    public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("24.1.8.22");   // EOL by Apr 2025
-    public static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("23.8.12.13"); // EOL by Jun 2024
+    // https://clickhouse.com/docs/en/whats-new/changelog#-clickhouse-release-2412-2024-12-19
+    public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("24.12.1.1614");   // EOL in 3 releases after 2024-12-19
+    // https://clickhouse.com/docs/en/whats-new/changelog#-clickhouse-release-243-lts-2024-03-27
+    public static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("24.3.14.35"); // EOL in 1 year after 2024-03-27
 
     // Altinity Stable Builds Life-Cycle Table https://docs.altinity.com/altinitystablebuilds/#altinity-stable-builds-life-cycle-table
-    // On Mac/arm try `21.8.12.29.altinitydev.arm` instead of the specified stable build
+    // On Mac/arm 23.3.13.7.altinitystable, 23.8.8.21.altinitystable and 22.8.15.25.altinitystable and later versions available on ARM.
     private static final DockerImageName ALTINITY_IMAGE = DockerImageName.parse("altinity/clickhouse-server").asCompatibleSubstituteFor("clickhouse/clickhouse-server");
-    public static final DockerImageName ALTINITY_LATEST_IMAGE = ALTINITY_IMAGE.withTag("23.8.8.21.altinitystable");  // EOL is 27 Dec 2026
-    public static final DockerImageName ALTINITY_DEFAULT_IMAGE = ALTINITY_IMAGE.withTag("21.8.15.15.altinitystable"); // EOL is 30 Aug 2024
+    public static final DockerImageName ALTINITY_LATEST_IMAGE = ALTINITY_IMAGE.withTag("24.3.12.76.altinitystable");  // EOL is 23 Jul 2027
+    public static final DockerImageName ALTINITY_DEFAULT_IMAGE = ALTINITY_IMAGE.withTag("22.3.15.34.altinitystable"); // EOL is 15 Jul 2025
 
     private final ClickHouseContainer dockerContainer;
 
@@ -66,7 +74,10 @@ public class TestingClickHouseServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:clickhouse://%s:%s/", dockerContainer.getHost(),
+        // externalDatabase=false is needed because Schema listing fetch is extremely slow on Clickhouse-server 24.3+
+        // https://github.com/ClickHouse/clickhouse-java/issues/1245
+        // https://github.com/ClickHouse/clickhouse-java/issues/1584
+        return format("jdbc:clickhouse://%s:%s/?externalDatabase=false", dockerContainer.getHost(),
                 dockerContainer.getMappedPort(8123));
     }
 
