@@ -125,9 +125,6 @@ catalog named `sales` using the configured connector.
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-```{include} non-transactional-insert.fragment
-```
-
 (redshift-fte-support)=
 ## Fault-tolerant execution support
 
@@ -181,24 +178,37 @@ Redshift. In addition to the {ref}`globally available
 <sql-globally-available>` and {ref}`read operation <sql-read-operations>`
 statements, the connector supports the following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {ref}`sql-schema-table-management`
+- [](/sql/insert), see also [](redshift-insert)
+- [](/sql/update), see also [](redshift-update)
+- [](/sql/delete), see also [](redshift-delete)
+- [](/sql/truncate)
+- [](sql-schema-table-management), see also:
+  - [](redshift-alter-table)
+  - [](redshift-alter-schema)
+- [](redshift-procedures)
+- [](redshift-table-functions)
 
+(redshift-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(redshift-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(redshift-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(redshift-alter-table)=
 ```{include} alter-table-limitation.fragment
 ```
 
+(redshift-alter-schema)=
 ```{include} alter-schema-limitation.fragment
 ```
 
+(redshift-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
@@ -206,6 +216,7 @@ statements, the connector supports the following features:
 ```{include} procedures-execute.fragment
 ```
 
+(redshift-table-functions)=
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to

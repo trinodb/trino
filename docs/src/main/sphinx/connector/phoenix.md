@@ -63,9 +63,6 @@ The following Phoenix-specific configuration properties are available:
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-```{include} non-transactional-insert.fragment
-```
-
 ## Querying Phoenix tables
 
 The default empty schema in Phoenix maps to a schema named `default` in Trino.
@@ -268,24 +265,31 @@ Use them in the same way as above: in the `WITH` clause of the `CREATE TABLE` st
 (phoenix-sql-support)=
 ## SQL support
 
-The connector provides read and write access to data and metadata in
-Phoenix. In addition to the {ref}`globally available
-<sql-globally-available>` and {ref}`read operation <sql-read-operations>`
-statements, the connector supports the following features:
+The connector provides read and write access to data and metadata in Phoenix. In
+addition to the [globally available](sql-globally-available) and [read
+operation](sql-read-operations) statements, the connector supports the following
+features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/merge`
-- {doc}`/sql/create-table`
-- {doc}`/sql/create-table-as`
-- {doc}`/sql/drop-table`
-- {doc}`/sql/create-schema`
-- {doc}`/sql/drop-schema`
+- [](/sql/insert), see also [](phoenix-insert)
+- [](/sql/update)
+- [](/sql/delete), see also [](phoenix-delete)
+- [](/sql/merge)
+- [](/sql/create-table)
+- [](/sql/create-table-as)
+- [](/sql/drop-table)
+- [](/sql/create-schema)
+- [](/sql/drop-schema)
+- [](phoenix-procedures)
 
+(phoenix-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(phoenix-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(phoenix-procedures)=
 ### Procedures
 
 ```{include} procedures-execute.fragment
