@@ -99,9 +99,6 @@ creates a catalog named `sales` using the configured connector.
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-```{include} non-transactional-insert.fragment
-```
-
 (mysql-fte-support)=
 ### Fault-tolerant execution support
 
@@ -338,22 +335,31 @@ MySQL database. In addition to the {ref}`globally available <sql-globally-availa
 {ref}`read operation <sql-read-operations>` statements, the connector supports
 the following statements:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {doc}`/sql/create-table`
-- {doc}`/sql/create-table-as`
-- {doc}`/sql/drop-table`
-- {doc}`/sql/create-schema`
-- {doc}`/sql/drop-schema`
+- [](/sql/insert), see also [](mysql-insert)
+- [](/sql/update), see also [](mysql-update)
+- [](/sql/delete), see also [](mysql-delete)
+- [](/sql/truncate)
+- [](/sql/create-table)
+- [](/sql/create-table-as)
+- [](/sql/drop-table)
+- [](/sql/create-schema)
+- [](/sql/drop-schema)
+- [](mysql-procedures)
+- [](mysql-table-functions)
 
+(mysql-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(mysql-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(mysql-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(mysql-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
@@ -361,6 +367,7 @@ the following statements:
 ```{include} procedures-execute.fragment
 ```
 
+(mysql-table-functions)=
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to

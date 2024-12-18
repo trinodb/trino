@@ -116,10 +116,15 @@ be an empty string `''`, and so forth.
 (druid-sql-support)=
 ## SQL support
 
-The connector provides {ref}`globally available <sql-globally-available>` and
-{ref}`read operation <sql-read-operations>` statements to access data and
-metadata in the Druid database.
+The connector provides read access to data and metadata in the Druid database.
+In addition to the [globally available](sql-globally-available) and [read
+operation](sql-read-operations) statements, the connector supports the following
+features:
 
+- [](druid-procedures)
+- [](druid-table-functions)
+
+(druid-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
@@ -127,6 +132,7 @@ metadata in the Druid database.
 ```{include} procedures-execute.fragment
 ```
 
+(druid-table-functions)=
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
