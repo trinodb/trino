@@ -450,7 +450,11 @@ public class TransactionLogAccess
             // Process 'remove' entries first because deletion vectors register both 'add' and 'remove' entries and the 'add' entry should be kept
             removedFiles.addAll(removedFilesInTransaction);
             removedFilesInTransaction.forEach(activeJsonEntries::remove);
-            activeJsonEntries.putAll(addFilesInTransaction);
+            for (Map.Entry<String, AddFileEntry> addFile : addFilesInTransaction.entrySet()) {
+                if (!removedFilesInTransaction.contains(addFile.getKey())) {
+                    activeJsonEntries.put(addFile.getKey(), addFile.getValue());
+                }
+            }
         });
 
         Stream<AddFileEntry> filteredCheckpointEntries = checkpointEntries
