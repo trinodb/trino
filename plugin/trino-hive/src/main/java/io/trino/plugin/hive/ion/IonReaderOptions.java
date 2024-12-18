@@ -19,6 +19,14 @@ public final class IonReaderOptions
 {
     public static final String STRICT_PATH_TYPING_PROPERTY = "ion.path_extractor.strict";
     public static final String STRICT_PATH_TYPING_DEFAULT = "false";
+    public static final String PATH_EXTRACTOR_PROPERTY = "ion.\\w+.path_extractor";
+    public static final String PATH_EXTRACTION_CASE_SENSITIVITY = "ion.path_extractor.case_sensitive";
+    public static final String PATH_EXTRACTION_CASE_SENSITIVITY_DEFAULT = "false";
+    public static final String FAIL_ON_OVERFLOW_PROPERTY_WITH_COLUMN = "ion.\\w+.fail_on_overflow";
+    public static final String FAIL_ON_OVERFLOW_PROPERTY = "ion.fail_on_overflow";
+    public static final String FAIL_ON_OVERFLOW_PROPERTY_DEFAULT = "true";
+    public static final String IGNORE_MALFORMED = "ion.ignore_malformed";
+    public static final String IGNORE_MALFORMED_DEFAULT = "false";
 
     private IonReaderOptions() {}
 
