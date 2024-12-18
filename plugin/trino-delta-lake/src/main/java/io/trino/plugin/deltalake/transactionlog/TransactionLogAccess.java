@@ -429,21 +429,23 @@ public class TransactionLogAccess
 
     private Stream<AddFileEntry> activeAddEntries(Stream<DeltaLakeTransactionLogEntry> checkpointEntries, List<Transaction> transactions)
     {
-        Map<String, AddFileEntry> activeJsonEntries = new LinkedHashMap<>();
-        HashSet<String> removedFiles = new HashSet<>();
+        Map<FileEntryKey, AddFileEntry> activeJsonEntries = new LinkedHashMap<>();
+        HashSet<FileEntryKey> removedFiles = new HashSet<>();
 
         // The json entries containing the last few entries in the log need to be applied on top of the parquet snapshot:
         // - Any files which have been removed need to be excluded
         // - Any files with newer add actions need to be updated with the most recent metadata
         transactions.forEach(transaction -> {
-            Map<String, AddFileEntry> addFilesInTransaction = new LinkedHashMap<>();
-            Set<String> removedFilesInTransaction = new HashSet<>();
+            Map<FileEntryKey, AddFileEntry> addFilesInTransaction = new LinkedHashMap<>();
+            Set<FileEntryKey> removedFilesInTransaction = new HashSet<>();
             transaction.transactionEntries().forEach(deltaLakeTransactionLogEntry -> {
                 if (deltaLakeTransactionLogEntry.getAdd() != null) {
-                    addFilesInTransaction.put(deltaLakeTransactionLogEntry.getAdd().getPath(), deltaLakeTransactionLogEntry.getAdd());
+                    AddFileEntry add = deltaLakeTransactionLogEntry.getAdd();
+                    addFilesInTransaction.put(new FileEntryKey(add.getPath(), add.getDeletionVector().map(DeletionVectorEntry::uniqueId)), add);
                 }
                 else if (deltaLakeTransactionLogEntry.getRemove() != null) {
-                    removedFilesInTransaction.add(deltaLakeTransactionLogEntry.getRemove().path());
+                    RemoveFileEntry remove = deltaLakeTransactionLogEntry.getRemove();
+                    removedFilesInTransaction.add(new FileEntryKey(remove.path(), remove.deletionVector().map(DeletionVectorEntry::uniqueId)));
                 }
             });
 
@@ -456,10 +458,15 @@ public class TransactionLogAccess
         Stream<AddFileEntry> filteredCheckpointEntries = checkpointEntries
                 .map(DeltaLakeTransactionLogEntry::getAdd)
                 .filter(Objects::nonNull)
-                .filter(addEntry -> !removedFiles.contains(addEntry.getPath()) && !activeJsonEntries.containsKey(addEntry.getPath()));
+                .filter(addEntry -> {
+                    FileEntryKey key = new FileEntryKey(addEntry.getPath(), addEntry.getDeletionVector().map(DeletionVectorEntry::uniqueId));
+                    return !removedFiles.contains(key) && !activeJsonEntries.containsKey(key);
+                });
 
         return Stream.concat(filteredCheckpointEntries, activeJsonEntries.values().stream());
     }
+
+    private record FileEntryKey(String path, Optional<String> deletionVectorId) {}
 
     public Stream<RemoveFileEntry> getRemoveEntries(ConnectorSession session, TableSnapshot tableSnapshot)
     {
