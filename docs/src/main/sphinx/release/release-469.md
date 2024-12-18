@@ -1,4 +1,4 @@
-# Release xyz (dd MMM 2025)
+# Release xyz (dd MMM 2024)
 
 ## General
 
