@@ -7,6 +7,7 @@
 :maxdepth: 1
 
 release/release-469
+```
 
 (releases-2024)=
 ## 2024
