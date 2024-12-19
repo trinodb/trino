@@ -63,6 +63,7 @@ public final class TestGroups
     public static final String AUTHORIZATION = "authorization";
     public static final String AZURE = "azure";
     public static final String EXASOL = "exasol";
+    public static final String DATABEND = "databend";
     public static final String CASSANDRA = "cassandra";
     public static final String POSTGRESQL = "postgresql";
     public static final String SQLSERVER = "sqlserver";
