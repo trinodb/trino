@@ -109,13 +109,6 @@
                     <include>trino-test-jdbc-compatibility-old-server-version.txt</include>
                 </includes>
             </resource>
-            <resource>
-                <filtering>false</filtering>
-                <directory>src/main/resources</directory>
-                <excludes>
-                    <exclude>trino-test-jdbc-compatibility-old-server-version.txt</exclude>
-                </excludes>
-            </resource>
         </resources>
 
         <plugins>
