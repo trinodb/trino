@@ -13,8 +13,12 @@
  */
 package io.trino.operator.aggregation;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.operator.aggregation.state.NullableLongState;
+import io.trino.operator.window.InternalWindowIndex;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -22,10 +26,13 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.Type;
 import io.trino.type.BigintOperators;
+import io.trino.type.StreamType;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
@@ -35,10 +42,26 @@ public final class LongSumAggregation
     private LongSumAggregation() {}
 
     @InputFunction
-    public static void sum(@AggregationState NullableLongState state, @SqlType(StandardTypes.BIGINT) long value)
+    @TypeParameter("T")
+    public static void sum(@AggregationState NullableLongState state, @SqlType("T") long value)
     {
         state.setNull(false);
         state.setValue(BigintOperators.add(state.getValue(), value));
+    }
+
+    @InputFunction
+    @TypeParameter("T")
+    public static void sum(@TypeParameter("T") Type type, @AggregationState NullableLongState state, @SqlType("T") Block value)
+    {
+        if (type instanceof StreamType streamType) {
+            Streams.stream(streamType.valueIterable(value))
+                    .map(Long.class::cast)
+                    .reduce(BigintOperators::add)
+                    .ifPresent(v -> sum(state, v));
+        }
+        else {
+            throw new UnsupportedOperationException("Unsupported type: " + type);
+        }
     }
 
     @CombineFunction
@@ -85,13 +108,25 @@ public final class LongSumAggregation
             return new LongSumWindowAccumulator(count, sum);
         }
 
+        private Iterable<Object> getValues(WindowIndex index, int position)
+        {
+            if (index instanceof InternalWindowIndex internalWindowIndex && internalWindowIndex.getType(0) instanceof StreamType streamType) {
+                Block block = index.getSingleValueBlock(0, position);
+                return streamType.valueIterable(block);
+            }
+
+            return ImmutableList.of(index.getLong(0, position));
+        }
+
         @Override
         public void addInput(WindowIndex index, int startPosition, int endPosition)
         {
             for (int i = startPosition; i <= endPosition; i++) {
                 if (!index.isNull(0, i)) {
-                    sum += index.getLong(0, i);
-                    count++;
+                    for (Object value : getValues(index, i)) {
+                        sum += (long) value;
+                        count++;
+                    }
                 }
             }
         }
@@ -101,8 +136,10 @@ public final class LongSumAggregation
         {
             for (int i = startPosition; i <= endPosition; i++) {
                 if (!index.isNull(0, i)) {
-                    sum -= index.getLong(0, i);
-                    count--;
+                    for (Object value : getValues(index, i)) {
+                        sum -= (long) value;
+                        count--;
+                    }
                 }
             }
             return true;
