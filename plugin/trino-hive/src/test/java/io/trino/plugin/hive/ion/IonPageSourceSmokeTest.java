@@ -251,6 +251,16 @@ public class IonPageSourceSmokeTest
         assertEncoding(tableColumns, BINARY_ENCODING);
     }
 
+    @Test
+    public void testBadEncodingName()
+            throws IOException
+    {
+        TestFixture fixture = new TestFixture(FOO_BAR_COLUMNS)
+                .withEncoding("unknown_encoding_name");
+
+        Assertions.assertThrows(TrinoException.class, fixture::getFileWriter);
+    }
+
     private void assertEncoding(List<HiveColumnHandle> tableColumns,
             String encoding)
             throws IOException

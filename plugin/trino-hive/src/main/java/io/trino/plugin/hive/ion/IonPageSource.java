@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.ion;
 
+import com.amazon.ion.IonBufferConfiguration;
 import com.amazon.ion.IonReader;
 import com.amazon.ion.IonType;
 import io.trino.hive.formats.ion.IonDecoder;
@@ -24,9 +25,13 @@ import java.io.IOException;
 import java.util.OptionalLong;
 import java.util.function.LongSupplier;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+
 public class IonPageSource
         implements ConnectorPageSource
 {
+    private static final int INSTANCE_SIZE = instanceSize(IonPageSource.class);
+
     private final IonReader ionReader;
     private final PageBuilder pageBuilder;
     private final IonDecoder decoder;
@@ -86,7 +91,10 @@ public class IonPageSource
     @Override
     public long getMemoryUsage()
     {
-        return 4096;
+        // we don't have the ability to ask an IonReader how many bytes it has buffered
+        // it will buffer as much as is needed for each top-level-value.
+        int assumedIonBufferSize = IonBufferConfiguration.DEFAULT.getInitialBufferSize() * 4;
+        return INSTANCE_SIZE + assumedIonBufferSize + pageBuilder.getRetainedSizeInBytes();
     }
 
     @Override

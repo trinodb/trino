@@ -33,6 +33,7 @@ import java.util.Optional;
 import java.util.function.LongSupplier;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 
 public class IonFileWriter
         implements FileWriter
@@ -106,7 +107,7 @@ public class IonFileWriter
             writer.close();
         }
         catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
         }
     }
 
@@ -123,7 +124,7 @@ public class IonFileWriter
             pageEncoder.encode(writer, page);
         }
         catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new TrinoException(HIVE_WRITER_DATA_ERROR, e);
         }
     }
 }
