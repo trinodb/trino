@@ -103,6 +103,7 @@ public final class Environment
     private final Map<String, DockerContainer> containers;
     private final EnvironmentListener listener;
     private final boolean attached;
+    private final boolean ipv6;
     private final Map<String, List<String>> configuredFeatures;
 
     private Environment(
@@ -111,12 +112,14 @@ public final class Environment
             Map<String, DockerContainer> containers,
             EnvironmentListener listener,
             boolean attached,
+            boolean ipv6,
             Map<String, List<String>> configuredFeatures,
             List<Supplier<String>> startupLogs)
     {
         this.name = requireNonNull(name, "name is null");
         this.startupRetries = startupRetries;
         this.containers = requireNonNull(containers, "containers is null");
+        this.ipv6 = ipv6;
         this.listener = compose(requireNonNull(listener, "listener is null"), printStartupLogs(startupLogs));
         this.attached = attached;
         this.configuredFeatures = requireNonNull(configuredFeatures, "configuredFeatures is null");
@@ -141,7 +144,7 @@ public final class Environment
         return Failsafe
                 .with(retryPolicy)
                 .with(executorService)
-                .get(this::tryStart);
+                .get(() -> tryStart());
     }
 
     private Environment tryStart()
@@ -159,7 +162,7 @@ public final class Environment
         }
 
         // Create new network when environment tries to start
-        try (Network network = createNetwork(name)) {
+        try (Network network = createNetwork(name, ipv6)) {
             attachNetwork(containers, network);
             Startables.deepStart(containers).get();
 
@@ -372,12 +375,13 @@ public final class Environment
         values.forEach(container -> container.withNetwork(network));
     }
 
-    private static Network createNetwork(String environmentName)
+    private static Network createNetwork(String environmentName, boolean ipv6)
     {
         Network network = Network.builder()
                 .createNetworkCmdModifier(createNetworkCmd ->
                         createNetworkCmd
                                 .withName(PRODUCT_TEST_LAUNCHER_NETWORK)
+                                .withEnableIpv6(ipv6)
                                 .withLabels(ImmutableMap.of(
                                         PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE,
                                         PRODUCT_TEST_LAUNCHER_ENVIRONMENT_LABEL_NAME, environmentName)))
@@ -399,6 +403,7 @@ public final class Environment
         private int startupRetries = 1;
         private Optional<Path> logsBaseDir = Optional.empty();
         private boolean attached;
+        private boolean ipv6;
 
         public Builder(String name, PrintStream printStream)
         {
@@ -649,6 +654,7 @@ public final class Environment
                     containers,
                     listener,
                     attached,
+                    ipv6,
                     configuredFeatures,
                     startupLogs.build());
         }
@@ -736,6 +742,12 @@ public final class Environment
         public Builder setAttached(boolean attached)
         {
             this.attached = attached;
+            return this;
+        }
+
+        public Builder setIpv6(boolean ipv6)
+        {
+            this.ipv6 = ipv6;
             return this;
         }
     }
