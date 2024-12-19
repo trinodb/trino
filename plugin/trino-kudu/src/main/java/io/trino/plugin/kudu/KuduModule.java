@@ -21,6 +21,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.classloader.ForClassLoaderSafe;
 import io.trino.plugin.kudu.procedures.RangePartitionProcedures;
+import io.trino.plugin.kudu.properties.KuduColumnProperties;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -50,6 +51,7 @@ public class KuduModule
         binder.bind(KuduConnector.class).in(Scopes.SINGLETON);
         binder.bind(KuduMetadata.class).in(Scopes.SINGLETON);
         binder.bind(KuduTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(KuduColumnProperties.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(KuduSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSourceProvider.class).to(KuduPageSourceProvider.class)
                 .in(Scopes.SINGLETON);

@@ -20,7 +20,7 @@ import io.airlift.log.Logging;
 import io.trino.filesystem.Location;
 import io.trino.metastore.Database;
 import io.trino.plugin.base.util.Closables;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hudi.testing.HudiTablesInitializer;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
@@ -56,7 +56,7 @@ public final class HudiQueryRunner
         return new Builder("local:///");
     }
 
-    public static Builder builder(HiveMinioDataLake hiveMinioDataLake)
+    public static Builder builder(Hive3MinioDataLake hiveMinioDataLake)
     {
         return new Builder("s3://" + hiveMinioDataLake.getBucketName() + "/")
                 .addConnectorProperty("fs.hadoop.enabled", "false")
@@ -157,7 +157,7 @@ public final class HudiQueryRunner
             Logging.initialize();
             Logger log = Logger.get(HudiMinioQueryRunnerMain.class);
 
-            HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake("test-bucket");
+            Hive3MinioDataLake hiveMinioDataLake = new Hive3MinioDataLake("test-bucket");
             hiveMinioDataLake.start();
             QueryRunner queryRunner = builder(hiveMinioDataLake)
                     .addCoordinatorProperty("http-server.http.port", "8080")

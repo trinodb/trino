@@ -11,21 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests.product.deltalake;
+package io.trino.testing;
 
-import io.trino.tempto.BeforeMethodWithContext;
-import io.trino.tempto.ProductTest;
+import static java.util.Objects.requireNonNull;
 
-import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
-
-public abstract class BaseTestDeltaLakeS3Storage
-        extends ProductTest
+public final class SystemEnvironmentUtils
 {
-    protected String bucketName;
+    private SystemEnvironmentUtils() {}
 
-    @BeforeMethodWithContext
-    public void setUp()
+    /**
+     * Get the named environment variable, throwing an exception if it is not set.
+     */
+    public static String requireEnv(String variable)
     {
-        bucketName = requireEnv("S3_BUCKET");
+        return requireNonNull(System.getenv(variable), () -> "environment variable not set: " + variable);
+    }
+
+    public static boolean isEnvSet(String variable)
+    {
+        return System.getenv(variable) != null;
     }
 }

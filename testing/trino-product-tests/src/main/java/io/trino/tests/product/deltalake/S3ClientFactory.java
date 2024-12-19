@@ -25,9 +25,9 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.Region;
 import io.trino.testing.minio.MinioClient;
 
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.minio.MinioClient.DEFAULT_MINIO_ACCESS_KEY;
 import static io.trino.testing.minio.MinioClient.DEFAULT_MINIO_SECRET_KEY;
-import static java.util.Objects.requireNonNull;
 
 final class S3ClientFactory
 {
@@ -45,7 +45,7 @@ final class S3ClientFactory
 
     private AmazonS3 createAwsS3Client()
     {
-        String region = requireNonNull(System.getenv("AWS_REGION"), "AWS_REGION is null");
+        String region = requireEnv("AWS_REGION");
         return AmazonS3Client.builder().withRegion(region).build();
     }
 

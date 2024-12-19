@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.kudu.properties.ColumnDesign;
 import io.trino.plugin.kudu.properties.HashPartitionDefinition;
+import io.trino.plugin.kudu.properties.KuduColumnProperties;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
 import io.trino.plugin.kudu.properties.PartitionDesign;
 import io.trino.plugin.kudu.properties.RangePartition;
@@ -416,7 +417,7 @@ public class KuduClientSession
     private ColumnSchema toColumnSchema(ColumnMetadata columnMetadata)
     {
         String name = columnMetadata.getName();
-        ColumnDesign design = KuduTableProperties.getColumnDesign(columnMetadata.getProperties());
+        ColumnDesign design = KuduColumnProperties.getColumnDesign(columnMetadata.getProperties());
         Type ktype = TypeHelper.toKuduClientType(columnMetadata.getType());
         ColumnSchemaBuilder builder = new ColumnSchemaBuilder(name, ktype);
         builder.key(design.isPrimaryKey()).nullable(design.isNullable());
@@ -440,7 +441,7 @@ public class KuduClientSession
     {
         if (design.getCompression() != null) {
             try {
-                CompressionAlgorithm algorithm = KuduTableProperties.lookupCompression(design.getCompression());
+                CompressionAlgorithm algorithm = KuduColumnProperties.lookupCompression(design.getCompression());
                 builder.compressionAlgorithm(algorithm);
             }
             catch (IllegalArgumentException e) {
@@ -453,7 +454,7 @@ public class KuduClientSession
     {
         if (design.getEncoding() != null) {
             try {
-                Encoding encoding = KuduTableProperties.lookupEncoding(design.getEncoding());
+                Encoding encoding = KuduColumnProperties.lookupEncoding(design.getEncoding());
                 builder.encoding(encoding);
             }
             catch (IllegalArgumentException e) {

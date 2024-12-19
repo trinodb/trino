@@ -11,21 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests.product.deltalake;
+package io.trino.plugin.iceberg.catalog.hms;
 
-import io.trino.tempto.BeforeMethodWithContext;
-import io.trino.tempto.ProductTest;
+import io.trino.plugin.hive.containers.Hive4MinioDataLake;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 
-import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
-
-public abstract class BaseTestDeltaLakeS3Storage
-        extends ProductTest
+public class TestTrinoHive4CatalogWithHiveMetastore
+        extends TestTrinoHiveCatalogWithHiveMetastore
 {
-    protected String bucketName;
-
-    @BeforeMethodWithContext
-    public void setUp()
+    @Override
+    HiveMinioDataLake hiveMinioDataLake()
     {
-        bucketName = requireEnv("S3_BUCKET");
+        return new Hive4MinioDataLake(bucketName);
     }
 }

@@ -17,7 +17,7 @@ import io.trino.faulttolerant.BaseFaultTolerantExecutionTest;
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 
@@ -38,7 +38,7 @@ public class TestDeltaFaultTolerantExecutionTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        Hive3MinioDataLake hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
         hiveMinioDataLake.start();
         MinioStorage minioStorage = closeAfterClass(new MinioStorage(bucketName));
         minioStorage.start();

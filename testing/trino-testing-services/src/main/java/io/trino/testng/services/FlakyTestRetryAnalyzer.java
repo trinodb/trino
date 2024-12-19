@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
 import static java.lang.String.format;
 
 public class FlakyTestRetryAnalyzer
@@ -54,7 +55,7 @@ public class FlakyTestRetryAnalyzer
 
         Optional<String> enabledSystemPropertyValue = Optional.ofNullable(System.getProperty(ENABLED_SYSTEM_PROPERTY));
         if (!enabledSystemPropertyValue.map(Boolean::parseBoolean)
-                .orElseGet(() -> System.getenv("CONTINUOUS_INTEGRATION") != null)) {
+                .orElseGet(() -> isEnvSet("CONTINUOUS_INTEGRATION"))) {
             log.info(
                     "FlakyTestRetryAnalyzer not enabled: " +
                             "CONTINUOUS_INTEGRATION environment is not detected or " +
