@@ -450,8 +450,7 @@ class QueryPlanner
 
             // The new scope is the composite of the fields from the FROM and SELECT clause (local nested scopes). Fields from the bottom of
             // the scope stack need to be placed first to match the expected layout for nested scopes.
-            List<Symbol> newFields = new ArrayList<>();
-            newFields.addAll(builder.getTranslations().getFieldSymbols());
+            List<Symbol> newFields = new ArrayList<>(builder.getTranslations().getFieldSymbols());
 
             outputs.stream()
                     .map(builder::translate)
