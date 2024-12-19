@@ -197,7 +197,7 @@
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.11.0</dep.frontend-node.version>
         <dep.frontend-npm.version>10.9.0</dep.frontend-npm.version>
-        <dep.google.http.client.version>1.45.1</dep.google.http.client.version>
+        <dep.google.http.client.version>1.45.3</dep.google.http.client.version>
         <dep.httpcore5.version>5.3.1</dep.httpcore5.version>
         <dep.iceberg.version>1.7.1</dep.iceberg.version>
         <dep.jna.version>5.15.0</dep.jna.version>
@@ -239,7 +239,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.51.0</version>
+                <version>26.52.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -311,7 +311,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.29.35</version>
+                <version>2.29.37</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

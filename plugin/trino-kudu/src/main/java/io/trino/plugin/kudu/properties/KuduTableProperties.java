@@ -36,14 +36,12 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -59,18 +57,12 @@ public final class KuduTableProperties
     public static final String PARTITION_BY_RANGE_COLUMNS = "partition_by_range_columns";
     public static final String RANGE_PARTITIONS = "range_partitions";
     public static final String NUM_REPLICAS = "number_of_replicas";
-    public static final String PRIMARY_KEY = "primary_key";
-    public static final String NULLABLE = "nullable";
-    public static final String ENCODING = "encoding";
-    public static final String COMPRESSION = "compression";
 
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private static final long DEFAULT_TIMEOUT = 20_000; // timeout for retrieving range partitions in milliseconds
 
     private final List<PropertyMetadata<?>> tableProperties;
-
-    private final List<PropertyMetadata<?>> columnProperties;
 
     @Inject
     public KuduTableProperties()
@@ -129,38 +121,11 @@ public final class KuduTableProperties
                         "Initial range partitions as JSON",
                         null,
                         false));
-
-        columnProperties = ImmutableList.of(
-                booleanProperty(
-                        PRIMARY_KEY,
-                        "If column belongs to primary key",
-                        false,
-                        false),
-                booleanProperty(
-                        NULLABLE,
-                        "If column can be set to null",
-                        false,
-                        false),
-                stringProperty(
-                        ENCODING,
-                        "Optional specification of the column encoding. Otherwise default encoding is applied.",
-                        null,
-                        false),
-                stringProperty(
-                        COMPRESSION,
-                        "Optional specification of the column compression. Otherwise default compression is applied.",
-                        null,
-                        false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
-    }
-
-    public List<PropertyMetadata<?>> getColumnProperties()
-    {
-        return columnProperties;
     }
 
     public static PartitionDesign getPartitionDesign(Map<String, Object> tableProperties)
@@ -193,36 +158,6 @@ public final class KuduTableProperties
             design.setRange(new RangePartitionDefinition(rangeColumns));
         }
 
-        return design;
-    }
-
-    public static ColumnDesign getColumnDesign(Map<String, Object> columnProperties)
-    {
-        requireNonNull(columnProperties);
-        if (columnProperties.isEmpty()) {
-            return ColumnDesign.DEFAULT;
-        }
-
-        ColumnDesign design = new ColumnDesign();
-        Boolean key = (Boolean) columnProperties.get(PRIMARY_KEY);
-        if (key != null) {
-            design.setPrimaryKey(key);
-        }
-
-        Boolean nullable = (Boolean) columnProperties.get(NULLABLE);
-        if (nullable != null) {
-            design.setNullable(nullable);
-        }
-
-        String encoding = (String) columnProperties.get(ENCODING);
-        if (encoding != null) {
-            design.setEncoding(encoding);
-        }
-
-        String compression = (String) columnProperties.get(COMPRESSION);
-        if (compression != null) {
-            design.setCompression(compression);
-        }
         return design;
     }
 
@@ -541,57 +476,5 @@ public final class KuduTableProperties
     private static void handleInvalidValue(String name, Type type, Object obj)
     {
         throw new IllegalStateException("Invalid value " + obj + " for column " + name + " of type " + type);
-    }
-
-    public static ColumnSchema.CompressionAlgorithm lookupCompression(String compression)
-    {
-        return switch (compression.toLowerCase(Locale.ENGLISH)) {
-            case "default", "default_compression" -> ColumnSchema.CompressionAlgorithm.DEFAULT_COMPRESSION;
-            case "no", "no_compression" -> ColumnSchema.CompressionAlgorithm.NO_COMPRESSION;
-            case "lz4" -> ColumnSchema.CompressionAlgorithm.LZ4;
-            case "snappy" -> ColumnSchema.CompressionAlgorithm.SNAPPY;
-            case "zlib" -> ColumnSchema.CompressionAlgorithm.ZLIB;
-            default -> throw new IllegalArgumentException();
-        };
-    }
-
-    public static String lookupCompressionString(ColumnSchema.CompressionAlgorithm algorithm)
-    {
-        return switch (algorithm) {
-            case DEFAULT_COMPRESSION -> "default";
-            case NO_COMPRESSION -> "no";
-            case LZ4 -> "lz4";
-            case SNAPPY -> "snappy";
-            case ZLIB -> "zlib";
-            default -> "unknown";
-        };
-    }
-
-    public static ColumnSchema.Encoding lookupEncoding(String encoding)
-    {
-        return switch (encoding.toLowerCase(Locale.ENGLISH)) {
-            case "auto", "auto_encoding" -> ColumnSchema.Encoding.AUTO_ENCODING;
-            case "bitshuffle", "bit_shuffle" -> ColumnSchema.Encoding.BIT_SHUFFLE;
-            case "dictionary", "dict_encoding" -> ColumnSchema.Encoding.DICT_ENCODING;
-            case "plain", "plain_encoding" -> ColumnSchema.Encoding.PLAIN_ENCODING;
-            case "prefix", "prefix_encoding" -> ColumnSchema.Encoding.PREFIX_ENCODING;
-            case "runlength", "run_length", "run length", "rle" -> ColumnSchema.Encoding.RLE;
-            case "group_varint" -> ColumnSchema.Encoding.GROUP_VARINT;
-            default -> throw new IllegalArgumentException();
-        };
-    }
-
-    public static String lookupEncodingString(ColumnSchema.Encoding encoding)
-    {
-        return switch (encoding) {
-            case AUTO_ENCODING -> "auto";
-            case BIT_SHUFFLE -> "bitshuffle";
-            case DICT_ENCODING -> "dictionary";
-            case PLAIN_ENCODING -> "plain";
-            case PREFIX_ENCODING -> "prefix";
-            case RLE -> "runlength";
-            case GROUP_VARINT -> "group_varint";
-            default -> "unknown";
-        };
     }
 }
