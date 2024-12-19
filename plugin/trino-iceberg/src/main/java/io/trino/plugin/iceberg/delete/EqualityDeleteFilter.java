@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFutureTask;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.delete.DeleteManager.DeletePageSourceProvider;
 import io.trino.spi.Page;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -34,9 +33,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
-import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public final class EqualityDeleteFilter
@@ -54,13 +53,12 @@ public final class EqualityDeleteFilter
     @Override
     public RowPredicate createPredicate(List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
     {
-        Schema fileSchema = schemaFromHandles(columns);
-        if (deleteSchema.columns().stream().anyMatch(column -> fileSchema.findField(column.fieldId()) == null)) {
-            throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "columns list doesn't contain all equality delete columns");
-        }
+        Schema projectedSchema = deleteSchema.select(columns.stream()
+                .map(column -> firstNonNull(deleteSchema.findColumnName(column.getId()), column.getName()))
+                .collect(toImmutableList()));
 
-        StructLikeWrapper structLikeWrapper = StructLikeWrapper.forType(deleteSchema.asStruct());
-        StructProjection projection = StructProjection.create(fileSchema, deleteSchema);
+        StructLikeWrapper structLikeWrapper = StructLikeWrapper.forType(projectedSchema.asStruct());
+        StructProjection projection = StructProjection.create(deleteSchema, projectedSchema);
         Type[] types = columns.stream()
                 .map(IcebergColumnHandle::getType)
                 .toArray(Type[]::new);

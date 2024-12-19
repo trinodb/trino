@@ -597,8 +597,8 @@ public class TestIcebergV2
                     equalityFieldIds);
         }
 
-        // TODO: support read equality deletes with nested fields(https://github.com/trinodb/trino/issues/18625)
-        assertThat(query("SELECT * FROM " + tableName)).failure().hasMessageContaining("Multiple entries with same key");
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (BIGINT '1', CAST(row(10, 100) AS ROW(nested BIGINT, nested_other BIGINT)))");
         assertUpdate("DROP TABLE " + tableName);
     }
 
