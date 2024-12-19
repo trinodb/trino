@@ -112,12 +112,13 @@ public class RedshiftSplitManager
 
         Connection connection;
         PreparedStatement statement;
-        String unloadOutputPath = unloadLocation.orElseThrow() + "/" + session.getQueryId() + "-" + UUID.randomUUID() + "/";
+        String queryFragmentId = session.getQueryId() + "-" + UUID.randomUUID();
+        String unloadOutputPath = unloadLocation.orElseThrow() + "/" + queryFragmentId + "/";
         try {
             connection = jdbcClient.getConnection(session);
             String redshiftSelectSql = buildRedshiftSelectSql(session, connection, jdbcTableHandle, columns);
 
-            // Query containing \\b is unsupported with unload command. See https://github.com/aws/amazon-redshift-jdbc-driver/issues/124
+            // Query containing \b is unsupported with unload command. See https://github.com/aws/amazon-redshift-jdbc-driver/issues/124
             if (redshiftSelectSql.contains("\\b")) {
                 log.debug("Unload query contains unsupported characters. Falling back to using JDBC");
                 return fallbackSplitSource;
@@ -127,7 +128,7 @@ public class RedshiftSplitManager
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
-        return new RedshiftUnloadSplitSource(executor, connection, statement, unloadOutputPath, fileSystemFactory.create(session));
+        return new RedshiftUnloadSplitSource(executor, connection, statement, queryFragmentId, unloadOutputPath, fileSystemFactory.create(session));
     }
 
     private String buildRedshiftSelectSql(ConnectorSession session, Connection connection, JdbcTableHandle table, List<JdbcColumnHandle> columns)
