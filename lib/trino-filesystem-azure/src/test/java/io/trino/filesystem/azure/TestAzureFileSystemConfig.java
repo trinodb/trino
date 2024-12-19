@@ -38,7 +38,7 @@ class TestAzureFileSystemConfig
                 .setMaxWriteConcurrency(8)
                 .setMaxSingleUploadSize(DataSize.of(4, Unit.MEGABYTE))
                 .setMaxHttpRequests(2 * Runtime.getRuntime().availableProcessors())
-                .setApplicationId("Trino"));
+                .setApplicationId(null));
     }
 
     @Test

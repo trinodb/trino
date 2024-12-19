@@ -19,6 +19,7 @@ import com.google.inject.spi.Message;
 import io.airlift.log.Logger;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.client.NodeVersion;
 import io.trino.server.ServerConfig;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.spool.SpoolingManager;
@@ -54,15 +55,17 @@ public class SpoolingManagerRegistry
     private final boolean coordinator;
     private final OpenTelemetry openTelemetry;
     private final Tracer tracer;
+    private final String nodeVersion;
     private volatile SpoolingManager spoolingManager;
 
     @Inject
-    public SpoolingManagerRegistry(ServerConfig serverConfig, SpoolingEnabledConfig config, OpenTelemetry openTelemetry, Tracer tracer)
+    public SpoolingManagerRegistry(ServerConfig serverConfig, SpoolingEnabledConfig config, OpenTelemetry openTelemetry, Tracer tracer, NodeVersion nodeVersion)
     {
         this.enabled = config.isEnabled();
         this.coordinator = serverConfig.isCoordinator();
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null").getVersion();
     }
 
     public void addSpoolingManagerFactory(SpoolingManagerFactory factory)
@@ -125,6 +128,12 @@ public class SpoolingManagerRegistry
             public boolean isCoordinator()
             {
                 return coordinator;
+            }
+
+            @Override
+            public String getNodeVersion()
+            {
+                return nodeVersion;
             }
         };
 
