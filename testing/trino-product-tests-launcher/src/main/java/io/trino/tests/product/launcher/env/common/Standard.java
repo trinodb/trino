@@ -22,6 +22,7 @@ import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentContainers;
+import io.trino.tests.product.launcher.env.Ipv6;
 import io.trino.tests.product.launcher.env.ServerPackage;
 import io.trino.tests.product.launcher.env.Tracing;
 import io.trino.tests.product.launcher.env.jdk.JdkProvider;
@@ -90,6 +91,7 @@ public final class Standard
     private final File serverPackage;
     private final boolean debug;
     private final boolean tracing;
+    private final boolean ipv6;
 
     @Inject
     public Standard(
@@ -99,7 +101,8 @@ public final class Standard
             @ServerPackage File serverPackage,
             JdkProvider jdkProvider,
             @Debug boolean debug,
-            @Tracing boolean tracing)
+            @Tracing boolean tracing,
+            @Ipv6 boolean ipv6)
     {
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
@@ -107,6 +110,7 @@ public final class Standard
         this.jdkProvider = requireNonNull(jdkProvider, "jdkProvider is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;
+        this.ipv6 = ipv6;
         this.tracing = tracing;
         checkArgument(serverPackage.getName().endsWith(".tar.gz"), "Currently only server .tar.gz package is supported");
     }
@@ -169,7 +173,7 @@ public final class Standard
     private DockerContainer createTrinoCoordinator()
     {
         DockerContainer container =
-                createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, tracing, "ghcr.io/trinodb/testing/almalinux9-oj17:" + imagesVersion, COORDINATOR)
+                createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, tracing, ipv6, "ghcr.io/trinodb/testing/almalinux9-oj17:" + imagesVersion, COORDINATOR)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_TRINO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES);
 
@@ -188,7 +192,7 @@ public final class Standard
     }
 
     @SuppressWarnings("resource")
-    public static DockerContainer createTrinoContainer(DockerFiles dockerFiles, File serverPackage, JdkProvider jdkProvider, boolean debug, boolean tracing, String dockerImageName, String logicalName)
+    public static DockerContainer createTrinoContainer(DockerFiles dockerFiles, File serverPackage, JdkProvider jdkProvider, boolean debug, boolean tracing, boolean ipv6, String dockerImageName, String logicalName)
     {
         DockerContainer container = new DockerContainer(dockerImageName, logicalName)
                 .withNetworkAliases(logicalName + ".docker.cluster")
@@ -213,6 +217,10 @@ public final class Standard
 
         if (tracing) {
             enableTrinoTracing(container);
+        }
+
+        if (ipv6) {
+            enableTrinoIpv6(container);
         }
 
         return jdkProvider.applyTo(container);
@@ -283,6 +291,32 @@ public final class Standard
                     """.formatted(CONTAINER_TRINO_CONFIG_PROPERTIES, COLLECTOR_GRPC_PORT),
                     UTF_8);
             container.withCopyFileToContainer(forHostPath(script), "/docker/presto-init.d/enable-tracing.sh");
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static void enableTrinoIpv6(DockerContainer container)
+    {
+        log.info("Setting IPv6 as preferred networking stack for container: '%s'", container.getLogicalName());
+
+        try {
+            FileAttribute<Set<PosixFilePermission>> rwx = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwxrwxrwx"));
+            Path script = Files.createTempFile("enable-ipv6-stack", ".sh", rwx);
+            script.toFile().deleteOnExit();
+            Files.writeString(
+                    script,
+                    format(
+                            "#!/bin/bash\n" +
+                            "ipv6=$(hostname -I | awk '{print $2}')\n" +
+                            "IPv6 address of the node: ${ipv6}\n" +
+                            "echo '-Djava.net.preferIPv6Addresses=true' >> '%s'\n" +
+                            "echo \"node.internal-address=${ipv6}\" >> '%s'\n",
+                            CONTAINER_TRINO_JVM_CONFIG,
+                            CONTAINER_TRINO_CONFIG_PROPERTIES),
+                    UTF_8);
+            container.withCopyFileToContainer(forHostPath(script), "/docker/presto-init.d/enable-ipv6-stack.sh");
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
