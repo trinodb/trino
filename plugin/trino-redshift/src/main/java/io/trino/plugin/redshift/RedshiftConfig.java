@@ -16,13 +16,10 @@ package io.trino.plugin.redshift;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 
 import java.util.Optional;
-
-import static com.google.common.base.Preconditions.checkState;
 
 @DefunctConfig({
         "redshift.disable-automatic-fetch-size",
@@ -72,12 +69,5 @@ public class RedshiftConfig
     {
         this.unloadIamRole = unloadIamRole;
         return this;
-    }
-
-    @PostConstruct
-    public void validate()
-    {
-        checkState(getUnloadIamRole().isPresent() == getUnloadLocation().isPresent(),
-                "Either 'redshift.unload-iam-role' and 'redshift.unload-location' must be set or neither of them must not be set");
     }
 }

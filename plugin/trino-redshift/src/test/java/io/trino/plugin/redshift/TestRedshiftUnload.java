@@ -23,6 +23,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.IAM_ROLE;
@@ -80,7 +81,7 @@ final class TestRedshiftUnload
                                     .collect(onlyElement())
                                     .getInfo())
                                     .getSplitInfo();
-                    assertThat(splitInfo.get("path")).matches("%s/.*/0001_part_00.parquet".formatted(S3_UNLOAD_ROOT));
+                    Stream.of(splitInfo.get("path").split(", ")).forEach(path -> assertThat(path).matches("%s/.*/.*.parquet".formatted(S3_UNLOAD_ROOT)));
                 },
                 results -> assertThat(results.getRowCount()).isEqualTo(5));
     }
@@ -91,7 +92,7 @@ final class TestRedshiftUnload
         // Fallback to JDBC as limit clause is not supported by UNLOAD
         assertQueryStats(
                 getSession(),
-                "SELECT nationkey, name FROM nation WHERE regionkey = 0 LIMIT 2",
+                "SELECT nationkey, name FROM nation WHERE nationkey = 6 LIMIT 1",
                 queryStats -> {
                     OperatorStats operatorStats = queryStats.getOperatorSummaries()
                             .stream()
@@ -99,6 +100,6 @@ final class TestRedshiftUnload
                             .collect(onlyElement());
                     assertThat(operatorStats.getInfo()).isNull();
                 },
-                results -> assertThat(results.getRowCount()).isEqualTo(2));
+                results -> assertThat(results.getRowCount()).isEqualTo(1));
     }
 }

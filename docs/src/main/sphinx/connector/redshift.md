@@ -78,13 +78,13 @@ One of the limitation is that Redshift cluster and S3 must be in the same AWS
 region.
 
 The following table describes configuration properties for using 
-`UNLOAD` command in Redshift connector. `redshift.unload-location` and
-`redshift.unload-iam-role` must be set to use `UNLOAD`.
+`UNLOAD` command in Redshift connector. `redshift.unload-location` must be set 
+to use `UNLOAD`.
 
-| Property name              | Required | Description                                                                                                                                                                                        |
-|----------------------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `redshift.unload-location` | optional | A writeable location in Amazon S3, to be used for temporarily unloading Redshift query results.                                                                                                    |
-| `redshift.unload-iam-role` | optional | Fully specified ARN of the IAM Role attached to the Redshift cluster. Provided role will be used in `UNLOAD` command. IAM role must have access to Redshift cluster and write access to S3 bucket. |
+| Property name              | Required | Description                                                                                                                                                                                                                                                                |
+|----------------------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `redshift.unload-location` | optional | A writeable location in Amazon S3, to be used for temporarily unloading Redshift query results.                                                                                                                                                                            |
+| `redshift.unload-iam-role` | optional | Fully specified ARN of the IAM Role attached to the Redshift cluster. Provided role will be used in `UNLOAD` command. IAM role must have access to Redshift cluster and write access to S3 bucket. Defaults to `DEFAULT` which uses IAM role attached to Redshift cluster. |
 
 Additionally, define appropriate [S3 configurations](/object-storage/file-system-s3)
 except `fs.native-s3.enabled`, required to read Parquet files from S3 bucket. 

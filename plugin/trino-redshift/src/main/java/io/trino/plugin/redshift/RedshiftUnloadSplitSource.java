@@ -50,7 +50,7 @@ public class RedshiftUnloadSplitSource
     private static final Logger log = Logger.get(RedshiftUnloadSplitSource.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
-    private final CompletableFuture<Boolean> resultSetFuture;
+    private final CompletableFuture<Void> resultSetFuture;
     private final Connection connection;
     private final Statement statement;
     private final String unloadOutputPath;
@@ -59,7 +59,7 @@ public class RedshiftUnloadSplitSource
     private Optional<Location> manifestLocation;
     private boolean finished;
 
-    public RedshiftUnloadSplitSource(ExecutorService executor, Connection connection, PreparedStatement statement, String unloadOutputPath, TrinoFileSystem fileSystem)
+    public RedshiftUnloadSplitSource(ExecutorService executor, Connection connection, PreparedStatement statement, String queryFragmentId, String unloadOutputPath, TrinoFileSystem fileSystem)
     {
         requireNonNull(executor, "executor is null");
         this.connection = requireNonNull(connection, "connection is null");
@@ -67,12 +67,14 @@ public class RedshiftUnloadSplitSource
         this.unloadOutputPath = requireNonNull(unloadOutputPath, "unloadOutputPath is null");
         verify(unloadOutputPath.endsWith("/"), "unloadOutputPath must end with '/'.");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
-        resultSetFuture = CompletableFuture.supplyAsync(() -> {
+        resultSetFuture = CompletableFuture.runAsync(() -> {
             log.debug("Executing: %s", statement);
             try {
                 // Exclusively set readOnly to false to avoid query failing with "ERROR: transaction is read-only".
                 connection.setReadOnly(false);
-                return statement.execute();
+                long beginTs = System.currentTimeMillis();
+                statement.execute(); // Return value of `statement.execute()` is not useful as it always return false.
+                log.info("UNLOAD command for %s query took %sms", queryFragmentId, System.currentTimeMillis() - beginTs);
             }
             catch (SQLException e) {
                 if (e instanceof RedshiftException && e.getMessage().contains("The S3 bucket addressed by the query is in a different region from this cluster")) {
