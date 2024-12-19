@@ -75,7 +75,8 @@ public enum PropertyName
     TIMEOUT("timeout"),
     TIMEZONE("timezone"),
     TRACE_TOKEN("traceToken"),
-    USER("user");
+    USER("user"),
+    VALIDATE_CONNECTION("validateConnection");
 
     private final String key;
 
