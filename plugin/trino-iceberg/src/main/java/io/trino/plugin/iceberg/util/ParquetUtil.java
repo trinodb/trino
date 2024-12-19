@@ -14,10 +14,12 @@
 
 package io.trino.plugin.iceberg.util;
 
-import com.google.common.collect.ImmutableList;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
+import io.trino.parquet.metadata.PrunedBlockMetadata;
+import io.trino.parquet.reader.RowGroupInfo;
 import org.apache.iceberg.FieldMetrics;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
@@ -45,8 +47,6 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -57,6 +57,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -68,13 +69,9 @@ public final class ParquetUtil
     // based on org.apache.iceberg.parquet.ParquetUtil and on org.apache.iceberg.parquet.ParquetConversions
     private ParquetUtil() {}
 
-    public static Metrics footerMetrics(ParquetMetadata metadata, Stream<FieldMetrics<?>> fieldMetrics, MetricsConfig metricsConfig)
-    {
-        return footerMetrics(metadata, fieldMetrics, metricsConfig, null);
-    }
-
     public static Metrics footerMetrics(
             ParquetMetadata metadata,
+            List<RowGroupInfo> rowGroupInfos,
             Stream<FieldMetrics<?>> fieldMetrics,
             MetricsConfig metricsConfig,
             NameMapping nameMapping)
@@ -95,8 +92,8 @@ public final class ParquetUtil
 
         Map<Integer, FieldMetrics<?>> fieldMetricsMap = fieldMetrics.collect(toMap(FieldMetrics::id, identity()));
 
-        List<BlockMetadata> blocks = metadata.getBlocks();
-        for (BlockMetadata block : blocks) {
+        for (RowGroupInfo rowGroupInfo : rowGroupInfos) {
+            BlockMetadata block = rowGroupInfo.prunedBlockMetadata().getBlockMetadata();
             rowCount += block.rowCount();
             for (ColumnChunkMetadata column : block.columns()) {
                 Integer fieldId = fileSchema.aliasToId(column.getPath().toDotString());
@@ -155,14 +152,15 @@ public final class ParquetUtil
                 toBufferMap(fileSchema, upperBounds));
     }
 
-    public static List<Long> getSplitOffsets(ParquetMetadata metadata)
+    public static List<Long> getSplitOffsets(List<RowGroupInfo> rowGroupInfos)
+            throws ParquetCorruptionException
     {
-        List<Long> splitOffsets = new ArrayList<>(metadata.getBlocks().size());
-        for (BlockMetadata blockMetaData : metadata.getBlocks()) {
-            splitOffsets.add(blockMetaData.getStartingPos());
-        }
-        Collections.sort(splitOffsets);
-        return ImmutableList.copyOf(splitOffsets);
+        return rowGroupInfos.stream()
+                .map(RowGroupInfo::prunedBlockMetadata)
+                .map(PrunedBlockMetadata::getBlockMetadata)
+                .map(BlockMetadata::getStartingPos)
+                .sorted()
+                .collect(toImmutableList());
     }
 
     private static void updateFromFieldMetrics(

@@ -14,57 +14,29 @@
 package io.trino.parquet.metadata;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static java.util.Arrays.asList;
-import static java.util.function.Function.identity;
 
 public final class PrunedBlockMetadata
 {
-    /**
-     * Stores only the necessary columns metadata from BlockMetadata and indexes them by path for efficient look-ups
-     */
-    public static PrunedBlockMetadata createPrunedColumnsMetadata(BlockMetadata blockMetadata, ParquetDataSourceId dataSourceId, Map<List<String>, ColumnDescriptor> descriptorsByPath)
-            throws ParquetCorruptionException
-    {
-        Set<List<String>> requiredPaths = descriptorsByPath.keySet();
-        Map<List<String>, ColumnChunkMetadata> columnMetadataByPath = blockMetadata.columns().stream()
-                .collect(toImmutableMap(
-                        column -> asList(column.getPath().toArray()),
-                        identity(),
-                        // Same column name may occur more than once when the file is written by case-sensitive tools
-                        (oldValue, _) -> oldValue));
-        ImmutableMap.Builder<List<String>, ColumnChunkMetadata> columnMetadataByPathBuilder = ImmutableMap.builderWithExpectedSize(requiredPaths.size());
-        for (Map.Entry<List<String>, ColumnDescriptor> entry : descriptorsByPath.entrySet()) {
-            List<String> requiredPath = entry.getKey();
-            ColumnDescriptor columnDescriptor = entry.getValue();
-            ColumnChunkMetadata columnChunkMetadata = columnMetadataByPath.get(requiredPath);
-            if (columnChunkMetadata == null) {
-                throw new ParquetCorruptionException(dataSourceId, "Metadata is missing for column: %s", columnDescriptor);
-            }
-            columnMetadataByPathBuilder.put(requiredPath, columnChunkMetadata);
-        }
-        return new PrunedBlockMetadata(blockMetadata.rowCount(), dataSourceId, columnMetadataByPathBuilder.buildOrThrow());
-    }
-
     private final long rowCount;
     private final ParquetDataSourceId dataSourceId;
-    private final Map<List<String>, ColumnChunkMetadata> columnMetadataByPath;
+    private final Map<ColumnPath, ColumnChunkMetadata> columnMetadataByPath;
+    private final BlockMetadata blockMetadata;
 
-    private PrunedBlockMetadata(long rowCount, ParquetDataSourceId dataSourceId, Map<List<String>, ColumnChunkMetadata> columnMetadataByPath)
+    public PrunedBlockMetadata(long rowCount, ParquetDataSourceId dataSourceId, Map<ColumnPath, ColumnChunkMetadata> columnMetadataByPath)
     {
         this.rowCount = rowCount;
         this.dataSourceId = dataSourceId;
         this.columnMetadataByPath = columnMetadataByPath;
+        this.blockMetadata = new BlockMetadata(rowCount, ImmutableList.copyOf(columnMetadataByPath.values()));
     }
 
     public long getRowCount()
@@ -77,10 +49,15 @@ public final class PrunedBlockMetadata
         return ImmutableList.copyOf(columnMetadataByPath.values());
     }
 
+    public BlockMetadata getBlockMetadata()
+    {
+        return blockMetadata;
+    }
+
     public ColumnChunkMetadata getColumnChunkMetaData(ColumnDescriptor columnDescriptor)
             throws ParquetCorruptionException
     {
-        ColumnChunkMetadata columnChunkMetadata = columnMetadataByPath.get(asList(columnDescriptor.getPath()));
+        ColumnChunkMetadata columnChunkMetadata = columnMetadataByPath.get(ColumnPath.get(columnDescriptor.getPath()));
         if (columnChunkMetadata == null) {
             throw new ParquetCorruptionException(dataSourceId, "Metadata is missing for column: %s", columnDescriptor);
         }
@@ -93,6 +70,7 @@ public final class PrunedBlockMetadata
         return toStringHelper(this)
                 .add("rowCount", rowCount)
                 .add("columnMetadataByPath", columnMetadataByPath)
+                .add("blockMetadata", blockMetadata)
                 .toString();
     }
 }
