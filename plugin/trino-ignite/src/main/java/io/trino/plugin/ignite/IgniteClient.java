@@ -81,10 +81,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.ignite.IgniteTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.plugin.jdbc.ColumnMapping.longMapping;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
@@ -464,6 +467,26 @@ public class IgniteClient
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
+    }
+
+    @Override
+    public boolean supportsMerge()
+    {
+        return true;
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        JdbcTableHandle plainTable = new JdbcTableHandle(remoteTableName.getSchemaTableName(), remoteTableName, Optional.empty());
+        Map<String, Object> tableProperties = getTableProperties(session, plainTable);
+        Set<String> primaryKey = ImmutableSet.copyOf(IgniteTableProperties.getPrimaryKey(tableProperties));
+        List<JdbcColumnHandle> primaryKeys = getColumns(session, remoteTableName.getSchemaTableName(), remoteTableName)
+                .stream()
+                .filter(columnHandle -> primaryKey.contains(columnHandle.getColumnName().toLowerCase(ENGLISH)))
+                .collect(toImmutableList());
+        verify(!primaryKeys.isEmpty(), "Ignite primary keys is empty");
+        return primaryKeys;
     }
 
     @Override
