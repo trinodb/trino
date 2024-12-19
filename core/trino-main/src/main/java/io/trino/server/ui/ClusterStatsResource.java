@@ -37,6 +37,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Path("/ui/api/stats")
+@ResourceSecurity(WEB_UI)
 public class ClusterStatsResource
 {
     private final InternalNodeManager nodeManager;
@@ -53,7 +54,6 @@ public class ClusterStatsResource
         this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public ClusterStats getClusterStats()
