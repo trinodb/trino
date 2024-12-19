@@ -17,6 +17,7 @@ import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
+import io.trino.cache.SplitAdmissionControllerProvider;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers;
@@ -56,7 +57,8 @@ public class MemoryTrackingRemoteTaskFactory
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             Set<DynamicFilterId> outboundDynamicFilterIds,
             Optional<DataSize> estimatedMemory,
-            boolean summarizeTaskInfo)
+            boolean summarizeTaskInfo,
+            SplitAdmissionControllerProvider splitAdmissionControllerProvider)
     {
         RemoteTask task = remoteTaskFactory.createRemoteTask(
                 session,
@@ -70,7 +72,8 @@ public class MemoryTrackingRemoteTaskFactory
                 partitionedSplitCountTracker,
                 outboundDynamicFilterIds,
                 estimatedMemory,
-                summarizeTaskInfo);
+                summarizeTaskInfo,
+                splitAdmissionControllerProvider);
 
         task.addStateChangeListener(new UpdatePeakMemory(stateMachine));
         return task;

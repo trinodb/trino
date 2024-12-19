@@ -17,8 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
+import io.trino.cache.CacheSplitSource;
+import io.trino.cache.ConnectorAwareAddressProvider;
+import io.trino.cache.SplitAdmissionControllerProvider;
+import io.trino.execution.QueryManagerConfig;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.metadata.TableHandle;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.ColumnHandle;
@@ -34,6 +40,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -44,6 +51,7 @@ import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -80,7 +88,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.cache.CacheCommonSubqueries.getLoadCachedDataPlanNode;
+import static io.trino.cache.CacheCommonSubqueries.isCacheChooseAlternativeNode;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.ir.IrUtils.filterConjuncts;
@@ -93,22 +104,41 @@ public class SplitSourceFactory
     private final SplitManager splitManager;
     private final PlannerContext plannerContext;
     private final DynamicFilterService dynamicFilterService;
+    private final ConnectorAwareAddressProvider connectorAwareAddressProvider;
+    private final NodeInfo nodeInfo;
+    private final boolean schedulerIncludeCoordinator;
+    private final int minScheduleSplitBatchSize;
 
     @Inject
-    public SplitSourceFactory(SplitManager splitManager, PlannerContext plannerContext, DynamicFilterService dynamicFilterService)
+    public SplitSourceFactory(
+            SplitManager splitManager,
+            PlannerContext plannerContext,
+            DynamicFilterService dynamicFilterService,
+            ConnectorAwareAddressProvider connectorAwareAddressProvider,
+            NodeInfo nodeInfo,
+            NodeSchedulerConfig nodeSchedulerConfig,
+            QueryManagerConfig queryManagerConfig)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.plannerContext = requireNonNull(plannerContext, "metadata is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+        this.connectorAwareAddressProvider = requireNonNull(connectorAwareAddressProvider, "connectorAwareAddressProvider is null");
+        this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
+        this.schedulerIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
+        this.minScheduleSplitBatchSize = requireNonNull(queryManagerConfig, "queryManagerConfig is null").getMinScheduleSplitBatchSize();
     }
 
-    public Map<PlanNodeId, SplitSource> createSplitSources(Session session, Span stageSpan, PlanFragment fragment)
+    public Map<PlanNodeId, SplitSource> createSplitSources(
+            Session session,
+            Span stageSpan,
+            PlanFragment fragment,
+            SplitAdmissionControllerProvider splitAdmissionControllerProvider)
     {
         ImmutableList.Builder<SplitSource> allSplitSources = ImmutableList.builder();
         try {
             // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
             return fragment.getRoot().accept(
-                    new Visitor(session, stageSpan, allSplitSources),
+                    new Visitor(session, stageSpan, allSplitSources, splitAdmissionControllerProvider),
                     null);
         }
         catch (Throwable t) {
@@ -133,15 +163,18 @@ public class SplitSourceFactory
         private final Session session;
         private final Span stageSpan;
         private final ImmutableList.Builder<SplitSource> splitSources;
+        private final SplitAdmissionControllerProvider splitAdmissionControllerProvider;
 
         private Visitor(
                 Session session,
                 Span stageSpan,
-                ImmutableList.Builder<SplitSource> allSplitSources)
+                ImmutableList.Builder<SplitSource> allSplitSources,
+                SplitAdmissionControllerProvider splitAdmissionControllerProvider)
         {
             this.session = session;
             this.stageSpan = stageSpan;
             this.splitSources = allSplitSources;
+            this.splitAdmissionControllerProvider = splitAdmissionControllerProvider;
         }
 
         @Override
@@ -322,6 +355,32 @@ public class SplitSourceFactory
             }
 
             return node.getSource().orElseThrow().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitChooseAlternativeNode(ChooseAlternativeNode node, Void context)
+        {
+            checkArgument(isCacheChooseAlternativeNode(node));
+
+            TableHandle originalTableHandle = node.getOriginalTableScan().tableHandle();
+            SplitSource splitSource = createSplitSource(
+                    originalTableHandle,
+                    node.getOriginalTableScan().assignments(),
+                    node.getOriginalTableScan().filterPredicate());
+            LoadCachedDataPlanNode loadCachedDataNode = getLoadCachedDataPlanNode(node);
+            CacheSplitSource cacheSplitSource = splitManager.getCacheSplitSource(
+                    loadCachedDataNode.getPlanSignature().signature(),
+                    originalTableHandle,
+                    splitSource,
+                    connectorAwareAddressProvider,
+                    nodeInfo,
+                    splitAdmissionControllerProvider,
+                    schedulerIncludeCoordinator,
+                    minScheduleSplitBatchSize);
+
+            splitSources.add(cacheSplitSource);
+
+            return ImmutableMap.of(node.getId(), cacheSplitSource);
         }
 
         @Override

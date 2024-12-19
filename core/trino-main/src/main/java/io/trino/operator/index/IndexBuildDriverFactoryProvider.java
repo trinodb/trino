@@ -14,7 +14,7 @@
 package io.trino.operator.index;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.operator.DriverFactory;
+import io.trino.operator.OperatorDriverFactory;
 import io.trino.operator.OperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
@@ -73,10 +73,10 @@ public class IndexBuildDriverFactoryProvider
         return outputTypes;
     }
 
-    public DriverFactory createSnapshot(int pipelineId, IndexSnapshotBuilder indexSnapshotBuilder)
+    public OperatorDriverFactory createSnapshot(int pipelineId, IndexSnapshotBuilder indexSnapshotBuilder)
     {
         checkArgument(indexSnapshotBuilder.getOutputTypes().equals(outputTypes));
-        return new DriverFactory(
+        return new OperatorDriverFactory(
                 pipelineId,
                 inputDriver,
                 false,
@@ -87,7 +87,7 @@ public class IndexBuildDriverFactoryProvider
                 OptionalInt.empty());
     }
 
-    public DriverFactory createStreaming(PageBuffer pageBuffer, Page indexKeyTuple)
+    public OperatorDriverFactory createStreaming(PageBuffer pageBuffer, Page indexKeyTuple)
     {
         ImmutableList.Builder<OperatorFactory> operatorFactories = ImmutableList.<OperatorFactory>builder()
                 .addAll(coreOperatorFactories);
@@ -99,6 +99,6 @@ public class IndexBuildDriverFactoryProvider
 
         operatorFactories.add(new PageBufferOperatorFactory(outputOperatorId, planNodeId, pageBuffer, "IndexBuilder"));
 
-        return new DriverFactory(pipelineId, inputDriver, false, operatorFactories.build(), OptionalInt.empty());
+        return new OperatorDriverFactory(pipelineId, inputDriver, false, operatorFactories.build(), OptionalInt.empty());
     }
 }

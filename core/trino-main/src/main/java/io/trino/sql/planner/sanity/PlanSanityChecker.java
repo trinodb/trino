@@ -56,6 +56,18 @@ public final class PlanSanityChecker
                         new TableScanValidator(),
                         new TableExecuteStructureValidator())
                 .putAll(
+                        Stage.AFTER_ALTERNATIVES_PLANNING,
+                        new ValidateDependenciesChecker(),
+                        new NoDuplicatePlanNodeIdsChecker(),
+                        new TypeValidator(),
+                        new VerifyOnlyOneOutputNode(),
+                        new VerifyNoFilteredAggregations(),
+                        new VerifyUseConnectorNodePartitioningSet(),
+                        new ValidateScaledWritersUsage(),
+                        new DynamicFiltersChecker(),
+                        new TableScanValidator(),
+                        new TableExecuteStructureValidator())
+                .putAll(
                         Stage.AFTER_ADAPTIVE_PLANNING,
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
@@ -85,6 +97,15 @@ public final class PlanSanityChecker
             WarningCollector warningCollector)
     {
         validate(Stage.INTERMEDIATE, planNode, session, plannerContext, warningCollector);
+    }
+
+    public void validatePlanWithAlternatives(
+            PlanNode planNode,
+            Session session,
+            PlannerContext plannerContext,
+            WarningCollector warningCollector)
+    {
+        validate(Stage.AFTER_ALTERNATIVES_PLANNING, planNode, session, plannerContext, warningCollector);
     }
 
     public void validateAdaptivePlan(
@@ -137,6 +158,6 @@ public final class PlanSanityChecker
 
     private enum Stage
     {
-        INTERMEDIATE, FINAL, AFTER_ADAPTIVE_PLANNING
+        INTERMEDIATE, FINAL, AFTER_ALTERNATIVES_PLANNING, AFTER_ADAPTIVE_PLANNING
     }
 }

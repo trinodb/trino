@@ -20,6 +20,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.cache.CacheDriverContext;
 import io.trino.execution.TaskId;
 import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.MemoryTrackingContext;
@@ -37,6 +38,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
@@ -53,6 +55,7 @@ import static java.util.stream.Collectors.toList;
 public class DriverContext
 {
     private final PipelineContext pipelineContext;
+    private final AtomicReference<Integer> alternativeId = new AtomicReference<>();
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
     private final ScheduledExecutorService timeoutExecutor;
@@ -80,6 +83,7 @@ public class DriverContext
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final long splitWeight;
+    private final AtomicReference<Optional<CacheDriverContext>> cacheDriverContext = new AtomicReference<>(Optional.empty());
 
     public DriverContext(
             PipelineContext pipelineContext,
@@ -136,6 +140,17 @@ public class DriverContext
     public PipelineContext getPipelineContext()
     {
         return pipelineContext;
+    }
+
+    public void setAlternativeId(int alternativeId)
+    {
+        checkState(this.alternativeId.get() == null, "alternativeId is already set");
+        this.alternativeId.set(alternativeId);
+    }
+
+    public int getAlternativeId()
+    {
+        return Optional.ofNullable(alternativeId.get()).orElse(0);
     }
 
     public Session getSession()
@@ -443,6 +458,18 @@ public class DriverContext
         return operatorContexts.stream()
                 .map(operatorContext -> operatorContext.accept(visitor, context))
                 .collect(toList());
+    }
+
+    public Optional<CacheDriverContext> getCacheDriverContext()
+    {
+        return cacheDriverContext.get();
+    }
+
+    public void setCacheDriverContext(CacheDriverContext cacheDriverContext)
+    {
+        if (!this.cacheDriverContext.compareAndSet(Optional.empty(), Optional.of(cacheDriverContext))) {
+            throw new IllegalStateException("CacheDriverContext is already set");
+        }
     }
 
     public ScheduledExecutorService getYieldExecutor()

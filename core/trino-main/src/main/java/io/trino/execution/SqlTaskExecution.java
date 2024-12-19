@@ -42,6 +42,7 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
+import io.trino.spi.cache.CacheSplitId;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
@@ -664,7 +665,7 @@ public class SqlTaskExecution
             }
             Driver driver;
             try {
-                driver = driverFactory.createDriver(driverContext);
+                driver = driverFactory.createDriver(driverContext, Optional.ofNullable(partitionedSplit));
                 Span.fromContext(Context.current()).addEvent("driver-created");
             }
             catch (Throwable t) {
@@ -894,6 +895,14 @@ public class SqlTaskExecution
         public String getInfo()
         {
             return (partitionedSplit == null) ? "" : formatSplitInfo(partitionedSplit.getSplit());
+        }
+
+        @Override
+        public Optional<CacheSplitId> getCacheSplitId()
+        {
+            return Optional.ofNullable(partitionedSplit)
+                    .map(ScheduledSplit::getSplit)
+                    .flatMap(Split::getCacheSplitId);
         }
 
         @Override

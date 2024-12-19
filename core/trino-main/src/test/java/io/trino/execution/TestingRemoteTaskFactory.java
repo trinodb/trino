@@ -26,6 +26,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
+import io.trino.cache.SplitAdmissionControllerProvider;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferState;
@@ -81,7 +82,8 @@ public class TestingRemoteTaskFactory
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             Set<DynamicFilterId> outboundDynamicFilterIds,
             Optional<DataSize> estimatedMemory,
-            boolean summarizeTaskInfo)
+            boolean summarizeTaskInfo,
+            SplitAdmissionControllerProvider splitAdmissionControllerProvider)
     {
         TestingRemoteTask task = new TestingRemoteTask(taskId, node.getNodeIdentifier(), fragment);
         task.addSplits(initialSplits);

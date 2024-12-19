@@ -14,6 +14,7 @@
 package io.trino.spi;
 
 import io.trino.spi.block.BlockEncoding;
+import io.trino.spi.cache.CacheManagerFactory;
 import io.trino.spi.catalog.CatalogStoreFactory;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
@@ -118,6 +119,11 @@ public interface Plugin
     }
 
     default Iterable<SpoolingManagerFactory> getSpoolingManagerFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<CacheManagerFactory> getCacheManagerFactories()
     {
         return emptyList();
     }

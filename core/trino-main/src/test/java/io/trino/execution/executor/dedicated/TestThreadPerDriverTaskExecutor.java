@@ -26,10 +26,12 @@ import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.executor.TaskHandle;
 import io.trino.execution.executor.scheduler.FairScheduler;
+import io.trino.spi.cache.CacheSplitId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -235,6 +237,12 @@ public class TestThreadPerDriverTaskExecutor
             }
 
             return blocked;
+        }
+
+        @Override
+        public Optional<CacheSplitId> getCacheSplitId()
+        {
+            return Optional.empty();
         }
 
         @Override

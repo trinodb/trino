@@ -22,6 +22,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -106,6 +107,15 @@ public class CostCalculatorUsingExchanges
         public PlanCostEstimate visitGroupReference(GroupReference node, Void context)
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public PlanCostEstimate visitChooseAlternativeNode(ChooseAlternativeNode node, Void context)
+        {
+            // It's unknown which alternatives will get executed. The first alternative should be
+            // the most pessimistic one and therefore probably incurs the maximal cost.
+            // Note that there is no local cost of ChooseAlternativeNode, because there is no actual execution for it.
+            return sourcesCosts.getCost(node.getSources().get(0));
         }
 
         @Override
