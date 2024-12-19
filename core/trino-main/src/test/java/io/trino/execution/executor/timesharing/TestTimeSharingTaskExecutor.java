@@ -26,12 +26,14 @@ import io.trino.execution.TaskId;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
 import io.trino.spi.QueryId;
+import io.trino.spi.cache.CacheSplitId;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.Future;
 import java.util.concurrent.Phaser;
@@ -44,6 +46,8 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.executor.timesharing.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
 import static io.trino.execution.executor.timesharing.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
 import static java.lang.Double.isNaN;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -72,9 +76,9 @@ public class TestTimeSharingTaskExecutor
             verificationComplete.register();
 
             // add two jobs
-            TestingJob driver1 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
+            TestingJob driver1 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0, Optional.empty());
             ListenableFuture<Void> future1 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver1)));
-            TestingJob driver2 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
+            TestingJob driver2 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0, Optional.empty());
             ListenableFuture<Void> future2 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver2)));
             assertThat(driver1.getCompletedPhases()).isEqualTo(0);
             assertThat(driver2.getCompletedPhases()).isEqualTo(0);
@@ -100,7 +104,7 @@ public class TestTimeSharingTaskExecutor
             verificationComplete.arriveAndAwaitAdvance();
 
             // add one more job
-            TestingJob driver3 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
+            TestingJob driver3 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0, Optional.empty());
             ListenableFuture<Void> future3 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver3)));
 
             // advance one phase and verify
@@ -166,8 +170,8 @@ public class TestTimeSharingTaskExecutor
 
             Phaser endQuantaPhaser = new Phaser();
 
-            TestingJob shortQuantaDriver = new TestingJob(ticker, new Phaser(), new Phaser(), endQuantaPhaser, 10, 10);
-            TestingJob longQuantaDriver = new TestingJob(ticker, new Phaser(), new Phaser(), endQuantaPhaser, 10, 20);
+            TestingJob shortQuantaDriver = new TestingJob(ticker, new Phaser(), new Phaser(), endQuantaPhaser, 10, 10, Optional.empty());
+            TestingJob longQuantaDriver = new TestingJob(ticker, new Phaser(), new Phaser(), endQuantaPhaser, 10, 20, Optional.empty());
 
             taskExecutor.enqueueSplits(shortQuantaTaskHandle, true, ImmutableList.of(shortQuantaDriver));
             taskExecutor.enqueueSplits(longQuantaTaskHandle, true, ImmutableList.of(longQuantaDriver));
@@ -203,8 +207,8 @@ public class TestTimeSharingTaskExecutor
             int quantaTimeMills = 500;
             int phasesPerSecond = 1000 / quantaTimeMills;
             int totalPhases = LEVEL_THRESHOLD_SECONDS[LEVEL_THRESHOLD_SECONDS.length - 1] * phasesPerSecond;
-            TestingJob driver1 = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), totalPhases, quantaTimeMills);
-            TestingJob driver2 = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), totalPhases, quantaTimeMills);
+            TestingJob driver1 = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), totalPhases, quantaTimeMills, Optional.empty());
+            TestingJob driver2 = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), totalPhases, quantaTimeMills, Optional.empty());
 
             taskExecutor.enqueueSplits(testTaskHandle, true, ImmutableList.of(driver1, driver2));
 
@@ -242,18 +246,18 @@ public class TestTimeSharingTaskExecutor
                 };
 
                 // move task 0 to next level
-                TestingJob task0Job = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i + 1] * 1000);
+                TestingJob task0Job = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i + 1] * 1000, Optional.empty());
                 taskExecutor.enqueueSplits(
                         taskHandles[0],
                         true,
                         ImmutableList.of(task0Job));
                 // move tasks 1 and 2 to this level
-                TestingJob task1Job = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i] * 1000);
+                TestingJob task1Job = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i] * 1000, Optional.empty());
                 taskExecutor.enqueueSplits(
                         taskHandles[1],
                         true,
                         ImmutableList.of(task1Job));
-                TestingJob task2Job = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i] * 1000);
+                TestingJob task2Job = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, LEVEL_THRESHOLD_SECONDS[i] * 1000, Optional.empty());
                 taskExecutor.enqueueSplits(
                         taskHandles[2],
                         true,
@@ -268,7 +272,7 @@ public class TestTimeSharingTaskExecutor
                 int phasesForNextLevel = LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i];
                 TestingJob[] drivers = new TestingJob[6];
                 for (int j = 0; j < 6; j++) {
-                    drivers[j] = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), phasesForNextLevel, 1000);
+                    drivers[j] = new TestingJob(ticker, globalPhaser, new Phaser(), new Phaser(), phasesForNextLevel, 1000, Optional.empty());
                 }
 
                 taskExecutor.enqueueSplits(taskHandles[0], true, ImmutableList.of(drivers[0], drivers[1]));
@@ -319,8 +323,8 @@ public class TestTimeSharingTaskExecutor
             Phaser verificationComplete = new Phaser();
             verificationComplete.register();
 
-            TestingJob driver1 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
-            TestingJob driver2 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
+            TestingJob driver1 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0, Optional.empty());
+            TestingJob driver2 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0, Optional.empty());
 
             // force enqueue a split
             taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver1));
@@ -396,8 +400,8 @@ public class TestTimeSharingTaskExecutor
             for (int batch = 0; batch < batchCount; batch++) {
                 phasers[batch] = new Phaser();
                 phasers[batch].register();
-                TestingJob split1 = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], 1, 0);
-                TestingJob split2 = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], 1, 0);
+                TestingJob split1 = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], 1, 0, Optional.empty());
+                TestingJob split2 = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], 1, 0, Optional.empty());
                 splits[2 * batch] = split1;
                 splits[2 * batch + 1] = split2;
                 taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(split1, split2));
@@ -439,7 +443,7 @@ public class TestTimeSharingTaskExecutor
             for (int batch = 0; batch < batchCount; batch++) {
                 phasers[batch] = new Phaser();
                 phasers[batch].register();
-                TestingJob split = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], 1, 0);
+                TestingJob split = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], 1, 0, Optional.empty());
                 splits[batch] = split;
                 taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(split));
             }
@@ -484,7 +488,7 @@ public class TestTimeSharingTaskExecutor
             for (int batch = 0; batch < batchCount; batch++) {
                 phasers[batch] = new Phaser();
                 phasers[batch].register();
-                TestingJob split = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], 1, 0);
+                TestingJob split = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], 1, 0, Optional.empty());
                 splits[batch] = split;
             }
 
@@ -513,8 +517,8 @@ public class TestTimeSharingTaskExecutor
         TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(4, 1, 2, 2, splitQueue, ticker);
 
         TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
-        TestingJob driver1 = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 500);
-        TestingJob driver2 = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 1000 / 500);
+        TestingJob driver1 = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 500, Optional.empty());
+        TestingJob driver2 = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 1000 / 500, Optional.empty());
 
         ticker.increment(0, TimeUnit.SECONDS);
         taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(driver1, driver2));
@@ -527,6 +531,103 @@ public class TestTimeSharingTaskExecutor
         ticker.increment(1, TimeUnit.SECONDS);
         taskExecutor.enqueueSplits(testTaskHandle, true, ImmutableList.of(driver1));
         assertThat(taskExecutor.getLeafSplitsSize().getAllTime().getMax()).isEqualTo(2.0);
+    }
+
+    @Test
+    public void testSplitsWithSameCacheSplitId()
+    {
+        MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
+        TestingTicker ticker = new TestingTicker();
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(6, 6, 1, 4, splitQueue, ticker);
+        taskExecutor.start();
+
+        try {
+            TaskHandle taskA = taskExecutor.addTask(new TaskId(new StageId("test1", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TestingJob[] taskADrivers = new TestingJob[6];
+            Phaser[] taskAPhasers = new Phaser[6];
+            for (int i = 0; i < 6; i++) {
+                taskAPhasers[i] = new Phaser();
+                taskAPhasers[i].register();
+                // Create a driver with a unique cache split id
+                TestingJob driver = new TestingJob(ticker, new Phaser(), new Phaser(), taskAPhasers[i], 1, 1000, Optional.of(new CacheSplitId(format("cache-split-id-%d", i))));
+                taskADrivers[i] = driver;
+            }
+
+            TaskHandle taskB = taskExecutor.addTask(new TaskId(new StageId("test2", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TestingJob[] taskBDrivers = new TestingJob[6];
+            Phaser[] taskBPhasers = new Phaser[6];
+            for (int i = 0; i < 6; i++) {
+                taskBPhasers[i] = new Phaser();
+                taskBPhasers[i].register();
+                // Create a driver with a unique cache split id
+                TestingJob driver = new TestingJob(ticker, new Phaser(), new Phaser(), taskBPhasers[i], 1, 1000, Optional.of(new CacheSplitId(format("cache-split-id-%d", i))));
+                taskBDrivers[i] = driver;
+            }
+
+            taskExecutor.enqueueSplits(taskA, false, ImmutableList.copyOf(taskADrivers));
+            taskExecutor.enqueueSplits(taskB, false, ImmutableList.copyOf(taskBDrivers));
+
+            waitUntilSplitsStart(ImmutableList.of(
+                    taskADrivers[0],
+                    taskADrivers[1],
+                    taskADrivers[2],
+                    taskADrivers[3],
+                    // Since we are below the min drivers limit, we will start the first 2 splits of taskB even
+                    // though the splits with same cache split id from taskA are not finished yet. This is to
+                    // ensure progress is made on all tasks
+                    taskBDrivers[0],
+                    taskBDrivers[1]));
+            // Verify that the first 4 splits are running and the last 2 splits are not running from taskA
+            assertSplitStates(3, taskADrivers);
+            // Verify that the first 2 splits are running and the last 4 splits are not running from taskB
+            assertSplitStates(1, taskBDrivers);
+
+            // Finish the first two taskHandleB splits
+            for (int i = 0; i < 2; i++) {
+                taskBPhasers[i].arriveAndDeregister();
+            }
+
+            // Now, splits with cache-id-4 and cache-id-5 from taskB should start instead of splits
+            // with cache-id-2 and cache-id-3 since they are already running from taskA
+            waitUntilSplitsStart(ImmutableList.of(taskBDrivers[4], taskBDrivers[5]));
+            // Verify that the first 4 splits are running and the last 2 splits are not running from taskA
+            assertSplitStates(3, taskADrivers);
+            // Verify that the last 2 splits are running and the middle 2 splits are not running from taskB
+            for (int i = 4; i < 6; i++) {
+                assertThat(taskBDrivers[i].isStarted()).isTrue();
+            }
+            for (int i = 2; i < 4; i++) {
+                assertThat(taskBDrivers[i].isStarted()).isFalse();
+            }
+
+            // Finish two splits from taskA
+            for (int i = 0; i < 2; i++) {
+                taskAPhasers[i].arriveAndDeregister();
+            }
+            waitUntilSplitsStart(ImmutableList.of(taskADrivers[4], taskADrivers[5]));
+            // Verify that all splits from taskA are running
+            assertSplitStates(5, taskADrivers);
+            // Verify that the middle 2 splits are still not running from taskB
+            for (int i = 2; i < 4; i++) {
+                assertThat(taskBDrivers[i].isStarted()).isFalse();
+            }
+
+            // Finish the remaining splits from taskA
+            for (int i = 2; i < 6; i++) {
+                taskAPhasers[i].arriveAndDeregister();
+            }
+            waitUntilSplitsStart(ImmutableList.of(taskBDrivers[2], taskBDrivers[3]));
+            // Verify that all splits from taskB are running
+            assertSplitStates(5, taskBDrivers);
+
+            // Finish the remaining splits from taskB
+            for (int i = 2; i < 6; i++) {
+                taskBPhasers[i].arriveAndDeregister();
+            }
+        }
+        finally {
+            taskExecutor.stop();
+        }
     }
 
     private void assertSplitStates(int endIndex, TestingJob[] splits)
@@ -564,6 +665,7 @@ public class TestTimeSharingTaskExecutor
         private final Phaser endQuantaPhaser;
         private final int requiredPhases;
         private final int quantaTimeMillis;
+        private final Optional<CacheSplitId> cacheSplitId;
         private final AtomicInteger completedPhases = new AtomicInteger();
 
         private final AtomicInteger firstPhase = new AtomicInteger(-1);
@@ -572,7 +674,14 @@ public class TestTimeSharingTaskExecutor
         private final AtomicBoolean started = new AtomicBoolean();
         private final SettableFuture<Void> completed = SettableFuture.create();
 
-        public TestingJob(TestingTicker ticker, Phaser globalPhaser, Phaser beginQuantaPhaser, Phaser endQuantaPhaser, int requiredPhases, int quantaTimeMillis)
+        public TestingJob(
+                TestingTicker ticker,
+                Phaser globalPhaser,
+                Phaser beginQuantaPhaser,
+                Phaser endQuantaPhaser,
+                int requiredPhases,
+                int quantaTimeMillis,
+                Optional<CacheSplitId> cacheSplitId)
         {
             this.ticker = ticker;
             this.globalPhaser = globalPhaser;
@@ -580,6 +689,7 @@ public class TestTimeSharingTaskExecutor
             this.endQuantaPhaser = endQuantaPhaser;
             this.requiredPhases = requiredPhases;
             this.quantaTimeMillis = quantaTimeMillis;
+            this.cacheSplitId = requireNonNull(cacheSplitId, "cacheSplitId is null");
 
             beginQuantaPhaser.register();
             endQuantaPhaser.register();
@@ -622,6 +732,12 @@ public class TestTimeSharingTaskExecutor
             }
 
             return immediateVoidFuture();
+        }
+
+        @Override
+        public Optional<CacheSplitId> getCacheSplitId()
+        {
+            return cacheSplitId;
         }
 
         @Override
