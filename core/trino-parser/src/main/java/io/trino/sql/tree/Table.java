@@ -26,27 +26,34 @@ public class Table
 {
     private final QualifiedName name;
     private final Optional<QueryPeriod> queryPeriod;
+    private final List<Property> properties;
 
     public Table(QualifiedName name)
     {
-        this(Optional.empty(), name, Optional.empty());
+        this(Optional.empty(), name, Optional.empty(), ImmutableList.of());
     }
 
     public Table(NodeLocation location, QualifiedName name)
     {
-        this(Optional.of(location), name, Optional.empty());
+        this(Optional.of(location), name, Optional.empty(), ImmutableList.of());
     }
 
-    public Table(NodeLocation location, QualifiedName name, QueryPeriod queryPeriod)
+    public Table(NodeLocation location, QualifiedName name, List<Property> properties)
     {
-        this(Optional.of(location), name, Optional.of(queryPeriod));
+        this(Optional.of(location), name, Optional.empty(), properties);
     }
 
-    private Table(Optional<NodeLocation> location, QualifiedName name, Optional<QueryPeriod> queryPeriod)
+    public Table(NodeLocation location, QualifiedName name, QueryPeriod queryPeriod, List<Property> properties)
+    {
+        this(Optional.of(location), name, Optional.of(queryPeriod), properties);
+    }
+
+    private Table(Optional<NodeLocation> location, QualifiedName name, Optional<QueryPeriod> queryPeriod, List<Property> properties)
     {
         super(location);
         this.name = name;
         this.queryPeriod = queryPeriod;
+        this.properties = ImmutableList.copyOf(properties);
     }
 
     public QualifiedName getName()
@@ -63,10 +70,10 @@ public class Table
     @Override
     public List<Node> getChildren()
     {
-        if (queryPeriod.isPresent()) {
-            return ImmutableList.of(queryPeriod.get());
-        }
-        return ImmutableList.of();
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        queryPeriod.ifPresent(nodes::add);
+        nodes.addAll(properties);
+        return nodes.build();
     }
 
     @Override
@@ -75,6 +82,7 @@ public class Table
         return toStringHelper(this)
                 .addValue(name)
                 .addValue(queryPeriod)
+                .addValue(properties)
                 .toString();
     }
 
@@ -90,13 +98,14 @@ public class Table
 
         Table table = (Table) o;
         return Objects.equals(name, table.name) &&
-                Objects.equals(queryPeriod, table.getQueryPeriod());
+                Objects.equals(queryPeriod, table.getQueryPeriod()) &&
+                Objects.equals(properties, table.getProperties());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, queryPeriod);
+        return Objects.hash(name, queryPeriod, properties);
     }
 
     @Override
@@ -113,5 +122,10 @@ public class Table
     public Optional<QueryPeriod> getQueryPeriod()
     {
         return queryPeriod;
+    }
+
+    public List<Property> getProperties()
+    {
+        return properties;
     }
 }

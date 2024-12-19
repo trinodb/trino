@@ -71,8 +71,10 @@ statement
          (COMMENT string)?
          (WITH properties)?                                            #createTable
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
-    | INSERT INTO qualifiedName columnAliases? rootQuery               #insertInto
-    | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
+    | INSERT INTO qualifiedName (WITH properties)?
+       columnAliases? rootQuery                                        #insertInto
+    | DELETE FROM qualifiedName (WITH properties)?
+         (WHERE booleanExpression)?                                    #delete
     | TRUNCATE TABLE qualifiedName                                     #truncateTable
     | COMMENT ON TABLE qualifiedName IS (string | NULL)                #commentTable
     | COMMENT ON VIEW qualifiedName IS (string | NULL)                 #commentView
@@ -191,10 +193,10 @@ statement
     | DESCRIBE OUTPUT identifier                                       #describeOutput
     | SET PATH pathSpecification                                       #setPath
     | SET TIME ZONE (LOCAL | expression)                               #setTimeZone
-    | UPDATE qualifiedName
+    | UPDATE qualifiedName (WITH properties)?
         SET updateAssignment (',' updateAssignment)*
         (WHERE where=booleanExpression)?                               #update
-    | MERGE INTO qualifiedName (AS? identifier)?
+    | MERGE INTO qualifiedName (AS? identifier)? (WITH properties)?
         USING relation ON expression mergeCase+                        #merge
     ;
 
