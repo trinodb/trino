@@ -144,6 +144,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion, Map<String, Object> properties)
+    {
+        Span span = startSpan("getTableHandle", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableHandle(session, tableName, startVersion, endVersion, properties);
+        }
+    }
+
+    @Override
     public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
     {
         Span span = startSpan("getTableHandleForExecute", tableHandle);
