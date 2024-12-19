@@ -13,8 +13,6 @@
  */
 package io.trino.spi.type;
 
-import com.fasterxml.jackson.annotation.JsonValue;
-
 import java.util.Objects;
 
 import static io.trino.spi.type.TimeType.MAX_PRECISION;
@@ -85,7 +83,6 @@ public final class SqlTime
         return Objects.hash(precision, picos);
     }
 
-    @JsonValue
     @Override
     public String toString()
     {
