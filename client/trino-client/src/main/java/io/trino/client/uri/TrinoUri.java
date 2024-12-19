@@ -74,6 +74,7 @@ import static io.trino.client.uri.ConnectionProperties.KERBEROS_SERVICE_PRINCIPA
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.trino.client.uri.ConnectionProperties.LOCALE;
 import static io.trino.client.uri.ConnectionProperties.PASSWORD;
+import static io.trino.client.uri.ConnectionProperties.PREFETCH_BUFFER_SIZE;
 import static io.trino.client.uri.ConnectionProperties.RESOURCE_ESTIMATES;
 import static io.trino.client.uri.ConnectionProperties.ROLES;
 import static io.trino.client.uri.ConnectionProperties.SCHEMA;
@@ -415,6 +416,11 @@ public class TrinoUri
     public Optional<Boolean> getAssumeNullCatalogMeansCurrentCatalog()
     {
         return resolveOptional(ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG);
+    }
+
+    public String getPrefetchBufferSize()
+    {
+        return resolveWithDefault(PREFETCH_BUFFER_SIZE, "64000000");
     }
 
     public boolean isCompressionDisabled()
@@ -820,6 +826,11 @@ public class TrinoUri
         public Builder setAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients(boolean value)
         {
             return setProperty(ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS, value);
+        }
+
+        public Builder setPrefetchBufferSize(String prefetchBufferSize)
+        {
+            return setProperty(PREFETCH_BUFFER_SIZE, requireNonNull(prefetchBufferSize, "prefetchBufferSize is null"));
         }
 
         public Builder setSsl(Boolean ssl)
