@@ -13,14 +13,30 @@
  */
 package io.trino.tests;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.Plugin;
+import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.eventlistener.EventListenerFactory;
+import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.testing.AbstractTestQueries;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
+import io.trino.testing.TestingDirectTrinoClient;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static io.trino.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
@@ -29,15 +45,57 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
+import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestLocalQueries
         extends AbstractTestQueries
 {
+    private final Set<String> queryCompletedQueryIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return createTestQueryRunner();
+        QueryRunner queryRunner = createTestQueryRunner();
+
+        EventListener listener = new EventListener()
+        {
+            @Override
+            public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
+            {
+                queryCompletedQueryIds.add(queryCompletedEvent.getMetadata().getQueryId());
+            }
+        };
+        queryRunner.installPlugin(new Plugin()
+        {
+            @Override
+            public Iterable<EventListenerFactory> getEventListenerFactories()
+            {
+                return ImmutableList.of(new EventListenerFactory()
+                {
+                    @Override
+                    public String getName()
+                    {
+                        return "TestLocalQueries";
+                    }
+
+                    @Override
+                    public EventListener create(Map<String, String> config)
+                    {
+                        return listener;
+                    }
+                });
+            }
+        });
+
+        return queryRunner;
     }
 
     public static QueryRunner createTestQueryRunner()
@@ -58,13 +116,21 @@ public class TestLocalQueries
     }
 
     @Test
-    public void testDDL()
+    public void testQueryCompletedEvent()
     {
-        assertQuerySucceeds("CREATE SCHEMA memory.test_schema");
-        assertQuerySucceeds("CREATE TABLE memory.test_schema.test_table (c) AS VALUES 1");
-        assertQuerySucceeds("SELECT count(*) FROM memory.test_schema.test_table");
-        assertQuerySucceeds("DROP TABLE memory.test_schema.test_table");
-        assertQuerySucceeds("DROP SCHEMA memory.test_schema");
+        ImmutableList.Builder<String> queryIds = ImmutableList.builder();
+
+        // plain DDL:
+        queryIds.add(assertUnmaterializedQuerySucceeds("CREATE SCHEMA memory.test_schema").queryId().getId());
+        // DDL with a DML component:
+        queryIds.add(assertUnmaterializedQuerySucceeds("CREATE TABLE memory.test_schema.test_table (c) AS VALUES 1").queryId().getId());
+        // plain DML:
+        queryIds.add(assertUnmaterializedQuerySucceeds("SELECT count(*) FROM memory.test_schema.test_table").queryId().getId());
+        // more DDL as part of cleanup:
+        queryIds.add(assertUnmaterializedQuerySucceeds("DROP TABLE memory.test_schema.test_table").queryId().getId());
+        queryIds.add(assertUnmaterializedQuerySucceeds("DROP SCHEMA memory.test_schema").queryId().getId());
+
+        assertEventually(new Duration(5, SECONDS), () -> assertThat(queryCompletedQueryIds).containsAll(queryIds.build()));
     }
 
     @Test
@@ -117,5 +183,20 @@ public class TestLocalQueries
                 "SELECT json_format(CAST(try(transform_values(m, (k, v) -> k / v)) AS json)) " +
                         "FROM (VALUES map(ARRAY[1, 2], ARRAY[0, 0]),  map(ARRAY[28], ARRAY[2]), map(ARRAY[18], ARRAY[2]), map(ARRAY[4, 5], ARRAY[1, 0]),  map(ARRAY[12], ARRAY[3])) AS t(m)",
                 "VALUES NULL, '{\"28\":14}', '{\"18\":9}', NULL, '{\"12\":4}'");
+    }
+
+    private TestingDirectTrinoClient.Result assertUnmaterializedQuerySucceeds(@Language("SQL") String sql)
+    {
+        try {
+            return ((StandaloneQueryRunner) getQueryRunner()).executeUnmaterialized(getSession(), sql);
+        }
+        catch (QueryFailedException e) {
+            fail(format("Expected query %s to succeed: %s", e.getQueryId(), sql), e);
+        }
+        catch (RuntimeException e) {
+            fail(format("Expected query to succeed: %s", sql), e);
+        }
+        fail(format("Expected query to succeed: %s", sql));
+        throw new IllegalStateException();
     }
 }
