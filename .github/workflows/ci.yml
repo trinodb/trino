@@ -178,38 +178,15 @@ jobs:
             # suite-4 does not exist
             - suite-5
             - suite-6-non-generic
-            - suite-7-non-generic
-            - suite-hive-transactional
-            - suite-azure
-            - suite-delta-lake-databricks91
-            - suite-delta-lake-databricks104
-            - suite-delta-lake-databricks113
-            - suite-delta-lake-databricks122
-            - suite-delta-lake-databricks133
-            - suite-delta-lake-databricks143
-            - suite-delta-lake-databricks154
-            - suite-databricks-unity-http-hms
-            - suite-ranger
-            - suite-gcs
-            - suite-clients
-            - suite-functions
-            - suite-tpch
-            - suite-tpcds
-            - suite-storage-formats-detailed
-            - suite-parquet
-            - suite-oauth2
-            - suite-ldap
-            - suite-compatibility
-            - suite-all-connectors-smoke
-            - suite-delta-lake-oss
-            - suite-kafka
-            - suite-cassandra
-            - suite-clickhouse
-            - suite-mysql
-            - suite-iceberg
-            - suite-snowflake
-            - suite-hudi
-            - suite-ignite
+            - suite-6-non-generic
+            - suite-6-non-generic
+            - suite-6-non-generic
+            - suite-6-non-generic
+            - suite-6-non-generic
+            - suite-6-non-generic
+            - suite-6-non-generic
+            - suite-6-non-generic
+            - suite-6-non-generic
           exclude:
             - suite: suite-azure
               ignore exclusion if: >-
