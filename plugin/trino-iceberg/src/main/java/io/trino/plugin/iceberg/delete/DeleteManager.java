@@ -46,11 +46,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
-import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -181,15 +179,18 @@ public class DeleteManager
         for (DeleteFile deleteFile : equalityDeleteFiles) {
             List<Integer> fieldIds = deleteFile.equalityFieldIds();
             verify(!fieldIds.isEmpty(), "equality field IDs are missing");
-            List<IcebergColumnHandle> deleteColumns = fieldIds.stream()
-                    .map(id -> getColumnHandle(schema.findField(id), typeManager))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<IcebergColumnHandle> deleteColumns = ImmutableList.builderWithExpectedSize(fieldIds.size());
+            ImmutableList.Builder<String> deleteColumnPaths = ImmutableList.builderWithExpectedSize(fieldIds.size());
+            for (Integer id : fieldIds) {
+                deleteColumns.add(getColumnHandle(schema.findField(id), typeManager));
+                deleteColumnPaths.add(schema.findColumnName(id)); // findColumnName returns a full column path, not a field name
+            }
 
             // each file can have a different set of columns for the equality delete, so we need to create a new builder for each set of columns
-            EqualityDeleteFilterBuilder builder = equalityDeleteFiltersBySchema.computeIfAbsent(fieldIds, _ -> EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns)));
+            EqualityDeleteFilterBuilder builder = equalityDeleteFiltersBySchema.computeIfAbsent(fieldIds, _ -> EqualityDeleteFilter.builder(schema.select(deleteColumnPaths.build())));
             deleteFilters.add(builder);
 
-            ListenableFuture<?> loadFuture = builder.readEqualityDeletes(deleteFile, deleteColumns, deletePageSourceProvider);
+            ListenableFuture<?> loadFuture = builder.readEqualityDeletes(deleteFile, deleteColumns.build(), deletePageSourceProvider);
             if (loadFuture.state() != SUCCESS) {
                 pendingLoads.add(loadFuture);
             }
