@@ -33,7 +33,6 @@ import java.security.SecureRandom;
 import java.util.function.Function;
 
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.CUSTOMER;
-import static java.util.Objects.requireNonNull;
 
 public class TestS3FileSystemAwsS3WithSseCustomerKey
         extends AbstractTestS3FileSystem
@@ -107,11 +106,6 @@ public class TestS3FileSystemAwsS3WithSseCustomerKey
                         .setSseCustomerKey(s3SseCustomerKey.key())
                         .setStreamingPartSize(DataSize.valueOf("5.5MB")),
                 new S3FileSystemStats());
-    }
-
-    private static String environmentVariable(String name)
-    {
-        return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
     }
 
     private static String generateCustomerKey()
