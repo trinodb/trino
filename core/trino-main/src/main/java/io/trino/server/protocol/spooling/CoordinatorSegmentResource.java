@@ -64,7 +64,6 @@ public class CoordinatorSegmentResource
     @GET
     @Path("/download/{identifier}")
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
-    @ResourceSecurity(PUBLIC)
     public Response download(@Context UriInfo uriInfo, @PathParam("identifier") String identifier, @Context HttpHeaders headers)
             throws IOException
     {
@@ -92,7 +91,6 @@ public class CoordinatorSegmentResource
 
     @GET
     @Path("/ack/{identifier}")
-    @ResourceSecurity(PUBLIC)
     public Response acknowledge(@PathParam("identifier") String identifier, @Context HttpHeaders headers)
             throws IOException
     {

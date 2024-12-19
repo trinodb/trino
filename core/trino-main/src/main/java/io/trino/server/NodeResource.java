@@ -26,6 +26,7 @@ import static com.google.common.base.Predicates.in;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 
 @Path("/v1/node")
+@ResourceSecurity(MANAGEMENT_READ)
 public class NodeResource
 {
     private final HeartbeatFailureDetector failureDetector;
@@ -36,14 +37,12 @@ public class NodeResource
         this.failureDetector = failureDetector;
     }
 
-    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     public Collection<HeartbeatFailureDetector.Stats> getNodeStats()
     {
         return failureDetector.getStats().values();
     }
 
-    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     @Path("failed")
     public Collection<HeartbeatFailureDetector.Stats> getFailed()
