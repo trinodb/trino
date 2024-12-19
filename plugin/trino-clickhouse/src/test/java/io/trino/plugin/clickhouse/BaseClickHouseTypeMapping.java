@@ -16,7 +16,10 @@ package io.trino.plugin.clickhouse;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.UuidType;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -28,18 +31,23 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.clickhouse.ClickHouseClient.CLICKHOUSE_MAX_SUPPORTED_TIMESTAMP_PRECISION;
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.TPCH_SCHEMA;
+import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.MAP_STRING_AS_VARCHAR;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -51,6 +59,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_SECONDS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -59,7 +68,9 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
 public abstract class BaseClickHouseTypeMapping
@@ -914,6 +925,15 @@ public abstract class BaseClickHouseTypeMapping
                     .addRoundTrip("timestamp(0)", "timestamp '2018-03-25 03:17:17'", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'") // time gap in Vilnius
                     .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
                     .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
+                    .addRoundTrip("timestamp(1)", "timestamp '2024-01-01 12:34:56.1'", createTimestampType(1), "TIMESTAMP '2024-01-01 12:34:56.1'")
+                    .addRoundTrip("timestamp(2)", "timestamp '2024-01-01 12:34:56.12'", createTimestampType(2), "TIMESTAMP '2024-01-01 12:34:56.12'")
+                    .addRoundTrip("timestamp(3)", "timestamp '2024-01-01 12:34:56.123'", createTimestampType(3), "TIMESTAMP '2024-01-01 12:34:56.123'")
+                    .addRoundTrip("timestamp(4)", "timestamp '2024-01-01 12:34:56.1234'", createTimestampType(4), "TIMESTAMP '2024-01-01 12:34:56.1234'")
+                    .addRoundTrip("timestamp(5)", "timestamp '2024-01-01 12:34:56.12345'", createTimestampType(5), "TIMESTAMP '2024-01-01 12:34:56.12345'")
+                    .addRoundTrip("timestamp(6)", "timestamp '2024-01-01 12:34:56.123456'", createTimestampType(6), "TIMESTAMP '2024-01-01 12:34:56.123456'")
+                    .addRoundTrip("timestamp(7)", "timestamp '2024-01-01 12:34:56.1234567'", createTimestampType(7), "TIMESTAMP '2024-01-01 12:34:56.1234567'")
+                    .addRoundTrip("timestamp(8)", "timestamp '2024-01-01 12:34:56.12345678'", createTimestampType(8), "TIMESTAMP '2024-01-01 12:34:56.12345678'")
+                    .addRoundTrip("timestamp(9)", "timestamp '2024-01-01 12:34:56.123456789'", createTimestampType(9), "TIMESTAMP '2024-01-01 12:34:56.123456789'")
                     .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
                     .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
                     .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
@@ -1003,62 +1023,360 @@ public abstract class BaseClickHouseTypeMapping
             Session session = Session.builder(getSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                     .build();
-            SqlDataTypeTest.create()
-                    .addRoundTrip("DateTime('Asia/Kathmandu')", "timestamp '2024-01-01 12:34:56'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2024-01-01 05:19:56 +05:45'")
-                    .addRoundTrip("DateTime('Asia/Kathmandu')", "timestamp '2024-01-01 12:34:56 Asia/Kathmandu'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2024-01-01 12:34:56 +05:45'")
-                    .addRoundTrip("DateTime('Asia/Kathmandu')", "timestamp '2024-01-01 12:34:56 +00:00'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2024-01-01 18:19:56 +05:45'")
-                    .addRoundTrip("DateTime('Asia/Kathmandu')", "timestamp '2024-01-01 12:34:56 -01:00'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2024-01-01 19:19:56 +05:45'")
-                    .execute(getQueryRunner(), session, clickhouseCreateAndTrinoInsert("tpch.test_timestamp_with_time_zone"));
 
-            dateTimeWithTimeZoneTest(clickhouseDateTimeInputTypeFactory("datetime"))
-                    .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.datetime_tz"));
+            SqlDataTypeTest clickhouseCreateAndTrinoInsertTests = SqlDataTypeTest.create()
+                    .addRoundTrip("Nullable(DateTime('UTC'))", "NULL", TIMESTAMP_TZ_SECONDS, "CAST(NULL AS TIMESTAMP(0) WITH TIME ZONE)");
+            addTestCasesForClickhouseCreateAndTrinoInsert(clickhouseCreateAndTrinoInsertTests, "DateTime('%s')"::formatted, 0);
+            IntStream.rangeClosed(0, CLICKHOUSE_MAX_SUPPORTED_TIMESTAMP_PRECISION).forEach(precision ->
+                    addTestCasesForClickhouseCreateAndTrinoInsert(clickhouseCreateAndTrinoInsertTests, zone -> "DateTime64(%s, '%s')".formatted(precision, zone), precision));
+            clickhouseCreateAndTrinoInsertTests.execute(getQueryRunner(), session, clickhouseCreateAndTrinoInsert("tpch.test_timestamp_with_time_zone"));
+
+            SqlDataTypeTest clickhouseCreateAndInsertTests = SqlDataTypeTest.create()
+                    .addRoundTrip("Nullable(DateTime('UTC'))", "NULL", TIMESTAMP_TZ_SECONDS, "CAST(NULL AS TIMESTAMP(0) WITH TIME ZONE)");
+            addTestCasesClickhouseCreateAndInsert(clickhouseCreateAndInsertTests, "DateTime('%s')"::formatted, 0);
+            IntStream.rangeClosed(0, CLICKHOUSE_MAX_SUPPORTED_TIMESTAMP_PRECISION).forEach(precision ->
+                    addTestCasesClickhouseCreateAndInsert(clickhouseCreateAndInsertTests, zone -> "DateTime64(%s, '%s')".formatted(precision, zone), precision));
+            clickhouseCreateAndInsertTests.execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.datetime_tz"));
         }
     }
 
-    private SqlDataTypeTest dateTimeWithTimeZoneTest(Function<ZoneId, String> inputTypeFactory)
+    private void addTestCasesForClickhouseCreateAndTrinoInsert(SqlDataTypeTest tests, Function<String, String> inputTypeFactory, int precision)
     {
-        ZoneId utc = ZoneId.of("UTC");
-        SqlDataTypeTest tests = SqlDataTypeTest.create()
-                .addRoundTrip(format("Nullable(%s)", inputTypeFactory.apply(utc)), "NULL", TIMESTAMP_TZ_SECONDS, "CAST(NULL AS TIMESTAMP(0) WITH TIME ZONE)")
+        TimestampWithTimeZoneType expectedType = createTimestampWithTimeZoneType(precision);
+        String zone = "Asia/Kathmandu";
+        String nanos = precision == 0 ? "" : "." + "123456789".substring(0, precision);
+        tests
+                .addRoundTrip(inputTypeFactory.apply(zone), "timestamp '2024-01-01 12:34:56%s'".formatted(nanos), expectedType, "TIMESTAMP '2024-01-01 05:19:56%s +05:45'".formatted(nanos))
+                .addRoundTrip(inputTypeFactory.apply(zone), "timestamp '2024-01-01 12:34:56%s %s'".formatted(nanos, zone), expectedType, "TIMESTAMP '2024-01-01 12:34:56%s +05:45'".formatted(nanos))
+                .addRoundTrip(inputTypeFactory.apply(zone), "timestamp '2024-01-01 12:34:56%s +00:00'".formatted(nanos), expectedType, "TIMESTAMP '2024-01-01 18:19:56%s +05:45'".formatted(nanos))
+                .addRoundTrip(inputTypeFactory.apply(zone), "timestamp '2024-01-01 12:34:56%s -01:00'".formatted(nanos), expectedType, "TIMESTAMP '2024-01-01 19:19:56%s +05:45'".formatted(nanos));
+    }
 
+    private void addTestCasesClickhouseCreateAndInsert(SqlDataTypeTest tests, Function<ZoneId, String> inputTypeFactory, int precision)
+    {
+        TimestampWithTimeZoneType expectedType = createTimestampWithTimeZoneType(precision);
+        ZoneId utc = ZoneId.of("UTC");
+        String nanos = precision == 0 ? "" : "." + "123456789".substring(0, precision);
+        tests
                 // Since ClickHouse datetime(timezone) does not support values before epoch, we do not test this here.
 
                 // epoch
-                .addRoundTrip(inputTypeFactory.apply(utc), "0", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '1970-01-01 00:00:00 Z'")
-                .addRoundTrip(inputTypeFactory.apply(utc), "'1970-01-01 00:00:00'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '1970-01-01 00:00:00 Z'")
-                .addRoundTrip(inputTypeFactory.apply(kathmandu), "'1970-01-01 00:00:00'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '1970-01-01 05:30:00 +05:30'")
+                .addRoundTrip(inputTypeFactory.apply(utc), "0%s".formatted(nanos), expectedType, "TIMESTAMP '1970-01-01 00:00:00%s Z'".formatted(nanos))
+                .addRoundTrip(inputTypeFactory.apply(utc), "'1970-01-01 00:00:00%s'".formatted(nanos), expectedType, "TIMESTAMP '1970-01-01 00:00:00%s Z'".formatted(nanos))
+                // .addRoundTrip(inputTypeFactory.apply(kathmandu), "'1970-01-01 00:00:00%s'".formatted(nanos), expectedType, "TIMESTAMP '1970-01-01 05:30:00%s +05:30'".formatted(nanos))
 
                 // after epoch
-                .addRoundTrip(inputTypeFactory.apply(utc), "'2019-03-18 10:01:17'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2019-03-18 10:01:17 Z'")
-                .addRoundTrip(inputTypeFactory.apply(kathmandu), "'2019-03-18 10:01:17'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2019-03-18 10:01:17 +05:45'")
-                .addRoundTrip(inputTypeFactory.apply(ZoneId.of("GMT")), "'2019-03-18 10:01:17'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2019-03-18 10:01:17 Z'")
-                .addRoundTrip(inputTypeFactory.apply(ZoneId.of("UTC+00:00")), "'2019-03-18 10:01:17'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2019-03-18 10:01:17 Z'")
+                .addRoundTrip(inputTypeFactory.apply(utc), "'2019-03-18 10:01:17%s'".formatted(nanos), expectedType, "TIMESTAMP '2019-03-18 10:01:17%s Z'".formatted(nanos))
+                .addRoundTrip(inputTypeFactory.apply(kathmandu), "'2019-03-18 10:01:17%s'".formatted(nanos), expectedType, "TIMESTAMP '2019-03-18 10:01:17%s +05:45'".formatted(nanos))
+                .addRoundTrip(inputTypeFactory.apply(ZoneId.of("GMT")), "'2019-03-18 10:01:17%s'".formatted(nanos), expectedType, "TIMESTAMP '2019-03-18 10:01:17%s Z'".formatted(nanos))
+                .addRoundTrip(inputTypeFactory.apply(ZoneId.of("UTC+00:00")), "'2019-03-18 10:01:17%s'".formatted(nanos), expectedType, "TIMESTAMP '2019-03-18 10:01:17%s Z'".formatted(nanos))
 
                 // time doubled in JVM zone
-                .addRoundTrip(inputTypeFactory.apply(utc), "'2018-10-28 01:33:17'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2018-10-28 01:33:17 Z'")
-                .addRoundTrip(inputTypeFactory.apply(jvmZone), "'2018-10-28 01:33:17'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2018-10-28 01:33:17 -05:00'")
-                .addRoundTrip(inputTypeFactory.apply(kathmandu), "'2018-10-28 01:33:17'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2018-10-28 01:33:17 +05:45'")
+                .addRoundTrip(inputTypeFactory.apply(utc), "'2018-10-28 01:33:17%s'".formatted(nanos), expectedType, "TIMESTAMP '2018-10-28 01:33:17%s Z'".formatted(nanos))
+                .addRoundTrip(inputTypeFactory.apply(jvmZone), "'2018-10-28 01:33:17%s'".formatted(nanos), expectedType, "TIMESTAMP '2018-10-28 01:33:17%s -05:00'".formatted(nanos))
+                .addRoundTrip(inputTypeFactory.apply(kathmandu), "'2018-10-28 01:33:17%s'".formatted(nanos), expectedType, "TIMESTAMP '2018-10-28 01:33:17%s +05:45'".formatted(nanos))
 
                 // time doubled in Vilnius
-                .addRoundTrip(inputTypeFactory.apply(utc), "'2018-10-28 03:33:33'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2018-10-28 03:33:33 Z'")
-                .addRoundTrip(inputTypeFactory.apply(vilnius), "'2018-10-28 03:33:33'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2018-10-28 03:33:33 +03:00'")
-                .addRoundTrip(inputTypeFactory.apply(kathmandu), "'2018-10-28 03:33:33'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2018-10-28 03:33:33 +05:45'")
+                .addRoundTrip(inputTypeFactory.apply(utc), "'2018-10-28 03:33:33%s'".formatted(nanos), expectedType, "TIMESTAMP '2018-10-28 03:33:33%s Z'".formatted(nanos))
+                .addRoundTrip(inputTypeFactory.apply(vilnius), "'2018-10-28 03:33:33%s'".formatted(nanos), expectedType, "TIMESTAMP '2018-10-28 03:33:33%s +03:00'".formatted(nanos))
+                .addRoundTrip(inputTypeFactory.apply(kathmandu), "'2018-10-28 03:33:33%s'".formatted(nanos), expectedType, "TIMESTAMP '2018-10-28 03:33:33%s +05:45'".formatted(nanos))
 
                 // time gap in JVM zone
-                .addRoundTrip(inputTypeFactory.apply(utc), "'1970-01-01 00:13:42'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '1970-01-01 00:13:42 Z'")
+                .addRoundTrip(inputTypeFactory.apply(utc), "'1970-01-01 00:13:42%s'".formatted(nanos), expectedType, "TIMESTAMP '1970-01-01 00:13:42%s Z'".formatted(nanos))
                 // TODO: Check the range of DateTime(timezone) values written from Trino to ClickHouse to prevent ClickHouse from storing incorrect results.
                 //       e.g. 1970-01-01 00:13:42 will become 1970-01-01 05:30:00
                 // .addRoundTrip(inputTypeFactory.apply(kathmandu), "'1970-01-01 00:13:42'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '1970-01-01 00:13:42 +05:30'")
-                .addRoundTrip(inputTypeFactory.apply(utc), "'2018-04-01 02:13:55'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2018-04-01 02:13:55 Z'")
-                .addRoundTrip(inputTypeFactory.apply(kathmandu), "'2018-04-01 02:13:55'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2018-04-01 02:13:55 +05:45'")
+                .addRoundTrip(inputTypeFactory.apply(utc), "'2018-04-01 02:13:55%s'".formatted(nanos), expectedType, "TIMESTAMP '2018-04-01 02:13:55%s Z'".formatted(nanos))
+                .addRoundTrip(inputTypeFactory.apply(kathmandu), "'2018-04-01 02:13:55%s'".formatted(nanos), expectedType, "TIMESTAMP '2018-04-01 02:13:55%s +05:45'".formatted(nanos))
 
                 // time gap in Vilnius
-                .addRoundTrip(inputTypeFactory.apply(kathmandu), "'2018-03-25 03:17:17'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2018-03-25 03:17:17 +05:45'")
+                .addRoundTrip(inputTypeFactory.apply(kathmandu), "'2018-03-25 03:17:17%s'".formatted(nanos), expectedType, "TIMESTAMP '2018-03-25 03:17:17%s +05:45'".formatted(nanos))
 
                 // time gap in Kathmandu
-                .addRoundTrip(inputTypeFactory.apply(vilnius), "'1986-01-01 00:13:07'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '1986-01-01 00:13:07 +03:00'");
+                .addRoundTrip(inputTypeFactory.apply(vilnius), "'1986-01-01 00:13:07%s'".formatted(nanos), expectedType, "TIMESTAMP '1986-01-01 00:13:07%s +03:00'".formatted(nanos));
+    }
 
-        return tests;
+    @Test
+    public void testDateTimePredicatePushdown()
+    {
+        Session mapStringAsVarchar = Session.builder(getSession())
+                .setCatalogSessionProperty("clickhouse", MAP_STRING_AS_VARCHAR, Boolean.toString(true))
+                .build();
+        String withConnectorExpression = " OR some_column = 'x'";
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_datetime_predicate_pushdown",
+                """
+                        (
+                        some_column String,
+                        c_datetime_1 DateTime,
+                        c_datetime_2 DateTime,
+                        c_datetime64_3_1 DateTime64,
+                        c_datetime64_3_2 DateTime64,
+                        c_datetime64_9_1 DateTime64(9),
+                        c_datetime64_9_2 DateTime64(9),
+                        c_datetime64_3_zone_1 DateTime64(3, 'Asia/Istanbul'),
+                        c_datetime64_3_zone_2 DateTime64(3, 'Asia/Istanbul'),
+                        c_datetime64_9_zone_1 DateTime64(9, 'Asia/Istanbul'),
+                        c_datetime64_9_zone_2 DateTime64(9, 'Asia/Istanbul')
+                        )
+                        ENGINE=Log""",
+                List.of(
+                        "'1', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.000', '2024-01-01 00:00:00.000', '2024-01-01 00:00:00.000', '2024-01-01 00:00:00.000', '2024-01-01 00:00:00.000', '2024-01-01 00:00:00.000', '2024-01-01 00:00:00.000', '2024-01-01 00:00:00.000'",
+                        "'2', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.123'",
+                        "'3', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.1234', '2024-01-01 00:00:00.1234', '2024-01-01 00:00:00.1234', '2024-01-01 00:00:00.1234', '2024-01-01 00:00:00.1234', '2024-01-01 00:00:00.1234', '2024-01-01 00:00:00.1234', '2024-01-01 00:00:00.1234'",
+                        "'4', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.1234', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.1234', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.1234', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.1234'",
+                        "'5', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.1239', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.1239', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.1239', '2024-01-01 00:00:00.123', '2024-01-01 00:00:00.1239'",
+                        "'6', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.1238', '2024-01-01 00:00:00.1239', '2024-01-01 00:00:00.1238', '2024-01-01 00:00:00.1239', '2024-01-01 00:00:00.1238', '2024-01-01 00:00:00.1239', '2024-01-01 00:00:00.1238', '2024-01-01 00:00:00.1239'",
+                        "'7', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456787', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456787', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456787', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456787'",
+                        "'8', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456788', '2024-01-01 00:00:00.123456789'",
+                        "'9', '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789', '2024-01-01 00:00:00.123456789'"
+                ))) {
+            testAggregationPushdown(table.getName());
+
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime_1 = TIMESTAMP '2024-01-01 00:00:00'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime_1 = TIMESTAMP '2024-01-01 00:00:00'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 00:00:00.0'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 00:00:00.0'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 00:00:00.00'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 00:00:00.00'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 00:00:00.000'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 00:00:00.000'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 00:00:00.0000'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 00:00:00.0000'" + withConnectorExpression)).isFullyPushedDown();
+
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime_1 =   TIMESTAMP '2024-01-01 12:34:56'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime_1 =   TIMESTAMP '2024-01-01 12:34:56'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.1'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.1'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.12'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.12'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.123'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.123'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.1234'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.1234'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.12345'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.12345'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.123456'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.123456'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.1234567'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.1234567'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.12345678'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.12345678'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.123456789'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = TIMESTAMP '2024-01-01 12:34:56.123456789'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = c_datetime64_3_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 = c_datetime64_3_2" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 < c_datetime64_3_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 < c_datetime64_3_2" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 > c_datetime64_3_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_1 > c_datetime64_3_2" + withConnectorExpression)).isFullyPushedDown();
+
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.1'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.1'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.12'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.12'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.123'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.123'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.1234'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.1234'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.12345'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.12345'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.123456'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.123456'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.1234567'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.1234567'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.12345678'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.12345678'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.123456789'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = TIMESTAMP '2024-01-01 12:34:56.123456789'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = c_datetime64_9_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = c_datetime64_9_2" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 < c_datetime64_9_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 < c_datetime64_9_2" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 > c_datetime64_9_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 > c_datetime64_9_2" + withConnectorExpression)).isFullyPushedDown();
+
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.1'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.1'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.12'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.12'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.123'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.123'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.1234'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.1234'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.12345'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.12345'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.123456'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.123456'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.1234567'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.1234567'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.12345678'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.12345678'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.123456789'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = TIMESTAMP '2024-01-01 12:34:56.123456789'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = c_datetime64_3_zone_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 = c_datetime64_3_zone_2" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 < c_datetime64_3_zone_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 < c_datetime64_3_zone_2" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 > c_datetime64_3_zone_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_3_zone_1 > c_datetime64_3_zone_2" + withConnectorExpression)).isFullyPushedDown();
+
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.1'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.1'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.12'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.12'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.123'")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.123'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.1234'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.1234'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.12345'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.12345'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.123456'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.123456'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.1234567'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.1234567'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.12345678'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.12345678'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.123456789'")).returnsEmptyResult();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = TIMESTAMP '2024-01-01 12:34:56.123456789'" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = c_datetime64_9_zone_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = c_datetime64_9_zone_2" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 < c_datetime64_9_zone_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 < c_datetime64_9_zone_2" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 > c_datetime64_9_zone_2")).isFullyPushedDown();
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 > c_datetime64_9_zone_2" + withConnectorExpression)).isFullyPushedDown();
+
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = c_datetime64_3_zone_2")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = c_datetime64_3_zone_2" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 < c_datetime64_3_zone_2")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 < c_datetime64_3_zone_2" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 > c_datetime64_3_zone_2")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 > c_datetime64_3_zone_2" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = c_datetime64_3_2")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 = c_datetime64_3_2" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 < c_datetime64_3_2")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 < c_datetime64_3_2" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 > c_datetime64_3_2")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_1 > c_datetime64_3_2" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = c_datetime64_9_1")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 = c_datetime64_9_1" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 < c_datetime64_9_1")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 < c_datetime64_9_1" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 > c_datetime64_9_1")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(mapStringAsVarchar, "SELECT some_column FROM " + table.getName() + " WHERE c_datetime64_9_zone_1 > c_datetime64_9_1" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
+    public void testAggregationPushdown(String name)
+    {
+        assertThat(query("SELECT count(*) FROM %s".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT count(some_column) FROM %s".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT c_datetime_1, min(some_column) FROM %s GROUP BY c_datetime_1".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT c_datetime_1, max(some_column) FROM %s GROUP BY c_datetime_1".formatted(name))).isFullyPushedDown();
+
+        assertThat(query("SELECT day_of_month(c_datetime_1) FROM %s GROUP BY day_of_month(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day(c_datetime_1) FROM %s GROUP BY day(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_month(c_datetime_1) FROM %s GROUP BY day_of_month(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_week(c_datetime_1) FROM %s GROUP BY day_of_week(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_year(c_datetime_1) FROM %s GROUP BY day_of_year(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT dow(c_datetime_1) FROM %s GROUP BY dow(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT doy(c_datetime_1) FROM %s GROUP BY doy(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT hour(c_datetime_1) FROM %s GROUP BY hour(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        // v24.2 Changelog
+//            assertThat(query( "SELECT count(some_column) FROM %s GROUP BY millisecond(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT minute(c_datetime_1) FROM %s GROUP BY minute(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT month(c_datetime_1) FROM %s GROUP BY month(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT quarter(c_datetime_1) FROM %s GROUP BY quarter(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT second(c_datetime_1) FROM %s GROUP BY second(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week(c_datetime_1) FROM %s GROUP BY week(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week_of_year(c_datetime_1) FROM %s GROUP BY week_of_year(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year(c_datetime_1) FROM %s GROUP BY year(c_datetime_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year_of_week(c_datetime_1) FROM %s GROUP BY year_of_week(c_datetime_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT yow(c_datetime_1) FROM %s GROUP BY yow(c_datetime_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT day_of_month(c_datetime64_3_1) FROM %s GROUP BY day_of_month(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day(c_datetime64_3_1) FROM %s GROUP BY day(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_month(c_datetime64_3_1) FROM %s GROUP BY day_of_month(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_week(c_datetime64_3_1) FROM %s GROUP BY day_of_week(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_year(c_datetime64_3_1) FROM %s GROUP BY day_of_year(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT dow(c_datetime64_3_1) FROM %s GROUP BY dow(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT doy(c_datetime64_3_1) FROM %s GROUP BY doy(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT hour(c_datetime64_3_1) FROM %s GROUP BY hour(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        // v24.2 Changelog
+//            assertThat(query( "SELECT count(some_column) FROM %s GROUP BY millisecond(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT minute(c_datetime64_3_1) FROM %s GROUP BY minute(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT month(c_datetime64_3_1) FROM %s GROUP BY month(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT quarter(c_datetime64_3_1) FROM %s GROUP BY quarter(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT second(c_datetime64_3_1) FROM %s GROUP BY second(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week(c_datetime64_3_1) FROM %s GROUP BY week(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week_of_year(c_datetime64_3_1) FROM %s GROUP BY week_of_year(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year(c_datetime64_3_1) FROM %s GROUP BY year(c_datetime64_3_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year_of_week(c_datetime64_3_1) FROM %s GROUP BY year_of_week(c_datetime64_3_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT yow(c_datetime64_3_1) FROM %s GROUP BY yow(c_datetime64_3_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT day_of_month(c_datetime64_9_1) FROM %s GROUP BY day_of_month(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day(c_datetime64_9_1) FROM %s GROUP BY day(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_month(c_datetime64_9_1) FROM %s GROUP BY day_of_month(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_week(c_datetime64_9_1) FROM %s GROUP BY day_of_week(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_year(c_datetime64_9_1) FROM %s GROUP BY day_of_year(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT dow(c_datetime64_9_1) FROM %s GROUP BY dow(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT doy(c_datetime64_9_1) FROM %s GROUP BY doy(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT hour(c_datetime64_9_1) FROM %s GROUP BY hour(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        // v24.2 Changelog
+//            assertThat(query( "SELECT count(some_column) FROM %s GROUP BY millisecond(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT minute(c_datetime64_9_1) FROM %s GROUP BY minute(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT month(c_datetime64_9_1) FROM %s GROUP BY month(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT quarter(c_datetime64_9_1) FROM %s GROUP BY quarter(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT second(c_datetime64_9_1) FROM %s GROUP BY second(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week(c_datetime64_9_1) FROM %s GROUP BY week(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week_of_year(c_datetime64_9_1) FROM %s GROUP BY week_of_year(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year(c_datetime64_9_1) FROM %s GROUP BY year(c_datetime64_9_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year_of_week(c_datetime64_9_1) FROM %s GROUP BY year_of_week(c_datetime64_9_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT yow(c_datetime64_9_1) FROM %s GROUP BY yow(c_datetime64_9_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT day_of_month(c_datetime64_3_zone_1) FROM %s GROUP BY day_of_month(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day(c_datetime64_3_zone_1) FROM %s GROUP BY day(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_month(c_datetime64_3_zone_1) FROM %s GROUP BY day_of_month(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_week(c_datetime64_3_zone_1) FROM %s GROUP BY day_of_week(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_year(c_datetime64_3_zone_1) FROM %s GROUP BY day_of_year(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT dow(c_datetime64_3_zone_1) FROM %s GROUP BY dow(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT doy(c_datetime64_3_zone_1) FROM %s GROUP BY doy(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT hour(c_datetime64_3_zone_1) FROM %s GROUP BY hour(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        // v24.2 Changelog
+//            assertThat(query( "SELECT count(some_column) FROM %s GROUP BY millisecond(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT minute(c_datetime64_3_zone_1) FROM %s GROUP BY minute(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT month(c_datetime64_3_zone_1) FROM %s GROUP BY month(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT quarter(c_datetime64_3_zone_1) FROM %s GROUP BY quarter(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT second(c_datetime64_3_zone_1) FROM %s GROUP BY second(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week(c_datetime64_3_zone_1) FROM %s GROUP BY week(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week_of_year(c_datetime64_3_zone_1) FROM %s GROUP BY week_of_year(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year(c_datetime64_3_zone_1) FROM %s GROUP BY year(c_datetime64_3_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year_of_week(c_datetime64_3_zone_1) FROM %s GROUP BY year_of_week(c_datetime64_3_zone_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT yow(c_datetime64_3_zone_1) FROM %s GROUP BY yow(c_datetime64_3_zone_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT day_of_month(c_datetime64_9_zone_1) FROM %s GROUP BY day_of_month(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day(c_datetime64_9_zone_1) FROM %s GROUP BY day(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_month(c_datetime64_9_zone_1) FROM %s GROUP BY day_of_month(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_week(c_datetime64_9_zone_1) FROM %s GROUP BY day_of_week(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT day_of_year(c_datetime64_9_zone_1) FROM %s GROUP BY day_of_year(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT dow(c_datetime64_9_zone_1) FROM %s GROUP BY dow(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT doy(c_datetime64_9_zone_1) FROM %s GROUP BY doy(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT hour(c_datetime64_9_zone_1) FROM %s GROUP BY hour(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        // v24.2 Changelog
+//            assertThat(query( "SELECT count(some_column) FROM %s GROUP BY millisecond(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT minute(c_datetime64_9_zone_1) FROM %s GROUP BY minute(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT month(c_datetime64_9_zone_1) FROM %s GROUP BY month(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT quarter(c_datetime64_9_zone_1) FROM %s GROUP BY quarter(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT second(c_datetime64_9_zone_1) FROM %s GROUP BY second(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week(c_datetime64_9_zone_1) FROM %s GROUP BY week(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT week_of_year(c_datetime64_9_zone_1) FROM %s GROUP BY week_of_year(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year(c_datetime64_9_zone_1) FROM %s GROUP BY year(c_datetime64_9_zone_1)".formatted(name))).isFullyPushedDown();
+        assertThat(query("SELECT year_of_week(c_datetime64_9_zone_1) FROM %s GROUP BY year_of_week(c_datetime64_9_zone_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT yow(c_datetime64_9_zone_1) FROM %s GROUP BY yow(c_datetime64_9_zone_1)".formatted(name))).isNotFullyPushedDown(ProjectNode.class);
     }
 
     private List<ZoneId> timezones()
@@ -1177,8 +1495,21 @@ public abstract class BaseClickHouseTypeMapping
         return clickhouseServer::execute;
     }
 
-    private static Function<ZoneId, String> clickhouseDateTimeInputTypeFactory(String inputTypePrefix)
+    @RepeatedTest(1)
+    @Execution(SAME_THREAD)
+    public void testNoop()
     {
-        return zone -> format("%s('%s')", inputTypePrefix, zone);
+        // to keep necessary imports
     }
+
+//    @RepeatedTest(1000)
+//    @Execution(SAME_THREAD)
+//    public void testRepeated()
+//    {
+//        testTimestamp();
+//        testClickHouseDateTimeMinMaxValues();
+//        testUnsupportedTimestamp();
+//        testClickHouseDateTimeWithTimeZone();
+//        testDateTimePredicatePushdown();
+//    }
 }
