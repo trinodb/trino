@@ -22,6 +22,7 @@ import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.tpch.TpchTable;
+import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -729,5 +730,19 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
             throws SQLException
     {
         server.execute(SNOWFLAKE_TEST_SCHEMA, sql);
+    }
+
+    @Test
+    @Override
+    public void testMetadataDeleteAfterCommitEnabled()
+    {
+        assertThatThrownBy(super::testMetadataDeleteAfterCommitEnabled)
+                .hasMessageContaining("Snowflake managed Iceberg tables do not support modifications");
+    }
+
+    @Override
+    protected BaseTable loadTable(String tableName)
+    {
+        throw new UnsupportedOperationException();
     }
 }

@@ -253,4 +253,12 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
         //TODO: Fix https://github.com/trinodb/trino/issues/23941
         abort("Skipped for now due to #23941");
     }
+
+    @Override
+    protected BaseTable loadTable(String tableName)
+    {
+        TrinoCatalogFactory catalogFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector("iceberg")).getInjector().getInstance(TrinoCatalogFactory.class);
+        TrinoCatalog trinoCatalog = catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
+        return (BaseTable) trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
+    }
 }

@@ -16,10 +16,12 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
+import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -167,5 +169,18 @@ public class TestIcebergAbfsConnectorSmokeTest
     private static String formatAbfsUrl(String container, String account, String bucketName)
     {
         return format("abfs://%s@%s.dfs.core.windows.net/%s/", container, account, bucketName);
+    }
+
+    @Override
+    protected BaseTable loadTable(String tableName)
+    {
+        String catalog = getQueryRunner().getDefaultSession().getCatalog().orElseThrow();
+        HiveMetastore metastore = new BridgingHiveMetastore(
+                testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
+                        .build(this::closeAfterClass));
+        TrinoFileSystemFactory fileSystemFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector(catalog))
+                .getInjector().getInstance(TrinoFileSystemFactory.class);
+        return IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, catalog, schemaName);
     }
 }

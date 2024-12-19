@@ -21,6 +21,7 @@ import io.trino.plugin.iceberg.containers.UnityCatalogContainer;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import org.apache.iceberg.BaseTable;
 import org.assertj.core.util.Files;
 import org.junit.jupiter.api.Test;
 
@@ -519,5 +520,18 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     {
         assertThatThrownBy(super::testTruncateTable)
                 .hasMessageContaining("Access Denied");
+    }
+
+    @Test
+    @Override
+    public void testMetadataDeleteAfterCommitEnabled()
+    {
+        // skip
+    }
+
+    @Override
+    protected BaseTable loadTable(String tableName)
+    {
+        throw new UnsupportedOperationException();
     }
 }

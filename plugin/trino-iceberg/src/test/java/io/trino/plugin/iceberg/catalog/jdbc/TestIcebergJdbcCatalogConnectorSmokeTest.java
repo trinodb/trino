@@ -248,4 +248,10 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
         }
         return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
+
+    @Override
+    protected BaseTable loadTable(String tableName)
+    {
+        return (BaseTable) jdbcCatalog.loadTable(toIdentifier(tableName));
+    }
 }
