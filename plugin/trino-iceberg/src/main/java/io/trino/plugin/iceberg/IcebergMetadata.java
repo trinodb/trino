@@ -67,6 +67,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -2341,7 +2342,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         // Spark doesn't support adding a NOT NULL column to Iceberg tables
         // Also, Spark throws an exception when reading the table if we add such columns and execute a rollback procedure
@@ -2355,9 +2356,14 @@ public class IcebergMetadata
         // added - instead of relying on addColumn in iceberg library to assign Ids
         AtomicInteger nextFieldId = new AtomicInteger(icebergTable.schema().highestFieldId() + 2);
         try {
-            icebergTable.updateSchema()
-                    .addColumn(column.getName(), toIcebergTypeForNewColumn(column.getType(), nextFieldId), column.getComment())
-                    .commit();
+            UpdateSchema updateSchema = icebergTable.updateSchema();
+            updateSchema.addColumn(column.getName(), toIcebergTypeForNewColumn(column.getType(), nextFieldId), column.getComment());
+            switch (position) {
+                case ColumnPosition.First _ -> updateSchema.moveFirst(column.getName());
+                case ColumnPosition.After after -> updateSchema.moveAfter(column.getName(), after.columnName());
+                case ColumnPosition.Last _ -> {}
+            }
+            updateSchema.commit();
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add column: " + firstNonNull(e.getMessage(), e), e);
