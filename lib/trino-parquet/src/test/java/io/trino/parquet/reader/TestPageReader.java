@@ -25,6 +25,7 @@ import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetTypeUtils;
+import io.trino.parquet.crypto.InternalFileDecryptor;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.EncodingStats;
@@ -183,7 +184,7 @@ public class TestPageReader
         out.write(compressedDataPage);
         byte[] bytes = out.toByteArray();
 
-        PageReader pageReader = createPageReader(totalValueCount, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(bytes)));
+        PageReader pageReader = createPageReader(totalValueCount, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(bytes)), null, -1);
         DictionaryPage uncompressedDictionaryPage = pageReader.readDictionaryPage();
         assertThat(uncompressedDictionaryPage.getDictionarySize()).isEqualTo(dictionaryPageHeader.getDictionary_page_header().getNum_values());
         assertEncodingEquals(uncompressedDictionaryPage.getEncoding(), dictionaryPageHeader.getDictionary_page_header().getEncoding());
@@ -193,7 +194,7 @@ public class TestPageReader
         assertPages(compressionCodec, totalValueCount, 3, pageHeader, compressedDataPage, true, ImmutableList.of(Slices.wrappedBuffer(bytes)));
 
         // only dictionary
-        pageReader = createPageReader(0, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(Arrays.copyOf(bytes, dictionaryPageSize))));
+        pageReader = createPageReader(0, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(Arrays.copyOf(bytes, dictionaryPageSize))), null, -1);
         assertThatThrownBy(pageReader::readDictionaryPage)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageStartingWith("No more data left to read");
@@ -236,7 +237,7 @@ public class TestPageReader
         int totalValueCount = valueCount * 2;
 
         // There is a dictionary, but it's there as the second page
-        PageReader pageReader = createPageReader(totalValueCount, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(bytes)));
+        PageReader pageReader = createPageReader(totalValueCount, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(bytes)), null, -1);
         assertThat(pageReader.readDictionaryPage()).isNull();
         assertThat(pageReader.readPage()).isNotNull();
         assertThatThrownBy(pageReader::readPage)
@@ -270,7 +271,7 @@ public class TestPageReader
         byte[] bytes = out.toByteArray();
 
         // There is a dictionary, but it's there as the second page
-        PageReader pageReader = createPageReader(valueCount, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(bytes)));
+        PageReader pageReader = createPageReader(valueCount, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(bytes)), null, -1);
         assertThat(pageReader.readDictionaryPage()).isNotNull();
         assertThat(pageReader.readPage()).isNotNull();
         assertThat(pageReader.readPage()).isNull();
@@ -298,7 +299,7 @@ public class TestPageReader
             List<Slice> slices)
             throws IOException
     {
-        PageReader pageReader = createPageReader(valueCount, compressionCodec, hasDictionary, slices);
+        PageReader pageReader = createPageReader(valueCount, compressionCodec, hasDictionary, slices, null, -1);
         DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
         assertThat(dictionaryPage != null).isEqualTo(hasDictionary);
 
@@ -383,7 +384,7 @@ public class TestPageReader
         throw new IllegalArgumentException("unsupported compression code " + compressionCodec);
     }
 
-    private static PageReader createPageReader(int valueCount, CompressionCodec compressionCodec, boolean hasDictionary, List<Slice> slices)
+    private static PageReader createPageReader(int valueCount, CompressionCodec compressionCodec, boolean hasDictionary, List<Slice> slices, InternalFileDecryptor fileDecryptor, int rowGroupOrdinal)
             throws IOException
     {
         EncodingStats.Builder encodingStats = new EncodingStats.Builder();
@@ -409,7 +410,8 @@ public class TestPageReader
                 columnChunkMetaData,
                 new ColumnDescriptor(new String[] {}, new PrimitiveType(REQUIRED, INT32, ""), 0, 0),
                 null,
-                Optional.empty());
+                Optional.empty(),
+                Optional.ofNullable(fileDecryptor));
     }
 
     private static void assertDataPageEquals(PageHeader pageHeader, byte[] dataPage, byte[] compressedDataPage, DataPage decompressedPage)

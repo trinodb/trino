@@ -205,7 +205,8 @@ public class TableChangesFunctionProcessor
                 parquetReaderOptions,
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.empty());
+                OptionalLong.of(split.fileSize()),
+                null);
 
         verify(pageSource.getReaderColumns().isEmpty(), "Unexpected reader columns: %s", pageSource.getReaderColumns().orElse(null));
 
