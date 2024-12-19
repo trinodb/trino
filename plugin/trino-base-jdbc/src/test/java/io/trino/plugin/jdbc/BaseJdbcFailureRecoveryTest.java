@@ -59,6 +59,11 @@ public abstract class BaseJdbcFailureRecoveryTest
     @Override
     protected void testDeleteWithSubquery()
     {
+        if (supportsMerge()) {
+            super.testDeleteWithSubquery();
+            return;
+        }
+
         assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         abort("skipped");
     }
@@ -92,6 +97,11 @@ public abstract class BaseJdbcFailureRecoveryTest
     @Override
     protected void testMerge()
     {
+        if (supportsMerge()) {
+            super.testMerge();
+            return;
+        }
+
         assertThatThrownBy(super::testMerge).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         abort("skipped");
     }
@@ -100,5 +110,10 @@ public abstract class BaseJdbcFailureRecoveryTest
     protected boolean areWriteRetriesSupported()
     {
         return true;
+    }
+
+    protected boolean supportsMerge()
+    {
+        return false;
     }
 }

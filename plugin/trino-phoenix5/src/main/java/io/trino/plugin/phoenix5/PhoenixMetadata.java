@@ -14,6 +14,7 @@
 package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.mapping.IdentifierMapping;
@@ -365,6 +366,8 @@ public class PhoenixMetadata
         return new PhoenixMergeTableHandle(
                 handle,
                 (PhoenixOutputTableHandle) mergeTableHandle.getOutputTableHandle(),
+                ImmutableMap.of(),
+                Optional.empty(),
                 primaryKeys,
                 columns,
                 mergeTableHandle.getUpdateCaseColumns());
