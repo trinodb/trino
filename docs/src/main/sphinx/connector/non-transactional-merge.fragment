@@ -1,0 +1,10 @@
+### Non-transactional MERGE
+
+The connector supports adding rows using [MERGE statements](/sql/merge), if the
+`merge.non-transactional-merge.enabled` catalog property or the corresponding
+`non_transactional_merge_enabled` catalog session property is set to 
+`true`. Merge is only supported for directly modifying target tables.
+
+Note that in rare cases expections occur during the merge operation, and no
+rollback can be performed from Trino.
+
