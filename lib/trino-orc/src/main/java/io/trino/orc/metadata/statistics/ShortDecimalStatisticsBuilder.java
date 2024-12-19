@@ -27,6 +27,7 @@ public class ShortDecimalStatisticsBuilder
     private final int scale;
 
     private long nonNullValueCount;
+    private boolean hasNull;
     private long minimum = Long.MAX_VALUE;
     private long maximum = Long.MIN_VALUE;
 
@@ -52,7 +53,8 @@ public class ShortDecimalStatisticsBuilder
         return Optional.of(new DecimalStatistics(
                 new BigDecimal(BigInteger.valueOf(minimum), scale),
                 new BigDecimal(BigInteger.valueOf(maximum), scale),
-                SHORT_DECIMAL_VALUE_BYTES));
+                SHORT_DECIMAL_VALUE_BYTES,
+                hasNull));
     }
 
     @Override
@@ -72,5 +74,10 @@ public class ShortDecimalStatisticsBuilder
                 decimalStatistics.orElse(null),
                 null,
                 null);
+    }
+
+    @Override
+    public void setHasNull(boolean hasNull) {
+        this.hasNull = hasNull;
     }
 }
