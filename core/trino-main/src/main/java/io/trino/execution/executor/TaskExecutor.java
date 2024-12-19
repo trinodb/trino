@@ -24,10 +24,29 @@ import java.util.Set;
 import java.util.function.DoubleSupplier;
 import java.util.function.Predicate;
 
+import static io.trino.execution.executor.ExecutionPriority.NORMAL;
+
 public interface TaskExecutor
 {
+    default TaskHandle addTask(
+            TaskId taskId,
+            DoubleSupplier utilizationSupplier,
+            int initialSplitConcurrency,
+            Duration splitConcurrencyAdjustFrequency,
+            OptionalInt maxDriversPerTask)
+    {
+        return addTask(
+                taskId,
+                NORMAL,
+                utilizationSupplier,
+                initialSplitConcurrency,
+                splitConcurrencyAdjustFrequency,
+                maxDriversPerTask);
+    }
+
     TaskHandle addTask(
             TaskId taskId,
+            ExecutionPriority taskExecutionPriority,
             DoubleSupplier utilizationSupplier,
             int initialSplitConcurrency,
             Duration splitConcurrencyAdjustFrequency,
