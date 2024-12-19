@@ -927,19 +927,19 @@ public class TestKuduConnectorTest
     }
 
     /**
-     * This test fails intermittently because Kudu doesn't have strong enough
-     * semantics to support writing from multiple threads.
+     * createTableForWrites will create the table using the first column as the primary key.
+     * Attempting to update the primary key (`nationkey` in this case) caused a failure due to duplicate values.
+     * This override modifies the test to focus on updating the `regionkey` instead.
      */
     @Test
-    @Disabled
     @Override
     public void testUpdate()
     {
         withTableName("test_update", tableName -> {
             createTableForWrites("CREATE TABLE %s " + NATION_COLUMNS, tableName, Optional.empty());
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation", 25);
-            assertUpdate("UPDATE " + tableName + " SET nationkey = 100 WHERE regionkey = 2", 5);
-            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey = 100", "VALUES 5");
+            assertUpdate("UPDATE " + tableName + " SET regionkey = 100 WHERE regionkey = 2", 5);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE regionkey = 100", "VALUES 5");
         });
     }
 
@@ -997,6 +997,20 @@ public class TestKuduConnectorTest
 
     @Test
     @Override
+    protected void testUpdateWithSubquery()
+    {
+        withTableName("test_update_with_subquery", tableName -> {
+            createTableForWrites("CREATE TABLE %s " + ORDER_COLUMNS, tableName, Optional.empty());
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM orders", 15000);
+
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE shippriority = 101 AND custkey = (SELECT min(custkey) FROM customer)", "VALUES 0");
+            assertUpdate("UPDATE " + tableName + " SET shippriority = 101 WHERE custkey = (SELECT min(custkey) FROM customer)", 9);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE shippriority = 101 AND custkey = (SELECT min(custkey) FROM customer)", "VALUES 9");
+        });
+    }
+
+    @Test
+    @Override
     public void testCreateTableWithTableComment()
     {
         // TODO Remove this overriding test once kudu connector can create tables with default partitions
@@ -1047,7 +1061,6 @@ public class TestKuduConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    @Test
     @Override
     protected TestTable createTableWithDefaultColumns()
     {

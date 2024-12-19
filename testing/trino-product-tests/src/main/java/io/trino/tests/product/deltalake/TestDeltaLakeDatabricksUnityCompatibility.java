@@ -25,6 +25,7 @@ import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DATABRICKS_UNITY_HTTP_HMS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -34,7 +35,6 @@ import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeDatabricksUnityCompatibility
@@ -47,8 +47,8 @@ public class TestDeltaLakeDatabricksUnityCompatibility
     @BeforeMethodWithContext
     public void setUp()
     {
-        unityCatalogName = requireNonNull(System.getenv("DATABRICKS_UNITY_CATALOG_NAME"), "Environment variable not set: DATABRICKS_UNITY_CATALOG_NAME");
-        externalLocationPath = requireNonNull(System.getenv("DATABRICKS_UNITY_EXTERNAL_LOCATION"), "Environment variable not set: DATABRICKS_UNITY_EXTERNAL_LOCATION");
+        unityCatalogName = requireEnv("DATABRICKS_UNITY_CATALOG_NAME");
+        externalLocationPath = requireEnv("DATABRICKS_UNITY_EXTERNAL_LOCATION");
         onDelta().executeQuery(format("CREATE SCHEMA %s.%s", unityCatalogName, schemaName));
     }
 

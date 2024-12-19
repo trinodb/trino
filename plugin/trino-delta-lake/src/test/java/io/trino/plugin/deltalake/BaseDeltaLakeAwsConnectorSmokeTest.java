@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
@@ -29,12 +29,12 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public abstract class BaseDeltaLakeAwsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
 {
-    protected HiveMinioDataLake hiveMinioDataLake;
+    protected Hive3MinioDataLake hiveMinioDataLake;
 
     @Override
     protected HiveHadoop createHiveHadoop()
     {
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
         hiveMinioDataLake.start();
         return hiveMinioDataLake.getHiveHadoop();  // closed by superclass
     }

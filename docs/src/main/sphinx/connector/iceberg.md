@@ -227,6 +227,10 @@ implementation is used:
   - Number of threads used for retrieving metadata. Currently, only table loading 
     is parallelized.
   - `8`
+* - `iceberg.bucket-execution`
+  - Enable bucket-aware execution. This allows the engine to use physical
+    bucketing information to optimize queries by reducing data exchanges.
+  - `true`
 :::
 
 (iceberg-fte-support)=

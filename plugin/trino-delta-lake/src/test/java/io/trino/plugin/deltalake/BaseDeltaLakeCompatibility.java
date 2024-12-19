@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -32,7 +32,7 @@ public abstract class BaseDeltaLakeCompatibility
 {
     protected final String bucketName;
     protected final String resourcePath;
-    protected HiveMinioDataLake hiveMinioDataLake;
+    protected Hive3MinioDataLake hiveMinioDataLake;
 
     public BaseDeltaLakeCompatibility(String resourcePath)
     {
@@ -44,7 +44,7 @@ public abstract class BaseDeltaLakeCompatibility
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
         hiveMinioDataLake.start();
 
         QueryRunner queryRunner = DeltaLakeQueryRunner.builder()

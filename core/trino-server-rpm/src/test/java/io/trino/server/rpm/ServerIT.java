@@ -109,6 +109,7 @@ public class ServerIT
                     .withCommand("sh", "-xeuc", command)
                     .withCreateContainerCmdModifier(modifier -> modifier
                             .withHostConfig(modifier.getHostConfig().withInit(true)))
+                    .withEnv("JAVA_HOME", javaHome)
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
                     .start();
             QueryRunner queryRunner = new QueryRunner(container.getHost(), container.getMappedPort(8080));
@@ -137,6 +138,7 @@ public class ServerIT
         try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE)) {
             container.withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
                     .withCommand("sh", "-xeuc", installAndStartTrino)
+                    .withEnv("JAVA_HOME", javaHome)
                     .withCreateContainerCmdModifier(modifier -> modifier
                             .withHostConfig(modifier.getHostConfig().withInit(true)))
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))

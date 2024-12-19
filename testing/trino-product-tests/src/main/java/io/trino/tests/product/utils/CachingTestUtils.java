@@ -27,7 +27,7 @@ public final class CachingTestUtils
         QueryResult queryResult = onTrino().executeQuery("SELECT " +
                 "  sum(\"cachereads.alltime.count\") as cachereads, " +
                 "  sum(\"externalreads.alltime.count\") as externalreads " +
-                "FROM jmx.current.\"io.trino.filesystem.alluxio:name=" + catalog + ",type=alluxiocachestats\";");
+                "FROM jmx.current.\"io.trino.filesystem.alluxio:catalog=" + catalog + ",name=" + catalog + ",type=alluxiocachestats\";");
 
         double cacheReads = (Double) getOnlyElement(queryResult.rows())
                 .get(queryResult.tryFindColumnIndex("cachereads").get() - 1);

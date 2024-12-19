@@ -15,7 +15,24 @@ package io.trino.metadata;
 
 public enum NodeState
 {
+    /**
+     * Server is up and running ready to handle tasks
+     */
     ACTIVE,
+    /**
+     * Never used internally, might be used by discoveryNodeManager when communication error occurs
+     */
     INACTIVE,
+    /**
+     * A reversible graceful shutdown, can go to forward to DRAINED or back to ACTIVE.
+     */
+    DRAINING,
+    /**
+     * All tasks are finished, server can be safely and quickly stopped. Can also go back to ACTIVE.
+     */
+    DRAINED,
+    /**
+     * Graceful shutdown, non-reversible, when observed will drain and terminate
+     */
     SHUTTING_DOWN
 }

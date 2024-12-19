@@ -8,10 +8,9 @@ LEAVE label
 
 ## Description
 
-The `LEAVE` statement allows processing of blocks in [SQL
-routines](/routines/introduction) to move out of a specified context. Contexts
-are defined by a [`label`](routine-label). If no label is found, the functions
-fails with an error message.
+The `LEAVE` statement allows processing of blocks in [](/udf/sql) to move out of
+a specified context. Contexts are defined by a [`label`](udf-sql-label). If no
+label is found, the functions fails with an error message.
 
 ## Examples
 
@@ -37,10 +36,9 @@ END
 ```
 
 Further examples of varying complexity that cover usage of the `LEAVE` statement
-in combination with other statements are available in the [SQL routines examples
-documentation](/routines/examples).
+in combination with other statements are available in the [](/udf/sql/examples).
 
 ## See also
 
-* [](/routines/introduction)
-* [](/routines/iterate)
+* [](/udf/sql)
+* [](/udf/sql/iterate)

@@ -18,7 +18,7 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
-import static java.util.Objects.requireNonNull;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 
 @TestsEnvironment
 public class EnvSinglenodeDeltaLakeDatabricks143
@@ -33,6 +33,6 @@ public class EnvSinglenodeDeltaLakeDatabricks143
     @Override
     String databricksTestJdbcUrl()
     {
-        return requireNonNull(System.getenv("DATABRICKS_143_JDBC_URL"), "Environment DATABRICKS_143_JDBC_URL was not set");
+        return requireEnv("DATABRICKS_143_JDBC_URL");
     }
 }

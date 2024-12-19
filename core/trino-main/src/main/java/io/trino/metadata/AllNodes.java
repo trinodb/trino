@@ -24,13 +24,22 @@ public class AllNodes
 {
     private final Set<InternalNode> activeNodes;
     private final Set<InternalNode> inactiveNodes;
+    private final Set<InternalNode> drainingNodes;
+    private final Set<InternalNode> drainedNodes;
     private final Set<InternalNode> shuttingDownNodes;
     private final Set<InternalNode> activeCoordinators;
 
-    public AllNodes(Set<InternalNode> activeNodes, Set<InternalNode> inactiveNodes, Set<InternalNode> shuttingDownNodes, Set<InternalNode> activeCoordinators)
+    public AllNodes(Set<InternalNode> activeNodes,
+            Set<InternalNode> inactiveNodes,
+            Set<InternalNode> drainingNodes,
+            Set<InternalNode> drainedNodes,
+            Set<InternalNode> shuttingDownNodes,
+            Set<InternalNode> activeCoordinators)
     {
         this.activeNodes = ImmutableSet.copyOf(requireNonNull(activeNodes, "activeNodes is null"));
         this.inactiveNodes = ImmutableSet.copyOf(requireNonNull(inactiveNodes, "inactiveNodes is null"));
+        this.drainedNodes = ImmutableSet.copyOf(requireNonNull(drainedNodes, "drainedNodes is null"));
+        this.drainingNodes = ImmutableSet.copyOf(requireNonNull(drainingNodes, "drainingNodes is null"));
         this.shuttingDownNodes = ImmutableSet.copyOf(requireNonNull(shuttingDownNodes, "shuttingDownNodes is null"));
         this.activeCoordinators = ImmutableSet.copyOf(requireNonNull(activeCoordinators, "activeCoordinators is null"));
     }
@@ -50,6 +59,16 @@ public class AllNodes
         return shuttingDownNodes;
     }
 
+    public Set<InternalNode> getDrainedNodes()
+    {
+        return drainedNodes;
+    }
+
+    public Set<InternalNode> getDrainingNodes()
+    {
+        return drainingNodes;
+    }
+
     public Set<InternalNode> getActiveCoordinators()
     {
         return activeCoordinators;
@@ -67,6 +86,8 @@ public class AllNodes
         AllNodes allNodes = (AllNodes) o;
         return Objects.equals(activeNodes, allNodes.activeNodes) &&
                 Objects.equals(inactiveNodes, allNodes.inactiveNodes) &&
+                Objects.equals(drainedNodes, allNodes.drainedNodes) &&
+                Objects.equals(drainingNodes, allNodes.drainingNodes) &&
                 Objects.equals(shuttingDownNodes, allNodes.shuttingDownNodes) &&
                 Objects.equals(activeCoordinators, allNodes.activeCoordinators);
     }
@@ -74,6 +95,6 @@ public class AllNodes
     @Override
     public int hashCode()
     {
-        return Objects.hash(activeNodes, inactiveNodes, shuttingDownNodes, activeCoordinators);
+        return Objects.hash(activeNodes, inactiveNodes, drainingNodes, drainedNodes, shuttingDownNodes, activeCoordinators);
     }
 }

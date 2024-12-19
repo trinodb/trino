@@ -23,7 +23,7 @@
 
 ## Web UI
 
-* Add information about which tables and routines have been referenced by a
+* Add information about which tables and UDFs have been referenced by a
   query. ({issue}`20843`)
 
 ## JDBC driver

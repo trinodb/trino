@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.trino.Session;
 import io.trino.execution.SqlTaskManager;
+import io.trino.metadata.NodeState;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.testing.TestingTrinoServer.TestShutdownAction;
@@ -105,7 +106,7 @@ public class TestGracefulShutdown
                 MILLISECONDS.sleep(500);
             }
 
-            worker.getGracefulShutdownHandler().requestShutdown();
+            worker.getNodeStateManager().transitionState(NodeState.SHUTTING_DOWN);
 
             Futures.allAsList(queryFutures).get();
 
@@ -131,7 +132,7 @@ public class TestGracefulShutdown
                     .filter(TestingTrinoServer::isCoordinator)
                     .collect(onlyElement());
 
-            assertThatThrownBy(coordinator.getGracefulShutdownHandler()::requestShutdown)
+            assertThatThrownBy(() -> coordinator.getNodeStateManager().transitionState(NodeState.SHUTTING_DOWN))
                     .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessage("Cannot shutdown coordinator");
         }

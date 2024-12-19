@@ -23,6 +23,7 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import java.io.File;
 
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
@@ -50,18 +51,18 @@ public class EnvMultinodeDatabricksHttpHms
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        String databricksTestJdbcUrl = requireNonNull(getEnvVariable("DATABRICKS_UNITY_JDBC_URL"), "Environment DATABRICKS_UNITY_JDBC_URL was not set");
-        String databricksTestLogin = requireNonNull(getEnvVariable("DATABRICKS_LOGIN"), "Environment DATABRICKS_LOGIN was not set");
-        String databricksTestToken = requireNonNull(getEnvVariable("DATABRICKS_TOKEN"), "Environment DATABRICKS_TOKEN was not set");
-        String awsRegion = requireNonNull(getEnvVariable("AWS_REGION"), "Environment AWS_REGION was not set");
+        String databricksTestJdbcUrl = requireEnv("DATABRICKS_UNITY_JDBC_URL");
+        String databricksTestLogin = requireEnv("DATABRICKS_LOGIN");
+        String databricksTestToken = requireEnv("DATABRICKS_TOKEN");
+        String awsRegion = requireEnv("AWS_REGION");
 
         builder.configureContainers(container -> {
             if (isTrinoContainer(container.getLogicalName())) {
                 exportAwsCredentials(container)
                         .withEnv("AWS_REGION", awsRegion)
                         .withEnv("DATABRICKS_TOKEN", databricksTestToken)
-                        .withEnv("DATABRICKS_HOST", getEnvVariable("DATABRICKS_HOST"))
-                        .withEnv("DATABRICKS_UNITY_CATALOG_NAME", getEnvVariable("DATABRICKS_UNITY_CATALOG_NAME"));
+                        .withEnv("DATABRICKS_HOST", requireEnv("DATABRICKS_HOST"))
+                        .withEnv("DATABRICKS_UNITY_CATALOG_NAME", requireEnv("DATABRICKS_UNITY_CATALOG_NAME"));
             }
         });
 
@@ -69,8 +70,8 @@ public class EnvMultinodeDatabricksHttpHms
                 .withEnv("DATABRICKS_JDBC_URL", databricksTestJdbcUrl)
                 .withEnv("DATABRICKS_LOGIN", databricksTestLogin)
                 .withEnv("DATABRICKS_TOKEN", databricksTestToken)
-                .withEnv("DATABRICKS_UNITY_CATALOG_NAME", getEnvVariable("DATABRICKS_UNITY_CATALOG_NAME"))
-                .withEnv("DATABRICKS_UNITY_EXTERNAL_LOCATION", getEnvVariable("DATABRICKS_UNITY_EXTERNAL_LOCATION"))
+                .withEnv("DATABRICKS_UNITY_CATALOG_NAME", requireEnv("DATABRICKS_UNITY_CATALOG_NAME"))
+                .withEnv("DATABRICKS_UNITY_EXTERNAL_LOCATION", requireEnv("DATABRICKS_UNITY_EXTERNAL_LOCATION"))
                 .withCopyFileToContainer(
                         forHostPath(DATABRICKS_JDBC_PROVIDER.getAbsolutePath()),
                         "/docker/jdbc/databricks-jdbc.jar"));
@@ -81,15 +82,6 @@ public class EnvMultinodeDatabricksHttpHms
                 forHostPath(configDir.getPath("delta.properties")),
                 CONTAINER_TRINO_ETC + "/catalog/delta.properties");
         configureTempto(builder, configDir);
-    }
-
-    private static String getEnvVariable(String name)
-    {
-        String credentialValue = System.getenv(name);
-        if (credentialValue == null) {
-            throw new IllegalStateException(format("Environment variable %s not set", name));
-        }
-        return credentialValue;
     }
 
     private DockerContainer exportAwsCredentials(DockerContainer container)

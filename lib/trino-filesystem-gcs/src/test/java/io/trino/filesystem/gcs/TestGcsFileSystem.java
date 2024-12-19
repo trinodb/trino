@@ -20,6 +20,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -30,7 +31,7 @@ public class TestGcsFileSystem
     void setup()
             throws IOException
     {
-        initialize(getRequiredEnvironmentVariable("GCP_CREDENTIALS_KEY"));
+        initialize(requireEnv("GCP_CREDENTIALS_KEY"));
     }
 
     @Test

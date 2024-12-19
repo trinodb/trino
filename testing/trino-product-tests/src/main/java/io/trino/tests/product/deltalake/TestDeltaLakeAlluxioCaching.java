@@ -19,12 +19,12 @@ import io.trino.tempto.ProductTest;
 import io.trino.tests.product.utils.CachingTestUtils.CacheStats;
 import org.testng.annotations.Test;
 
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_ALLUXIO_CACHING;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.CachingTestUtils.getCacheStats;
 import static io.trino.tests.product.utils.QueryAssertions.assertEventually;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -36,7 +36,7 @@ public class TestDeltaLakeAlluxioCaching
     @BeforeMethodWithContext
     public void setUp()
     {
-        bucketName = requireNonNull(System.getenv("S3_BUCKET"), "Environment variable not set: S3_BUCKET");
+        bucketName = requireEnv("S3_BUCKET");
     }
 
     @Test(groups = {DELTA_LAKE_ALLUXIO_CACHING, PROFILE_SPECIFIC_TESTS})

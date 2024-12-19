@@ -10,8 +10,7 @@ END LOOP
 
 ## Description
 
-The `LOOP` statement is an optional construct in [SQL
-routines](/routines/introduction) to allow processing of a block of statements
+The `LOOP` statement is an optional construct in [](/udf/sql) to allow processing of a block of statements
 repeatedly.
 
 The block of `statements` is processed until an explicit use of `LEAVE` causes
@@ -20,7 +19,7 @@ of processing from the beginning starts. `LEAVE` statements are typically
 wrapped in an `IF` statement that declares a condition to stop the loop.
 
 The optional `label` before the `LOOP` keyword can be used to [name the
-block](routine-label).
+block](udf-sql-label).
 
 ## Examples
 
@@ -55,10 +54,10 @@ SELECT to_one_hundred(12, 3); -- 30
 ```
 
 Further examples of varying complexity that cover usage of the `LOOP` statement
-in combination with other statements are available in the [SQL routines examples
-documentation](/routines/examples).
+in combination with other statements are available in the [SQL UDF examples
+documentation](/udf/sql/examples).
 
 ## See also
 
-* [](/routines/introduction)
-* [](/routines/leave)
+* [](/udf/sql)
+* [](/udf/sql/leave)

@@ -22,7 +22,6 @@ import io.trino.metadata.ViewInfo;
 import io.trino.security.AccessControl;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -141,18 +140,12 @@ public class InformationSchemaPageSource
                 .boxed()
                 .collect(toImmutableMap(i -> columnMetadata.get(i).getName(), Function.identity()));
 
-        List<Integer> channels = columns.stream()
+        int[] channels = columns.stream()
                 .map(columnHandle -> (InformationSchemaColumnHandle) columnHandle)
-                .map(columnHandle -> columnNameToChannel.get(columnHandle.columnName()))
-                .collect(toImmutableList());
+                .mapToInt(columnHandle -> columnNameToChannel.get(columnHandle.columnName()))
+                .toArray();
 
-        projection = page -> {
-            Block[] blocks = new Block[channels.size()];
-            for (int i = 0; i < blocks.length; i++) {
-                blocks[i] = page.getBlock(channels.get(i));
-            }
-            return new Page(page.getPositionCount(), blocks);
-        };
+        projection = page -> page.getColumns(channels);
     }
 
     @Override

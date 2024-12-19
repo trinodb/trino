@@ -20,6 +20,7 @@ import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_JVM_CONFIG;
 import static java.util.Objects.requireNonNull;
@@ -56,10 +57,5 @@ public class EnvMultinodeSnowflake
         });
 
         builder.addConnector("snowflake", forHostPath(configDir.getPath("snowflake.properties")));
-    }
-
-    private static String requireEnv(String variable)
-    {
-        return requireNonNull(System.getenv(variable), () -> "environment variable not set: " + variable);
     }
 }
