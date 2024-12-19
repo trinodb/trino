@@ -49,6 +49,7 @@ import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED
 import static java.util.Objects.requireNonNull;
 
 @Path("/v1/queryState")
+@ResourceSecurity(AUTHENTICATED_USER)
 public class QueryStateInfoResource
 {
     private final DispatchManager dispatchManager;
@@ -69,7 +70,6 @@ public class QueryStateInfoResource
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
     }
 
-    @ResourceSecurity(AUTHENTICATED_USER)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<QueryStateInfo> getQueryStateInfos(@QueryParam("user") String user, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
@@ -102,7 +102,6 @@ public class QueryStateInfoResource
         return createQueryStateInfo(queryInfo, groupId);
     }
 
-    @ResourceSecurity(AUTHENTICATED_USER)
     @GET
     @Path("{queryId}")
     @Produces(MediaType.APPLICATION_JSON)

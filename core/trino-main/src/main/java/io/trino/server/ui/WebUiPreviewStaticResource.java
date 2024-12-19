@@ -27,16 +27,15 @@ import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.web.ui.WebUiResources.webUiResource;
 
 @Path("/ui/preview")
+@ResourceSecurity(WEB_UI)
 public class WebUiPreviewStaticResource
 {
-    @ResourceSecurity(WEB_UI)
     @GET
     public Response getUiPreview(@BeanParam ExternalUriInfo externalUriInfo)
     {
         return Response.seeOther(externalUriInfo.absolutePath("/ui/preview/index.html")).build();
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     @Path("{path: .*}")
     public Response getFile(@PathParam("path") String path)

@@ -62,6 +62,7 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 import static java.util.Objects.requireNonNull;
 
 @Path("/ui/api/worker")
+@ResourceSecurity(WEB_UI)
 public class WorkerResource
 {
     private final DispatchManager dispatchManager;
@@ -85,7 +86,6 @@ public class WorkerResource
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     @Path("{nodeId}/status")
     public Response getStatus(@PathParam("nodeId") String nodeId)
@@ -93,7 +93,6 @@ public class WorkerResource
         return proxyJsonResponse(nodeId, "v1/status");
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     @Path("{nodeId}/thread")
     public Response getThreads(@PathParam("nodeId") String nodeId)
@@ -101,7 +100,6 @@ public class WorkerResource
         return proxyJsonResponse(nodeId, "v1/thread");
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     @Path("{nodeId}/task/{taskId}")
     public Response getThreads(
@@ -124,7 +122,6 @@ public class WorkerResource
         throw new GoneException();
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     public Response getWorkerList()
     {
