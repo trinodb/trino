@@ -85,8 +85,6 @@ public class IonFileWriterFactory
 
             Closeable rollbackAction = () -> fileSystem.deleteFile(location);
 
-            // we take the column names from the schema, not what was input
-            // this is what the LineWriterFactory does, I don't understand why
             List<String> fileColumnNames = getColumnNames(schema);
             List<Type> fileColumnTypes = getColumnTypes(schema).stream()
                     .map(hiveType -> getType(hiveType, typeManager, getTimestampPrecision(session)))

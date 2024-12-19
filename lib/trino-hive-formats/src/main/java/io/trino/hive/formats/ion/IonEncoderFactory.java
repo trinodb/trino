@@ -51,7 +51,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.function.IntFunction;
 
@@ -64,7 +63,7 @@ public class IonEncoderFactory
     public static IonEncoder buildEncoder(List<Column> columns)
     {
         return RowEncoder.forFields(columns.stream()
-                .map(c -> new RowType.Field(Optional.of(c.name().toLowerCase(Locale.ROOT)), c.type()))
+                .map(c -> new RowType.Field(Optional.of(c.name()), c.type()))
                 .toList());
     }
 
@@ -89,8 +88,7 @@ public class IonEncoderFactory
             case DecimalType t -> decimalEncoder(t);
             case DateType _ -> dateEncoder;
             case TimestampType t -> timestampEncoder(t);
-            case MapType t -> new MapEncoder(t, t.getKeyType(),
-                    encoderForType(t.getValueType()));
+            case MapType t -> new MapEncoder(t, t.getKeyType(), encoderForType(t.getValueType()));
             case RowType t -> RowEncoder.forFields(t.getFields());
             case ArrayType t -> new ArrayEncoder(wrapEncoder(encoderForType(t.getElementType())));
             default -> throw new IllegalArgumentException(String.format("Unsupported type: %s", type));
@@ -119,7 +117,7 @@ public class IonEncoderFactory
             ImmutableList.Builder<BlockEncoder> fieldEncodersBuilder = ImmutableList.builder();
 
             for (RowType.Field field : fields) {
-                fieldNamesBuilder.add(field.getName().get().toLowerCase(Locale.ROOT));
+                fieldNamesBuilder.add(field.getName().get());
                 fieldEncodersBuilder.add(wrapEncoder(encoderForType(field.getType())));
             }
 
