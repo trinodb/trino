@@ -47,7 +47,9 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
@@ -188,6 +190,8 @@ import static org.apache.iceberg.util.PropertyUtil.propertyAsBoolean;
 
 public final class IcebergUtil
 {
+    private static final long MICROS_IN_A_DAY = 24L * 60 * 60 * 1_000_000;
+
     public static final String TRINO_TABLE_METADATA_INFO_VALID_FOR = "trino_table_metadata_info_valid_for";
     public static final String TRINO_TABLE_COMMENT_CACHE_PREVENTED = "trino_table_comment_cache_prevented";
     public static final String COLUMN_TRINO_NOT_NULL_PROPERTY = "trino_not_null";
@@ -532,6 +536,101 @@ public final class IcebergUtil
             return name;
         }
         return '"' + name.replace("\"", "\"\"") + '"';
+    }
+
+    public static List<Domain> canEnforcePartialColumnConstraintInSpecs(
+            TypeOperators typeOperators,
+            Table table,
+            Set<Integer> partitionSpecIds,
+            IcebergColumnHandle columnHandle,
+            Domain domain)
+    {
+        List<PartitionSpec> partitionSpecs = table.specs().values().stream()
+                .filter(partitionSpec -> partitionSpecIds.contains(partitionSpec.specId()))
+                .collect(toImmutableList());
+
+        return partitionSpecs.stream()
+                .map(spec -> findPartialDomainColumnConstraintINSpec(typeOperators, spec, columnHandle, domain))
+                .flatMap(Optional::stream)
+                .collect(toImmutableList());
+    }
+
+    private static Optional<Domain> findPartialDomainColumnConstraintINSpec(TypeOperators typeOperators, PartitionSpec spec, IcebergColumnHandle column, Domain domain)
+    {
+        for (PartitionField field : spec.getFieldsBySourceId(column.getId())) {
+            if (field.transform().isVoid()) {
+                // Useless for filtering.
+                return Optional.empty();
+            }
+            if (field.transform().isIdentity()) {
+                // A predicate on an identity partitioning column can always be enforced.
+                return Optional.empty();
+            }
+
+            ColumnTransform transform = PartitionTransforms.getColumnTransform(field, column.getType());
+            if (transform.preservesNonNull()) {
+                // Partitioning transform must return NULL for NULL input.
+                // Below we assume it never returns NULL for non-NULL input,
+                // so NULL values and non-NULL values are always segregated.
+                // In practice, this condition matches the void transform only,
+                // which isn't useful for filtering anyway.
+                return Optional.empty();
+            }
+            ValueSet valueSet = domain.getValues();
+
+            Optional<Domain> optionalDomain = valueSet.getValuesProcessor().transform(
+                    ranges -> {
+                        MethodHandle targetTypeEqualOperator = typeOperators.getEqualOperator(
+                                transform.type(), InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+                        for (Range range : ranges.getOrderedRanges()) {
+                            if (!transform.monotonic()) {
+                                // E.g. bucketing transform
+                                return Optional.empty();
+                            }
+                            io.trino.spi.type.Type type = range.getType();
+                            if (!type.isOrderable()) {
+                                return Optional.empty();
+                            }
+                            if (!range.isLowUnbounded()) {
+                                Object boundedValue = range.getLowBoundedValue();
+                                Optional<Object> adjacentValue = range.isLowInclusive() ? type.getPreviousValue(boundedValue) : type.getNextValue(boundedValue);
+                                if (adjacentValue.isPresent() && yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), targetTypeEqualOperator)) {
+                                    if (field.transform().toString().equals("day")) {
+                                        Object value;
+                                        // We know the type
+                                        switch (type) {
+                                            case TimestampType timestampType:
+                                                if (timestampType.isShort()) {
+                                                    value = (long) boundedValue - MICROS_IN_A_DAY;
+                                                } else {
+                                                    LongTimestamp sqlTimestamp = (LongTimestamp) boundedValue;
+                                                    value = new LongTimestamp(sqlTimestamp.getEpochMicros() - MICROS_IN_A_DAY, sqlTimestamp.getPicosOfMicro());
+                                                }
+                                                break;
+                                            default: throw new IllegalStateException("Unsupported type: " + type);
+                                        }
+                                        return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThan(type, value)), false));
+                                    }
+                                    return Optional.empty();
+                                }
+                            }
+                            if (!range.isHighUnbounded()) {
+                                Object boundedValue = range.getHighBoundedValue();
+                                Optional<Object> adjacentValue = range.isHighInclusive() ? type.getNextValue(boundedValue) : type.getPreviousValue(boundedValue);
+                                if (adjacentValue.isPresent() && yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), targetTypeEqualOperator)) {
+                                    // TODO: return domain
+                                    return Optional.empty();
+                                }
+                            }
+                            return Optional.empty();
+                        }
+                        return Optional.empty();
+                    },
+                    discreteValues -> Optional.empty(),
+                    allOrNone -> Optional.empty());
+            return optionalDomain;
+        }
+        return Optional.empty();
     }
 
     public static boolean canEnforceColumnConstraintInSpecs(
