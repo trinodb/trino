@@ -55,6 +55,7 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 import static java.util.Objects.requireNonNull;
 
 @Path(OAuth2TokenExchangeResource.TOKEN_ENDPOINT)
+@ResourceSecurity(PUBLIC)
 public class OAuth2TokenExchangeResource
 {
     static final String TOKEN_ENDPOINT = "/oauth2/token/";
@@ -75,7 +76,6 @@ public class OAuth2TokenExchangeResource
         this.timeoutExecutor = executor.getScheduledExecutor();
     }
 
-    @ResourceSecurity(PUBLIC)
     @Path("initiate/{authIdHash}")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
@@ -84,7 +84,6 @@ public class OAuth2TokenExchangeResource
         return service.startOAuth2Challenge(externalUriInfo.absolutePath(CALLBACK_ENDPOINT), Optional.ofNullable(authIdHash));
     }
 
-    @ResourceSecurity(PUBLIC)
     @Path("{authId}")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
@@ -119,7 +118,6 @@ public class OAuth2TokenExchangeResource
         return Response.ok(jsonMap("nextUri", request.getRequestURL()), APPLICATION_JSON_TYPE).build();
     }
 
-    @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("{authId}")
     public Response deleteAuthenticationToken(@PathParam("authId") UUID authId)

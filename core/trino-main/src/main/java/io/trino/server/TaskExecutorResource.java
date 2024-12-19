@@ -25,6 +25,7 @@ import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_RE
 import static java.util.Objects.requireNonNull;
 
 @Path("/v1/maxActiveSplits")
+@ResourceSecurity(MANAGEMENT_READ)
 public class TaskExecutorResource
 {
     private final TimeSharingTaskExecutor taskExecutor;
@@ -36,7 +37,6 @@ public class TaskExecutorResource
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
     }
 
-    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     @Produces(MediaType.TEXT_PLAIN)
     public String getMaxActiveSplit()

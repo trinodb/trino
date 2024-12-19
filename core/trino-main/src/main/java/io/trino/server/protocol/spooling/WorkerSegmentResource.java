@@ -47,7 +47,6 @@ public class WorkerSegmentResource
 
     @GET
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
-    @ResourceSecurity(PUBLIC)
     public Response download(@PathParam("identifier") String identifier, @Context HttpHeaders headers)
             throws IOException
     {
