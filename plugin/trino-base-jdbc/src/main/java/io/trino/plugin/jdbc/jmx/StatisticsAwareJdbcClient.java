@@ -366,6 +366,18 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public void finishUpdateTable(ConnectorSession session, JdbcOutputTableHandle handle, List<JdbcColumnHandle> primaryKeys, Set<Long> pageSinkIds)
+    {
+        stats.getFinishUpdateTable().wrap(() -> delegate().finishUpdateTable(session, handle, primaryKeys, pageSinkIds));
+    }
+
+    @Override
+    public void finishDeleteTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
+    {
+        stats.getFinishDeleteTable().wrap(() -> delegate().finishDeleteTable(session, handle, pageSinkIds));
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle)
     {
         stats.getDropTable().wrap(() -> delegate().dropTable(session, jdbcTableHandle));
