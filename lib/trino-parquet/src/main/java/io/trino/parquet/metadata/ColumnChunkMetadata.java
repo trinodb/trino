@@ -23,6 +23,9 @@ import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import java.util.Set;
 
+import static org.apache.parquet.column.Encoding.PLAIN_DICTIONARY;
+import static org.apache.parquet.column.Encoding.RLE_DICTIONARY;
+
 public abstract class ColumnChunkMetadata
 {
     protected int rowGroupOrdinal = -1;
@@ -199,5 +202,17 @@ public abstract class ColumnChunkMetadata
     {
         decryptIfNeeded();
         return "ColumnMetaData{" + properties.toString() + ", " + getFirstDataPageOffset() + "}";
+    }
+
+    public boolean hasDictionaryPage()
+    {
+        EncodingStats stats = getEncodingStats();
+        if (stats != null) {
+            // ensure there is a dictionary page and that it is used to encode data pages
+            return stats.hasDictionaryPages() && stats.hasDictionaryEncodedPages();
+        }
+
+        Set<Encoding> encodings = getEncodings();
+        return (encodings.contains(PLAIN_DICTIONARY) || encodings.contains(RLE_DICTIONARY));
     }
 }
