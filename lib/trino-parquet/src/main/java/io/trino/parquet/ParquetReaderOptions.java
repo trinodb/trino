@@ -36,6 +36,7 @@ public class ParquetReaderOptions
     private final boolean useBloomFilter;
     private final DataSize smallFileThreshold;
     private final boolean vectorizedDecodingEnabled;
+    private final ParquetReaderEncryptionOptions parquetReaderEncryptionOptions;
 
     public ParquetReaderOptions()
     {
@@ -48,6 +49,7 @@ public class ParquetReaderOptions
         useBloomFilter = true;
         smallFileThreshold = DEFAULT_SMALL_FILE_THRESHOLD;
         vectorizedDecodingEnabled = true;
+        parquetReaderEncryptionOptions = new ParquetReaderEncryptionOptions();
     }
 
     private ParquetReaderOptions(
@@ -59,7 +61,8 @@ public class ParquetReaderOptions
             boolean useColumnIndex,
             boolean useBloomFilter,
             DataSize smallFileThreshold,
-            boolean vectorizedDecodingEnabled)
+            boolean vectorizedDecodingEnabled,
+            ParquetReaderEncryptionOptions parquetReaderEncryptionOptions)
     {
         this.ignoreStatistics = ignoreStatistics;
         this.maxReadBlockSize = requireNonNull(maxReadBlockSize, "maxReadBlockSize is null");
@@ -71,6 +74,7 @@ public class ParquetReaderOptions
         this.useBloomFilter = useBloomFilter;
         this.smallFileThreshold = requireNonNull(smallFileThreshold, "smallFileThreshold is null");
         this.vectorizedDecodingEnabled = vectorizedDecodingEnabled;
+        this.parquetReaderEncryptionOptions = parquetReaderEncryptionOptions;
     }
 
     public boolean isIgnoreStatistics()
@@ -118,6 +122,91 @@ public class ParquetReaderOptions
         return smallFileThreshold;
     }
 
+    public String getCryptoFactoryClass()
+    {
+        return parquetReaderEncryptionOptions.cryptoFactoryClass;
+    }
+
+    public long getEncryptionCacheLifetimeSeconds()
+    {
+        return this.parquetReaderEncryptionOptions.encryptionCacheLifetimeSeconds;
+    }
+
+    public String getEncryptionKeyAccessToken()
+    {
+        return this.parquetReaderEncryptionOptions.encryptionKeyAccessToken;
+    }
+
+    public String getEncryptionKmsInstanceId()
+    {
+        return this.parquetReaderEncryptionOptions.encryptionKmsInstanceId;
+    }
+
+    public String getEncryptionKmsInstanceUrl()
+    {
+        return this.parquetReaderEncryptionOptions.encryptionKmsInstanceUrl;
+    }
+
+    public String getEncryptionKmsClientClass()
+    {
+        return this.parquetReaderEncryptionOptions.encryptionKmsClientClass;
+    }
+
+    public boolean isUniformEncryption()
+    {
+        return parquetReaderEncryptionOptions.uniformEncryption;
+    }
+
+    public boolean isEncryptionParameterChecked()
+    {
+        return parquetReaderEncryptionOptions.encryptionParameterChecked;
+    }
+
+    public String getFailsafeEncryptionKeyId()
+    {
+        return parquetReaderEncryptionOptions.failsafeEncryptionKeyId;
+    }
+
+    public String getEncryptionColumnKeys()
+    {
+        return parquetReaderEncryptionOptions.columnKeys;
+    }
+
+    public String getEncryptionFooterKeyId()
+    {
+        return parquetReaderEncryptionOptions.footerKeyId;
+    }
+
+    public String[] getEncryptionVersionedKeyList()
+    {
+        return parquetReaderEncryptionOptions.versionedKeyList;
+    }
+
+    public String[] getEncryptionKeyList()
+    {
+        return parquetReaderEncryptionOptions.keyList;
+    }
+
+    public String getEncryptionKeyFile()
+    {
+        return parquetReaderEncryptionOptions.keyFile;
+    }
+
+    public boolean isEncryptionEnvironmentKeys()
+    {
+        return parquetReaderEncryptionOptions.isEncryptionEnvironmentKeys;
+    }
+
+    public void setEncryptionParameterChecked(boolean encryptionParameterChecked)
+    {
+        parquetReaderEncryptionOptions.encryptionParameterChecked = encryptionParameterChecked;
+    }
+
+    public ParquetReaderEncryptionOptions encryptionOptions()
+    {
+        return this.parquetReaderEncryptionOptions;
+    }
+
     public ParquetReaderOptions withIgnoreStatistics(boolean ignoreStatistics)
     {
         return new ParquetReaderOptions(
@@ -129,7 +218,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                parquetReaderEncryptionOptions);
     }
 
     public ParquetReaderOptions withMaxReadBlockSize(DataSize maxReadBlockSize)
@@ -143,7 +233,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                parquetReaderEncryptionOptions);
     }
 
     public ParquetReaderOptions withMaxReadBlockRowCount(int maxReadBlockRowCount)
@@ -157,7 +248,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                parquetReaderEncryptionOptions);
     }
 
     public ParquetReaderOptions withMaxMergeDistance(DataSize maxMergeDistance)
@@ -171,7 +263,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                parquetReaderEncryptionOptions);
     }
 
     public ParquetReaderOptions withMaxBufferSize(DataSize maxBufferSize)
@@ -185,7 +278,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                parquetReaderEncryptionOptions);
     }
 
     public ParquetReaderOptions withUseColumnIndex(boolean useColumnIndex)
@@ -199,7 +293,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                parquetReaderEncryptionOptions);
     }
 
     public ParquetReaderOptions withBloomFilter(boolean useBloomFilter)
@@ -213,7 +308,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                parquetReaderEncryptionOptions);
     }
 
     public ParquetReaderOptions withSmallFileThreshold(DataSize smallFileThreshold)
@@ -227,7 +323,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                parquetReaderEncryptionOptions);
     }
 
     public ParquetReaderOptions withVectorizedDecodingEnabled(boolean vectorizedDecodingEnabled)
@@ -241,6 +338,22 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                parquetReaderEncryptionOptions);
+    }
+
+    public ParquetReaderOptions withEncryptionOption(ParquetReaderEncryptionOptions encryptionOptions)
+    {
+        return new ParquetReaderOptions(
+                ignoreStatistics,
+                maxReadBlockSize,
+                maxReadBlockRowCount,
+                maxMergeDistance,
+                maxBufferSize,
+                useColumnIndex,
+                useBloomFilter,
+                smallFileThreshold,
+                vectorizedDecodingEnabled,
+                encryptionOptions);
     }
 }
