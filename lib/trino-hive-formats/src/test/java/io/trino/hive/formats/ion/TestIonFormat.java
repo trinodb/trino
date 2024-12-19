@@ -436,6 +436,27 @@ public class TestIonFormat
     }
 
     @Test
+    public void testEncodeTimestamp()
+            throws IOException
+    {
+        List<Column> timestampColumn = List.of(new Column("my_ts", TimestampType.TIMESTAMP_NANOS, 0));
+        Page page = toPage(timestampColumn, List.of(
+                toSqlTimestamp(TimestampType.TIMESTAMP_NANOS, LocalDateTime.of(2024, 11, 23, 1, 23, 45, 666777888))));
+        assertIonEquivalence(timestampColumn, page, "{ my_ts: 2024-11-23T01:23:45.666777888Z }");
+    }
+
+    @Test
+    public void testEncodeMixedCaseColumn()
+            throws IOException
+    {
+        List<Column> casedColumn = List.of(
+                new Column("TheAnswer", INTEGER, 0));
+
+        Page page = toPage(casedColumn, List.of(42));
+        assertIonEquivalence(casedColumn, page, "{ TheAnswer: 42 }");
+    }
+
+    @Test
     public void testEncodeWithNullField()
             throws IOException
     {
