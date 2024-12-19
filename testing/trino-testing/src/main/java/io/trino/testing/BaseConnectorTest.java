@@ -5014,6 +5014,43 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testUpdateWithNullValues()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_nulls", "AS SELECT * FROM nation")) {
+            String tableName = table.getName();
+            assertUpdate("UPDATE " + tableName + " SET nationkey = 100 WHERE regionkey = 2", 5);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey = 100", "VALUES 5");
+
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey IS NULL", "VALUES 0");
+            assertUpdate("UPDATE " + tableName + " SET nationkey = NULL WHERE regionkey = 2", 5);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey IS NULL", "VALUES 5");
+        }
+
+        if (!hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT)) {
+            return;
+        }
+
+        try (TestTable table = createTestTableForWrites("test_update_nulls", "(nullable_col1 INTEGER, nullable_col2 INTEGER, not_null_col INTEGER NOT NULL, pk INT)", "pk")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1, 1, 1), (2, 2, 2, 2)", 2);
+            assertUpdate("UPDATE " + tableName + " SET nullable_col1 = 10 WHERE not_null_col = 1", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (10, 1, 1, 1), (2, 2, 2, 2)");
+
+            assertUpdate("UPDATE " + tableName + " SET nullable_col2 = null WHERE not_null_col = 1", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (10, null, 1, 1), (2, 2, 2, 2)");
+
+            if (hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
+                assertQueryFails("UPDATE " + tableName + " SET not_null_col = TRY(1 / 0) WHERE not_null_col = 2", "NULL value not allowed for NOT NULL column: not_null_col");
+            }
+            else {
+                assertQueryFails("UPDATE " + tableName + " SET not_null_col = TRY(1 / 0) WHERE not_null_col = 2", MODIFYING_ROWS_MESSAGE);
+            }
+        }
+    }
+
+    @Test
     public void testRowLevelUpdate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
