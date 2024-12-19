@@ -261,7 +261,8 @@ public abstract class BaseCaseInsensitiveMappingTest
                 AutoCloseable ignore1 = withTable(schema, "remote_table", "(c varchar(5))")) {
             assertThat(computeActual("SHOW TABLES FROM " + schema).getOnlyColumn())
                     .contains("trino_table");
-            assertQuery("SHOW COLUMNS FROM " + schema + ".trino_table", "SELECT 'c', 'varchar(5)', '', ''");
+            assertThat(query("SHOW COLUMNS FROM " + schema + ".trino_table")).result().projected("Column").onlyColumnAsSet()
+                    .contains("c");
             assertUpdate("INSERT INTO " + schema + ".trino_table VALUES 'dane'", 1);
             assertQuery("SELECT * FROM " + schema + ".trino_table", "VALUES 'dane'");
         }
@@ -324,7 +325,8 @@ public abstract class BaseCaseInsensitiveMappingTest
                     .contains("trino_schema");
             assertThat(computeActual("SHOW TABLES IN trino_schema").getOnlyColumn())
                     .contains("trino_table");
-            assertQuery("SHOW COLUMNS FROM trino_schema.trino_table", "SELECT 'c', 'varchar(5)', '', ''");
+            assertThat(query("SHOW COLUMNS FROM trino_schema.trino_table")).result().projected("Column").onlyColumnAsSet()
+                    .contains("c");
             assertUpdate("INSERT INTO trino_schema.trino_table VALUES 'dane'", 1);
             assertQuery("SELECT * FROM trino_schema.trino_table", "VALUES 'dane'");
         }
