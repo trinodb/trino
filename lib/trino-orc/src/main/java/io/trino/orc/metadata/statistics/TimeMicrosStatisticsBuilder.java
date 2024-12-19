@@ -30,6 +30,7 @@ public class TimeMicrosStatisticsBuilder
     private long minimum = Long.MAX_VALUE;
     private long maximum = Long.MIN_VALUE;
     private long sum;
+    private boolean hasNull;
     private boolean overflow;
 
     private final BloomFilterBuilder bloomFilterBuilder;
@@ -69,7 +70,7 @@ public class TimeMicrosStatisticsBuilder
         if (nonNullValueCount == 0) {
             return Optional.empty();
         }
-        return Optional.of(new IntegerStatistics(minimum, maximum, overflow ? null : sum));
+        return Optional.of(new IntegerStatistics(minimum, maximum, overflow ? null : sum, hasNull));
     }
 
     @Override
@@ -89,5 +90,10 @@ public class TimeMicrosStatisticsBuilder
                 null,
                 null,
                 bloomFilterBuilder.buildBloomFilter());
+    }
+
+    @Override
+    public void setHasNull(boolean hasNull) {
+        this.hasNull = hasNull;
     }
 }

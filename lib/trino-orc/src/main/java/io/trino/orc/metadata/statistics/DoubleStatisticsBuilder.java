@@ -28,6 +28,7 @@ public class DoubleStatisticsBuilder
 {
     private long nonNullValueCount;
     private long nanValueCount;
+    private boolean hasNull;
     private double minimum = Double.POSITIVE_INFINITY;
     private double maximum = Double.NEGATIVE_INFINITY;
 
@@ -51,6 +52,8 @@ public class DoubleStatisticsBuilder
                     value = type.getDouble(block, position);
                 }
                 addValue(value);
+            } else {
+                hasNull = true;
             }
         }
     }
@@ -88,6 +91,7 @@ public class DoubleStatisticsBuilder
         nonNullValueCount += valueCount;
         minimum = Math.min(value.getMin(), minimum);
         maximum = Math.max(value.getMax(), maximum);
+        hasNull |= value.hasNull();
     }
 
     private Optional<DoubleStatistics> buildDoubleStatistics()
@@ -96,7 +100,7 @@ public class DoubleStatisticsBuilder
         if (nonNullValueCount == 0 || nanValueCount > 0) {
             return Optional.empty();
         }
-        return Optional.of(new DoubleStatistics(minimum, maximum));
+        return Optional.of(new DoubleStatistics(minimum, maximum, hasNull));
     }
 
     @Override
@@ -116,6 +120,11 @@ public class DoubleStatisticsBuilder
                 null,
                 null,
                 bloomFilterBuilder.buildBloomFilter());
+    }
+
+    @Override
+    public void setHasNull(boolean hasNull) {
+        this.hasNull = hasNull;
     }
 
     public static Optional<DoubleStatistics> mergeDoubleStatistics(List<ColumnStatistics> stats)
