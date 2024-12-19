@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.trino.filesystem.Location;
+import io.trino.parquet.ParquetCorruptionException;
 import org.apache.iceberg.FileFormat;
 import org.junit.jupiter.api.AfterAll;
 
@@ -60,6 +61,7 @@ public class TestIcebergMinioParquetCachingConnectorSmokeTest
 
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
+            throws ParquetCorruptionException
     {
         return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
     }

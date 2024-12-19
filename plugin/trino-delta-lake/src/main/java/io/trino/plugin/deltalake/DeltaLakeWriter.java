@@ -22,7 +22,7 @@ import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
-import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.hive.FileWriter;
@@ -184,7 +184,7 @@ public final class DeltaLakeWriter
     {
         Location path = rootTableLocation.appendPath(relativeFilePath);
         FileMetaData fileMetaData = fileWriter.getFileMetadata();
-        ParquetMetadata parquetMetadata = MetadataReader.createParquetMetadata(fileMetaData, new ParquetDataSourceId(path.toString()));
+        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, new ParquetDataSourceId(path.toString()), Optional.empty());
 
         return new DataFileInfo(
                 relativeFilePath,
@@ -204,7 +204,8 @@ public final class DeltaLakeWriter
                 .collect(toImmutableMap(column -> column.basePhysicalColumnName().toLowerCase(ENGLISH), DeltaLakeColumnHandle::basePhysicalType));
 
         ImmutableMultimap.Builder<String, ColumnChunkMetadata> metadataForColumn = ImmutableMultimap.builder();
-        for (BlockMetadata blockMetaData : parquetMetadata.getBlocks()) {
+        for (RowGroupInfo rowGroupInfo : parquetMetadata.getRowGroupInfo()) {
+            BlockMetadata blockMetaData = rowGroupInfo.prunedBlockMetadata().getBlockMetadata();
             for (ColumnChunkMetadata columnChunkMetaData : blockMetaData.columns()) {
                 if (columnChunkMetaData.getPath().size() != 1) {
                     continue; // Only base column stats are supported

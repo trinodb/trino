@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.trino.filesystem.Location;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
@@ -249,6 +250,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
 
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
+            throws ParquetCorruptionException
     {
         if (format == PARQUET) {
             return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
