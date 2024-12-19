@@ -46,6 +46,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
+import static io.trino.plugin.deltalake.DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
 import static io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
 import static io.trino.plugin.deltalake.transactionlog.TableSnapshot.load;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
@@ -98,19 +99,23 @@ public class TestTableSnapshot
                             parquetReaderOptions,
                             true,
                             domainCompactionThreshold,
+                            DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE,
                             Optional.empty()));
                 },
                 ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation("_last_checkpoint", "InputFile.newStream"), 1)
-                        .addCopies(new FileOperation("00000000000000000011.json", "InputFile.newStream"), 1)
-                        .addCopies(new FileOperation("00000000000000000012.json", "InputFile.newStream"), 1)
-                        .addCopies(new FileOperation("00000000000000000013.json", "InputFile.newStream"), 1)
-                        .addCopies(new FileOperation("00000000000000000014.json", "InputFile.newStream"), 1)
+                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
                         .build());
 
         assertFileSystemAccesses(
                 () -> {
-                    tableSnapshot.get().getJsonTransactionLogEntries().forEach(entry -> {});
+                    tableSnapshot.get().getJsonTransactionLogEntries(trackingFileSystem).forEach(entry -> {});
                 },
                 ImmutableMultiset.of());
     }
@@ -129,6 +134,7 @@ public class TestTableSnapshot
                 parquetReaderOptions,
                 true,
                 domainCompactionThreshold,
+                DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE,
                 Optional.empty());
         TestingConnectorContext context = new TestingConnectorContext();
         TypeManager typeManager = context.getTypeManager();
@@ -257,6 +263,7 @@ public class TestTableSnapshot
                 parquetReaderOptions,
                 true,
                 domainCompactionThreshold,
+                DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE,
                 Optional.empty());
         assertThat(tableSnapshot.getVersion()).isEqualTo(13L);
     }

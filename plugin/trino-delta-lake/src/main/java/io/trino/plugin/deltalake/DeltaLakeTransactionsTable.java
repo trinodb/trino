@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
@@ -62,12 +63,13 @@ public class DeltaLakeTransactionsTable
     }
 
     @Override
-    protected List<Page> buildPages(ConnectorSession session, PageListBuilder pagesBuilder, List<Transaction> transactions)
+    protected List<Page> buildPages(ConnectorSession session, PageListBuilder pagesBuilder, List<Transaction> transactions, TrinoFileSystem fileSystem)
     {
         for (Transaction transaction : transactions) {
             pagesBuilder.beginRow();
             pagesBuilder.appendBigint(transaction.transactionId());
-            pagesBuilder.appendVarchar(TRANSACTION_LOG_ENTRIES_CODEC.toJson(transaction.transactionEntries()));
+            pagesBuilder.appendVarchar(TRANSACTION_LOG_ENTRIES_CODEC.toJson(
+                    transaction.transactionEntries().getEntriesList(fileSystem)));
             pagesBuilder.endRow();
         }
         return pagesBuilder.build();

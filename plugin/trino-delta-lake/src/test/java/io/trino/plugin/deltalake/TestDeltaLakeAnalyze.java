@@ -42,6 +42,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.plugin.deltalake.DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STATISTICS_COLLECT_ON_WRITE;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
@@ -1009,7 +1010,9 @@ public class TestDeltaLakeAnalyze
                         """);
 
         // Version 3 should be created with recalculated statistics.
-        List<DeltaLakeTransactionLogEntry> transactionLogAfterUpdate = getEntriesFromJson(3, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow();
+        List<DeltaLakeTransactionLogEntry> transactionLogAfterUpdate = getEntriesFromJson(3, tableLocation + "/_delta_log", FILE_SYSTEM, DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE)
+                .orElseThrow()
+                .getEntriesList(FILE_SYSTEM);
         assertThat(transactionLogAfterUpdate).hasSize(2);
         AddFileEntry updateAddFileEntry = transactionLogAfterUpdate.get(1).getAdd();
         DeltaLakeFileStatistics updateStats = updateAddFileEntry.getStats().orElseThrow();
