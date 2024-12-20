@@ -401,6 +401,13 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
 
     private String getDatabricksDefaultTableProperties()
     {
+        if (databricksRuntimeVersion.equals(DATABRICKS_104_RUNTIME_VERSION)) {
+            return "TBLPROPERTIES (\n" +
+                    "  'Type' = 'EXTERNAL',\n" +
+                    "  'delta.enableDeletionVectors' = 'false',\n" +
+                    "  'delta.minReaderVersion' = '1',\n" +
+                    "  'delta.minWriterVersion' = '2')\n";
+        }
         if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
             return "TBLPROPERTIES (\n" +
                     "  'delta.enableDeletionVectors' = 'false',\n" +
