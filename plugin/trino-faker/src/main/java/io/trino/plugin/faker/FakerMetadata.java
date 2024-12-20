@@ -64,8 +64,6 @@ import java.util.Optional;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.faker.TableInfo.DEFAULT_LIMIT_PROPERTY;
-import static io.trino.plugin.faker.TableInfo.NULL_PROBABILITY_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -147,7 +145,7 @@ public class FakerMetadata
             return null;
         }
         long schemaLimit = (long) schema.properties().getOrDefault(SchemaInfo.DEFAULT_LIMIT_PROPERTY, defaultLimit);
-        long tableLimit = (long) tables.get(tableName).properties().getOrDefault(DEFAULT_LIMIT_PROPERTY, schemaLimit);
+        long tableLimit = (long) tables.get(tableName).properties().getOrDefault(TableInfo.DEFAULT_LIMIT_PROPERTY, schemaLimit);
         return new FakerTableHandle(tableName, TupleDomain.all(), tableLimit);
     }
 
@@ -237,15 +235,15 @@ public class FakerMetadata
 
         TableInfo oldInfo = tables.get(tableName);
         ImmutableMap.Builder updatedProperties = ImmutableMap.<String, Object>builder().putAll(oldInfo.properties());
-        if (properties.containsKey(NULL_PROBABILITY_PROPERTY)) {
-            double nullProbability = (double) properties.get(NULL_PROBABILITY_PROPERTY)
+        if (properties.containsKey(TableInfo.NULL_PROBABILITY_PROPERTY)) {
+            double nullProbability = (double) properties.get(TableInfo.NULL_PROBABILITY_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The null_probability property cannot be empty"));
-            updatedProperties.put(NULL_PROBABILITY_PROPERTY, nullProbability);
+            updatedProperties.put(TableInfo.NULL_PROBABILITY_PROPERTY, nullProbability);
         }
-        if (properties.containsKey(DEFAULT_LIMIT_PROPERTY)) {
-            long defaultLimit = (long) properties.get(DEFAULT_LIMIT_PROPERTY)
+        if (properties.containsKey(TableInfo.DEFAULT_LIMIT_PROPERTY)) {
+            long defaultLimit = (long) properties.get(TableInfo.DEFAULT_LIMIT_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The default_limit property cannot be empty"));
-            updatedProperties.put(DEFAULT_LIMIT_PROPERTY, defaultLimit);
+            updatedProperties.put(TableInfo.DEFAULT_LIMIT_PROPERTY, defaultLimit);
         }
         tables.put(tableName, oldInfo.withProperties(updatedProperties.buildOrThrow()));
     }
@@ -302,7 +300,7 @@ public class FakerMetadata
         checkTableNotExists(tableMetadata.getTable());
 
         double schemaNullProbability = (double) schema.properties().getOrDefault(SchemaInfo.NULL_PROBABILITY_PROPERTY, nullProbability);
-        double tableNullProbability = (double) tableMetadata.getProperties().getOrDefault(NULL_PROBABILITY_PROPERTY, schemaNullProbability);
+        double tableNullProbability = (double) tableMetadata.getProperties().getOrDefault(TableInfo.NULL_PROBABILITY_PROPERTY, schemaNullProbability);
 
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         int columnId = 0;

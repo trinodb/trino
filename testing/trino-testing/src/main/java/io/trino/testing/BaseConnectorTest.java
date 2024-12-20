@@ -4252,12 +4252,6 @@ public abstract class BaseConnectorTest
         }
     }
 
-    protected String getTableComment(String catalogName, String schemaName, String tableName)
-    {
-        String sql = format("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'", catalogName, schemaName, tableName);
-        return (String) computeScalar(sql);
-    }
-
     @Test
     public void testCommentView()
     {
