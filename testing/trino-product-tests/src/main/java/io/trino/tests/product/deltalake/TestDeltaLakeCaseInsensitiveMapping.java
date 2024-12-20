@@ -29,7 +29,7 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_113;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_122;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_133;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_143;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_104;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_143_RUNTIME_VERSION;
@@ -192,7 +192,7 @@ public class TestDeltaLakeCaseInsensitiveMapping
     }
 
     // Exclude 10.4 because it throws MISSING_COLUMN when executing INSERT statement
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testIdentityColumnWithNonLowerCaseColumnName()
     {
