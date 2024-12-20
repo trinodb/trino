@@ -850,4 +850,43 @@ final class TestFakerQueries
 
         assertUpdate("DROP TABLE faker.default.all_types_in");
     }
+
+    @Test
+    void testRenameTable(){
+            assertUpdate("CREATE TABLE faker.default.original_table (id INTEGER, name VARCHAR)");
+            assertUpdate("ALTER TABLE faker.default.original_table RENAME TO faker.default.renamed_table");
+            assertUpdate("DROP TABLE faker.default.renamed_table");
+    }
+
+
+    @Test
+    void testSetTableProperties(){
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "table", "(id INTEGER, name VARCHAR)")) {
+            assertUpdate("ALTER TABLE %s SET PROPERTIES default_limit = 100".formatted(table.getName()));
+            assertQueryFails("ALTER TABLE %s SET PROPERTIES invalid_property = true".formatted(table.getName()), "(?s).*Catalog 'faker' table property 'invalid_property' does not exist");
+            assertThat(computeActual("SHOW CREATE TABLE %s".formatted(table.getName())).getOnlyValue())
+                    .isEqualTo("""
+                            CREATE TABLE faker.default.%s (
+                               id integer,
+                               name varchar
+                            )
+                            WITH (
+                               default_limit = 100
+                            )""".formatted(table.getName()));
+        }
+    }
+
+    @Test
+    void testTableComment()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "table_comment", "(id INTEGER, name VARCHAR)")) {
+            assertUpdate("COMMENT ON TABLE %s IS 'this is a test table'".formatted(table.getName()));
+            assertThat(computeScalar("SHOW CREATE TABLE %s".formatted(table.getName()))).isEqualTo("""
+                            CREATE TABLE faker.default.%s (
+                               id integer,
+                               name varchar
+                            )
+                            COMMENT 'this is a test table'""".formatted(table.getName()));
+        }
+    }
 }
