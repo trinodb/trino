@@ -1318,6 +1318,59 @@ The output of the query has the following columns:
   - File metrics in human-readable form.
 :::
 
+##### `$entries` table
+
+The `$entries` table provides all the table's current manifest entries for both 
+data and delete files.
+
+To retrieve the information about the entries of the Iceberg table
+`test_table`, use the following query:
+
+```
+SELECT * FROM "test_table$entries"
+```
+
+Abbreviated sample output:
+```text
+ status |   snapshot_id  | sequence_number | file_sequence_number |              data_file              |                readable_metrics                |
+--------+----------------+-----------------+----------------------+-------------------------------------+------------------------------------------------+
+      2 | 57897183625154 |              0  |                   0  | {"content":0,...,"sort_order_id":0} | {"c1":{"column_size":103,...,"upper_bound":3}} |
+```
+
+The output of the query has the following columns:
+
+:::{list-table} Files columns
+:widths: 25, 30, 45
+:header-rows: 1
+
+* - Name
+  - Type
+  - Description
+* - `status`
+  - `INTEGER`
+  - Numeric status indication to track additions and deletions. Deletes are informational only and 
+    not used in scans:
+      * `EXISTING(0)`
+      * `ADDED(1)`
+      * `DELETED(2)`
+* - `snapshot_id`
+  - `BIGINT`
+  - The snapshot ID of the reference.
+* - `sequence_number`
+  - `BIGINT`
+  - Data sequence number of the file. Inherited when null and status is 1.
+* - `file_sequence_number`
+  - `BIGINT`
+  - File sequence number indicating when the file was added. Inherited when null
+    and status is 1.
+* - `data_file`
+  - `ROW`
+  - Metadata including file path, file format, file size and other information.
+* - `readable_metrics`
+  - `JSON`
+  - JSON-formatted file metrics such as column size, value count, and others.
+:::
+
 ##### `$refs` table
 
 The `$refs` table provides information about Iceberg references including
