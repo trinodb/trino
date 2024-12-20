@@ -19,7 +19,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
@@ -52,7 +52,8 @@ final class TestIcebergLocalConcurrentWrites
         return IcebergQueryRunner.builder().build();
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentInserts()
             throws Exception
     {
@@ -101,7 +102,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentInsertsSelectingFromTheSameTable()
             throws Exception
     {
@@ -148,7 +150,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentInsertsSelectingFromTheSameVersionedTable()
             throws Exception
     {
@@ -197,7 +200,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentDelete()
             throws Exception
     {
@@ -238,7 +242,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentDeleteFromTheSamePartition()
             throws Exception
     {
@@ -273,7 +278,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentTruncate()
             throws Exception
     {
@@ -308,7 +314,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentTruncateAndInserts()
             throws Exception
     {
@@ -349,7 +356,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentNonOverlappingUpdate()
             throws Exception
     {
@@ -390,7 +398,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentOverlappingUpdate()
             throws Exception
     {
@@ -455,7 +464,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentNonOverlappingUpdateOnNestedPartition()
             throws Exception
     {
@@ -502,7 +512,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentDeleteAndInserts()
             throws Exception
     {
@@ -579,7 +590,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentUpdateAndInserts()
             throws Exception
     {
@@ -657,7 +669,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentMergeAndInserts()
             throws Exception
     {
@@ -737,7 +750,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentDeleteAndDeletePushdownAndInsert()
             throws Exception
     {
@@ -781,7 +795,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentUpdateWithPartitionTransformation()
             throws Exception
     {
@@ -824,7 +839,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentUpdateWithNestedPartitionTransformation()
             throws Exception
     {
@@ -867,7 +883,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentUpdateWithMultiplePartitionTransformation()
             throws Exception
     {
@@ -924,7 +941,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentUpdateWithOverlappingPartitionTransformation()
             throws Exception
     {
@@ -985,7 +1003,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentUpdateWithEnforcedAndUnenforcedPartitions()
             throws Exception
     {
