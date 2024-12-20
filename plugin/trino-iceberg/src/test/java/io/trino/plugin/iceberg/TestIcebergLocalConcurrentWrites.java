@@ -658,6 +658,64 @@ final class TestIcebergLocalConcurrentWrites
     }
 
     @Test
+    public void testConcurrentMerge()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_merges_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioning = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
+        // Add more files in the partition 30
+        assertUpdate("INSERT INTO " + tableName + " VALUES (22, 30)", 1);
+
+        try {
+            // merge data concurrently by using non-overlapping partition predicate
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        """
+                                                MERGE INTO %s t USING (VALUES (12, 20)) AS s(a, part)
+                                                  ON (FALSE)
+                                                    WHEN NOT MATCHED THEN INSERT (a, part) VALUES(s.a, s.part)
+                                                """.formatted(tableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        """
+                                                MERGE INTO %s t USING (VALUES (21, 30)) AS s(a, part)
+                                                  ON (t.part = s.part)
+                                                    WHEN MATCHED THEN DELETE
+                                                """.formatted(tableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        """
+                                                MERGE INTO %s t USING (VALUES (32, 40)) AS s(a, part)
+                                                  ON (t.part = s.part)
+                                                    WHEN MATCHED THEN UPDATE SET a = s.a
+                                                """.formatted(tableName));
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (12, 20), (32, 40)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    @Test
     void testConcurrentMergeAndInserts()
             throws Exception
     {
@@ -776,6 +834,82 @@ final class TestIcebergLocalConcurrentWrites
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    public void testConcurrentMergeWithTwoConditions()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String targetTableName = "test_concurrent_merges_target_table_" + randomNameSuffix();
+        String sourceTableName = "test_concurrent_merges_source_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + sourceTableName + " (bigint_source BIGINT, timestamp_source TIMESTAMP)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES (10, TIMESTAMP '2024-01-01 00:00:01'), (10, TIMESTAMP '2024-01-02 00:00:01'), (10, TIMESTAMP '2024-01-03 00:00:01')", 3);
+        assertUpdate("CREATE TABLE " + targetTableName + " (a BIGINT, bigint_target BIGINT, date_target DATE)  WITH (partitioning = ARRAY['bigint_target', 'date_target'])");
+        assertUpdate("INSERT INTO " + targetTableName + " VALUES (1, 10, DATE '2024-01-01'), (2, 10, DATE '2024-01-02'), (3, 10, DATE '2024-01-03')", 3);
+
+        try {
+            // merge data concurrently by using non-overlapping partition predicate (different day in timestamps)
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        """
+                                                MERGE INTO %s t USING (SELECT bigint_source, DATE(timestamp_source) AS date_source from %s
+                                                                      WHERE timestamp_source BETWEEN TIMESTAMP '2024-01-01 00:00:00' AND TIMESTAMP '2024-01-01 23:59:59.999999'
+                                                                         AND bigint_source IN (10)) AS s
+                                                  ON (t.bigint_target = s.bigint_source AND t.date_target = s.date_source)
+                                                   WHEN MATCHED THEN UPDATE SET
+                                                    a = a + 1
+                                                """.formatted(targetTableName, sourceTableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        """
+                                                MERGE INTO %s t USING (SELECT bigint_source, DATE(timestamp_source) AS date_source from %s
+                                                                      WHERE timestamp_source BETWEEN TIMESTAMP '2024-01-02 00:00:00' AND TIMESTAMP '2024-01-02 23:59:59.999999'
+                                                                         AND bigint_source IN (10)) AS s
+                                                  ON (t.bigint_target = s.bigint_source AND t.date_target = s.date_source)
+                                                   WHEN MATCHED THEN UPDATE SET
+                                                    a = a + 10
+                                                """.formatted(targetTableName, sourceTableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        """
+                                                MERGE INTO %s t USING (SELECT bigint_source, DATE(timestamp_source) AS date_source from %s
+                                                                      WHERE timestamp_source BETWEEN TIMESTAMP '2024-01-03 00:00:00' AND TIMESTAMP '2024-01-03 23:59:59.999999'
+                                                                         AND bigint_source IN (10)) AS s
+                                                  ON (t.bigint_target = s.bigint_source AND t.date_target = s.date_source)
+                                                   WHEN MATCHED THEN UPDATE SET
+                                                    a = a + 100
+                                                """.formatted(targetTableName, sourceTableName));
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + targetTableName))
+                    .matches("""
+                            VALUES
+                            (CAST(2 AS BIGINT), CAST(10 AS BIGINT), DATE '2024-01-01'),
+                            (CAST(12 AS BIGINT), CAST(10 AS BIGINT), DATE '2024-01-02'),
+                            (CAST(103 AS BIGINT), CAST(10 AS BIGINT), DATE '2024-01-03')
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + sourceTableName);
+            assertUpdate("DROP TABLE " + targetTableName);
             executor.shutdownNow();
             assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }

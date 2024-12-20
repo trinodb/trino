@@ -294,6 +294,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
@@ -336,6 +337,7 @@ import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
+import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
@@ -2869,7 +2871,9 @@ public class IcebergMetadata
         table.getSnapshotId().map(icebergTable::snapshot).ifPresent(s -> rowDelta.validateFromSnapshot(s.snapshotId()));
         TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
         TupleDomain<IcebergColumnHandle> convertibleUnenforcedPredicate = table.getUnenforcedPredicate().filter((_, domain) -> isConvertibleToIcebergExpression(domain));
-        TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate.intersect(convertibleUnenforcedPredicate);
+        TupleDomain<IcebergColumnHandle> commitTasksDomains = extractTupleDomainsFromCommitTasks(table, icebergTable, commitTasks).filter((_, domain) -> isConvertibleToIcebergExpression(domain));
+        TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate.intersect(convertibleUnenforcedPredicate).intersect(commitTasksDomains);
+
         if (!effectivePredicate.isAll()) {
             rowDelta.conflictDetectionFilter(toIcebergExpression(effectivePredicate));
         }
@@ -2932,6 +2936,39 @@ public class IcebergMetadata
 
         rowDelta.validateDataFilesExist(referencedDataFiles.build());
         commitUpdateAndTransaction(rowDelta, session, transaction, "write");
+    }
+
+    private TupleDomain<IcebergColumnHandle> extractTupleDomainsFromCommitTasks(IcebergTableHandle table, Table icebergTable, List<CommitTaskData> commitTasks)
+    {
+        List<IcebergColumnHandle> partitionColumns = getProjectedColumns(icebergTable.schema(), typeManager, identityPartitionColumnsInAllSpecs(icebergTable));
+        PartitionSpec partitionSpec = icebergTable.spec();
+        Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                .map(field -> field.transform().getResultType(
+                        icebergTable.schema().findType(field.sourceId())))
+                .toArray(Type[]::new);
+        Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+        Map<IcebergColumnHandle, Domain> domainsFromTasks = new HashMap<>();
+        for (CommitTaskData commitTask : commitTasks) {
+            PartitionSpec taskPartitionSpec = PartitionSpecParser.fromJson(schema, commitTask.partitionSpecJson());
+            if (commitTask.partitionDataJson().isEmpty() || taskPartitionSpec.isUnpartitioned() || !taskPartitionSpec.equals(partitionSpec)) {
+                return TupleDomain.all(); //  We should not produce any specific domains if there are no partitions or current partitions does not match task partitions for any of tasks
+            }
+
+            PartitionData partitionData = PartitionData.fromJson(commitTask.partitionDataJson().get(), partitionColumnTypes);
+            Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
+            Map<ColumnHandle, NullableValue> partitionValues = getPartitionValues(new HashSet<>(partitionColumns), partitionKeys);
+
+            for (Map.Entry<ColumnHandle, NullableValue> entry : partitionValues.entrySet()) {
+                IcebergColumnHandle columnHandle = (IcebergColumnHandle) entry.getKey();
+                NullableValue value = entry.getValue();
+                if (value.isNull()) {
+                    return TupleDomain.all(); // We should not produce any specific domains if any of partition value is null
+                }
+                Domain newDomain = Domain.singleValue(columnHandle.getType(), value.getValue());
+                domainsFromTasks.merge(columnHandle, newDomain, Domain::union);
+            }
+        }
+        return withColumnDomains(domainsFromTasks);
     }
 
     @Override
