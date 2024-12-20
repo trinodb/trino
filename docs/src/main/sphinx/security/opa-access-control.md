@@ -23,17 +23,8 @@ access-control.name=opa
 opa.policy.uri=https://opa.example.com/v1/data/trino/allow
 ```
 
-To combine OPA access control with file-based or other access control systems,
-configure multiple access control configuration file paths in
-`etc/config.properties`:
-
-```properties
-access-control.config-files=etc/trino/file-based.properties,etc/trino/opa.properties
-```
-
-Order the configuration files list in the desired order of the different systems
-for overall access control. Configure each access-control system in the
-specified files.
+To combine OPA access control with file-based or other access control
+systems, follow the instructions about [](multiple-access-control).
 
 The following table lists the configuration properties for the OPA access control:
 
