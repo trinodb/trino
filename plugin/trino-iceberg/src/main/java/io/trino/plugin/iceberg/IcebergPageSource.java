@@ -26,12 +26,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -41,6 +41,7 @@ public class IcebergPageSource
         implements ConnectorPageSource
 {
     private final int[] expectedColumnIndexes;
+    private final int[] deleteFilterIndexes;
     private final ConnectorPageSource delegate;
     private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
     private final Supplier<Optional<RowPredicate>> deletePredicate;
@@ -53,6 +54,8 @@ public class IcebergPageSource
     public IcebergPageSource(
             List<IcebergColumnHandle> expectedColumns,
             List<IcebergColumnHandle> requiredColumns,
+            List<IcebergColumnHandle> deleteFilterColumns,
+            OptionalInt rowPositionColumnIndex,
             ConnectorPageSource delegate,
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
             Supplier<Optional<RowPredicate>> deletePredicate,
@@ -62,14 +65,24 @@ public class IcebergPageSource
         // requiredColumns should include all expectedColumns as well as any columns needed by the DeleteFilter
         requireNonNull(expectedColumns, "expectedColumns is null");
         requireNonNull(requiredColumns, "requiredColumns is null");
+        requireNonNull(rowPositionColumnIndex, "rowPositionColumnIndex is null");
         this.expectedColumnIndexes = new int[expectedColumns.size()];
-        for (int i = 0; i < expectedColumns.size(); i++) {
-            IcebergColumnHandle expectedColumn = expectedColumns.get(i);
-            checkArgument(expectedColumn.equals(requiredColumns.get(i)), "Expected columns must be a prefix of required columns");
-            expectedColumnIndexes[i] = i;
-
-            if (expectedColumn.isMergeRowIdColumn()) {
+        this.deleteFilterIndexes = new int[deleteFilterColumns.size()];
+        for (int i = 0; i < requiredColumns.size(); i++) {
+            IcebergColumnHandle column = requiredColumns.get(i);
+            if (i < expectedColumns.size()) {
+                expectedColumnIndexes[i] = i;
+            }
+            if (column.isMergeRowIdColumn()) {
                 this.rowIdColumnIndex = i;
+            }
+            if (deleteFilterColumns.contains(column)) {
+                if (column.isRowPositionColumn()) {
+                    this.deleteFilterIndexes[deleteFilterColumns.indexOf(column)] = rowPositionColumnIndex.orElseThrow();
+                }
+                else {
+                    this.deleteFilterIndexes[deleteFilterColumns.indexOf(column)] = i;
+                }
             }
         }
 
@@ -120,7 +133,7 @@ public class IcebergPageSource
 
             Optional<RowPredicate> deleteFilterPredicate = deletePredicate.get();
             if (deleteFilterPredicate.isPresent()) {
-                dataPage = deleteFilterPredicate.get().filterPage(dataPage);
+                dataPage = deleteFilterPredicate.get().filterPage(dataPage, deleteFilterIndexes);
             }
 
             if (projectionsAdapter.isPresent()) {

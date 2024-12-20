@@ -29,13 +29,13 @@ public interface RowPredicate
         return (page, position) -> test(page, position) && other.test(page, position);
     }
 
-    default Page filterPage(Page page)
+    default Page filterPage(Page page, int[] columns)
     {
         int positionCount = page.getPositionCount();
         int[] retained = new int[positionCount];
         int retainedCount = 0;
         for (int position = 0; position < positionCount; position++) {
-            if (test(page, position)) {
+            if (test(columns.length == 0 ? page : page.getColumns(columns), position)) {
                 retained[retainedCount] = position;
                 retainedCount++;
             }
