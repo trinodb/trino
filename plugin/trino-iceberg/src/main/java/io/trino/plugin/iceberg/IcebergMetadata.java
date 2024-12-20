@@ -358,6 +358,8 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
+import static org.apache.iceberg.MetadataTableType.ALL_ENTRIES;
+import static org.apache.iceberg.MetadataTableType.ENTRIES;
 import static org.apache.iceberg.ReachableFileUtil.metadataFileLocations;
 import static org.apache.iceberg.ReachableFileUtil.statisticsFilesLocations;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
@@ -707,7 +709,8 @@ public class IcebergMetadata
             case ALL_MANIFESTS -> Optional.of(new AllManifestsTable(tableName, table, icebergScanExecutor));
             case MANIFESTS -> Optional.of(new ManifestsTable(tableName, table, getCurrentSnapshotId(table)));
             case FILES -> Optional.of(new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table), icebergScanExecutor));
-            case ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, icebergScanExecutor));
+            case ALL_ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, ALL_ENTRIES, icebergScanExecutor));
+            case ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, ENTRIES, icebergScanExecutor));
             case PROPERTIES -> Optional.of(new PropertiesTable(tableName, table));
             case REFS -> Optional.of(new RefsTable(tableName, table, icebergScanExecutor));
         };

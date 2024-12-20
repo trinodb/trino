@@ -564,6 +564,27 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    void testAllEntriesTable()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_all_entries", "AS SELECT 1 id, DATE '2014-01-01' dt")) {
+            assertThat(query("DESCRIBE \"" + table.getName() + "$all_entries\""))
+                    .matches("DESCRIBE \"" + table.getName() + "$entries\"");
+
+            assertThat(query("SELECT * FROM \"" + table.getName() + "$all_entries\""))
+                    .matches("SELECT * FROM \"" + table.getName() + "$entries\"");
+
+            assertUpdate("DELETE FROM " + table.getName(), 1);
+
+            assertThat(computeActual("SELECT status FROM \"" + table.getName() + "$all_entries\"").getOnlyColumnAsSet())
+                    .containsExactly(1, 2);
+            assertThat(computeActual("SELECT status FROM \"" + table.getName() + "$entries\"").getOnlyColumnAsSet())
+                    .containsExactly(2);
+            assertThat(query("SELECT * FROM \"" + table.getName() + "$all_entries\" WHERE status = 2"))
+                    .matches("SELECT * FROM \"" + table.getName() + "$entries\"");
+        }
+    }
+
+    @Test
     void testEntriesTable()
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_entries", "AS SELECT 1 id, DATE '2014-01-01' dt")) {
