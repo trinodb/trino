@@ -319,13 +319,6 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
-    private String getTableComment(String tableName)
-    {
-        return (String) computeScalar(format(
-                "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND table_name = '%s'",
-                tableName));
-    }
-
     protected HiveMetastore metastore()
     {
         return TestingDeltaLakeUtils.getConnectorService(getQueryRunner(), HiveMetastoreFactory.class)
