@@ -25,17 +25,7 @@ access-control.name=ranger
 ```
 
 To combine Ranger access control with file-based or other access control
-systems, create the file `etc/access-control.properties` on the coordinator,
-with the following configuration that lists multiple access control
-configuration file paths:
-
-```properties
-access-control.config-files=etc/trino/file-based.properties,etc/trino/ranger.properties
-```
-
-Order the configuration files list in the desired order of the different systems
-for overall access control. Configure each access-control system in the
-specified files.
+systems, follow the instructions about [](multiple-access-control).
 
 The following table lists the configuration properties for the Ranger access control:
 
