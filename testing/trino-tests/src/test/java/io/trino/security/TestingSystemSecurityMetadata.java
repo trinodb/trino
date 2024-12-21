@@ -30,6 +30,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
@@ -213,18 +214,6 @@ class TestingSystemSecurityMetadata
     }
 
     @Override
-    public void setSchemaOwner(Session session, CatalogSchemaName schema, TrinoPrincipal principal)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName viewName)
     {
         return Optional.ofNullable(viewOwners.get(viewName))
@@ -234,13 +223,6 @@ class TestingSystemSecurityMetadata
                                 .map(RoleGrant::getRoleName)
                                 .collect(toImmutableSet()))
                         .build());
-    }
-
-    @Override
-    public void setViewOwner(Session session, CatalogSchemaTableName view, TrinoPrincipal principal)
-    {
-        checkArgument(principal.getType() == USER, "Only a user can be a view owner");
-        viewOwners.put(view, Identity.ofUser(principal.getName()));
     }
 
     @Override
@@ -281,4 +263,16 @@ class TestingSystemSecurityMetadata
 
     @Override
     public void columnNotNullConstraintDropped(Session session, CatalogSchemaTableName table, String column) {}
+
+    @Override
+    public void setEntityOwner(Session session, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        if (ownedKind.equals("VIEW")) {
+            checkArgument(principal.getType() == USER, "Only a user can be a view owner");
+            viewOwners.put(new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), Identity.ofUser(principal.getName()));
+        }
+        else {
+            throw new UnsupportedOperationException();
+        }
+    }
 }
