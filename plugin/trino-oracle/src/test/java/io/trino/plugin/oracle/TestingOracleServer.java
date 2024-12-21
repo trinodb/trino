@@ -73,11 +73,15 @@ public class TestingOracleServer
 
     private void createContainer()
     {
-        OracleContainer container = new OracleContainer("gvenzl/oracle-xe:11.2.0.2-full")
+        OracleContainer container = new OracleContainer("gvenzl/oracle-xe:18.4.0-slim")
+                .withEnv("ENABLE_ARCHIVELOG", "false")
+                .withEnv("DISABLE_RMAN", "true")
+                .withEnv("TRACE_LEVEL_CLIENT", "OFF")
+                .withEnv("TRACE_LEVEL_SERVER", "OFF")
+                .withEnv("LOGGING_LEVEL", "ERROR")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/container-entrypoint-initdb.d/01-init.sql")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("restart.sh"), "/container-entrypoint-initdb.d/02-restart.sh")
-                .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql")
-                .usingSid();
+                .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql");
         try {
             this.cleanup = startOrReuse(container);
             this.container = container;
@@ -95,7 +99,8 @@ public class TestingOracleServer
             File tempFile = File.createTempFile("init-", ".sql");
 
             Files.write(Joiner.on("\n").join(
-                    format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE;", TEST_TABLESPACE),
+                    "ALTER SESSION SET CONTAINER = XEPDB1;",
+                    format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 50M ONLINE;", TEST_TABLESPACE),
                     format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s;", TEST_USER, TEST_PASS, TEST_TABLESPACE),
                     format("GRANT UNLIMITED TABLESPACE TO %s;", TEST_USER),
                     format("GRANT CREATE SESSION TO %s;", TEST_USER),
