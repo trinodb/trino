@@ -115,6 +115,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, LoggingLevel> HTTP_LOGGING_LEVEL = new HttpLoggingLevel();
     public static final ConnectionProperty<String, Map<String, String>> RESOURCE_ESTIMATES = new ResourceEstimates();
     public static final ConnectionProperty<String, List<String>> SQL_PATH = new SqlPath();
+    public static final ConnectionProperty<String, Boolean> VALIDATE_CONNECTION = new ValidateConnection();
 
     private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
             // Keep sorted
@@ -172,6 +173,7 @@ final class ConnectionProperties
             .add(TIMEZONE)
             .add(TRACE_TOKEN)
             .add(USER)
+            .add(VALIDATE_CONNECTION)
             .build();
 
     private static final Map<String, ConnectionProperty<?, ?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -587,6 +589,15 @@ final class ConnectionProperties
         public KerberosRemoteServiceName()
         {
             super(PropertyName.KERBEROS_REMOTE_SERVICE_NAME, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class ValidateConnection
+            extends AbstractConnectionProperty<String, Boolean>
+    {
+        public ValidateConnection()
+        {
+            super(PropertyName.VALIDATE_CONNECTION, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

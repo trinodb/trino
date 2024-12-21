@@ -199,6 +199,18 @@ public class TestTrinoUri
                 "Provided connection properties are invalid:\n" +
                         "Connection property assumeLiteralNamesInMetadataCallsForNonConformingClients cannot be set if assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is enabled\n" +
                         "Connection property assumeLiteralUnderscoreInMetadataCallsForNonConformingClients cannot be set if assumeLiteralNamesInMetadataCallsForNonConformingClients is enabled");
+
+        // invalid validateConnection
+        assertInvalid("trino://localhost:8080?validateConnection=0", "Connection property validateConnection value is invalid: 0");
+        assertInvalid("trino://localhost:8080?validateConnection=1", "Connection property validateConnection value is invalid: 1");
+        assertInvalid("trino://localhost:8080?validateConnection=-1", "Connection property validateConnection value is invalid: -1");
+        assertInvalid("trino://localhost:8080?validateConnection=yes", "Connection property validateConnection value is invalid: yes");
+        assertInvalid("trino://localhost:8080?validateConnection=no", "Connection property validateConnection value is invalid: no");
+        assertInvalid("trino://localhost:8080?validateConnection=on", "Connection property validateConnection value is invalid: on");
+        assertInvalid("trino://localhost:8080?validateConnection=off", "Connection property validateConnection value is invalid: off");
+        assertInvalid("trino://localhost:8080?validateConnection=T", "Connection property validateConnection value is invalid: T");
+        assertInvalid("trino://localhost:8080?validateConnection=F", "Connection property validateConnection value is invalid: F");
+        assertInvalid("trino://localhost:8080?validateConnection=abc", "Connection property validateConnection value is invalid: abc");
     }
 
     @Test
@@ -493,6 +505,17 @@ public class TestTrinoUri
 
         TrinoUri secureUri = createTrinoUri("trino://localhost?SSL=true");
         assertThat(secureUri.getHttpUri()).isEqualTo(URI.create("https://localhost:443"));
+    }
+
+    @Test
+    public void testValidateConnection()
+    {
+        TrinoUri uri = createTrinoUri("trino://localhost:8080");
+        assertThat(uri.isValidateConnection()).isFalse();
+        uri = createTrinoUri("trino://localhost:8080?validateConnection=true");
+        assertThat(uri.isValidateConnection()).isTrue();
+        uri = createTrinoUri("trino://localhost:8080?validateConnection=false");
+        assertThat(uri.isValidateConnection()).isFalse();
     }
 
     private static boolean isBuilderHelperMethod(String name)
