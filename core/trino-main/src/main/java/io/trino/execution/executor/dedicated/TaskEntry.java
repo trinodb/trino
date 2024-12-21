@@ -19,6 +19,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
+import io.trino.execution.executor.ExecutionPriority;
 import io.trino.execution.executor.TaskHandle;
 import io.trino.execution.executor.scheduler.FairScheduler;
 import io.trino.execution.executor.scheduler.Group;
@@ -41,6 +42,7 @@ class TaskEntry
 {
     private final TaskId taskId;
     private final Group group;
+    private final ExecutionPriority priority;
     private final FairScheduler scheduler;
     private final VersionEmbedder versionEmbedder;
     private final Tracer tracer;
@@ -61,7 +63,7 @@ class TaskEntry
     @GuardedBy("this")
     private final Set<SplitRunner> running = new HashSet<>();
 
-    public TaskEntry(TaskId taskId, FairScheduler scheduler, VersionEmbedder versionEmbedder, Tracer tracer, int initialConcurrency, DoubleSupplier utilization)
+    public TaskEntry(TaskId taskId, ExecutionPriority priority, FairScheduler scheduler, VersionEmbedder versionEmbedder, Tracer tracer, int initialConcurrency, DoubleSupplier utilization)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
@@ -69,7 +71,8 @@ class TaskEntry
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.utilization = requireNonNull(utilization, "utilization is null");
 
-        this.group = scheduler.createGroup(taskId.toString());
+        this.priority = requireNonNull(priority, "priority is null");
+        this.group = scheduler.createGroup(taskId.toString(), priority);
         this.concurrency = new ConcurrencyController(initialConcurrency);
     }
 
@@ -188,6 +191,11 @@ class TaskEntry
     public synchronized int targetConcurrency()
     {
         return concurrency.targetConcurrency();
+    }
+
+    public ExecutionPriority priority()
+    {
+        return priority;
     }
 
     private record QueuedSplit(SplitRunner split, SettableFuture<Void> done) {}
