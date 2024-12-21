@@ -55,6 +55,6 @@ public class TestPinotTableHandle
 
     public static PinotTableHandle newTableHandle(String schemaName, String tableName)
     {
-        return new PinotTableHandle(schemaName, tableName, false, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
+        return new PinotTableHandle(schemaName, tableName, false, TupleDomain.all(), OptionalLong.empty(), Optional.empty(), Optional.empty());
     }
 }
