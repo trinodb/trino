@@ -1456,6 +1456,45 @@ public class AccessControlManager
         return connectorAccessControl;
     }
 
+    @Override
+    public void checkCanCreateBranch(SecurityContext securityContext, QualifiedObjectName tableName, String name)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(securityContext, tableName.catalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanCreateBranchAndTag(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), name));
+
+        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanCreateBranch(context, tableName.asSchemaTableName(), name));
+    }
+
+    @Override
+    public void canCanDropBranch(SecurityContext securityContext, QualifiedObjectName tableName, String name)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(securityContext, tableName.catalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanDropBranchAndTag(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), name));
+
+        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanDropBranch(context, tableName.asSchemaTableName(), name));
+    }
+
+    @Override
+    public void canCanAlterBranch(SecurityContext securityContext, QualifiedObjectName tableName, String name)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(securityContext, tableName.catalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanDropBranchAndTag(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), name));
+
+        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanAlterBranch(context, tableName.asSchemaTableName(), name));
+    }
+
     @Managed
     @Nested
     public CounterStat getAuthorizationSuccess()
