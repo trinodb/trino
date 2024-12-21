@@ -1456,6 +1456,32 @@ public class AccessControlManager
         return connectorAccessControl;
     }
 
+    @Override
+    public void checkCanCreateBranchAndTag(SecurityContext securityContext, QualifiedObjectName tableName, String name)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(securityContext, tableName.catalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanCreateBranchAndTag(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), name));
+
+        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanCreateBranchAndTag(context, tableName.asSchemaTableName(), name));
+    }
+
+    @Override
+    public void canCanDropBranchAndTag(SecurityContext securityContext, QualifiedObjectName tableName, String name)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(securityContext, tableName.catalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanDropBranchAndTag(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), name));
+
+        catalogAuthorizationCheck(tableName.catalogName(), securityContext, (control, context) -> control.checkCanDropBranchAndTag(context, tableName.asSchemaTableName(), name));
+    }
+
     @Managed
     @Nested
     public CounterStat getAuthorizationSuccess()
