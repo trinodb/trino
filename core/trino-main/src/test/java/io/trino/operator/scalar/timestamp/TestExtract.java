@@ -336,7 +336,7 @@ public class TestExtract
     {
         assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MILLISECOND FROM TIMESTAMP '2020-05-10 12:34:56')")::evaluate)
                 .hasErrorCode(SYNTAX_ERROR)
-                .hasMessage("line 1:12: Invalid EXTRACT field: MILLISECOND");
+                .hasMessageStartingWith("line 1:12: Invalid EXTRACT field MILLISECOND, valid fields are: ");
 
         assertThat(assertions.expression("millisecond(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '0'");
         assertThat(assertions.expression("millisecond(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '100'");
@@ -490,7 +490,7 @@ public class TestExtract
     {
         assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(WEEK_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56')")::evaluate)
                 .hasErrorCode(SYNTAX_ERROR)
-                .hasMessage("line 1:12: Invalid EXTRACT field: WEEK_OF_YEAR");
+                .hasMessageStartingWith("line 1:12: Invalid EXTRACT field WEEK_OF_YEAR, valid fields are: ");
 
         assertThat(assertions.expression("week_of_year(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '19'");
         assertThat(assertions.expression("week_of_year(TIMESTAMP '2020-05-10 12:34:56.1')")).matches("BIGINT '19'");
