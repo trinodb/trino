@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -57,6 +58,9 @@ public class ClientSession
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
     private Optional<String> encoding;
+    private final String prefetchBufferSize;
+    private final ExecutorService decoderExecutorService;
+    private final ExecutorService segmentLoaderExecutorService;
 
     public static Builder builder()
     {
@@ -97,7 +101,10 @@ public class ClientSession
             String transactionId,
             Duration clientRequestTimeout,
             boolean compressionDisabled,
-            Optional<String> encoding)
+            Optional<String> encoding,
+            String prefetchBufferSize,
+            ExecutorService decoderExecutorService,
+            ExecutorService segmentLoaderExecutorService)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = requireNonNull(user, "user is null");
@@ -121,6 +128,9 @@ public class ClientSession
         this.clientRequestTimeout = clientRequestTimeout;
         this.compressionDisabled = compressionDisabled;
         this.encoding = requireNonNull(encoding, "encoding is null");
+        this.prefetchBufferSize = requireNonNull(prefetchBufferSize, "prefetchBufferSize is null");
+        this.decoderExecutorService = requireNonNull(decoderExecutorService, "decoderExecutorService is null");
+        this.segmentLoaderExecutorService = requireNonNull(segmentLoaderExecutorService, "segmentLoaderExecutorService is null");
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -269,6 +279,21 @@ public class ClientSession
         return encoding;
     }
 
+    public String getPrefetchBufferSize()
+    {
+        return prefetchBufferSize;
+    }
+
+    public ExecutorService getDecoderExecutorService()
+    {
+        return decoderExecutorService;
+    }
+
+    public ExecutorService getSegmentLoaderExecutorService()
+    {
+        return segmentLoaderExecutorService;
+    }
+
     @Override
     public String toString()
     {
@@ -292,6 +317,7 @@ public class ClientSession
                 .add("clientRequestTimeout", clientRequestTimeout)
                 .add("compressionDisabled", compressionDisabled)
                 .add("encoding", encoding)
+                .add("prefetchBufferSize", prefetchBufferSize)
                 .omitNullValues()
                 .toString();
     }
@@ -320,6 +346,9 @@ public class ClientSession
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
         private Optional<String> encoding = Optional.empty();
+        private String prefetchBufferSize;
+        private ExecutorService decoderExecutorService;
+        private ExecutorService segmentLoaderExecutorService;
 
         private Builder() {}
 
@@ -482,6 +511,24 @@ public class ClientSession
             return this;
         }
 
+        public Builder prefetchBufferSize(String prefetchBufferSize)
+        {
+            this.prefetchBufferSize = prefetchBufferSize;
+            return this;
+        }
+
+        public Builder decoderExecutorService(ExecutorService decoderExecutorService)
+        {
+            this.decoderExecutorService = decoderExecutorService;
+            return this;
+        }
+
+        public Builder segmentLoaderExecutorService(ExecutorService segmentLoaderExecutorService)
+        {
+            this.segmentLoaderExecutorService = segmentLoaderExecutorService;
+            return this;
+        }
+
         public ClientSession build()
         {
             return new ClientSession(
@@ -506,7 +553,10 @@ public class ClientSession
                     transactionId,
                     clientRequestTimeout,
                     compressionDisabled,
-                    encoding);
+                    encoding,
+                    prefetchBufferSize,
+                    decoderExecutorService,
+                    segmentLoaderExecutorService);
         }
     }
 }
