@@ -52,6 +52,7 @@ public final class DeltaLakeSessionProperties
 {
     public static final String MAX_SPLIT_SIZE = "max_split_size";
     public static final String VACUUM_MIN_RETENTION = "vacuum_min_retention";
+    public static final String VACUUM_TRANSACTION_LOGGING_ENABLED = "vacuum_transaction_logging_enabled";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
@@ -95,6 +96,11 @@ public final class DeltaLakeSessionProperties
                         VACUUM_MIN_RETENTION,
                         "Minimal retention period for vacuum procedure",
                         deltaLakeConfig.getVacuumMinRetention(),
+                        false),
+                booleanProperty(
+                        VACUUM_TRANSACTION_LOGGING_ENABLED,
+                        "Vacuum transaction logging enabled",
+                        deltaLakeConfig.isVacuumTransactionLoggingEnabled(),
                         false),
                 stringProperty(
                         HIVE_CATALOG_NAME,
@@ -253,6 +259,11 @@ public final class DeltaLakeSessionProperties
     public static Duration getVacuumMinRetention(ConnectorSession session)
     {
         return session.getProperty(VACUUM_MIN_RETENTION, Duration.class);
+    }
+
+    public static boolean isVacuumLoggingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(VACUUM_TRANSACTION_LOGGING_ENABLED, Boolean.class);
     }
 
     public static Optional<String> getHiveCatalogName(ConnectorSession session)
