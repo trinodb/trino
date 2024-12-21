@@ -622,4 +622,25 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetEntityAuthorization(SecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal);
+
+    /**
+     * Check if identity is allowed to create the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String name);
+
+    /**
+     * Check if identity is allowed to drop the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void canCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String name);
+
+    /**
+     * Check if identity is allowed to alter the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void canCanAlterBranch(SecurityContext context, QualifiedObjectName tableName, String name);
 }

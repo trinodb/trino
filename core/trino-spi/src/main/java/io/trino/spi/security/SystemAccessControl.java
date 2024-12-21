@@ -1020,6 +1020,36 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to create the specified branch in the table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name)
+    {
+        AccessDeniedException.denyCreateBranch(tableName.toString(), name);
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified branch in the table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDropBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name)
+    {
+        AccessDeniedException.denyDropBranch(tableName.toString(), name);
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified branch in the table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanAlterBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name)
+    {
+        AccessDeniedException.denyAlterBranch(tableName.toString(), name);
+    }
+
+    /**
      * @return the event listeners provided by this system access control
      */
     default Iterable<EventListener> getEventListeners()
