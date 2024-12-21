@@ -91,6 +91,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * Manages tasks on this worker node
  */
 @Path("/v1/task")
+@ResourceSecurity(INTERNAL_ONLY)
 public class TaskResource
 {
     private static final Logger log = Logger.get(TaskResource.class);
@@ -127,7 +128,6 @@ public class TaskResource
         this.failureInjector = requireNonNull(failureInjector, "failureInjector is null");
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<TaskInfo> getAllTaskInfo(@Context UriInfo uriInfo)
@@ -139,7 +139,6 @@ public class TaskResource
         return allTaskInfo;
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("{taskId}")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -178,7 +177,6 @@ public class TaskResource
         asyncResponse.resume(Response.ok().entity(taskInfo).build());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -228,7 +226,6 @@ public class TaskResource
         bindAsyncResponse(asyncResponse, withFallbackAfterTimeout(response, timeout, () -> serviceUnavailable(timeout), timeoutExecutor), responseExecutor);
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/status")
     @Produces(MediaType.APPLICATION_JSON)
@@ -273,7 +270,6 @@ public class TaskResource
         bindAsyncResponse(asyncResponse, withFallbackAfterTimeout(response, timeout, () -> serviceUnavailable(timeout), timeoutExecutor), responseExecutor);
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/dynamicfilters")
     @Produces(MediaType.APPLICATION_JSON)
@@ -295,7 +291,6 @@ public class TaskResource
         asyncResponse.resume(taskManager.acknowledgeAndGetNewDynamicFilterDomains(taskId, currentDynamicFiltersVersion));
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -320,7 +315,6 @@ public class TaskResource
         return taskInfo;
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("{taskId}/fail")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -334,7 +328,6 @@ public class TaskResource
         return taskManager.failTask(taskId, failTaskRequest.getFailureInfo().toException());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}")
     @Produces(TRINO_PAGES)
@@ -375,7 +368,6 @@ public class TaskResource
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}/acknowledge")
     public Response acknowledgeResults(
@@ -390,7 +382,6 @@ public class TaskResource
         return Response.ok().build();
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}/results/{bufferId}")
     public void destroyTaskResults(
@@ -409,7 +400,6 @@ public class TaskResource
         asyncResponse.resume(Response.noContent().build());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("pruneCatalogs")
     @Consumes(MediaType.APPLICATION_JSON)

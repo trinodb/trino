@@ -72,6 +72,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Path("/v1/statement/executing")
+@ResourceSecurity(PUBLIC)
 public class ExecutingStatementResource
 {
     private static final Logger log = Logger.get(ExecutingStatementResource.class);
@@ -156,7 +157,6 @@ public class ExecutingStatementResource
         queryPurger.shutdownNow();
     }
 
-    @ResourceSecurity(PUBLIC)
     @GET
     @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -295,7 +295,6 @@ public class ExecutingStatementResource
         return response.build();
     }
 
-    @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -326,7 +325,6 @@ public class ExecutingStatementResource
         }
     }
 
-    @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("partialCancel/{queryId}/{stage}/{slug}/{token}")
     public void partialCancel(

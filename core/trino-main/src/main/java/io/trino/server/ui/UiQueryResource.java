@@ -53,6 +53,7 @@ import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static java.util.Objects.requireNonNull;
 
 @Path("/ui/api/query")
+@ResourceSecurity(WEB_UI)
 @DisableHttpCache
 public class UiQueryResource
 {
@@ -68,7 +69,6 @@ public class UiQueryResource
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     public List<TrimmedBasicQueryInfo> getAllQueryInfo(@QueryParam("state") String stateFilter, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
@@ -86,7 +86,6 @@ public class UiQueryResource
         return builder.build();
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     @Path("{queryId}")
     public Response getQueryInfo(@PathParam("queryId") QueryId queryId, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
@@ -106,7 +105,6 @@ public class UiQueryResource
         throw new GoneException();
     }
 
-    @ResourceSecurity(WEB_UI)
     @PUT
     @Path("{queryId}/killed")
     public Response killQuery(@PathParam("queryId") QueryId queryId, String message, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
@@ -114,7 +112,6 @@ public class UiQueryResource
         return failQuery(queryId, createKillQueryException(message), servletRequest, httpHeaders);
     }
 
-    @ResourceSecurity(WEB_UI)
     @PUT
     @Path("{queryId}/preempted")
     public Response preemptQuery(@PathParam("queryId") QueryId queryId, String message, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
