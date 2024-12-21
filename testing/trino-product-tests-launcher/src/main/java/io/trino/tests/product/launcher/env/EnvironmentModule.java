@@ -173,4 +173,12 @@ public final class EnvironmentModule
     {
         return options.tracing;
     }
+
+    @Provides
+    @Singleton
+    @Ipv6
+    public boolean provideIpv6(EnvironmentOptions options)
+    {
+        return options.ipv6;
+    }
 }
