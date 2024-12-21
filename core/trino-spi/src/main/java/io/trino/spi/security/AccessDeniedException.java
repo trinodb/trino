@@ -789,6 +789,36 @@ public class AccessDeniedException
         return name.stream().collect(joining("."));
     }
 
+    public static void denyCreateBranch(String tableName, String name)
+    {
+        denyCreateBranch(tableName, name, null);
+    }
+
+    public static void denyCreateBranch(String tableName, String name, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create branch %s@%s%s", tableName, name, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDropBranch(String tableName, String name)
+    {
+        denyDropBranch(tableName, name, null);
+    }
+
+    public static void denyAlterBranch(String tableName, String name, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot alter branch %s@%s%s", tableName, name, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyAlterBranch(String tableName, String name)
+    {
+        denyDropBranch(tableName, name, null);
+    }
+
+    public static void denyDropBranch(String tableName, String name, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot alter branch %s@%s%s", tableName, name, formatExtraInfo(extraInfo)));
+    }
+
     private static Object formatExtraInfo(String extraInfo)
     {
         if (extraInfo == null || extraInfo.isEmpty()) {

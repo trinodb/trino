@@ -285,4 +285,13 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanSetEntityAuthorization(SecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal) {}
+
+    @Override
+    public void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String name) {}
+
+    @Override
+    public void canCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String name) {}
+
+    @Override
+    public void canCanAlterBranch(SecurityContext context, QualifiedObjectName tableName, String name) {}
 }

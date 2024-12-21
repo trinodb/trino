@@ -363,5 +363,11 @@ public class AllowAllSystemAccessControl
     public void checkCanSetEntityAuthorization(SystemSecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal) {}
 
     @Override
+    public void checkCanCreateBranchAndTag(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name) {}
+
+    @Override
+    public void checkCanDropBranchAndTag(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name) {}
+
+    @Override
     public void shutdown() {}
 }

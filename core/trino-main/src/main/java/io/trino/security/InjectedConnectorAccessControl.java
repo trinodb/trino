@@ -536,6 +536,27 @@ public class InjectedConnectorAccessControl
         throw new TrinoException(NOT_SUPPORTED, "Column masking not supported");
     }
 
+    @Override
+    public void checkCanCreateBranch(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanCreateBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), name);
+    }
+
+    @Override
+    public void checkCanDropBranch(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.canCanDropBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), name);
+    }
+
+    @Override
+    public void checkCanAlterBranch(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.canCanAlterBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), name);
+    }
+
     private QualifiedObjectName getQualifiedObjectName(SchemaTableName schemaTableName)
     {
         return new QualifiedObjectName(catalogName, schemaTableName.getSchemaName(), schemaTableName.getTableName());
