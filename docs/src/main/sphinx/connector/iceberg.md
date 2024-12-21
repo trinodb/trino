@@ -1502,6 +1502,18 @@ CREATE TABLE example.customers.orders (
 WITH (sorted_by = ARRAY['order_date'])
 ```
 
+You can explicitly configure sort directions or null ordering in the following way:
+
+```
+CREATE TABLE example.customers.orders (
+    order_id BIGINT,
+    order_date DATE,
+    account_number BIGINT,
+    customer VARCHAR,
+    country VARCHAR)
+WITH (sorted_by = ARRAY['order_date DESC NULLS FIRST', 'order_id ASC NULLS LAST'])
+```
+
 Sorting can be combined with partitioning on the same column. For example:
 
 ```
