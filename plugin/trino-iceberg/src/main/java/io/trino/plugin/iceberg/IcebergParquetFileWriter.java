@@ -17,6 +17,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.metadata.ParquetMetadata;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.Page;
@@ -33,7 +34,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static io.trino.parquet.reader.MetadataReader.createParquetMetadata;
 import static io.trino.plugin.iceberg.util.ParquetUtil.footerMetrics;
 import static io.trino.plugin.iceberg.util.ParquetUtil.getSplitOffsets;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -83,12 +83,13 @@ public final class IcebergParquetFileWriter
     {
         ParquetMetadata parquetMetadata;
         try {
-            parquetMetadata = createParquetMetadata(parquetFileWriter.getFileMetadata(), new ParquetDataSourceId(location.toString()));
+            parquetMetadata = new ParquetMetadata(parquetFileWriter.getFileMetadata(), new ParquetDataSourceId(location.toString()), Optional.empty());
+            List<RowGroupInfo> rowGroupInfos = parquetMetadata.getRowGroupInfo();
+            return new FileMetrics(footerMetrics(parquetMetadata, rowGroupInfos, Stream.empty(), metricsConfig, null), Optional.of(getSplitOffsets(rowGroupInfos)));
         }
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Error creating metadata for Parquet file %s", location), e);
         }
-        return new FileMetrics(footerMetrics(parquetMetadata, Stream.empty(), metricsConfig), Optional.of(getSplitOffsets(parquetMetadata)));
     }
 
     @Override

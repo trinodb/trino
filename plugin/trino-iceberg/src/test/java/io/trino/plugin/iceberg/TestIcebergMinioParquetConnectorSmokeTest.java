@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.filesystem.Location;
+import io.trino.parquet.ParquetCorruptionException;
 
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static org.apache.iceberg.FileFormat.PARQUET;
@@ -28,6 +29,7 @@ public class TestIcebergMinioParquetConnectorSmokeTest
 
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
+            throws ParquetCorruptionException
     {
         return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
     }
