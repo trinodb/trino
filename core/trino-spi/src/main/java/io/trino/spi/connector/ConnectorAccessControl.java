@@ -31,6 +31,7 @@ import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateBranchAndTag;
 import static io.trino.spi.security.AccessDeniedException.denyCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
@@ -41,6 +42,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSele
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDropBranchAndTag;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropFunction;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
@@ -724,5 +726,25 @@ public interface ConnectorAccessControl
                 .map(column -> Map.entry(column, getColumnMask(context, tableName, column.getName(), column.getType())))
                 .filter(entry -> entry.getValue().isPresent())
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get()));
+    }
+
+    /**
+     * Check if identity is allowed to create the specified branch and tag.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateBranchAndTag(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        denyCreateBranchAndTag(tableName.toString(), name);
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified branch and tag.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDropBranchAndTag(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        denyDropBranchAndTag(tableName.toString(), name);
     }
 }
