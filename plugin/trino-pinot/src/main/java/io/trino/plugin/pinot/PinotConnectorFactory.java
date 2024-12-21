@@ -24,6 +24,7 @@ import io.trino.plugin.pinot.auth.PinotAuthenticationModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
+import org.apache.pinot.segment.spi.index.IndexService;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -72,6 +73,16 @@ public class PinotConnectorFactory
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
+        // Load IndexPlugins using current thread that has the PluginClassLoader in the context.
+        // This ensures that ServiceLoader can discover IndexPlugin implementations.
+        // See https://github.com/trinodb/trino/issues/23130 for details.
+        loadUsingPluginClassLoader();
+
         return injector.getInstance(PinotConnector.class);
+    }
+
+    private void loadUsingPluginClassLoader()
+    {
+        IndexService.getInstance(); // Trigger initialization
     }
 }
