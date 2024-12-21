@@ -100,7 +100,7 @@ public class TestingOracleServer
 
             Files.write(Joiner.on("\n").join(
                     "ALTER SESSION SET CONTAINER = XEPDB1;",
-                    format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE;", TEST_TABLESPACE),
+                    format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 50M ONLINE;", TEST_TABLESPACE),
                     format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s;", TEST_USER, TEST_PASS, TEST_TABLESPACE),
                     format("GRANT UNLIMITED TABLESPACE TO %s;", TEST_USER),
                     format("GRANT CREATE SESSION TO %s;", TEST_USER),
