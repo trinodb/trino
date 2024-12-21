@@ -27,6 +27,7 @@ public class IntegerStatisticsBuilder
     private long minimum = Long.MAX_VALUE;
     private long maximum = Long.MIN_VALUE;
     private long sum;
+    private boolean hasNull;
     private boolean overflow;
     private final BloomFilterBuilder bloomFilterBuilder;
 
@@ -63,6 +64,7 @@ public class IntegerStatisticsBuilder
         nonNullValueCount += valueCount;
         minimum = Math.min(value.getMin(), minimum);
         maximum = Math.max(value.getMax(), maximum);
+        hasNull |= value.hasNull();
 
         if (value.getSum() == null) {
             // if input value does not have a sum tag this stat as overflowed
@@ -85,7 +87,7 @@ public class IntegerStatisticsBuilder
         if (nonNullValueCount == 0) {
             return Optional.empty();
         }
-        return Optional.of(new IntegerStatistics(minimum, maximum, overflow ? null : sum));
+        return Optional.of(new IntegerStatistics(minimum, maximum, overflow ? null : sum, hasNull));
     }
 
     @Override
@@ -105,6 +107,11 @@ public class IntegerStatisticsBuilder
                 null,
                 null,
                 bloomFilterBuilder.buildBloomFilter());
+    }
+
+    @Override
+    public void setHasNull(boolean hasNull) {
+        this.hasNull = hasNull;
     }
 
     public static Optional<IntegerStatistics> mergeIntegerStatistics(List<ColumnStatistics> stats)
