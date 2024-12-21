@@ -39,6 +39,7 @@ import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateBranch;
 import static io.trino.spi.security.AccessDeniedException.denyCreateCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
@@ -51,6 +52,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDenyEntityPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDropBranch;
 import static io.trino.spi.security.AccessDeniedException.denyDropCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropFunction;
@@ -574,5 +576,23 @@ public class DenyAllAccessControl
     public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         denyShowCreateFunction(functionName.toString());
+    }
+
+    @Override
+    public void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        denyCreateBranch(tableName.toString(), name);
+    }
+
+    @Override
+    public void canCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        denyDropBranch(tableName.toString(), name);
+    }
+
+    @Override
+    public void canCanAlterBranch(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        denyAlterColumn(tableName.toString(), name);
     }
 }
