@@ -304,7 +304,15 @@ class HdfsFileSystem
             if (!hierarchical(fileSystem, location)) {
                 return null;
             }
-            Optional<FsPermission> permission = environment.getNewDirectoryPermissions();
+
+            Optional<FsPermission> permission = Optional.empty();
+            if (environment.getNewDirectoryPermissions().isPresent()) {
+                permission = environment.getNewDirectoryPermissions();
+            }
+            else if (environment.isNewFileInheritPermissions()) {
+                permission = Optional.of(getExistingParentDirectoryPermission(fileSystem, directory));
+            }
+
             try (TimeStat.BlockTimer _ = stats.getCreateDirectoryCalls().time()) {
                 if (!fileSystem.mkdirs(directory, permission.orElse(null))) {
                     throw new IOException("mkdirs failed");
@@ -425,6 +433,9 @@ class HdfsFileSystem
                 if (permission.isPresent()) {
                     fileSystem.setPermission(temporaryPath, permission.get());
                 }
+                else if (environment.isNewFileInheritPermissions()) {
+                    inheritDirectoryPermission(fileSystem, temporaryPath, targetPath);
+                }
 
                 return Optional.of(temporaryLocation);
             }
@@ -460,6 +471,36 @@ class HdfsFileSystem
             // Instead, defer to later calls to fail with a more appropriate message.
             hierarchicalFileSystemCache.putIfAbsent(fileSystem, true);
             return true;
+        }
+    }
+
+    public static FsPermission getExistingParentDirectoryPermission(FileSystem fileSystem, Path path)
+            throws IOException
+    {
+        try {
+            // find the parent-directory where it exists
+            Path checkPath = path;
+            while (!fileSystem.exists(checkPath)) {
+                checkPath = checkPath.getParent();
+            }
+
+            // return the parent-directory permission
+            return fileSystem.getFileStatus(checkPath).getPermission();
+        }
+        catch (IOException e) {
+            throw new IOException("Failed to get permission on exist-parent-directory for %s: %s".formatted(path.toString(), e.getMessage()), e);
+        }
+    }
+
+    private static void inheritDirectoryPermission(FileSystem fileSystem, Path path, Path targetPath)
+            throws IOException
+    {
+        try {
+            FsPermission fsPermission = getExistingParentDirectoryPermission(fileSystem, targetPath);
+            fileSystem.setPermission(path, fsPermission);
+        }
+        catch (IOException e) {
+            throw new IOException("Failed to set permission on %s based on %s: %s".formatted(path.toString(), targetPath.toString(), e.getMessage()), e);
         }
     }
 
