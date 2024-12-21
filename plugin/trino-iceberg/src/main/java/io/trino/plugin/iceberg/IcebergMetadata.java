@@ -199,7 +199,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -228,6 +231,7 @@ import static com.google.common.collect.Sets.difference;
 import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
+import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveMetadata.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
@@ -406,7 +410,8 @@ public class IcebergMetadata
     private final Optional<HiveMetastoreFactory> metastoreFactory;
     private final boolean addFilesProcedureEnabled;
     private final Predicate<String> allowedExtraProperties;
-    private final ExecutorService executor;
+    private final ExecutorService icebergScanExecutor;
+    private final Executor metadataFetchingExecutor;
 
     private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
 
@@ -423,7 +428,8 @@ public class IcebergMetadata
             Optional<HiveMetastoreFactory> metastoreFactory,
             boolean addFilesProcedureEnabled,
             Predicate<String> allowedExtraProperties,
-            ExecutorService executor)
+            ExecutorService icebergScanExecutor,
+            Executor metadataFetchingExecutor)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoCatalogHandle = requireNonNull(trinoCatalogHandle, "trinoCatalogHandle is null");
@@ -434,7 +440,8 @@ public class IcebergMetadata
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.addFilesProcedureEnabled = addFilesProcedureEnabled;
         this.allowedExtraProperties = requireNonNull(allowedExtraProperties, "allowedExtraProperties is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
+        this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
     }
 
     @Override
@@ -694,15 +701,15 @@ public class IcebergMetadata
         return switch (tableType) {
             case DATA, MATERIALIZED_VIEW_STORAGE -> throw new VerifyException("Unexpected table type: " + tableType); // Handled above.
             case HISTORY -> Optional.of(new HistoryTable(tableName, table));
-            case METADATA_LOG_ENTRIES -> Optional.of(new MetadataLogEntriesTable(tableName, table, executor));
-            case SNAPSHOTS -> Optional.of(new SnapshotsTable(tableName, typeManager, table, executor));
-            case PARTITIONS -> Optional.of(new PartitionsTable(tableName, typeManager, table, getCurrentSnapshotId(table), executor));
-            case ALL_MANIFESTS -> Optional.of(new AllManifestsTable(tableName, table, executor));
+            case METADATA_LOG_ENTRIES -> Optional.of(new MetadataLogEntriesTable(tableName, table, icebergScanExecutor));
+            case SNAPSHOTS -> Optional.of(new SnapshotsTable(tableName, typeManager, table, icebergScanExecutor));
+            case PARTITIONS -> Optional.of(new PartitionsTable(tableName, typeManager, table, getCurrentSnapshotId(table), icebergScanExecutor));
+            case ALL_MANIFESTS -> Optional.of(new AllManifestsTable(tableName, table, icebergScanExecutor));
             case MANIFESTS -> Optional.of(new ManifestsTable(tableName, table, getCurrentSnapshotId(table)));
-            case FILES -> Optional.of(new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table), executor));
-            case ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, executor));
+            case FILES -> Optional.of(new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table), icebergScanExecutor));
+            case ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, icebergScanExecutor));
             case PROPERTIES -> Optional.of(new PropertiesTable(tableName, table));
-            case REFS -> Optional.of(new RefsTable(tableName, table, executor));
+            case REFS -> Optional.of(new RefsTable(tableName, table, icebergScanExecutor));
         };
     }
 
@@ -982,23 +989,40 @@ public class IcebergMetadata
                         tableMetadatas.add(TableColumnsMetadata.forTable(tableName, columns));
                     });
 
-                    for (SchemaTableName tableName : remainingTables) {
-                        try {
-                            Table icebergTable = catalog.loadTable(session, tableName);
-                            List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema(), typeManager);
-                            tableMetadatas.add(TableColumnsMetadata.forTable(tableName, columns));
-                        }
-                        catch (TableNotFoundException e) {
-                            // Table disappeared during listing operation
-                        }
-                        catch (UnknownTableTypeException e) {
-                            // Skip unsupported table type in case that the table redirects are not enabled
-                        }
-                        catch (RuntimeException e) {
-                            // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
-                            log.warn(e, "Failed to access metadata of table %s during streaming table columns for %s", tableName, prefix);
-                        }
+                    List<Callable<Optional<TableColumnsMetadata>>> tasks = remainingTables.stream()
+                            .map(tableName -> (Callable<Optional<TableColumnsMetadata>>) () -> {
+                                try {
+                                    Table icebergTable = catalog.loadTable(session, tableName);
+                                    List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema(), typeManager);
+                                    return Optional.of(TableColumnsMetadata.forTable(tableName, columns));
+                                }
+                                catch (TableNotFoundException e) {
+                                    // Table disappeared during listing operation
+                                    return Optional.empty();
+                                }
+                                catch (UnknownTableTypeException e) {
+                                    // Skip unsupported table type in case that the table redirects are not enabled
+                                    return Optional.empty();
+                                }
+                                catch (RuntimeException e) {
+                                    // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
+                                    log.warn(e, "Failed to access metadata of table %s during streaming table columns for %s", tableName, prefix);
+                                    return Optional.empty();
+                                }
+                            })
+                            .collect(toImmutableList());
+
+                    try {
+                        List<TableColumnsMetadata> taskResults = processWithAdditionalThreads(tasks, metadataFetchingExecutor).stream()
+                                .flatMap(Optional::stream) // Flatten the Optionals into a stream
+                                .collect(toImmutableList());
+
+                        tableMetadatas.addAll(taskResults);
                     }
+                    catch (ExecutionException e) {
+                        throw new RuntimeException(e.getCause());
+                    }
+
                     return tableMetadatas.build();
                 })
                 .flatMap(List::stream)
