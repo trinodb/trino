@@ -18,7 +18,9 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.trino.execution.SplitRunner;
+import io.trino.spi.cache.CacheSplitId;
 
+import java.util.Optional;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -147,6 +149,12 @@ abstract class SimulationSplit
         }
 
         return processResult;
+    }
+
+    @Override
+    public Optional<CacheSplitId> getCacheSplitId()
+    {
+        return Optional.empty();
     }
 
     static class LeafSplit

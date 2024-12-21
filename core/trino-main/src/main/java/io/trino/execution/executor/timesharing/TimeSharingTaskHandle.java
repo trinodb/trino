@@ -173,11 +173,12 @@ public class TimeSharingTaskHandle
             return null;
         }
 
-        PrioritizedSplitRunner split = queuedLeafSplits.poll();
-        if (split != null) {
-            runningLeafSplits.add(split);
-        }
-        return split;
+        return queuedLeafSplits.poll();
+    }
+
+    public synchronized void splitStarted(PrioritizedSplitRunner split)
+    {
+        runningLeafSplits.add(split);
     }
 
     public synchronized void splitComplete(PrioritizedSplitRunner split)

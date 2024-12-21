@@ -16,8 +16,10 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
+import io.trino.spi.cache.CacheSplitId;
 
 import java.io.Closeable;
+import java.util.Optional;
 
 public interface SplitRunner
         extends Closeable
@@ -31,6 +33,8 @@ public interface SplitRunner
     ListenableFuture<Void> processFor(Duration duration);
 
     String getInfo();
+
+    Optional<CacheSplitId> getCacheSplitId();
 
     @Override
     void close();

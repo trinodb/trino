@@ -24,6 +24,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
+import io.trino.cache.SplitAdmissionControllerProvider;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
@@ -146,7 +147,8 @@ public class HttpRemoteTaskFactory
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             Set<DynamicFilterId> outboundDynamicFilterIds,
             Optional<DataSize> estimatedMemory,
-            boolean summarizeTaskInfo)
+            boolean summarizeTaskInfo,
+            SplitAdmissionControllerProvider splitAdmissionControllerProvider)
     {
         return new HttpRemoteTask(
                 session,
@@ -177,6 +179,7 @@ public class HttpRemoteTaskFactory
                 stats,
                 dynamicFilterService,
                 outboundDynamicFilterIds,
-                estimatedMemory);
+                estimatedMemory,
+                splitAdmissionControllerProvider);
     }
 }

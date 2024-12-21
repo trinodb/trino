@@ -23,6 +23,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.cache.CacheConfig;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
@@ -1146,6 +1147,7 @@ public class TestAnalyzer
                 new OptimizerConfig(),
                 new NodeMemoryConfig(),
                 new DynamicFilterConfig(),
+                new CacheConfig(),
                 new NodeSchedulerConfig()))).build();
         analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
                 "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
