@@ -38,6 +38,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static io.trino.filesystem.alluxio.AlluxioUtils.convertToAlluxioURI;
+import static io.trino.filesystem.alluxio.AlluxioUtils.getAlluxioBase;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
@@ -189,20 +190,20 @@ public class AlluxioFileSystem
         try {
             URIStatus status = alluxioClient.getStatus(convertToAlluxioURI(location, mountRoot));
             if (status == null) {
-                new AlluxioFileIterator(Collections.emptyList(), mountRoot);
+                new AlluxioFileIterator(Collections.emptyList(), getAlluxioBase(location.toString()));
             }
             if (!status.isFolder()) {
                 throw new IOException("Location is not a directory: %s".formatted(location));
             }
         }
         catch (NotFoundRuntimeException | AlluxioException e) {
-            return new AlluxioFileIterator(Collections.emptyList(), mountRoot);
+            return new AlluxioFileIterator(Collections.emptyList(), getAlluxioBase(location.toString()));
         }
 
         try {
             List<URIStatus> filesStatus = alluxioClient.listStatus(convertToAlluxioURI(location, mountRoot),
                     ListStatusPOptions.newBuilder().setRecursive(true).build());
-            return new AlluxioFileIterator(filesStatus.stream().filter(status -> !status.isFolder() & status.isCompleted()).toList(), mountRoot);
+            return new AlluxioFileIterator(filesStatus.stream().filter(status -> !status.isFolder() & status.isCompleted()).toList(), getAlluxioBase(location.toString()));
         }
         catch (AlluxioException e) {
             throw new IOException("Error listFiles %s".formatted(location), e);
