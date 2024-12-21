@@ -140,6 +140,7 @@ import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.MetadataColumns;
+import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -700,7 +701,8 @@ public class IcebergMetadata
             case ALL_MANIFESTS -> Optional.of(new AllManifestsTable(tableName, table, executor));
             case MANIFESTS -> Optional.of(new ManifestsTable(tableName, table, getCurrentSnapshotId(table)));
             case FILES -> Optional.of(new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table), executor));
-            case ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, executor));
+            case ALL_ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, MetadataTableType.ALL_ENTRIES, executor));
+            case ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, MetadataTableType.ENTRIES, executor));
             case PROPERTIES -> Optional.of(new PropertiesTable(tableName, table));
             case REFS -> Optional.of(new RefsTable(tableName, table, executor));
         };

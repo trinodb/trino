@@ -27,6 +27,7 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import jakarta.annotation.Nullable;
+import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.MetricsUtil.ReadableMetricsStruct;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Table;
@@ -43,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedHeapBuffer;
 import static io.trino.plugin.iceberg.FilesTable.getIcebergIdToTypeMapping;
@@ -59,8 +61,10 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataTableType.ALL_ENTRIES;
 import static org.apache.iceberg.MetadataTableType.ENTRIES;
 
+// https://iceberg.apache.org/docs/latest/spark-queries/#all-entries
 // https://iceberg.apache.org/docs/latest/spark-queries/#entries
 public class EntriesTable
         extends BaseSystemTable
@@ -70,15 +74,16 @@ public class EntriesTable
     private final Optional<IcebergPartitionColumn> partitionColumn;
     private final List<Type> partitionTypes;
 
-    public EntriesTable(TypeManager typeManager, SchemaTableName tableName, Table icebergTable, ExecutorService executor)
+    public EntriesTable(TypeManager typeManager, SchemaTableName tableName, Table icebergTable, MetadataTableType metadataTableType, ExecutorService executor)
     {
         super(
                 requireNonNull(icebergTable, "icebergTable is null"),
                 new ConnectorTableMetadata(
                         requireNonNull(tableName, "tableName is null"),
                         columns(requireNonNull(typeManager, "typeManager is null"), icebergTable)),
-                ENTRIES,
+                metadataTableType,
                 executor);
+        checkArgument(metadataTableType == ALL_ENTRIES || metadataTableType == ENTRIES, "Unexpected metadata table type: %s", metadataTableType);
         idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
         primitiveFields = IcebergUtil.primitiveFields(icebergTable.schema()).stream()
                 .sorted(Comparator.comparing(Types.NestedField::name))
