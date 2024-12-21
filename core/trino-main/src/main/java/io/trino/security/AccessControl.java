@@ -37,6 +37,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.spi.security.AccessDeniedException.denyCreateBranchAndTag;
+import static io.trino.spi.security.AccessDeniedException.denyDropBranchAndTag;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 
 public interface AccessControl
@@ -619,5 +621,25 @@ public interface AccessControl
     default Map<ColumnSchema, ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, List<ColumnSchema> columns)
     {
         return ImmutableMap.of();
+    }
+
+    /**
+     * Check if identity is allowed to create the specified branch or tag.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateBranchAndTag(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        denyCreateBranchAndTag(tableName.toString(), name);
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified branch or tag.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void canCanDropBranchAndTag(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        denyDropBranchAndTag(tableName.toString(), name);
     }
 }
