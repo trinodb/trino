@@ -1318,6 +1318,58 @@ The output of the query has the following columns:
   - File metrics in human-readable form.
 :::
 
+##### `$entries` table
+
+The `$entries` table provides all the table's current manifest entries for both 
+data and delete files.
+
+To retrieve the information about the entries of the Iceberg table
+`test_table`, use the following query:
+
+```
+SELECT * FROM "test_table$entries"
+```
+
+```text
+ status |   snapshot_id  | sequence_number | file_sequence_number |                                                                                                                data_file                                                                                                                                                                                                                                                                                     |                                                        readable_metrics                                                 |
+--------+----------------+-----------------+----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------+
+      2 | 57897183625154 |              0  |                   0  | {"content":0,"file_path":"s3:/.../table/data/00047-25-833044d0-127b-415c-b874-038a4f978c29-00612.parquet","file_format":"PARQUET","spec_id":0,"record_count":15,"file_size_in_bytes":473,"column_sizes":{1:103},"value_counts":{1:15},"null_value_counts":{1:0},"nan_value_counts":{},"lower_bounds":{1:},"upper_bounds":{1:},"key_metadata":null,"split_offsets":[4],"equality_ids":null,"sort_order_id":0} | {"c1":{"column_size":103,"value_count":15,"null_value_count":0,"nan_value_count":null,"lower_bound":1,"upper_bound":3}} |
+```
+
+The output of the query has the following columns:
+
+:::{list-table} Files columns
+:widths: 25, 30, 45
+:header-rows: 1
+
+* - Name
+  - Type
+  - Description
+* - `status`
+  - `INTEGER`
+  - Used to track additions and deletions. Deletes are informational only and 
+    not used in scans:
+      * `EXISTING(0)`
+      * `ADDED(1)`
+      * `DELETED(2)`
+* - `snapshot_id`
+  - `BIGINT`
+  - The snapshot ID of the reference.
+* - `sequence_number`
+  - `BIGINT`
+  - Data sequence number of the file. Inherited when null and status is 1 (added).
+* - `file_sequence_number`
+  - `BIGINT`
+  - File sequence number indicating when the file was added. Inherited when null
+    and status is 1 (added).
+* - `data_file`
+  - `ROW`
+  - File path, partition tuple, metrics, ...
+* - `readable_metrics`
+  - `JSON`
+  - File metrics in human-readable form.
+:::
+
 ##### `$refs` table
 
 The `$refs` table provides information about Iceberg references including
