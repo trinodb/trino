@@ -19,11 +19,8 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -126,7 +123,6 @@ class FakerPageSource
             Faker faker,
             Random random,
             List<FakerColumnHandle> columns,
-            TupleDomain<ColumnHandle> constraint,
             long offset,
             long limit)
     {
@@ -136,24 +132,24 @@ class FakerPageSource
                 .stream()
                 .map(FakerColumnHandle::type)
                 .collect(toImmutableList());
-        requireNonNull(constraint, "constraint is null");
         this.limit = limit;
 
         this.generators = columns
                 .stream()
-                .map(column -> getGenerator(column, constraint, offset))
+                .map(column -> getGenerator(column, offset))
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(types);
     }
 
     private Generator getGenerator(
             FakerColumnHandle column,
-            TupleDomain<ColumnHandle> constraint,
             long offset)
     {
         if (ROW_ID_COLUMN_NAME.equals(column.name())) {
-            return new Generator() {
+            return new Generator()
+            {
                 long currentRowId = offset;
+
                 @Override
                 public void accept(BlockBuilder blockBuilder)
                 {
@@ -162,9 +158,7 @@ class FakerPageSource
             };
         }
 
-        return constraintedValueGenerator(
-                column,
-                constraint.getDomains().get().getOrDefault(column, Domain.all(column.type())));
+        return constraintedValueGenerator(column);
     }
 
     @Override
@@ -228,22 +222,14 @@ class FakerPageSource
         closed = true;
     }
 
-    private Generator constraintedValueGenerator(FakerColumnHandle handle, Domain domain)
+    private Generator constraintedValueGenerator(FakerColumnHandle handle)
     {
-        if (domain.isSingleValue()) {
-            ObjectWriter singleValueWriter = objectWriter(handle.type());
-            return (blockBuilder) -> singleValueWriter.accept(blockBuilder, domain.getSingleValue());
-        }
-        if (domain.getValues().isDiscreteSet()) {
-            List<Object> values = domain.getValues().getDiscreteSet();
+        if (handle.options() != null) {
+            List<Object> values = handle.nativeOptions();
             ObjectWriter singleValueWriter = objectWriter(handle.type());
             return (blockBuilder) -> singleValueWriter.accept(blockBuilder, values.get(random.nextInt(values.size())));
         }
-        if (domain.getValues().getRanges().getRangeCount() > 1) {
-            // this would require calculating weights for each range to retain uniform distribution
-            throw new TrinoException(INVALID_ROW_FILTER, "Generating random values from more than one range is not supported");
-        }
-        Generator generator = randomValueGenerator(handle, domain.getValues().getRanges().getSpan());
+        Generator generator = randomValueGenerator(handle);
         if (handle.nullProbability() == 0) {
             return generator;
         }
@@ -257,8 +243,9 @@ class FakerPageSource
         };
     }
 
-    private Generator randomValueGenerator(FakerColumnHandle handle, Range range)
+    private Generator randomValueGenerator(FakerColumnHandle handle)
     {
+        Range range = handle.range();
         if (handle.generator() != null) {
             if (!range.isAll()) {
                 throw new TrinoException(INVALID_ROW_FILTER, "Predicates for columns with a generator expression are not supported");
