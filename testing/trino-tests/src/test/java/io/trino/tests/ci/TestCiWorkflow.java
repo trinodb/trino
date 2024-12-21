@@ -50,7 +50,7 @@ public class TestCiWorkflow
         String uploadTestResultsStepName = "Upload test results";
         Set<String> nonTestSteps = ImmutableSet.of(
                 uploadTestResultsStepName,
-                "Maven Install");
+                "Maven Package");
 
         Yaml yaml = new Yaml();
         Map<?, ?> workflow = yaml.load(new StringReader(Files.readString(findRepositoryRoot().resolve(CI_YML_REPO_PATH))));
