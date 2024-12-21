@@ -234,6 +234,10 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -P disable-check-spi-dependencies -pl '!:trino-docs'
+      - name: Prune Docker
+        run: |
+          docker system prune -af
+          docker volume prune -f
       - name: Set matrix
         id: set-matrix
         run: |
