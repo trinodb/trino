@@ -746,6 +746,26 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot show create function for %s%s", functionName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCreateBranchAndTag(String tableName, String name)
+    {
+        denyCreateBranchAndTag(tableName, name, null);
+    }
+
+    public static void denyCreateBranchAndTag(String tableName, String name, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create branch and tag %s@%s%s", tableName, name, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDropBranchAndTag(String tableName, String name)
+    {
+        denyDropBranchAndTag(tableName, name, null);
+    }
+
+    public static void denyDropBranchAndTag(String tableName, String name, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop branch and tag %s@%s%s", tableName, name, formatExtraInfo(extraInfo)));
+    }
+
     private static Object formatExtraInfo(String extraInfo)
     {
         if (extraInfo == null || extraInfo.isEmpty()) {

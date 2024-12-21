@@ -581,4 +581,20 @@ public class ClassLoaderSafeConnectorAccessControl
             return delegate.getColumnMasks(context, tableName, columns);
         }
     }
+
+    @Override
+    public void checkCanCreateBranchAndTag(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.checkCanCreateBranchAndTag(context, tableName, name);
+        }
+    }
+
+    @Override
+    public void checkCanDropBranchAndTag(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.checkCanDropBranchAndTag(context, tableName, name);
+        }
+    }
 }

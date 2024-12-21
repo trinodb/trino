@@ -558,6 +558,18 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateBranchAndTag(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name)
+    {
+        delegate().checkCanCreateBranchAndTag(systemSecurityContext, tableName, name);
+    }
+
+    @Override
+    public void checkCanDropBranchAndTag(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name)
+    {
+        delegate().checkCanDropBranchAndTag(systemSecurityContext, tableName, name);
+    }
+
+    @Override
     public void shutdown()
     {
         delegate().shutdown();

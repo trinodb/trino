@@ -453,4 +453,16 @@ public abstract class ForwardingConnectorAccessControl
     {
         return delegate().getColumnMasks(context, tableName, columns);
     }
+
+    @Override
+    public void checkCanCreateBranchAndTag(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        delegate().checkCanCreateBranchAndTag(context, tableName, name);
+    }
+
+    @Override
+    public void checkCanDropBranchAndTag(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        delegate().checkCanDropBranchAndTag(context, tableName, name);
+    }
 }
