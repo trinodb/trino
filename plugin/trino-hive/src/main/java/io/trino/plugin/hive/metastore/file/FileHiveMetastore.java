@@ -83,6 +83,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -177,7 +178,7 @@ public class FileHiveMetastore
 
         listTablesCache = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(10, SECONDS)
-                .build(CacheLoader.from(this::doListAllTables));
+                .build(CacheLoader.from(databaseName -> doListAllTables(databaseName, _ -> true)));
     }
 
     @Override
@@ -532,7 +533,16 @@ public class FileHiveMetastore
         return listTablesCache.getUnchecked(databaseName);
     }
 
-    private synchronized List<TableInfo> doListAllTables(String databaseName)
+    @Override
+    public synchronized List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    {
+        requireNonNull(parameterKey, "parameterKey is null");
+        return doListAllTables(databaseName, table -> parameterValues.contains(table.getParameters().get(parameterKey))).stream()
+                .map(tableInfo -> tableInfo.tableName().getTableName())
+                .collect(toImmutableList());
+    }
+
+    private synchronized List<TableInfo> doListAllTables(String databaseName, Predicate<TableMetadata> tableMetadataPredicate)
     {
         requireNonNull(databaseName, "databaseName is null");
 
@@ -557,7 +567,8 @@ public class FileHiveMetastore
                 Location schemaFileLocation = subdirectory.appendPath(TRINO_SCHEMA_FILE_NAME_SUFFIX);
                 readFile("table schema", schemaFileLocation, tableCodec).ifPresent(tableMetadata -> {
                     checkVersion(tableMetadata.getWriterVersion());
-                    if (hideDeltaLakeTables && DELTA_LAKE_PROVIDER.equals(tableMetadata.getParameters().get(SPARK_TABLE_PROVIDER_KEY))) {
+                    if ((hideDeltaLakeTables && DELTA_LAKE_PROVIDER.equals(tableMetadata.getParameters().get(SPARK_TABLE_PROVIDER_KEY)))
+                            || !tableMetadataPredicate.test(tableMetadata)) {
                         return;
                     }
                     tables.add(new TableInfo(
