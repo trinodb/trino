@@ -21,6 +21,8 @@ import io.trino.hive.formats.HiveFormatUtils;
 import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineSerializer;
 import io.trino.spi.Page;
+import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
@@ -120,10 +122,26 @@ public class JsonSerializer
             };
         }
         else if (REAL.equals(type)) {
-            return (generator, block, position) -> generator.writeNumber(REAL.getFloat(block, position));
+            return (generator, block, position) -> {
+                float value = REAL.getFloat(block, position);
+                if (!Float.isNaN(value) && !Float.isInfinite(value)) {
+                    generator.writeNumber(value);
+                }
+                else {
+                    throw new TrinoException(StandardErrorCode.INVALID_JSON_LITERAL, "Invalid value to Insert Real " + value);
+                }
+            };
         }
         else if (DOUBLE.equals(type)) {
-            return (generator, block, position) -> generator.writeNumber(DOUBLE.getDouble(block, position));
+            return (generator, block, position) -> {
+                Double value = DOUBLE.getDouble(block, position);
+                if (!Double.isNaN(value) && !Double.isInfinite(value)) {
+                    generator.writeNumber(value);
+                }
+                else {
+                    throw new TrinoException(StandardErrorCode.INVALID_JSON_LITERAL, "Invalid value to Insert " + value);
+                }
+            };
         }
         else if (DATE.equals(type)) {
             return (generator, block, position) -> generator.writeString(HiveFormatUtils.formatHiveDate(block, position));
