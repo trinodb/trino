@@ -450,9 +450,6 @@ public abstract class BaseTrinoCatalogTest
                     .add(new TableInfo(table1, TABLE))
                     .add(new TableInfo(table2, TABLE));
 
-            ImmutableList.Builder<SchemaTableName> icebergTables = ImmutableList.<SchemaTableName>builder()
-                    .add(table1)
-                    .add(table2);
             SchemaTableName view = new SchemaTableName(ns2, "view");
             try {
                 catalog.createView(
@@ -496,7 +493,6 @@ public abstract class BaseTrinoCatalogTest
 
             createExternalIcebergTable(catalog, ns2, closer).ifPresent(table -> {
                 allTables.add(new TableInfo(table, TABLE));
-                icebergTables.add(table);
             });
             createExternalNonIcebergTable(catalog, ns2, closer).ifPresent(table -> {
                 allTables.add(new TableInfo(table, TABLE));
@@ -504,13 +500,10 @@ public abstract class BaseTrinoCatalogTest
 
             // No namespace provided, all tables across all namespaces should be returned
             assertThat(catalog.listTables(SESSION, Optional.empty())).containsAll(allTables.build());
-            assertThat(catalog.listIcebergTables(SESSION, Optional.empty())).containsAll(icebergTables.build());
             // Namespace is provided and exists
             assertThat(catalog.listTables(SESSION, Optional.of(ns1))).containsExactly(new TableInfo(table1, TABLE));
-            assertThat(catalog.listIcebergTables(SESSION, Optional.of(ns1))).containsExactly(table1);
             // Namespace is provided and does not exist
             assertThat(catalog.listTables(SESSION, Optional.of("non_existing"))).isEmpty();
-            assertThat(catalog.listIcebergTables(SESSION, Optional.of("non_existing"))).isEmpty();
         }
     }
 
