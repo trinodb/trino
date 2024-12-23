@@ -35,6 +35,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
@@ -256,5 +257,27 @@ public class TestTrinoGlueCatalog
                 LOG.warn("Failed to clean up namespace: %s", namespace);
             }
         }
+    }
+
+    @Override
+    protected void createMaterializedView(
+            ConnectorSession session,
+            TrinoCatalog catalog,
+            SchemaTableName materializedView,
+            ConnectorMaterializedViewDefinition materializedViewDefinition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting)
+    {
+        catalog.createMaterializedView(
+                session,
+                materializedView,
+                materializedViewDefinition,
+                ImmutableMap.<String, Object>builder()
+                        .putAll(properties)
+                        .put(LOCATION_PROPERTY, "file:///tmp/a/path/" + materializedView.getTableName())
+                        .buildOrThrow(),
+                replace,
+                ignoreExisting);
     }
 }

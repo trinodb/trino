@@ -684,6 +684,14 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
                 .hasRootCauseMessage("SQL compilation error:\ninvalid parameter 'table ? is not a Snowflake iceberg table'");
     }
 
+    @Test
+    @Override
+    public void testIcebergTablesFunction()
+    {
+        assertThatThrownBy(super::testIcebergTablesFunction)
+                .hasMessageContaining("schemaPath is not supported for Iceberg snowflake catalog");
+    }
+
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
     {
