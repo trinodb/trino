@@ -375,7 +375,7 @@ final class TestIcebergLocalConcurrentWrites
         ExecutorService executor = newFixedThreadPool(threads);
         String tableName = "test_concurrent_non_overlapping_updates_table_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioning = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioning = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, NULL), (31, 40)", 4);
 
         try {
             // update data concurrently by using non-overlapping partition predicate
@@ -392,13 +392,13 @@ final class TestIcebergLocalConcurrentWrites
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE part = 30");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE part IS NULL");
                                 return null;
                             })
                             .build())
                     .forEach(MoreFutures::getDone);
 
-            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (2, 10), (12, 20), (22, 30), (31, 40)");
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (2, 10), (12, 20), (22, NULL), (31, 40)");
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -426,7 +426,7 @@ final class TestIcebergLocalConcurrentWrites
 
         assertUpdate("CREATE TABLE " + tableName + " (a, part) " +
                 (partitioned ? " WITH (partitioning = ARRAY['part'])" : "") +
-                " AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
+                " AS VALUES (1, 10), (11, 20), (21, NULL), (31, 40)", 4);
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
@@ -461,9 +461,9 @@ final class TestIcebergLocalConcurrentWrites
             assertThat(successes).isGreaterThanOrEqualTo(1);
             //There can be different possible results depending on query order execution.
             switch ((int) successes) {
-                case 1 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (22, 30), (32, 40)");
-                case 2 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (23, 30), (33, 40)");
-                case 3 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (24, 30), (34, 40)");
+                case 1 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (22, NULL), (32, 40)");
+                case 2 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (23, NULL), (33, 40)");
+                case 3 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (24, NULL), (34, 40)");
             }
         }
         finally {
@@ -488,7 +488,7 @@ final class TestIcebergLocalConcurrentWrites
                 "INSERT INTO " + tableName + " VALUES " +
                         "(1, ROW(10)), " +
                         "(11, ROW(20)), " +
-                        "(21, ROW(30)), " +
+                        "(21, ROW(NULL)), " +
                         "(31, ROW(40))",
                 4);
         try {
@@ -506,13 +506,13 @@ final class TestIcebergLocalConcurrentWrites
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE parent.child = 30");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE parent.child IS NULL");
                                 return null;
                             })
                             .build())
                     .forEach(MoreFutures::getDone);
 
-            assertThat(query("SELECT a, parent.child FROM " + tableName)).matches("VALUES (2, 10), (12, 20), (22, 30), (31, 40)");
+            assertThat(query("SELECT a, parent.child FROM " + tableName)).matches("VALUES (2, 10), (12, 20), (22, NULL), (31, 40)");
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
