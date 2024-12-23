@@ -478,8 +478,9 @@ public abstract class BaseTrinoCatalogTest
 
             try {
                 SchemaTableName materializedView = new SchemaTableName(ns2, "mv");
-                catalog.createMaterializedView(
+                createMaterializedView(
                         SESSION,
+                        catalog,
                         materializedView,
                         someMaterializedView(),
                         ImmutableMap.of(
@@ -512,6 +513,24 @@ public abstract class BaseTrinoCatalogTest
             assertThat(catalog.listTables(SESSION, Optional.of("non_existing"))).isEmpty();
             assertThat(catalog.listIcebergTables(SESSION, Optional.of("non_existing"))).isEmpty();
         }
+    }
+
+    protected void createMaterializedView(
+            ConnectorSession session,
+            TrinoCatalog catalog,
+            SchemaTableName materializedView,
+            ConnectorMaterializedViewDefinition materializedViewDefinition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting)
+    {
+        catalog.createMaterializedView(
+                session,
+                materializedView,
+                materializedViewDefinition,
+                properties,
+                replace,
+                ignoreExisting);
     }
 
     protected Optional<SchemaTableName> createExternalIcebergTable(TrinoCatalog catalog, String namespace, AutoCloseableCloser closer)
