@@ -45,6 +45,7 @@ import io.trino.transaction.TransactionManager;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -142,6 +143,18 @@ public class DefaultCatalogFactory
     public CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector)
     {
         return createCatalog(catalogHandle, connectorName, connector, Optional.empty());
+    }
+
+    @Override
+    public Set<String> getRedactablePropertyNames(ConnectorName connectorName, Set<String> propertyNames)
+    {
+        ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
+        if (connectorFactory == null) {
+            // If someone tries to use a non-existent connector, we assume they
+            // misspelled the name and, for safety, we redact all the properties.
+            return propertyNames;
+        }
+        return connectorFactory.getRedactablePropertyNames(propertyNames);
     }
 
     private CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector, Optional<CatalogProperties> catalogProperties)
