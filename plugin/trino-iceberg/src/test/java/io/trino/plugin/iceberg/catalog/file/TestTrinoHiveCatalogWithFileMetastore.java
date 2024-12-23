@@ -56,7 +56,6 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROP
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -154,13 +153,5 @@ public class TestTrinoHiveCatalogWithFileMetastore
                 log.warn("Failed to clean up namespace: %s", namespace);
             }
         }
-    }
-
-    @Test
-    @Override
-    public void testListTables()
-    {
-        // the test actually works but when cleanup up the materialized view the error is thrown
-        assertThatThrownBy(super::testListTables).hasMessageMatching("Table 'ns2.*.mv' not found");
     }
 }
