@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.metastore.TableInfo;
-import io.trino.metastore.TableInfo.ExtendedRelationType;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.CommitTaskData;
@@ -365,7 +364,7 @@ public abstract class BaseTrinoCatalogTest
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             catalog.createView(SESSION, schemaTableName, viewDefinition, false);
 
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream()).contains(new TableInfo(schemaTableName, getViewType()));
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream()).contains(new TableInfo(schemaTableName, TRINO_VIEW));
 
             Map<SchemaTableName, ConnectorViewDefinition> views = catalog.getViews(SESSION, Optional.of(schemaTableName.getSchemaName()));
             assertThat(views).hasSize(1);
@@ -392,11 +391,6 @@ public abstract class BaseTrinoCatalogTest
                 LOG.warn("Failed to clean up namespace: %s", namespace);
             }
         }
-    }
-
-    protected ExtendedRelationType getViewType()
-    {
-        return TRINO_VIEW;
     }
 
     @Test
