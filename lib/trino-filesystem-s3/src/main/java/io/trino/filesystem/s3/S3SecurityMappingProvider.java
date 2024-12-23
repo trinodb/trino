@@ -33,6 +33,7 @@ final class S3SecurityMappingProvider
     private final Supplier<S3SecurityMappings> mappingsProvider;
     private final Optional<String> roleCredentialName;
     private final Optional<String> kmsKeyIdCredentialName;
+    private final Optional<String> customerKeyCredentialName;
     private final Optional<String> colonReplacement;
 
     @Inject
@@ -41,6 +42,7 @@ final class S3SecurityMappingProvider
         this(mappingsProvider(mappingsProvider, config.getRefreshPeriod()),
                 config.getRoleCredentialName(),
                 config.getKmsKeyIdCredentialName(),
+                config.getCustomerKeyCredentialName(),
                 config.getColonReplacement());
     }
 
@@ -48,11 +50,13 @@ final class S3SecurityMappingProvider
             Supplier<S3SecurityMappings> mappingsProvider,
             Optional<String> roleCredentialName,
             Optional<String> kmsKeyIdCredentialName,
+            Optional<String> customerKeyCredentialName,
             Optional<String> colonReplacement)
     {
         this.mappingsProvider = requireNonNull(mappingsProvider, "mappingsProvider is null");
         this.roleCredentialName = requireNonNull(roleCredentialName, "roleCredentialName is null");
         this.kmsKeyIdCredentialName = requireNonNull(kmsKeyIdCredentialName, "kmsKeyIdCredentialName is null");
+        this.customerKeyCredentialName = requireNonNull(customerKeyCredentialName, "customerKeyCredentialName is null");
         this.colonReplacement = requireNonNull(colonReplacement, "colonReplacement is null");
     }
 
@@ -70,6 +74,7 @@ final class S3SecurityMappingProvider
                 selectRole(mapping, identity),
                 mapping.roleSessionName().map(name -> name.replace("${USER}", identity.getUser())),
                 selectKmsKeyId(mapping, identity),
+                selectCustomerKey(mapping, identity),
                 mapping.endpoint(),
                 mapping.region()));
     }
@@ -129,6 +134,31 @@ final class S3SecurityMappingProvider
     private Optional<String> getKmsKeyIdFromExtraCredential(ConnectorIdentity identity)
     {
         return kmsKeyIdCredentialName.map(name -> identity.getExtraCredentials().get(name));
+    }
+
+    private Optional<String> selectCustomerKey(S3SecurityMapping mapping, ConnectorIdentity identity)
+    {
+        Optional<String> userSelected = getCustomerKeyFromExtraCredential(identity);
+
+        if (userSelected.isEmpty()) {
+            return mapping.customerKey();
+        }
+
+        String selected = userSelected.get();
+
+        // selected Customer key must match default or be allowed
+        if (!selected.equals(mapping.customerKey().orElse(null)) &&
+                !mapping.allowedCustomerKeys().contains(selected) &&
+                !mapping.allowedCustomerKeys().contains("*")) {
+            throw new AccessDeniedException("Selected Customer key is not allowed");
+        }
+
+        return userSelected;
+    }
+
+    private Optional<String> getCustomerKeyFromExtraCredential(ConnectorIdentity identity)
+    {
+        return customerKeyCredentialName.map(name -> identity.getExtraCredentials().get(name));
     }
 
     private static Supplier<S3SecurityMappings> mappingsProvider(Supplier<S3SecurityMappings> supplier, Optional<Duration> refreshPeriod)

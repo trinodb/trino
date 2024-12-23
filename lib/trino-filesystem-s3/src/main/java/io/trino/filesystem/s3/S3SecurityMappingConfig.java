@@ -31,6 +31,7 @@ public class S3SecurityMappingConfig
     private String jsonPointer = "";
     private String roleCredentialName;
     private String kmsKeyIdCredentialName;
+    private String customerKeyCredentialName;
     private Duration refreshPeriod;
     private String colonReplacement;
 
@@ -97,6 +98,19 @@ public class S3SecurityMappingConfig
     public S3SecurityMappingConfig setKmsKeyIdCredentialName(String kmsKeyIdCredentialName)
     {
         this.kmsKeyIdCredentialName = kmsKeyIdCredentialName;
+        return this;
+    }
+
+    public Optional<String> getCustomerKeyCredentialName()
+    {
+        return Optional.ofNullable(customerKeyCredentialName);
+    }
+
+    @Config("s3.security-mapping.customer-key-credential-name")
+    @ConfigDescription("Name of the extra credential used to provide SSE Customer key")
+    public S3SecurityMappingConfig setCustomerKeyCredentialName(String customerKeyCredentialName)
+    {
+        this.customerKeyCredentialName = customerKeyCredentialName;
         return this;
     }
 
