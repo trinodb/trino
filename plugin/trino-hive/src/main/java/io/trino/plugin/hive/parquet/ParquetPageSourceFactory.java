@@ -320,7 +320,7 @@ public class ParquetPageSourceFactory
 
     public static Optional<MessageType> getParquetMessageType(List<HiveColumnHandle> columns, boolean useColumnNames, MessageType fileSchema)
     {
-        Optional<MessageType> message = projectSufficientColumns(columns)
+        return projectSufficientColumns(columns)
                 .map(projection -> projection.get().stream()
                         .map(HiveColumnHandle.class::cast)
                         .collect(toImmutableList()))
@@ -331,7 +331,6 @@ public class ParquetPageSourceFactory
                 .map(Optional::get)
                 .map(type -> new MessageType(fileSchema.getName(), type))
                 .reduce(MessageType::union);
-        return message;
     }
 
     public static Optional<org.apache.parquet.schema.Type> getColumnType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
