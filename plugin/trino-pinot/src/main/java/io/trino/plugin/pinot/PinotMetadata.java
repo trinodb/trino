@@ -386,7 +386,7 @@ public class PinotMetadata
         Optional<PinotPredicate> pinotPredicate = getPinotPredicate(call);
         if (pinotPredicate.isPresent()) {
             // base case: no more nested calls to be examined
-            pinotPredicate.map(PinotPredicate::toPql).map(pqlBuilder::append);
+            pinotPredicate.map(PinotPredicate::toPql).ifPresent(pqlBuilder::append);
         }
         else {
             // recursive case

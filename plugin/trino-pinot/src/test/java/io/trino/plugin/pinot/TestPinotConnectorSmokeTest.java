@@ -834,7 +834,7 @@ public class TestPinotConnectorSmokeTest
                 neighborJoiner.add(neighbor);
             }
             return """
-                    {"vendor": "%s", "neighbors": %s, "lucky_numbers": "%s", "lucky_number": %d}""".formatted(vendor, neighborJoiner, luckyNumbers, luckyNumbers.getFirst());
+                    {"vendor": "%s", "neighbors": %s, "lucky_numbers": %s, "lucky_number": %d}""".formatted(vendor, neighborJoiner, luckyNumbers, luckyNumbers.getFirst());
         }
 
         @JsonProperty
