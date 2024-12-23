@@ -57,7 +57,6 @@ public class HttpThriftMetastoreClientFactory
     private final OpenTelemetry openTelemetry;
 
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
-    private final AtomicInteger chosenGetTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenAlterTransactionalTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenAlterPartitionsAlternative = new AtomicInteger(Integer.MAX_VALUE);
 
@@ -86,7 +85,6 @@ public class HttpThriftMetastoreClientFactory
                 new MetastoreSupportsDateStatistics(),
                 false,
                 chosenGetTableAlternative,
-                chosenGetTableParamAlternative,
                 chosenAlterTransactionalTableAlternative,
                 chosenAlterPartitionsAlternative);
     }

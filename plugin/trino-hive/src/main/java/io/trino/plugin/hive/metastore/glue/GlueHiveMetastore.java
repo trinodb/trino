@@ -412,21 +412,10 @@ public class GlueHiveMetastore
     @Override
     public List<TableInfo> getTables(String databaseName)
     {
-        return glueCache.getTables(databaseName, cacheTable -> getTablesInternal(cacheTable, databaseName, _ -> true));
+        return glueCache.getTables(databaseName, cacheTable -> getTablesInternal(cacheTable, databaseName));
     }
 
-    @Override
-    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
-    {
-        return getTablesInternal(
-                _ -> {},
-                databaseName,
-                table -> table.parameters() != null && parameterValues.contains(table.parameters().get(parameterKey))).stream()
-                .map(tableInfo -> tableInfo.tableName().getTableName())
-                .collect(toImmutableList());
-    }
-
-    private List<TableInfo> getTablesInternal(Consumer<Table> cacheTable, String databaseName, Predicate<software.amazon.awssdk.services.glue.model.Table> filter)
+    private List<TableInfo> getTablesInternal(Consumer<Table> cacheTable, String databaseName)
     {
         try {
             ImmutableList<software.amazon.awssdk.services.glue.model.Table> glueTables = stats.getGetTables()
@@ -436,7 +425,6 @@ public class GlueHiveMetastore
                             .map(GetTablesResponse::tableList)
                             .flatMap(List::stream))
                     .filter(tableVisibilityFilter)
-                    .filter(filter)
                     .collect(toImmutableList());
 
             // Store only valid tables in cache

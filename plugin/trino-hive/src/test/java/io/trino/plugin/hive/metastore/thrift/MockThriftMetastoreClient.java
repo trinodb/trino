@@ -49,7 +49,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -163,12 +162,6 @@ public class MockThriftMetastoreClient
             return ImmutableList.of(); // As specified by Hive specification
         }
         return ImmutableList.of(new TableMeta(TEST_DATABASE, TEST_TABLE, MANAGED_TABLE.name()));
-    }
-
-    @Override
-    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override

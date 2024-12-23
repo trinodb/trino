@@ -263,13 +263,6 @@ public class SharedHiveMetastoreCache
 
         @Managed
         @Nested
-        public AggregateCacheStatsMBean getTableWithParameterStats()
-        {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTableNamesWithParametersCache);
-        }
-
-        @Managed
-        @Nested
         public AggregateCacheStatsMBean getTableColumnStatisticsCache()
         {
             return new AggregateCacheStatsMBean(CachingHiveMetastore::getTableColumnStatisticsCache);

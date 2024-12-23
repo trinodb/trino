@@ -65,8 +65,6 @@ public sealed interface ThriftMetastore
 
     List<TableMeta> getTables(String databaseName);
 
-    List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues);
-
     Optional<Database> getDatabase(String databaseName);
 
     void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions);
