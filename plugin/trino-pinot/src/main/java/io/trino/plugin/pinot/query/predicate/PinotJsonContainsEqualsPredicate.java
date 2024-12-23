@@ -56,12 +56,12 @@ public class PinotJsonContainsEqualsPredicate
         }
 
         pql = new PinotJsonContainsPredicate((Call) arguments.getFirst())
-                .toPQL()
+                .toPql()
                 .replace("IN (", operator);
     }
 
     @Override
-    public String toPQL()
+    public String toPql()
     {
         return pql;
     }

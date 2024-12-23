@@ -134,8 +134,8 @@ public final class PinotTpchTables
         ImmutableList.Builder<ProducerRecord<String, GenericRecord>> ordersRowsBuilder = ImmutableList.builder();
         MaterializedResult ordersRows = queryRunner.execute("SELECT * FROM tpch.tiny.orders");
         for (MaterializedRow row : ordersRows.getMaterializedRows()) {
-            String json = String.format("{ \"orderstatus\": \"%s\", \"shippriority\": %s, \"stringArray\": [\"%s\"], \"intArray\": [%s]}",
-                    row.getField(2), row.getField(7), row.getField(2), row.getField(7));
+            String json = """
+                    { "orderstatus": "%s", "shippriority": %s, "stringArray": ["%s"], "intArray": [%s]}""".formatted(row.getField(2), row.getField(7), row.getField(2), row.getField(7));
             ordersRowsBuilder.add(new ProducerRecord<>(ordersTableName, "key" + row.getField(0), new GenericRecordBuilder(ordersSchema)
                     .set("orderkey", row.getField(0))
                     .set("custkey", row.getField(1))

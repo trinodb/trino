@@ -49,5 +49,5 @@ public interface PinotPredicate
         return true;
     }
 
-    String toPQL();
+    String toPql();
 }

@@ -63,7 +63,7 @@ public class PinotEqualsNotEqualsPredicate
     }
 
     @Override
-    public String toPQL()
+    public String toPql()
     {
         String escape = valueIsString ? "'" : "";
         return String.format("%s %s %s%s%s",

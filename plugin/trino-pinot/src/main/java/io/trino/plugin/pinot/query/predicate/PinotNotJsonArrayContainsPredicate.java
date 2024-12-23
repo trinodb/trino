@@ -38,11 +38,11 @@ public class PinotNotJsonArrayContainsPredicate
     public PinotNotJsonArrayContainsPredicate(Call call)
     {
         List<ConnectorExpression> arguments = call.getArguments();
-        pql = "NOT(" + new PinotJsonArrayContainsPredicate((Call) arguments.getFirst()).toPQL() + ")";
+        pql = "NOT(" + new PinotJsonArrayContainsPredicate((Call) arguments.getFirst()).toPql() + ")";
     }
 
     @Override
-    public String toPQL()
+    public String toPql()
     {
         return pql;
     }

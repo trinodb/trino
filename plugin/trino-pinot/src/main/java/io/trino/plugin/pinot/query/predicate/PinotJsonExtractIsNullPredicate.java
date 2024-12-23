@@ -56,7 +56,7 @@ public class PinotJsonExtractIsNullPredicate
     }
 
     @Override
-    public String toPQL()
+    public String toPql()
     {
         return String.format("JSON_MATCH(%s, '\"%s\" IS NULL')",
                 columnName, jsonPath);

@@ -70,7 +70,7 @@ public class PinotJsonArrayContainsPredicate
     }
 
     @Override
-    public String toPQL()
+    public String toPql()
     {
         String escape = valueIsString ? "''" : "";
         return String.format("JSON_MATCH(%s, '\"%s[*]\" = %s%s%s')",

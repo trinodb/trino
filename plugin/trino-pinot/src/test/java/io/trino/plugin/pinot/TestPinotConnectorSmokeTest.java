@@ -833,12 +833,8 @@ public class TestPinotConnectorSmokeTest
             for (String neighbor : neighbors) {
                 neighborJoiner.add(neighbor);
             }
-            return "{" +
-                    "\"vendor\": \"" + vendor + "\", " +
-                    "\"neighbors\": " + neighborJoiner + ", " +
-                    "\"lucky_numbers\": " + luckyNumbers + ", " +
-                    "\"lucky_number\": " + luckyNumbers.getFirst() +
-                    "}";
+            return """
+                    {"vendor": "%s", "neighbors": %s, "lucky_numbers": "%s", "lucky_number": %d}""".formatted(vendor, neighborJoiner, luckyNumbers, luckyNumbers.getFirst());
         }
 
         @JsonProperty

@@ -352,7 +352,7 @@ public class PinotMetadata
         if (isJsonPredicatePushdownEnabled(session) && constraintExpression instanceof Call call) {
             StringBuilder pqlBuilder = new StringBuilder();
             try {
-                buildConstraintPQL(call, pqlBuilder);
+                buildConstraintPql(call, pqlBuilder);
                 constraintPql = Optional.of(pqlBuilder.toString());
             }
             catch (UnsupportedOperationException e) {
@@ -381,12 +381,12 @@ public class PinotMetadata
     }
 
     @VisibleForTesting
-    public static void buildConstraintPQL(Call call, StringBuilder pqlBuilder)
+    public static void buildConstraintPql(Call call, StringBuilder pqlBuilder)
     {
         Optional<PinotPredicate> pinotPredicate = getPinotPredicate(call);
         if (pinotPredicate.isPresent()) {
             // base case: no more nested calls to be examined
-            pqlBuilder.append(pinotPredicate.get().toPQL());
+            pinotPredicate.map(PinotPredicate::toPql).map(pqlBuilder::append);
         }
         else {
             // recursive case
@@ -399,12 +399,12 @@ public class PinotMetadata
                 boolean first = true;
                 for (ConnectorExpression argument : arguments) {
                     if (!(argument instanceof Call innerCall)) {
-                        throw new UnsupportedOperationException(String.format("unsupported expression: %s", argument));
+                        throw new UnsupportedOperationException("Unsupported expression: '%s'".formatted(argument));
                     }
                     if (!first) {
                         pqlBuilder.append(combiner);
                     }
-                    buildConstraintPQL(innerCall, pqlBuilder);
+                    buildConstraintPql(innerCall, pqlBuilder);
                     first = false;
                 }
 
@@ -413,15 +413,15 @@ public class PinotMetadata
             else if (functionName.equals("$not")) {
                 List<ConnectorExpression> arguments = call.getArguments();
                 if (!(arguments.getFirst() instanceof Call innerCall)) {
-                    throw new UnsupportedOperationException(String.format("unsupported expression: %s", arguments.getFirst()));
+                    throw new UnsupportedOperationException("Unsupported expression: '%s'".formatted(arguments.getFirst()));
                 }
 
                 pqlBuilder.append("NOT(");
-                buildConstraintPQL(innerCall, pqlBuilder);
+                buildConstraintPql(innerCall, pqlBuilder);
                 pqlBuilder.append(")");
             }
             else {
-                throw new UnsupportedOperationException(String.format("unsupported function: %s", call));
+                throw new UnsupportedOperationException("Unsupported function: '%s'".formatted(call));
             }
         }
     }

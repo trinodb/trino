@@ -55,14 +55,14 @@ public class PinotJsonArrayContainsEqualsPredicate
             negate = true;
         }
 
-        pql = new PinotJsonArrayContainsPredicate((Call) arguments.getFirst()).toPQL();
+        pql = new PinotJsonArrayContainsPredicate((Call) arguments.getFirst()).toPql();
         if (negate) {
             pql = "NOT(" + pql + ")";
         }
     }
 
     @Override
-    public String toPQL()
+    public String toPql()
     {
         return pql;
     }

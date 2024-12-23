@@ -39,12 +39,12 @@ public class PinotNotJsonContainsPredicate
     {
         List<ConnectorExpression> arguments = call.getArguments();
         pql = new PinotJsonContainsPredicate((Call) arguments.getFirst())
-                .toPQL()
+                .toPql()
                 .replace("IN (", "NOT IN (");
     }
 
     @Override
-    public String toPQL()
+    public String toPql()
     {
         return pql;
     }

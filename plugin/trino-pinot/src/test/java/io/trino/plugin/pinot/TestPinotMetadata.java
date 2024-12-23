@@ -79,7 +79,7 @@ public class TestPinotMetadata
     private void assertPQLEquals(Call call, String pql)
     {
         StringBuilder pqlBuilder = new StringBuilder();
-        PinotMetadata.buildConstraintPQL(call, pqlBuilder);
+        PinotMetadata.buildConstraintPql(call, pqlBuilder);
         assertThat(pqlBuilder.toString()).isEqualTo(pql);
     }
 
@@ -129,13 +129,13 @@ public class TestPinotMetadata
     public void testBuildConstraintSQLThrowsUnsupportedOperationException()
     {
         assertThatThrownBy(() ->
-                PinotMetadata.buildConstraintPQL(
+                PinotMetadata.buildConstraintPql(
                         new Call(BOOLEAN, new FunctionName("unsupported"), List.of()), null))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
-    public void testBuildConstraintPQLEqualsNotEqualsPredicate()
+    public void testBuildConstraintPqlEqualsNotEqualsPredicate()
     {
         assertPQLEquals(getCall("$equal", "string"), "string = 'string'");
         assertPQLEquals(getCall("$equal", "int"), "int = 1");
@@ -144,7 +144,7 @@ public class TestPinotMetadata
     }
 
     @Test
-    public void testBuildConstraintPQLJsonExtractIsNullPredicate()
+    public void testBuildConstraintPqlJsonExtractIsNullPredicate()
     {
         assertPQLEquals(getCall("$is_null", "json_extract"),
                 "JSON_MATCH(json, '\"$.selector\" IS NULL')");
@@ -153,7 +153,7 @@ public class TestPinotMetadata
     }
 
     @Test
-    public void testBuildConstraintPQLJsonContainsPredicate()
+    public void testBuildConstraintPqlJsonContainsPredicate()
     {
         assertPQLEquals(getCall("contains", "string_array"),
                 "JSON_MATCH(json, '\"$.selector\" IN (''a'',''b'',''c'')')");
@@ -162,7 +162,7 @@ public class TestPinotMetadata
     }
 
     @Test
-    public void testBuildConstraintPQLPinotJsonArrayContainsPredicate()
+    public void testBuildConstraintPqlPinotJsonArrayContainsPredicate()
     {
         assertPQLEquals(getCall("json_array_contains", "array_contains_string"),
                 "JSON_MATCH(json, '\"$.selector[*]\" = ''string''')");
@@ -171,7 +171,7 @@ public class TestPinotMetadata
     }
 
     @Test
-    public void testBuildConstraintPQLPinotJsonArrayContainsEqualsPredicate()
+    public void testBuildConstraintPqlPinotJsonArrayContainsEqualsPredicate()
     {
         // equals false case
         assertPQLEquals(new Call(BOOLEAN, new FunctionName("$equal"), List.of(
@@ -199,7 +199,7 @@ public class TestPinotMetadata
     }
 
     @Test
-    public void testBuildConstraintPQLPinotNotJsonArrayContainsPredicate()
+    public void testBuildConstraintPqlPinotNotJsonArrayContainsPredicate()
     {
         assertPQLEquals(new Call(BOOLEAN, new FunctionName("$not"), List.of(
                         getCall("json_array_contains", "array_contains_string"))),
@@ -207,7 +207,7 @@ public class TestPinotMetadata
     }
 
     @Test
-    public void testBuildConstraintPQLPinotJsonContainsEqualsPredicate()
+    public void testBuildConstraintPqlPinotJsonContainsEqualsPredicate()
     {
         // equals false case
         Call containsCall = getCall("contains", "string_array");
@@ -236,7 +236,7 @@ public class TestPinotMetadata
     }
 
     @Test
-    public void testBuildConstraintPQLPinotNotJsonContainsPredicate()
+    public void testBuildConstraintPqlPinotNotJsonContainsPredicate()
     {
         assertPQLEquals(new Call(BOOLEAN, new FunctionName("$not"), List.of(
                 getCall("contains", "string_array"))),

@@ -95,7 +95,7 @@ public class PinotJsonContainsPredicate
     }
 
     @Override
-    public String toPQL()
+    public String toPql()
     {
         String escape = valuesContainsStrings ? "''" : "";
         String values = String.join(String.format("%s,%s", escape, escape), this.values);
