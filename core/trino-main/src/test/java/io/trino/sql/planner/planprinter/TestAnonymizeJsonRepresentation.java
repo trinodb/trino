@@ -249,7 +249,8 @@ public class TestAnonymizeJsonRepresentation
                     valuePrinter,
                     StatsAndCosts.empty(),
                     Optional.empty(),
-                    new CounterBasedAnonymizer())
+                    new CounterBasedAnonymizer(),
+                    false)
                     .toJson();
             assertThat(jsonRenderedNode).isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedRepresentation));
             return null;
