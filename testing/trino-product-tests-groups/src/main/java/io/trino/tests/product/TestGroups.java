@@ -96,7 +96,6 @@ public final class TestGroups
     public static final String DELTA_LAKE_AZURE = "delta-lake-azure";
     public static final String DELTA_LAKE_GCS = "delta-lake-gcs";
     public static final String DELTA_LAKE_DATABRICKS = "delta-lake-databricks";
-    public static final String DELTA_LAKE_DATABRICKS_104 = "delta-lake-databricks-104";
     public static final String DELTA_LAKE_DATABRICKS_113 = "delta-lake-databricks-113";
     public static final String DELTA_LAKE_DATABRICKS_122 = "delta-lake-databricks-122";
     public static final String DELTA_LAKE_DATABRICKS_133 = "delta-lake-databricks-133";
