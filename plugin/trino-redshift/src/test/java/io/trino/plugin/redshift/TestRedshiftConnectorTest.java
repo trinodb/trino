@@ -18,6 +18,7 @@ import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.operator.OperatorStats;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -48,6 +49,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
@@ -114,6 +116,22 @@ public class TestRedshiftConnectorTest
                  SUPPORTS_SET_COLUMN_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Test
+    void testJdbcFlow()
+    {
+        assertQueryStats(
+                getSession(),
+                "SELECT nationkey, name FROM nation where regionkey = 0 limit 2",
+                queryStats -> {
+                    OperatorStats operatorStats = queryStats.getOperatorSummaries()
+                            .stream()
+                            .filter(summary -> summary.getOperatorType().startsWith("TableScanOperator"))
+                            .collect(onlyElement());
+                    assertThat(operatorStats.getInfo()).isNull();
+                },
+                results -> assertThat(results.getRowCount()).isEqualTo(2));
     }
 
     @Test
