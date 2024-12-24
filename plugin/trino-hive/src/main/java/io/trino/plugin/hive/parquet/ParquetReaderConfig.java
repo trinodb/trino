@@ -160,6 +160,103 @@ public class ParquetReaderConfig
         return options.isVectorizedDecodingEnabled();
     }
 
+    @Config("parquet.crypto-factory-class")
+    @ConfigDescription("Crypto factory class to encrypt or decrypt parquet files")
+    public ParquetReaderConfig setCryptoFactoryClass(String cryptoFactoryClass)
+    {
+        options = options.withEncryptionOption(options.encryptionOptions().withCryptoFactoryClass(cryptoFactoryClass));
+        return this;
+    }
+
+    public String getCryptoFactoryClass()
+    {
+        return options.getCryptoFactoryClass();
+    }
+
+    @Config("parquet.encryption-kms-client-class")
+    @ConfigDescription("Class implementing the KmsClient interface. KMS stands for “key management service")
+    public ParquetReaderConfig setEncryptionKmsClientClass(String encryptionKmsClientClass)
+    {
+        options = options.withEncryptionOption(
+                options.encryptionOptions().withEncryptionKmsClientClass(encryptionKmsClientClass));
+        return this;
+    }
+
+    public String getEncryptionKmsClientClass()
+    {
+        return options.getEncryptionKmsClientClass();
+    }
+
+    @Config("parquet.encryption-kms-instance-id")
+    @ConfigDescription("")
+    public ParquetReaderConfig setEncryptionKmsInstanceId(String encryptionKmsInstanceId)
+    {
+        options = options.withEncryptionOption(
+                options.encryptionOptions().withEncryptionKmsInstanceId(encryptionKmsInstanceId));
+        return this;
+    }
+
+    public String getEncryptionKmsInstanceId()
+    {
+        return options.getEncryptionKmsInstanceId();
+    }
+
+    @Config("parquet.encryption-kms-instance-url")
+    @ConfigDescription("")
+    public ParquetReaderConfig setEncryptionKmsInstanceUrl(String encryptionKmsInstanceUrl)
+    {
+        options = options.withEncryptionOption(
+                options.encryptionOptions().withEncryptionKmsInstanceUrl(encryptionKmsInstanceUrl));
+        return this;
+    }
+
+    public String getEncryptionKmsInstanceUrl()
+    {
+        return options.getEncryptionKmsInstanceUrl();
+    }
+
+    @Config("parquet.encryption-key-access-token")
+    @ConfigDescription("")
+    public ParquetReaderConfig setEncryptionKeyAccessToken(String encryptionKeyAccessToken)
+    {
+        options = options.withEncryptionOption(
+                options.encryptionOptions().withEncryptionKeyAccessToken(encryptionKeyAccessToken));
+        return this;
+    }
+
+    public String getEncryptionKeyAccessToken()
+    {
+        return options.getEncryptionKeyAccessToken();
+    }
+
+    @Config("parquet.encryption-cache-lifetime-seconds")
+    @ConfigDescription("")
+    public ParquetReaderConfig setEncryptionCacheLifetimeSeconds(Long encryptionCacheLifetimeSeconds)
+    {
+        options = options.withEncryptionOption(
+                options.encryptionOptions().withEncryptionCacheLifetimeSeconds(encryptionCacheLifetimeSeconds));
+        return this;
+    }
+
+    public Long getEncryptionCacheLifetimeSeconds()
+    {
+        return options.getEncryptionCacheLifetimeSeconds();
+    }
+
+    public String getEncryptionMasterKeyFile()
+    {
+        return options.getEncryptionKeyFile();
+    }
+
+    @Config("parquet.encryption-master-key-file")
+    @ConfigDescription("the path to master key file")
+    public ParquetReaderConfig setEncryptionMasterKeyFile(String keyFile)
+    {
+        options = options.withEncryptionOption(
+                options.encryptionOptions().withEncryptionKeyFile(keyFile));
+        return this;
+    }
+
     public ParquetReaderOptions toParquetReaderOptions()
     {
         return options;
