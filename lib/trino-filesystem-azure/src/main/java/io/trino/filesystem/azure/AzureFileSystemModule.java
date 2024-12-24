@@ -17,14 +17,25 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.filesystem.ForAppId;
+
+import static java.util.Objects.requireNonNull;
 
 public class AzureFileSystemModule
         extends AbstractConfigurationAwareModule
 {
+    private final String nodeVersion;
+
+    public AzureFileSystemModule(String nodeVersion)
+    {
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
         binder.bind(AzureFileSystemFactory.class).in(Scopes.SINGLETON);
+        binder.bind(String.class).annotatedWith(ForAppId.class).toInstance(nodeVersion);
         Module module = switch (buildConfigObject(AzureFileSystemConfig.class).getAuthType()) {
             case ACCESS_KEY -> new AzureAuthAccessKeyModule();
             case OAUTH -> new AzureAuthOAuthModule();
