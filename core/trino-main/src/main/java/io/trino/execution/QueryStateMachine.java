@@ -547,6 +547,7 @@ public class QueryStateMachine
                 stageStats.getSpilledDataSize(),
                 stageStats.getPhysicalInputDataSize(),
                 stageStats.getPhysicalWrittenDataSize(),
+                stageStats.getInternalNetworkInputDataSize(),
 
                 stageStats.getCumulativeUserMemory(),
                 stageStats.getFailedCumulativeUserMemory(),
@@ -555,10 +556,13 @@ public class QueryStateMachine
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
 
+                queryStateTimer.getPlanningTime(),
+                queryStateTimer.getAnalysisTime(),
                 stageStats.getTotalCpuTime(),
                 stageStats.getFailedCpuTime(),
                 stageStats.getTotalScheduledTime(),
                 stageStats.getFailedScheduledTime(),
+                queryStateTimer.getFinishingTime(),
 
                 stageStats.isFullyBlocked(),
                 stageStats.getBlockedReasons(),
