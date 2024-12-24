@@ -57,9 +57,8 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.convertParquetToJsonStatistics;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonValueToTrinoValue;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toJsonValues;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toNullCounts;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
@@ -301,11 +300,7 @@ public class CheckpointWriter
             DeltaLakeFileStatistics statistics = addFileEntry.getStats().get();
             if (statistics instanceof DeltaLakeParquetFileStatistics parquetFileStatistics) {
                 Map<String, Type> columnTypeMapping = getColumnTypeMapping(metadataEntry, protocolEntry);
-                DeltaLakeJsonFileStatistics jsonFileStatistics = new DeltaLakeJsonFileStatistics(
-                        parquetFileStatistics.getNumRecords(),
-                        parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values)),
-                        parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values)),
-                        parquetFileStatistics.getNullCount().map(nullCounts -> toNullCounts(columnTypeMapping, nullCounts)));
+                DeltaLakeJsonFileStatistics jsonFileStatistics = convertParquetToJsonStatistics(columnTypeMapping, parquetFileStatistics);
                 statsJson = getStatsString(jsonFileStatistics).orElse(null);
             }
             else {
