@@ -27,6 +27,7 @@ import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.metadata.PrunedBlockMetadata;
 import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.spi.predicate.TupleDomain;
@@ -39,6 +40,7 @@ import org.apache.parquet.format.DictionaryPageHeader;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.Util;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ParquetDecodingException;
@@ -54,11 +56,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.parquet.BloomFilterStore.getBloomFilterStore;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
-import static io.trino.parquet.metadata.PrunedBlockMetadata.createPrunedColumnsMetadata;
 import static io.trino.parquet.reader.TrinoColumnIndexStore.getColumnIndexStore;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -180,10 +182,8 @@ public final class PredicateUtils
     }
 
     public static List<RowGroupInfo> getFilteredRowGroups(
-            long splitStart,
-            long splitLength,
+            ParquetMetadata parquetMetadata,
             ParquetDataSource dataSource,
-            List<BlockMetadata> blocksMetaData,
             List<TupleDomain<ColumnDescriptor>> parquetTupleDomains,
             List<TupleDomainParquetPredicate> parquetPredicates,
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
@@ -192,35 +192,37 @@ public final class PredicateUtils
             ParquetReaderOptions options)
             throws IOException
     {
-        long fileRowCount = 0;
+        Set<ColumnPath> columnPaths = descriptorsByPath.keySet().stream()
+                .map(p -> p.toArray(new String[0]))
+                .map(ColumnPath::get)
+                .collect(toImmutableSet());
+
+        List<RowGroupInfo> rowGroupInfos = parquetMetadata.getRowGroupInfo(Optional.of(dataSource), Optional.of(descriptorsByPath));
         ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
-        for (BlockMetadata block : blocksMetaData) {
-            long blockStart = block.getStartingPos();
-            boolean splitContainsBlock = splitStart <= blockStart && blockStart < splitStart + splitLength;
-            if (splitContainsBlock) {
-                for (int i = 0; i < parquetTupleDomains.size(); i++) {
-                    TupleDomain<ColumnDescriptor> parquetTupleDomain = parquetTupleDomains.get(i);
-                    TupleDomainParquetPredicate parquetPredicate = parquetPredicates.get(i);
-                    Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
-                    Optional<BloomFilterStore> bloomFilterStore = getBloomFilterStore(dataSource, block, parquetTupleDomain, options);
-                    PrunedBlockMetadata columnsMetadata = createPrunedColumnsMetadata(block, dataSource.getId(), descriptorsByPath);
-                    if (predicateMatches(
-                            parquetPredicate,
-                            columnsMetadata,
-                            dataSource,
-                            descriptorsByPath,
-                            parquetTupleDomain,
-                            columnIndex,
-                            bloomFilterStore,
-                            timeZone,
-                            domainCompactionThreshold)) {
-                        rowGroupInfoBuilder.add(new RowGroupInfo(columnsMetadata, fileRowCount, columnIndex));
-                        break;
-                    }
+        for (RowGroupInfo rowGroupInfo : rowGroupInfos) {
+            BlockMetadata block = rowGroupInfo.prunedBlockMetadata().getBlockMetadata();
+
+            for (int i = 0; i < parquetTupleDomains.size(); i++) {
+                TupleDomain<ColumnDescriptor> parquetTupleDomain = parquetTupleDomains.get(i);
+                TupleDomainParquetPredicate parquetPredicate = parquetPredicates.get(i);
+                Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, columnPaths, parquetTupleDomain, options);
+                Optional<BloomFilterStore> bloomFilterStore = getBloomFilterStore(dataSource, block, parquetTupleDomain, options);
+                if (predicateMatches(
+                        parquetPredicate,
+                        rowGroupInfo.prunedBlockMetadata(),
+                        dataSource,
+                        descriptorsByPath,
+                        parquetTupleDomain,
+                        columnIndex,
+                        bloomFilterStore,
+                        timeZone,
+                        domainCompactionThreshold)) {
+                    rowGroupInfoBuilder.add(new RowGroupInfo(rowGroupInfo.prunedBlockMetadata(), rowGroupInfo.fileRowOffset(), columnIndex));
+                    break;
                 }
             }
-            fileRowCount += block.rowCount();
         }
+
         return rowGroupInfoBuilder.build();
     }
 

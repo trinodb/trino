@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
@@ -533,6 +534,7 @@ public abstract class BaseIcebergConnectorSmokeTest
 
     @Test
     public void testSortedNationTable()
+            throws ParquetCorruptionException
     {
         Session withSmallRowGroups = withSmallRowGroups(getSession());
         try (TestTable table = new TestTable(
@@ -549,6 +551,7 @@ public abstract class BaseIcebergConnectorSmokeTest
 
     @Test
     public void testFileSortingWithLargerTable()
+            throws ParquetCorruptionException
     {
         // Using a larger table forces buffered data to be written to disk
         Session withSmallRowGroups = Session.builder(getSession())
@@ -745,7 +748,8 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertUpdate(session, "DROP TABLE " + tableName);
     }
 
-    protected abstract boolean isFileSorted(Location path, String sortColumnName);
+    protected abstract boolean isFileSorted(Location path, String sortColumnName)
+            throws ParquetCorruptionException;
 
     @Test
     public void testTableChangesFunction()

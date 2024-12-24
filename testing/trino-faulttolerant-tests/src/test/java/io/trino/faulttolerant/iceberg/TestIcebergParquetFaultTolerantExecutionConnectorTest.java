@@ -14,6 +14,7 @@
 package io.trino.faulttolerant.iceberg;
 
 import io.trino.filesystem.Location;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
@@ -80,6 +81,7 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
 
     @Override
     protected boolean isFileSorted(String path, String sortColumnName)
+            throws ParquetCorruptionException
     {
         return checkParquetFileSorting(fileSystem.newInputFile(Location.of(path)), sortColumnName);
     }
