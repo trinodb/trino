@@ -66,10 +66,9 @@ public class FakerPageSourceProvider
                 .map(FakerColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        FakerTableHandle fakerTable = (FakerTableHandle) table;
         FakerSplit fakerSplit = (FakerSplit) split;
         Random random = random(fakerSplit.splitNumber());
-        return new FakerPageSource(new Faker(locale, random), random, handles, fakerTable.constraint(), fakerSplit.rowsOffset(), fakerSplit.rowsCount());
+        return new FakerPageSource(new Faker(locale, random), random, handles, fakerSplit.rowsOffset(), fakerSplit.rowsCount());
     }
 
     private Random random(long index)

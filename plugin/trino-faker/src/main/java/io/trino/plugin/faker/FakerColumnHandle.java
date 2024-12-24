@@ -15,8 +15,12 @@
 package io.trino.plugin.faker;
 
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.type.Type;
 
+import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public record FakerColumnHandle(
@@ -24,12 +28,36 @@ public record FakerColumnHandle(
         String name,
         Type type,
         double nullProbability,
-        String generator)
+        String generator,
+        String min,
+        String max,
+        List<String> options)
         implements ColumnHandle
 {
     public FakerColumnHandle
     {
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
+    }
+
+    public Range range()
+    {
+        if (min == null && max == null) {
+            return Range.all(type);
+        }
+        if (max == null) {
+            return Range.greaterThanOrEqual(type, Literal.parse(min, type));
+        }
+        if (min == null) {
+            return Range.lessThanOrEqual(type, Literal.parse(max, type));
+        }
+        return Range.range(type, Literal.parse(min, type), true, Literal.parse(max, type), true);
+    }
+
+    public List<Object> nativeOptions()
+    {
+        return options.stream()
+                .map(value -> Literal.parse(value, type))
+                .collect(toImmutableList());
     }
 }
