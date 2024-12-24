@@ -1,6 +1,8 @@
-# Release xyz (dd MMM 2025)
+# Release 469 (?? Jan 2025)
 
 ## General
+
+* Refrain from join pushdown for modified tables ({issue}`24447`)
 
 ## Security
 
@@ -24,6 +26,8 @@
 
 ## Delta Lake connector
 
+* Fix JMX metrics for file system caching with multiple catalogs. ({issue}`24510`)
+
 ## Druid connector
 
 ## Elasticsearch connector
@@ -36,9 +40,14 @@
 
 ## Hive connector
 
+* Fix JMX metrics for file system caching with multiple catalogs. ({issue}`24510`)
+
 ## Hudi connector
 
 ## Iceberg connector
+
+* Add `$entries` metadata table. ({issue}`24172`)
+* Fix JMX metrics for file system caching with multiple catalogs. ({issue}`24510`)
 
 ## Ignite connector
 
