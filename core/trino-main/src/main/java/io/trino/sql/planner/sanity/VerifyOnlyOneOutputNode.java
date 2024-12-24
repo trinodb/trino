@@ -16,8 +16,12 @@ package io.trino.sql.planner.sanity;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.type.StreamType;
+
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -31,10 +35,14 @@ public final class VerifyOnlyOneOutputNode
             PlannerContext plannerContext,
             WarningCollector warningCollector)
     {
-        int outputPlanNodesCount = searchFrom(plan)
+        List<PlanNode> outputNodes = searchFrom(plan)
                 .where(OutputNode.class::isInstance)
-                .findAll()
-                .size();
-        checkState(outputPlanNodesCount == 1, "Expected plan to have single instance of OutputNode");
+                .findAll();
+        checkState(outputNodes.size() == 1, "Expected plan to have single instance of OutputNode");
+
+        boolean containsStream = outputNodes.getFirst().getOutputSymbols().stream()
+                .map(Symbol::type)
+                .anyMatch(StreamType.class::isInstance);
+        checkState(!containsStream, "OutputNode should not contain StreamType");
     }
 }

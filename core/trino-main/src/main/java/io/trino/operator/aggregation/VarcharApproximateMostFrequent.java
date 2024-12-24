@@ -13,7 +13,9 @@
  */
 package io.trino.operator.aggregation;
 
+import com.google.common.collect.Streams;
 import io.airlift.slice.Slice;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.function.AccumulatorState;
@@ -30,6 +32,7 @@ import io.trino.spi.type.VarcharType;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.StandardTypes.BIGINT;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
+import static io.trino.type.StreamType.STREAM_VARCHAR;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
@@ -60,8 +63,7 @@ public final class VarcharApproximateMostFrequent
         void set(ApproximateMostFrequentHistogram<Slice> value);
     }
 
-    @InputFunction
-    public static void input(@AggregationState State state, @SqlType(BIGINT) long buckets, @SqlType(VARCHAR) Slice value, @SqlType(BIGINT) long capacity)
+    private static ApproximateMostFrequentHistogram<Slice> getHistogram(State state, long buckets, long capacity)
     {
         ApproximateMostFrequentHistogram<Slice> histogram = state.get();
         if (histogram == null) {
@@ -74,7 +76,24 @@ public final class VarcharApproximateMostFrequent
             state.set(histogram);
         }
 
+        return histogram;
+    }
+
+    @InputFunction
+    public static void input(@AggregationState State state, @SqlType(BIGINT) long buckets, @SqlType(VARCHAR) Slice value, @SqlType(BIGINT) long capacity)
+    {
+        ApproximateMostFrequentHistogram<Slice> histogram = getHistogram(state, buckets, capacity);
         histogram.add(value);
+    }
+
+    @InputFunction
+    public static void inputStream(@AggregationState State state, @SqlType(BIGINT) long buckets, @SqlType("stream(array(varchar))") Block value, @SqlType(BIGINT) long capacity)
+    {
+        ApproximateMostFrequentHistogram<Slice> histogram = getHistogram(state, buckets, capacity);
+
+        Streams.stream(STREAM_VARCHAR.valueIterable(value))
+                .map(Slice.class::cast)
+                .forEach(histogram::add);
     }
 
     @CombineFunction
