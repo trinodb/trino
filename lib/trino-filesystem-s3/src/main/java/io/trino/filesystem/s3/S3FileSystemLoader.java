@@ -46,6 +46,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryStrategy;
 import static java.lang.Math.toIntExact;
@@ -108,7 +109,12 @@ final class S3FileSystemLoader
             S3Context context = this.context.withCredentials(identity);
 
             if (mapping.isPresent() && mapping.get().kmsKeyId().isPresent()) {
+                checkState(mapping.get().customerKey().isEmpty(), "Customer key (SSE-C) must not be used when KMS-managed key is set");
                 context = context.withKmsKeyId(mapping.get().kmsKeyId().get());
+            }
+
+            if (mapping.isPresent() && mapping.get().customerKey().isPresent()) {
+                context = context.withCustomerKey(mapping.get().customerKey().get());
             }
 
             return new S3FileSystem(uploadExecutor, client, preSigner, context);

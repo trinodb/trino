@@ -42,6 +42,8 @@ public final class S3SecurityMapping
     private final Set<String> allowedIamRoles;
     private final Optional<String> kmsKeyId;
     private final Set<String> allowedKmsKeyIds;
+    private final Optional<String> customerKey;
+    private final Set<String> allowedCustomerKeys;
     private final Optional<AwsCredentials> credentials;
     private final boolean useClusterDefault;
     private final Optional<String> endpoint;
@@ -57,6 +59,8 @@ public final class S3SecurityMapping
             @JsonProperty("allowedIamRoles") Optional<List<String>> allowedIamRoles,
             @JsonProperty("kmsKeyId") Optional<String> kmsKeyId,
             @JsonProperty("allowedKmsKeyIds") Optional<List<String>> allowedKmsKeyIds,
+            @JsonProperty("customerKey") Optional<String> customerKey,
+            @JsonProperty("allowedCustomerKeys") Optional<List<String>> allowedCustomerKeys,
             @JsonProperty("accessKey") Optional<String> accessKey,
             @JsonProperty("secretKey") Optional<String> secretKey,
             @JsonProperty("useClusterDefault") Optional<Boolean> useClusterDefault,
@@ -86,6 +90,10 @@ public final class S3SecurityMapping
 
         this.allowedKmsKeyIds = ImmutableSet.copyOf(allowedKmsKeyIds.orElse(ImmutableList.of()));
 
+        this.customerKey = requireNonNull(customerKey, "customerKey is null");
+
+        this.allowedCustomerKeys = ImmutableSet.copyOf(allowedCustomerKeys.orElse(ImmutableList.of()));
+
         requireNonNull(accessKey, "accessKey is null");
         requireNonNull(secretKey, "secretKey is null");
         checkArgument(accessKey.isPresent() == secretKey.isPresent(), "accessKey and secretKey must be provided together");
@@ -96,6 +104,8 @@ public final class S3SecurityMapping
         checkArgument(this.useClusterDefault != roleOrCredentialsArePresent, "must either allow useClusterDefault role or provide role and/or credentials");
 
         checkArgument(!this.useClusterDefault || this.kmsKeyId.isEmpty(), "KMS key ID cannot be provided together with useClusterDefault");
+        checkArgument(!this.useClusterDefault || this.customerKey.isEmpty(), "SSE Customer key cannot be provided together with useClusterDefault");
+        checkArgument(this.kmsKeyId.isEmpty() || this.customerKey.isEmpty(), "SSE Customer key cannot be provided together with KMS key ID");
 
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
         this.region = requireNonNull(region, "region is null");
@@ -131,6 +141,16 @@ public final class S3SecurityMapping
     public Set<String> allowedKmsKeyIds()
     {
         return allowedKmsKeyIds;
+    }
+
+    public Optional<String> customerKey()
+    {
+        return customerKey;
+    }
+
+    public Set<String> allowedCustomerKeys()
+    {
+        return allowedCustomerKeys;
     }
 
     public Optional<AwsCredentials> credentials()

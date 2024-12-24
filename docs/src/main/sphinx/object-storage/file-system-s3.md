@@ -262,6 +262,8 @@ Example JSON configuration:
   - The name of the *extra credential* used to provide the IAM role.
 * - `s3.security-mapping.kms-key-id-credential-name`
   - The name of the *extra credential* used to provide the KMS-managed key ID.
+* - `s3.security-mapping.customer-key-credential-name`
+  - The name of the *extra credential* used to provide the SSE Customer key.
 * - `s3.security-mapping.refresh-period`
   - How often to refresh the security mapping configuration, specified as a
     {ref}`prop-type-duration`. By default, the configuration is not refreshed.
