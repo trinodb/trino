@@ -16,16 +16,26 @@ package io.trino.plugin.base.util;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlDecimal;
+import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.SqlTimeWithTimeZone;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.SqlVarbinary;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.util.List;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
@@ -63,10 +73,32 @@ public final class JsonTypeUtil
         }
     }
 
-    public static Slice toJsonValue(Object value)
+    public static Slice toJsonValue(List<?> values)
             throws IOException
     {
-        return Slices.wrappedBuffer(SORTED_MAPPER.writeValueAsBytes(value));
+        if (values == null) {
+            return Slices.utf8Slice("[]");
+        }
+
+        ImmutableList.Builder<String> json = ImmutableList.builder();
+        for (Object value : values) {
+            if (value == null) {
+                json.add("null");
+                continue;
+            }
+            json.add(switch (value) {
+                case SqlDate _,
+                     SqlTime _,
+                     SqlVarbinary _,
+                     SqlTimeWithTimeZone _,
+                     SqlDecimal _,
+                     SqlTimestamp _,
+                     SqlTimestampWithTimeZone _ -> SORTED_MAPPER.writeValueAsString(value.toString());
+                default -> SORTED_MAPPER.writeValueAsString(value);
+            });
+        }
+
+        return Slices.utf8Slice("[" + Joiner.on(",").join(json.build()) + "]");
     }
 
     private static JsonParser createJsonParser(JsonFactory factory, Slice json)
