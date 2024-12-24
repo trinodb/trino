@@ -476,9 +476,10 @@ public class TestAccessControl
         String viewName = "test_view_column_access_" + randomNameSuffix();
 
         systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role"), Set.of(viewOwnerPrincipal), false, Optional.empty());
-        systemSecurityMetadata.setViewOwner(
+        systemSecurityMetadata.setEntityOwner(
                 getSession(),
-                new CatalogSchemaTableName("blackhole", "default", viewName),
+                "VIEW",
+                List.of("blackhole", "default", viewName),
                 viewOwnerPrincipal);
 
         Session viewOwnerSession = TestingSession.testSessionBuilder()
@@ -518,9 +519,10 @@ public class TestAccessControl
         String viewName = "test_join_base_table_with_view_" + randomNameSuffix();
 
         systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role"), Set.of(viewOwnerPrincipal), false, Optional.empty());
-        systemSecurityMetadata.setViewOwner(
+        systemSecurityMetadata.setEntityOwner(
                 getSession(),
-                new CatalogSchemaTableName("blackhole", "default", viewName),
+                "VIEW",
+                List.of("blackhole", "default", viewName),
                 viewOwnerPrincipal);
 
         Session viewOwnerSession = TestingSession.testSessionBuilder()
