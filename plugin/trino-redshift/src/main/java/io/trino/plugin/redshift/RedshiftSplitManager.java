@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.redshift;
 
-import com.amazon.redshift.jdbc.RedshiftPreparedStatement;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -26,7 +24,6 @@ import io.trino.plugin.jdbc.JdbcProcedureHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcSplitManager;
 import io.trino.plugin.jdbc.JdbcTableHandle;
-import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ConnectorSession;
@@ -41,12 +38,8 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.VarbinaryType;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.dynamicFilteringEnabled;
@@ -109,51 +102,17 @@ public class RedshiftSplitManager
             log.debug("Unsupported query shape detected. Falling back to using JDBC");
             return fallbackSplitSource;
         }
-
-        Connection connection;
-        PreparedStatement statement;
-        String queryFragmentId = session.getQueryId() + "-" + UUID.randomUUID();
-        String unloadOutputPath = unloadLocation.orElseThrow() + "/" + queryFragmentId + "/";
-        try {
-            connection = jdbcClient.getConnection(session);
-            String redshiftSelectSql = buildRedshiftSelectSql(session, connection, jdbcTableHandle, columns);
-
-            // Query containing \b is unsupported with unload command. See https://github.com/aws/amazon-redshift-jdbc-driver/issues/124
-            if (redshiftSelectSql.contains("\\b")) {
-                log.debug("Unload query contains unsupported characters. Falling back to using JDBC");
-                return fallbackSplitSource;
-            }
-            statement = buildUnloadSql(session, connection, columns, redshiftSelectSql, unloadOutputPath);
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-        return new RedshiftUnloadSplitSource(executor, connection, statement, queryFragmentId, unloadOutputPath, fileSystemFactory.create(session));
-    }
-
-    private String buildRedshiftSelectSql(ConnectorSession session, Connection connection, JdbcTableHandle table, List<JdbcColumnHandle> columns)
-            throws SQLException
-    {
-        PreparedQuery preparedQuery = jdbcClient.prepareQuery(session, table, Optional.empty(), columns, ImmutableMap.of());
-        PreparedStatement openTelemetryPreparedStatement = queryBuilder.prepareStatement(jdbcClient, session, connection, preparedQuery, Optional.of(columns.size()));
-        RedshiftPreparedStatement redshiftPreparedStatement = openTelemetryPreparedStatement.unwrap(RedshiftPreparedStatement.class);
-        String selectQuerySql = redshiftPreparedStatement.toString();
-        return queryModifier.apply(session, selectQuerySql);
-    }
-
-    private PreparedStatement buildUnloadSql(ConnectorSession session, Connection connection, List<JdbcColumnHandle> columns, String redshiftSelectSql, String unloadOutputPath)
-            throws SQLException
-    {
-        String unloadSql = "UNLOAD ('%s') TO '%s' IAM_ROLE %s FORMAT PARQUET MAXFILESIZE 64MB MANIFEST VERBOSE".formatted(
-                escapeSingleQuote(redshiftSelectSql),
-                unloadOutputPath,
-                unloadAuthorization.map("'%s'"::formatted).orElse("DEFAULT"));
-        return queryBuilder.prepareStatement(jdbcClient, session, connection, new PreparedQuery(unloadSql, List.of()), Optional.of(columns.size()));
-    }
-
-    private static String escapeSingleQuote(String value)
-    {
-        return value.replace("'", "''");
+        return new RedshiftUnloadSplitSource(
+                executor,
+                session,
+                jdbcClient,
+                jdbcTableHandle,
+                columns,
+                queryBuilder,
+                queryModifier,
+                unloadLocation,
+                unloadAuthorization,
+                fileSystemFactory.create(session));
     }
 
     private static boolean isUnloadSupported(JdbcTableHandle table, List<JdbcColumnHandle> columns)

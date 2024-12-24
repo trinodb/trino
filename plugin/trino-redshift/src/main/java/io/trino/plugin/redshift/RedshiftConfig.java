@@ -28,7 +28,6 @@ import java.util.Optional;
 public class RedshiftConfig
 {
     private Integer fetchSize;
-
     private String unloadLocation;
     private String unloadIamRole;
 

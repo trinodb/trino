@@ -81,7 +81,8 @@ public class RedshiftClientModule
                     unloadBinder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
                     newOptionalBinder(unloadBinder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class))
                             .setBinding().to(RedshiftSplitManager.class).in(SINGLETON);
-                }, otherBinder -> otherBinder.bind(Connector.class).to(JdbcConnector.class).in(Scopes.SINGLETON)));
+                },
+                jdbcBinder -> jdbcBinder.bind(Connector.class).to(JdbcConnector.class).in(Scopes.SINGLETON)));
     }
 
     @Singleton

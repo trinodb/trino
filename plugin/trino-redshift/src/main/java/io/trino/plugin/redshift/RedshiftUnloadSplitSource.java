@@ -13,17 +13,26 @@
  */
 package io.trino.plugin.redshift;
 
+import com.amazon.redshift.jdbc.RedshiftPreparedStatement;
 import com.amazon.redshift.util.RedshiftException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
+import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 
@@ -32,14 +41,14 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_FILESYSTEM_ERROR;
 import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_S3_CROSS_REGION_UNSUPPORTED;
 import static java.util.Objects.requireNonNull;
@@ -50,34 +59,55 @@ public class RedshiftUnloadSplitSource
     private static final Logger log = Logger.get(RedshiftUnloadSplitSource.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
-    private final CompletableFuture<Void> resultSetFuture;
-    private final Connection connection;
-    private final Statement statement;
+    private final JdbcClient jdbcClient;
+    private final QueryBuilder queryBuilder;
+    private final RemoteQueryModifier queryModifier;
+    private final Optional<String> unloadAuthorization;
     private final String unloadOutputPath;
     private final TrinoFileSystem fileSystem;
+    private final CompletableFuture<Void> resultSetFuture;
 
-    private Optional<Location> manifestLocation;
     private boolean finished;
 
-    public RedshiftUnloadSplitSource(ExecutorService executor, Connection connection, PreparedStatement statement, String queryFragmentId, String unloadOutputPath, TrinoFileSystem fileSystem)
+    public RedshiftUnloadSplitSource(
+            ExecutorService executor,
+            ConnectorSession session,
+            JdbcClient jdbcClient,
+            JdbcTableHandle jdbcTableHandle,
+            List<JdbcColumnHandle> columns,
+            QueryBuilder queryBuilder,
+            RemoteQueryModifier queryModifier,
+            Optional<String> unloadLocation,
+            Optional<String> unloadAuthorization,
+            TrinoFileSystem fileSystem)
     {
         requireNonNull(executor, "executor is null");
-        this.connection = requireNonNull(connection, "connection is null");
-        this.statement = requireNonNull(statement, "statement is null");
-        this.unloadOutputPath = requireNonNull(unloadOutputPath, "unloadOutputPath is null");
-        verify(unloadOutputPath.endsWith("/"), "unloadOutputPath must end with '/'.");
+        requireNonNull(session, "session is null");
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        requireNonNull(jdbcTableHandle, "jdbcTableHandle is null");
+        requireNonNull(columns, "columns is null");
+        this.queryBuilder = requireNonNull(queryBuilder, "queryBuilder is null");
+        this.queryModifier = requireNonNull(queryModifier, "queryModifier is null");
+        this.unloadAuthorization = requireNonNull(unloadAuthorization, "unloadAuthorization is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
+
+        String queryFragmentId = session.getQueryId() + "-" + UUID.randomUUID();
+        this.unloadOutputPath = unloadLocation.orElseThrow() + "/" + queryFragmentId + "/";
+
         resultSetFuture = CompletableFuture.runAsync(() -> {
-            log.debug("Executing: %s", statement);
-            try {
-                // Exclusively set readOnly to false to avoid query failing with "ERROR: transaction is read-only".
-                connection.setReadOnly(false);
-                long beginTs = System.currentTimeMillis();
-                statement.execute(); // Return value of `statement.execute()` is not useful as it always return false.
-                log.info("UNLOAD command for %s query took %sms", queryFragmentId, System.currentTimeMillis() - beginTs);
+            try (Connection connection = jdbcClient.getConnection(session)) {
+                String redshiftSelectSql = buildRedshiftSelectSql(session, connection, jdbcTableHandle, columns);
+                try (PreparedStatement statement = buildUnloadSql(session, connection, columns, redshiftSelectSql, unloadOutputPath)) {
+                    // Exclusively set readOnly to false to avoid query failing with "ERROR: transaction is read-only".
+                    connection.setReadOnly(false);
+                    log.debug("Executing: %s", statement);
+                    long start = System.nanoTime();
+                    statement.execute(); // Return value of `statement.execute()` is not useful as it always return false.
+                    log.info("Redshift UNLOAD command for %s query took %s", queryFragmentId, nanosSince(start));
+                }
             }
             catch (SQLException e) {
-                if (e instanceof RedshiftException && e.getMessage().contains("The S3 bucket addressed by the query is in a different region from this cluster")) {
+                if (e instanceof RedshiftException && e.getMessage() != null && e.getMessage().contains("The S3 bucket addressed by the query is in a different region from this cluster")) {
                     throw new TrinoException(REDSHIFT_S3_CROSS_REGION_UNSUPPORTED, "Redshift cluster and S3 bucket in different regions is not supported", e);
                 }
                 throw new RuntimeException(e);
@@ -85,12 +115,39 @@ public class RedshiftUnloadSplitSource
         }, executor);
     }
 
+    private String buildRedshiftSelectSql(ConnectorSession session, Connection connection, JdbcTableHandle table, List<JdbcColumnHandle> columns)
+            throws SQLException
+    {
+        PreparedQuery preparedQuery = jdbcClient.prepareQuery(session, table, Optional.empty(), columns, ImmutableMap.of());
+        PreparedStatement openTelemetryPreparedStatement = queryBuilder.prepareStatement(jdbcClient, session, connection, preparedQuery, Optional.of(columns.size()));
+        RedshiftPreparedStatement redshiftPreparedStatement = openTelemetryPreparedStatement.unwrap(RedshiftPreparedStatement.class);
+        String selectQuerySql = redshiftPreparedStatement.toString();
+        return queryModifier.apply(session, selectQuerySql);
+    }
+
+    private PreparedStatement buildUnloadSql(ConnectorSession session, Connection connection, List<JdbcColumnHandle> columns, String redshiftSelectSql, String unloadOutputPath)
+            throws SQLException
+    {
+        String unloadSql = "UNLOAD ('%s') TO '%s' IAM_ROLE %s FORMAT PARQUET MAXFILESIZE 64MB MANIFEST VERBOSE".formatted(
+                escapeUnloadIllegalCharacters(redshiftSelectSql),
+                unloadOutputPath,
+                unloadAuthorization.map("'%s'"::formatted).orElse("DEFAULT"));
+        return queryBuilder.prepareStatement(jdbcClient, session, connection, new PreparedQuery(unloadSql, List.of()), Optional.of(columns.size()));
+    }
+
+    private static String escapeUnloadIllegalCharacters(String value)
+    {
+        return value
+                .replace("'", "''") // escape single quotes with single quotes
+                .replace("\\b", "\\\\b"); // escape backspace with backslash
+    }
+
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
         return resultSetFuture
                 .thenApply(_ -> {
-                    ConnectorSplitBatch connectorSplitBatch = new ConnectorSplitBatch(getUnloadedFilePaths().stream()
+                    ConnectorSplitBatch connectorSplitBatch = new ConnectorSplitBatch(readUnloadedFilePaths().stream()
                             .map(fileInfo -> (ConnectorSplit) new RedshiftUnloadSplit(fileInfo.path, fileInfo.size))
                             .collect(toImmutableList()), true);
                     finished = true;
@@ -98,19 +155,19 @@ public class RedshiftUnloadSplitSource
                 });
     }
 
-    private List<FileInfo> getUnloadedFilePaths()
+    private List<FileInfo> readUnloadedFilePaths()
     {
-        manifestLocation = Optional.of(Location.of(unloadOutputPath + "manifest"));
-        TrinoInputFile inputFile = fileSystem.newInputFile(manifestLocation.get());
+        Location manifestLocation = Location.of(unloadOutputPath + "manifest");
+        TrinoInputFile inputFile = fileSystem.newInputFile(manifestLocation);
         JsonNode outputFileEntries;
         try (TrinoInputStream inputStream = inputFile.newStream()) {
             byte[] manifestContent = inputStream.readAllBytes();
             outputFileEntries = OBJECT_MAPPER.readTree(manifestContent).path("entries");
+            fileSystem.deleteFile(manifestLocation);
         }
-        // Rely on the catching `FileNotFoundException` for the absence of manifest file as `inputFile#exists` adds additional call to S3.
+        // manifest is not generated if unload query doesn't produce any results.
+        // Rely on the catching `FileNotFoundException` for the absence of manifest file as `TrinoInputFile#exists` adds additional call to S3.
         catch (FileNotFoundException e) {
-            // manifest is not generated if unload query doesn't produce any results.
-            manifestLocation = Optional.empty();
             return ImmutableList.of();
         }
         catch (IOException e) {
@@ -126,21 +183,6 @@ public class RedshiftUnloadSplitSource
     public void close()
     {
         resultSetFuture.cancel(true);
-        manifestLocation.ifPresent(location -> {
-            try {
-                fileSystem.deleteFile(location);
-            }
-            catch (IOException e) {
-                log.info("Failed to delete manifest file: " + location);
-            }
-        });
-        try {
-            statement.close();
-            connection.close();
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Override
