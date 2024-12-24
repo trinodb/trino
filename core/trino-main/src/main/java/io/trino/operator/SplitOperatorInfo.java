@@ -68,6 +68,11 @@ public class SplitOperatorInfo
     public SplitOperatorInfo mergeWith(List<SplitOperatorInfo> others)
     {
         return new SplitOperatorInfo(
-                catalogHandle, mergeMaps(Stream.concat(Stream.of(splitInfo), others.stream().map(SplitOperatorInfo::getSplitInfo)), (first, second) -> String.join(", ", first, second)));
+                catalogHandle,
+                mergeMaps(
+                        Stream.concat(
+                                Stream.of(splitInfo),
+                                others.stream().map(SplitOperatorInfo::getSplitInfo)),
+                        (first, second) -> String.join(", ", first, second)));
     }
 }
