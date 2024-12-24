@@ -78,7 +78,8 @@ public class TestIcebergConfig
                 .setIncrementalRefreshEnabled(true)
                 .setObjectStoreLayoutEnabled(false)
                 .setMetadataParallelism(8)
-                .setBucketExecutionEnabled(true));
+                .setBucketExecutionEnabled(true)
+                .setFileBasedConflictDetectionEnabled(false));
     }
 
     @Test
@@ -118,6 +119,7 @@ public class TestIcebergConfig
                 .put("iceberg.object-store-layout.enabled", "true")
                 .put("iceberg.metadata.parallelism", "10")
                 .put("iceberg.bucket-execution", "false")
+                .put("iceberg.file-based-conflict-detection", "true")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -154,7 +156,8 @@ public class TestIcebergConfig
                 .setIncrementalRefreshEnabled(false)
                 .setObjectStoreLayoutEnabled(true)
                 .setMetadataParallelism(10)
-                .setBucketExecutionEnabled(false);
+                .setBucketExecutionEnabled(false)
+                .setFileBasedConflictDetectionEnabled(true);
 
         assertFullMapping(properties, expected);
     }
