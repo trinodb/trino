@@ -27,7 +27,7 @@ public class TestTimestampStatistics
     @Override
     protected TimestampStatistics getCreateStatistics(Long min, Long max)
     {
-        return new TimestampStatistics(min, max);
+        return new TimestampStatistics(min, max, true);
     }
 
     @Test
