@@ -21,7 +21,6 @@
         <dependency>
             <groupId>com.clickhouse</groupId>
             <artifactId>clickhouse-jdbc</artifactId>
-            <classifier>all</classifier>
         </dependency>
 
         <dependency>
@@ -110,6 +109,14 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <!-- Clickhouse client will by default use LZ4 compression, which requires this dependency -->
+            <!-- https://github.com/ClickHouse/clickhouse-docs/pull/2408/files -->
+            <groupId>org.lz4</groupId>
+            <artifactId>lz4-java</artifactId>
             <scope>runtime</scope>
         </dependency>
 
