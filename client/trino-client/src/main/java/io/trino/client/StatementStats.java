@@ -36,14 +36,18 @@ public class StatementStats
     private final int queuedSplits;
     private final int runningSplits;
     private final int completedSplits;
+    private final long planningTimeMillis;
+    private final long analysisTimeMillis;
     private final long cpuTimeMillis;
     private final long wallTimeMillis;
     private final long queuedTimeMillis;
     private final long elapsedTimeMillis;
+    private final long finishingTimeMillis;
     private final long processedRows;
     private final long processedBytes;
     private final long physicalInputBytes;
     private final long physicalWrittenBytes;
+    private final long internalNetworkInputBytes;
     private final long peakMemoryBytes;
     private final long spilledBytes;
     private final StageStats rootStage;
@@ -60,14 +64,18 @@ public class StatementStats
             @JsonProperty("queuedSplits") int queuedSplits,
             @JsonProperty("runningSplits") int runningSplits,
             @JsonProperty("completedSplits") int completedSplits,
+            @JsonProperty("planningTimeMillis") long planningTimeMillis,
+            @JsonProperty("analysisTimeMillis") long analysisTimeMillis,
             @JsonProperty("cpuTimeMillis") long cpuTimeMillis,
             @JsonProperty("wallTimeMillis") long wallTimeMillis,
             @JsonProperty("queuedTimeMillis") long queuedTimeMillis,
             @JsonProperty("elapsedTimeMillis") long elapsedTimeMillis,
+            @JsonProperty("finishingTimeMillis") long finishingTimeMillis,
             @JsonProperty("processedRows") long processedRows,
             @JsonProperty("processedBytes") long processedBytes,
             @JsonProperty("physicalInputBytes") long physicalInputBytes,
             @JsonProperty("physicalWrittenBytes") long physicalWrittenBytes,
+            @JsonProperty("internalNetworkInputBytes") long internalNetworkInputBytes,
             @JsonProperty("peakMemoryBytes") long peakMemoryBytes,
             @JsonProperty("spilledBytes") long spilledBytes,
             @JsonProperty("rootStage") StageStats rootStage)
@@ -82,14 +90,18 @@ public class StatementStats
         this.queuedSplits = queuedSplits;
         this.runningSplits = runningSplits;
         this.completedSplits = completedSplits;
+        this.planningTimeMillis = planningTimeMillis;
+        this.analysisTimeMillis = analysisTimeMillis;
         this.cpuTimeMillis = cpuTimeMillis;
         this.wallTimeMillis = wallTimeMillis;
         this.queuedTimeMillis = queuedTimeMillis;
         this.elapsedTimeMillis = elapsedTimeMillis;
+        this.finishingTimeMillis = finishingTimeMillis;
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
         this.physicalInputBytes = physicalInputBytes;
         this.physicalWrittenBytes = physicalWrittenBytes;
+        this.internalNetworkInputBytes = internalNetworkInputBytes;
         this.peakMemoryBytes = peakMemoryBytes;
         this.spilledBytes = spilledBytes;
         this.rootStage = rootStage;
@@ -156,6 +168,18 @@ public class StatementStats
     }
 
     @JsonProperty
+    public long getPlanningTimeMillis()
+    {
+        return planningTimeMillis;
+    }
+
+    @JsonProperty
+    public long getAnalysisTimeMillis()
+    {
+        return analysisTimeMillis;
+    }
+
+    @JsonProperty
     public long getCpuTimeMillis()
     {
         return cpuTimeMillis;
@@ -180,6 +204,12 @@ public class StatementStats
     }
 
     @JsonProperty
+    public long getFinishingTimeMillis()
+    {
+        return finishingTimeMillis;
+    }
+
+    @JsonProperty
     public long getProcessedRows()
     {
         return processedRows;
@@ -201,6 +231,12 @@ public class StatementStats
     public long getPhysicalWrittenBytes()
     {
         return physicalWrittenBytes;
+    }
+
+    @JsonProperty
+    public long getInternalNetworkInputBytes()
+    {
+        return internalNetworkInputBytes;
     }
 
     @JsonProperty
@@ -236,14 +272,18 @@ public class StatementStats
                 .add("queuedSplits", queuedSplits)
                 .add("runningSplits", runningSplits)
                 .add("completedSplits", completedSplits)
+                .add("planningTimeMillis", planningTimeMillis)
+                .add("analysisTimeMillis", analysisTimeMillis)
                 .add("cpuTimeMillis", cpuTimeMillis)
                 .add("wallTimeMillis", wallTimeMillis)
                 .add("queuedTimeMillis", queuedTimeMillis)
                 .add("elapsedTimeMillis", elapsedTimeMillis)
+                .add("finishingTimeMillis", finishingTimeMillis)
                 .add("processedRows", processedRows)
                 .add("processedBytes", processedBytes)
                 .add("physicalInputBytes", physicalInputBytes)
                 .add("physicalWrittenBytes", physicalWrittenBytes)
+                .add("internalNetworkInputBytes", internalNetworkInputBytes)
                 .add("peakMemoryBytes", peakMemoryBytes)
                 .add("spilledBytes", spilledBytes)
                 .add("rootStage", rootStage)
@@ -267,14 +307,18 @@ public class StatementStats
         private int queuedSplits;
         private int runningSplits;
         private int completedSplits;
+        private long planningTimeMillis;
+        private long analysisTimeMillis;
         private long cpuTimeMillis;
         private long wallTimeMillis;
         private long queuedTimeMillis;
         private long elapsedTimeMillis;
+        private long finishingTimeMillis;
         private long processedRows;
         private long processedBytes;
         private long physicalInputBytes;
         private long physicalWrittenBytes;
+        private long internalNetworkInputBytes;
         private long peakMemoryBytes;
         private long spilledBytes;
         private StageStats rootStage;
@@ -341,6 +385,18 @@ public class StatementStats
             return this;
         }
 
+        public Builder setPlanningTimeMillis(long planningTimeMillis)
+        {
+            this.planningTimeMillis = planningTimeMillis;
+            return this;
+        }
+
+        public Builder setAnalysisTimeMillis(long analysisTimeMillis)
+        {
+            this.analysisTimeMillis = analysisTimeMillis;
+            return this;
+        }
+
         public Builder setCpuTimeMillis(long cpuTimeMillis)
         {
             this.cpuTimeMillis = cpuTimeMillis;
@@ -365,6 +421,12 @@ public class StatementStats
             return this;
         }
 
+        public Builder setFinishingTimeMillis(long finishingTimeMillis)
+        {
+            this.finishingTimeMillis = finishingTimeMillis;
+            return this;
+        }
+
         public Builder setProcessedRows(long processedRows)
         {
             this.processedRows = processedRows;
@@ -386,6 +448,12 @@ public class StatementStats
         public Builder setPhysicalWrittenBytes(long physicalWrittenBytes)
         {
             this.physicalWrittenBytes = physicalWrittenBytes;
+            return this;
+        }
+
+        public Builder setInternalNetworkInputBytes(long internalNetworkInputBytes)
+        {
+            this.internalNetworkInputBytes = internalNetworkInputBytes;
             return this;
         }
 
@@ -420,14 +488,18 @@ public class StatementStats
                     queuedSplits,
                     runningSplits,
                     completedSplits,
+                    planningTimeMillis,
+                    analysisTimeMillis,
                     cpuTimeMillis,
                     wallTimeMillis,
                     queuedTimeMillis,
                     elapsedTimeMillis,
+                    finishingTimeMillis,
                     processedRows,
                     processedBytes,
                     physicalInputBytes,
                     physicalWrittenBytes,
+                    internalNetworkInputBytes,
                     peakMemoryBytes,
                     spilledBytes,
                     rootStage);
