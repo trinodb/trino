@@ -15,14 +15,18 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Mergeable;
 import io.trino.spi.connector.CatalogHandle;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
+import static io.trino.util.MoreMaps.mergeMaps;
 import static java.util.Objects.requireNonNull;
 
 public class SplitOperatorInfo
-        implements OperatorInfo
+        implements OperatorInfo, Mergeable<SplitOperatorInfo>
 {
     private final CatalogHandle catalogHandle;
     private final Map<String, String> splitInfo;
@@ -52,5 +56,23 @@ public class SplitOperatorInfo
     public CatalogHandle getCatalogHandle()
     {
         return catalogHandle;
+    }
+
+    @Override
+    public SplitOperatorInfo mergeWith(SplitOperatorInfo other)
+    {
+        return mergeWith(List.of(other));
+    }
+
+    @Override
+    public SplitOperatorInfo mergeWith(List<SplitOperatorInfo> others)
+    {
+        return new SplitOperatorInfo(
+                catalogHandle,
+                mergeMaps(
+                        Stream.concat(
+                                Stream.of(splitInfo),
+                                others.stream().map(SplitOperatorInfo::getSplitInfo)),
+                        (first, second) -> String.join(", ", first, second)));
     }
 }
