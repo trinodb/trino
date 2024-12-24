@@ -986,7 +986,7 @@ public final class IcebergUtil
                 .snapshotId();
     }
 
-    private static void checkFormatForProperty(FileFormat actualStorageFormat, FileFormat expectedStorageFormat, String propertyName)
+    public static void checkFormatForProperty(FileFormat actualStorageFormat, FileFormat expectedStorageFormat, String propertyName)
     {
         if (actualStorageFormat != expectedStorageFormat) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));

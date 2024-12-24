@@ -58,6 +58,25 @@ public class TestIcebergParquetWithBloomFilters
                 "format = 'parquet'," +
                 "parquet_bloom_filter_columns = array['a','B'])");
 
+        verifyTableProperties(tableName);
+    }
+
+    @Test
+    void testBloomFilterPropertiesArePersistedDuringSetProperties()
+    {
+        String tableName = "test_metadata_write_properties_" + randomNameSuffix();
+        assertQuerySucceeds("CREATE TABLE " + tableName + "(A bigint, b bigint, c bigint)");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES parquet_bloom_filter_columns = ARRAY['a','B']");
+        verifyTableProperties(tableName);
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES parquet_bloom_filter_columns = ARRAY[]");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .doesNotContain("parquet_bloom_filter_columns");
+    }
+
+    private void verifyTableProperties(String tableName)
+    {
         MaterializedResult actualProperties = computeActual("SELECT * FROM \"" + tableName + "$properties\"");
         assertThat(actualProperties).isNotNull();
         MaterializedResult expectedProperties = resultBuilder(getSession())
