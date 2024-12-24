@@ -37,7 +37,7 @@ final class TestSingleStoreLatestTypeMapping
     @Test
     void testUnsupportedTinyint()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "tpch.test_unsupported_tinyint", "(value tinyint)")) {
+        try (TestTable table = newTrinoTable("tpch.test_unsupported_tinyint", "(value tinyint)")) {
             assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (-129)", table.getName())))
                     .hasMessageContaining("Out of range value");
             assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (128)", table.getName())))
@@ -48,7 +48,7 @@ final class TestSingleStoreLatestTypeMapping
     @Test
     void testUnsupportedSmallint()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "tpch.test_unsupported_smallint", "(value smallint)")) {
+        try (TestTable table = newTrinoTable("tpch.test_unsupported_smallint", "(value smallint)")) {
             assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (-32769)", table.getName())))
                     .hasMessageContaining("Out of range value");
             assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (32768)", table.getName())))
@@ -59,7 +59,7 @@ final class TestSingleStoreLatestTypeMapping
     @Test
     void testUnsupportedInteger()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "tpch.test_unsupported_integer", "(value integer)")) {
+        try (TestTable table = newTrinoTable("tpch.test_unsupported_integer", "(value integer)")) {
             assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (-2147483649)", table.getName())))
                     .hasMessageContaining("Out of range value");
             assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (2147483648)", table.getName())))
@@ -70,7 +70,7 @@ final class TestSingleStoreLatestTypeMapping
     @Test
     void testUnsupportedBigint()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "tpch.test_unsupported_bigint", "(value bigint)")) {
+        try (TestTable table = newTrinoTable("tpch.test_unsupported_bigint", "(value bigint)")) {
             assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (-9223372036854775809)", table.getName())))
                     .hasMessageContaining("Out of range value");
             assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (9223372036854775808)", table.getName())))

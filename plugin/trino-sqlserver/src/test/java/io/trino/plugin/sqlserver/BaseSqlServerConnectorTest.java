@@ -363,7 +363,7 @@ public abstract class BaseSqlServerConnectorTest
         // Override this because by enabling this flag SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
         // we assume that we also support range pushdowns, but for now we only support 'not equal' pushdown,
         // so cannot enable this flag for now
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+        try (TestTable table = newTrinoTable("test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE col != 'A'", 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
         }
@@ -834,7 +834,7 @@ public abstract class BaseSqlServerConnectorTest
     public void testConstantUpdateWithVarcharInequalityPredicates()
     {
         // Sql Server supports push down predicate for not equal operator
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
+        try (TestTable table = newTrinoTable("test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
             assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a'), (2, 'A')");
         }

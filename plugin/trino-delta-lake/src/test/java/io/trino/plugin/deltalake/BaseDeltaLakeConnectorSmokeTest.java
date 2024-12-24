@@ -2078,7 +2078,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testHistoryTable()
     {
         String tableName = "test_history_table_" + randomNameSuffix();
-        try (TestTable table = new TestTable(getQueryRunner()::execute, tableName, "(int_col INTEGER)")) {
+        try (TestTable table = newTrinoTable(tableName, "(int_col INTEGER)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 4, 5, 6", 3);
             assertUpdate("DELETE FROM " + table.getName() + " WHERE int_col = 1", 1);
@@ -2097,8 +2097,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testHistoryTableWithDeletedTransactionLog()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_history_table_with_deleted_transaction_log",
                 "(int_col INTEGER) WITH (checkpoint_interval = 3)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
@@ -2323,8 +2322,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "query_partition_filter_required", "true")
                 .build();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_no_partition_filter",
                 "(x varchar, part varchar) WITH (PARTITIONED_BY = ARRAY['part'])",
                 ImmutableList.of("'a', 'part_a'", "'b', 'part_b'"))) {
@@ -2336,7 +2334,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testCreateOrReplaceTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_table", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
+        try (TestTable table = newTrinoTable("test_table", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches("VALUES (BIGINT '42', -385e-1)");
 
@@ -2351,7 +2349,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testCreateOrReplaceTableAs()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_table", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
+        try (TestTable table = newTrinoTable("test_table", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches("VALUES (BIGINT '42', -385e-1)");
 
@@ -2367,7 +2365,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testCreateOrReplaceTableChangeColumnNamesAndTypes()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_table", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
+        try (TestTable table = newTrinoTable("test_table", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches("VALUES (BIGINT '42', -385e-1)");
 
@@ -2391,7 +2389,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         CyclicBarrier barrier = new CyclicBarrier(threads + 1);
         ExecutorService executor = newFixedThreadPool(threads + 1);
         List<Future<?>> futures = new ArrayList<>();
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace", "(col integer)")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace", "(col integer)")) {
             String tableName = table.getName();
 
             getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 a");

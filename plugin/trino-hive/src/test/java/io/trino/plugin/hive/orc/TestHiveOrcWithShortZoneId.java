@@ -63,8 +63,7 @@ public class TestHiveOrcWithShortZoneId
     public void testSelectWithShortZoneId()
     {
         // When table is created using ORC file that contains short zone id in stripe footer
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_select_with_short_zone_id_",
                 "(id INT, firstName VARCHAR, lastName VARCHAR) WITH (external_location = '%s')".formatted(dataFile.parentDirectory()))) {
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, 'John', 'Doe')");
@@ -75,8 +74,7 @@ public class TestHiveOrcWithShortZoneId
     public void testSelectWithoutShortZoneId()
     {
         // When table is created by trino
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_select_without_short_zone_id_",
                 "(id INT, firstName VARCHAR, lastName VARCHAR)",
                 ImmutableList.of("2, 'Alice', 'Doe'"))) {

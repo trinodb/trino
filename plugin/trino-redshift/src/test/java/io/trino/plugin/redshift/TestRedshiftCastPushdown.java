@@ -579,8 +579,7 @@ public class TestRedshiftCastPushdown
     @Test
     void testCastPushdownWithCharConvertedToVarchar()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 TEST_SCHEMA + "." + "char_converted_to_varchar_",
                 "(a char(4097))", // char(REDSHIFT_MAX_CHAR` + 1) in Trino is mapped to varchar(REDSHIFT_MAX_CHAR` + 1) in Redshift
                 ImmutableList.of("'hello'"))) {

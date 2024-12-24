@@ -607,7 +607,7 @@ public class TestMemoryConnectorTest
     @Test
     void testInsertAfterTruncate()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_truncate", "AS SELECT 1 x")) {
+        try (TestTable table = newTrinoTable("test_truncate", "AS SELECT 1 x")) {
             assertUpdate("TRUNCATE TABLE " + table.getName());
             assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
 

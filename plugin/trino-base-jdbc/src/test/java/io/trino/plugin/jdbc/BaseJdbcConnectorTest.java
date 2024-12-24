@@ -337,8 +337,7 @@ public abstract class BaseJdbcConnectorTest
 
         PlanMatchPattern aggregationOverTableScan = node(AggregationNode.class, node(TableScanNode.class));
         PlanMatchPattern groupingAggregationOverTableScan = node(AggregationNode.class, node(TableScanNode.class));
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_cs_agg_pushdown",
                 "(a_string varchar(1), a_char char(1), a_bigint bigint)",
                 ImmutableList.of(
@@ -666,7 +665,7 @@ public abstract class BaseJdbcConnectorTest
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .build();
 
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "distinct_strings", "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
+        try (TestTable testTable = newTrinoTable("distinct_strings", "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
             if (!(hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN) && hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY))) {
                 // disabling hash generation to prevent extra projections in the plan which make it hard to write matchers for isNotFullyPushedDown
                 Session optimizeHashGenerationDisabled = Session.builder(getSession())
@@ -1121,8 +1120,7 @@ public abstract class BaseJdbcConnectorTest
             return;
         }
 
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_null_sensitive_topn_pushdown",
                 "(name varchar(10), a bigint)",
                 List.of(
@@ -1186,8 +1184,7 @@ public abstract class BaseJdbcConnectorTest
         boolean expectTopNPushdown = hasBehavior(SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR);
         PlanMatchPattern topNOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
 
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_case_sensitive_topn_pushdown",
                 "(a_string varchar(10), a_char char(10), a_bigint bigint)",
                 List.of(
@@ -1278,9 +1275,8 @@ public abstract class BaseJdbcConnectorTest
             return;
         }
 
-        try (TestTable nationLowercaseTable = new TestTable(
+        try (TestTable nationLowercaseTable = newTrinoTable(
                 // If a connector supports Join pushdown, but does not allow CTAS, we need to make the table creation here overridable.
-                getQueryRunner()::execute,
                 "nation_lowercase",
                 "AS SELECT nationkey, lower(name) name, regionkey FROM nation")) {
             for (JoinOperator joinOperator : JoinOperator.values()) {
@@ -1547,12 +1543,10 @@ public abstract class BaseJdbcConnectorTest
             String schemaName = "test_columns_listing_" + randomNameSuffix();
             assertUpdate("CREATE SCHEMA " + schemaName);
             try {
-                try (TestTable newNation = new TestTable(
-                        getQueryRunner()::execute,
+                try (TestTable newNation = newTrinoTable(
                         schemaName + ".nation",
                         "(name varchar(25), nationkey bigint)");
-                        TestTable newRegion = new TestTable(
-                                getQueryRunner()::execute,
+                        TestTable newRegion = newTrinoTable(
                                 schemaName + ".region",
                                 "(name varchar(25), regionkey bigint)")) {
                     if (hasBehavior(SUPPORTS_COMMENT_ON_TABLE)) {
@@ -1755,7 +1749,7 @@ public abstract class BaseJdbcConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "update_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+        try (TestTable table = newTrinoTable("update_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
             assertUpdate(format("INSERT INTO %s (nullable_col, not_null_col) VALUES (1, 10)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 10)");
             assertQueryFails("UPDATE " + table.getName() + " SET not_null_col = NULL WHERE nullable_col = 1", MODIFYING_ROWS_MESSAGE);
@@ -1774,7 +1768,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE) && hasBehavior(SUPPORTS_ROW_TYPE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_with_predicates_on_row_types", "(int_t INT, row_t ROW(f1 INT, f2 INT))")) {
+        try (TestTable table = newTrinoTable("test_update_with_predicates_on_row_types", "(int_t INT, row_t ROW(f1 INT, f2 INT))")) {
             String tableName = table.getName();
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(2, 3)), (11, ROW(12, 13)), (21, ROW(22, 23))", 3);
             assertQueryFails("UPDATE " + tableName + " SET int_t = int_t - 1 WHERE row_t.f2 = 3", MODIFYING_ROWS_MESSAGE);
@@ -1793,7 +1787,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_row", "(a INT, b INT, c INT)", ImmutableList.of("1, 2, 3"))) {
+        try (TestTable table = newTrinoTable("test_update_row", "(a INT, b INT, c INT)", ImmutableList.of("1, 2, 3"))) {
             assertQueryFails("UPDATE " + table.getName() + " SET a = a + 1", MODIFYING_ROWS_MESSAGE);
         }
     }
@@ -1809,7 +1803,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_all", "(a INT, b INT, c INT)", ImmutableList.of("1, 2, 3"))) {
+        try (TestTable table = newTrinoTable("test_update_all", "(a INT, b INT, c INT)", ImmutableList.of("1, 2, 3"))) {
             assertUpdate("UPDATE " + table.getName() + " SET a = 1, b = 1, c = 2", 1);
         }
     }
@@ -1826,7 +1820,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_predicates", "(a INT, b INT, c INT)")) {
+        try (TestTable table = newTrinoTable("test_row_predicates", "(a INT, b INT, c INT)")) {
             String tableName = table.getName();
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2, 3), (11, 12, 13), (21, 22, 23)", 3);
             assertUpdate("UPDATE " + tableName + " SET a = 5 WHERE c = 3", 1);
@@ -1861,7 +1855,7 @@ public abstract class BaseJdbcConnectorTest
     public void testConstantUpdateWithVarcharEqualityPredicates()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
+        try (TestTable table = newTrinoTable("test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)) {
                 assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 = 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
@@ -1910,7 +1904,7 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_bigint", "AS SELECT * FROM region")) {
+        try (TestTable table = newTrinoTable("test_delete_bigint", "AS SELECT * FROM region")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 1", 1);
             assertQuery(
                     "SELECT regionkey, name FROM " + table.getName(),
@@ -1927,7 +1921,7 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+        try (TestTable table = newTrinoTable("test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col = 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
@@ -2042,8 +2036,7 @@ public abstract class BaseJdbcConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "non_transactional_insert", "false")
                 .build();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_bypass_temp",
                 "(a varchar(36), b bigint)")) {
             int numberOfRows = 50;
@@ -2072,8 +2065,7 @@ public abstract class BaseJdbcConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "write_batch_size", Integer.toString(batchSize))
                 .build();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "write_batch_size",
                 "(a varchar(36), b bigint)")) {
             String values = String.join(",", buildRowsForInsert(numberOfRows));
@@ -2103,8 +2095,7 @@ public abstract class BaseJdbcConnectorTest
                 .build();
 
         QueryRunner queryRunner = getQueryRunner();
-        try (TestTable table = new TestTable(
-                queryRunner::execute,
+        try (TestTable table = newTrinoTable(
                 "write_parallelism",
                 "(a varchar(128), b bigint)")) {
             Plan plan = newTransaction()
@@ -2274,8 +2265,8 @@ public abstract class BaseJdbcConnectorTest
                 .orElse(65536 + 5);
 
         String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
-        try (TestTable left = new TestTable(getQueryRunner()::execute, "test_long_id_l", format("(%s BIGINT)", validColumnName));
-                TestTable right = new TestTable(getQueryRunner()::execute, "test_long_id_r", format("(%s BIGINT)", validColumnName))) {
+        try (TestTable left = newTrinoTable("test_long_id_l", format("(%s BIGINT)", validColumnName));
+                TestTable right = newTrinoTable("test_long_id_r", format("(%s BIGINT)", validColumnName))) {
             assertThat(query(joinPushdownEnabled(getSession()),
                     """
                     SELECT l.%1$s, r.%1$s
@@ -2403,8 +2394,7 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_caseinsensitive",
                 "(id varchar(1))",
                 ImmutableList.of("'0'", "'a'", "'B'"))) {

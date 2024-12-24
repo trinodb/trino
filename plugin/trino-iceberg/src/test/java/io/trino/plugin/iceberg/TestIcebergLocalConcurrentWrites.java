@@ -806,8 +806,7 @@ final class TestIcebergLocalConcurrentWrites
         List<String> rows = ImmutableList.of("('A', DATE '2024-01-01')", "('B', DATE '2024-02-02')", "('C', DATE '2024-03-03')", "('D', DATE '2024-04-04')");
         List<String> partitions = ImmutableList.of("DATE '2024-01-01'", "DATE '2024-02-02'", "DATE '2024-03-03'", "DATE '2024-04-04'");
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_concurrent_update_partition_transform_table_",
                 "(data varchar, part date) with (partitioning = array['month(part)'])")) {
             String tableName = table.getName();
@@ -850,8 +849,7 @@ final class TestIcebergLocalConcurrentWrites
         List<String> rows = ImmutableList.of("('A', ROW(DATE '2024-01-01'))", "('B', ROW(DATE '2024-02-02'))", "('C', ROW(DATE '2024-03-03'))", "('D', ROW(DATE '2024-04-04'))");
         List<String> partitions = ImmutableList.of("DATE '2024-01-01'", "DATE '2024-02-02'", "DATE '2024-03-03'", "DATE '2024-04-04'");
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_concurrent_update_partition_transform_table_",
                 "(data varchar, parent ROW (part date)) with (partitioning = array['month(\"parent.part\")'])")) {
             String tableName = table.getName();
@@ -900,8 +898,7 @@ final class TestIcebergLocalConcurrentWrites
         List<String> partitions2 = ImmutableList.of("1", "1", "1", "1");
         List<String> partitions3 = ImmutableList.of("'aaa'", "'aab'", "'aac'", "'aad'");
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_concurrent_update_multiple_partition_transform_table_",
                 "(data varchar, part1 timestamp, part2 int, part3 varchar) with (partitioning = array['hour(part1)', 'bucket(part2, 10)', 'truncate(part3, 2)'])")) {
             String tableName = table.getName();
@@ -952,8 +949,7 @@ final class TestIcebergLocalConcurrentWrites
         List<String> rows = ImmutableList.of("('A', DATE '2024-01-01')", "('B', DATE '2024-01-02')", "('C', DATE '2024-03-03')", "('D', DATE '2024-04-04')");
         List<String> partitions = ImmutableList.of("DATE '2024-01-01'", "DATE '2024-01-02'", "DATE '2024-03-03'", "DATE '2024-04-04'");
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_concurrent_update_overlapping_partition_transform_table_",
                 "(data varchar, part date) with (partitioning = array['month(part)'])")) {
             String tableName = table.getName();
@@ -1015,8 +1011,7 @@ final class TestIcebergLocalConcurrentWrites
         List<String> partitions1 = ImmutableList.of("'a'", "'b'", "'c'", "'d'");
         List<String> partitions2 = ImmutableList.of("DATE '2024-01-01'", "DATE '2024-02-02'", "DATE '2024-03-03'", "DATE '2024-04-04'");
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_concurrent_update_enforced_unenforced_partition_transform_table_",
                 // part1 is enforced and part2 is unenforced as it has transformation
                 "(data varchar, part1 varchar, part2 date) with (partitioning = array['part1', 'month(part2)'])")) {

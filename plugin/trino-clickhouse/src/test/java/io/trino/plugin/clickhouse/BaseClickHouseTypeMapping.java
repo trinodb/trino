@@ -889,7 +889,7 @@ public abstract class BaseClickHouseTypeMapping
         String minSupportedDate = "1970-01-01";
         String maxSupportedDate = "2149-06-06";
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_date", "(dt date)")) {
+        try (TestTable table = newTrinoTable("test_unsupported_date", "(dt date)")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (DATE '%s')", table.getName(), unsupportedDate),
                     format("Date must be between %s and %s in ClickHouse: %s", minSupportedDate, maxSupportedDate, unsupportedDate));
@@ -984,7 +984,7 @@ public abstract class BaseClickHouseTypeMapping
         String minSupportedTimestamp = "1970-01-01 00:00:00";
         String maxSupportedTimestamp = "2106-02-07 06:28:15";
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_timestamp", "(dt timestamp(0))")) {
+        try (TestTable table = newTrinoTable("test_unsupported_timestamp", "(dt timestamp(0))")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (TIMESTAMP '%s')", table.getName(), unsupportedTimestamp),
                     format("Timestamp must be between %s and %s in ClickHouse: %s", minSupportedTimestamp, maxSupportedTimestamp, unsupportedTimestamp));
