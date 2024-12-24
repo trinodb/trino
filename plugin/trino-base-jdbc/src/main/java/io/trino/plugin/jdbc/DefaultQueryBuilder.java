@@ -288,25 +288,31 @@ public class DefaultQueryBuilder
             WriteFunction writeFunction = parameter.getJdbcType()
                     .map(jdbcType -> getWriteFunction(client, session, connection, jdbcType, parameter.getType()))
                     .orElseGet(() -> getWriteFunction(client, session, parameter.getType()));
-            Class<?> javaType = writeFunction.getJavaType();
-            Object value = parameter.getValue()
-                    // The value must be present, since DefaultQueryBuilder never creates null parameters. Values coming from Domain's ValueSet are non-null, and
-                    // nullable domains are handled explicitly, with SQL syntax.
-                    .orElseThrow(() -> new VerifyException("Value is missing"));
-            if (javaType == boolean.class) {
-                ((BooleanWriteFunction) writeFunction).set(statement, parameterIndex, (boolean) value);
-            }
-            else if (javaType == long.class) {
-                ((LongWriteFunction) writeFunction).set(statement, parameterIndex, (long) value);
-            }
-            else if (javaType == double.class) {
-                ((DoubleWriteFunction) writeFunction).set(statement, parameterIndex, (double) value);
-            }
-            else if (javaType == Slice.class) {
-                ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, (Slice) value);
+
+            if (parameter.getValue().isEmpty()) {
+                writeFunction.setNull(statement, parameterIndex);
             }
             else {
-                ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, value);
+                Class<?> javaType = writeFunction.getJavaType();
+                Object value = parameter.getValue()
+                        // The value must be present, since DefaultQueryBuilder never creates null parameters. Values coming from Domain's ValueSet are non-null, and
+                        // nullable domains are handled explicitly, with SQL syntax.
+                        .orElseThrow(() -> new VerifyException("Value is missing"));
+                if (javaType == boolean.class) {
+                    ((BooleanWriteFunction) writeFunction).set(statement, parameterIndex, (boolean) value);
+                }
+                else if (javaType == long.class) {
+                    ((LongWriteFunction) writeFunction).set(statement, parameterIndex, (long) value);
+                }
+                else if (javaType == double.class) {
+                    ((DoubleWriteFunction) writeFunction).set(statement, parameterIndex, (double) value);
+                }
+                else if (javaType == Slice.class) {
+                    ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, (Slice) value);
+                }
+                else {
+                    ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, value);
+                }
             }
         }
 
