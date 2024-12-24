@@ -265,6 +265,7 @@
                                 <!-- JDBC operations performed on the ephemeral AWS Redshift cluster.  -->
                                 <include>**/TestRedshiftCastPushdown.java</include>
                                 <include>**/TestRedshiftConnectorSmokeTest.java</include>
+                                <include>**/TestRedshiftTypeMapping.java</include>
                             </includes>
                         </configuration>
                     </plugin>
