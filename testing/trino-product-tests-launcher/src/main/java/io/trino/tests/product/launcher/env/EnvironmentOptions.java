@@ -70,6 +70,9 @@ public final class EnvironmentOptions
     @Nullable
     public Path jdkDownloadPath;
 
+    @Option(names = "--ipv6", paramLabel = "<ipv6>", description = "Enable IPv6 networking")
+    public boolean ipv6;
+
     @Option(names = "--bind", description = "Bind exposed container ports to host ports, possible values: " + BIND_ON_HOST + ", " + DO_NOT_BIND + ", [port base number] " + DEFAULT_VALUE, defaultValue = BIND_ON_HOST, arity = "0..1", fallbackValue = BIND_ON_HOST)
     public void setBindOnHost(String value)
     {
