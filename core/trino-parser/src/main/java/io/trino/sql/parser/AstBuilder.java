@@ -650,6 +650,11 @@ class AstBuilder
     @Override
     public Node visitInsertInto(SqlBaseParser.InsertIntoContext context)
     {
+        Optional<String> branch = Optional.empty();
+        if (context.branch != null) {
+            branch = Optional.of(visitString(context.branch).getValue());
+        }
+
         Optional<List<Identifier>> columnAliases = Optional.empty();
         if (context.columnAliases() != null) {
             columnAliases = Optional.of(visit(context.columnAliases().identifier(), Identifier.class));
@@ -657,7 +662,7 @@ class AstBuilder
 
         return new Insert(
                 getLocation(context),
-                new Table(getQualifiedName(context.qualifiedName())),
+                new Table(getLocation(context), getQualifiedName(context.qualifiedName()), branch),
                 columnAliases,
                 (Query) visit(context.rootQuery()));
     }
@@ -665,18 +670,27 @@ class AstBuilder
     @Override
     public Node visitDelete(SqlBaseParser.DeleteContext context)
     {
+        Optional<String> branch = Optional.empty();
+        if (context.branch != null) {
+            branch = Optional.of(visitString(context.branch).getValue());
+        }
+
         return new Delete(
                 getLocation(context),
-                new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
+                new Table(getLocation(context), getQualifiedName(context.qualifiedName()), branch),
                 visitIfPresent(context.booleanExpression(), Expression.class));
     }
 
     @Override
     public Node visitUpdate(SqlBaseParser.UpdateContext context)
     {
+        Optional<String> branch = Optional.empty();
+        if (context.branch != null) {
+            branch = Optional.of(visitString(context.branch).getValue());
+        }
         return new Update(
                 getLocation(context),
-                new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
+                new Table(getLocation(context), getQualifiedName(context.qualifiedName()), branch),
                 visit(context.updateAssignment(), UpdateAssignment.class),
                 visitIfPresent(context.booleanExpression(), Expression.class));
     }
@@ -696,7 +710,12 @@ class AstBuilder
     @Override
     public Node visitMerge(SqlBaseParser.MergeContext context)
     {
-        Table table = new Table(getLocation(context), getQualifiedName(context.qualifiedName()));
+        Optional<String> branch = Optional.empty();
+        if (context.branch != null) {
+            branch = Optional.of(visitString(context.branch).getValue());
+        }
+
+        Table table = new Table(getLocation(context), getQualifiedName(context.qualifiedName()), branch);
         Relation targetRelation = table;
         if (context.identifier() != null) {
             targetRelation = new AliasedRelation(table, (Identifier) visit(context.identifier()), null);
@@ -1984,7 +2003,7 @@ class AstBuilder
     public Node visitTableName(SqlBaseParser.TableNameContext context)
     {
         if (context.queryPeriod() != null) {
-            return new Table(getLocation(context), getQualifiedName(context.qualifiedName()), (QueryPeriod) visit(context.queryPeriod()));
+            return new Table(getLocation(context), getQualifiedName(context.qualifiedName()), (QueryPeriod) visit(context.queryPeriod()), Optional.empty());
         }
         return new Table(getLocation(context), getQualifiedName(context.qualifiedName()));
     }
