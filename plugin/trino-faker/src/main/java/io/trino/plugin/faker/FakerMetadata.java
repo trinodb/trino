@@ -15,6 +15,7 @@
 package io.trino.plugin.faker;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
@@ -59,8 +60,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -223,8 +222,9 @@ public class FakerMetadata
         FakerTableHandle handle = (FakerTableHandle) tableHandle;
         SchemaTableName oldTableName = handle.schemaTableName();
 
+        TableInfo oldInfo = tables.get(oldTableName);
         tables.remove(oldTableName);
-        tables.put(newTableName, tables.get(oldTableName));
+        tables.put(newTableName, oldInfo);
     }
 
     @Override
@@ -234,13 +234,18 @@ public class FakerMetadata
         SchemaTableName tableName = handle.schemaTableName();
 
         TableInfo oldInfo = tables.get(tableName);
-        Map<String, Object> newProperties = Stream.concat(
-                        oldInfo.properties().entrySet().stream()
-                                .filter(entry -> !properties.containsKey(entry.getKey())),
-                        properties.entrySet().stream()
-                                .filter(entry -> entry.getValue().isPresent()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        tables.put(tableName, oldInfo.withProperties(newProperties));
+        ImmutableMap.Builder updatedProperties = ImmutableMap.<String, Object>builder().putAll(oldInfo.properties());
+        if (properties.containsKey(TableInfo.NULL_PROBABILITY_PROPERTY)) {
+            double nullProbability = (double) properties.get(TableInfo.NULL_PROBABILITY_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The null_probability property cannot be empty"));
+            updatedProperties.put(TableInfo.NULL_PROBABILITY_PROPERTY, nullProbability);
+        }
+        if (properties.containsKey(TableInfo.DEFAULT_LIMIT_PROPERTY)) {
+            long defaultLimit = (long) properties.get(TableInfo.DEFAULT_LIMIT_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The default_limit property cannot be empty"));
+            updatedProperties.put(TableInfo.DEFAULT_LIMIT_PROPERTY, defaultLimit);
+        }
+        tables.put(tableName, oldInfo.withProperties(updatedProperties.buildOrThrow()));
     }
 
     @Override
