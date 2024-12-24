@@ -20,6 +20,7 @@ import io.trino.client.auth.kerberos.DelegatedConstrainedContextProvider;
 import io.trino.client.auth.kerberos.DelegatedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.GSSContextProvider;
 import io.trino.client.auth.kerberos.LoginBasedUnconstrainedContextProvider;
+import io.trino.client.auth.kerberos.NativeGSSContextProvider;
 import io.trino.client.auth.kerberos.SpnegoHandler;
 import io.trino.client.uri.LoggingLevel;
 import okhttp3.Credentials;
@@ -379,7 +380,17 @@ public final class OkHttpUtil
             contextProvider = getDelegatedGSSContextProvider(gssCredential);
         }
         else {
-            contextProvider = new LoginBasedUnconstrainedContextProvider(principal, kerberosConfig, keytab, credentialCache);
+            if (Boolean.getBoolean("sun.security.jgss.native") && "false".equals(System.getProperty("javax.security.auth.useSubjectCredsOnly"))) {
+                /*
+                 * use native GSS credentials.
+                 * most famously on Windows, Java will go the SSPI and obtain the correct Kerberos tickets
+                 * without the need to enter any username or password.
+                 */
+                contextProvider = new NativeGSSContextProvider();
+            }
+            else {
+                contextProvider = new LoginBasedUnconstrainedContextProvider(principal, kerberosConfig, keytab, credentialCache);
+            }
         }
         SpnegoHandler handler = new SpnegoHandler(servicePrincipalPattern, remoteServiceName, useCanonicalHostname, contextProvider);
         clientBuilder.addInterceptor(handler);
@@ -395,6 +406,6 @@ public final class OkHttpUtil
     {
         return gssCredential.map(DelegatedConstrainedContextProvider::new)
                 .map(gssCred -> (GSSContextProvider) gssCred)
-                .orElse(new DelegatedUnconstrainedContextProvider());
+                .orElseGet(DelegatedUnconstrainedContextProvider::new);
     }
 }
