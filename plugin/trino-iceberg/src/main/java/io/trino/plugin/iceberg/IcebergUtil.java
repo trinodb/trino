@@ -876,7 +876,7 @@ public final class IcebergUtil
         List<String> parquetBloomFilterColumns = IcebergTableProperties.getParquetBloomFilterColumns(tableMetadata.getProperties());
         if (!parquetBloomFilterColumns.isEmpty()) {
             checkFormatForProperty(fileFormat.toIceberg(), FileFormat.PARQUET, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
-            validateParquetBloomFilterColumns(tableMetadata, parquetBloomFilterColumns);
+            validateParquetBloomFilterColumns(tableMetadata.getColumns(), parquetBloomFilterColumns);
             for (String column : parquetBloomFilterColumns) {
                 propertiesBuilder.put(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX + column, "true");
             }
@@ -1003,9 +1003,9 @@ public final class IcebergUtil
         }
     }
 
-    private static void validateParquetBloomFilterColumns(ConnectorTableMetadata tableMetadata, List<String> parquetBloomFilterColumns)
+    public static void validateParquetBloomFilterColumns(List<ColumnMetadata> columns, List<String> parquetBloomFilterColumns)
     {
-        Map<String, Type> columnTypes = tableMetadata.getColumns().stream()
+        Map<String, Type> columnTypes = columns.stream()
                 .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::getType));
         for (String column : parquetBloomFilterColumns) {
             Type type = columnTypes.get(column);

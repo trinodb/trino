@@ -75,6 +75,26 @@ public class TestIcebergParquetWithBloomFilters
                 .doesNotContain("parquet_bloom_filter_columns");
     }
 
+    @Test
+    void testInvalidBloomFilterProperties()
+    {
+        String tableName = "test_invalid_bloom_filter_properties_" + randomNameSuffix();
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(x int) WITH (parquet_bloom_filter_columns = ARRAY['missing_column'])",
+                "Parquet Bloom filter column missing_column not present in schema");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(x array(int)) WITH (parquet_bloom_filter_columns = ARRAY['x'])",
+                "\\QParquet Bloom filter column x has unsupported type array(integer)");
+
+        assertQuerySucceeds("CREATE TABLE " + tableName + "(x array(integer))");
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " SET PROPERTIES parquet_bloom_filter_columns = ARRAY['missing_column']",
+                "Parquet Bloom filter column missing_column not present in schema");
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " SET PROPERTIES parquet_bloom_filter_columns = ARRAY['x']",
+                "\\QParquet Bloom filter column x has unsupported type array(integer)");
+    }
+
     private void verifyTableProperties(String tableName)
     {
         MaterializedResult actualProperties = computeActual("SELECT * FROM \"" + tableName + "$properties\"");
