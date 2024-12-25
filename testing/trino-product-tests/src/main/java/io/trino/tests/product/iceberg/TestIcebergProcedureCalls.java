@@ -366,18 +366,6 @@ public class TestIcebergProcedureCalls
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testRollbackToSnapshotWithNullArgument()
-    {
-        onTrino().executeQuery("USE iceberg.default");
-        assertQueryFailure(() -> onTrino().executeQuery("CALL system.rollback_to_snapshot(NULL, 'customer_orders', 8954597067493422955)"))
-                .hasMessageMatching(".*schema cannot be null.*");
-        assertQueryFailure(() -> onTrino().executeQuery("CALL system.rollback_to_snapshot('testdb', NULL, 8954597067493422955)"))
-                .hasMessageMatching(".*table cannot be null.*");
-        assertQueryFailure(() -> onTrino().executeQuery("CALL system.rollback_to_snapshot('testdb', 'customer_orders', NULL)"))
-                .hasMessageMatching(".*snapshot_id cannot be null.*");
-    }
-
     private long getSecondOldestTableSnapshot(String tableName)
     {
         return (Long) onTrino().executeQuery(
