@@ -70,6 +70,10 @@ public class TestIcebergParquetWithBloomFilters
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES parquet_bloom_filter_columns = ARRAY['a','B']");
         verifyTableProperties(tableName);
 
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES parquet_bloom_filter_columns = ARRAY['a']");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("parquet_bloom_filter_columns = ARRAY['a']");
+
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES parquet_bloom_filter_columns = ARRAY[]");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
                 .doesNotContain("parquet_bloom_filter_columns");
