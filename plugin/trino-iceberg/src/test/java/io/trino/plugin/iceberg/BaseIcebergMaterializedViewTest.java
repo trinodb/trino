@@ -482,7 +482,7 @@ public abstract class BaseIcebergMaterializedViewTest
 
         // Base MV on a snapshot "in the future"
         assertUpdate("REFRESH MATERIALIZED VIEW mv_on_rolled_back_the_mv", 1);
-        assertUpdate(format("CALL system.rollback_to_snapshot(CURRENT_SCHEMA, 'mv_on_rolled_back_base_table', %s)", firstSnapshot));
+        assertUpdate(format("ALTER TABLE mv_on_rolled_back_base_table EXECUTE rollback_to_snapshot(%s)", firstSnapshot));
 
         // View still can be queried
         assertThat(query("TABLE mv_on_rolled_back_the_mv"))
