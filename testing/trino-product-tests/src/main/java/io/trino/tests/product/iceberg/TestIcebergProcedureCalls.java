@@ -360,7 +360,7 @@ public class TestIcebergProcedureCalls
         Thread.sleep(1);
         onTrino().executeQuery(format("INSERT INTO %s VALUES 2", tableName));
         long snapshotId = getSecondOldestTableSnapshot(tableName);
-        onTrino().executeQuery(format("call system.rollback_to_snapshot('default', '%s', %d)", tableName, snapshotId));
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE rollback_to_snapshot(%d)", tableName, snapshotId));
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
                 .containsOnly(row(1));
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));

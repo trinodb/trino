@@ -1642,11 +1642,11 @@ FROM example.testdb."customer_orders$snapshots"
 ORDER BY committed_at DESC LIMIT 1
 ```
 
-The procedure `system.rollback_to_snapshot` allows the caller to roll back the
+The table procedure `rollback_to_snapshot` allows the caller to roll back the
 state of the table to a previous snapshot id:
 
 ```
-CALL example.system.rollback_to_snapshot('testdb', 'customer_orders', 8954597067493422955)
+ALTER TABLE testdb.customer_orders EXECUTE rollback_to_snapshot(8954597067493422955)
 ```
 
 #### `NOT NULL` column constraint
