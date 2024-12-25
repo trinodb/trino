@@ -786,7 +786,7 @@ public class TestIcebergStatistics
                   (null,  null, null, null, 26, null, null)
                 """);
 
-        assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %s)", schema, tableName, createSnapshot));
+        assertUpdate(format("ALTER TABLE %s.%s EXECUTE rollback_to_snapshot(%s)", schema, tableName, createSnapshot));
         // NDV information still present after rollback_to_snapshot
         assertQuery(
                 "SHOW STATS FOR " + tableName,
