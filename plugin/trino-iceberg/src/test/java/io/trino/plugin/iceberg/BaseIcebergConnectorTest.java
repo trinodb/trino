@@ -1709,6 +1709,14 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE test_rollback");
     }
 
+    @Test
+    void testRollbackToSnapshotWithNullArgument()
+    {
+        assertQueryFails("CALL system.rollback_to_snapshot(NULL, 'customer_orders', 8954597067493422955)", ".*schema cannot be null.*");
+        assertQueryFails("CALL system.rollback_to_snapshot('testdb', NULL, 8954597067493422955)", ".*table cannot be null.*");
+        assertQueryFails("CALL system.rollback_to_snapshot('testdb', 'customer_orders', NULL)", ".*snapshot_id cannot be null.*");
+    }
+
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
