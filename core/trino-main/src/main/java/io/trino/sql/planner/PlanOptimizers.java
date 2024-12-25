@@ -138,6 +138,7 @@ import io.trino.sql.planner.iterative.rule.PruneValuesColumns;
 import io.trino.sql.planner.iterative.rule.PruneWindowColumns;
 import io.trino.sql.planner.iterative.rule.PushAggregationIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
+import io.trino.sql.planner.iterative.rule.PushPartialAggregationIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushCastIntoRow;
 import io.trino.sql.planner.iterative.rule.PushDistinctLimitIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushDownDereferenceThroughFilter;
@@ -1003,6 +1004,7 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(new PushPartialAggregationThroughJoin().rules())
                         .add(new PushPartialAggregationThroughExchange(plannerContext),
+                                new PushPartialAggregationIntoTableScan(plannerContext),
                                 new PruneJoinColumns(),
                                 new PruneJoinChildrenColumns(),
                                 new RemoveRedundantIdentityProjections())
