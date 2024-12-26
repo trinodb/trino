@@ -511,7 +511,7 @@ class StatementClientV1
         }
 
         currentResults.set(results);
-        currentRows.set(resultRowsDecoder.toRows(results));
+        //currentRows.set(resultRowsDecoder.toRows(results)); TODO dont be lazy
     }
 
     private List<String> safeSplitToList(String value)

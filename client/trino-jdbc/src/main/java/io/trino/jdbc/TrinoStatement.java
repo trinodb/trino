@@ -16,6 +16,7 @@ package io.trino.jdbc;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import io.trino.client.ClientException;
+import io.trino.client.QueryStats;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
 
