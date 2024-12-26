@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.spi.Plugin;
 import io.trino.spi.spool.SpooledLocation;
@@ -54,6 +55,8 @@ import static java.util.Objects.requireNonNull;
 public class LocalSpoolingManager
         implements SpoolingManager
 {
+    private static final Logger log = Logger.get(LocalSpoolingManager.class);
+
     private static final JsonCodec<LocalSpooledSegmentHandle> HANDLE_CODEC = jsonCodec(LocalSpooledSegmentHandle.class);
     private final Path rootPath;
     private final AtomicLong segmentId = new AtomicLong();
@@ -62,6 +65,7 @@ public class LocalSpoolingManager
     {
         try {
             this.rootPath = Files.createTempDirectory("spooling");
+            log.info("Spooling files in " + rootPath);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

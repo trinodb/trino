@@ -18,7 +18,6 @@
     <url>https://trino.io</url>
 
     <inceptionYear>2012</inceptionYear>
-
     <licenses>
         <license>
             <name>Apache License 2.0</name>
@@ -178,6 +177,8 @@
             ${extraJavaVectorArgs}
             <!-- # https://bugs.openjdk.org/browse/JDK-8327134 -->
             -Djava.security.manager=allow
+            <!-- for arrow-memory -->
+            --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
@@ -2634,6 +2635,41 @@
                                 </conflictingDependencies>
                                 <resources>
                                     <resource>mime.types</resource>
+                                </resources>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>org.apache.arrow</groupId>
+                                        <artifactId>arrow-compression</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.arrow</groupId>
+                                        <artifactId>arrow-format</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.arrow</groupId>
+                                        <artifactId>arrow-memory-core</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.arrow</groupId>
+                                        <artifactId>arrow-memory-netty</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.arrow</groupId>
+                                        <artifactId>arrow-memory-netty-buffer-patch</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.arrow</groupId>
+                                        <artifactId>arrow-memory-unsafe</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.arrow</groupId>
+                                        <artifactId>arrow-vector</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>arrow-git.properties</resource>
                                 </resources>
                             </exception>
                             <exception>
