@@ -261,6 +261,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-arrow</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-geospatial-toolkit</artifactId>
         </dependency>
 
@@ -530,6 +535,13 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-arrow</artifactId>
+            <version>469-SNAPSHOT</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 </project>
