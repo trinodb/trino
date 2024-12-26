@@ -58,7 +58,7 @@ public abstract class BaseLdapJdbcTest
 
     @Inject
     @Named("databases.trino.cli_ldap_server_address")
-    private String prestoServer;
+    private String trinoServer;
 
     @Override
     public Requirement getRequirements(Configuration configuration)
@@ -89,16 +89,16 @@ public abstract class BaseLdapJdbcTest
         return DriverManager.getConnection(getLdapUrl(), name, password);
     }
 
-    protected String prestoServer()
+    protected String trinoServer()
     {
         String prefix = "https://";
-        checkState(prestoServer.startsWith(prefix), "invalid server address: %s", prestoServer);
-        return prestoServer.substring(prefix.length());
+        checkState(trinoServer.startsWith(prefix), "invalid server address: %s", trinoServer);
+        return trinoServer.substring(prefix.length());
     }
 
     protected String getLdapUrl()
     {
-        return format(getLdapUrlFormat(), prestoServer(), ldapTruststorePath, ldapTruststorePassword);
+        return format(getLdapUrlFormat(), trinoServer(), ldapTruststorePath, ldapTruststorePassword);
     }
 
     protected abstract String getLdapUrlFormat();
