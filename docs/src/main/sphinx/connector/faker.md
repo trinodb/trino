@@ -238,6 +238,7 @@ To define the schema for generating data, it supports the following features:
 - [](/sql/drop-table)
 - [](/sql/create-schema)
 - [](/sql/drop-schema)
+- [](sql-view-management)
 
 (faker-usage)=
 ## Usage
