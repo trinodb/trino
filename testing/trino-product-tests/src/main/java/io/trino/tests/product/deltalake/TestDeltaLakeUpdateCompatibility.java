@@ -54,23 +54,23 @@ public class TestDeltaLakeUpdateCompatibility
 
         try {
             QueryResult databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
-            QueryResult prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
-            assertThat(databricksResult).containsExactlyInOrder(toRows(prestoResult));
+            QueryResult trinoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
+            assertThat(databricksResult).containsExactlyInOrder(toRows(trinoResult));
 
             onDelta().executeQuery(format("UPDATE default.%s SET value = 'France' WHERE id = 2", tableName));
             databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
-            prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
-            assertThat(databricksResult).containsExactlyInOrder(toRows(prestoResult));
+            trinoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
+            assertThat(databricksResult).containsExactlyInOrder(toRows(trinoResult));
 
             onDelta().executeQuery(format("UPDATE default.%s SET value = 'Spain' WHERE id = 2", tableName));
             databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
-            prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
-            assertThat(databricksResult).containsExactlyInOrder(toRows(prestoResult));
+            trinoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
+            assertThat(databricksResult).containsExactlyInOrder(toRows(trinoResult));
 
             onDelta().executeQuery(format("UPDATE default.%s SET value = 'Portugal' WHERE id = 2", tableName));
             databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
-            prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
-            assertThat(databricksResult).containsExactlyInOrder(toRows(prestoResult));
+            trinoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
+            assertThat(databricksResult).containsExactlyInOrder(toRows(trinoResult));
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
