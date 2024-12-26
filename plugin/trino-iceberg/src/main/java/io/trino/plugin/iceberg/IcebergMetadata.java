@@ -282,6 +282,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.EXTRA_PROPERTIES_PR
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
@@ -307,6 +308,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.getTopLevelColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.newCreateTableTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
+import static io.trino.plugin.iceberg.IcebergUtil.validateOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.validateParquetBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.verifyExtraProperties;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
@@ -374,6 +376,7 @@ import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
+import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
@@ -397,6 +400,7 @@ public class IcebergMetadata
             .add(FORMAT_VERSION_PROPERTY)
             .add(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
             .add(DATA_LOCATION_PROPERTY)
+            .add(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
             .add(PARTITIONING_PROPERTY)
             .add(SORTED_BY_PROPERTY)
@@ -2293,6 +2297,20 @@ public class IcebergMetadata
             Set<String> removeParquetBloomFilterColumns = Sets.difference(existingParquetBloomFilterColumns, Set.copyOf(parquetBloomFilterColumns));
             removeParquetBloomFilterColumns.forEach(column -> updateProperties.remove(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX + column));
             parquetBloomFilterColumns.forEach(column -> updateProperties.set(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX + column, "true"));
+        }
+
+        if (properties.containsKey(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)) {
+            checkFormatForProperty(getFileFormat(icebergTable).toIceberg(), FileFormat.ORC, ORC_BLOOM_FILTER_COLUMNS_PROPERTY);
+            //noinspection unchecked
+            List<String> orcBloomFilterColumns = (List<String>) properties.get(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The orc_bloom_filter_columns property cannot be empty"));
+            if (orcBloomFilterColumns.isEmpty()) {
+                updateProperties.remove(ORC_BLOOM_FILTER_COLUMNS);
+            }
+            else {
+                validateOrcBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager), orcBloomFilterColumns);
+                updateProperties.set(ORC_BLOOM_FILTER_COLUMNS, Joiner.on(",").join(orcBloomFilterColumns));
+            }
         }
 
         if (properties.containsKey(FILE_FORMAT_PROPERTY)) {
