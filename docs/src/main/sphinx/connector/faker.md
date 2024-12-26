@@ -313,7 +313,3 @@ CREATE TABLE generator.default.customer (
   group_id INTEGER WITH (allowed_values = ARRAY['10', '32', '81'])
 );
 ```
-
-## Limitations
-
-* It is not possible to choose the locale used by the Datafaker's generators.
