@@ -33,7 +33,8 @@ public class TestMySqlConfig
                 .setAutoReconnect(true)
                 .setMaxReconnects(3)
                 .setConnectionTimeout(new Duration(10, TimeUnit.SECONDS))
-                .setDriverUseInformationSchema(true));
+                .setDriverUseInformationSchema(true)
+                .setForceConnectionTimeZoneToSession(true));
     }
 
     @Test
@@ -44,13 +45,15 @@ public class TestMySqlConfig
                 .put("mysql.max-reconnects", "4")
                 .put("mysql.connection-timeout", "4s")
                 .put("mysql.jdbc.use-information-schema", "false")
+                .put("mysql.jdbc.force-connection-time-zone-to-session", "false")
                 .buildOrThrow();
 
         MySqlConfig expected = new MySqlConfig()
                 .setAutoReconnect(false)
                 .setMaxReconnects(4)
                 .setConnectionTimeout(new Duration(4, TimeUnit.SECONDS))
-                .setDriverUseInformationSchema(false);
+                .setDriverUseInformationSchema(false)
+                .setForceConnectionTimeZoneToSession(false);
 
         assertFullMapping(properties, expected);
     }

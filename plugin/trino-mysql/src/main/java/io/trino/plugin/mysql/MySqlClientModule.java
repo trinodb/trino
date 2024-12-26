@@ -78,13 +78,13 @@ public class MySqlClientModule
         connectionProperties.setProperty("characterEncoding", "utf8");
         connectionProperties.setProperty("tinyInt1isBit", "false");
         connectionProperties.setProperty("rewriteBatchedStatements", "true");
-
-        // connectionTimeZone = LOCAL means the JDBC driver uses the JVM zone as the session zone
-        // forceConnectionTimeZoneToSession = true means that the server side connection zone is changed to match local JVM zone
-        // https://dev.mysql.com/doc/connector-j/en/connector-j-time-instants.html (Solution 2b)
-        connectionProperties.setProperty("connectionTimeZone", "LOCAL");
-        connectionProperties.setProperty("forceConnectionTimeZoneToSession", "true");
-
+        if (mySqlConfig.isForceConnectionTimeZoneToSession()) {
+            // connectionTimeZone = LOCAL means the JDBC driver uses the JVM zone as the session zone
+            // forceConnectionTimeZoneToSession = true means that the server side connection zone is changed to match local JVM zone
+            // https://dev.mysql.com/doc/connector-j/en/connector-j-time-instants.html (Solution 2b)
+            connectionProperties.setProperty("connectionTimeZone", "LOCAL");
+            connectionProperties.setProperty("forceConnectionTimeZoneToSession", "true");
+        }
         if (mySqlConfig.isAutoReconnect()) {
             connectionProperties.setProperty("autoReconnect", String.valueOf(mySqlConfig.isAutoReconnect()));
             connectionProperties.setProperty("maxReconnects", String.valueOf(mySqlConfig.getMaxReconnects()));

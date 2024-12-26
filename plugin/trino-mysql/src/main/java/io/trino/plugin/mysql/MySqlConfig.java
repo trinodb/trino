@@ -31,6 +31,8 @@ public class MySqlConfig
     // Using `useInformationSchema=false` may provide more diagnostic information (see https://github.com/trinodb/trino/issues/1597)
     private boolean driverUseInformationSchema = true;
 
+    private boolean forceConnectionTimeZoneToSession = true;
+
     public boolean isAutoReconnect()
     {
         return autoReconnect;
@@ -78,6 +80,19 @@ public class MySqlConfig
     public MySqlConfig setDriverUseInformationSchema(boolean driverUseInformationSchema)
     {
         this.driverUseInformationSchema = driverUseInformationSchema;
+        return this;
+    }
+
+    public boolean isForceConnectionTimeZoneToSession()
+    {
+        return forceConnectionTimeZoneToSession;
+    }
+
+    @Config("mysql.jdbc.force-connection-time-zone-to-session")
+    @ConfigDescription("Value of forceConnectionTimeZoneToSession MySQL JDBC driver connection property")
+    public MySqlConfig setForceConnectionTimeZoneToSession(boolean forceConnectionTimeZoneToSession)
+    {
+        this.forceConnectionTimeZoneToSession = forceConnectionTimeZoneToSession;
         return this;
     }
 }
