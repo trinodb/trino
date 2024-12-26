@@ -59,15 +59,25 @@ public class SpooledQueryDataProducer
             return null;
         }
 
-        EncodedQueryData.Builder builder = EncodedQueryData.builder(encoderFactory.encoding());
-        UriBuilder uriBuilder = spooledSegmentUriBuilder(uriInfo);
+        List<OutputColumn> outputColumns = rows.getOutputColumns();
+        EncodedQueryData.Builder builder;
         if (encoder == null) {
-            encoder = encoderFactory.create(session, rows.getOutputColumns());
+            List<OutputColumn> unsupported = encoderFactory.unsupported(rows.getOutputColumns());
+            if (!unsupported.isEmpty()) {
+                TrinoException e = new TrinoException(SERIALIZATION_ERROR, "Output columns %s are not supported for spooling encoding '%s'".formatted(unsupported, encoderFactory.encoding()));
+                throwableConsumer.accept(e);
+                throw e;
+            }
+
+            builder = EncodedQueryData.builder(encoderFactory.encoding());
+            encoder = encoderFactory.create(session, outputColumns);
             builder.withAttributes(encoder.attributes());
         }
+        else {
+            builder = EncodedQueryData.builder(encoder.encoding());
+        }
 
-        List<OutputColumn> outputColumns = rows.getOutputColumns();
-
+        UriBuilder uriBuilder = spooledSegmentUriBuilder(uriInfo);
         try {
             for (Page page : rows.getPages()) {
                 if (hasSpoolingMetadata(page, outputColumns.size())) {

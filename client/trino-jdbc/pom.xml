@@ -454,6 +454,10 @@
                                     <shadedPattern>${shadeBase}.guava</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>com.google.flatbuffers</pattern>
+                                    <shadedPattern>${shadeBase}.flatbuffers</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.google.thirdparty</pattern>
                                     <shadedPattern>${shadeBase}.guava</shadedPattern>
                                 </relocation>
@@ -480,6 +484,14 @@
                                 <relocation>
                                     <pattern>okio</pattern>
                                     <shadedPattern>${shadeBase}.okio</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.arrow</pattern>
+                                    <shadedPattern>${shadeBase}.org.apache.arrow</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons</pattern>
+                                    <shadedPattern>${shadeBase}.org.apache.commons</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>dev.failsafe</pattern>
@@ -510,10 +522,12 @@
                                         <exclude>LICENSE</exclude>
                                         <exclude>META-INF/**.kotlin_module</exclude>
                                         <exclude>META-INF/versions/**</exclude>
+                                        <exclude>arrow-git.properties</exclude>
                                         <exclude>META-INF/NOTICE**</exclude>
                                         <exclude>META-INF/*-NOTICE</exclude>
                                         <exclude>META-INF/*-LICENSE</exclude>
                                         <exclude>META-INF/LICENSE**</exclude>
+                                        <exclude>META-INF/DEPENDENCIES</exclude>
                                         <exclude>META-INF/io/opentelemetry/**</exclude>
                                         <exclude>io/opentelemetry/semconv/**</exclude>
                                         <exclude>META-INF/native-image/**</exclude>

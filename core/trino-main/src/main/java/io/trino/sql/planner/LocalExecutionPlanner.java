@@ -155,6 +155,7 @@ import io.trino.operator.window.pattern.PhysicalValueAccessor;
 import io.trino.operator.window.pattern.PhysicalValuePointer;
 import io.trino.operator.window.pattern.SetEvaluator.SetEvaluatorSupplier;
 import io.trino.plugin.base.MappedRecordSet;
+import io.trino.server.protocol.OutputColumn;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoders;
 import io.trino.spi.Page;
@@ -358,6 +359,7 @@ import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
+import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -986,13 +988,15 @@ public class LocalExecutionPlanner
                 return operation;
             }
 
-            QueryDataEncoder.Factory encoderFactory = session
-                    .getQueryDataEncoding()
-                    .map(encoders::get)
-                    .orElseThrow(() -> new IllegalStateException("Spooled query encoding was not found"));
+            QueryDataEncoder.Factory encoderFactory = encoders.get(session.getQueryDataEncoding().orElseThrow());
+            List<OutputColumn> outputColumns = spooledOutputLayout(node, operation.layout);
+            List<OutputColumn> unsupported = encoderFactory.unsupported(outputColumns);
+            if (!unsupported.isEmpty()) {
+                throw new TrinoException(SERIALIZATION_ERROR, "Output columns %s are not supported for spooling encoding '%s'".formatted(unsupported, encoderFactory.encoding()));
+            }
 
             Map<Symbol, Integer> spooledLayout = layoutUnionWithSpooledMetadata(operation.layout);
-            QueryDataEncoder queryDataEncoder = encoderFactory.create(session, spooledOutputLayout(node, operation.layout));
+            QueryDataEncoder queryDataEncoder = encoderFactory.create(session, outputColumns);
             OutputSpoolingOperatorFactory outputSpoolingOperatorFactory = new OutputSpoolingOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),

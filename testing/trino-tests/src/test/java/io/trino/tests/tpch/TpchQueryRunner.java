@@ -80,8 +80,10 @@ public final class TpchQueryRunner
                 .setExtraProperties(ImmutableMap.<String, String>builder()
                         .put("sql.default-catalog", "tpch")
                         .put("sql.default-schema", "tiny")
+                        .put("protocol.spooling.encoding.arrow+zstd.enabled", "true")
                         .buildOrThrow())
-                .withProtocolSpooling("json+zstd")
+                .withProtocolSpooling("arrow+zstd")
+                .withTracing()
                 .build();
         Logger log = Logger.get(TpchQueryRunner.class);
         log.info("======== SERVER STARTED ========");
