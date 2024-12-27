@@ -20,6 +20,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.concurrent.MoreFutures;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -90,6 +93,9 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -155,6 +161,7 @@ import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -7092,6 +7099,46 @@ public abstract class BaseIcebergConnectorTest
                     "The provided location '%s' does not match the existing table location '.*'".formatted(initialTableLocation));
             assertThat(getCurrentSnapshotId(table.getName()))
                     .isEqualTo(v1SnapshotId);
+        }
+    }
+
+    @Test
+    public void testConcurrentCreateReplaceAndInserts()
+            throws Exception
+    {
+        Logging logging = Logging.initialize();
+        logging.setLevel("io.trino.event.QueryMonitor", Level.DEBUG);
+        int threads = 2;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_update_and_inserts_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 1", 1);
+        assertUpdate("CREATE TABLE sourceTable AS select a, b, rand() as r from UNNEST(SEQUENCE(1, 9001), SEQUENCE(1, 9001)) AS t(a, b)", 9001);
+
+        try {
+            // Replace the table while concurrently adding new blind inserts
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                assertUpdate("CREATE OR REPLACE TABLE " + tableName + " AS SELECT a FROM sourceTable", 9001);
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " VALUES (2)");
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            // TODO: validate query results
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            assertUpdate("DROP TABLE sourceTable");
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
     }
 
