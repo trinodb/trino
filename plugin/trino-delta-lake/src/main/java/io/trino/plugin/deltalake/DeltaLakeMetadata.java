@@ -2677,7 +2677,8 @@ public class DeltaLakeMetadata
                         tableHandle.getMetadataEntry().getOriginalPartitionColumns(),
                         maxScannedFileSize,
                         Optional.empty(),
-                        retryMode != NO_RETRIES),
+                        retryMode != NO_RETRIES,
+                        tableHandle.getEnforcedPartitionConstraint()),
                 tableHandle.getLocation()));
     }
 
@@ -2731,7 +2732,10 @@ public class DeltaLakeMetadata
         checkSupportedWriterVersion(table);
 
         return new BeginTableExecuteResult<>(
-                executeHandle.withProcedureHandle(optimizeHandle.withCurrentVersion(table.getReadVersion())),
+                executeHandle.withProcedureHandle(
+                        optimizeHandle
+                                .withCurrentVersion(table.getReadVersion())
+                                .withEnforcedPartitionConstraint(table.getEnforcedPartitionConstraint())),
                 table.forOptimize(true, optimizeHandle.getMaxScannedFileSize()));
     }
 
@@ -2769,7 +2773,10 @@ public class DeltaLakeMetadata
 
         boolean writeCommitted = false;
         try {
-            long commitVersion = commitOptimizeOperation(session, optimizeHandle, tableLocation, scannedDataFiles, dataFileInfos);
+            IsolationLevel isolationLevel = getIsolationLevel(optimizeHandle.getMetadataEntry());
+            AtomicReference<Long> readVersion = new AtomicReference<>(optimizeHandle.getCurrentVersion().orElseThrow(() -> new IllegalArgumentException("currentVersion not set")));
+            long commitVersion = Failsafe.with(TRANSACTION_CONFLICT_RETRY_POLICY)
+                    .get(context -> commitOptimizeOperation(session, optimizeHandle, isolationLevel, tableLocation, scannedDataFiles, dataFileInfos, readVersion, context.getAttemptCount()));
             writeCommitted = true;
             enqueueUpdateInfo(
                     session,
@@ -2799,17 +2806,29 @@ public class DeltaLakeMetadata
     private long commitOptimizeOperation(
             ConnectorSession session,
             DeltaTableOptimizeHandle optimizeHandle,
+            IsolationLevel isolationLevel,
             String tableLocation,
             Set<DeltaLakeScannedDataFile> scannedDataFiles,
-            List<DataFileInfo> dataFileInfos)
+            List<DataFileInfo> dataFileInfos,
+            AtomicReference<Long> readVersion,
+            int attemptCount)
             throws IOException
     {
-        long readVersion = optimizeHandle.getCurrentVersion().orElseThrow(() -> new IllegalArgumentException("currentVersion not set"));
         TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, tableLocation);
 
         long createdTime = Instant.now().toEpochMilli();
-        long commitVersion = readVersion + 1;
-        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, IsolationLevel.WRITESERIALIZABLE, commitVersion, createdTime, OPTIMIZE_OPERATION, readVersion, false));
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation, readVersion.get());
+        checkForConcurrentTransactionConflicts(session, fileSystem, ImmutableList.of(optimizeHandle.getEnforcedPartitionConstraint()), isolationLevel, currentVersion, readVersion, tableLocation, attemptCount);
+        long commitVersion = currentVersion + 1;
+        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(
+                session,
+                isolationLevel,
+                commitVersion,
+                createdTime,
+                OPTIMIZE_OPERATION,
+                optimizeHandle.getCurrentVersion().orElseThrow(() -> new IllegalArgumentException("currentVersion not set")),
+                false));
         // TODO: Delta writes another field "operationMetrics" that I haven't
         //   seen before. It contains delete/update metrics. Investigate/include it.
 
