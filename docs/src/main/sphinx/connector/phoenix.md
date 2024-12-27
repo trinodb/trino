@@ -273,7 +273,7 @@ features:
 - [](/sql/insert), see also [](phoenix-insert)
 - [](/sql/update)
 - [](/sql/delete), see also [](phoenix-delete)
-- [](/sql/merge)
+- [](/sql/merge), see also [](phoenix-merge)
 - [](/sql/create-table)
 - [](/sql/create-table-as)
 - [](/sql/drop-table)
@@ -287,6 +287,10 @@ features:
 
 (phoenix-delete)=
 ```{include} sql-delete-limitation.fragment
+```
+
+(phoenix-merge)=
+```{include} non-transactional-merge.fragment
 ```
 
 (phoenix-procedures)=
