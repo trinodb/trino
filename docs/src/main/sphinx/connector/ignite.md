@@ -173,6 +173,7 @@ statements, the connector supports the following features:
 - [](/sql/insert), see also [](ignite-insert)
 - [](/sql/update), see also [](ignite-update)
 - [](/sql/delete)
+- [](/sql/merge), see also [](ignite-merge)
 - [](/sql/create-table)
 - [](/sql/create-table-as)
 - [](/sql/drop-table)
@@ -185,6 +186,10 @@ statements, the connector supports the following features:
 
 (ignite-update)=
 ```{include} sql-update-limitation.fragment
+```
+
+(ignite-merge)=
+```{include} non-transactional-merge.fragment
 ```
 
 (ignite-alter-table)=
