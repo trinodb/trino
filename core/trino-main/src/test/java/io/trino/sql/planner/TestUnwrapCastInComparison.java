@@ -853,6 +853,62 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(3)", "DATE '1981-06-22' = date(a)", new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000"))), comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-23 00:00:00.000"))))));
     }
 
+    @Test
+    public void testBetween()
+    {
+        // widening cast: bounds unwrap onto the source type
+        testUnwrap("smallint", "a BETWEEN DOUBLE '1' AND DOUBLE '2'", new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 1L)), comparison(LESS_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 2L)))));
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1' AND DOUBLE '2'", new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)), comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 2L)))));
+
+        // fractional bounds tighten to their inclusive integer neighbors via getNextValue/getPreviousValue
+        testUnwrap("smallint", "a BETWEEN DOUBLE '1.1' AND DOUBLE '2.9'", new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 2L)), comparison(LESS_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 2L)))));
+        // fractional bounds with no integer between them tighten to an empty range: false for a non-null source
+        testUnwrap("smallint", "a BETWEEN DOUBLE '1.4' AND DOUBLE '1.6'", new Logical(AND, ImmutableList.of(new IsNull(new Reference(SMALLINT, "a")), new Constant(BOOLEAN, null))));
+
+        // CAST(timestamp AS date) range unwrapped to a raw timestamp range, inclusive on both ends
+        testUnwrap("timestamp(3)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000"))), comparison(LESS_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-07-23 23:59:59.999"))))));
+        testUnwrap("timestamp(6)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-22 00:00:00.000000"))), comparison(LESS_THAN_OR_EQUAL, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-07-23 23:59:59.999999"))))));
+
+        // low bound below the source type range always holds and drops out, leaving the upper comparison
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-40000' AND DOUBLE '2'", comparison(LESS_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 2L)));
+        // high bound above the source type range always holds and drops out, leaving the lower comparison
+        testUnwrap("smallint", "a BETWEEN DOUBLE '1' AND DOUBLE '40000'", comparison(GREATER_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 1L)));
+        // both bounds outside the source type range: always true for a non-null source
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-40000' AND DOUBLE '40000'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        // low bound above the source type range is never satisfied: false for a non-null source
+        testUnwrap("smallint", "a BETWEEN DOUBLE '40000' AND DOUBLE '50000'", new Logical(AND, ImmutableList.of(new IsNull(new Reference(SMALLINT, "a")), new Constant(BOOLEAN, null))));
+        // empty range (low above high): false for a non-null source
+        testUnwrap("bigint", "a BETWEEN DOUBLE '5' AND DOUBLE '2'", new Logical(AND, ImmutableList.of(new IsNull(new Reference(BIGINT, "a")), new Constant(BOOLEAN, null))));
+    }
+
+    @Test
+    public void testBetweenDouble()
+    {
+        // CAST(real AS double) bounds cannot tighten to an inclusive pair (a real source has no adjacent value),
+        // so the two comparisons stay a conjunction: a non-trivial source is bound once via Let, a column stays inline.
+        Expression nonTrivial = new Cast(new Call(RANDOM, ImmutableList.of()), REAL);
+        Expression unwrappedNonTrivial = unwrapBetweenDouble(nonTrivial);
+        List<Let> bindings = letsBinding(unwrappedNonTrivial, nonTrivial);
+        assertThat(bindings).hasSize(1);
+        assertThat(occurrences(bindings.getFirst().body(), nonTrivial)).isEqualTo(0);
+        assertThat(occurrences(unwrappedNonTrivial, nonTrivial)).isEqualTo(1);
+
+        Reference trivial = new Reference(REAL, "a");
+        Expression unwrappedTrivial = unwrapBetweenDouble(trivial);
+        assertThat(unwrappedTrivial).isNotInstanceOf(Let.class);
+        assertThat(occurrences(unwrappedTrivial, trivial)).isGreaterThanOrEqualTo(2);
+    }
+
+    private static Expression unwrapBetweenDouble(Expression source)
+    {
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        return unwrapCasts(
+                TEST_SESSION,
+                FUNCTIONS.getPlannerContext(),
+                symbolAllocator,
+                IrExpressions.between(FUNCTIONS.getMetadata(), symbolAllocator, new Cast(source, DOUBLE), new Constant(DOUBLE, 1.1), new Constant(DOUBLE, 2.2)));
+    }
+
     private void testRemoveFilter(String inputType, String inputPredicate)
     {
         assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s AND rand() = 42", inputType, inputPredicate),
