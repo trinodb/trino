@@ -2071,14 +2071,26 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE CAST(d AS date) >= DATE '2015-05-15'"))
                 .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE CAST(d AS DATE) BETWEEN DATE '2015-05-15' AND DATE '2015-06-15'"))
+                .isFullyPushedDown();
 
         assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 12:00:00'"))
                 .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d BETWEEN TIMESTAMP '2015-05-15 12:00:00' AND TIMESTAMP '2015-06-15 11:59:59.999999'"))
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 12:00:00.000001'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d BETWEEN TIMESTAMP '2015-05-15 12:00:00.000001' AND TIMESTAMP '2015-06-15 11:59:59.999999'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE d BETWEEN TIMESTAMP '2015-05-15 12:00:00' AND TIMESTAMP '2015-06-15 12:00:00.00000'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
         // date()
         assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE date(d) = DATE '2015-05-15'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE date(d) BETWEEN DATE '2015-05-15' AND DATE '2015-06-15'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamp WHERE date(d) BETWEEN TIMESTAMP '2015-05-15 12:00:00' AND TIMESTAMP '2015-06-15 12:00:00.00000'"))
                 .isFullyPushedDown();
 
         // year()
@@ -2177,6 +2189,8 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE CAST(d AS date) >= DATE '2015-05-15'"))
                 .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE CAST(d AS date) BETWEEN DATE '2015-05-15' AND DATE '2015-06-15'"))
+                .isFullyPushedDown();
 
         assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE d >= TIMESTAMP '2015-05-15 12:00:00 UTC'"))
                 .isFullyPushedDown();
@@ -2185,6 +2199,8 @@ public abstract class BaseIcebergConnectorTest
 
         // date()
         assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date(d) = DATE '2015-05-15'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_timestamptz WHERE date(d) BETWEEN DATE '2015-05-15' AND DATE '2015-06-15'"))
                 .isFullyPushedDown();
 
         // year()
@@ -2357,6 +2373,8 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_day_transform_date WHERE CAST(d AS date) >= DATE '2015-01-13'"))
                 .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_date WHERE d BETWEEN DATE '2015-01-13' AND DATE '2015-01-14'"))
+                .isFullyPushedDown();
 
         // d comparison with TIMESTAMP can be unwrapped
         assertThat(query("SELECT * FROM test_day_transform_date WHERE d >= TIMESTAMP '2015-01-13 00:00:00'"))
@@ -2470,14 +2488,22 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE CAST(d AS date) >= DATE '2015-05-15'"))
                 .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d BETWEEN DATE '2015-05-15' AND DATE '2015-05-16'"))
+                .isNotFullyPushedDown(FilterNode.class);
 
         assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 00:00:00'"))
                 .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d BETWEEN TIMESTAMP '2015-05-15 00:00:00' AND TIMESTAMP '2015-05-16 23:59:59.999999'"))
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 00:00:00.000001'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE d BETWEEN TIMESTAMP '2015-05-15 00:00:00' AND TIMESTAMP '2015-05-16 00:00:00'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
         // date()
         assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE date(d) = DATE '2015-05-15'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE date(d) BETWEEN DATE '2015-05-15' AND DATE '2015-06-15'"))
                 .isFullyPushedDown();
 
         // year()
@@ -2693,12 +2719,16 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_month_transform_date WHERE CAST(d AS date) >= DATE '2020-06-02'"))
                 .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_month_transform_date WHERE d BETWEEN DATE '2020-06-01' AND DATE '2020-07-31'"))
+                .isFullyPushedDown();
 
         // d comparison with TIMESTAMP can be unwrapped
         assertThat(query("SELECT * FROM test_month_transform_date WHERE d >= TIMESTAMP '2015-06-01 00:00:00'"))
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_month_transform_date WHERE d >= TIMESTAMP '2015-05-01 00:00:00.000001'"))
                 .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_month_transform_date WHERE d BETWEEN TIMESTAMP '2015-05-01 00:00:00' AND TIMESTAMP '2015-06-30 00:00:00'"))
+                .isFullyPushedDown();
 
         // year()
         assertThat(query("SELECT * FROM test_month_transform_date WHERE year(d) = 2015"))
@@ -2823,6 +2853,11 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d >= TIMESTAMP '2015-05-01 00:00:00.000001'"))
                 .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d BETWEEN DATE '2015-05-01' AND DATE '2015-06-01'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE d BETWEEN DATE '2015-05-01' AND TIMESTAMP '2015-05-31 23:59:59.999999'"))
+                .isFullyPushedDown();
 
         // year()
         assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE year(d) = 2015"))
@@ -3028,6 +3063,10 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_year_transform_date WHERE CAST(d AS date) >= DATE '2015-01-02'"))
                 .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_year_transform_date WHERE d BETWEEN DATE '2015-01-01' AND DATE '2016-01-01'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_year_transform_date WHERE d BETWEEN DATE '2015-01-01' AND TIMESTAMP '2015-12-31 23:59:59.999999'"))
+                .isFullyPushedDown();
 
         // d comparison with TIMESTAMP can be unwrapped
         assertThat(query("SELECT * FROM test_year_transform_date WHERE d >= TIMESTAMP '2015-01-01 00:00:00'"))
@@ -3148,6 +3187,8 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE CAST(d AS date) >= DATE '2015-01-02'"))
                 .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE CAST(d AS date) BETWEEN DATE '2015-01-01' AND DATE '2016-12-31'"))
+                .isFullyPushedDown();
 
         assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE d >= TIMESTAMP '2015-01-01 00:00:00'"))
                 .isFullyPushedDown();
@@ -3243,6 +3284,10 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d >= with_timezone(DATE '2015-01-02', 'UTC')"))
                 .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d BETWEEN DATE '2015-01-01' AND DATE '2016-01-01'"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d BETWEEN with_timezone(DATE '2015-01-01', 'UTC') AND with_timezone(TIMESTAMP '2016-12-31 23:59:59.999999', 'UTC')"))
+                .isFullyPushedDown();
 
         assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE CAST(d AS date) >= DATE '2015-01-01'"))
                 .isFullyPushedDown();
@@ -3252,6 +3297,8 @@ public abstract class BaseIcebergConnectorTest
                 // Engine can eliminate the table scan after connector accepts the filter pushdown
                 .hasPlan(node(OutputNode.class, node(ValuesNode.class)))
                 .returnsEmptyResult();
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE CAST(d AS date) BETWEEN DATE '2015-01-01' AND DATE '2016-12-31'"))
+                .isFullyPushedDown();
 
         assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE d >= TIMESTAMP '2015-01-01 00:00:00 UTC'"))
                 .isFullyPushedDown();

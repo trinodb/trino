@@ -36,6 +36,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -50,7 +51,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.time.zone.ZoneOffsetTransition;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -79,6 +82,7 @@ import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -160,6 +164,125 @@ public class UnwrapCastInComparison
         {
             Comparison expression = treeRewriter.defaultRewrite(node, null);
             return unwrapCast(expression.operator(), expression.left(), expression.right()).orElse(expression);
+        }
+
+        @Override
+        public Expression rewriteBetween(Between node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            Between expression = treeRewriter.defaultRewrite(node, null);
+
+            if (!(expression.value() instanceof Cast cast)) {
+                return expression;
+            }
+
+            Optional<Expression> optionalLowBoundUnwrapped = unwrapCast(GREATER_THAN_OR_EQUAL, node.value(), node.min());
+            Optional<Expression> optionalHighBoundUnwrapped = unwrapCast(LESS_THAN_OR_EQUAL, node.value(), node.max());
+            if (optionalLowBoundUnwrapped.isEmpty() || optionalHighBoundUnwrapped.isEmpty()) {
+                return expression;
+            }
+            Expression lowBoundUnwrapped = optionalLowBoundUnwrapped.get();
+            Expression highBoundUnwrapped = optionalHighBoundUnwrapped.get();
+
+            Expression trueIfNotNullExpression = trueIfNotNull(cast.expression());
+            if (trueIfNotNullExpression.equals(lowBoundUnwrapped)) {
+                return highBoundUnwrapped;
+            }
+            if (trueIfNotNullExpression.equals(highBoundUnwrapped)) {
+                return lowBoundUnwrapped;
+            }
+
+            Expression falseIfNotNullExpression = falseIfNotNull(cast.expression());
+            if (falseIfNotNullExpression.equals(lowBoundUnwrapped) || falseIfNotNullExpression.equals(highBoundUnwrapped)) {
+                if (falseIfNotNullExpression.equals(lowBoundUnwrapped) && falseIfNotNullExpression.equals(highBoundUnwrapped)) {
+                    return falseIfNotNullExpression;
+                }
+                return and(lowBoundUnwrapped, highBoundUnwrapped);
+            }
+            Expression castNullToBoolean = new Cast(new Constant(UNKNOWN, null), BOOLEAN);
+            if (castNullToBoolean.equals(lowBoundUnwrapped) || castNullToBoolean.equals(highBoundUnwrapped)) {
+                if (castNullToBoolean.equals(lowBoundUnwrapped) && castNullToBoolean.equals(highBoundUnwrapped)) {
+                    return castNullToBoolean;
+                }
+                return and(lowBoundUnwrapped, highBoundUnwrapped);
+            }
+
+            if (lowBoundUnwrapped instanceof Comparison lowBoundUnwrappedComparison &&
+                    highBoundUnwrapped instanceof Comparison highBoundUnwrappedComparison) {
+                Type sourceType = cast.expression().type();
+                Type lowBoundType = lowBoundUnwrappedComparison.right().type();
+                Type highBoundType = highBoundUnwrappedComparison.right().type();
+
+                if (cast.expression().equals(lowBoundUnwrappedComparison.left()) &&
+                        Objects.equals(sourceType, lowBoundType) &&
+                        cast.expression().equals(highBoundUnwrappedComparison.left()) &&
+                        Objects.equals(sourceType, highBoundType)) {
+                    if (Set.of(GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(lowBoundUnwrappedComparison.operator()) &&
+                            Set.of(LESS_THAN, LESS_THAN_OR_EQUAL).contains(highBoundUnwrappedComparison.operator())) {
+                        // Try to reconstruct the BETWEEN predicate with the cast unwrapped
+                        if (!(lowBoundUnwrappedComparison.right() instanceof Constant(Type _, Object lowBoundValue))
+                                || !(highBoundUnwrappedComparison.right() instanceof Constant(Type _, Object highBoundValue))) {
+                            return expression;
+                        }
+
+                        int compareLowBoundValueAndHighBoundValue = compare(sourceType, lowBoundValue, highBoundValue);
+                        if (compareLowBoundValueAndHighBoundValue > 0) {
+                            // range min greater than range max
+                            return falseIfNotNull(cast.expression());
+                        }
+
+                        Expression greaterThanOrEqualLowBoundUnwrappedExpression;
+                        Optional<Object> nextAfterLowBoundValue = Optional.empty();
+                        if (lowBoundUnwrappedComparison.operator() == GREATER_THAN) {
+                            nextAfterLowBoundValue = sourceType.getNextValue(lowBoundValue);
+                            if (nextAfterLowBoundValue.isEmpty()) {
+                                return and(lowBoundUnwrappedComparison, highBoundUnwrappedComparison);
+                            }
+                            greaterThanOrEqualLowBoundUnwrappedExpression = new Constant(sourceType, nextAfterLowBoundValue.get());
+                        }
+                        else {
+                            greaterThanOrEqualLowBoundUnwrappedExpression = lowBoundUnwrappedComparison.right();
+                        }
+
+                        Expression lessThanOrEqualHighBoundUnwrappedExpression;
+                        Optional<Object> previousBeforeHighBoundValue = Optional.empty();
+                        if (highBoundUnwrappedComparison.operator() == LESS_THAN) {
+                            previousBeforeHighBoundValue = sourceType.getPreviousValue(highBoundValue);
+                            if (previousBeforeHighBoundValue.isEmpty()) {
+                                return and(lowBoundUnwrappedComparison, highBoundUnwrappedComparison);
+                            }
+                            lessThanOrEqualHighBoundUnwrappedExpression = new Constant(sourceType, previousBeforeHighBoundValue.get());
+                        }
+                        else {
+                            lessThanOrEqualHighBoundUnwrappedExpression = highBoundUnwrappedComparison.right();
+                        }
+
+                        if (nextAfterLowBoundValue.isPresent() && previousBeforeHighBoundValue.isPresent()) {
+                            int compareNextLowAndPreviousHighBound = compare(sourceType, nextAfterLowBoundValue.get(), previousBeforeHighBoundValue.get());
+                            if (compareNextLowAndPreviousHighBound >= 0) {
+                                return falseIfNotNull(cast.expression());
+                            }
+                        }
+                        else if (previousBeforeHighBoundValue.isPresent()) {
+                            int compareLowAndPreviousHighBound = compare(sourceType, lowBoundValue, previousBeforeHighBoundValue.get());
+                            if (compareLowAndPreviousHighBound > 0) {
+                                return falseIfNotNull(cast.expression());
+                            }
+                        }
+                        else if (nextAfterLowBoundValue.isPresent()) {
+                            int compareNextLowAndHighBound = compare(sourceType, nextAfterLowBoundValue.get(), highBoundValue);
+                            if (compareNextLowAndHighBound > 0) {
+                                return falseIfNotNull(cast.expression());
+                            }
+                        }
+
+                        return new Between(cast.expression(), greaterThanOrEqualLowBoundUnwrappedExpression, lessThanOrEqualHighBoundUnwrappedExpression);
+                    }
+                }
+
+                return and(lowBoundUnwrappedComparison, highBoundUnwrappedComparison);
+            }
+
+            return expression;
         }
 
         private Optional<Expression> unwrapCast(Comparison.Operator operator, Expression leftExpression, Expression rightExpression)
