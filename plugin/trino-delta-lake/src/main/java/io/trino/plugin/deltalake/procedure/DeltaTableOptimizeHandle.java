@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +38,7 @@ public class DeltaTableOptimizeHandle
     private final DataSize maxScannedFileSize;
     private final Optional<Long> currentVersion;
     private final boolean retriesEnabled;
+    private final TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint;
 
     @JsonCreator
     public DeltaTableOptimizeHandle(
@@ -46,7 +48,8 @@ public class DeltaTableOptimizeHandle
             List<String> originalPartitionColumns,
             DataSize maxScannedFileSize,
             Optional<Long> currentVersion,
-            boolean retriesEnabled)
+            boolean retriesEnabled,
+            TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint)
     {
         this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
         this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
@@ -55,6 +58,7 @@ public class DeltaTableOptimizeHandle
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.currentVersion = requireNonNull(currentVersion, "currentVersion is null");
         this.retriesEnabled = retriesEnabled;
+        this.enforcedPartitionConstraint = requireNonNull(enforcedPartitionConstraint, "enforcedPartitionConstraint is null");
     }
 
     public DeltaTableOptimizeHandle withCurrentVersion(long currentVersion)
@@ -67,7 +71,21 @@ public class DeltaTableOptimizeHandle
                 originalPartitionColumns,
                 maxScannedFileSize,
                 Optional.of(currentVersion),
-                retriesEnabled);
+                retriesEnabled,
+                enforcedPartitionConstraint);
+    }
+
+    public DeltaTableOptimizeHandle withEnforcedPartitionConstraint(TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint)
+    {
+        return new DeltaTableOptimizeHandle(
+                metadataEntry,
+                protocolEntry,
+                tableColumns,
+                originalPartitionColumns,
+                maxScannedFileSize,
+                currentVersion,
+                retriesEnabled,
+                requireNonNull(enforcedPartitionConstraint, "enforcedPartitionConstraint is null"));
     }
 
     @JsonProperty
@@ -113,5 +131,11 @@ public class DeltaTableOptimizeHandle
     public boolean isRetriesEnabled()
     {
         return retriesEnabled;
+    }
+
+    @JsonProperty
+    public TupleDomain<DeltaLakeColumnHandle> getEnforcedPartitionConstraint()
+    {
+        return enforcedPartitionConstraint;
     }
 }
