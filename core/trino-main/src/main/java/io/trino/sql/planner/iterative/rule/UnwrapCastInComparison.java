@@ -40,8 +40,10 @@ import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.IrExpressions.Between;
 import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.SymbolAllocator;
@@ -80,8 +82,10 @@ import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.bindIfNecessary;
 import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.matchBetween;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
@@ -122,6 +126,24 @@ import static java.util.Objects.requireNonNull;
  *
  * <pre>
  * CAST(x AS bigint) > bigint '10000000'
+ * </pre>
+ * <p>
+ * The same unwrapping applies to a BETWEEN range, rewriting
+ *
+ * <pre>
+ * CAST(s AS T) BETWEEN t1 AND t2
+ * </pre>
+ * <p>
+ * into an inclusive range on s. For example, given ts::timestamp(6),
+ *
+ * <pre>
+ * CAST(ts AS date) BETWEEN date '2020-01-01' AND date '2020-01-02'
+ * </pre>
+ * <p>
+ * turns into
+ *
+ * <pre>
+ * ts BETWEEN timestamp '2020-01-01 00:00:00.000000' AND timestamp '2020-01-02 23:59:59.999999'
  * </pre>
  */
 public class UnwrapCastInComparison
@@ -180,6 +202,126 @@ public class UnwrapCastInComparison
                 return unwrapCast(comparison.operator().flip(), comparison.right(), comparison.left());
             }
             return unwrapCast(comparison.operator(), comparison.left(), comparison.right());
+        }
+
+        @Override
+        public Expression rewriteLet(Let node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            Let expression = treeRewriter.defaultRewrite(node, null);
+            // A BETWEEN over a non-trivial value binds it in a Let; unwrap a cast in that bound value here.
+            return unwrapCastInBetween(expression).orElse(expression);
+        }
+
+        private Optional<Expression> unwrapCastInBetween(Expression expression)
+        {
+            if (!(matchBetween(expression) instanceof Between range) || !(range.value() instanceof Cast cast)) {
+                return Optional.empty();
+            }
+
+            Expression source = cast.expression();
+            Type sourceType = source.type();
+            // Unwrap each half of the BETWEEN independently, as the lower and upper comparison against the cast.
+            Expression low = unwrapCast(GREATER_THAN_OR_EQUAL, cast, range.min());
+            Expression high = unwrapCast(LESS_THAN_OR_EQUAL, cast, range.max());
+
+            // unwrapCast collapses a bound to a constant truth value when the literal falls outside the source
+            // type range: a never-satisfied bound empties the range, an always-satisfied bound drops out.
+            if (isNeverSatisfied(low, source) || isNeverSatisfied(high, source)) {
+                return Optional.of(falseIfNotNull(source));
+            }
+            boolean lowAlwaysHolds = trueIfNotNull(source).equals(low);
+            boolean highAlwaysHolds = trueIfNotNull(source).equals(high);
+            if (lowAlwaysHolds && highAlwaysHolds) {
+                return Optional.of(trueIfNotNull(source));
+            }
+            if (lowAlwaysHolds) {
+                return Optional.of(high);
+            }
+            if (highAlwaysHolds) {
+                return Optional.of(low);
+            }
+
+            // Each surviving bound must be a comparison of the source against a constant; otherwise leave the
+            // BETWEEN untouched.
+            Optional<ComparisonBound> lowBound = comparisonBound(low, source);
+            Optional<ComparisonBound> highBound = comparisonBound(high, source);
+            if (lowBound.isEmpty() || highBound.isEmpty()) {
+                return Optional.empty();
+            }
+
+            // Rebuild an inclusive BETWEEN when the two comparisons form a lower/upper pair whose strict ends have
+            // an inclusive neighbor; otherwise keep them as a conjunction.
+            Optional<Object> inclusiveLow = inclusiveLowBound(sourceType, lowBound.get());
+            Optional<Object> inclusiveHigh = inclusiveHighBound(sourceType, highBound.get());
+            if (inclusiveLow.isEmpty() || inclusiveHigh.isEmpty()) {
+                // The conjunction references the cast source in both halves; bind a non-trivial source once so it is
+                // evaluated a single time, and recompute each half against the bound operand.
+                return Optional.of(bindSourceIfNecessary(source, operand -> {
+                    Cast boundCast = new Cast(operand, cast.type(), cast.kind());
+                    return and(
+                            unwrapCast(GREATER_THAN_OR_EQUAL, boundCast, range.min()),
+                            unwrapCast(LESS_THAN_OR_EQUAL, boundCast, range.max()));
+                }));
+            }
+            if (compare(sourceType, inclusiveLow.get(), inclusiveHigh.get()) > 0) {
+                return Optional.of(falseIfNotNull(source));
+            }
+            return Optional.of(between(plannerContext.getMetadata(), symbolAllocator, source, new Constant(sourceType, inclusiveLow.get()), new Constant(sourceType, inclusiveHigh.get())));
+        }
+
+        private static boolean isNeverSatisfied(Expression bound, Expression source)
+        {
+            return FALSE.equals(bound) || falseIfNotNull(source).equals(bound);
+        }
+
+        // A comparison of the source against a non-null constant, with the source normalized to the left operand.
+        private record ComparisonBound(ComparisonOperator operator, Object value) {}
+
+        private static Optional<ComparisonBound> comparisonBound(Expression bound, Expression source)
+        {
+            if (!(matchComparison(bound) instanceof Comparison comparison)) {
+                return Optional.empty();
+            }
+            ComparisonOperator operator;
+            Expression other;
+            if (source.equals(comparison.left())) {
+                operator = comparison.operator();
+                other = comparison.right();
+            }
+            else if (source.equals(comparison.right())) {
+                // comparison() canonicalizes operand order, so an unwrapped `source >= x` surfaces as `x <= source`.
+                operator = comparison.operator().flip();
+                other = comparison.left();
+            }
+            else {
+                return Optional.empty();
+            }
+            if (other instanceof Constant(Type _, Object value) && value != null) {
+                return Optional.of(new ComparisonBound(operator, value));
+            }
+            return Optional.empty();
+        }
+
+        // The inclusive lower bound value, tightening a strict `>` to its next value; empty when the operator is not
+        // a lower bound or the next value does not exist.
+        private static Optional<Object> inclusiveLowBound(Type sourceType, ComparisonBound bound)
+        {
+            return switch (bound.operator()) {
+                case GREATER_THAN_OR_EQUAL -> Optional.of(bound.value());
+                case GREATER_THAN -> sourceType.getNextValue(bound.value());
+                default -> Optional.empty();
+            };
+        }
+
+        // The inclusive upper bound value, tightening a strict `<` to its previous value; empty when the operator is
+        // not an upper bound or the previous value does not exist.
+        private static Optional<Object> inclusiveHighBound(Type sourceType, ComparisonBound bound)
+        {
+            return switch (bound.operator()) {
+                case LESS_THAN_OR_EQUAL -> Optional.of(bound.value());
+                case LESS_THAN -> sourceType.getPreviousValue(bound.value());
+                default -> Optional.empty();
+            };
         }
 
         private Expression unwrapCast(ComparisonOperator operator, Expression originalLeft, Expression originalRight)
