@@ -43,6 +43,8 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.BigintType;
@@ -336,7 +338,8 @@ public class FakerMetadata
                         BigintType.BIGINT,
                         0,
                         "",
-                        Domain.all(BigintType.BIGINT)),
+                        Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BigintType.BIGINT, 0L)), false),
+                        ValueSet.of(BigintType.BIGINT, 1L)),
                 ColumnMetadata.builder()
                         .setName(ROW_ID_COLUMN_NAME)
                         .setType(BigintType.BIGINT)
