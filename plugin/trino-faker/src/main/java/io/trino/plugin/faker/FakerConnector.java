@@ -39,6 +39,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -188,7 +189,12 @@ public class FakerConnector
                         value -> ((List<?>) value).stream()
                                 .map(String.class::cast)
                                 .collect(toImmutableList()),
-                        value -> value));
+                        value -> value),
+                stringProperty(
+                        STEP_PROPERTY,
+                        "If set, generate sequential values with this step. For date and time columns set this to a duration",
+                        null,
+                        false));
     }
 
     private static void checkProperty(boolean expression, ErrorCodeSupplier errorCode, String errorMessage)
