@@ -175,7 +175,7 @@ Faker supports the following non-character types:
 - `UUID`
 
 You can not use generator expressions for non-character-based columns. To limit
-their data range, set the `min` and/or `max` column properties - see
+their data range, set the `min` and `max` column properties - see
 [](faker-usage).
 
 ### Unsupported types
