@@ -63,18 +63,16 @@ public record FakerColumnHandle(
         if (generator != null && !isCharacterColumn(column)) {
             throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property can only be set for CHAR, VARCHAR or VARBINARY columns".formatted(GENERATOR_PROPERTY));
         }
-        // only parse min, max, and options to validate literals - FakerColumnHandle needs to be serializable,
-        // and some internal Trino types are not (Int128, LongTimestamp, LongTimestampWithTimeZone), so they cannot be stored in the handle as native types
-        String min = (String) column.getProperties().get(MIN_PROPERTY);
+        Object min;
         try {
-            Literal.parse(min, column.getType());
+            min = Literal.parse((String) column.getProperties().get(MIN_PROPERTY), column.getType());
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property must be a valid %s literal".formatted(MIN_PROPERTY, column.getType().getDisplayName()), e);
         }
-        String max = (String) column.getProperties().get(MAX_PROPERTY);
+        Object max;
         try {
-            Literal.parse(max, column.getType());
+            max = Literal.parse((String) column.getProperties().get(MAX_PROPERTY), column.getType());
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property must be a valid %s literal".formatted(MAX_PROPERTY, column.getType().getDisplayName()), e);
@@ -116,19 +114,19 @@ public record FakerColumnHandle(
         return column.getType() instanceof CharType || column.getType() instanceof VarcharType || column.getType() instanceof VarbinaryType;
     }
 
-    private static Range range(Type type, String min, String max)
+    private static Range range(Type type, Object min, Object max)
     {
         requireNonNull(type, "type is null");
         if (min == null && max == null) {
             return Range.all(type);
         }
         if (max == null) {
-            return Range.greaterThanOrEqual(type, Literal.parse(min, type));
+            return Range.greaterThanOrEqual(type, min);
         }
         if (min == null) {
-            return Range.lessThanOrEqual(type, Literal.parse(max, type));
+            return Range.lessThanOrEqual(type, max);
         }
-        return Range.range(type, Literal.parse(min, type), true, Literal.parse(max, type), true);
+        return Range.range(type, min, true, max, true);
     }
 
     private static List<String> strings(Collection<?> values)
