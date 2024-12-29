@@ -311,8 +311,8 @@ final class TestFakerQueries
                 .add(new TestDataType("rnd_decimal3", "decimal(38,0)", Map.of("min", "99999999999999999999999999999999999999"), "count(distinct rnd_decimal3)", "1"))
                 .add(new TestDataType("rnd_decimal4", "decimal(38,38)", Map.of("min", "0.99999999999999999999999999999999999999"), "count(distinct rnd_decimal4)", "1"))
                 .add(new TestDataType("rnd_decimal5", "decimal(5,2)", Map.of("min", "999.99"), "count(distinct rnd_decimal5)", "1"))
-                .add(new TestDataType("rnd_real", "real", Map.of("min", "1.4E45"), "count(distinct rnd_real)", "1"))
-                .add(new TestDataType("rnd_double", "double", Map.of("min", "4.9E324"), "count(distinct rnd_double)", "1"))
+                .add(new TestDataType("rnd_real", "real", Map.of("min", "3.4028235E38"), "count(distinct rnd_real)", "1"))
+                .add(new TestDataType("rnd_double", "double", Map.of("min", "1.7976931348623157E308"), "count(distinct rnd_double)", "1"))
                 // interval literals can't represent smallest possible values allowed by the engine, so they're not included here
                 // can't test timestamps because their extreme values cannot be expressed as literals
                 .add(new TestDataType("rnd_time", "time", Map.of("min", "23:59:59.999"), "count(distinct rnd_time)", "1"))
