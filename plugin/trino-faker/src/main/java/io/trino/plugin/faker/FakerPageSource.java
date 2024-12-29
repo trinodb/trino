@@ -126,7 +126,7 @@ class FakerPageSource
             Faker faker,
             Random random,
             List<FakerColumnHandle> columns,
-            long offset,
+            long rowOffset,
             long limit)
     {
         this.faker = requireNonNull(faker, "faker is null");
@@ -141,19 +141,19 @@ class FakerPageSource
 
         this.generators = columns
                 .stream()
-                .map(column -> getGenerator(column, offset))
+                .map(column -> getGenerator(column, rowOffset))
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(types);
     }
 
     private Generator getGenerator(
             FakerColumnHandle column,
-            long offset)
+            long rowOffset)
     {
         if (ROW_ID_COLUMN_NAME.equals(column.name())) {
             return new Generator()
             {
-                long currentRowId = offset;
+                long currentRowId = rowOffset;
 
                 @Override
                 public void accept(BlockBuilder blockBuilder)
@@ -163,7 +163,23 @@ class FakerPageSource
             };
         }
 
-        return constraintedValueGenerator(column);
+        if (column.domain().getValues().isDiscreteSet()) {
+            List<Object> values = column.domain().getValues().getDiscreteSet();
+            ObjectWriter singleValueWriter = objectWriter(column.type());
+            return (blockBuilder) -> singleValueWriter.accept(blockBuilder, values.get(random.nextInt(values.size())));
+        }
+        Generator generator = randomValueGenerator(column);
+        if (column.nullProbability() == 0) {
+            return generator;
+        }
+        return (blockBuilder) -> {
+            if (random.nextDouble() <= column.nullProbability()) {
+                blockBuilder.appendNull();
+            }
+            else {
+                generator.accept(blockBuilder);
+            }
+        };
     }
 
     @Override
@@ -227,27 +243,6 @@ class FakerPageSource
         closed = true;
     }
 
-    private Generator constraintedValueGenerator(FakerColumnHandle handle)
-    {
-        if (handle.domain().getValues().isDiscreteSet()) {
-            List<Object> values = handle.domain().getValues().getDiscreteSet();
-            ObjectWriter singleValueWriter = objectWriter(handle.type());
-            return (blockBuilder) -> singleValueWriter.accept(blockBuilder, values.get(random.nextInt(values.size())));
-        }
-        Generator generator = randomValueGenerator(handle);
-        if (handle.nullProbability() == 0) {
-            return generator;
-        }
-        return (blockBuilder) -> {
-            if (random.nextDouble() <= handle.nullProbability()) {
-                blockBuilder.appendNull();
-            }
-            else {
-                generator.accept(blockBuilder);
-            }
-        };
-    }
-
     private Generator randomValueGenerator(FakerColumnHandle handle)
     {
         Range genericRange = handle.domain().getValues().getRanges().getSpan();
@@ -305,19 +300,19 @@ class FakerPageSource
             IntRange range = IntRange.of(genericRange);
             return (blockBuilder) -> INTERVAL_YEAR_MONTH.writeLong(blockBuilder, numberBetween(range.low, range.high));
         }
-        if (type instanceof TimestampType) {
-            return timestampGenerator(genericRange, (TimestampType) type);
+        if (type instanceof TimestampType timestampType) {
+            return timestampGenerator(genericRange, timestampType);
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            return timestampWithTimeZoneGenerator(genericRange, (TimestampWithTimeZoneType) type);
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            return timestampWithTimeZoneGenerator(genericRange, timestampWithTimeZoneType);
         }
         if (type instanceof TimeType timeType) {
             long factor = POWERS_OF_TEN[12 - timeType.getPrecision()];
             LongRange range = LongRange.of(genericRange, factor, 0, PICOSECONDS_PER_DAY);
             return (blockBuilder) -> timeType.writeLong(blockBuilder, numberBetween(range.low, range.high) * factor);
         }
-        if (type instanceof TimeWithTimeZoneType) {
-            return timeWithTimeZoneGenerator(genericRange, (TimeWithTimeZoneType) type);
+        if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType) {
+            return timeWithTimeZoneGenerator(genericRange, timeWithTimeZoneType);
         }
         if (type instanceof VarbinaryType varType) {
             if (!genericRange.isAll()) {
