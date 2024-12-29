@@ -148,6 +148,15 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/lakehouse">
+        <artifact id="${project.groupId}:trino-lakehouse:zip:${project.version}">
+            <unpack />
+        </artifact>
+        <artifact id="${project.groupId}:trino-hdfs:zip:${project.version}">
+            <unpack useRoot="true" />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/loki">
         <artifact id="${project.groupId}:trino-loki:zip:${project.version}">
             <unpack />
