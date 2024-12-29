@@ -290,11 +290,11 @@ class FakerPageSource
         }
         if (REAL.equals(type)) {
             FloatRange range = FloatRange.of(genericRange);
-            return (blockBuilder) -> REAL.writeLong(blockBuilder, floatToRawIntBits(range.low + (range.high - range.low) * random.nextFloat()));
+            return (blockBuilder) -> REAL.writeLong(blockBuilder, floatToRawIntBits(range.low == range.high ? range.low : random.nextFloat(range.low, range.high)));
         }
         if (DOUBLE.equals(type)) {
             DoubleRange range = DoubleRange.of(genericRange);
-            return (blockBuilder) -> DOUBLE.writeDouble(blockBuilder, range.low + (range.high - range.low) * random.nextDouble());
+            return (blockBuilder) -> DOUBLE.writeDouble(blockBuilder, range.low == range.high ? range.low : random.nextDouble(range.low, range.high));
         }
         // not supported: HYPER_LOG_LOG, QDIGEST, TDIGEST, P4_HYPER_LOG_LOG
         if (INTERVAL_DAY_TIME.equals(type)) {
@@ -581,8 +581,8 @@ class FakerPageSource
                 low = Math.nextUp(low);
             }
             float high = range.getHighValue().map(v -> intBitsToFloat(toIntExact((long) v))).orElse(Float.MAX_VALUE);
-            if (!range.isHighUnbounded() && !range.isHighInclusive()) {
-                high = Math.nextDown(high);
+            if (!range.isHighUnbounded() && range.isHighInclusive()) {
+                high = Math.nextUp(high);
             }
             return new FloatRange(low, high);
         }
@@ -597,8 +597,8 @@ class FakerPageSource
                 low = Math.nextUp(low);
             }
             double high = (double) range.getHighValue().orElse(Double.MAX_VALUE);
-            if (!range.isHighUnbounded() && !range.isHighInclusive()) {
-                high = Math.nextDown(high);
+            if (!range.isHighUnbounded() && range.isHighInclusive()) {
+                high = Math.nextUp(high);
             }
             return new DoubleRange(low, high);
         }
