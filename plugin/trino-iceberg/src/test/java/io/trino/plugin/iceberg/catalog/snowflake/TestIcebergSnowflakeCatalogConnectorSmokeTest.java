@@ -688,8 +688,8 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     @Override
     public void testIcebergTablesFunction()
     {
-        assertThatThrownBy(super::testIcebergTablesFunction)
-                .hasMessageContaining("schemaPath is not supported for Iceberg snowflake catalog");
+        assertThat(query("SELECT * FROM TABLE(iceberg.system.iceberg_tables(SCHEMA_NAME => '%s'))".formatted(SNOWFLAKE_TEST_SCHEMA.toLowerCase(ENGLISH))))
+                .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema='%s'".formatted(SNOWFLAKE_TEST_SCHEMA.toLowerCase(ENGLISH)));
     }
 
     @Override
