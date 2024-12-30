@@ -4,15 +4,13 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.DoubleType;
 import org.apache.arrow.vector.Float8Vector;
 
-public class DoubleColumnWriter extends PrimitiveColumnWriter<Float8Vector>
+public class DoubleColumnWriter extends FixedWidthColumnWriter<Float8Vector>
 {
     private final DoubleType type = DoubleType.DOUBLE;
 
-    public DoubleColumnWriter(Float8Vector vector)
-    {
+    public DoubleColumnWriter(Float8Vector vector) {
         super(vector);
     }
-
     @Override
     protected void writeNull(int position)
     {

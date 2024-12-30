@@ -4,15 +4,13 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.RealType;
 import org.apache.arrow.vector.Float4Vector;
 
-public class RealColumnWriter extends PrimitiveColumnWriter<Float4Vector>
+public class RealColumnWriter extends FixedWidthColumnWriter<Float4Vector>
 {
     private final RealType type = RealType.REAL;
 
-    public RealColumnWriter(Float4Vector vector)
-    {
+    public RealColumnWriter(Float4Vector vector) {
         super(vector);
     }
-
     @Override
     protected void writeNull(int position)
     {

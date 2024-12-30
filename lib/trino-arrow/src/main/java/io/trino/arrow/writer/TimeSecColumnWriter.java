@@ -6,7 +6,7 @@ import org.apache.arrow.vector.TimeSecVector;
 
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 
-public class TimeSecColumnWriter extends PrimitiveColumnWriter<TimeSecVector>
+public class TimeSecColumnWriter extends FixedWidthColumnWriter<TimeSecVector>
 {
     private final TimeType type;
 

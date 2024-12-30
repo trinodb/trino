@@ -5,11 +5,10 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
-import java.util.Arrays;
 import java.util.Objects;
 
 public class PicosecondTimestampType extends ArrowType.ExtensionType
@@ -21,19 +20,6 @@ public class PicosecondTimestampType extends ArrowType.ExtensionType
     {
         super();
         this.timezone = timezone;
-    }
-
-    private static ArrowType createStorageType()
-    {
-        return new ArrowType.Struct();
-    }
-
-    public static java.util.List<Field> getStorageFields()
-    {
-        return Arrays.asList(
-            new Field("micros", FieldType.notNullable(new ArrowType.Int(64, true)), null),
-            new Field("picoAdjustment", FieldType.notNullable(new ArrowType.Int(32, true)), null)
-        );
     }
 
     @Override
@@ -63,10 +49,9 @@ public class PicosecondTimestampType extends ArrowType.ExtensionType
     @Override
     public boolean extensionEquals(ExtensionType other)
     {
-        if (!(other instanceof PicosecondTimestampType)) {
+        if (!(other instanceof PicosecondTimestampType that)) {
             return false;
         }
-        PicosecondTimestampType that = (PicosecondTimestampType) other;
         return Objects.equals(this.timezone, that.timezone);
     }
 
@@ -74,9 +59,9 @@ public class PicosecondTimestampType extends ArrowType.ExtensionType
     public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator)
     {
         StructVector vector = new StructVector(name, allocator, fieldType, null);
-        vector.addOrGet("micros", FieldType.notNullable(new ArrowType.Int(64, true)), BigIntVector.class);
-        vector.addOrGet("picoAdjustment", FieldType.notNullable(new ArrowType.Int(32, true)), IntVector.class);
-        return vector;
+        vector.addOrGet("timestamp", FieldType.notNullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND, timezone)), BigIntVector.class);
+        vector.addOrGet("pico_adjustment", FieldType.notNullable(new ArrowType.Int(32, true)), IntVector.class);
+        return new PicosecondTimestampVector(name, allocator, vector);
     }
 
     public String getTimezone()

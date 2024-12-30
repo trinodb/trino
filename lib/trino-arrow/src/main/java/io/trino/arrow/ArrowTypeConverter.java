@@ -5,7 +5,6 @@ import io.trino.arrow.type.PicosecondTimestampType;
 import io.trino.arrow.type.TimeWithValueTimezoneType;
 import io.trino.arrow.type.TimestampWithValueTimezoneType;
 import io.trino.spi.type.*;
-import io.trino.type.JsonType;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -79,7 +78,6 @@ public final class ArrowTypeConverter
             };
             case TimestampWithTimeZoneType t -> new TimestampWithValueTimezoneType(t.getPrecision());
             case DecimalType t -> new ArrowType.Decimal(t.getPrecision(), t.getScale());
-            case JsonType t -> new ArrowType.Utf8();
             case UuidType t -> new ArrowType.FixedSizeBinary(16);
             case HyperLogLogType t -> new ArrowType.Binary(); //TODO: support HyperLogLogType
             case ArrayType t -> new ArrowType.List();

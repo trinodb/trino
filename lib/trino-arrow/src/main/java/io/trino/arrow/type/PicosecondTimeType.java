@@ -5,11 +5,9 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
-
-import java.util.Arrays;
 
 public class PicosecondTimeType extends ArrowType.ExtensionType {
     public static final String EXTENSION_NAME = "trino.time.pico";
@@ -18,12 +16,6 @@ public class PicosecondTimeType extends ArrowType.ExtensionType {
         super();
     }
 
-    public static java.util.List<Field> getStorageFields() {
-        return Arrays.asList(
-            new Field("nanos", FieldType.notNullable(new ArrowType.Int(64, true)), null),
-            new Field("picoAdjustment", FieldType.notNullable(new ArrowType.Int(32, true)), null)
-        );
-    }
 
     @Override
     public String extensionName() {
@@ -53,9 +45,9 @@ public class PicosecondTimeType extends ArrowType.ExtensionType {
     @Override
     public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator) {
         StructVector vector = new StructVector(name, allocator, fieldType, null);
-        vector.addOrGet("nanos", FieldType.notNullable(new ArrowType.Int(64, true)), BigIntVector.class);
-        vector.addOrGet("picoAdjustment", FieldType.notNullable(new ArrowType.Int(32, true)), IntVector.class);
-        return vector;
+        vector.addOrGet("time", FieldType.notNullable(new ArrowType.Time(TimeUnit.MICROSECOND, 64)), BigIntVector.class);
+        vector.addOrGet("pico_adjustment", FieldType.notNullable(new ArrowType.Int(32, true)), IntVector.class);
+        return new PicosecondTimeVector(name, allocator, vector);
     }
 
     @Override
@@ -63,10 +55,7 @@ public class PicosecondTimeType extends ArrowType.ExtensionType {
         if (this == o) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        return true;
+        return o != null && getClass() == o.getClass();
     }
 
     @Override

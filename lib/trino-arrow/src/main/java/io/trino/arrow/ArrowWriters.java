@@ -1,5 +1,9 @@
 package io.trino.arrow;
 
+import io.trino.arrow.type.PicosecondTimeVector;
+import io.trino.arrow.type.PicosecondTimestampVector;
+import io.trino.arrow.type.TimeWithValueTimezoneVector;
+import io.trino.arrow.type.TimestampWithValueTimezoneVector;
 import io.trino.arrow.writer.*;
 import io.trino.spi.type.*;
 import org.apache.arrow.vector.*;
@@ -32,20 +36,14 @@ public final class ArrowWriters
             case TimeStampMilliVector v -> new TimeStampMilliColumnWriter(v, (TimestampType) type);
             case TimeStampMicroVector v -> new TimeStampMicroColumnWriter(v, (TimestampType) type);
             case TimeStampNanoVector v -> new TimeStampNanoColumnWriter(v, (TimestampType) type);
-            case MapVector v -> buildMapColumnWriter(v, type);
-            case ListVector v -> new ArrayColumnWriter(v, createWriter(v.getDataVector(), ((ArrayType) type).getElementType()));
+            case MapVector v -> new MapColumnWriter(v, (MapType) type);
+            case ListVector v -> new ArrayColumnWriter(v, (ArrayType) type);
+            case PicosecondTimestampVector v -> new PicosecondTimestampColumnWriter(v);
+            case PicosecondTimeVector v -> new PicosecondTimeColumnWriter(v);
+            case TimestampWithValueTimezoneVector v -> new TimestampWithValueTimezoneWriter(v, type);
+            case TimeWithValueTimezoneVector v -> new TimeWithValueTimezoneWriter(v, type);
             case StructVector v -> new StructColumnWriter(v, type);
             default -> throw new UnsupportedOperationException("Unsupported vector type: " + vector.getClass().getName());
         };
-    }
-
-    private static MapColumnWriter buildMapColumnWriter(MapVector mapVector, Type trinoType){
-        if(mapVector.getDataVector() instanceof StructVector structVector && trinoType instanceof MapType mapType){
-            return new MapColumnWriter(mapVector,
-                    createWriter(structVector.getChildByOrdinal(0), mapType.getKeyType()),
-                    createWriter(structVector.getChildByOrdinal(1), mapType.getValueType()));
-        }else{
-            throw new UnsupportedOperationException("Unsupported data vector : " + mapVector.getDataVector().getClass());
-        }
     }
 }

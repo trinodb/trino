@@ -7,6 +7,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowFileWriter;
+import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.types.pojo.Field;
 
@@ -48,20 +49,20 @@ public class ArrowWriter
     public void write(Page page)
             throws IOException
     {
-        // TODO: Convert Page data to Arrow vectors and write
         //TODO chunk to some max size?
-        try(ArrowFileWriter writer = new ArrowFileWriter(root, null, Channels.newChannel(outputStream))) {
+        try(ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(outputStream))) {
             writer.start();
             for(OutputColumn outputColumn : columnToField.keySet()) {
                 Field field = columnToField.get(outputColumn);
                 FieldVector vector = root.getVector(field);
-                ArrowColumnWriter columnWriter = ArrowWriters.createWriter(vector, outputColumn.type());
+                vector.allocateNew();
                 Block block = page.getBlock(outputColumn.sourcePageChannel());
+                ArrowColumnWriter columnWriter = ArrowWriters.createWriter(vector, outputColumn.type());
                 columnWriter.write(block);
-                //TODO: convert block to arrow vector
             }
             root.setRowCount(page.getPositionCount());
             writer.writeBatch();
+            writer.end();
         }
 
 

@@ -6,7 +6,7 @@ import org.apache.arrow.vector.TimeStampMilliVector;
 
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 
-public class TimeStampMilliColumnWriter extends PrimitiveColumnWriter<TimeStampMilliVector>
+public class TimeStampMilliColumnWriter extends FixedWidthColumnWriter<TimeStampMilliVector>
 {
     private final TimestampType type;
 

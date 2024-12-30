@@ -4,15 +4,13 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.VarbinaryType;
 import org.apache.arrow.vector.VarBinaryVector;
 
-public class VarbinaryColumnWriter extends PrimitiveColumnWriter<VarBinaryVector>
+public class VarbinaryColumnWriter extends VariableWidthColumnWriter<VarBinaryVector>
 {
     private final VarbinaryType type = VarbinaryType.VARBINARY;
 
-    public VarbinaryColumnWriter(VarBinaryVector vector)
-    {
+    public VarbinaryColumnWriter(VarBinaryVector vector) {
         super(vector);
     }
-
     @Override
     protected void writeNull(int position)
     {
@@ -22,6 +20,6 @@ public class VarbinaryColumnWriter extends PrimitiveColumnWriter<VarBinaryVector
     @Override
     protected void writeValue(Block block, int position)
     {
-        vector.set(position, type.getSlice(block, position).getBytes());
+        vector.setSafe(position, type.getSlice(block, position).getBytes());
     }
 }

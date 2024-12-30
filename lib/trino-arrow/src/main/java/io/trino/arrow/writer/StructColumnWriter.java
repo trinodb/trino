@@ -12,29 +12,32 @@ import org.apache.arrow.vector.complex.StructVector;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class StructColumnWriter implements ArrowColumnWriter
 {
-    private final StructVector vector;
     private final RowType type;
+    private final StructVector vector;
 
     public StructColumnWriter(StructVector vector, Type t)
     {
-        this.type = (RowType) requireNonNull(t, "type is null");
-        this.vector = requireNonNull(vector, "vector is null");
+        this.type = (RowType) t;
+        this.vector = vector;
+
     }
+
     @Override
     public void write(Block block)
     {
-        List<Block> fields = RowBlock.getNullSuppressedRowFieldsFromBlock(block);
+        vector.setInitialCapacity(block.getPositionCount());
+        vector.allocateNew();
+        List<Block> fields = RowBlock.getRowFieldsFromBlock(block);
         List<FieldVector> children = vector.getChildrenFromFields();
         for (int i = 0; i < children.size(); i++) {
             Type childType = type.getFields().get(i).getType();
+            Block childBlock = fields.get(i);
             ArrowColumnWriter columnWriter = ArrowWriters.createWriter(children.get(i), childType);
-            columnWriter.write(fields.get(i));
+            columnWriter.write(childBlock);
         }
     }
-
 }

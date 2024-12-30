@@ -50,20 +50,20 @@ public class TimeWithValueTimezoneType extends ArrowType.ExtensionType {
         TimeHolder timeType = switch (precision) {
             case 0 -> new TimeHolder(Types.MinorType.TIMESEC, TimeSecVector.class);
             case 3 -> new TimeHolder(Types.MinorType.TIMEMILLI, TimeMilliVector.class);
-            case 6 -> new TimeHolder(Types.MinorType.TIMEMICRO, TimeMicroVector.class);
-            case 9, 12 -> new TimeHolder(Types.MinorType.TIMENANO, TimeNanoVector.class);
+            case 6, 12 -> new TimeHolder(Types.MinorType.TIMEMICRO, TimeMicroVector.class);
+            case 9 -> new TimeHolder(Types.MinorType.TIMENANO, TimeNanoVector.class);
             default -> throw new IllegalArgumentException("Unsupported precision: " + precision);
         };
-
+        FieldType timeField =new FieldType(false, timeType.type().getType(), null);
         StructVector structVector = new StructVector(name, allocator, fieldType, null);
-        structVector.addOrGet("time", new FieldType(false, timeType.type().getType(), null), timeType.clazz());
+        structVector.addOrGet("time", timeField, timeType.clazz());
 
         if (precision == 12) {
             FieldType picoAdjustmentField = new FieldType(false, new ArrowType.Int(32, false), null);
             structVector.addOrGet("pico_adjustment", picoAdjustmentField, IntVector.class);
         }
 
-        structVector.addOrGet("zone_id", new FieldType(false, new ArrowType.Int(32, true), null), IntVector.class);
-        return structVector;
+        structVector.addOrGet("offset_minutes", new FieldType(false, new ArrowType.Int(32, true), null), IntVector.class);
+        return new TimeWithValueTimezoneVector(name, allocator, structVector);
     }
 }

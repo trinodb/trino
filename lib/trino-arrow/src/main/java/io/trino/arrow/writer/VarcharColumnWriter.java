@@ -4,15 +4,13 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.VarcharType;
 import org.apache.arrow.vector.VarCharVector;
 
-public class VarcharColumnWriter extends PrimitiveColumnWriter<VarCharVector>
+public class VarcharColumnWriter extends VariableWidthColumnWriter<VarCharVector>
 {
     private final VarcharType type = VarcharType.VARCHAR;
 
-    public VarcharColumnWriter(VarCharVector vector)
-    {
+    public VarcharColumnWriter(VarCharVector vector) {
         super(vector);
     }
-
     @Override
     protected void writeNull(int position)
     {

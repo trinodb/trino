@@ -4,12 +4,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.TinyintType;
 import org.apache.arrow.vector.TinyIntVector;
 
-public class TinyIntColumnWriter extends PrimitiveColumnWriter<TinyIntVector>
+public class TinyIntColumnWriter extends FixedWidthColumnWriter<TinyIntVector>
 {
     private final TinyintType type = TinyintType.TINYINT;
 
-    public TinyIntColumnWriter(TinyIntVector vector)
-    {
+    public TinyIntColumnWriter(TinyIntVector vector) {
         super(vector);
     }
 

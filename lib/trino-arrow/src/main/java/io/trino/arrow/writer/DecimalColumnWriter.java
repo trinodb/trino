@@ -4,7 +4,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalType;
 import org.apache.arrow.vector.DecimalVector;
 
-public class DecimalColumnWriter extends PrimitiveColumnWriter<DecimalVector>
+public class DecimalColumnWriter extends FixedWidthColumnWriter<DecimalVector>
 {
     private final DecimalType type;
 

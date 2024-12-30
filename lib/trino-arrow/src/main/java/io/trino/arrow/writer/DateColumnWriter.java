@@ -4,15 +4,13 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.DateType;
 import org.apache.arrow.vector.DateDayVector;
 
-public class DateColumnWriter extends PrimitiveColumnWriter<DateDayVector>
+public class DateColumnWriter extends FixedWidthColumnWriter<DateDayVector>
 {
     private final DateType type = DateType.DATE;
 
-    public DateColumnWriter(DateDayVector vector)
-    {
+    public DateColumnWriter(DateDayVector vector) {
         super(vector);
     }
-
     @Override
     protected void writeNull(int position)
     {

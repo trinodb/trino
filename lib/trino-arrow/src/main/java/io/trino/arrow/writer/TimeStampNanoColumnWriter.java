@@ -6,7 +6,7 @@ import org.apache.arrow.vector.TimeStampNanoVector;
 
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 
-public class TimeStampNanoColumnWriter extends PrimitiveColumnWriter<TimeStampNanoVector>
+public class TimeStampNanoColumnWriter extends FixedWidthColumnWriter<TimeStampNanoVector>
 {
     private final TimestampType type;
 

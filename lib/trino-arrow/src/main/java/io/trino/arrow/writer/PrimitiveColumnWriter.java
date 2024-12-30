@@ -2,6 +2,7 @@ package io.trino.arrow.writer;
 
 import io.trino.arrow.ArrowColumnWriter;
 import io.trino.spi.block.Block;
+import org.apache.arrow.vector.FixedWidthVector;
 import org.apache.arrow.vector.ValueVector;
 
 public abstract class PrimitiveColumnWriter<V extends ValueVector> implements ArrowColumnWriter
@@ -16,9 +17,10 @@ public abstract class PrimitiveColumnWriter<V extends ValueVector> implements Ar
     @Override
     public void write(Block block)
     {
+        initialize(block);
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (block.isNull(position)) {
-                writeNull( position);
+                writeNull(position);
             }
             else {
                 writeValue(block, position);
@@ -27,6 +29,7 @@ public abstract class PrimitiveColumnWriter<V extends ValueVector> implements Ar
         vector.setValueCount(block.getPositionCount());
     }
 
+    protected abstract void initialize(Block block);
     protected abstract void writeNull(int position);
     protected abstract void writeValue(Block block, int position);
 

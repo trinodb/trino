@@ -4,7 +4,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.CharType;
 import org.apache.arrow.vector.VarCharVector;
 
-public class CharColumnWriter extends PrimitiveColumnWriter<VarCharVector>
+public class CharColumnWriter extends VariableWidthColumnWriter<VarCharVector>
 {
     private final CharType type;
 
@@ -23,6 +23,6 @@ public class CharColumnWriter extends PrimitiveColumnWriter<VarCharVector>
     @Override
     protected void writeValue(Block block, int position)
     {
-        vector.set(position, type.getSlice(block, position).getBytes());
+        vector.setSafe(position, type.getSlice(block, position).getBytes());
     }
 }
