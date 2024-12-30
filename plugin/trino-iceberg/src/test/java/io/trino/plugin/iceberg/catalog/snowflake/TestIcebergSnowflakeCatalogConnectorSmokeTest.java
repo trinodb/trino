@@ -37,6 +37,7 @@ import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.T
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.TableType.NATIVE;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -688,8 +689,12 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     @Override
     public void testIcebergTablesFunction()
     {
-        assertThatThrownBy(super::testIcebergTablesFunction)
-                .hasMessageContaining("schemaPath is not supported for Iceberg snowflake catalog");
+        String schemaTablesValues = "VALUES " + getQueryRunner()
+                .execute("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema='%s'".formatted(SNOWFLAKE_TEST_SCHEMA.toLowerCase(ENGLISH)))
+                .getMaterializedRows().stream()
+                .map(row -> "('%s', '%s')".formatted(row.getField(0), row.getField(1)))
+                .collect(joining(", "));
+        assertQuery("SELECT * FROM TABLE(iceberg.system.iceberg_tables(SCHEMA_NAME => '%s'))".formatted(SNOWFLAKE_TEST_SCHEMA.toLowerCase(ENGLISH)), schemaTablesValues);
     }
 
     @Override
