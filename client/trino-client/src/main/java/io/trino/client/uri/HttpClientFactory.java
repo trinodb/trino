@@ -54,43 +54,11 @@ public class HttpClientFactory
         OkHttpClient.Builder builder = unauthenticatedClientBuilder(uri, userAgent);
         setupCookieJar(builder);
 
-        if (!uri.isUseSecureConnection()) {
-            setupInsecureSsl(builder);
-        }
-
         if (uri.hasPassword()) {
             if (!uri.isUseSecureConnection()) {
                 throw new RuntimeException("TLS/SSL is required for authentication with username and password");
             }
             builder.addNetworkInterceptor(basicAuth(uri.getRequiredUser(), uri.getPassword().orElseThrow(() -> new RuntimeException("Password expected"))));
-        }
-
-        if (uri.isUseSecureConnection()) {
-            ConnectionProperties.SslVerificationMode sslVerificationMode = uri.getSslVerification();
-            if (sslVerificationMode.equals(FULL) || sslVerificationMode.equals(CA)) {
-                setupSsl(
-                        builder,
-                        uri.getSslKeyStorePath(),
-                        uri.getSslKeyStorePassword(),
-                        uri.getSslKeyStoreType(),
-                        uri.getSslUseSystemKeyStore(),
-                        uri.getSslTrustStorePath(),
-                        uri.getSslTrustStorePassword(),
-                        uri.getSslTrustStoreType(),
-                        uri.getSslUseSystemTrustStore());
-            }
-            if (sslVerificationMode.equals(FULL)) {
-                uri.getHostnameInCertificate().ifPresent(certHostname ->
-                        setupAlternateHostnameVerification(builder, certHostname));
-            }
-
-            if (sslVerificationMode.equals(CA)) {
-                builder.hostnameVerifier((hostname, session) -> true);
-            }
-
-            if (sslVerificationMode.equals(NONE)) {
-                setupInsecureSsl(builder);
-            }
         }
 
         if (uri.getKerberosRemoteServiceName().isPresent()) {
@@ -145,7 +113,6 @@ public class HttpClientFactory
             builder.addNetworkInterceptor(authenticator);
         }
 
-        uri.getDnsResolver().ifPresent(resolverClass -> builder.dns(instantiateDnsResolver(resolverClass, uri.getDnsResolverContext())::lookup));
         return builder;
     }
 
@@ -157,6 +124,41 @@ public class HttpClientFactory
         setupHttpProxy(builder, uri.getHttpProxy());
         setupTimeouts(builder, toIntExact(uri.getTimeout().toMillis()), TimeUnit.MILLISECONDS);
         setupHttpLogging(builder, uri.getHttpLoggingLevel());
+
+        if (!uri.isUseSecureConnection()) {
+            setupInsecureSsl(builder);
+        }
+
+        if (uri.isUseSecureConnection()) {
+            ConnectionProperties.SslVerificationMode sslVerificationMode = uri.getSslVerification();
+            if (sslVerificationMode.equals(FULL) || sslVerificationMode.equals(CA)) {
+                setupSsl(
+                        builder,
+                        uri.getSslKeyStorePath(),
+                        uri.getSslKeyStorePassword(),
+                        uri.getSslKeyStoreType(),
+                        uri.getSslUseSystemKeyStore(),
+                        uri.getSslTrustStorePath(),
+                        uri.getSslTrustStorePassword(),
+                        uri.getSslTrustStoreType(),
+                        uri.getSslUseSystemTrustStore());
+            }
+            if (sslVerificationMode.equals(FULL)) {
+                uri.getHostnameInCertificate().ifPresent(certHostname ->
+                        setupAlternateHostnameVerification(builder, certHostname));
+            }
+
+            if (sslVerificationMode.equals(CA)) {
+                builder.hostnameVerifier((hostname, session) -> true);
+            }
+
+            if (sslVerificationMode.equals(NONE)) {
+                setupInsecureSsl(builder);
+            }
+        }
+
+        uri.getDnsResolver().ifPresent(resolverClass -> builder.dns(instantiateDnsResolver(resolverClass, uri.getDnsResolverContext())::lookup));
+
         return builder;
     }
 
