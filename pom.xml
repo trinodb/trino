@@ -18,7 +18,6 @@
     <url>https://trino.io</url>
 
     <inceptionYear>2012</inceptionYear>
-
     <licenses>
         <license>
             <name>Apache License 2.0</name>
@@ -28,6 +27,7 @@
     </licenses>
 
     <modules>
+        <module>client/trino-adbc</module>
         <module>client/trino-cli</module>
         <module>client/trino-client</module>
         <module>client/trino-jdbc</module>
@@ -41,6 +41,7 @@
         <module>core/trino-web-ui</module>
         <module>docs</module>
         <module>lib/trino-array</module>
+        <module>lib/trino-arrow</module>
         <module>lib/trino-cache</module>
         <module>lib/trino-filesystem</module>
         <module>lib/trino-filesystem-alluxio</module>
@@ -963,6 +964,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-array</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-arrow</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

@@ -241,6 +241,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-arrow</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-cache</artifactId>
         </dependency>
 
@@ -257,11 +262,6 @@
                     <artifactId>okhttp-urlconnection</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-arrow</artifactId>
         </dependency>
 
         <dependency>
@@ -535,13 +535,6 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-arrow</artifactId>
-            <version>469-SNAPSHOT</version>
-            <scope>compile</scope>
         </dependency>
     </dependencies>
 </project>
