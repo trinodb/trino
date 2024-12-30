@@ -125,10 +125,6 @@ public class HttpClientFactory
         setupTimeouts(builder, toIntExact(uri.getTimeout().toMillis()), TimeUnit.MILLISECONDS);
         setupHttpLogging(builder, uri.getHttpLoggingLevel());
 
-        if (!uri.isUseSecureConnection()) {
-            setupInsecureSsl(builder);
-        }
-
         if (uri.isUseSecureConnection()) {
             ConnectionProperties.SslVerificationMode sslVerificationMode = uri.getSslVerification();
             if (sslVerificationMode.equals(FULL) || sslVerificationMode.equals(CA)) {
@@ -155,6 +151,9 @@ public class HttpClientFactory
             if (sslVerificationMode.equals(NONE)) {
                 setupInsecureSsl(builder);
             }
+        }
+        else {
+            setupInsecureSsl(builder);
         }
 
         uri.getDnsResolver().ifPresent(resolverClass -> builder.dns(instantiateDnsResolver(resolverClass, uri.getDnsResolverContext())::lookup));
