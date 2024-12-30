@@ -402,4 +402,12 @@ final class TestFakerQueries
             return "%s %s NOT NULL%s".formatted(name, type, propertiesSchema.isEmpty() ? "" : " WITH (%s)".formatted(propertiesSchema));
         }
     }
+
+    @Test
+    void testRenameTable()
+    {
+        assertUpdate("CREATE TABLE faker.default.original_table (id INTEGER, name VARCHAR)");
+        assertUpdate("ALTER TABLE faker.default.original_table RENAME TO faker.default.renamed_table");
+        assertUpdate("DROP TABLE faker.default.renamed_table");
+    }
 }
