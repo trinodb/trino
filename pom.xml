@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>206</version>
+        <version>209</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -2522,6 +2522,15 @@
 
                             <!-- disable default modernizer violation -->
                             <exclusion>com/google/inject/Provider</exclusion>
+
+                            <!-- disable recommendations to move to NIO2: https://github.com/gaul/modernizer-maven-plugin/pull/301 -->
+                            <exclusion>java/io/File."&lt;init&gt;":(Ljava/lang/String;)V</exclusion>
+                            <exclusion>java/io/FileInputStream."&lt;init&gt;":(Ljava/io/File;)V</exclusion>
+                            <exclusion>java/io/FileInputStream."&lt;init&gt;":(Ljava/lang/String;)V</exclusion>
+                            <exclusion>java/io/FileOutputStream."&lt;init&gt;":(Ljava/io/File;)V</exclusion>
+                            <exclusion>java/io/FileOutputStream."&lt;init&gt;":(Ljava/lang/String;)V</exclusion>
+                            <exclusion>java/io/File."&lt;init&gt;":(Ljava/net/URI;)V</exclusion>
+                            <exclusion>java/io/File."&lt;init&gt;":(Ljava/io/File;Ljava/lang/String;)V</exclusion>
                         </exclusions>
                     </configuration>
                 </plugin>
