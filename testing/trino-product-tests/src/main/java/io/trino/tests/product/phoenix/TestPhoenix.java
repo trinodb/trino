@@ -28,8 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestPhoenix
         extends ProductTest
 {
-    // TODO: https://github.com/trinodb/trino/issues/21824
-    @Test(groups = {PHOENIX, PROFILE_SPECIFIC_TESTS}, timeOut = 30_000L, enabled = false)
+    @Test(groups = {PHOENIX, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
         String tableName = "nation_" + UUID.randomUUID().toString().replace("-", "");
