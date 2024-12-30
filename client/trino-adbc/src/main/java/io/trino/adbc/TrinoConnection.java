@@ -1,17 +1,20 @@
 package io.trino.adbc;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
-import io.trino.client.ClientInfoProperty;
-import io.trino.client.ClientSelectedRole;
-import io.trino.client.StatementClient;
-import io.trino.client.StatementClientFactory;
+import io.airlift.units.Duration;
+import io.trino.client.*;
+import io.trino.client.spooling.SegmentLoader;
 import okhttp3.Call;
 import okhttp3.OkHttpClient;
 import org.apache.arrow.adbc.core.AdbcConnection;
 import org.apache.arrow.adbc.core.AdbcException;
 import org.apache.arrow.adbc.core.AdbcStatement;
+import org.apache.arrow.adbc.core.IsolationLevel;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -28,18 +31,21 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.client.ClientInfoProperty.*;
+import static io.trino.client.StatementClientFactory.newStatementClient;
+import static java.lang.String.format;
 import static java.sql.Connection.TRANSACTION_READ_UNCOMMITTED;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.*;
 
 public class TrinoConnection implements AdbcConnection {
     private static final Logger logger = Logger.getLogger(TrinoConnection.class.getPackage().getName());
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
-    private final AtomicInteger isolationLevel = new AtomicInteger(TRANSACTION_READ_UNCOMMITTED);
+    private final AtomicReference<IsolationLevel> isolationLevel = new AtomicReference<>(IsolationLevel.READ_UNCOMMITTED);
     private final AtomicBoolean readOnly = new AtomicBoolean();
     private final AtomicReference<String> catalog = new AtomicReference<>();
     private final AtomicReference<String> schema = new AtomicReference<>();
@@ -142,6 +148,120 @@ public class TrinoConnection implements AdbcConnection {
     boolean shouldStartTransaction()
     {
         return !autoCommit.get() && (transactionId.get() == null);
+    }
+
+    //TODO move
+    public SegmentLoader getSegmentLoader(){
+        return new OkHttpSegmentLoader(segmentHttpCallFactory);
+    }
+
+    StatementClient startQuery(String sql, Map<String, String> sessionPropertiesOverride)
+    {
+        String source = getActualSource();
+
+        Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
+                .split(nullToEmpty(clientInfo.get(CLIENT_TAGS)));
+
+        Map<String, String> allProperties = new HashMap<>(sessionProperties);
+        allProperties.putAll(sessionPropertiesOverride);
+
+        // zero means no timeout, so use a huge value that is effectively unlimited
+        int millis = networkTimeoutMillis.get();
+        Duration timeout = (millis > 0) ? new Duration(millis, MILLISECONDS) : new Duration(999, DAYS);
+
+        ClientSession session = ClientSession.builder()
+                .server(httpUri)
+                .user(user)
+                .sessionUser(sessionUser.get())
+                .authorizationUser(Optional.ofNullable(authorizationUser.get()))
+                .source(source)
+                .traceToken(Optional.ofNullable(clientInfo.get(TRACE_TOKEN)))
+                .clientTags(ImmutableSet.copyOf(clientTags))
+                .clientInfo(clientInfo.get(CLIENT_INFO))
+                .catalog(catalog.get())
+                .schema(schema.get())
+                .path(path.get())
+                .timeZone(timeZoneId.get())
+                .locale(locale.get())
+                .properties(ImmutableMap.copyOf(allProperties))
+                .preparedStatements(ImmutableMap.copyOf(preparedStatements))
+                .roles(ImmutableMap.copyOf(roles))
+                .credentials(extraCredentials)
+                .transactionId(transactionId.get())
+                .clientRequestTimeout(timeout)
+                .compressionDisabled(compressionDisabled)
+                .encoding(encoding)
+                .build();
+
+        return newStatementClient(httpCallFactory, segmentHttpCallFactory, session, sql);
+    }
+
+    private String getActualSource()
+    {
+        if (source.isPresent()) {
+            return source.get();
+        }
+        String source = "trino-jdbc";
+        String applicationName = clientInfo.get(APPLICATION_NAME);
+        if (applicationNamePrefix.isPresent()) {
+            source = applicationNamePrefix.get();
+            if (applicationName != null) {
+                source += applicationName;
+            }
+        }
+        else if (applicationName != null) {
+            source = applicationName;
+        }
+        return source;
+    }
+
+    void updateSession(StatementClient client)
+    {
+        sessionProperties.putAll(client.getSetSessionProperties());
+        client.getResetSessionProperties().forEach(sessionProperties::remove);
+
+        preparedStatements.putAll(client.getAddedPreparedStatements());
+        client.getDeallocatedPreparedStatements().forEach(preparedStatements::remove);
+
+        roles.putAll(client.getSetRoles());
+
+        client.getSetCatalog().ifPresent(catalog::set);
+        client.getSetSchema().ifPresent(schema::set);
+        client.getSetPath().ifPresent(path::set);
+
+        if (client.getSetAuthorizationUser().isPresent()) {
+            authorizationUser.set(client.getSetAuthorizationUser().get());
+            roles.clear();
+        }
+        if (client.isResetAuthorizationUser()) {
+            authorizationUser.set(null);
+            roles.clear();
+        }
+
+        if (client.getStartedTransactionId() != null) {
+            transactionId.set(client.getStartedTransactionId());
+        }
+        if (client.isClearTransactionId()) {
+            transactionId.set(null);
+        }
+    }
+
+    String getStartTransactionSql()
+            throws AdbcException
+    {
+        return format(
+                "START TRANSACTION ISOLATION LEVEL %s, READ %s",
+                getIsolationLevel().toString(),
+                readOnly.get() ? "ONLY" : "WRITE");
+    }
+
+
+    @Override
+    //TODO maybe translate to trino isolation level?
+    public IsolationLevel getIsolationLevel()
+            throws AdbcException
+    {
+        return isolationLevel.get();
     }
 
     public boolean isClosed()

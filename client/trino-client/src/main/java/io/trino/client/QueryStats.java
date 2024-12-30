@@ -97,7 +97,7 @@ public final class QueryStats
         this.rootStage = requireNonNull(rootStage, "rootStage is null");
     }
 
-    static QueryStats create(String queryId, StatementStats stats)
+    public static QueryStats create(String queryId, StatementStats stats)
     {
         return new QueryStats(
                 queryId,
@@ -124,6 +124,7 @@ public final class QueryStats
                 stats.getPhysicalWrittenBytes(),
                 stats.getInternalNetworkInputBytes(),
                 Optional.ofNullable(stats.getRootStage()));
+
     }
 
     public String getQueryId()

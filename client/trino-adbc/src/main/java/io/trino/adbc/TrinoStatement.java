@@ -1,10 +1,16 @@
 package io.trino.adbc;
 
-import io.trino.client.QueryStats;
-import io.trino.client.StatementClient;
+import com.google.common.collect.ImmutableMap;
+import io.trino.client.*;
+import io.trino.client.spooling.SegmentLoader;
 import org.apache.arrow.adbc.core.AdbcException;
 import org.apache.arrow.adbc.core.AdbcStatement;
+import org.apache.arrow.adbc.core.AdbcStatusCode;
+import org.apache.arrow.vector.ipc.ArrowReader;
 
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,7 +53,122 @@ public class TrinoStatement implements AdbcStatement {
     @Override
     public QueryResult executeQuery() throws AdbcException {
         requireNonNull(query, "query is null");
-        StatementClient client = newStatementClient();
+        if (connection().shouldStartTransaction()) {
+            try {
+                internalExecute(connection().getStartTransactionSql());
+            } catch (IOException e) {
+                throw AdbcException.io(e.getMessage())
+                        .withCause(e);
+            }
+        }
+        try {
+            internalExecute(query);
+        } catch (IOException e) {
+            throw AdbcException.io(e.getMessage())
+                    .withCause(e);
+        }
+        return currentResult.get();
+    }
+
+    protected final void checkOpen()
+            throws AdbcException
+    {
+        connection();
+    }
+
+    final boolean internalExecute(String sql)
+            throws AdbcException, IOException {
+        clearCurrentResults();
+        checkOpen();
+
+        StatementClient client = null;
+        QueryResult queryResult = null;
+        try {
+            client = connection().startQuery(sql, getStatementSessionProperties());
+            SegmentLoader segmentLoader = connection().getSegmentLoader();
+            if (client.isFinished()) {
+                QueryStatusInfo finalStatusInfo = client.finalStatusInfo();
+                if (finalStatusInfo.getError() != null) {
+                    QueryError queryError = requireNonNull(finalStatusInfo.getError(), "error is null");
+                    //TODO use more specific adbc status code
+                    throw new AdbcException(queryError.getMessage(), null, AdbcStatusCode.INTERNAL, queryError.getSqlState(), queryError.getErrorCode());
+                }
+            }
+            executingClient.set(client);
+            //client.currentData()
+            //WarningsManager warningsManager = new WarningsManager();
+            //currentWarningsManager.set(Optional.of(warningsManager));
+
+            //queryResult = TrinoResultSet.create(this, client, maxRows.get(), progressConsumer, warningsManager);
+
+            // check if this is a query
+            ArrowReader reader  = new SpooledResultReader(ArrowUtils.root(), client, segmentLoader, progressConsumer);
+            queryResult = new QueryResult(0, reader);
+            if (client.currentStatusInfo().getUpdateType() == null) {
+                //TODO create child allocator with useful name
+                //BufferAllocator allocator = ArrowUtils.root().newChildAllocator();
+
+                currentResult.set(queryResult);
+            }
+
+            // this is an update, not a query
+            while (queryResult.getReader().loadNextBatch()) {
+                // ignore rows
+            }
+
+            connection().updateSession(client);
+
+            Long updateCount = client.finalStatusInfo().getUpdateCount();
+            currentUpdateCount.set((updateCount != null) ? updateCount : 0);
+            currentUpdateType.set(client.finalStatusInfo().getUpdateType());
+            //warningsManager.addWarnings(client.finalStatusInfo().getWarnings());
+            return false;
+        }
+        catch (RuntimeException e) {
+            throw new AdbcException(e.getMessage(), e, AdbcStatusCode.INTERNAL, null, 0);
+        } catch (IOException e) {
+            throw AdbcException.io("failed to execute query").withCause(e);
+        } finally {
+            executingClient.set(null);
+            if (currentResult.get() == null) {
+                if (queryResult != null) {
+                    queryResult.close();
+                }
+                if (client != null) {
+                    client.close();
+                }
+            }
+        }
+    }
+
+    private void clearCurrentResults()
+    {
+        currentResult.set(null);
+        currentUpdateCount.set(-1);
+        currentUpdateType.set(null);
+       // currentWarningsManager.set(Optional.empty());
+    }
+
+    private Map<String, String> getStatementSessionProperties()
+    {
+        ImmutableMap.Builder<String, String> sessionProperties = ImmutableMap.builder();
+        if (queryTimeoutSeconds.get() > 0) {
+            sessionProperties.put("query_max_run_time", queryTimeoutSeconds.get() + "s");
+        }
+        return sessionProperties.buildOrThrow();
+    }
+
+    protected final TrinoConnection connection()
+            throws AdbcException
+    {
+        TrinoConnection connection = this.connection.get();
+        if (connection == null) {
+            throw AdbcException.invalidState("Statement is closed");
+        }
+        if (connection.isClosed()) {
+            throw AdbcException.invalidState("Connection is closed");
+        }
+        return connection;
     }
 
     @Override

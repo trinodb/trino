@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Properties;
 
 public class TrinoDriver implements AdbcDriver, Closeable {
+    public static final String USER_AGENT = "trino-adbc/0.0.1";
     private final Dispatcher dispatcher;
     private final ConnectionPool pool;
     public TrinoDriver() {
@@ -43,7 +44,7 @@ public class TrinoDriver implements AdbcDriver, Closeable {
             throw AdbcException.invalidArgument("failed to create driver uri: " + uri)
                     .withCause(e);
         }
-        OkHttpClient.Builder httpClientBuilder = HttpClientFactory.toHttpClientBuilder(uri, "trino-adbc/0.0.1");//TODO agent
+        OkHttpClient.Builder httpClientBuilder = HttpClientFactory.toHttpClientBuilder(uri, USER_AGENT);//TODO agent
         httpClientBuilder.connectionPool(pool);
         httpClientBuilder.dispatcher(dispatcher);
         OkHttpClient httpClient = httpClientBuilder.build();
