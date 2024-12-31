@@ -486,6 +486,14 @@ public class TestSqlParser
                 .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "0X123_ABC_DEF"))
                 .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(4893429231L));
 
+        assertThat(expression("-0x123_abc_def"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "-0x123_abc_def"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(-4893429231L));
+
+        assertThat(expression("-0X123_ABC_DEF"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "-0X123_ABC_DEF"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(-4893429231L));
+
         assertThatThrownBy(() -> SQL_PARSER.createExpression("0x123_ABC_DEF_"))
                 .isInstanceOf(ParsingException.class);
 
@@ -497,6 +505,14 @@ public class TestSqlParser
                 .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "0o012_345"))
                 .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(5349L));
 
+        assertThat(expression("-0O012_345"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "-0O012_345"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(-5349L));
+
+        assertThat(expression("-0o012_345"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "-0o012_345"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(-5349L));
+
         assertThatThrownBy(() -> SQL_PARSER.createExpression("0o012_345_"))
                 .isInstanceOf(ParsingException.class);
 
@@ -507,6 +523,14 @@ public class TestSqlParser
         assertThat(expression("0b110_010"))
                 .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "0b110_010"))
                 .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(50L));
+
+        assertThat(expression("-0B110_010"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "-0B110_010"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(-50L));
+
+        assertThat(expression("-0b110_010"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "-0b110_010"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(-50L));
 
         assertThatThrownBy(() -> SQL_PARSER.createExpression("0b110_010_"))
                 .isInstanceOf(ParsingException.class);
