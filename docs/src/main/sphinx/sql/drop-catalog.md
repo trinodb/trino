@@ -15,7 +15,7 @@ queries that use it, but makes it unavailable to any new queries.
 Some connectors are known not to release all resources when dropping a catalog
 that uses such connector. This includes all connectors that can read data from
 HDFS, S3, GCS, or Azure, which are [](/connector/hive),
-[](/connector/iceberg), [](/connector/delta-lake), and
+[](/connector/iceberg), [](/connector/delta-lake), [](/connector/paimon), and
 [](/connector/hudi).
 :::
 
