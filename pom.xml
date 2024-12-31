@@ -97,6 +97,7 @@
         <module>plugin/trino-openlineage</module>
         <module>plugin/trino-opensearch</module>
         <module>plugin/trino-oracle</module>
+        <module>plugin/trino-paimon</module>
         <module>plugin/trino-password-authenticators</module>
         <module>plugin/trino-phoenix5</module>
         <module>plugin/trino-pinot</module>
@@ -202,6 +203,7 @@
         <dep.httpcore5.version>5.3.1</dep.httpcore5.version>
         <dep.iceberg.version>1.7.1</dep.iceberg.version>
         <dep.jna.version>5.16.0</dep.jna.version>
+        <dep.paimon.version>1.0-SNAPSHOT</dep.paimon.version>
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
@@ -2053,6 +2055,12 @@
                 <artifactId>orc-format</artifactId>
                 <version>1.0.0</version>
                 <classifier>shaded-protobuf</classifier>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.paimon</groupId>
+                <artifactId>paimon-bundle</artifactId>
+                <version>${dep.paimon.version}</version>
             </dependency>
 
             <dependency>
