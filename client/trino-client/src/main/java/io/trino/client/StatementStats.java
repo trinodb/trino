@@ -43,6 +43,7 @@ public class StatementStats
     private final long queuedTimeMillis;
     private final long elapsedTimeMillis;
     private final long finishingTimeMillis;
+    private final long physicalInputTimeMillis;
     private final long processedRows;
     private final long processedBytes;
     private final long physicalInputBytes;
@@ -71,6 +72,7 @@ public class StatementStats
             @JsonProperty("queuedTimeMillis") long queuedTimeMillis,
             @JsonProperty("elapsedTimeMillis") long elapsedTimeMillis,
             @JsonProperty("finishingTimeMillis") long finishingTimeMillis,
+            @JsonProperty("physicalInputTimeMillis") long physicalInputTimeMillis,
             @JsonProperty("processedRows") long processedRows,
             @JsonProperty("processedBytes") long processedBytes,
             @JsonProperty("physicalInputBytes") long physicalInputBytes,
@@ -97,6 +99,7 @@ public class StatementStats
         this.queuedTimeMillis = queuedTimeMillis;
         this.elapsedTimeMillis = elapsedTimeMillis;
         this.finishingTimeMillis = finishingTimeMillis;
+        this.physicalInputTimeMillis = physicalInputTimeMillis;
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
         this.physicalInputBytes = physicalInputBytes;
@@ -210,6 +213,12 @@ public class StatementStats
     }
 
     @JsonProperty
+    public long getPhysicalInputTimeMillis()
+    {
+        return physicalInputTimeMillis;
+    }
+
+    @JsonProperty
     public long getProcessedRows()
     {
         return processedRows;
@@ -279,6 +288,7 @@ public class StatementStats
                 .add("queuedTimeMillis", queuedTimeMillis)
                 .add("elapsedTimeMillis", elapsedTimeMillis)
                 .add("finishingTimeMillis", finishingTimeMillis)
+                .add("physicalInputTimeMillis", physicalInputTimeMillis)
                 .add("processedRows", processedRows)
                 .add("processedBytes", processedBytes)
                 .add("physicalInputBytes", physicalInputBytes)
@@ -314,6 +324,7 @@ public class StatementStats
         private long queuedTimeMillis;
         private long elapsedTimeMillis;
         private long finishingTimeMillis;
+        private long physicalInputTimeMillis;
         private long processedRows;
         private long processedBytes;
         private long physicalInputBytes;
@@ -427,6 +438,12 @@ public class StatementStats
             return this;
         }
 
+        public Builder setPhysicalInputTimeMillis(long physicalInputTimeMillis)
+        {
+            this.physicalInputTimeMillis = physicalInputTimeMillis;
+            return this;
+        }
+
         public Builder setProcessedRows(long processedRows)
         {
             this.processedRows = processedRows;
@@ -495,6 +512,7 @@ public class StatementStats
                     queuedTimeMillis,
                     elapsedTimeMillis,
                     finishingTimeMillis,
+                    physicalInputTimeMillis,
                     processedRows,
                     processedBytes,
                     physicalInputBytes,

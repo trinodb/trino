@@ -252,6 +252,7 @@ public class TestQueryDataSerialization
                     "queuedTimeMillis": 0,
                     "elapsedTimeMillis": 0,
                     "finishingTimeMillis": 0,
+                    "physicalInputTimeMillis": 0,
                     "processedRows": 0,
                     "processedBytes": 0,
                     "physicalInputBytes": 0,

@@ -189,6 +189,7 @@ public final class ProtocolUtil
                 .setQueuedTimeMillis(queryStats.getQueuedTime().toMillis())
                 .setElapsedTimeMillis(queryStats.getElapsedTime().toMillis())
                 .setFinishingTimeMillis(queryStats.getFinishingTime().toMillis())
+                .setPhysicalInputTimeMillis(queryStats.getPhysicalInputReadTime().toMillis())
                 .setProcessedRows(queryStats.getRawInputPositions())
                 .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
                 .setPhysicalInputBytes(queryStats.getPhysicalInputDataSize().toBytes())

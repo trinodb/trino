@@ -39,6 +39,7 @@ public final class QueryStats
     private final long queuedTimeMillis;
     private final long elapsedTimeMillis;
     private final long finishingTimeMillis;
+    private final long physicalInputTimeMillis;
     private final long processedRows;
     private final long processedBytes;
     private final long peakMemoryBytes;
@@ -65,6 +66,7 @@ public final class QueryStats
             long queuedTimeMillis,
             long elapsedTimeMillis,
             long finishingTimeMillis,
+            long physicalInputTimeMillis,
             long processedRows,
             long processedBytes,
             long peakMemoryBytes,
@@ -90,6 +92,7 @@ public final class QueryStats
         this.queuedTimeMillis = queuedTimeMillis;
         this.elapsedTimeMillis = elapsedTimeMillis;
         this.finishingTimeMillis = finishingTimeMillis;
+        this.physicalInputTimeMillis = physicalInputTimeMillis;
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
         this.peakMemoryBytes = peakMemoryBytes;
@@ -119,6 +122,7 @@ public final class QueryStats
                 stats.getQueuedTimeMillis(),
                 stats.getElapsedTimeMillis(),
                 stats.getFinishingTimeMillis(),
+                stats.getPhysicalInputTimeMillis(),
                 stats.getProcessedRows(),
                 stats.getProcessedBytes(),
                 stats.getPeakMemoryBytes(),
@@ -211,6 +215,11 @@ public final class QueryStats
     public long getFinishingTimeMillis()
     {
         return finishingTimeMillis;
+    }
+
+    public long getPhysicalInputTimeMillis()
+    {
+        return physicalInputTimeMillis;
     }
 
     public long getProcessedRows()

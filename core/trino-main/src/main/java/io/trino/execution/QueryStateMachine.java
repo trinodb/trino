@@ -563,6 +563,7 @@ public class QueryStateMachine
                 stageStats.getTotalScheduledTime(),
                 stageStats.getFailedScheduledTime(),
                 queryStateTimer.getFinishingTime(),
+                stageStats.getPhysicalInputReadTime(),
 
                 stageStats.isFullyBlocked(),
                 stageStats.getBlockedReasons(),

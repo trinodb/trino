@@ -150,6 +150,7 @@ public class MockManagedQueryExecution
                         new Duration(24, NANOSECONDS),
                         new Duration(25, NANOSECONDS),
                         new Duration(26, NANOSECONDS),
+                        new Duration(27, NANOSECONDS),
                         false,
                         ImmutableSet.of(),
                         OptionalDouble.empty(),

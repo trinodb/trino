@@ -71,6 +71,7 @@ public class BasicQueryStats
     private final Duration totalScheduledTime;
     private final Duration failedScheduledTime;
     private final Duration finishingTime;
+    private final Duration physicalInputReadTime;
 
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
@@ -110,6 +111,7 @@ public class BasicQueryStats
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("failedScheduledTime") Duration failedScheduledTime,
             @JsonProperty("finishingTime") Duration finishingTime,
+            @JsonProperty("physicalInputReadTime") Duration physicalInputReadTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
             @JsonProperty("progressPercentage") OptionalDouble progressPercentage,
@@ -156,6 +158,7 @@ public class BasicQueryStats
         this.totalScheduledTime = totalScheduledTime;
         this.failedScheduledTime = failedScheduledTime;
         this.finishingTime = finishingTime;
+        this.physicalInputReadTime = physicalInputReadTime;
 
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
@@ -196,6 +199,7 @@ public class BasicQueryStats
                 queryStats.getTotalScheduledTime(),
                 queryStats.getFailedScheduledTime(),
                 queryStats.getFinishingTime(),
+                queryStats.getPhysicalInputReadTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),
                 queryStats.getProgressPercentage(),
@@ -229,6 +233,7 @@ public class BasicQueryStats
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
+                new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -420,6 +425,12 @@ public class BasicQueryStats
     public Duration getFinishingTime()
     {
         return finishingTime;
+    }
+
+    @JsonProperty
+    public Duration getPhysicalInputReadTime()
+    {
+        return physicalInputReadTime;
     }
 
     @JsonProperty
