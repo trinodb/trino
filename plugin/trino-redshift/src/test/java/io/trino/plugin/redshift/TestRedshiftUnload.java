@@ -40,7 +40,6 @@ import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.tpch.TpchTable.NATION;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -68,7 +67,7 @@ final class TestRedshiftUnload
                                 "s3.region", AWS_REGION,
                                 "s3.aws-access-key", AWS_ACCESS_KEY,
                                 "s3.aws-secret-key", AWS_SECRET_KEY))
-                .setInitialTables(List.of(NATION))
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 
