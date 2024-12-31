@@ -260,7 +260,8 @@ public class FakerMetadata
                         oldInfo.properties().entrySet().stream()
                                 .filter(entry -> !properties.containsKey(entry.getKey())),
                         properties.entrySet().stream()
-                                .filter(entry -> entry.getValue().isPresent()))
+                                .filter(entry -> entry.getValue().isPresent())
+                                .map(entry -> Map.entry(entry.getKey(), entry.getValue().get())))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         tables.put(tableName, oldInfo.withProperties(newProperties));
     }
