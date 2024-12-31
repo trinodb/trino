@@ -29,7 +29,7 @@ import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.jdbc.QueryStats;
+import io.trino.client.QueryStats;
 import io.trino.jdbc.TrinoConnection;
 import io.trino.jdbc.TrinoStatement;
 import io.trino.spi.type.SqlVarbinary;

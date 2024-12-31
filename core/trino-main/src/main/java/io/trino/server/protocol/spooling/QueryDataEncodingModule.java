@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.server.protocol.spooling.encoding.arrow.ArrowIPCQueryDataEncoder;
 import io.trino.server.protocol.spooling.encoding.JsonQueryDataEncoder;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -40,6 +41,10 @@ public class QueryDataEncodingModule
         if (config.isJsonLz4Enabled()) {
             encoderFactories.addBinding().to(JsonQueryDataEncoder.Lz4Factory.class).in(Scopes.SINGLETON);
         }
+        if(config.isArrowEnabled()){
+            encoderFactories.addBinding().to(ArrowIPCQueryDataEncoder.Factory.class).in(Scopes.SINGLETON);
+        }
+        //TODO compression for arrow. consider making compression and base formats separate and composable
         binder.bind(QueryDataEncoders.class).in(Scopes.SINGLETON);
     }
 }

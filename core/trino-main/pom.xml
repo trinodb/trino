@@ -241,6 +241,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-arrow</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-cache</artifactId>
         </dependency>
 

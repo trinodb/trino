@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
+        <version>469-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>trino-adbc</artifactId>
+    <description>Trino - ADBC driver</description>
+
+    <properties>
+        <project.build.targetJdk>8</project.build.targetJdk>
+        <shadeBase>io.trino.adbc.\$internal</shadeBase>
+    </properties>
+
+    <dependencies>
+
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+            <!-- JDK8 support dropped by version 3.0.0+ -->
+            <version>2.1.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.arrow.adbc</groupId>
+            <artifactId>adbc-core</artifactId>
+            <version>0.15.0</version>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <filtering>true</filtering>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>io/trino/jdbc/driver.properties</include>
+                </includes>
+            </resource>
+            <resource>
+                <filtering>false</filtering>
+                <directory>src/main/resources</directory>
+                <excludes>
+                    <exclude>io/trino/jdbc/driver.properties</exclude>
+                </excludes>
+            </resource>
+        </resources>
+
+        <pluginManagement>
+            <plugins>
+                <!-- TODO: move this to Airbase -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <configuration>
+                        <propertiesEncoding>ISO-8859-1</propertiesEncoding>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <configuration>
+                        <rules>
+                            <requireUpperBoundDeps>
+                                <excludes combine.children="append">
+                                    <exclude>io.airlift:units</exclude>
+                                </excludes>
+                            </requireUpperBoundDeps>
+                            <enforceBytecodeVersion>
+                                <excludes combine.children="append">
+                                    <!-- Used reflectively on JDK22+ for native decompression -->
+                                    <exclude>io.airlift:aircompressor-v3</exclude>
+                                </excludes>
+                            </enforceBytecodeVersion>
+                        </rules>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <createSourcesJar>true</createSourcesJar>
+                            <shadeSourcesContent>true</shadeSourcesContent>
+                            <relocations>
+                                <relocation>
+                                    <pattern>io.trino.client</pattern>
+                                    <shadedPattern>${shadeBase}.client</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.opentelemetry.instrumentation.okhttp.v3_0</pattern>
+                                    <shadedPattern>${shadeBase}.opentelemetry.okhttp.v3_0</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.fasterxml.jackson</pattern>
+                                    <shadedPattern>${shadeBase}.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.common</pattern>
+                                    <shadedPattern>${shadeBase}.guava</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.thirdparty</pattern>
+                                    <shadedPattern>${shadeBase}.guava</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.airlift</pattern>
+                                    <shadedPattern>${shadeBase}.airlift</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>jakarta.annotation</pattern>
+                                    <shadedPattern>${shadeBase}.jakarta.annotation</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>net.bytebuddy</pattern>
+                                    <shadedPattern>${shadeBase}.net.bytebuddy</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.joda.time</pattern>
+                                    <shadedPattern>${shadeBase}.joda.time</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>okhttp3</pattern>
+                                    <shadedPattern>${shadeBase}.okhttp3</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>okio</pattern>
+                                    <shadedPattern>${shadeBase}.okio</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>dev.failsafe</pattern>
+                                    <shadedPattern>${shadeBase}.dev.failsafe</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>kotlin</pattern>
+                                    <shadedPattern>${shadeBase}.kotlin</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <filters>
+                                <filter>
+                                    <artifact>io.airlift:units</artifact>
+                                    <excludes>
+                                        <exclude>ValidationMessages.properties</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>org/jetbrains/**</exclude>
+                                        <exclude>org/intellij/**</exclude>
+                                        <exclude>com/google/errorprone/**</exclude>
+                                        <exclude>META-INF/maven/**</exclude>
+                                        <exclude>META-INF/licenses/**</exclude>
+                                        <exclude>META-INF/services/com.fasterxml.**</exclude>
+                                        <exclude>META-INF/proguard/**</exclude>
+                                        <exclude>LICENSE</exclude>
+                                        <exclude>META-INF/**.kotlin_module</exclude>
+                                        <exclude>META-INF/versions/**</exclude>
+                                        <exclude>META-INF/NOTICE**</exclude>
+                                        <exclude>META-INF/*-NOTICE</exclude>
+                                        <exclude>META-INF/*-LICENSE</exclude>
+                                        <exclude>META-INF/LICENSE**</exclude>
+                                        <exclude>META-INF/io/opentelemetry/**</exclude>
+                                        <exclude>io/opentelemetry/semconv/**</exclude>
+                                        <exclude>META-INF/native-image/**</exclude>
+                                        <exclude>META-INF/kotlin-project-structure-metadata.json</exclude>
+                                        <exclude>**/*.knm</exclude>
+                                        <exclude>**/manifest</exclude>
+                                        <exclude>**/module</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>ci</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <adbc-jar>${project.build.directory}/${project.name}-${project.version}.jar</adbc-jar>
+                            </systemPropertyVariables>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

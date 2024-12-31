@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.jdbc;
+package io.trino.client;
 
 import java.util.Map;
 import java.util.Optional;
@@ -21,7 +21,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
-enum ClientInfoProperty
+public enum ClientInfoProperty
 {
     APPLICATION_NAME("ApplicationName"),
     CLIENT_INFO("ClientInfo"),

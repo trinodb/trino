@@ -122,6 +122,17 @@ final class ShortTimeWithTimeZoneType
     }
 
     @Override
+    public Object getObject(Block block, int position)
+    {
+        if (block.isNull(position)) {
+            return null;
+        }
+
+        long value = getLong(block, position);
+        return SqlTimeWithTimeZone.newInstance(getPrecision(), unpackTimeNanos(value) * PICOSECONDS_PER_NANOSECOND, unpackOffsetMinutes(value));
+    }
+
+    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {

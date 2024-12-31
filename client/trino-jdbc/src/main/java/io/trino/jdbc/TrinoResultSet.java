@@ -15,6 +15,7 @@ package io.trino.jdbc;
 
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.client.Column;
+import io.trino.client.QueryStats;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
 

@@ -11,9 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.jdbc;
-
-import io.trino.client.StatementStats;
+package io.trino.client;
 
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -99,7 +97,7 @@ public final class QueryStats
         this.rootStage = requireNonNull(rootStage, "rootStage is null");
     }
 
-    static QueryStats create(String queryId, StatementStats stats)
+    public static QueryStats create(String queryId, StatementStats stats)
     {
         return new QueryStats(
                 queryId,
@@ -125,7 +123,8 @@ public final class QueryStats
                 stats.getPhysicalInputBytes(),
                 stats.getPhysicalWrittenBytes(),
                 stats.getInternalNetworkInputBytes(),
-                Optional.ofNullable(stats.getRootStage()).map(StageStats::create));
+                Optional.ofNullable(stats.getRootStage()));
+
     }
 
     public String getQueryId()

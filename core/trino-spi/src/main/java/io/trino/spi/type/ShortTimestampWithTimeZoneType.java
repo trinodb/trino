@@ -122,6 +122,17 @@ final class ShortTimestampWithTimeZoneType
     }
 
     @Override
+    public Object getObject(Block block, int position)
+    {
+        if (block.isNull(position)) {
+            return null;
+        }
+
+        long value = getLong(block, position);
+        return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(value), 0, unpackZoneKey(value));
+    }
+
+    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {
