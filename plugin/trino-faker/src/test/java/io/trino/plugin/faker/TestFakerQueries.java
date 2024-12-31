@@ -408,6 +408,10 @@ final class TestFakerQueries
     {
         assertUpdate("CREATE TABLE faker.default.original_table (id INTEGER, name VARCHAR)");
         assertUpdate("ALTER TABLE faker.default.original_table RENAME TO faker.default.renamed_table");
+        // original_table should not exist anymore after renaming.
+        assertQueryFails("DESC faker.default.original_table", "line 1:1: Table 'faker.default.original_table' does not exist");
+        // should not allow renaming to an already existing table.
+        assertQueryFails("ALTER TABLE faker.default.renamed_table RENAME TO faker.default.renamed_table", "line 1:1: Target table 'faker.default.renamed_table' already exists");
         assertUpdate("DROP TABLE faker.default.renamed_table");
     }
 }
