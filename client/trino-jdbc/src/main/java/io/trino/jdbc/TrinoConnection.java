@@ -172,7 +172,7 @@ public class TrinoConnection
         uri.getExplicitPrepare().ifPresent(value -> this.useExplicitPrepare = value);
         uri.getAssumeNullCatalogMeansCurrentCatalog().ifPresent(value -> this.assumeNullCatalogMeansCurrentCatalog = value);
 
-        validateConnection = uri.isValidateConnection();
+        this.validateConnection = uri.isValidateConnection();
         if (validateConnection) {
             try {
                 if (!validateCredentials(CONNECTION_TIMEOUT_SECONDS)) {
@@ -186,7 +186,7 @@ public class TrinoConnection
     }
 
     private boolean validateCredentials(int timeout)
-            throws IOException
+            throws IOException, UnsupportedOperationException
     {
         HttpUrl url = HttpUrl.get(httpUri);
         url = url.newBuilder().encodedPath("/v1/statement").build();
@@ -216,18 +216,18 @@ public class TrinoConnection
                     case HTTP_BAD_METHOD:
                         throw new UnsupportedOperationException("Target server does not support HEAD /v1/statement");
                     default:
-                        throw new IOException(format("Unexpected HTTP status code %d returned from HEAD " +
+                        throw new IOException(format("Unexpected HTTP status code %d returned for HEAD " +
                                 "/v1/statement", response.code()));
                 }
             }
-            catch (IOException ioe) {
-                if (getCausalChain(ioe).stream()
-                        .anyMatch(e -> (e instanceof InterruptedIOException
-                                || e instanceof ProtocolException))) {
-                    lastException = ioe;
+            catch (IOException e) {
+                if (getCausalChain(e).stream()
+                        .anyMatch(th -> th instanceof InterruptedIOException && th.getMessage().equals("timeout")
+                                || th instanceof ProtocolException)) {
+                    lastException = e;
                 }
                 else {
-                    throw ioe;
+                    throw e;
                 }
             }
 
@@ -624,9 +624,8 @@ public class TrinoConnection
             return validateCredentials(timeout);
         }
         catch (UnsupportedOperationException e) {
-            // Backward compatible with older Trino server
             logger.log(Level.FINE, "Remote server does not support validating connection.", e);
-            return true;
+            return false;
         }
         catch (IOException e) {
             logger.log(Level.FINE, "Validating connection failed.", e);

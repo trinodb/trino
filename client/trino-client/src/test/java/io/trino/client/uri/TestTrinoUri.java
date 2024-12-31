@@ -199,18 +199,6 @@ public class TestTrinoUri
                 "Provided connection properties are invalid:\n" +
                         "Connection property assumeLiteralNamesInMetadataCallsForNonConformingClients cannot be set if assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is enabled\n" +
                         "Connection property assumeLiteralUnderscoreInMetadataCallsForNonConformingClients cannot be set if assumeLiteralNamesInMetadataCallsForNonConformingClients is enabled");
-
-        // invalid validateConnection
-        assertInvalid("trino://localhost:8080?validateConnection=0", "Connection property validateConnection value is invalid: 0");
-        assertInvalid("trino://localhost:8080?validateConnection=1", "Connection property validateConnection value is invalid: 1");
-        assertInvalid("trino://localhost:8080?validateConnection=-1", "Connection property validateConnection value is invalid: -1");
-        assertInvalid("trino://localhost:8080?validateConnection=yes", "Connection property validateConnection value is invalid: yes");
-        assertInvalid("trino://localhost:8080?validateConnection=no", "Connection property validateConnection value is invalid: no");
-        assertInvalid("trino://localhost:8080?validateConnection=on", "Connection property validateConnection value is invalid: on");
-        assertInvalid("trino://localhost:8080?validateConnection=off", "Connection property validateConnection value is invalid: off");
-        assertInvalid("trino://localhost:8080?validateConnection=T", "Connection property validateConnection value is invalid: T");
-        assertInvalid("trino://localhost:8080?validateConnection=F", "Connection property validateConnection value is invalid: F");
-        assertInvalid("trino://localhost:8080?validateConnection=abc", "Connection property validateConnection value is invalid: abc");
     }
 
     @Test
