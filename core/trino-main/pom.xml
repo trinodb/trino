@@ -337,7 +337,7 @@
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-analysis-common</artifactId>
-            <version>10.0.0</version>
+            <version>10.1.0</version>
         </dependency>
 
         <dependency>
