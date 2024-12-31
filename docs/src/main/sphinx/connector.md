@@ -22,6 +22,7 @@ Google Sheets   <connector/googlesheets>
 Hive            <connector/hive>
 Hudi            <connector/hudi>
 Iceberg         <connector/iceberg>
+Paimon          <connector/paimon>
 Ignite          <connector/ignite>
 JMX             <connector/jmx>
 Kafka           <connector/kafka>

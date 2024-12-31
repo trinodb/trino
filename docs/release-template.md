@@ -40,6 +40,8 @@
 
 ## Iceberg connector
 
+## Paimon connector
+
 ## Ignite connector
 
 ## JMX connector
