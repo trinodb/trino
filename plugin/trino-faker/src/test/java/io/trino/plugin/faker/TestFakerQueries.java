@@ -447,4 +447,14 @@ final class TestFakerQueries
             return "%s %s NOT NULL%s".formatted(name, type, propertiesSchema.isEmpty() ? "" : " WITH (%s)".formatted(propertiesSchema));
         }
     }
+
+    @Test
+    void testSetTableProperties()
+    {
+        try (TestTable table = newTrinoTable("set_table_properties", "(id INTEGER, name VARCHAR)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES default_limit = 100");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("default_limit = 100");
+        }
+    }
 }
