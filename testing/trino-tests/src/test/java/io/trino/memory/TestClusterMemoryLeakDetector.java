@@ -109,6 +109,7 @@ public class TestClusterMemoryLeakDetector
                         new Duration(34, MINUTES),
                         new Duration(35, MINUTES),
                         new Duration(36, MINUTES),
+                        new Duration(37, MINUTES),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
                         OptionalDouble.of(20),
