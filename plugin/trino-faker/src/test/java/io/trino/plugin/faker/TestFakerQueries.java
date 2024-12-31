@@ -402,4 +402,15 @@ final class TestFakerQueries
             return "%s %s NOT NULL%s".formatted(name, type, propertiesSchema.isEmpty() ? "" : " WITH (%s)".formatted(propertiesSchema));
         }
     }
+
+    @Test
+    void testSetTableProperties()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "set_table_properties", "(id INTEGER, name VARCHAR)")) {
+            assertUpdate("ALTER TABLE %s SET PROPERTIES default_limit = 100".formatted(table.getName()));
+            assertQueryFails("ALTER TABLE %s SET PROPERTIES invalid_property = true".formatted(table.getName()), "(?s).*Catalog 'faker' table property 'invalid_property' does not exist");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("default_limit = 100");
+        }
+    }
 }

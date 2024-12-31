@@ -57,7 +57,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -256,13 +255,18 @@ public class FakerMetadata
         SchemaTableName tableName = handle.schemaTableName();
 
         TableInfo oldInfo = tables.get(tableName);
-        Map<String, Object> newProperties = Stream.concat(
-                        oldInfo.properties().entrySet().stream()
-                                .filter(entry -> !properties.containsKey(entry.getKey())),
-                        properties.entrySet().stream()
-                                .filter(entry -> entry.getValue().isPresent()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        tables.put(tableName, oldInfo.withProperties(newProperties));
+        ImmutableMap.Builder updatedProperties = ImmutableMap.<String, Object>builder().putAll(oldInfo.properties());
+        if (properties.containsKey(TableInfo.DEFAULT_LIMIT_PROPERTY)) {
+            long defaultLimit = (long) properties.get(TableInfo.DEFAULT_LIMIT_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The default_limit property cannot be empty"));
+            updatedProperties.put(TableInfo.DEFAULT_LIMIT_PROPERTY, defaultLimit);
+        }
+        if (properties.containsKey(TableInfo.NULL_PROBABILITY_PROPERTY)) {
+            double nullProbability = (double) properties.get(TableInfo.NULL_PROBABILITY_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The null_probability property cannot be empty"));
+            updatedProperties.put(TableInfo.NULL_PROBABILITY_PROPERTY, nullProbability);
+        }
+        tables.put(tableName, oldInfo.withProperties(updatedProperties.buildOrThrow()));
     }
 
     @Override
