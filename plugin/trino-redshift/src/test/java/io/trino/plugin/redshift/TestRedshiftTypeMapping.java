@@ -17,6 +17,7 @@ import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -658,8 +659,9 @@ public class TestRedshiftTypeMapping
 
         // The max timestamp with time zone value in Redshift is larger than Trino
         try (TestTable table = new TestTable(getRedshiftExecutor(), TEST_SCHEMA + ".timestamp_tz_max", "(ts timestamptz)", ImmutableList.of("TIMESTAMP '294276-12-31 23:59:59' AT TIME ZONE 'UTC'"))) {
-            assertThat(query("SELECT * FROM " + table.getName()))
-                    .failure().hasMessage("Millis overflow: 9224318015999000");
+            assertThatThrownBy(() -> computeActual("SELECT * FROM " + table.getName()))
+                    .isInstanceOf(QueryFailedException.class)
+                    .hasMessage("Millis overflow: 9224318015999000");
         }
     }
 
