@@ -27,16 +27,16 @@ the following steps:
 The following snippet shows pseudo-code:
 
 ```text
-  FUNCTION python_udf_name(input_parameter data_type)
-    RETURNS result_data_type
-    LANGUAGE PYTHON
-    WITH (handler = 'python_function')
-    AS $$
-    ...
-    def python_function(input):
-        return ...
-    ...
-    $$
+FUNCTION python_udf_name(input_parameter data_type)
+  RETURNS result_data_type
+  LANGUAGE PYTHON
+  WITH (handler = 'python_function')
+  AS $$
+  ...
+  def python_function(input):
+      return ...
+  ...
+  $$
 ```
 
 A minimal example declares the UDF `doubleup` that returns the input integer
@@ -97,15 +97,15 @@ not available within a Python UDF:
 * `multiprocessing`
 * `pdb`
 * `pydoc`
-* `socketserver*`
+* `socketserver`
 * `sqlite3`
 * `ssl`
-* `subprocess*`
+* `subprocess`
 * `tkinter`
-* `turtle*`
+* `turtle`
 * `unittest`
 * `venv`
-* `webbrowser*`
+* `webbrowser`
 * `wsgiref`
 * `xmlrpc`
 
@@ -114,68 +114,69 @@ not available within a Python UDF:
 The following table shows supported Trino types and their corresponding Python
 types for input and output values of a Python UDF:
 
-:::{list-table} File system support properties
-:widths: 50, 50
+:::{list-table}
+:widths: 40, 60
 :header-rows: 1
 
 * - Trino type
   - Python type
-* - row
-  - tuple
-* - array
-  - list
-* - map
-  - dict
-* - boolean
-  - bool
-* - tinyint
-  - int
-* - smallint
-  - int
-* - integer
-  - int
-* - bigint
-  - int
-* - real
-  - float
-* - double
-  - float
-* - decimal
-  - decimal.Decimal
-* - varchar
-  - str
-* - varbinary
-  - bytes
-* - date
-  - datetime.date
-* - time
-  - datetime.time
-* - time with time zone
-  - datetime.time with datetime.tzinfo
-* - timestamp
-  - datetime.datetime
-* - timestamp with time zone
-  - datetime.datetime with datetime.tzinfo 1
-* - interval year to month
-  - int as the number of months
-* - interval day to second
-  - datetime.timedelta
-* - json
-  - str
-* - uuid
-  - uuid.UUID
-* - ipaddress
-  - ipaddress.IPv4Address or ipaddress.IPv6Address
+* - `ROW`
+  - `tuple`
+* - `ARRAY`
+  - `list`
+* - `MAP`
+  - `dict`
+* - `BOOLEAN`
+  - `bool`
+* - `TINYINT`
+  - `int`
+* - `SMALLINT`
+  - `int`
+* - `INTEGER`
+  - `int`
+* - `BIGINT`
+  - `int`
+* - `REAL`
+  - `float`
+* - `DOUBLE`
+  - `float`
+* - `DECIMAL`
+  - `decimal.Decimal`
+* - `VARCHAR`
+  - `str`
+* - `VARBINARY`
+  - `bytes`
+* - `DATE`
+  - `datetime.date`
+* - `TIME`
+  - `datetime.time`
+* - `TIME WITH TIME ZONE`
+  - `datetime.time` with `datetime.tzinfo`
+* - `TIMESTAMP`
+  - `datetime.datetime`
+* - `TIMESTAMP WITH TIME ZONE`
+  - `datetime.datetime` with `datetime.tzinfo`
+* - `INTERVAL YEAR TO MONTH`
+  - `int` as the number of months
+* - `INTERVAL DAY TO SECOND`
+  - `datetime.timedelta`
+* - `JSON`
+  - `str`
+* - `UUID`
+  - `uuid.UUID`
+* - `IPADDRESS`
+  - `ipaddress.IPv4Address` or `ipaddress.IPv6Address`
 
 :::
 
-### Date and time
+### Time and timestamp
 
-Python datetime objects only support microsecond precision. Trino argument
-values with greater precision arerounded when converted to Python values, and
-Python return values are rounded if the Trino return type has less than
-microsecond precision.
+Python `datetime` and `time` objects only support microsecond precision.
+Trino argument values with greater precision are rounded when converted to
+Python values, and Python return values are rounded if the Trino return type
+has less than microsecond precision.
+
+### Timestamp with time zone
 
 Only fixed offset time zones are supported. Timestamps with political time zones
 have the zone converted to the zone's offset for the timestamp's instant.
-
