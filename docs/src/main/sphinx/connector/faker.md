@@ -30,9 +30,9 @@ reading from tables returns random, but deterministic data. As a result,
 repeated invocation of a query returns identical data. See [](faker-usage) for
 more examples.
 
-Schemas and tables in a catalog are not persisted, and are stored in the memory
-of the coordinator only. They need to be recreated every time after restarting
-the coordinator.
+Schemas, tables, and views in a catalog are not persisted, and are stored in the
+memory of the coordinator only. They need to be recreated every time after
+restarting the coordinator.
 
 The following table details all general configuration properties:
 
