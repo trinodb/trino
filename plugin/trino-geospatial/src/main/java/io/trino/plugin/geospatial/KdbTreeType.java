@@ -29,6 +29,7 @@ import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
@@ -49,7 +50,7 @@ public final class KdbTreeType
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
     public static final KdbTreeType KDB_TREE = new KdbTreeType();
-    public static final String NAME = "KdbTree";
+    public static final String NAME = StandardTypes.KDB_TREE;
 
     private KdbTreeType()
     {

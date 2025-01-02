@@ -48,6 +48,7 @@ public final class ClientStandardTypes
     public static final String GEOMETRY = "Geometry";
     public static final String SPHERICAL_GEOGRAPHY = "SphericalGeography";
     public static final String BING_TILE = "BingTile";
+    public static final String KDB_TREE = "KdbTree";
 
     private ClientStandardTypes() {}
 }
