@@ -95,7 +95,7 @@ public class IcebergModule
 
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, Key.get(ConnectorPageSourceProviderFactory.class, ForClassLoaderSafe.class)).setDefault().to(IcebergPageSourceProviderFactory.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSourceProviderFactory.class).annotatedWith(ForClassLoaderSafe.class).to(IcebergPageSourceProviderFactory.class).in(Scopes.SINGLETON);
         binder.bind(IcebergPageSourceProviderFactory.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSourceProviderFactory.class).to(ClassLoaderSafeConnectorPageSourceProviderFactory.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).annotatedWith(ForClassLoaderSafe.class).to(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
