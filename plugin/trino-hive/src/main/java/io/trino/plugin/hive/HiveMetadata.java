@@ -109,7 +109,6 @@ import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
-import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
@@ -414,7 +413,6 @@ public class HiveMetadata
     private final boolean hideDeltaLakeTables;
     private final String trinoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
-    private final HiveRedirectionsProvider hiveRedirectionsProvider;
     private final Set<SystemTableProvider> systemTableProviders;
     private final AccessControlMetadata accessControlMetadata;
     private final DirectoryLister directoryLister;
@@ -442,7 +440,6 @@ public class HiveMetadata
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             String trinoVersion,
             HiveStatisticsProvider hiveStatisticsProvider,
-            HiveRedirectionsProvider hiveRedirectionsProvider,
             Set<SystemTableProvider> systemTableProviders,
             AccessControlMetadata accessControlMetadata,
             DirectoryLister directoryLister,
@@ -469,7 +466,6 @@ public class HiveMetadata
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
-        this.hiveRedirectionsProvider = requireNonNull(hiveRedirectionsProvider, "hiveRedirectionsProvider is null");
         this.systemTableProviders = requireNonNull(systemTableProviders, "systemTableProviders is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
@@ -3254,12 +3250,6 @@ public class HiveMetadata
                 Optional.of(columnProjectionInfo),
                 column.getColumnType(),
                 column.getComment());
-    }
-
-    @Override
-    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return hiveRedirectionsProvider.getTableScanRedirection(session, (HiveTableHandle) tableHandle);
     }
 
     @Override
