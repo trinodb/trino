@@ -41,7 +41,6 @@ import static io.trino.geospatial.GeometryUtils.isPointOrRectangle;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.geospatial.serde.GeometrySerde.serialize;
 import static io.trino.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
-import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -331,7 +330,7 @@ public final class BingTileFunctions
 
     @Description("Given a Bing tile, returns the polygon representation of the tile")
     @ScalarFunction("bing_tile_polygon")
-    @SqlType(GEOMETRY_TYPE_NAME)
+    @SqlType(StandardTypes.GEOMETRY)
     public static Slice bingTilePolygon(@SqlType(StandardTypes.BING_TILE) long input)
     {
         BingTile tile = BingTile.decode(input);
@@ -342,7 +341,7 @@ public final class BingTileFunctions
     @Description("Given a geometry and a zoom level, returns the minimum set of Bing tiles that fully covers that geometry")
     @ScalarFunction("geometry_to_bing_tiles")
     @SqlType("array(" + StandardTypes.BING_TILE + ")")
-    public static Block geometryToBingTiles(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(StandardTypes.INTEGER) long zoomLevelInput)
+    public static Block geometryToBingTiles(@SqlType(StandardTypes.GEOMETRY) Slice input, @SqlType(StandardTypes.INTEGER) long zoomLevelInput)
     {
         checkZoomLevel(zoomLevelInput);
 
