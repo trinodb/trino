@@ -212,49 +212,6 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.returnTypeTypeParametersChanged</code>
-                                    <old>method java.lang.Iterable&lt;io.trino.spi.protocol.SpoolingManagerFactory&gt; io.trino.spi.Plugin::getSpoolingManagerFactories()</old>
-                                    <new>method java.lang.Iterable&lt;io.trino.spi.spool.SpoolingManagerFactory&gt; io.trino.spi.Plugin::getSpoolingManagerFactories()</new>
-                                    <justification>Spooling package renamed</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.class.removed</code>
-                                    <old>interface io.trino.spi.protocol.SpoolingManager</old>
-                                    <justification>Spooling package renamed</justification>
-                                </item>
-                                <item>
-                                    <code>java.method.noLongerDefault</code>
-                                    <old>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</old>
-                                    <new>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</new>
-                                    <justification>Old variant was removed and this becomes the new non-default one</justification>
-                                </item>
-                                <item>
-                                    <code>java.method.nowAbstract</code>
-                                    <old>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</old>
-                                    <new>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</new>
-                                    <justification>Old variant was removed and this becomes the new non-default one</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method io.trino.spi.eventlistener.EventListener io.trino.spi.eventlistener.EventListenerFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;)</old>
-                                    <new>method io.trino.spi.eventlistener.EventListener io.trino.spi.eventlistener.EventListenerFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.eventlistener.EventListenerFactory.EventListenerContext)</new>
-                                    <justification>Added EventListenerContext</justification>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.connector.ConnectorTableHandle io.trino.spi.connector.ConnectorMetadata::makeCompatiblePartitioning(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorPartitioningHandle)</old>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Optional&lt;java.lang.String&gt;)</old>
-                                    <new>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferMetrics&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Optional&lt;java.lang.String&gt;)</new>
-                                    <justification>Added output buffer metrics</justification>
-                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
