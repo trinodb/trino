@@ -23,11 +23,10 @@ public class BingTileType
         extends AbstractLongType
 {
     public static final BingTileType BING_TILE = new BingTileType();
-    public static final String NAME = StandardTypes.BING_TILE;
 
     private BingTileType()
     {
-        super(new TypeSignature(NAME));
+        super(new TypeSignature(StandardTypes.BING_TILE));
     }
 
     @Override
