@@ -471,11 +471,9 @@ public class JsonPathAnalyzer
         @Override
         protected Type visitLikeRegexPredicate(LikeRegexPredicate node, Void context)
         {
-            throw semanticException(NOT_SUPPORTED, pathNode, "like_regex predicate in JSON path is not yet supported");
-            // TODO when like_regex is supported, this method should do the following:
-            // process(node.getPath());
-            // types.put(PathNodeRef.of(node), BOOLEAN);
-            // return BOOLEAN;
+            process(node.getPath());
+            types.put(PathNodeRef.of(node), BOOLEAN);
+            return BOOLEAN;
         }
 
         @Override

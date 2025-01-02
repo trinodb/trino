@@ -21,7 +21,15 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public sealed interface IrPredicate
         extends IrPathNode
-        permits IrComparisonPredicate, IrConjunctionPredicate, IrDisjunctionPredicate, IrExistsPredicate, IrIsUnknownPredicate, IrNegationPredicate, IrStartsWithPredicate
+        permits
+        IrComparisonPredicate,
+        IrConjunctionPredicate,
+        IrDisjunctionPredicate,
+        IrExistsPredicate,
+        IrIsUnknownPredicate,
+        IrLikeRegexPredicate,
+        IrNegationPredicate,
+        IrStartsWithPredicate
 {
     @Override
     default <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)

@@ -43,6 +43,7 @@ import java.util.Optional;
         @JsonSubTypes.Type(value = IrJsonNull.class, name = "jsonnull"),
         @JsonSubTypes.Type(value = IrKeyValueMethod.class, name = "keyvalue"),
         @JsonSubTypes.Type(value = IrLastIndexVariable.class, name = "last"),
+        @JsonSubTypes.Type(value = IrLikeRegexPredicate.class, name = "likeregex"),
         @JsonSubTypes.Type(value = IrLiteral.class, name = "literal"),
         @JsonSubTypes.Type(value = IrMemberAccessor.class, name = "memberaccessor"),
         @JsonSubTypes.Type(value = IrNamedJsonVariable.class, name = "namedjsonvariable"),
