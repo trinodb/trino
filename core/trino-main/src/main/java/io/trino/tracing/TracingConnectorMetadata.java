@@ -753,15 +753,6 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        Span span = startSpan("beginMerge", tableHandle);
-        try (var _ = scopedSpan(span)) {
-            return delegate.beginMerge(session, tableHandle, retryMode);
-        }
-    }
-
-    @Override
     public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateCaseColumns, RetryMode retryMode)
     {
         Span span = startSpan("beginMerge", tableHandle);

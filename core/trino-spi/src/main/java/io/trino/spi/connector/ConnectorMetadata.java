@@ -865,22 +865,10 @@ public interface ConnectorMetadata
     /**
      * Do whatever is necessary to start an MERGE query, returning the {@link ConnectorMergeTableHandle}
      * instance that will be passed to the PageSink, and to the {@link #finishMerge} method.
-     *
-     * @deprecated {Use {@link #beginMerge(ConnectorSession, ConnectorTableHandle, Map, RetryMode)}}
-     */
-    @Deprecated
-    default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
-    }
-
-    /**
-     * Do whatever is necessary to start an MERGE query, returning the {@link ConnectorMergeTableHandle}
-     * instance that will be passed to the PageSink, and to the {@link #finishMerge} method.
      */
     default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateCaseColumns, RetryMode retryMode)
     {
-        return beginMerge(session, tableHandle, retryMode);
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }
 
     /**
