@@ -212,6 +212,12 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.Iterable&lt;io.trino.spi.eventlistener.EventListener&gt; io.trino.spi.connector.Connector::getEventListeners()</old>
+                                    <justification>Remove connector event listeners</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
