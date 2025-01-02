@@ -55,7 +55,6 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.connector.TableProcedureMetadata;
-import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.procedure.Procedure;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -161,8 +160,6 @@ public class HiveConnectorFactory
                     hiveColumnProperties.getColumnProperties(),
                     hiveAnalyzeProperties.getAnalyzeProperties(),
                     hiveAccessControl,
-                    injector.getInstance(new Key<>() {}),
-                    injector.getInstance(FunctionProvider.class),
                     injector.getInstance(HiveConfig.class).isSingleStatementWritesOnly(),
                     classLoader);
         }
