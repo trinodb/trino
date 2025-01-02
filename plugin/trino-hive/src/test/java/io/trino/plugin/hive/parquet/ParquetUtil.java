@@ -87,7 +87,8 @@ final class ParquetUtil
                 fileSystemFactory,
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig(),
-                hiveConfig);
+                hiveConfig,
+                Optional.empty());
 
         return hivePageSourceFactory.createPageSource(
                         session,

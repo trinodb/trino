@@ -35,15 +35,17 @@ public final class DataPageV1
             OptionalLong firstRowIndex,
             ParquetEncoding repetitionLevelEncoding,
             ParquetEncoding definitionLevelEncoding,
-            ParquetEncoding valuesEncoding)
+            ParquetEncoding valuesEncoding,
+            int pageIndex)
     {
-        super(uncompressedSize, valueCount, firstRowIndex);
+        super(uncompressedSize, valueCount, firstRowIndex, pageIndex);
         this.slice = requireNonNull(slice, "slice is null");
         this.repetitionLevelEncoding = repetitionLevelEncoding;
         this.definitionLevelEncoding = definitionLevelEncoding;
         this.valuesEncoding = valuesEncoding;
     }
 
+    @Override
     public Slice getSlice()
     {
         return slice;
