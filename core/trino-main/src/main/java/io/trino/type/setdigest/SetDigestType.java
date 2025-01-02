@@ -32,11 +32,10 @@ public class SetDigestType
         extends AbstractVariableWidthType
 {
     public static final SetDigestType SET_DIGEST = new SetDigestType();
-    public static final String NAME = StandardTypes.SET_DIGEST;
 
     private SetDigestType()
     {
-        super(new TypeSignature(NAME), Slice.class);
+        super(new TypeSignature(StandardTypes.SET_DIGEST), Slice.class);
     }
 
     @Override
