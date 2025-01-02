@@ -79,7 +79,6 @@ import io.trino.server.NodeStateManager;
 import io.trino.server.PluginInstaller;
 import io.trino.server.PrefixObjectNameGeneratorModule;
 import io.trino.server.QuerySessionSupplier;
-import io.trino.server.Server;
 import io.trino.server.ServerMainModule;
 import io.trino.server.SessionContext;
 import io.trino.server.SessionPropertyDefaults;
@@ -527,20 +526,6 @@ public class TestingTrinoServer
     public void loadSpoolingManager(String name, Map<String, String> properties)
     {
         spoolingManagerRegistry.loadSpoolingManager(name, properties);
-    }
-
-    /**
-     * Add the event listeners from connectors.  Connector event listeners are
-     * only supported for statically loaded catalogs, and this doesn't match up
-     * with the model of the testing Trino server.  This method should only be
-     * called once after all catalogs are added.
-     */
-    public void addConnectorEventListeners()
-    {
-        Server.addConnectorEventListeners(
-                injector.getInstance(CatalogManager.class),
-                injector.getInstance(ConnectorServicesProvider.class),
-                injector.getInstance(EventListenerManager.class));
     }
 
     public Path getBaseDataDir()

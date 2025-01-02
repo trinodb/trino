@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
@@ -44,7 +43,6 @@ import io.trino.connector.CatalogManagerConfig;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.CatalogStoreManager;
-import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.eventlistener.EventListenerModule;
@@ -72,7 +70,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -84,7 +81,6 @@ import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncemen
 import static io.trino.server.TrinoSystemRequirements.verifySystemRequirements;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
-import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 
 public class Server
@@ -157,14 +153,8 @@ public class Server
 
             // Only static catalog manager announces catalogs
             // Connector event listeners are only supported for statically loaded catalogs
-            // TODO: remove connector event listeners or add support for dynamic loading from connector
             if (injector.getInstance(CatalogManagerConfig.class).getCatalogMangerKind() == CatalogMangerKind.STATIC) {
                 CatalogManager catalogManager = injector.getInstance(CatalogManager.class);
-                addConnectorEventListeners(
-                        catalogManager,
-                        injector.getInstance(ConnectorServicesProvider.class),
-                        injector.getInstance(EventListenerManager.class));
-
                 // TODO: remove this huge hack
                 updateConnectorIds(injector.getInstance(Announcer.class), catalogManager);
             }
@@ -209,23 +199,6 @@ public class Server
             log.error(e);
             System.exit(100);
         }
-    }
-
-    @VisibleForTesting
-    public static void addConnectorEventListeners(
-            CatalogManager catalogManager,
-            ConnectorServicesProvider connectorServicesProvider,
-            EventListenerManager eventListenerManager)
-    {
-        catalogManager.getCatalogNames().stream()
-                .map(catalogManager::getCatalog)
-                .flatMap(Optional::stream)
-                .filter(not(Catalog::isFailed))
-                .map(Catalog::getCatalogHandle)
-                .map(connectorServicesProvider::getConnectorServices)
-                .map(ConnectorServices::getEventListeners)
-                .flatMap(Collection::stream)
-                .forEach(eventListenerManager::addEventListener);
     }
 
     private static void addMessages(StringBuilder output, String type, List<Object> messages)

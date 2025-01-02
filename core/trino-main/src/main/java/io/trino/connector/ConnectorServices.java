@@ -13,7 +13,6 @@
  */
 package io.trino.connector;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
@@ -37,7 +36,6 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableProcedureMetadata;
-import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ArgumentSpecification;
@@ -83,7 +81,6 @@ public class ConnectorServices
     private final Optional<ConnectorIndexProvider> indexProvider;
     private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
     private final Optional<ConnectorAccessControl> accessControl;
-    private final List<EventListener> eventListeners;
     private final Map<String, PropertyMetadata<?>> sessionProperties;
     private final Map<String, PropertyMetadata<?>> tableProperties;
     private final Map<String, PropertyMetadata<?>> viewProperties;
@@ -183,10 +180,6 @@ public class ConnectorServices
         }
         verifyAccessControl(accessControl);
         this.accessControl = Optional.ofNullable(accessControl);
-
-        Iterable<EventListener> eventListeners = connector.getEventListeners();
-        requireNonNull(eventListeners, format("Connector '%s' returned a null event listeners iterable", eventListeners));
-        this.eventListeners = ImmutableList.copyOf(eventListeners);
 
         List<PropertyMetadata<?>> sessionProperties = connector.getSessionProperties();
         requireNonNull(sessionProperties, format("Connector '%s' returned a null system properties set", catalogHandle));
@@ -295,11 +288,6 @@ public class ConnectorServices
     public Optional<ConnectorAccessControl> getAccessControl()
     {
         return accessControl;
-    }
-
-    public List<EventListener> getEventListeners()
-    {
-        return eventListeners;
     }
 
     public Map<String, PropertyMetadata<?>> getSessionProperties()
