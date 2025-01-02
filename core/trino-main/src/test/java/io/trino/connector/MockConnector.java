@@ -321,7 +321,7 @@ public class MockConnector
     @Override
     public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
-        return metadataWrapper.apply(new MockConnectorMetadata(allowSplittingReadIntoMultipleSubQueries));
+        return metadataWrapper.apply(new MockConnectorMetadata());
     }
 
     @Override
@@ -448,13 +448,6 @@ public class MockConnector
     private class MockConnectorMetadata
             implements ConnectorMetadata
     {
-        private final boolean allowSplittingReadIntoMultipleSubQueries;
-
-        public MockConnectorMetadata(boolean allowSplittingReadIntoMultipleSubQueries)
-        {
-            this.allowSplittingReadIntoMultipleSubQueries = allowSplittingReadIntoMultipleSubQueries;
-        }
-
         @Override
         public boolean schemaExists(ConnectorSession session, String schemaName)
         {
