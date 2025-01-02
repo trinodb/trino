@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -86,8 +85,6 @@ public class HiveModule
         binder.bind(HiveViewProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveColumnProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveAnalyzeProperties.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, HiveMaterializedViewPropertiesProvider.class)
-                .setDefault().toInstance(ImmutableList::of);
 
         binder.bind(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachingDirectoryLister.class).withGeneratedName();
