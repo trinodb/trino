@@ -1395,7 +1395,7 @@ public final class GeoFunctions
     @SqlNullable
     @Description("Returns an array of spatial partition IDs for a given geometry")
     @SqlType("array(integer)")
-    public static Block spatialPartitions(@SqlType(KdbTreeType.NAME) Object kdbTree, @SqlType(StandardTypes.GEOMETRY) Slice geometry)
+    public static Block spatialPartitions(@SqlType(StandardTypes.KDB_TREE) Object kdbTree, @SqlType(StandardTypes.GEOMETRY) Slice geometry)
     {
         Envelope envelope = deserializeEnvelope(geometry);
         if (envelope.isEmpty()) {
@@ -1427,7 +1427,7 @@ public final class GeoFunctions
     @SqlNullable
     @Description("Returns an array of spatial partition IDs for a geometry representing a set of points within specified distance from the input geometry")
     @SqlType("array(integer)")
-    public static Block spatialPartitions(@SqlType(KdbTreeType.NAME) Object kdbTree, @SqlType(StandardTypes.GEOMETRY) Slice geometry, @SqlType(DOUBLE) double distance)
+    public static Block spatialPartitions(@SqlType(StandardTypes.KDB_TREE) Object kdbTree, @SqlType(StandardTypes.GEOMETRY) Slice geometry, @SqlType(DOUBLE) double distance)
     {
         if (isNaN(distance)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "distance is NaN");
