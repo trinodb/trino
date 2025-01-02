@@ -54,8 +54,6 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
-import io.trino.spi.function.FunctionProvider;
-import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -142,9 +140,6 @@ public class HiveModule
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
         fileWriterFactoryBinder.addBinding().to(ParquetFileWriterFactory.class).in(Scopes.SINGLETON);
-
-        newOptionalBinder(binder, FunctionProvider.class).setDefault().toInstance(new NoopFunctionProvider());
-        newSetBinder(binder, ConnectorTableFunction.class);
 
         closingBinder(binder).registerExecutor(ExecutorService.class);
         closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForHiveTransactionHeartbeats.class));
