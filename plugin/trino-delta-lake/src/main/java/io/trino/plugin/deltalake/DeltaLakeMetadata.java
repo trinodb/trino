@@ -125,7 +125,6 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
-import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
@@ -438,7 +437,6 @@ public class DeltaLakeMetadata
     private final String nodeVersion;
     private final String nodeId;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
-    private final DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider;
     private final CachingExtendedStatisticsAccess statisticsAccess;
     private final boolean deleteSchemaLocationsFallback;
     private final boolean useUniqueTableLocation;
@@ -474,7 +472,6 @@ public class DeltaLakeMetadata
             CheckpointWriterManager checkpointWriterManager,
             long defaultCheckpointInterval,
             boolean deleteSchemaLocationsFallback,
-            DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider,
             CachingExtendedStatisticsAccess statisticsAccess,
             DeltaLakeTableMetadataScheduler metadataScheduler,
             boolean useUniqueTableLocation,
@@ -497,7 +494,6 @@ public class DeltaLakeMetadata
         this.nodeId = nodeManager.getCurrentNode().getNodeIdentifier();
         this.checkpointWriterManager = requireNonNull(checkpointWriterManager, "checkpointWriterManager is null");
         this.defaultCheckpointInterval = defaultCheckpointInterval;
-        this.deltaLakeRedirectionsProvider = requireNonNull(deltaLakeRedirectionsProvider, "deltaLakeRedirectionsProvider is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.metadataScheduler = requireNonNull(metadataScheduler, "metadataScheduler is null");
@@ -3574,12 +3570,6 @@ public class DeltaLakeMetadata
                 }
             }
         }
-    }
-
-    @Override
-    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return deltaLakeRedirectionsProvider.getTableScanRedirection(session, (DeltaLakeTableHandle) tableHandle);
     }
 
     @Override
