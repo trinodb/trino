@@ -31,18 +31,22 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.client.ClientStandardTypes.ARRAY;
 import static io.trino.client.ClientStandardTypes.BIGINT;
+import static io.trino.client.ClientStandardTypes.BING_TILE;
 import static io.trino.client.ClientStandardTypes.BOOLEAN;
 import static io.trino.client.ClientStandardTypes.CHAR;
 import static io.trino.client.ClientStandardTypes.DATE;
 import static io.trino.client.ClientStandardTypes.DECIMAL;
 import static io.trino.client.ClientStandardTypes.DOUBLE;
 import static io.trino.client.ClientStandardTypes.GEOMETRY;
+import static io.trino.client.ClientStandardTypes.HYPER_LOG_LOG;
 import static io.trino.client.ClientStandardTypes.INTEGER;
 import static io.trino.client.ClientStandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.trino.client.ClientStandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.client.ClientStandardTypes.IPADDRESS;
 import static io.trino.client.ClientStandardTypes.JSON;
 import static io.trino.client.ClientStandardTypes.MAP;
+import static io.trino.client.ClientStandardTypes.P4_HYPER_LOG_LOG;
+import static io.trino.client.ClientStandardTypes.QDIGEST;
 import static io.trino.client.ClientStandardTypes.REAL;
 import static io.trino.client.ClientStandardTypes.ROW;
 import static io.trino.client.ClientStandardTypes.SMALLINT;
@@ -53,6 +57,7 @@ import static io.trino.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.client.ClientStandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.client.ClientStandardTypes.TINYINT;
 import static io.trino.client.ClientStandardTypes.UUID;
+import static io.trino.client.ClientStandardTypes.VARBINARY;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
@@ -127,7 +132,12 @@ public final class JsonDecodingUtils
             case CHAR:
             case GEOMETRY:
             case SPHERICAL_GEOGRAPHY:
+            case BING_TILE:
                 return STRING_DECODER;
+            case QDIGEST:
+            case P4_HYPER_LOG_LOG:
+            case HYPER_LOG_LOG:
+            case VARBINARY:
             default:
                 return BASE_64_DECODER;
         }
@@ -387,6 +397,7 @@ public final class JsonDecodingUtils
                 case CHAR:
                 case GEOMETRY:
                 case SPHERICAL_GEOGRAPHY:
+                case BING_TILE:
                     return value;
                 default:
                     return Base64.getDecoder().decode(value);
