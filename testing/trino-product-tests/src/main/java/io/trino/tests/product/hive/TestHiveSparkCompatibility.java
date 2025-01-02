@@ -202,6 +202,48 @@ public class TestHiveSparkCompatibility
         }
     }
 
+    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
+    public void testSparkParquetLegacyDateCompatibility()
+    {
+        String sparkTableName = "test_spark_parquet_legacy_date_compatibility_" + randomNameSuffix();
+        String trinoTableName = format("%s.default.%s", TRINO_CATALOG, sparkTableName);
+
+        try {
+            onSpark().executeQuery("set spark.sql.parquet.datetimeRebaseModeInWrite=LEGACY");
+            onSpark().executeQuery(format("CREATE TABLE default.%s (value integer, date_col date) using PARQUET", sparkTableName));
+            onSpark().executeQuery(format("INSERT INTO %s VALUES (1, cast ('2022-04-13' as date))", sparkTableName));
+            onSpark().executeQuery(format("INSERT INTO %s VALUES (2, cast ('1584-09-15' as date))", sparkTableName));
+            onSpark().executeQuery(format("INSERT INTO %s VALUES (3, cast ('1584-09-10' as date))", sparkTableName));
+            onSpark().executeQuery(format("INSERT INTO %s VALUES (4, cast ('1584-09-05' as date))", sparkTableName));
+            onSpark().executeQuery(format("INSERT INTO %s VALUES (5, cast ('0001-01-01' as date))", sparkTableName));
+            onSpark().executeQuery(format("INSERT INTO %s VALUES (6, cast ('1001-01-01' as date))", sparkTableName));
+            onSpark().executeQuery(format("INSERT INTO %s VALUES (7, cast ('1234-01-01' as date))", sparkTableName));
+
+            assertThat(onSpark().executeQuery("SELECT value, date_format(date_col, 'yyyy-MM-dd') FROM " + sparkTableName))
+                    .containsOnly(List.of(
+                            row(1, "2022-04-13"),
+                            row(2, "1584-09-15"),
+                            row(3, "1584-09-10"),
+                            row(4, "1584-09-05"),
+                            row(5, "0001-01-01"),
+                            row(6, "1001-01-01"),
+                            row(7, "1234-01-01")));
+
+            assertThat(onTrino().executeQuery("SELECT value, CAST(date_col AS VARCHAR) FROM " + trinoTableName))
+                    .containsOnly(List.of(
+                            row(1, "2022-04-13"),
+                            row(2, "1584-09-15"),
+                            row(3, "1584-09-10"),
+                            row(4, "1584-09-05"),
+                            row(5, "0001-01-01"),
+                            row(6, "1001-01-01"),
+                            row(7, "1234-01-01")));
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE " + trinoTableName);
+        }
+    }
+
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS}, dataProvider = "sparkParquetTimestampFormats")
     public void testSparkParquetTimestampCompatibility(String sparkTimestampFormat, String sparkTimestamp, String[] expectedValues)
     {
