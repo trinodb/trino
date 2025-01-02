@@ -25,12 +25,14 @@ import io.trino.json.ir.IrDisjunctionPredicate;
 import io.trino.json.ir.IrExistsPredicate;
 import io.trino.json.ir.IrIsUnknownPredicate;
 import io.trino.json.ir.IrJsonPathVisitor;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrNegationPredicate;
 import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicate;
 import io.trino.json.ir.IrStartsWithPredicate;
 import io.trino.json.ir.JsonLiteralConversionException;
 import io.trino.json.ir.TypedValue;
+import io.trino.json.regex.XQuerySqlRegex;
 import io.trino.operator.scalar.StringFunctions;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.CharType;
@@ -379,6 +381,42 @@ class PathPredicateEvaluationVisitor
         Boolean predicateResult = process(node.predicate(), context);
 
         return predicateResult == null;
+    }
+
+    @Override
+    protected Boolean visitIrLikeRegexPredicate(IrLikeRegexPredicate node, PathEvaluationContext context)
+    {
+        List<Object> valueSequence;
+        try {
+            valueSequence = pathVisitor.process(node.value(), context);
+        }
+        catch (PathEvaluationException e) {
+            return null;
+        }
+
+        if (lax) {
+            valueSequence = unwrapArrays(valueSequence);
+        }
+        if (valueSequence.isEmpty()) {
+            return FALSE;
+        }
+
+        XQuerySqlRegex regex = node.regex();
+        boolean found = false;
+        for (Object object : valueSequence) {
+            Slice value = getText(object);
+            if (value == null) {
+                return null;
+            }
+            if (regex.match(value)) {
+                found = true;
+                if (lax) {
+                    return TRUE;
+                }
+            }
+        }
+
+        return found;
     }
 
     @Override
