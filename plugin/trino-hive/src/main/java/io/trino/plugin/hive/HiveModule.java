@@ -97,8 +97,6 @@ public class HiveModule
         Multibinder<SystemTableProvider> systemTableProviders = newSetBinder(binder, SystemTableProvider.class);
         systemTableProviders.addBinding().to(PartitionsSystemTableProvider.class).in(Scopes.SINGLETON);
         systemTableProviders.addBinding().to(PropertiesSystemTableProvider.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, HiveRedirectionsProvider.class)
-                .setDefault().to(NoneHiveRedirectionsProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, TransactionalMetadataFactory.class)
                 .setDefault().to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(TransactionScopeCachingDirectoryListerFactory.class).in(Scopes.SINGLETON);
