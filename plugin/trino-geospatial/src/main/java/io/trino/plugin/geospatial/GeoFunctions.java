@@ -110,7 +110,6 @@ import static io.trino.geospatial.serde.GeometrySerde.deserializeType;
 import static io.trino.geospatial.serde.GeometrySerde.serialize;
 import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
-import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY_TYPE_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.StandardTypes.BIGINT;
@@ -335,7 +334,7 @@ public final class GeoFunctions
 
     @Description("Converts a Geometry object to a SphericalGeography object")
     @ScalarFunction("to_spherical_geography")
-    @SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME)
+    @SqlType(StandardTypes.SPHERICAL_GEOGRAPHY)
     public static Slice toSphericalGeography(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
         // "every point in input is in range" <=> "the envelope of input is in range"
@@ -369,7 +368,7 @@ public final class GeoFunctions
     @Description("Converts a SphericalGeography object to a Geometry object.")
     @ScalarFunction("to_geometry")
     @SqlType(StandardTypes.GEOMETRY)
-    public static Slice toGeometry(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice input)
+    public static Slice toGeometry(@SqlType(StandardTypes.SPHERICAL_GEOGRAPHY) Slice input)
     {
         // Every SphericalGeography object is a valid geometry object
         return input;
@@ -574,7 +573,7 @@ public final class GeoFunctions
     @Description("Returns the great-circle length in meters of a linestring or multi-linestring on Earth's surface")
     @ScalarFunction("ST_Length")
     @SqlType(DOUBLE)
-    public static Double stSphericalLength(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice input)
+    public static Double stSphericalLength(@SqlType(StandardTypes.SPHERICAL_GEOGRAPHY) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
         if (geometry.isEmpty()) {
@@ -1408,7 +1407,7 @@ public final class GeoFunctions
 
     @ScalarFunction("from_geojson_geometry")
     @Description("Returns a spherical geography from a GeoJSON string")
-    @SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME)
+    @SqlType(StandardTypes.SPHERICAL_GEOGRAPHY)
     public static Slice fromGeoJsonGeometry(@SqlType(VARCHAR) Slice input)
     {
         return serialize(jtsGeometryFromJson(input.toStringUtf8()));
@@ -1418,7 +1417,7 @@ public final class GeoFunctions
     @ScalarFunction("to_geojson_geometry")
     @Description("Returns GeoJSON string based on the input spherical geography")
     @SqlType(VARCHAR)
-    public static Slice toGeoJsonGeometry(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice input)
+    public static Slice toGeoJsonGeometry(@SqlType(StandardTypes.SPHERICAL_GEOGRAPHY) Slice input)
     {
         return Slices.utf8Slice(jsonFromJtsGeometry(JtsGeometrySerde.deserialize(input)));
     }
@@ -1608,7 +1607,7 @@ public final class GeoFunctions
     @Description("Returns the great-circle distance in meters between two SphericalGeography points.")
     @ScalarFunction("ST_Distance")
     @SqlType(DOUBLE)
-    public static Double stSphericalDistance(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice left, @SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice right)
+    public static Double stSphericalDistance(@SqlType(StandardTypes.SPHERICAL_GEOGRAPHY) Slice left, @SqlType(StandardTypes.SPHERICAL_GEOGRAPHY) Slice right)
     {
         OGCGeometry leftGeometry = deserialize(left);
         OGCGeometry rightGeometry = deserialize(right);
@@ -1638,7 +1637,7 @@ public final class GeoFunctions
     @Description("Returns the area of a geometry on the Earth's surface using spherical model")
     @ScalarFunction("ST_Area")
     @SqlType(DOUBLE)
-    public static Double stSphericalArea(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice input)
+    public static Double stSphericalArea(@SqlType(StandardTypes.SPHERICAL_GEOGRAPHY) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
         if (geometry.isEmpty()) {
