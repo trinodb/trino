@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.operator.OperatorInfo;
 import io.trino.operator.SplitOperatorInfo;
-import io.trino.testing.AbstractTestQueries;
+import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
@@ -40,6 +40,7 @@ import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.tpch.TpchTable.NATION;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -48,7 +49,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
 final class TestRedshiftUnload
-        extends AbstractTestQueries
+        extends AbstractTestQueryFramework
 {
     private static final String S3_UNLOAD_ROOT = requiredNonEmptySystemProperty("test.redshift.s3.unload.root");
     private static final String AWS_REGION = requiredNonEmptySystemProperty("test.redshift.aws.region");
@@ -67,7 +68,7 @@ final class TestRedshiftUnload
                                 "s3.region", AWS_REGION,
                                 "s3.aws-access-key", AWS_ACCESS_KEY,
                                 "s3.aws-secret-key", AWS_SECRET_KEY))
-                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .setInitialTables(List.of(NATION))
                 .build();
     }
 
