@@ -22,6 +22,7 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 
 // Layout is <size>:<digest>, where
@@ -31,7 +32,7 @@ public class SetDigestType
         extends AbstractVariableWidthType
 {
     public static final SetDigestType SET_DIGEST = new SetDigestType();
-    public static final String NAME = "SetDigest";
+    public static final String NAME = StandardTypes.SET_DIGEST;
 
     private SetDigestType()
     {

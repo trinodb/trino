@@ -51,6 +51,7 @@ import static io.trino.client.ClientStandardTypes.P4_HYPER_LOG_LOG;
 import static io.trino.client.ClientStandardTypes.QDIGEST;
 import static io.trino.client.ClientStandardTypes.REAL;
 import static io.trino.client.ClientStandardTypes.ROW;
+import static io.trino.client.ClientStandardTypes.SET_DIGEST;
 import static io.trino.client.ClientStandardTypes.SMALLINT;
 import static io.trino.client.ClientStandardTypes.SPHERICAL_GEOGRAPHY;
 import static io.trino.client.ClientStandardTypes.TIME;
@@ -142,6 +143,7 @@ public final class JsonDecodingUtils
             case QDIGEST:
             case P4_HYPER_LOG_LOG:
             case HYPER_LOG_LOG:
+            case SET_DIGEST:
             case VARBINARY:
             default:
                 return BASE_64_DECODER;
