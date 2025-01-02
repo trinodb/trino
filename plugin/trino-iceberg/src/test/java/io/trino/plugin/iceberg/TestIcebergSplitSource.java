@@ -490,6 +490,7 @@ public class TestIcebergSplitSource
                 nationTable.location(),
                 nationTable.properties(),
                 Optional.empty(),
+                Optional.empty(),
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
