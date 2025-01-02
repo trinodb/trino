@@ -64,43 +64,6 @@ documentation](https://docs.aws.amazon.com/redshift/latest/mgmt/jdbc20-configura
 ```{include} jdbc-authentication.fragment
 ```
 
-### UNLOAD configuration
-
-This feature enables using Amazon S3 to efficiently transfer data out of Redshift
-instead of the default single threaded JDBC based implementation.
-The connector automatically triggers the appropriate `UNLOAD` command
-on Redshift to extract the output from Redshift to the configured
-S3 bucket in the form of Parquet files. These Parquet files are read in parallel
-from S3 to improve latency of reading from Redshift tables. The Parquet
-files will be removed when Trino finishes executing the query. It is recommended
-to define a custom life cycle policy on the S3 bucket used for unloading the
-Redshift query results.
-This feature is supported only when the Redshift cluster and the configured S3
-bucket are in the same AWS region.
-
-The following table describes configuration properties for using 
-`UNLOAD` command in Redshift connector. `redshift.unload-location` must be set 
-to use `UNLOAD`.
-
-:::{list-table} UNLOAD configuration properties
-:widths: 30, 60
-:header-rows: 1
-
-* - Property value
-  - Description
-* - `redshift.unload-location`
-  - A writeable location in Amazon S3, to be used for temporarily unloading 
-    Redshift query results.
-* - `redshift.unload-iam-role`
-  - Optional. Fully specified ARN of the IAM Role attached to the Redshift cluster.
-    Provided role will be used in `UNLOAD` command. IAM role must have access to 
-    Redshift cluster and write access to S3 bucket. The default IAM role attached to 
-    Redshift cluster is used when this property is not configured.
-:::
-
-Additionally, define appropriate [S3 configurations](/object-storage/file-system-s3)
-except `fs.native-s3.enabled`, required to read Parquet files from S3 bucket. 
-
 ### Multiple Redshift databases or clusters
 
 The Redshift connector can only access a single database within
@@ -255,3 +218,47 @@ FROM
 
 ```{include} query-table-function-ordering.fragment
 ```
+
+## Performance
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+### Parallel read via S3
+
+The connector supports the Redshift `UNLOAD` command to transfer data to Parquet
+files on S3. This enables parallel read of the data in Trino instead of the
+default, single-threaded JDBC-based connection to Redshift, used by the
+connector.
+
+Configure the required S3 location with `redshift.unload-location` to enable the
+parallel read. Parquet files are automatically removed with query completion.
+The Redshift cluster and the configured S3 bucket must use the same AWS region.
+
+:::{list-table} Parallel read configuration properties
+:widths: 30, 60
+:header-rows: 1
+
+* - Property value
+  - Description
+* - `redshift.unload-location`
+  - A writeable location in Amazon S3 in the same AWS region as the Redshift
+    cluster. Used for temporary storage during query processing using the
+    `UNLOAD` command from Redshift. To ensure cleanup even for failed automated
+    removal, configure a life cycle policy to auto clean up the bucket
+    regularly.
+* - `redshift.unload-iam-role`
+  - Optional. Fully specified ARN of the IAM Role attached to the Redshift
+    cluster to use for the `UNLOAD` command. The role must have read access to
+    the Redshift cluster and write access to the S3 bucket. Defaults to use the
+    default IAM role attached to the Redshift cluster.
+
+:::
+
+Use the `unload_enabled` [catalog session property](/sql/set-session) to
+deactivate the parallel read during a client session for a specific query, and
+potentially re-activate it again afterwards.
+
+Additionally, define further required [S3 configuration such as IAM key, role,
+or region](/object-storage/file-system-s3), except `fs.native-s3.enabled`,
+
