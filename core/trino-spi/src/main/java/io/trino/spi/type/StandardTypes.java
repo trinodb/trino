@@ -13,6 +13,7 @@
  */
 package io.trino.spi.type;
 
+// Should have the same types as in the ClientStandardTypes
 public final class StandardTypes
 {
     public static final String BIGINT = "bigint";
@@ -43,8 +44,10 @@ public final class StandardTypes
     public static final String JSON = "json";
     public static final String JSON_2016 = "json2016";
     public static final String IPADDRESS = "ipaddress";
-    public static final String GEOMETRY = "Geometry";
     public static final String UUID = "uuid";
+    public static final String GEOMETRY = "Geometry";
+    public static final String SPHERICAL_GEOGRAPHY = "SphericalGeography"; // SphericalGeographyType.SPHERICAL_GEOGRAPHY_TYPE_NAME
+    public static final String BING_TILE = "BingTile"; // BingTileType.NAME
 
     private StandardTypes() {}
 }
