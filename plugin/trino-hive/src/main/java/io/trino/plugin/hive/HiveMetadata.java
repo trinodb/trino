@@ -1281,7 +1281,7 @@ public class HiveMetadata
         else if (arePartitionProjectionPropertiesSet(tableMetadata)) {
             throw new TrinoException(
                     INVALID_COLUMN_PROPERTY,
-                    "Partition projection is disabled. Enable it in configuration by setting " + HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED + "=true");
+                    "Partition projection is disabled. Enable it in configuration by setting " + "hive.partition-projection-enabled" + "=true");
         }
 
         Map<String, String> baseProperties = tableProperties.buildOrThrow();
