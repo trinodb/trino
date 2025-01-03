@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.metadata;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
@@ -136,6 +137,12 @@ public class ParquetMetadata
         }
 
         return blocks;
+    }
+
+    @VisibleForTesting
+    public FileMetaData getParquetMetadata()
+    {
+        return parquetMetadata;
     }
 
     private static MessageType readParquetSchema(List<SchemaElement> schema)
