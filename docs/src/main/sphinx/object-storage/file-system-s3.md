@@ -25,9 +25,9 @@ support:
   - Activate the native implementation for S3 storage support. Defaults to
     `false`. Set to `true` to use S3 and enable all other properties.
 * - `s3.endpoint`
-  - Required endpoint URL for S3.
+  - S3 service endpoint URL to communicate with.
 * - `s3.region`
-  - Required region name for S3.
+  - S3 region to communicate with.
 * - `s3.path-style-access`
   - Use path-style access for all requests to S3
 * - `s3.exclusive-create`
