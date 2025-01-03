@@ -41,6 +41,7 @@ public class GcsStorageFactory
     public static final String GCS_OAUTH_KEY = "gcs.oauth";
     public static final List<String> DEFAULT_SCOPES = ImmutableList.of("https://www.googleapis.com/auth/cloud-platform");
     private final String projectId;
+    private final Optional<String> endpoint;
     private final boolean useGcsAccessToken;
     private final Optional<GoogleCredentials> jsonGoogleCredential;
     private final int maxRetries;
@@ -56,6 +57,7 @@ public class GcsStorageFactory
     {
         config.validate();
         projectId = config.getProjectId();
+        endpoint = config.getEndpoint();
         useGcsAccessToken = config.isUseGcsAccessToken();
         String jsonKey = config.getJsonKey();
         String jsonKeyFilePath = config.getJsonKeyFilePath();
@@ -105,6 +107,9 @@ public class GcsStorageFactory
             if (projectId != null) {
                 storageOptionsBuilder.setProjectId(projectId);
             }
+
+            endpoint.ifPresent(storageOptionsBuilder::setHost);
+
             // Note: without uniform strategy we cannot retry idempotent operations.
             // The trino-filesystem api does not violate the conditions for idempotency, see https://cloud.google.com/storage/docs/retry-strategy#java for details.
             return storageOptionsBuilder
