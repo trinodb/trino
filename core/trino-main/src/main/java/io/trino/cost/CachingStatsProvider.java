@@ -90,7 +90,7 @@ public final class CachingStatsProvider
         }
         catch (RuntimeException e) {
             if (isIgnoreStatsCalculatorFailures(session)) {
-                log.error(e, "Error occurred when computing stats for query %s", session.getQueryId());
+                log.warn(e, "Error occurred when computing stats for query %s", session.getQueryId());
                 return PlanNodeStatsEstimate.unknown();
             }
             throw e;
