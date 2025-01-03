@@ -334,17 +334,29 @@ public final class OkHttpUtil
     private static KeyStore loadSystemKeyStore(Optional<String> keyStoreType)
             throws IOException, GeneralSecurityException
     {
-        return loadSystemStore(keyStoreType, KEYSTORE_MACOS, KEYSTORE_WINDOWS_MY);
+        Optional<String> systemStoreType = getSystemStoreType(keyStoreType, KEYSTORE_WINDOWS_MY);
+        KeyStore store = KeyStore.getInstance(systemStoreType.orElseGet(KeyStore::getDefaultType));
+        store.load(null, null);
+        return store;
     }
 
     private static KeyStore loadSystemTrustStore(Optional<String> trustStoreType)
             throws IOException, GeneralSecurityException
     {
-        return loadSystemStore(trustStoreType, KEYSTORE_MACOS, KEYSTORE_WINDOWS_ROOT);
+        Optional<String> systemStoreType = getSystemStoreType(trustStoreType, KEYSTORE_WINDOWS_ROOT);
+        if (systemStoreType.isPresent()) {
+            KeyStore store = KeyStore.getInstance(systemStoreType.get());
+            store.load(null, null);
+            return store;
+        }
+        else {
+            // return null if trustStoreType isn't specified and osName is unknown
+            // trustManagerFactory.init(null) will try to load the default Java trustStore
+            return null;
+        }
     }
 
-    private static KeyStore loadSystemStore(Optional<String> storeType, String mac, String windows)
-            throws IOException, GeneralSecurityException
+    private static Optional<String> getSystemStoreType(Optional<String> storeType, String windows)
     {
         String osName = Optional.ofNullable(StandardSystemProperty.OS_NAME.value()).orElse("");
         Optional<String> systemStoreType = storeType;
@@ -353,13 +365,10 @@ public final class OkHttpUtil
                 systemStoreType = Optional.of(windows);
             }
             else if (osName.contains("Mac")) {
-                systemStoreType = Optional.of(mac);
+                systemStoreType = Optional.of(KEYSTORE_MACOS);
             }
         }
-
-        KeyStore store = KeyStore.getInstance(systemStoreType.orElseGet(KeyStore::getDefaultType));
-        store.load(null, null);
-        return store;
+        return systemStoreType;
     }
 
     public static void setupKerberos(
