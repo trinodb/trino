@@ -36,6 +36,7 @@ public class ParquetReaderOptions
     private final boolean useBloomFilter;
     private final DataSize smallFileThreshold;
     private final boolean vectorizedDecodingEnabled;
+    private final boolean hybridCalendarEnabled;
 
     public ParquetReaderOptions()
     {
@@ -48,6 +49,7 @@ public class ParquetReaderOptions
         useBloomFilter = true;
         smallFileThreshold = DEFAULT_SMALL_FILE_THRESHOLD;
         vectorizedDecodingEnabled = true;
+        hybridCalendarEnabled = false;
     }
 
     private ParquetReaderOptions(
@@ -59,7 +61,8 @@ public class ParquetReaderOptions
             boolean useColumnIndex,
             boolean useBloomFilter,
             DataSize smallFileThreshold,
-            boolean vectorizedDecodingEnabled)
+            boolean vectorizedDecodingEnabled,
+            boolean hybridCalendarEnabled)
     {
         this.ignoreStatistics = ignoreStatistics;
         this.maxReadBlockSize = requireNonNull(maxReadBlockSize, "maxReadBlockSize is null");
@@ -71,6 +74,7 @@ public class ParquetReaderOptions
         this.useBloomFilter = useBloomFilter;
         this.smallFileThreshold = requireNonNull(smallFileThreshold, "smallFileThreshold is null");
         this.vectorizedDecodingEnabled = vectorizedDecodingEnabled;
+        this.hybridCalendarEnabled = hybridCalendarEnabled;
     }
 
     public boolean isIgnoreStatistics()
@@ -118,6 +122,11 @@ public class ParquetReaderOptions
         return smallFileThreshold;
     }
 
+    public boolean isHybridCalendarEnabled()
+    {
+        return hybridCalendarEnabled;
+    }
+
     public ParquetReaderOptions withIgnoreStatistics(boolean ignoreStatistics)
     {
         return new ParquetReaderOptions(
@@ -129,7 +138,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                hybridCalendarEnabled);
     }
 
     public ParquetReaderOptions withMaxReadBlockSize(DataSize maxReadBlockSize)
@@ -143,7 +153,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                hybridCalendarEnabled);
     }
 
     public ParquetReaderOptions withMaxReadBlockRowCount(int maxReadBlockRowCount)
@@ -157,7 +168,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                hybridCalendarEnabled);
     }
 
     public ParquetReaderOptions withMaxMergeDistance(DataSize maxMergeDistance)
@@ -171,7 +183,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                hybridCalendarEnabled);
     }
 
     public ParquetReaderOptions withMaxBufferSize(DataSize maxBufferSize)
@@ -185,7 +198,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                hybridCalendarEnabled);
     }
 
     public ParquetReaderOptions withUseColumnIndex(boolean useColumnIndex)
@@ -199,7 +213,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                hybridCalendarEnabled);
     }
 
     public ParquetReaderOptions withBloomFilter(boolean useBloomFilter)
@@ -213,7 +228,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                hybridCalendarEnabled);
     }
 
     public ParquetReaderOptions withSmallFileThreshold(DataSize smallFileThreshold)
@@ -227,7 +243,8 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                hybridCalendarEnabled);
     }
 
     public ParquetReaderOptions withVectorizedDecodingEnabled(boolean vectorizedDecodingEnabled)
@@ -241,6 +258,22 @@ public class ParquetReaderOptions
                 useColumnIndex,
                 useBloomFilter,
                 smallFileThreshold,
-                vectorizedDecodingEnabled);
+                vectorizedDecodingEnabled,
+                hybridCalendarEnabled);
+    }
+
+    public ParquetReaderOptions withHybridCalendarEnabled(boolean hybridCalendarEnabled)
+    {
+        return new ParquetReaderOptions(
+                ignoreStatistics,
+                maxReadBlockSize,
+                maxReadBlockRowCount,
+                maxMergeDistance,
+                maxBufferSize,
+                useColumnIndex,
+                useBloomFilter,
+                smallFileThreshold,
+                vectorizedDecodingEnabled,
+                hybridCalendarEnabled);
     }
 }

@@ -143,13 +143,30 @@ public class ParquetReader
             Optional<ParquetWriteValidation> writeValidation)
             throws IOException
     {
+        this(fileCreatedBy, columnFields, rowGroups, dataSource, timeZone, memoryContext, options, exceptionTransform, parquetPredicate, writeValidation, true);
+    }
+
+    public ParquetReader(
+            Optional<String> fileCreatedBy,
+            List<Column> columnFields,
+            List<RowGroupInfo> rowGroups,
+            ParquetDataSource dataSource,
+            DateTimeZone timeZone,
+            AggregatedMemoryContext memoryContext,
+            ParquetReaderOptions options,
+            Function<Exception, RuntimeException> exceptionTransform,
+            Optional<TupleDomainParquetPredicate> parquetPredicate,
+            Optional<ParquetWriteValidation> writeValidation,
+            boolean shouldConvertToProleptic)
+            throws IOException
+    {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
         requireNonNull(columnFields, "columnFields is null");
         this.columnFields = ImmutableList.copyOf(columnFields);
         this.primitiveFields = getPrimitiveFields(columnFields.stream().map(Column::field).collect(toImmutableList()));
         this.rowGroups = requireNonNull(rowGroups, "rowGroups is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
-        this.columnReaderFactory = new ColumnReaderFactory(timeZone, options);
+        this.columnReaderFactory = new ColumnReaderFactory(timeZone, options, shouldConvertToProleptic);
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         this.options = requireNonNull(options, "options is null");

@@ -118,7 +118,8 @@ public class TestHiveConfig
                 .setAutoPurge(false)
                 .setPartitionProjectionEnabled(false)
                 .setS3StorageClassFilter(S3StorageClassFilter.READ_ALL)
-                .setMetadataParallelism(8));
+                .setMetadataParallelism(8)
+                .setParquetHybridCalendarSupportEnabled(false));
     }
 
     @Test
@@ -205,6 +206,7 @@ public class TestHiveConfig
                 .put("hive.partition-projection-enabled", "true")
                 .put("hive.s3.storage-class-filter", "READ_NON_GLACIER_AND_RESTORED")
                 .put("hive.metadata.parallelism", "10")
+                .put("hive.parquet.hybrid-calendar-support.enabled", "true")
                 .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
@@ -287,7 +289,8 @@ public class TestHiveConfig
                 .setAutoPurge(true)
                 .setPartitionProjectionEnabled(true)
                 .setS3StorageClassFilter(S3StorageClassFilter.READ_NON_GLACIER_AND_RESTORED)
-                .setMetadataParallelism(10);
+                .setMetadataParallelism(10)
+                .setParquetHybridCalendarSupportEnabled(true);
 
         assertFullMapping(properties, expected);
     }

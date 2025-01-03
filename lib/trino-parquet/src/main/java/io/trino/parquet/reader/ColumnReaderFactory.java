@@ -46,6 +46,7 @@ import org.joda.time.DateTimeZone;
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetEncoding.PLAIN;
+import static io.trino.parquet.reader.decoders.HybridCalendarDecoder.getDateInt32Decoder;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import static io.trino.parquet.reader.decoders.ValueDecoder.createLevelsDecoder;
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
@@ -88,11 +89,18 @@ public final class ColumnReaderFactory
 
     private final DateTimeZone timeZone;
     private final boolean vectorizedDecodingEnabled;
+    private final boolean shouldUseHybridCalendarForDate;
 
     public ColumnReaderFactory(DateTimeZone timeZone, ParquetReaderOptions readerOptions)
     {
+        this(timeZone, readerOptions, false);
+    }
+
+    public ColumnReaderFactory(DateTimeZone timeZone, ParquetReaderOptions readerOptions, boolean writerDateProleptic)
+    {
         this.timeZone = requireNonNull(timeZone, "dateTimeZone is null");
         this.vectorizedDecodingEnabled = readerOptions.isVectorizedDecodingEnabled() && isVectorizedDecodingSupported();
+        this.shouldUseHybridCalendarForDate = readerOptions.isHybridCalendarEnabled() && !writerDateProleptic;
     }
 
     public ColumnReader create(PrimitiveField field, AggregatedMemoryContext aggregatedMemoryContext)
@@ -125,7 +133,12 @@ public final class ColumnReaderFactory
         }
         if (DATE.equals(type) && primitiveType == INT32) {
             if (annotation == null || annotation instanceof DateLogicalTypeAnnotation) {
-                return createColumnReader(field, valueDecoders::getIntDecoder, INT_ADAPTER, memoryContext);
+                if (shouldUseHybridCalendarForDate) {
+                    return createColumnReader(field, encoding -> getDateInt32Decoder(valueDecoders.getInt32Decoder(encoding)), INT_ADAPTER, memoryContext);
+                }
+                else {
+                    return createColumnReader(field, valueDecoders::getInt32Decoder, INT_ADAPTER, memoryContext);
+                }
             }
             throw unsupportedException(type, field);
         }

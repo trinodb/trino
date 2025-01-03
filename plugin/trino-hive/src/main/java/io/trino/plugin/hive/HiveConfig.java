@@ -176,6 +176,8 @@ public class HiveConfig
 
     private int metadataParallelism = 8;
 
+    private boolean parquetHybridCalendarSupportEnabled;
+
     public boolean isSingleStatementWritesOnly()
     {
         return singleStatementWritesOnly;
@@ -1280,5 +1282,18 @@ public class HiveConfig
     {
         this.metadataParallelism = metadataParallelism;
         return this;
+    }
+
+    @Config("hive.parquet.hybrid-calendar-support.enabled")
+    @ConfigDescription("Support for reading Date values written in hybrid (Julian + Gregorian) Calendar in Parquet")
+    public HiveConfig setParquetHybridCalendarSupportEnabled(boolean parquetHybridCalendarSupportEnabled)
+    {
+        this.parquetHybridCalendarSupportEnabled = parquetHybridCalendarSupportEnabled;
+        return this;
+    }
+
+    public boolean isParquetHybridCalendarSupportEnabled()
+    {
+        return parquetHybridCalendarSupportEnabled;
     }
 }

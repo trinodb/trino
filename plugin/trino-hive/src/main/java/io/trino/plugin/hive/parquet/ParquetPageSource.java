@@ -221,7 +221,7 @@ public class ParquetPageSource
         for (int columnChannel = 0; columnChannel < columnAdaptations.size(); columnChannel++) {
             ColumnAdaptation column = columnAdaptations.get(columnChannel);
             if (column instanceof SourceColumn) {
-                int delegateChannel = ((SourceColumn) column).getSourceChannel();
+                int delegateChannel = ((SourceColumn) column).sourceChannel();
                 if (columnChannel != delegateChannel) {
                     return true;
                 }
@@ -255,15 +255,12 @@ public class ParquetPageSource
         }
     }
 
-    private static class SourceColumn
+    private record SourceColumn(int sourceChannel)
             implements ColumnAdaptation
     {
-        private final int sourceChannel;
-
-        private SourceColumn(int sourceChannel)
+        private SourceColumn
         {
             checkArgument(sourceChannel >= 0, "sourceChannel is negative");
-            this.sourceChannel = sourceChannel;
         }
 
         @Override
@@ -271,22 +268,14 @@ public class ParquetPageSource
         {
             return sourcePage.getBlock(sourceChannel);
         }
-
-        public int getSourceChannel()
-        {
-            return sourceChannel;
-        }
     }
 
-    private static class ConstantColumn
+    private record ConstantColumn(Block singleValueBlock)
             implements ColumnAdaptation
     {
-        private final Block singleValueBlock;
-
-        private ConstantColumn(Block singleValueBlock)
+        private ConstantColumn
         {
             checkArgument(singleValueBlock.getPositionCount() == 1, "ConstantColumnAdaptation singleValueBlock may only contain one position");
-            this.singleValueBlock = singleValueBlock;
         }
 
         @Override
@@ -306,13 +295,10 @@ public class ParquetPageSource
         }
     }
 
-    private static class CoercedColumn
-            implements ParquetPageSource.ColumnAdaptation
+    private record CoercedColumn(SourceColumn sourceColumn, TypeCoercer<?, ?> typeCoercer)
+            implements ColumnAdaptation
     {
-        private final ParquetPageSource.SourceColumn sourceColumn;
-        private final TypeCoercer<?, ?> typeCoercer;
-
-        public CoercedColumn(ParquetPageSource.SourceColumn sourceColumn, TypeCoercer<?, ?> typeCoercer)
+        private CoercedColumn(SourceColumn sourceColumn, TypeCoercer<?, ?> typeCoercer)
         {
             this.sourceColumn = requireNonNull(sourceColumn, "sourceColumn is null");
             this.typeCoercer = requireNonNull(typeCoercer, "typeCoercer is null");
