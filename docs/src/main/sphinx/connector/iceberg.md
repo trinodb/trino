@@ -1841,6 +1841,67 @@ ORDER BY _change_ordinal ASC;
 (6 rows)
 ```
 
+#### iceberg_tables
+
+Allows listing only iceberg tables from a given catalog.
+The `SHOW TABLES` statement, `information_schema.tables`, and `jdbc.tables` will all
+return all tables that exist in the underlying metastore, even if the table cannot
+be handled in any way by the iceberg connector. This can happen if other connectors
+like hive or delta, use the same metastore, catalog, and schema to store its tables.
+The function accepts an optional parameter with the schema name.
+The following query lists iceberg tables in the `default` schema in the current catalog.
+
+```sql
+SELECT
+  *
+FROM
+  TABLE(
+    system.iceberg_tables(
+      schema_name => 'default'
+    )
+  );
+```
+
+The function takes one optional parameters:
+
+- `schema_name`
+  : Name of the schema from which to list the tables. All tables from the catalog
+  are returned if the `schema_name` is omitted or set to `NULL`
+
+The function returns following columns:
+
+- `table_schema`
+  : The name of the schema the table is in.
+- `table_name`
+  : The name of the table.
+
+**Example:**
+
+List iceberg tables in the entire `iceberg_catalog` catalog.
+
+```
+SELECT
+    *
+FROM
+    TABLE(iceberg_cat.system.iceberg_tables())
+ORDER BY table_schema, table_name ASC;
+```
+
+```text
+ table_schema |  table_name   
+--------------+---------------
+ test         | iceberg_table 
+ tpch         | customer      
+ tpch         | lineitem      
+ tpch         | nation        
+ tpch         | orders        
+ tpch         | part          
+ tpch         | partsupp      
+ tpch         | region        
+ tpch         | supplier      
+(9 rows)
+```
+
 ## Performance
 
 The connector includes a number of performance improvements, detailed in the
