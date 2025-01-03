@@ -432,10 +432,17 @@ public final class IcebergUtil
 
     public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
     {
-        List<NestedField> icebergColumns = columns.stream()
-                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType(), column.getColumnIdentity())))
-                .collect(toImmutableList());
-        return new Schema(StructType.of(icebergColumns).asStructType().fields());
+        Schema schema = new Schema();
+        List<NestedField> icebergColumns = new ArrayList<>();
+        for (IcebergColumnHandle column : columns) {
+            NestedField field = NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType(), column.getColumnIdentity()));
+            // Schema disallows duplicate fields
+            if (schema.findField(field.fieldId()) == null) {
+                icebergColumns.add(field);
+                schema = new Schema(StructType.of(icebergColumns).asStructType().fields());
+            }
+        }
+        return schema;
     }
 
     public static Map<PartitionField, Integer> getIdentityPartitions(PartitionSpec partitionSpec)
