@@ -182,7 +182,8 @@ public class TestOrcMetadataReader
                         .setMaximum("cat")
                         .setSum(44)
                         .build(),
-                false)).isNull();
+                false,
+                true)).isNull();
 
         // having only sum should work for current version
         for (boolean isRowGroup : ImmutableList.of(true, false)) {
@@ -191,7 +192,8 @@ public class TestOrcMetadataReader
                     OrcProto.StringStatistics.newBuilder()
                             .setSum(45)
                             .build(),
-                    isRowGroup)).isEqualTo(new StringStatistics(null, null, 45));
+                    isRowGroup,
+                    true)).isEqualTo(new StringStatistics(null, null, 45, true));
         }
         // and the ORIGINAL version row group stats (but not rolled up stats)
         assertThat(OrcMetadataReader.toStringStatistics(
@@ -199,7 +201,8 @@ public class TestOrcMetadataReader
                 OrcProto.StringStatistics.newBuilder()
                         .setSum(45)
                         .build(),
-                true)).isEqualTo(new StringStatistics(null, null, 45));
+                true,
+                true)).isEqualTo(new StringStatistics(null, null, 45, true));
 
         // having only a min or max should work
         assertThat(OrcMetadataReader.toStringStatistics(
@@ -207,13 +210,15 @@ public class TestOrcMetadataReader
                 OrcProto.StringStatistics.newBuilder()
                         .setMinimum("ant")
                         .build(),
-                true)).isEqualTo(new StringStatistics(utf8Slice("ant"), null, 0));
+                true,
+                true)).isEqualTo(new StringStatistics(utf8Slice("ant"), null, 0, true));
         assertThat(OrcMetadataReader.toStringStatistics(
                 ORC_HIVE_8732,
                 OrcProto.StringStatistics.newBuilder()
                         .setMaximum("cat")
                         .build(),
-                true)).isEqualTo(new StringStatistics(null, utf8Slice("cat"), 0));
+                true,
+                true)).isEqualTo(new StringStatistics(null, utf8Slice("cat"), 0, true));
 
         // normal full stat
         assertThat(OrcMetadataReader.toStringStatistics(
@@ -223,7 +228,8 @@ public class TestOrcMetadataReader
                         .setMaximum("cat")
                         .setSum(79)
                         .build(),
-                true)).isEqualTo(new StringStatistics(utf8Slice("ant"), utf8Slice("cat"), 79));
+                true,
+                true)).isEqualTo(new StringStatistics(utf8Slice("ant"), utf8Slice("cat"), 79, true));
 
         for (Slice prefix : ALL_UTF8_SEQUENCES) {
             for (int testCodePoint : TEST_CODE_POINTS) {
@@ -246,29 +252,33 @@ public class TestOrcMetadataReader
                         .setMaximumBytes(ByteString.copyFrom(testValue.getBytes()))
                         .setSum(79)
                         .build(),
-                true)).isEqualTo(createExpectedStringStatistics(version, testValue, testValue, 79));
+                true,
+                true)).isEqualTo(createExpectedStringStatistics(version, testValue, testValue, 79, true));
         assertThat(OrcMetadataReader.toStringStatistics(
                 version,
                 OrcProto.StringStatistics.newBuilder()
                         .setMinimumBytes(ByteString.copyFrom(testValue.getBytes()))
                         .setSum(79)
                         .build(),
-                true)).isEqualTo(createExpectedStringStatistics(version, testValue, null, 79));
+                true,
+                true)).isEqualTo(createExpectedStringStatistics(version, testValue, null, 79, true));
         assertThat(OrcMetadataReader.toStringStatistics(
                 version,
                 OrcProto.StringStatistics.newBuilder()
                         .setMaximumBytes(ByteString.copyFrom(testValue.getBytes()))
                         .setSum(79)
                         .build(),
-                true)).isEqualTo(createExpectedStringStatistics(version, null, testValue, 79));
+                true,
+                true)).isEqualTo(createExpectedStringStatistics(version, null, testValue, 79, true));
     }
 
-    private static StringStatistics createExpectedStringStatistics(HiveWriterVersion version, Slice min, Slice max, int sum)
+    private static StringStatistics createExpectedStringStatistics(HiveWriterVersion version, Slice min, Slice max, int sum, boolean hasNull)
     {
         return new StringStatistics(
                 minStringTruncateToValidRange(min, version),
                 maxStringTruncateToValidRange(max, version),
-                sum);
+                sum,
+                hasNull);
     }
 
     @Test
