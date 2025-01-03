@@ -132,6 +132,11 @@ public abstract class IrJsonPathVisitor<R, C>
         return visitIrPathNode(node, context);
     }
 
+    protected R visitIrLikeRegexPredicate(IrLikeRegexPredicate node, C context)
+    {
+        return visitIrPredicate(node, context);
+    }
+
     protected R visitIrLiteral(IrLiteral node, C context)
     {
         return visitIrPathNode(node, context);
