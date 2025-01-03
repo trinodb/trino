@@ -30,6 +30,8 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.crypto.FileDecryptor;
+import io.trino.parquet.crypto.InternalFileDecryptor;
 import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
@@ -130,16 +132,19 @@ public class ParquetPageSourceFactory
     private final ParquetReaderOptions options;
     private final DateTimeZone timeZone;
     private final int domainCompactionThreshold;
+    private final Optional<FileDecryptor> fileDecryptor;
 
     @Inject
     public ParquetPageSourceFactory(
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats stats,
             ParquetReaderConfig config,
-            HiveConfig hiveConfig)
+            HiveConfig hiveConfig,
+            Optional<FileDecryptor> fileDecryptor)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.fileDecryptor = requireNonNull(fileDecryptor, "fileDecryptor is null");
         options = config.toParquetReaderOptions();
         timeZone = hiveConfig.getParquetDateTimeZone();
         domainCompactionThreshold = hiveConfig.getDomainCompactionThreshold();
@@ -174,7 +179,7 @@ public class ParquetPageSourceFactory
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         TrinoInputFile inputFile = fileSystem.newInputFile(path, estimatedFileSize, Instant.ofEpochMilli(fileModifiedTime));
-
+        final Optional<InternalFileDecryptor> internalFileDecryptor = fileDecryptor.flatMap(decryptor -> decryptor.createDecryptor(options, path, fileSystem));
         return Optional.of(createPageSource(
                 inputFile,
                 start,
@@ -193,7 +198,8 @@ public class ParquetPageSourceFactory
                         .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session)),
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.of(estimatedFileSize)));
+                OptionalLong.of(estimatedFileSize),
+                internalFileDecryptor));
     }
 
     /**
@@ -211,7 +217,8 @@ public class ParquetPageSourceFactory
             ParquetReaderOptions options,
             Optional<ParquetWriteValidation> parquetWriteValidation,
             int domainCompactionThreshold,
-            OptionalLong estimatedFileSize)
+            OptionalLong estimatedFileSize,
+            Optional<InternalFileDecryptor> internalFileDecryptor)
     {
         MessageType fileSchema;
         MessageType requestedSchema;
@@ -220,8 +227,7 @@ public class ParquetPageSourceFactory
         try {
             AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
             dataSource = createDataSource(inputFile, estimatedFileSize, options, memoryContext, stats);
-
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetWriteValidation);
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetWriteValidation, internalFileDecryptor);
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             fileSchema = fileMetaData.getSchema();
 
@@ -282,7 +288,8 @@ public class ParquetPageSourceFactory
                     // We avoid using disjuncts of parquetPredicate for page pruning in ParquetReader as currently column indexes
                     // are not present in the Parquet files which are read with disjunct predicates.
                     parquetPredicates.size() == 1 ? Optional.of(parquetPredicates.get(0)) : Optional.empty(),
-                    parquetWriteValidation);
+                    parquetWriteValidation,
+                    internalFileDecryptor);
             ConnectorPageSource parquetPageSource = createParquetPageSource(baseColumns, fileSchema, messageColumn, useColumnNames, parquetReaderProvider);
             return new ReaderPageSource(parquetPageSource, readerProjections);
         }

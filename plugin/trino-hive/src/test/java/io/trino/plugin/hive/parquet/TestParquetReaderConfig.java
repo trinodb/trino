@@ -39,7 +39,14 @@ public class TestParquetReaderConfig
                 .setUseColumnIndex(true)
                 .setUseBloomFilter(true)
                 .setSmallFileThreshold(DataSize.of(3, MEGABYTE))
-                .setVectorizedDecodingEnabled(true));
+                .setVectorizedDecodingEnabled(true)
+                .setCryptoFactoryClass(null)
+                .setEncryptionKmsClientClass(null)
+                .setEncryptionKmsInstanceId(null)
+                .setEncryptionKmsInstanceUrl(null)
+                .setEncryptionCacheLifetimeSeconds(600L)
+                .setEncryptionKeyAccessToken("DEFAULT")
+                .setEncryptionMasterKeyFile(null));
     }
 
     @Test
@@ -55,6 +62,13 @@ public class TestParquetReaderConfig
                 .put("parquet.use-bloom-filter", "false")
                 .put("parquet.small-file-threshold", "1kB")
                 .put("parquet.experimental.vectorized-decoding.enabled", "false")
+                .put("parquet.crypto-factory-class", "test")
+                .put("parquet.encryption-cache-lifetime-seconds", "100")
+                .put("parquet.encryption-key-access-token", "testToken")
+                .put("parquet.encryption-kms-client-class", "testKmsClient")
+                .put("parquet.encryption-kms-instance-id", "testInstanceId")
+                .put("parquet.encryption-kms-instance-url", "testKmsUrl")
+                .put("parquet.encryption-master-key-file", "testKeyFile")
                 .buildOrThrow();
 
         ParquetReaderConfig expected = new ParquetReaderConfig()
@@ -66,7 +80,14 @@ public class TestParquetReaderConfig
                 .setUseColumnIndex(false)
                 .setUseBloomFilter(false)
                 .setSmallFileThreshold(DataSize.of(1, KILOBYTE))
-                .setVectorizedDecodingEnabled(false);
+                .setVectorizedDecodingEnabled(false)
+                .setCryptoFactoryClass("test")
+                .setEncryptionKmsClientClass("testKmsClient")
+                .setEncryptionKmsInstanceId("testInstanceId")
+                .setEncryptionKmsInstanceUrl("testKmsUrl")
+                .setEncryptionCacheLifetimeSeconds(100L)
+                .setEncryptionKeyAccessToken("testToken")
+                .setEncryptionMasterKeyFile("testKeyFile");
 
         assertFullMapping(properties, expected);
     }
