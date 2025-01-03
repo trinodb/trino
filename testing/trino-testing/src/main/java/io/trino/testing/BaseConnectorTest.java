@@ -105,6 +105,7 @@ import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_COMMENT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_POSITION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD_IN_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
@@ -2410,6 +2411,40 @@ public abstract class BaseConnectorTest
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
         throw new AssertionError("Unexpected failure when adding not null column", e);
+    }
+
+    @Test
+    public void testAddColumnWithPosition()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN)); // covered by testAddColumn
+
+        if (!hasBehavior(SUPPORTS_ADD_COLUMN_WITH_POSITION)) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "AS SELECT 2 second, 4 fourth")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ADD COLUMN first integer FIRST",
+                        "This connector does not support adding columns with FIRST clause");
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ADD COLUMN third integer AFTER second",
+                        "This connector does not support adding columns with AFTER clause");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "AS SELECT 2 second, 4 fourth")) {
+            assertTableColumnNames(table.getName(), "second", "fourth");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (2, 4)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN first integer FIRST");
+            assertTableColumnNames(table.getName(), "first", "second", "fourth");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, 4)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN third integer AFTER second");
+            assertTableColumnNames(table.getName(), "first", "second", "third", "fourth");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, null, 4)");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (10, 20, 30, 40)", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, null, 4), (10, 20, 30, 40)");
+        }
     }
 
     @Test

@@ -88,7 +88,8 @@ public class TestMemoryConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_TRUNCATE -> true;
-            case SUPPORTS_ADD_FIELD,
+            case SUPPORTS_ADD_COLUMN_WITH_POSITION,
+                 SUPPORTS_ADD_FIELD,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_DELETE,
