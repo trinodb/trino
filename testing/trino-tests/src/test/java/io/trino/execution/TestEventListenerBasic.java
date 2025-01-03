@@ -51,6 +51,7 @@ import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -142,7 +143,7 @@ public class TestEventListenerBasic
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                         .withListTables((session, schemaName) -> {
                             return switch (schemaName) {
-                                case "default" -> List.of("tests_table");
+                                case "default" -> List.of("tests_table", "tests_unnest_table");
                                 case "tiny" -> List.of("nation");
                                 default -> List.of();
                             };
@@ -153,6 +154,18 @@ public class TestEventListenerBasic
                             }
                             if (schemaTableName.equals(new SchemaTableName("default", "test_materialized_view_stale$materialized_view_storage"))) {
                                 return ImmutableList.of(new ColumnMetadata("test_column", BIGINT));
+                            }
+                            if (schemaTableName.equals(new SchemaTableName("default", "tests_unnest_table"))) {
+                                return ImmutableList.of(
+                                        new ColumnMetadata("test_varchar", createVarcharType(15)),
+                                        new ColumnMetadata("test_bigint", BIGINT),
+                                        new ColumnMetadata("test_array", new ArrayType(BIGINT)));
+                            }
+                            if (schemaTableName.equals(new SchemaTableName("default", "table_for_unnest_output"))) {
+                                return ImmutableList.of(
+                                        new ColumnMetadata("test_varchar", createVarcharType(15)),
+                                        new ColumnMetadata("test_bigint", BIGINT),
+                                        new ColumnMetadata("test_array_unnest", BIGINT));
                             }
                             return ImmutableList.of(
                                     new ColumnMetadata("test_varchar", createVarcharType(15)),
@@ -1420,6 +1433,19 @@ public class TestEventListenerBasic
     }
 
     @Test
+    public void testOutputColumnsWithUnnestQueries()
+            throws Exception
+    {
+        assertLineage(
+                "SELECT test_varchar AS test_varchar, test_bigint AS test_bigint, test_array_unnest AS test_array_unnest FROM mock.default.tests_unnest_table CROSS JOIN UNNEST(test_array) AS t(test_array_unnest)",
+                ImmutableSet.of("mock.default.tests_unnest_table"),
+                true,
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "tests_unnest_table", "test_varchar"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "tests_unnest_table", "test_bigint"))),
+                new OutputColumnMetadata("test_array_unnest", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "tests_unnest_table", "test_array"))));
+    }
+
+    @Test
     public void testTableStats()
             throws Exception
     {
@@ -1521,10 +1547,20 @@ public class TestEventListenerBasic
     private void assertLineage(String baseQuery, Set<String> inputTables, OutputColumnMetadata... outputColumnMetadata)
             throws Exception
     {
+        assertLineage(baseQuery, inputTables, false, outputColumnMetadata);
+    }
+
+    private void assertLineage(String baseQuery, Set<String> inputTables,boolean containsUnnest ,OutputColumnMetadata... outputColumnMetadata)
+            throws Exception
+    {
         assertLineageInternal("CREATE TABLE mock.default.create_new_table AS " + baseQuery, inputTables, outputColumnMetadata);
         assertLineageInternal("CREATE VIEW mock.default.create_new_view AS " + baseQuery, inputTables, outputColumnMetadata);
         assertLineageInternal("CREATE VIEW mock.default.create_new_materialized_view AS " + baseQuery, inputTables, outputColumnMetadata);
-        assertLineageInternal("INSERT INTO mock.default.table_for_output(test_varchar, test_bigint) " + baseQuery, inputTables, outputColumnMetadata);
+        if (containsUnnest) {
+            assertLineageInternal("INSERT INTO mock.default.table_for_unnest_output(test_varchar, test_bigint, test_array_unnest) " + baseQuery, inputTables, outputColumnMetadata);
+        } else {
+            assertLineageInternal("INSERT INTO mock.default.table_for_output(test_varchar, test_bigint) " + baseQuery, inputTables, outputColumnMetadata);
+        }
         assertLineageInternal(format("DELETE FROM mock.default.table_for_output WHERE EXISTS (%s) ", baseQuery), inputTables);
     }
 
