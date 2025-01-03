@@ -14,12 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.testing.BaseOrcWithBloomFiltersTest;
-import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.QueryAssertions.assertContains;
+import java.util.Map;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,6 +32,7 @@ public class TestIcebergOrcWithBloomFilters
             throws Exception
     {
         return IcebergQueryRunner.builder()
+                .addIcebergProperty("iceberg.file-format", "ORC")
                 .addIcebergProperty("hive.orc.bloom-filters.enabled", "true")
                 .addIcebergProperty("hive.orc.default-bloom-filter-fpp", "0.001")
                 .build();
@@ -55,14 +56,50 @@ public class TestIcebergOrcWithBloomFilters
                 "orc_bloom_filter_columns = array['a','b']," +
                 "orc_bloom_filter_fpp = 0.1)");
 
-        MaterializedResult actualProperties = computeActual("SELECT * FROM \"" + tableName + "$properties\"");
-        assertThat(actualProperties).isNotNull();
-        MaterializedResult expectedProperties = resultBuilder(getSession())
-                .row("write.orc.bloom.filter.columns", "a,b")
-                .row("write.orc.bloom.filter.fpp", "0.1").build();
-        assertContains(actualProperties, expectedProperties);
+        assertThat(getTableProperties(tableName))
+                .containsEntry("write.orc.bloom.filter.columns", "a,b")
+                .containsEntry("write.orc.bloom.filter.fpp", "0.1");
 
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
                 .contains("orc_bloom_filter_columns", "orc_bloom_filter_fpp");
+    }
+
+    @Test
+    void testBloomFilterPropertiesArePersistedDuringSetProperties()
+    {
+        String tableName = "test_metadata_write_properties_" + randomNameSuffix();
+        assertQuerySucceeds("CREATE TABLE " + tableName + "(A bigint, b bigint, c bigint)");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES orc_bloom_filter_columns = ARRAY['a','B']");
+        assertThat(getTableProperties(tableName))
+                .containsEntry("write.orc.bloom.filter.columns", "a,b");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES orc_bloom_filter_columns = ARRAY['a']");
+        assertThat(getTableProperties(tableName))
+                .containsEntry("write.orc.bloom.filter.columns", "a");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES orc_bloom_filter_columns = ARRAY[]");
+        assertThat(getTableProperties(tableName))
+                .doesNotContainKey("write.orc.bloom.filter.columns");
+    }
+
+    @Test
+    void testInvalidBloomFilterProperties()
+    {
+        String tableName = "test_invalid_bloom_filter_properties_" + randomNameSuffix();
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(x int) WITH (orc_bloom_filter_columns = ARRAY['missing_column'])",
+                "\\QOrc bloom filter columns [missing_column] not present in schema");
+
+        assertQuerySucceeds("CREATE TABLE " + tableName + "(x array(integer))");
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " SET PROPERTIES orc_bloom_filter_columns = ARRAY['missing_column']",
+                "\\QOrc bloom filter columns [missing_column] not present in schema");
+    }
+
+    private Map<String, String> getTableProperties(String tableName)
+    {
+        return computeActual("SELECT key, value FROM \"" + tableName + "$properties\"").getMaterializedRows().stream()
+                .collect(toImmutableMap(row -> (String) row.getField(0), row -> (String) row.getField(1)));
     }
 }
