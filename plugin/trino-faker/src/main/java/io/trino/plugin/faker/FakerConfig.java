@@ -26,6 +26,8 @@ public class FakerConfig
     private double nullProbability = 0.5;
     private long defaultLimit = 1000L;
     private Locale locale = Locale.ENGLISH;
+    private double sequenceMinDistinctValuesRatio = 0.98;
+    private long maxDictionarySize = 1000L;
 
     @Max(1)
     @Min(0)
@@ -66,6 +68,41 @@ public class FakerConfig
     public FakerConfig setLocale(String value)
     {
         this.locale = new Locale.Builder().setLanguageTag(value).build();
+        return this;
+    }
+
+    @Max(2)
+    @Min(0)
+    public double getSequenceMinDistinctValuesRatio()
+    {
+        return sequenceMinDistinctValuesRatio;
+    }
+
+    @Config("faker.sequence-min-distinct-values-ratio")
+    @ConfigDescription(
+            """
+            Minimum ratio of distinct values of a column to total number of rows in a table to treat the columns as a sequence
+            when creating a table using existing data. Set to a value greater than 1 to disable using sequences""")
+    public FakerConfig setSequenceMinDistinctValuesRatio(double value)
+    {
+        this.sequenceMinDistinctValuesRatio = value;
+        return this;
+    }
+
+    @Min(0)
+    public long getMaxDictionarySize()
+    {
+        return maxDictionarySize;
+    }
+
+    @Config("faker.max-dictionary-size")
+    @ConfigDescription(
+            """
+            Maximum size of randomly generated dictionaries to pick values from, used for columns with low number of approximate distinct values
+            observed during table creation using existing data. Set to zero to disable using dictionaries""")
+    public FakerConfig setMaxDictionarySize(long value)
+    {
+        this.maxDictionarySize = value;
         return this;
     }
 }

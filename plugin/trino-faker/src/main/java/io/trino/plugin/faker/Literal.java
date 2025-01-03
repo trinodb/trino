@@ -16,22 +16,40 @@ package io.trino.plugin.faker;
 import com.google.common.base.CharMatcher;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.InetAddresses;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimeWithTimeZone;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.SqlTimeWithTimeZone;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 import io.trino.type.IpAddressType;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.MatchResult;
@@ -39,17 +57,26 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
+import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.parseTimeWithTimeZone;
@@ -61,6 +88,10 @@ import static io.trino.util.DateTimeUtils.parseDate;
 import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
 import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
+import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
 import static java.util.Locale.ENGLISH;
 
@@ -246,5 +277,151 @@ public class Literal
         }
 
         return wrappedBuffer(bytes);
+    }
+
+    public static String format(Type type, Object value)
+    {
+        Class<?> javaType = type.getJavaType();
+        if (javaType == boolean.class) {
+            boolean typedValue = (boolean) value;
+            return Boolean.toString(typedValue);
+        }
+
+        if (javaType == double.class) {
+            double typedValue = (double) value;
+            return Double.toString(typedValue);
+        }
+
+        if (javaType == long.class) {
+            long typedValue = (long) value;
+
+            if (type == TINYINT) {
+                return Byte.toString(SignedBytes.checkedCast(typedValue));
+            }
+
+            if (type == REAL) {
+                return Float.toString(intBitsToFloat(toIntExact(typedValue)));
+            }
+
+            if (type == DATE) {
+                return LocalDate.ofEpochDay(typedValue).toString();
+            }
+
+            if (type == BIGINT) {
+                return Long.toString(typedValue);
+            }
+
+            if (type == INTEGER) {
+                return Integer.toString(toIntExact(typedValue));
+            }
+
+            if (type instanceof DecimalType decimalType) {
+                BigInteger unscaledValue = BigInteger.valueOf(typedValue);
+                BigDecimal bigDecimal = new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
+                return bigDecimal.toString();
+            }
+
+            if (type == SMALLINT) {
+                return Short.toString(Shorts.checkedCast(typedValue));
+            }
+
+            if (type instanceof TimeType timeType) {
+                return SqlTime.newInstance(timeType.getPrecision(), typedValue).toString();
+            }
+
+            if (type instanceof TimestampType timestampType) {
+                if (timestampType.isShort()) {
+                    return SqlTimestamp.newInstance(timestampType.getPrecision(), typedValue, 0).toString();
+                }
+            }
+
+            if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType) {
+                verify(timeWithTimeZoneType.isShort(), "Short TimeWithTimeZoneType was expected");
+                return SqlTimeWithTimeZone.newInstance(
+                        timeWithTimeZoneType.getPrecision(),
+                        unpackTimeNanos(typedValue) * PICOSECONDS_PER_NANOSECOND,
+                        unpackOffsetMinutes(typedValue)).toString();
+            }
+
+            if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+                verify(timestampWithTimeZoneType.isShort(), "Short TimestampWithTimezone was expected");
+                return SqlTimestampWithTimeZone.newInstance(
+                        timestampWithTimeZoneType.getPrecision(),
+                        unpackMillisUtc(typedValue),
+                        0,
+                        unpackZoneKey(typedValue)).toString();
+            }
+
+            if (type instanceof IntervalDayTimeType) {
+                long epochSeconds = floorDiv(typedValue, (long) MILLISECONDS_PER_SECOND);
+                long fractionalSecond = floorMod(typedValue, (long) MILLISECONDS_PER_SECOND);
+                return "%d.%03d".formatted(epochSeconds, fractionalSecond);
+            }
+
+            if (type instanceof IntervalYearMonthType) {
+                return Long.toString(typedValue);
+            }
+        }
+
+        if (javaType == Slice.class) {
+            Slice typedValue = (Slice) value;
+            switch (type) {
+                case VarcharType _, CharType _ -> {
+                    return typedValue.toStringUtf8();
+                }
+                case VarbinaryType _ -> {
+                    return new SqlVarbinary(typedValue.getBytes()).toString();
+                }
+                case IpAddressType _ -> {
+                    try {
+                        return InetAddresses.toAddrString(InetAddress.getByAddress(typedValue.getBytes()));
+                    }
+                    catch (UnknownHostException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+                case UuidType _ -> {
+                    return trinoUuidToJavaUuid(typedValue).toString();
+                }
+                default -> throw new UnsupportedOperationException("Unsupported type " + type + " backed by java " + javaType);
+            }
+        }
+
+        if (javaType == Int128.class) {
+            if (type instanceof DecimalType decimalType) {
+                Int128 typedValue = (Int128) value;
+
+                BigInteger unscaledValue = typedValue.toBigInteger();
+                BigDecimal bigDecimal = new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
+                return bigDecimal.toPlainString();
+            }
+        }
+
+        switch (type) {
+            case TimeWithTimeZoneType timeWithTimeZoneType when javaType == LongTimeWithTimeZone.class -> {
+                LongTimeWithTimeZone typedValue = (LongTimeWithTimeZone) value;
+                return SqlTimeWithTimeZone.newInstance(
+                        timeWithTimeZoneType.getPrecision(),
+                        typedValue.getPicoseconds(),
+                        typedValue.getOffsetMinutes()).toString();
+            }
+            case TimestampType timestampType when javaType == LongTimestamp.class -> {
+                LongTimestamp typedValue = (LongTimestamp) value;
+
+                return SqlTimestamp.newInstance(
+                        timestampType.getPrecision(),
+                        typedValue.getEpochMicros(),
+                        typedValue.getPicosOfMicro()).toString();
+            }
+            case TimestampWithTimeZoneType timestampWithTimeZoneType when javaType == LongTimestampWithTimeZone.class -> {
+                LongTimestampWithTimeZone typedValue = (LongTimestampWithTimeZone) value;
+                return SqlTimestampWithTimeZone.newInstance(
+                        timestampWithTimeZoneType.getPrecision(),
+                        typedValue.getEpochMillis(),
+                        typedValue.getPicosOfMilli(),
+                        getTimeZoneKey(typedValue.getTimeZoneKey())).toString();
+            }
+            default -> throw new UnsupportedOperationException("Unsupported type " + type + " backed by java " + javaType);
+        }
     }
 }
