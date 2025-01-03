@@ -16,6 +16,7 @@ package io.trino.spi.connector;
 import com.google.errorprone.annotations.CheckReturnValue;
 
 import java.util.Map;
+import java.util.Set;
 
 public interface ConnectorFactory
 {
@@ -23,4 +24,14 @@ public interface ConnectorFactory
 
     @CheckReturnValue
     Connector create(String catalogName, Map<String, String> config, ConnectorContext context);
+
+    /**
+     * Extracts property names from the provided set that may include security-sensitive
+     * values. The engine will use these names to mask the corresponding property values,
+     * preventing the leakage of sensitive information.
+     */
+    default Set<String> getRedactablePropertyNames(Set<String> propertyNames)
+    {
+        return propertyNames;
+    }
 }
