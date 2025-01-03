@@ -29,6 +29,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metastore.HiveType.HIVE_BINARY;
@@ -42,6 +43,7 @@ import static io.trino.metastore.HiveType.HIVE_LONG;
 import static io.trino.metastore.HiveType.HIVE_SHORT;
 import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
+import static io.trino.metastore.HiveType.HIVE_VARIANT;
 import static io.trino.metastore.type.CharTypeInfo.MAX_CHAR_LENGTH;
 import static io.trino.metastore.type.TypeInfoFactory.getCharTypeInfo;
 import static io.trino.metastore.type.TypeInfoFactory.getListTypeInfo;
@@ -57,6 +59,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
@@ -128,6 +131,10 @@ public class DeltaHiveTypeTranslator
         }
         if (type instanceof DecimalType decimalType) {
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
+        }
+        if (type.getTypeSignature().getBase().equals(JSON)) {
+            checkArgument(type.getTypeSignature().getParameters().isEmpty(), "JSON type should not have parameters");
+            return HIVE_VARIANT.getTypeInfo();
         }
         if (type instanceof ArrayType arrayType) {
             TypeInfo elementType = translate(arrayType.getElementType());
