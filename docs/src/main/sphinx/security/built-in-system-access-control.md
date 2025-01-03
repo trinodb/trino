@@ -13,10 +13,29 @@ cluster nodes:
 access-control.name=allow-all
 ```
 
-Multiple system access control implementations may be configured at once
-using the `access-control.config-files` configuration property. It should
-contain a comma separated list of the access control property files to use
-(rather than the default `etc/access-control.properties`).
+(multiple-access-control)=
+## Multiple access control systems
+
+Multiple system access control implementations may be configured at once using
+the `access-control.config-files` configuration property. It must contain a
+comma-separated list of the access control property files to use, rather than
+the default `etc/access-control.properties`. Relative paths from the Trino
+`INSTALL_PATH` or absolute paths are supported.
+
+The configured access control systems are used in order until access rights are
+either granted or denied, and must use different types. Each system is
+configured in a separate configuration file.
+
+For example, you can combine `file` access control and `ranger`
+access control with the two separate configuration files `file-based.properties`
+and `ranger.properties`, but you can not use two separate file-based access
+control configurations.
+
+```properties
+access-control.config-files=etc/file-based.properties,etc/ranger.properties
+```
+
+## Available access control systems
 
 Trino offers the following built-in system access control implementations:
 
