@@ -709,24 +709,11 @@ public class TestClickHouseConnectorTest
         return new TestTable(onRemoteDatabase(), "tpch.simple_table", "(col BIGINT) Engine=Log", ImmutableList.of("1", "2"));
     }
 
-    @Test
     @Override
-    public void testCreateTableWithLongTableName()
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        // Override because ClickHouse connector can create a table which can't be dropped
-        String baseTableName = "test_create_" + randomNameSuffix();
-        String validTableName = baseTableName + "z".repeat(maxTableNameLength().orElseThrow() - baseTableName.length());
-
-        assertUpdate("CREATE TABLE " + validTableName + " (a bigint)");
-        assertThat(getQueryRunner().tableExists(getSession(), validTableName)).isTrue();
-        assertThatThrownBy(() -> assertUpdate("DROP TABLE " + validTableName))
-                .hasMessageMatching("(?s).*(Bad path syntax|File name too long).*");
-
-        String invalidTableName = baseTableName + "z".repeat(maxTableNameLength().orElseThrow() - baseTableName.length() + 1);
-        assertThat(query("CREATE TABLE " + invalidTableName + " (a bigint)"))
-                .failure().hasMessageMatching("(?s).*(Cannot open file|File name too long).*");
-        // ClickHouse lefts a table even if the above statement failed
-        assertThat(getQueryRunner().tableExists(getSession(), validTableName)).isTrue();
+        assertThat(e).hasMessageMatching(".*The max length of table name for database tpch is %d, current length is [0-9]+.*\n"
+                .formatted(maxTableNameLength().orElseThrow()));
     }
 
     @Test
@@ -765,31 +752,6 @@ public class TestClickHouseConnectorTest
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageContaining("File name too long");
-    }
-
-    @Test
-    @Override
-    public void testRenameTableToLongTableName()
-    {
-        // Override because ClickHouse connector can rename to a table which can't be dropped
-        String sourceTableName = "test_source_long_table_name_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
-
-        String baseTableName = "test_target_long_table_name_" + randomNameSuffix();
-        // The max length is different from CREATE TABLE case
-        String validTargetTableName = baseTableName + "z".repeat(255 - ".sql".length() - baseTableName.length());
-
-        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
-        assertThat(getQueryRunner().tableExists(getSession(), validTargetTableName)).isTrue();
-        assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
-        assertThatThrownBy(() -> assertUpdate("DROP TABLE " + validTargetTableName))
-                .hasMessageMatching("(?s).*(Bad path syntax|File name too long).*");
-
-        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
-        String invalidTargetTableName = validTargetTableName + "z";
-        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
-                .hasMessageMatching("(?s).*(Cannot rename|File name too long).*");
-        assertThat(getQueryRunner().tableExists(getSession(), invalidTargetTableName)).isFalse();
     }
 
     @Test
@@ -1179,7 +1141,7 @@ public class TestClickHouseConnectorTest
     protected OptionalInt maxTableNameLength()
     {
         // The numeric value depends on file system
-        return OptionalInt.of(255 - ".sql.detached".length());
+        return OptionalInt.of(209);
     }
 
     @Override
