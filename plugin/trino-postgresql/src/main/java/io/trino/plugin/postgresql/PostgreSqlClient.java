@@ -16,6 +16,7 @@ package io.trino.plugin.postgresql;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closer;
 import com.google.common.math.LongMath;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
@@ -36,6 +37,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcMetadata;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -926,6 +928,115 @@ public class PostgreSqlClient
     public boolean supportsMerge()
     {
         return true;
+    }
+
+    @Override
+    public void finishUpdateTable(ConnectorSession session, JdbcOutputTableHandle handle, List<JdbcColumnHandle> primaryKeys, Set<Long> pageSinkIds)
+    {
+        RemoteTableName temporaryTable = new RemoteTableName(
+                handle.getRemoteTableName().getCatalogName(),
+                handle.getRemoteTableName().getSchemaName(),
+                handle.getTemporaryTableName().orElseThrow());
+
+        // We conditionally create more than the one table, so keep a list of the tables that need to be dropped.
+        Closer closer = Closer.create();
+        closer.register(() -> dropTable(session, temporaryTable, true));
+
+        try (Connection connection = getConnection(session, handle)) {
+            verify(connection.getAutoCommit());
+
+            String targetTableName = quoted(handle.getRemoteTableName());
+            String sourceTableName = quoted(temporaryTable);
+
+            // Target columns
+            String updateAssigns = handle.getColumnNames().stream()
+                    .map(this::quoted)
+                    .map(column -> column + " = temp_table." + column)
+                    .collect(joining(", "));
+
+            String updateSql = "UPDATE %s SET %s FROM %s AS temp_table".formatted(
+                    targetTableName,
+                    updateAssigns,
+                    sourceTableName);
+
+            if (handle.getPageSinkIdColumnName().isPresent()) {
+                RemoteTableName pageSinkTable = constructPageSinkIdsTable(session, connection, handle, pageSinkIds, closer);
+                updateSql += " JOIN %s AS page_sink_table ON page_sink_table.%s = temp_table.%s ".formatted(
+                        quoted(pageSinkTable),
+                        handle.getPageSinkIdColumnName().get(),
+                        handle.getPageSinkIdColumnName().get());
+            }
+
+            String condition = primaryKeys.stream().map(JdbcColumnHandle::getColumnName)
+                    .map(this::quoted)
+                    .map(column -> "%s.%s = temp_table.%s".formatted(targetTableName, column, column))
+                    .collect(joining(" AND ", " WHERE ", ""));
+            updateSql += condition;
+
+            execute(session, connection, updateSql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+        finally {
+            try {
+                closer.close();
+            }
+            catch (IOException e) {
+                throw new TrinoException(JDBC_ERROR, e);
+            }
+        }
+    }
+
+    @Override
+    public void finishDeleteTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
+    {
+        RemoteTableName temporaryTable = new RemoteTableName(
+                handle.getRemoteTableName().getCatalogName(),
+                handle.getRemoteTableName().getSchemaName(),
+                handle.getTemporaryTableName().orElseThrow());
+
+        // We conditionally create more than the one table, so keep a list of the tables that need to be dropped.
+        Closer closer = Closer.create();
+        closer.register(() -> dropTable(session, temporaryTable, true));
+
+        try (Connection connection = getConnection(session, handle)) {
+            verify(connection.getAutoCommit());
+
+            String targetTableName = quoted(handle.getRemoteTableName());
+            String sourceTableName = quoted(temporaryTable);
+
+            String deleteSql = "DELETE FROM %s USING %s AS temp_table".formatted(
+                    targetTableName,
+                    sourceTableName);
+
+            if (handle.getPageSinkIdColumnName().isPresent()) {
+                RemoteTableName pageSinkTable = constructPageSinkIdsTable(session, connection, handle, pageSinkIds, closer);
+                deleteSql += " JOIN %s AS page_sink_table ON page_sink_table.%s = temp_table.%s ".formatted(
+                        quoted(pageSinkTable),
+                        handle.getPageSinkIdColumnName().get(),
+                        handle.getPageSinkIdColumnName().get());
+            }
+
+            String condition = handle.getColumnNames().stream()
+                    .map(this::quoted)
+                    .map(column -> "%s.%s = temp_table.%s".formatted(targetTableName, column, column))
+                    .collect(joining(" AND ", " WHERE ", ""));
+            deleteSql += condition;
+
+            execute(session, connection, deleteSql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+        finally {
+            try {
+                closer.close();
+            }
+            catch (IOException e) {
+                throw new TrinoException(JDBC_ERROR, e);
+            }
+        }
     }
 
     @Override
