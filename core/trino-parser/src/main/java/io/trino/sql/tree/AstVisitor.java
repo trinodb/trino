@@ -602,12 +602,27 @@ public abstract class AstVisitor<R, C>
         return visitTableElement(node, context);
     }
 
+    protected R visitCreateCatalogLike(CreateCatalogLike node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitCreateCatalog(CreateCatalog node, C context)
     {
         return visitStatement(node, context);
     }
 
     protected R visitDropCatalog(DropCatalog node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitRenameCatalog(RenameCatalog node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitSetCatalogProperties(SetCatalogProperties node, C context)
     {
         return visitStatement(node, context);
     }
