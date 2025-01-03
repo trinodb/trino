@@ -230,6 +230,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("delta.register-table-procedure.enabled", "true")
                         .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
+                        .put("delta.vacuum.transaction-logging.enabled", "true")
                         .putAll(deltaStorageConfiguration())
                         .buildOrThrow())
                 .setSchemaLocation(getLocationForTable(bucketName, SCHEMA))
@@ -1710,14 +1711,30 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testVacuum()
             throws Exception
     {
+        testVacuumTransactionLoggingOnCheckpoint(false);
+    }
+
+    @Test
+    public void testVacuumWithTransactionLoggingOnCheckpoint()
+            throws Exception
+    {
+        testVacuumTransactionLoggingOnCheckpoint(true);
+    }
+
+    private void testVacuumTransactionLoggingOnCheckpoint(boolean isCheckPointInterval)
+            throws InterruptedException
+    {
         String catalog = getSession().getCatalog().orElseThrow();
         String tableName = "test_vacuum" + randomNameSuffix();
         String tableLocation = getLocationForTable(bucketName, tableName);
         Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
                 .setCatalogSessionProperty(catalog, "vacuum_min_retention", "0s")
                 .build();
+        Session sessionWithVacuumLoggingDisabled = Session.builder(sessionWithShortRetentionUnlocked)
+                .setCatalogSessionProperty(catalog, "vacuum_transaction_logging_enabled", "false")
+                .build();
         assertUpdate(
-                format("CREATE TABLE %s WITH (location = '%s', partitioned_by = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", tableName, tableLocation),
+                format("CREATE TABLE %s WITH (location = '%s', partitioned_by = ARRAY['regionkey']%s) AS SELECT * FROM tpch.tiny.nation", tableName, tableLocation, isCheckPointInterval ? "" : ", checkpoint_interval = 1"),
                 25);
         try {
             Set<String> initialFiles = getActiveFiles(tableName);
@@ -1746,6 +1763,36 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertThat(getActiveFiles(tableName)).isEqualTo(updatedFiles);
             // old files should be cleaned up
             assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(updatedFiles);
+            // operations should be logged
+            assertThat(query("SELECT version, operation, MAP_FILTER(operation_parameters, (k, v) -> k <> 'queryId') FROM \"" + tableName + "$history\"")).matches(
+                    """
+                    VALUES
+                    (CAST(0 AS BIGINT), CAST('CREATE TABLE AS SELECT' AS VARCHAR), CAST(MAP() AS MAP(VARCHAR, VARCHAR))),
+                    (1, 'MERGE', MAP()),
+                    (2, 'VACUUM START', MAP()),
+                    (3, 'VACUUM END', MAP(ARRAY['status'], ARRAY['COMPLETED'])),
+                    (4, 'VACUUM START', MAP()),
+                    (5, 'VACUUM END', MAP(ARRAY['status'], ARRAY['COMPLETED']))""");
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['sizeOfDataToDelete'] FROM \"" + tableName + "$history\" WHERE version = 2"))).isEqualTo(0);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['numFilesToDelete'] FROM \"" + tableName + "$history\" WHERE version = 2"))).isEqualTo(0);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['numDeletedFiles'] FROM \"" + tableName + "$history\" WHERE version = 3"))).isEqualTo(0);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['numVacuumedDirectories'] FROM \"" + tableName + "$history\" WHERE version = 3"))).isEqualTo(8);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['sizeOfDataToDelete'] FROM \"" + tableName + "$history\" WHERE version = 4"))).isGreaterThanOrEqualTo(4617);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['numFilesToDelete'] FROM \"" + tableName + "$history\" WHERE version = 4"))).isEqualTo(5);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['numDeletedFiles'] FROM \"" + tableName + "$history\" WHERE version = 5"))).isEqualTo(5);
+            assertThat(Integer.parseInt((String) computeScalar("SELECT operation_metrics['numVacuumedDirectories'] FROM \"" + tableName + "$history\" WHERE version = 5"))).isEqualTo(8);
+
+            assertUpdate(sessionWithVacuumLoggingDisabled, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '1s')");
+            // no new vacuum logging operations are logged
+            assertQuery("SELECT version, operation FROM \"" + tableName + "$history\"",
+                    """
+                    VALUES
+                    (0, 'CREATE TABLE AS SELECT'),
+                    (1, 'MERGE'),
+                    (2, 'VACUUM START'),
+                    (3, 'VACUUM END'),
+                    (4, 'VACUUM START'),
+                    (5, 'VACUUM END')""");
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
