@@ -31,13 +31,13 @@ public final class SetDigestOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice castToBinary(@SqlType(SetDigestType.NAME) Slice slice)
+    public static Slice castToBinary(@SqlType(StandardTypes.SET_DIGEST) Slice slice)
     {
         return slice;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(SetDigestType.NAME)
+    @SqlType(StandardTypes.SET_DIGEST)
     public static Slice castFromBinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return slice;
@@ -45,7 +45,7 @@ public final class SetDigestOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.HYPER_LOG_LOG)
-    public static Slice castToHyperLogLog(@SqlType(SetDigestType.NAME) Slice slice)
+    public static Slice castToHyperLogLog(@SqlType(StandardTypes.SET_DIGEST) Slice slice)
     {
         checkArgument(slice.getByte(0) == 1, "Legacy version of SetDigest cannot cast to HyperLogLog");
         int hllLength = slice.getInt(SIZE_OF_BYTE);

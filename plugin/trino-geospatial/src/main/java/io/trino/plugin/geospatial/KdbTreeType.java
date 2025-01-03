@@ -29,6 +29,7 @@ import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
@@ -49,14 +50,13 @@ public final class KdbTreeType
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
     public static final KdbTreeType KDB_TREE = new KdbTreeType();
-    public static final String NAME = "KdbTree";
 
     private KdbTreeType()
     {
         // The KDB tree type should be KdbTree but can not be since KdbTree is in
         // both the plugin class loader and the system class loader.  This was done
         // so the plan optimizer can process geospatial joins.
-        super(new TypeSignature(NAME), Object.class);
+        super(new TypeSignature(StandardTypes.KDB_TREE), Object.class);
     }
 
     @Override

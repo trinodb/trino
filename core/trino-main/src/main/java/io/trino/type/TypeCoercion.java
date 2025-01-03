@@ -28,7 +28,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
-import io.trino.type.setdigest.SetDigestType;
 
 import java.util.List;
 import java.util.Optional;
@@ -342,7 +341,7 @@ public final class TypeCoercion
                         StandardTypes.TIMESTAMP,
                         StandardTypes.TIMESTAMP_WITH_TIME_ZONE,
                         StandardTypes.HYPER_LOG_LOG,
-                        SetDigestType.NAME,
+                        StandardTypes.SET_DIGEST,
                         StandardTypes.P4_HYPER_LOG_LOG,
                         StandardTypes.JSON,
                         StandardTypes.INTERVAL_YEAR_TO_MONTH,
