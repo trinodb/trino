@@ -447,4 +447,13 @@ final class TestFakerQueries
             return "%s %s NOT NULL%s".formatted(name, type, propertiesSchema.isEmpty() ? "" : " WITH (%s)".formatted(propertiesSchema));
         }
     }
+
+    @Test
+    void testTableComment()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "table_comment", "(id INTEGER, name VARCHAR)")) {
+            assertUpdate("COMMENT ON TABLE %s IS 'this is a test table'".formatted(table.getName()));
+            assertThat(getTableComment(table.getName())).isEqualTo("this is a test table");
+        }
+    }
 }

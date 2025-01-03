@@ -255,12 +255,6 @@ final class TestIcebergPolarisCatalogCaseInsensitiveMapping
         assertQueryFails("SELECT * FROM " + viewName2, ".*'iceberg.%s.%s' does not exist".formatted(LOWERCASE_SCHEMA, lowercaseViewName2));
     }
 
-    private String getTableComment(String tableName)
-    {
-        return (String) computeScalar("SELECT comment FROM system.metadata.table_comments " +
-                "WHERE catalog_name = 'iceberg' AND schema_name = '" + LOWERCASE_SCHEMA + "' AND table_name = '" + tableName + "'");
-    }
-
     private String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar("SELECT comment FROM information_schema.columns " +
