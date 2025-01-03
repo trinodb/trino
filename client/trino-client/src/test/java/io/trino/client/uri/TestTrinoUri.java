@@ -495,6 +495,17 @@ public class TestTrinoUri
         assertThat(secureUri.getHttpUri()).isEqualTo(URI.create("https://localhost:443"));
     }
 
+    @Test
+    public void testValidateConnection()
+    {
+        TrinoUri uri = createTrinoUri("trino://localhost:8080");
+        assertThat(uri.isValidateConnection()).isFalse();
+        uri = createTrinoUri("trino://localhost:8080?validateConnection=true");
+        assertThat(uri.isValidateConnection()).isTrue();
+        uri = createTrinoUri("trino://localhost:8080?validateConnection=false");
+        assertThat(uri.isValidateConnection()).isFalse();
+    }
+
     private static boolean isBuilderHelperMethod(String name)
     {
         if (name.equals("setSslVerificationNone")) {
