@@ -35,7 +35,8 @@ public class TestExchangeHdfsConfig
     {
         assertRecordedDefaults(recordDefaults(ExchangeHdfsConfig.class)
                 .setResourceConfigFiles(ImmutableList.of())
-                .setHdfsStorageBlockSize(DataSize.of(4, MEGABYTE)));
+                .setHdfsStorageBlockSize(DataSize.of(4, MEGABYTE))
+                .setHdfsCompatibleFsEnabled(false));
     }
 
     @Test
@@ -48,11 +49,13 @@ public class TestExchangeHdfsConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hdfs.config.resources", resource1 + "," + resource2)
                 .put("exchange.hdfs.block-size", "8MB")
+                .put("exchange.hdfs.compatible-fs.enable", "true")
                 .buildOrThrow();
 
         ExchangeHdfsConfig expected = new ExchangeHdfsConfig()
                 .setResourceConfigFiles(ImmutableList.of(resource1.toString(), resource2.toString()))
-                .setHdfsStorageBlockSize(DataSize.of(8, MEGABYTE));
+                .setHdfsStorageBlockSize(DataSize.of(8, MEGABYTE))
+                .setHdfsCompatibleFsEnabled(true);
 
         assertFullMapping(properties, expected);
     }

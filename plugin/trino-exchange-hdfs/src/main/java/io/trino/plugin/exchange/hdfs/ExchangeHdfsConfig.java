@@ -31,6 +31,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class ExchangeHdfsConfig
 {
     private DataSize hdfsStorageBlockSize = DataSize.of(4, MEGABYTE);
+    private boolean hdfsCompatibleFsEnabled;
     private List<File> resourceConfigFiles = ImmutableList.of();
 
     @NotNull
@@ -46,6 +47,19 @@ public class ExchangeHdfsConfig
     public ExchangeHdfsConfig setHdfsStorageBlockSize(DataSize hdfsStorageBlockSize)
     {
         this.hdfsStorageBlockSize = hdfsStorageBlockSize;
+        return this;
+    }
+
+    public boolean isHdfsCompatibleFsEnabled()
+    {
+        return hdfsCompatibleFsEnabled;
+    }
+
+    @Config("exchange.hdfs.compatible-fs.enable")
+    @ConfigDescription("Enable use Hadoop-Compatible File System")
+    public ExchangeHdfsConfig setHdfsCompatibleFsEnabled(boolean hdfsCompatibleFsEnabled)
+    {
+        this.hdfsCompatibleFsEnabled = hdfsCompatibleFsEnabled;
         return this;
     }
 
