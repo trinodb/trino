@@ -14,11 +14,14 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
+import io.trino.plugin.base.config.ConfigPropertyMetadata;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -31,12 +34,19 @@ public class JdbcPlugin
 {
     private final String name;
     private final Supplier<Module> module;
+    private final Set<ConfigPropertyMetadata> additionalProperties;
 
     public JdbcPlugin(String name, Supplier<Module> module)
+    {
+        this(name, module, ImmutableSet.of());
+    }
+
+    public JdbcPlugin(String name, Supplier<Module> module, Set<ConfigPropertyMetadata> additionalProperties)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.module = requireNonNull(module, "module is null");
+        this.additionalProperties = ImmutableSet.copyOf(requireNonNull(additionalProperties, "additionalProperties is null"));
     }
 
     @Override
@@ -47,6 +57,7 @@ public class JdbcPlugin
                 () -> combine(
                         new CredentialProviderModule(),
                         new ExtraCredentialsBasedIdentityCacheMappingModule(),
-                        module.get())));
+                        module.get()),
+                additionalProperties));
     }
 }
