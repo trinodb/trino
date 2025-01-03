@@ -94,6 +94,7 @@ public class IcebergConfig
     private boolean objectStoreLayoutEnabled;
     private int metadataParallelism = 8;
     private boolean bucketExecutionEnabled = true;
+    private boolean fileBasedConflictDetectionEnabled;
 
     public CatalogType getCatalogType()
     {
@@ -562,6 +563,19 @@ public class IcebergConfig
     public IcebergConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
     {
         this.bucketExecutionEnabled = bucketExecutionEnabled;
+        return this;
+    }
+
+    public boolean isFileBasedConflictDetectionEnabled()
+    {
+        return fileBasedConflictDetectionEnabled;
+    }
+
+    @Config("iceberg.file-based-conflict-detection")
+    @ConfigDescription("Enable file-based conflict detection: take partition information from the actual written files as a source for the conflict detection system")
+    public IcebergConfig setFileBasedConflictDetectionEnabled(boolean fileBasedConflictDetectionEnabled)
+    {
+        this.fileBasedConflictDetectionEnabled = fileBasedConflictDetectionEnabled;
         return this;
     }
 }
