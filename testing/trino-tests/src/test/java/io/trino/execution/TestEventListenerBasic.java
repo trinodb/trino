@@ -51,6 +51,7 @@ import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -110,6 +111,9 @@ public class TestEventListenerBasic
     private static final String IGNORE_EVENT_MARKER = " -- ignore_generated_event";
     private static final String VARCHAR_TYPE = "varchar(15)";
     private static final String BIGINT_TYPE = BIGINT.getDisplayName();
+    private static final String VARCHAR_ARRAY_TYPE = "array(varchar(15))";
+    private static final String BIGINT_ARRAY_TYPE = "array(bigint)";
+    private static final Type VARCHAR_15 = createVarcharType(15);
     private static final Metrics TEST_METRICS = new Metrics(ImmutableMap.of("test_metrics", new LongCount(1)));
 
     private EventsAwaitingQueries queries;
@@ -155,8 +159,10 @@ public class TestEventListenerBasic
                                 return ImmutableList.of(new ColumnMetadata("test_column", BIGINT));
                             }
                             return ImmutableList.of(
-                                    new ColumnMetadata("test_varchar", createVarcharType(15)),
-                                    new ColumnMetadata("test_bigint", BIGINT));
+                                    new ColumnMetadata("test_varchar", VARCHAR_15),
+                                    new ColumnMetadata("test_bigint", BIGINT),
+                                    new ColumnMetadata("test_varchar_array", new ArrayType(VARCHAR_15)),
+                                    new ColumnMetadata("test_bigint_array", new ArrayType(BIGINT)));
                         })
                         .withGetTableHandle((session, schemaTableName) -> {
                             if (!schemaTableName.getTableName().startsWith("create")) {
@@ -194,7 +200,7 @@ public class TestEventListenerBasic
                                                 "SELECT test_varchar AS test_column FROM mock.default.test_table_with_row_filter",
                                                 Optional.empty(),
                                                 Optional.empty(),
-                                                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", createVarcharType(15).getTypeId(), Optional.empty())),
+                                                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", VARCHAR_15.getTypeId(), Optional.empty())),
                                                 Optional.empty(),
                                                 Optional.empty(),
                                                 true,
@@ -761,7 +767,7 @@ public class TestEventListenerBasic
             throws Exception
     {
         QueryEvents queryEvents = runQueryAndWaitForEvents(
-                "CREATE TABLE mock.default.create_table_with_referring_mask AS SELECT * FROM mock.default.test_table_with_column_mask"
+                "CREATE TABLE mock.default.create_table_with_referring_mask AS SELECT test_varchar, test_bigint FROM mock.default.test_table_with_column_mask"
         ).getQueryEvents();
 
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
@@ -1372,7 +1378,9 @@ public class TestEventListenerBasic
                 .containsExactly(
                         new OutputColumnMetadata("test_column", BIGINT_TYPE, ImmutableSet.of()),
                         new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of()),
-                        new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of()));
+                        new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of()),
+                        new OutputColumnMetadata("test_varchar_array", VARCHAR_ARRAY_TYPE, ImmutableSet.of()),
+                        new OutputColumnMetadata("test_bigint_array", BIGINT_ARRAY_TYPE, ImmutableSet.of()));
     }
 
     @Test
@@ -1417,6 +1425,27 @@ public class TestEventListenerBasic
                         ImmutableSet.of(
                                 new ColumnDetail("tpch", "tiny", "orders", "orderkey"),
                                 new ColumnDetail("tpch", "sf1", "orders", "custkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithUnnestQueries()
+            throws Exception
+    {
+        assertLineage(
+                "SELECT test_varchar_unnest AS test_varchar, test_bigint AS test_bigint FROM mock.default.tests_table_unnest CROSS JOIN UNNEST(test_varchar_array) AS t(test_varchar_unnest)",
+                ImmutableSet.of("mock.default.tests_table_unnest"),
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "tests_table_unnest", "test_varchar_array"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "tests_table_unnest", "test_bigint"))));
+        assertLineage(
+                "SELECT test_varchar_unnest AS test_varchar, test_bigint_unnest AS test_bigint FROM mock.default.tests_table_unnest CROSS JOIN UNNEST(test_varchar_array) WITH ORDINALITY AS t(test_varchar_unnest, test_bigint_unnest)",
+                ImmutableSet.of("mock.default.tests_table_unnest"),
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "tests_table_unnest", "test_varchar_array"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of()));
+        assertLineage(
+                "SELECT test_varchar_unnest AS test_varchar, test_bigint_unnest AS test_bigint FROM mock.default.tests_table_unnest CROSS JOIN UNNEST(test_varchar_array, test_bigint_array) AS t(test_varchar_unnest, test_bigint_unnest)",
+                ImmutableSet.of("mock.default.tests_table_unnest"),
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "tests_table_unnest", "test_varchar_array"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("mock", "default", "tests_table_unnest", "test_bigint_array"))));
     }
 
     @Test

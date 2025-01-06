@@ -1645,9 +1645,21 @@ class StatementAnalyzer
 
             ordinalityField.ifPresent(outputFieldsBuilder::add);
 
-            analysis.setUnnest(node, new UnnestAnalysis(mappingsBuilder.buildOrThrow(), ordinalityField));
+            Map<NodeRef<Expression>, List<Field>> mappings = mappingsBuilder.buildOrThrow();
+            analysis.setUnnest(node, new UnnestAnalysis(mappings, ordinalityField));
 
-            return createAndAssignScope(node, scope, outputFieldsBuilder.build());
+            List<Field> outputFields = outputFieldsBuilder.build();
+            for (Field field : outputFields) {
+                for (Map.Entry<NodeRef<Expression>, List<Field>> entry : mappings.entrySet()) {
+                    Expression expression = entry.getKey().getNode();
+                    List<Field> fields = entry.getValue();
+                    if (fields.contains(field)) {
+                        analysis.addSourceColumns(field, analysis.getExpressionSourceColumns(expression));
+                    }
+                }
+            }
+
+            return createAndAssignScope(node, scope, outputFields);
         }
 
         @Override
