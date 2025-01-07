@@ -962,6 +962,7 @@ public class PlanOptimizers
                         .add(new PushFilterIntoValues(plannerContext))
                         .add(new ReplaceJoinOverConstantWithProject())
                         .add(new RemoveRedundantPredicateAboveTableScan(plannerContext))
+                        .add(new RemoveEmptyUnionBranches())
                         .build()));
         // Remove unsupported dynamic filters introduced by PredicatePushdown. Also, cleanup dynamic filters removed by
         // PushPredicateIntoTableScan and RemoveRedundantPredicateAboveTableScan due to those rules replacing table scans with empty ValuesNode
