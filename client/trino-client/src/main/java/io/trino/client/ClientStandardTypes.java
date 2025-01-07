@@ -50,6 +50,7 @@ public final class ClientStandardTypes
     public static final String SPHERICAL_GEOGRAPHY = "SphericalGeography";
     public static final String BING_TILE = "BingTile";
     public static final String KDB_TREE = "KdbTree";
+    public static final String COLOR = "color";
 
     private ClientStandardTypes() {}
 }

@@ -35,6 +35,7 @@ import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.ClientStandardTypes.BING_TILE;
 import static io.trino.client.ClientStandardTypes.BOOLEAN;
 import static io.trino.client.ClientStandardTypes.CHAR;
+import static io.trino.client.ClientStandardTypes.COLOR;
 import static io.trino.client.ClientStandardTypes.DATE;
 import static io.trino.client.ClientStandardTypes.DECIMAL;
 import static io.trino.client.ClientStandardTypes.DOUBLE;
@@ -136,6 +137,7 @@ public final class JsonDecodingUtils
             case CHAR:
             case GEOMETRY:
             case SPHERICAL_GEOGRAPHY:
+            case COLOR:
                 return STRING_DECODER;
             case KDB_TREE:
             case BING_TILE:

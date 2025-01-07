@@ -50,6 +50,7 @@ public final class StandardTypes
     public static final String SPHERICAL_GEOGRAPHY = "SphericalGeography"; // SphericalGeographyType.SPHERICAL_GEOGRAPHY_TYPE_NAME
     public static final String BING_TILE = "BingTile"; // BingTileType.NAME
     public static final String KDB_TREE = "KdbTree"; // KdbTreeType.NAME
+    public static final String COLOR = "color"; // Color.NAME
 
     private StandardTypes() {}
 }
