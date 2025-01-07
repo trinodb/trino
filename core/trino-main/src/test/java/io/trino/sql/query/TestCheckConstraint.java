@@ -30,7 +30,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,7 +57,7 @@ public class TestCheckConstraint
         QueryRunner runner = new StandaloneQueryRunner(SESSION);
 
         runner.installPlugin(new TpchPlugin());
-        runner.createCatalog(LOCAL_CATALOG, "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+        runner.createCatalog(LOCAL_CATALOG, "tpch", ImmutableMap.of("tpch.splits-per-node", "1"));
 
         runner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withGetColumns(schemaTableName -> {

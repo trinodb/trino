@@ -14,6 +14,7 @@
 package io.trino.plugin.tpch;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -31,15 +32,22 @@ import java.util.List;
 
 import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
 import static io.trino.tpch.TpchColumnTypes.IDENTIFIER;
+import static java.util.Objects.requireNonNull;
 
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     private final DecimalTypeMapping decimalTypeMapping;
 
+    @Inject
+    public TpchRecordSetProvider(TpchConfig config)
+    {
+        this(requireNonNull(config, "config is null").getDecimalTypeMapping());
+    }
+
     public TpchRecordSetProvider(DecimalTypeMapping decimalTypeMapping)
     {
-        this.decimalTypeMapping = decimalTypeMapping;
+        this.decimalTypeMapping = requireNonNull(decimalTypeMapping, "decimalTypeMapping is null");
     }
 
     @Override
