@@ -45,7 +45,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableP
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertyOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -106,20 +105,12 @@ public class TestDeltaLakeColumnMappingMode
                     .contains(entry("delta.feature.columnMapping", "supported"));
 
             // Unsetting delta.columnMapping.mode means changing to 'none' column mapping mode
-            if (mode.equals("none")) {
-                onDelta().executeQuery("ALTER TABLE default." + tableName + " UNSET TBLPROPERTIES ('delta.columnMapping.mode')");
-                assertThat(getTablePropertiesOnDelta("default", tableName))
-                        .contains(entry("delta.feature.columnMapping", "supported"))
-                        .doesNotContainKey("delta.columnMapping.mode");
-                assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE delta.default." + tableName).getOnlyValue())
-                        .doesNotContain("column_mapping_mode =");
-            }
-            else {
-                assertQueryFailure(() -> onDelta().executeQuery("ALTER TABLE default." + tableName + " UNSET TBLPROPERTIES ('delta.columnMapping.mode')"))
-                        .hasMessageContaining("Changing column mapping mode from '" + mode + "' to 'none' is not supported");
-                assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE delta.default." + tableName).getOnlyValue())
-                        .contains("column_mapping_mode = '" + mode.toUpperCase(ENGLISH) + "'");
-            }
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " UNSET TBLPROPERTIES ('delta.columnMapping.mode')");
+            assertThat(getTablePropertiesOnDelta("default", tableName))
+                    .contains(entry("delta.feature.columnMapping", "supported"))
+                    .doesNotContainKey("delta.columnMapping.mode");
+            assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE delta.default." + tableName).getOnlyValue())
+                    .doesNotContain("column_mapping_mode =");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -135,7 +126,8 @@ public class TestDeltaLakeColumnMappingMode
                 "WITH (" +
                 " location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'," +
                 " column_mapping_mode = '" + mode + "'" +
-                ")"));
+                ")"),
+                5);
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
@@ -196,7 +188,7 @@ public class TestDeltaLakeColumnMappingMode
                 "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 "TBLPROPERTIES ('delta.columnMapping.mode'='" + mode + "')");
 
-        assertTableReaderAndWriterVersion("default", tableName, "2", "5");
+        assertTableReaderAndWriterVersion("default", tableName, "2", "7");
 
         // Revert back to `none` column mode
         onDelta().executeQuery("" +
@@ -206,7 +198,7 @@ public class TestDeltaLakeColumnMappingMode
                 "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 "TBLPROPERTIES ('delta.columnMapping.mode'='none')");
 
-        assertTableReaderAndWriterVersion("default", tableName, "2", "5");
+        assertTableReaderAndWriterVersion("default", tableName, "2", "7");
 
         onTrino().executeQuery("DROP TABLE delta.default." + tableName);
     }
@@ -219,16 +211,17 @@ public class TestDeltaLakeColumnMappingMode
                 "(x INT) " +
                 "USING delta " +
                 "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                "TBLPROPERTIES ('delta.columnMapping.mode'='" + mode + "')"));
+                "TBLPROPERTIES ('delta.columnMapping.mode'='" + mode + "')"),
+                7);
     }
 
-    private void testColumnMappingModeReaderAndWriterVersion(Consumer<String> createTable)
+    private void testColumnMappingModeReaderAndWriterVersion(Consumer<String> createTable, int expectedMinWriterVersion)
     {
         String tableName = "test_dl_column_mapping_version_" + randomNameSuffix();
 
         createTable.accept(tableName);
 
-        assertTableReaderAndWriterVersion("default", tableName, "2", "5");
+        assertTableReaderAndWriterVersion("default", tableName, "2", Integer.toString(expectedMinWriterVersion));
 
         onTrino().executeQuery("DROP TABLE delta.default." + tableName);
     }
@@ -845,9 +838,9 @@ public class TestDeltaLakeColumnMappingMode
                 // sourceMappingMode targetMappingMode supported
                 {"none", "id", false},
                 {"none", "name", true},
-                {"id", "none", false},
+                {"id", "none", true},
                 {"id", "name", false},
-                {"name", "none", false},
+                {"name", "none", true},
                 {"name", "id", false},
         };
     }
