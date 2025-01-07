@@ -79,7 +79,7 @@ public class TestDeltaLakeSystemTableCompatibility
         List<Row> expectedRows = ImmutableList.of(
                 row("delta.columnMapping.mode", "id"),
                 row("delta.feature.columnMapping", "supported"),
-                row("delta.minReaderVersion", "3"),
+                row("delta.minReaderVersion", "2"), // https://github.com/delta-io/delta/issues/4024 Delta Lake 3.3.0 ignores minReaderVersion
                 row("delta.minWriterVersion", "7"));
         try {
             QueryResult deltaResult = onDelta().executeQuery("SHOW TBLPROPERTIES default." + tableName);
