@@ -1179,8 +1179,11 @@ class RelationPlanner
         for (Identifier column : joinColumns) {
             Symbol output = symbolAllocator.newSymbol(column.getValue(), analysis.getType(column));
             outputs.add(output);
-            if (join.getType() == JoinType.INNER) {
+            if (join.getType() == JoinType.INNER || join.getType() == JoinType.LEFT) {
                 assignments.put(output, leftJoinColumns.get(column).toSymbolReference());
+            }
+            else if (join.getType() == JoinType.RIGHT) {
+                assignments.put(output, rightJoinColumns.get(column).toSymbolReference());
             }
             else {
                 assignments.put(output, new Coalesce(
