@@ -1,0 +1,40 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "1MB",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000,
+      "softCpuLimit": "1h",
+      "hardCpuLimit": "1d",
+      "subGroups": [
+        {
+          "name": "original",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4,
+          "schedulingWeight": 5
+        },
+        {
+          "name": "auth",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4,
+          "schedulingWeight": 5
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "group": "global.original",
+      "originalUser": "usr-original"
+    },
+    {
+      "group": "global.auth",
+      "authenticatedUser": "usr-auth"
+    }
+  ],
+  "cpuQuotaPeriod": "1h"
+}
+
