@@ -595,6 +595,17 @@ public abstract class AbstractTestQueryFramework
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
     }
 
+    protected void assertCatalogs(String... catalogs)
+    {
+        List<MaterializedRow> showCatalogs = computeActual("SHOW CATALOGS").getMaterializedRows();
+        assertThat(showCatalogs)
+                .extracting(row -> {
+                    assertThat(row.getFieldCount()).isEqualTo(1);
+                    return row.getField(0);
+                })
+                .containsExactlyInAnyOrder(catalogs);
+    }
+
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         return h2QueryRunner.execute(getSession(), sql, resultTypes);

@@ -291,6 +291,29 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected abstract String bucketUrl();
 
     @Test
+    void testCreateDropDynamicCatalog()
+    {
+        String catalog = "new_catalog_" + randomNameSuffix();
+        String createCatalogSql = """
+                CREATE CATALOG %1$s USING delta_lake
+                WITH (
+                    "hive.metastore" = 'thrift',
+                    "hive.metastore.uri" = '%2$s'
+                )""".formatted(catalog, hiveHadoop.getHiveMetastoreEndpoint().toString());
+        assertUpdate(createCatalogSql);
+        assertCatalogs("system", "delta", "hive", "tpch", catalog);
+
+        assertUpdate("DROP CATALOG " + catalog);
+        assertCatalogs("system", "delta", "hive", "tpch");
+        // re-add the same catalog
+        assertUpdate(createCatalogSql);
+        assertCatalogs("system", "delta", "hive", "tpch", catalog);
+
+        assertUpdate("DROP CATALOG " + catalog);
+        assertCatalogs("system", "delta", "hive", "tpch");
+    }
+
+    @Test
     public void testCreateTableInNonexistentSchemaFails()
     {
         String tableName = "test_create_table_in_nonexistent_schema_" + randomNameSuffix();

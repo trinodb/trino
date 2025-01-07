@@ -122,6 +122,34 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     @Test
+    void testCreateDropDynamicCatalog()
+    {
+        String catalog = "new_catalog_" + randomNameSuffix();
+        String createCatalogSql = "CREATE CATALOG %s USING iceberg".formatted(catalog);
+        assertUpdate(createCatalogSql);
+        assertCatalogs(availableCatalogs(Optional.of(catalog)));
+
+        assertUpdate("DROP CATALOG " + catalog);
+        assertCatalogs(availableCatalogs(Optional.empty()));
+        // re-add the same catalog
+        assertUpdate(createCatalogSql);
+        assertCatalogs(availableCatalogs(Optional.of(catalog)));
+
+        assertUpdate("DROP CATALOG " + catalog);
+        assertCatalogs(availableCatalogs(Optional.empty()));
+    }
+
+    protected String[] availableCatalogs(Optional<String> catalog)
+    {
+        ImmutableList.Builder<String> catalogs = ImmutableList.builder();
+        catalogs.add("system")
+                .add("iceberg")
+                .add("tpch");
+        catalog.ifPresent(catalogs::add);
+        return catalogs.build().toArray(new String[0]);
+    }
+
+    @Test
     public void testHiddenPathColumn()
     {
         try (TestTable table = newTrinoTable("hidden_file_path", "(a int, b VARCHAR)", ImmutableList.of("(1, 'a')"))) {

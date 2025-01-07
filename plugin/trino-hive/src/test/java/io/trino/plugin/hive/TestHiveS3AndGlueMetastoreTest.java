@@ -442,4 +442,22 @@ public class TestHiveS3AndGlueMetastoreTest
         assertUpdate("DROP FUNCTION " + name2 + "(varchar)");
         assertQueryFails("DROP FUNCTION " + name2 + "(varchar)", "line 1:1: Function not found");
     }
+
+    @Test
+    void testCreateDropDynamicCatalog()
+    {
+        String catalog = "new_catalog_" + randomNameSuffix();
+        String createCatalogSql = "CREATE CATALOG %s USING hive".formatted(catalog);
+        assertUpdate(createCatalogSql);
+        assertCatalogs("system", "hive", "tpch", catalog);
+
+        assertUpdate("DROP CATALOG " + catalog);
+        assertCatalogs("system", "hive", "tpch");
+        // re-add the same catalog
+        assertUpdate(createCatalogSql);
+        assertCatalogs("system", "hive", "tpch", catalog);
+
+        assertUpdate("DROP CATALOG " + catalog);
+        assertCatalogs("system", "hive", "tpch");
+    }
 }

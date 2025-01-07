@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.trino.filesystem.Location;
@@ -295,6 +296,18 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     protected boolean locationExists(String location)
     {
         return java.nio.file.Files.exists(Path.of(location));
+    }
+
+    @Override
+    protected String[] availableCatalogs(Optional<String> catalog)
+    {
+        ImmutableList.Builder<String> catalogs = ImmutableList.builder();
+        catalogs.add("system")
+                .add("iceberg")
+                .add("nested_namespace_disabled")
+                .add("tpch");
+        catalog.ifPresent(catalogs::add);
+        return catalogs.build().toArray(new String[0]);
     }
 
     private TableIdentifier toIdentifier(String tableName)
