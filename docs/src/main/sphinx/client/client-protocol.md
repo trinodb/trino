@@ -59,6 +59,8 @@ on a Trino cluster:
   [](prop-protocol-spooling).
 * Choose a suitable object storage that is accessible to your Trino cluster and
   your clients.
+* Create a location in your object storage that is not shared with any object
+  storage catalog or spooling for any other Trino clusters.
 * Configure the object storage in `etc/spooling-manager.properties` using the
   [](prop-spooling-file-system).
 
