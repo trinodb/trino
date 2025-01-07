@@ -31,7 +31,6 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
 
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
@@ -83,7 +82,7 @@ public class BenchmarkReorderChainedJoins
                     .build();
             planTester = PlanTester.create(session);
             planTester.installPlugin(new TpchPlugin());
-            planTester.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+            planTester.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", "1"));
         }
 
         public PlanTester getPlanTester()
