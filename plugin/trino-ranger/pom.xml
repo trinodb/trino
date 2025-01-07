@@ -12,7 +12,6 @@
     <artifactId>trino-ranger</artifactId>
 
     <packaging>trino-plugin</packaging>
-    <name>Trino - Apache Ranger access control</name>
     <description>Trino - Apache Ranger access control</description>
 
     <properties>
