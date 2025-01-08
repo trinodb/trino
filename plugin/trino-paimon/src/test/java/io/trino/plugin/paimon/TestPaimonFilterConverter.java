@@ -44,7 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Test for {@link PaimonFilterConverter}.
  */
-public class PaimonFilterConverterTest
+public class TestPaimonFilterConverter
 {
     @Test
     public void testAll()

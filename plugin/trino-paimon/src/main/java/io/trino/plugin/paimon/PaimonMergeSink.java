@@ -26,6 +26,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 
+import static java.lang.String.format;
+
 /**
  * Trino {@link ConnectorMergeSink}.
  */
@@ -47,7 +49,7 @@ public class PaimonMergeSink
         int inputChannelCount = page.getChannelCount();
         if (inputChannelCount != dataColumnCount + 2) {
             throw new IllegalArgumentException(
-                    String.format(
+                    format(
                             "inputPage channelCount (%s) == dataColumns size (%s) + 2",
                             inputChannelCount, dataColumnCount));
         }

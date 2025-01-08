@@ -43,10 +43,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * The test of TestTrinoFilterExtractor.
  */
-public class PaimonFilterExtractorTest
+final class TestPaimonFilterExtractor
 {
     @Test
-    public void testExtractTrinoColumnHandleForExpressionFilter()
+    void testExtractTrinoColumnHandleForExpressionFilter()
     {
         TupleDomain<ColumnHandle> summary = TupleDomain.all();
         Type mapType = TESTING_TYPE_MANAGER.fromSqlType("map<varchar,varchar>");

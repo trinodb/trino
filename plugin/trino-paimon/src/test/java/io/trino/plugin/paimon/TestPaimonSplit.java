@@ -14,33 +14,27 @@
 package io.trino.plugin.paimon;
 
 import io.airlift.json.JsonCodec;
-import org.apache.paimon.utils.InstantiationUtil;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Test for {@link PaimonPartitioningHandle}.
+ * Test for {@link PaimonSplit}.
  */
-public class PaimonPartitioningHandleTest
+final class TestPaimonSplit
 {
-    private final JsonCodec<PaimonPartitioningHandle> codec =
-            JsonCodec.jsonCodec(PaimonPartitioningHandle.class);
+    private final JsonCodec<PaimonSplit> codec = JsonCodec.jsonCodec(PaimonSplit.class);
 
     @Test
-    public void testTrinoPartitioningHandle()
+    void testJsonRoundTrip()
             throws Exception
     {
-        byte[] schemaData = InstantiationUtil.serializeObject("test_schema");
-        PaimonPartitioningHandle expected = new PaimonPartitioningHandle(schemaData);
-        testRoundTrip(expected);
-    }
-
-    private void testRoundTrip(PaimonPartitioningHandle expected)
-    {
+        byte[] serializedTable = PaimonTestUtils.getSerializedTable();
+        PaimonSplit expected = new PaimonSplit(Arrays.toString(serializedTable), 0.1);
         String json = codec.toJson(expected);
-        PaimonPartitioningHandle actual = codec.fromJson(json);
-        assertThat(actual).isEqualTo(expected);
-        assertThat(actual.getSchema()).isEqualTo(expected.getSchema());
+        PaimonSplit actual = codec.fromJson(json);
+        assertThat(actual.getSplitSerialized()).isEqualTo(expected.getSplitSerialized());
     }
 }

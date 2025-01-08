@@ -20,7 +20,7 @@ import org.apache.paimon.shade.guava30.com.google.common.collect.ImmutableMap;
 /**
  * The test of TrinoDistributedQuery.
  */
-public class PaimonDistributedQueryTest
+final class TestPaimonDistributedQuery
         extends AbstractDistributedEngineOnlyQueries
 {
     @Override

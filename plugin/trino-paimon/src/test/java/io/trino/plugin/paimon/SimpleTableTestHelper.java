@@ -31,7 +31,7 @@ import java.util.Map;
 /**
  * A simple table test helper to write and commit.
  */
-public class SimpleTableTestHelper
+final class SimpleTableTestHelper
 {
     private final InnerTableWrite writer;
     private final InnerTableCommit commit;

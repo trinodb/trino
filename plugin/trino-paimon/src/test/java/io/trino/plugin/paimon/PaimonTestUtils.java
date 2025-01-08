@@ -40,7 +40,7 @@ import static org.apache.paimon.data.BinaryString.fromString;
 /**
  * presto test util.
  */
-public class PaimonTestUtils
+final class PaimonTestUtils
 {
     private PaimonTestUtils() {}
 

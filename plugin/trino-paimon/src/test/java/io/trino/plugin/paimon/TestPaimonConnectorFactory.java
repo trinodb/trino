@@ -27,12 +27,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Test for {@link PaimonConnectorFactory}.
  */
-public class PaimonConnectorFactoryTest
+final class TestPaimonConnectorFactory
 {
     @TempDir java.nio.file.Path tempFile;
 
     @Test
-    public void testCreateConnector()
+    void testCreateConnector()
     {
         Map<String, String> config = ImmutableMap.of("warehouse", tempFile.toString());
         ConnectorFactory factory = new PaimonConnectorFactory();

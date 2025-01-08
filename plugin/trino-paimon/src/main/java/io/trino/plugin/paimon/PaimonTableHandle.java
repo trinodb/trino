@@ -40,6 +40,8 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static java.lang.String.format;
+
 /**
  * Trino {@link ConnectorTableHandle}.
  */
@@ -186,7 +188,7 @@ public class PaimonTableHandle
         int index = lowerCaseFieldNames.indexOf(field);
         if (index == -1) {
             throw new RuntimeException(
-                    String.format("Cannot find field %s in schema %s", field, lowerCaseFieldNames));
+                    format("Cannot find field %s in schema %s", field, lowerCaseFieldNames));
         }
         DataField dataField = paimonTable.rowType().getFields().get(index);
         return PaimonColumnHandle.of(originFieldNames.get(index), dataField.type(), dataField.id());

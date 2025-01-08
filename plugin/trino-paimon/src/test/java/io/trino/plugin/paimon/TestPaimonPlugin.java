@@ -30,10 +30,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Test for {@link PaimonPlugin}.
  */
-public class PaimonPluginTest
+final class TestPaimonPlugin
 {
     @Test
-    public void testCreatePrestoConnector()
+    void testCreatePrestoConnector()
             throws IOException
     {
         String warehouse =

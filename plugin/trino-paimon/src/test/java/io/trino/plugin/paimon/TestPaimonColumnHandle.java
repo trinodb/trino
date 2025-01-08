@@ -28,10 +28,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Test for {@link PaimonColumnHandle}.
  */
-public class PaimonColumnHandleTest
+final class TestPaimonColumnHandle
 {
     @Test
-    public void testTrinoColumnHandle()
+    void testTrinoColumnHandle()
     {
         PaimonColumnHandle expected = PaimonColumnHandle.of("name", DataTypes.STRING(), 0);
         testRoundTrip(expected);

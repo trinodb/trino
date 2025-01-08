@@ -38,7 +38,7 @@ import static io.trino.tpch.TpchTable.SUPPLIER;
 /**
  * The query runner of trino.
  */
-public class PaimonQueryRunner
+final class PaimonQueryRunner
 {
     private static final Logger LOG = Logger.get(PaimonQueryRunner.class);
 

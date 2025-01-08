@@ -25,12 +25,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Test for {@link PaimonTableHandle}.
  */
-public class PaimonTableHandleTest
+final class TestPaimonTableHandle
 {
     private final JsonCodec<PaimonTableHandle> codec = JsonCodec.jsonCodec(PaimonTableHandle.class);
 
     @Test
-    public void testPrestoTableHandle()
+    void testPrestoTableHandle()
             throws Exception
     {
         PaimonTableHandle expected =

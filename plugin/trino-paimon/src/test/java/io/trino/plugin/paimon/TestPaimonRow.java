@@ -44,10 +44,10 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 /**
  * Test for {@link PaimonRow}.
  */
-public class PaimonRowTest
+final class TestPaimonRow
 {
     @Test
-    void test()
+    void testPaimonRow()
     {
         Page singlePage =
                 new Page(

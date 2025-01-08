@@ -66,13 +66,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * ITCase for trino connector.
  */
-public class PaimonITCase
+final class TestPaimonITCase
         extends AbstractTestQueryFramework
 {
     private static final String CATALOG = "paimon";
     private static final String DB = "default";
 
-    protected long t2FirstCommitTimestamp;
+    private long t2FirstCommitTimestamp;
 
     private static SimpleTableTestHelper createTestHelper(Path tablePath)
             throws Exception
@@ -88,7 +88,7 @@ public class PaimonITCase
         return new SimpleTableTestHelper(tablePath, rowType);
     }
 
-    protected static String timestampLiteral(long epochMilliSeconds, int precision)
+    private static String timestampLiteral(long epochMilliSeconds, int precision)
     {
         return DateTimeFormatter.ofPattern(
                         "''yyyy-MM-dd HH:mm:ss." + "S".repeat(precision) + " VV''")
@@ -623,20 +623,20 @@ public class PaimonITCase
     }
 
     @Test
-    public void testComplexTypes()
+    void testComplexTypes()
     {
         assertThat(sql("SELECT * FROM paimon.default.t4"))
                 .isEqualTo("[[1, {1=2}, [2, male], [1, 2, 3]]]");
     }
 
     @Test
-    public void testEmptyTable()
+    void testEmptyTable()
     {
         assertThat(sql("SELECT * FROM paimon.default.empty_t")).isEqualTo("[]");
     }
 
     @Test
-    public void testProjection()
+    void testProjection()
     {
         assertThat(sql("SELECT * FROM paimon.default.t1"))
                 .isEqualTo("[[1, 2, 1, 1], [5, 6, 3, 3]]");
@@ -645,7 +645,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testLimit()
+    void testLimit()
     {
         assertThat(sql("SELECT * FROM paimon.default.t1 LIMIT 1")).isEqualTo("[[1, 2, 1, 1]]");
         assertThat(sql("SELECT * FROM paimon.default.t1 WHERE a = 5 LIMIT 1"))
@@ -653,7 +653,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testSystemTable()
+    void testSystemTable()
     {
         assertThat(
                 sql(
@@ -662,14 +662,14 @@ public class PaimonITCase
     }
 
     @Test
-    public void testFilter()
+    void testFilter()
     {
         assertThat(sql("SELECT a, aCa FROM paimon.default.t2 WHERE a < 4"))
                 .isEqualTo("[[1, 1], [3, 2]]");
     }
 
     @Test
-    public void testGroupByWithCast()
+    void testGroupByWithCast()
     {
         assertThat(
                 sql(
@@ -678,7 +678,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testLimitWithPartition()
+    void testLimitWithPartition()
     {
         assertThat(sql("SELECT * FROM paimon.default.t3 WHERE pt = '1' LIMIT 1"))
                 .isEqualTo("[[1, 1, 1, 1, 1]]");
@@ -688,7 +688,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testShowCreateTable()
+    void testShowCreateTable()
     {
         assertThat(sql("SHOW CREATE TABLE paimon.default.t3"))
                 .isEqualTo(
@@ -702,7 +702,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testCreateSchema()
+    void testCreateSchema()
     {
         sql("CREATE SCHEMA paimon.test");
         assertThat(sql("SHOW SCHEMAS FROM paimon"))
@@ -711,7 +711,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testDropSchema()
+    void testDropSchema()
     {
         sql("CREATE SCHEMA paimon.tpch");
         sql("DROP SCHEMA paimon.tpch");
@@ -719,7 +719,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testCreateTable()
+    void testCreateTable()
     {
         sql(
                 "CREATE TABLE orders ("
@@ -741,7 +741,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testRenameTable()
+    void testRenameTable()
     {
         sql(
                 "CREATE TABLE testRenameTable ("
@@ -767,7 +767,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testDropTable()
+    void testDropTable()
     {
         sql(
                 "CREATE TABLE testDropTable ("
@@ -790,7 +790,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testAddColumn()
+    void testAddColumn()
     {
         sql(
                 "CREATE TABLE testAddColumn ("
@@ -815,7 +815,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testRenameColumn()
+    void testRenameColumn()
     {
         sql(
                 "CREATE TABLE testRenameColumn ("
@@ -840,7 +840,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testDropColumn()
+    void testDropColumn()
     {
         sql(
                 "CREATE TABLE testDropColumn ("
@@ -865,7 +865,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testSetTableProperties()
+    void testSetTableProperties()
     {
         sql(
                 "CREATE TABLE testSetTableProperties ("
@@ -888,7 +888,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testAllType()
+    void testAllType()
     {
         assertThat(
                 sql(
@@ -901,7 +901,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testTimeTravel()
+    void testTimeTravel()
     {
         assertThat(sql("SELECT * FROM paimon.default.t2 FOR VERSION AS OF 1"))
                 .isEqualTo("[[1, 2, 1, 1], [3, 4, 2, 2]]");
@@ -921,7 +921,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testTimeTravelWithTag()
+    void testTimeTravelWithTag()
     {
         // tag or snapshotId is string
         assertThat(sql("SELECT * FROM paimon.default.t2 FOR VERSION AS OF '1'"))
@@ -934,7 +934,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testSchemaEvolution()
+    void testSchemaEvolution()
     {
         assertThat(
                 sql(
@@ -948,7 +948,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testDeletionFile()
+    void testDeletionFile()
     {
         assertThat(sql("SELECT * FROM paimon.default.t101 WHERE b > 0"))
                 .isEqualTo(
@@ -956,13 +956,13 @@ public class PaimonITCase
     }
 
     @Test
-    public void testFileIndex()
+    void testFileIndex()
     {
         assertThat(sql("SELECT * FROM paimon.default.t102 where c = 2")).isEqualTo("[[a2, 2, 2]]");
     }
 
     @Test
-    public void testInsertIntoFixedBucketTableWiPk()
+    void testInsertIntoFixedBucketTableWiPk()
     {
         sql(
                 "INSERT INTO paimon.default.fixed_bucket_table_wi_pk VALUES (1,'1'),(2,'2'),(3,'3'),(4,'4'),(5,'5'),(6,'6')");
@@ -971,7 +971,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testInsertIntoFixedBucketTableWoPk()
+    void testInsertIntoFixedBucketTableWoPk()
     {
         sql(
                 "INSERT INTO paimon.default.fixed_bucket_table_wo_pk VALUES (1,'1'),(2,'2'),(3,'3'),(4,'4'),(1,'1'),(2,'2'),(3,'3'),(4,'4')");
@@ -980,7 +980,7 @@ public class PaimonITCase
     }
 
     @Test
-    public void testInsertIntoUnawareTable()
+    void testInsertIntoUnawareTable()
     {
         sql(
                 "INSERT INTO paimon.default.unaware_table VALUES (1,'1'),(2,'2'),(3,'3'),(4,'4'),(1,'1'),(2,'2'),(3,'3'),(4,'4')");
@@ -988,7 +988,7 @@ public class PaimonITCase
                 .isEqualTo("[[1, 1], [1, 1], [2, 2], [2, 2], [3, 3], [3, 3], [4, 4], [4, 4]]");
     }
 
-    protected String sql(String sql)
+    private String sql(String sql)
     {
         MaterializedResult result = getQueryRunner().execute(sql);
         return result.getMaterializedRows().toString();

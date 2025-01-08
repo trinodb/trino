@@ -49,10 +49,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Test for {@link PaimonTypeUtils}.
  */
-public class PaimonTrinoTypeTest
+final class TestPaimonTrinoType
 {
     @Test
-    public void testFromPaimonType()
+    void testFromPaimonType()
     {
         Type charType = PaimonTypeUtils.fromPaimonType(DataTypes.CHAR(1));
         assertThat(requireNonNull(charType).getDisplayName()).isEqualTo("char(1)");
@@ -137,7 +137,7 @@ public class PaimonTrinoTypeTest
     }
 
     @Test
-    public void testToPaimonType()
+    void testToPaimonType()
     {
         DataType charType = PaimonTypeUtils.toPaimonType(CharType.createCharType(1));
         assertThat(charType.asSQLString()).isEqualTo("CHAR(1)");
