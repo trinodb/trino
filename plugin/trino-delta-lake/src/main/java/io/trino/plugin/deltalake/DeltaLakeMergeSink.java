@@ -408,6 +408,7 @@ public class DeltaLakeMergeSink
     {
         String tablePath = rootTableLocation.toString();
         String sourceRelativePath = relativePath(tablePath, sourcePath);
+        DeletionVectorEntry oldDeletionVector = deletionVectors.get(sourceRelativePath);
 
         DeletionVectorEntry deletionVectorEntry;
         try {
@@ -426,7 +427,7 @@ public class DeltaLakeMergeSink
                     deletion.partitionValues,
                     readStatistics(parquetMetadata, dataColumns, rowCount),
                     Optional.of(deletionVectorEntry));
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceRelativePath), Optional.empty(), Optional.of(newFileInfo));
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceRelativePath), Optional.ofNullable(oldDeletionVector), Optional.of(newFileInfo));
             return utf8Slice(mergeResultJsonCodec.toJson(result));
         }
         catch (Throwable e) {

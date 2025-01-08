@@ -1393,6 +1393,16 @@ public class TestDeltaLakeBasic
     }
 
     @Test
+    void testDeletionVectorsRepeat()
+    {
+        try (TestTable table = newTrinoTable("test_dv", "(x int) WITH (deletion_vectors_enabled = true)", List.of("1", "2", "3"))) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 3");
+        }
+    }
+
+    @Test
     public void testUnsupportedVacuumDeletionVectors()
             throws Exception
     {
