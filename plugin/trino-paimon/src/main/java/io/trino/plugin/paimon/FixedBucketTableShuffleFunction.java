@@ -70,13 +70,7 @@ public class FixedBucketTableShuffleFunction
                 method.setAccessible(true);
                 page = new Page(rowBlock.getPositionCount(), (Block[]) method.invoke(rowBlock));
             }
-            catch (NoSuchMethodException e) {
-                throw new RuntimeException(e);
-            }
-            catch (InvocationTargetException e) {
-                throw new RuntimeException(e);
-            }
-            catch (IllegalAccessException e) {
+            catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
                 throw new RuntimeException(e);
             }
         }

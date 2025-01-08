@@ -59,6 +59,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static org.apache.paimon.data.Decimal.fromBigDecimal;
 import static org.apache.paimon.predicate.PredicateBuilder.and;
 import static org.apache.paimon.predicate.PredicateBuilder.or;
 
@@ -325,7 +326,7 @@ public class PaimonFilterConverter
                                 DecimalUtils.toBigInteger(trinoNativeValue),
                                 decimalType.getScale());
             }
-            return Decimal.fromBigDecimal(
+            return fromBigDecimal(
                     bigDecimal, decimalType.getPrecision(), decimalType.getScale());
         }
 

@@ -18,7 +18,7 @@ import java.util.function.Supplier;
 /**
  * Utils for {@link ClassLoader}.
  */
-public class ClassLoaderUtils
+public final class ClassLoaderUtils
 {
     private ClassLoaderUtils() {}
 

@@ -401,7 +401,7 @@ public class PaimonPageSourceProvider
                 }
 
                 pageSource = Optional.of(new PaimonPageSource(
-                        read.newRead().executeFilter().createReader(paimonSplit), columns, limit));
+                        read.newRead().executeFilter().createReader(paimonSplit), columns, limit, newSimpleAggregatedMemoryContext()));
             }
             return pageSource.get();
         }

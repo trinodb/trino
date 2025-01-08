@@ -14,6 +14,7 @@
 package io.trino.plugin.paimon;
 
 import io.airlift.slice.Slice;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -75,6 +76,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
 /**
@@ -90,14 +92,18 @@ public class PaimonPageSource
     private final PageBuilder pageBuilder;
     private final List<Type> columnTypes;
     private final List<DataType> logicalTypes;
+    private final AggregatedMemoryContext memoryUsage;
 
     private boolean isFinished;
     private long numReturn;
+    private long readBytes;
+    private long readTimeNanos;
 
     public PaimonPageSource(
             RecordReader<InternalRow> reader,
             List<ColumnHandle> projectedColumns,
-            OptionalLong limit)
+            OptionalLong limit,
+            AggregatedMemoryContext memoryUsage)
     {
         this.iterator = reader.toCloseableIterator();
         this.limit = limit;
@@ -109,6 +115,7 @@ public class PaimonPageSource
             logicalTypes.add(paimonColumnHandle.logicalType());
         }
 
+        this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
         this.pageBuilder = new PageBuilder(columnTypes);
     }
 
@@ -142,13 +149,13 @@ public class PaimonPageSource
     @Override
     public long getCompletedBytes()
     {
-        return 0;
+        return readBytes;
     }
 
     @Override
     public long getReadTimeNanos()
     {
-        return 0;
+        return readTimeNanos;
     }
 
     @Override
@@ -175,23 +182,24 @@ public class PaimonPageSource
     @Override
     public long getMemoryUsage()
     {
-        return 0;
+        return memoryUsage.getBytes();
     }
 
     @Nullable
     private Page nextPage()
             throws IOException
     {
+        long start = System.nanoTime();
         int count = 0;
         while (count < ROWS_PER_REQUEST && !pageBuilder.isFull()) {
             if (limit.isPresent() && numReturn + count >= limit.getAsLong()) {
                 isFinished = true;
-                return returnPage(count);
+                break;
             }
 
             if (!iterator.hasNext()) {
                 isFinished = true;
-                return returnPage(count);
+                break;
             }
 
             InternalRow row = iterator.next();
@@ -207,16 +215,14 @@ public class PaimonPageSource
             }
         }
 
-        return returnPage(count);
-    }
 
-    private Page returnPage(int count)
-    {
         if (count == 0) {
             return null;
         }
         numReturn += count;
         Page page = pageBuilder.build();
+        readBytes += page.getSizeInBytes();
+        readTimeNanos += System.nanoTime() - start;
         pageBuilder.reset();
         return page;
     }

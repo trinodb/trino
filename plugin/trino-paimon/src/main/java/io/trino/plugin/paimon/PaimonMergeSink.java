@@ -26,7 +26,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 
-import static java.lang.String.format;
+import static org.apache.paimon.utils.Preconditions.checkArgument;
 
 /**
  * Trino {@link ConnectorMergeSink}.
@@ -47,65 +47,55 @@ public class PaimonMergeSink
     public void storeMergedRows(Page page)
     {
         int inputChannelCount = page.getChannelCount();
-        if (inputChannelCount != dataColumnCount + 2) {
-            throw new IllegalArgumentException(
-                    format(
-                            "inputPage channelCount (%s) == dataColumns size (%s) + 2",
-                            inputChannelCount, dataColumnCount));
-        }
-        else {
-            int positionCount = page.getPositionCount();
-            if (positionCount <= 0) {
-                throw new IllegalArgumentException(
-                        "positionCount should be > 0, but is " + positionCount);
-            }
-            else {
-                Block operationBlock = page.getBlock(inputChannelCount - 2);
-                int[] deletePositions = new int[positionCount];
-                int[] insertPositions = new int[positionCount];
-                int deletePositionCount = 0;
-                int insertPositionCount = 0;
+        int positionCount = page.getPositionCount();
+        checkArgument(inputChannelCount == dataColumnCount + 2,
+                "inputPage channelCount (%s) != dataColumns size (%s) + 2",
+                inputChannelCount, dataColumnCount);
+        checkArgument(positionCount > 0, "positionCount should be > 0, but is %s", positionCount);
+        Block operationBlock = page.getBlock(inputChannelCount - 2);
+        int[] deletePositions = new int[positionCount];
+        int[] insertPositions = new int[positionCount];
+        int deletePositionCount = 0;
+        int insertPositionCount = 0;
 
-                for (int position = 0; position < positionCount; ++position) {
-                    byte operation = TinyintType.TINYINT.getByte(operationBlock, position);
-                    switch (operation) {
-                        case 1:
-                        case 4:
-                            insertPositions[insertPositionCount] = position;
-                            ++insertPositionCount;
-                            break;
-                        case 2:
-                        case 5:
-                            deletePositions[deletePositionCount] = position;
-                            ++deletePositionCount;
-                            break;
-                        case 3:
-                        default:
-                            throw new IllegalArgumentException(
-                                    "Invalid merge operation: " + operation);
-                    }
-                }
-
-                Optional<Page> deletePage = Optional.empty();
-                if (deletePositionCount > 0) {
-                    deletePage =
-                            Optional.of(
-                                    page.getColumns(IntStream.range(0, dataColumnCount).toArray())
-                                            .getPositions(deletePositions, 0, deletePositionCount));
-                }
-
-                Optional<Page> insertPage = Optional.empty();
-                if (insertPositionCount > 0) {
-                    insertPage =
-                            Optional.of(
-                                    page.getColumns(IntStream.range(0, dataColumnCount).toArray())
-                                            .getPositions(insertPositions, 0, insertPositionCount));
-                }
-
-                deletePage.ifPresent(delete -> pageSink.writePage(delete, RowKind.DELETE));
-                insertPage.ifPresent(insert -> pageSink.writePage(insert, RowKind.INSERT));
+        for (int position = 0; position < positionCount; ++position) {
+            byte operation = TinyintType.TINYINT.getByte(operationBlock, position);
+            switch (operation) {
+                case 1:
+                case 4:
+                    insertPositions[insertPositionCount] = position;
+                    ++insertPositionCount;
+                    break;
+                case 2:
+                case 5:
+                    deletePositions[deletePositionCount] = position;
+                    ++deletePositionCount;
+                    break;
+                case 3:
+                default:
+                    throw new IllegalArgumentException(
+                            "Invalid merge operation: " + operation);
             }
         }
+
+        Optional<Page> deletePage = Optional.empty();
+        if (deletePositionCount > 0) {
+            deletePage =
+                    Optional.of(
+                            page.getColumns(IntStream.range(0, dataColumnCount).toArray())
+                                    .getPositions(deletePositions, 0, deletePositionCount));
+        }
+
+        Optional<Page> insertPage = Optional.empty();
+        if (insertPositionCount > 0) {
+            insertPage =
+                    Optional.of(
+                            page.getColumns(IntStream.range(0, dataColumnCount).toArray())
+                                    .getPositions(insertPositions, 0, insertPositionCount));
+        }
+
+        deletePage.ifPresent(delete -> pageSink.writePage(delete, RowKind.DELETE));
+        insertPage.ifPresent(insert -> pageSink.writePage(insert, RowKind.INSERT));
     }
 
     @Override
