@@ -145,7 +145,7 @@ public class PaimonFilterConverter
         }
         if (domain.getValues().isNone()) {
             if (domain.isNullAllowed()) {
-                return builder.isNull((columnIndex));
+                return builder.isNull(columnIndex);
             }
             // TODO alwaysFalse
             throw new UnsupportedOperationException();
@@ -156,7 +156,7 @@ public class PaimonFilterConverter
                 // TODO alwaysTrue
                 throw new UnsupportedOperationException();
             }
-            return builder.isNotNull((columnIndex));
+            return builder.isNotNull(columnIndex);
         }
 
         // TODO support structural types

@@ -71,7 +71,7 @@ public class PaimonPageSinkProvider
             ConnectorOutputTableHandle outputTableHandle,
             ConnectorPageSinkId pageSinkId)
     {
-        return createPageSink(transactionHandle, (PaimonTableHandle) outputTableHandle, session);
+        return createPageSink((PaimonTableHandle) outputTableHandle, session);
     }
 
     @Override
@@ -81,11 +81,10 @@ public class PaimonPageSinkProvider
             ConnectorInsertTableHandle insertTableHandle,
             ConnectorPageSinkId pageSinkId)
     {
-        return createPageSink(transactionHandle, (PaimonTableHandle) insertTableHandle, session);
+        return createPageSink((PaimonTableHandle) insertTableHandle, session);
     }
 
     private ConnectorPageSink createPageSink(
-            ConnectorTransactionHandle transactionHandle,
             PaimonTableHandle tableHandle,
             ConnectorSession session)
     {
@@ -116,7 +115,7 @@ public class PaimonPageSinkProvider
         PaimonTableHandle paimonTableHandle = (PaimonTableHandle) mergeHandle.getTableHandle();
         Table table = paimonTableHandle.tableWithDynamicOptions(paimonTrinoCatalog, session);
         return new PaimonMergeSink(
-                createPageSink(transactionHandle, paimonTableHandle, session),
+                createPageSink(paimonTableHandle, session),
                 table.rowType().getFields().size());
     }
 }

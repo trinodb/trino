@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Trino file io for paimon.
@@ -60,7 +61,7 @@ public class PaimonFileIO
 
     private static boolean checkObjectStore(String scheme)
     {
-        scheme = scheme.toLowerCase();
+        scheme = scheme.toLowerCase(Locale.getDefault());
         if (!scheme.startsWith("s3")
                 && !scheme.startsWith("emr")
                 && !scheme.startsWith("oss")

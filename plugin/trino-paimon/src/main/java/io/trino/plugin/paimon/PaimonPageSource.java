@@ -273,7 +273,7 @@ public class PaimonPageSource
                         packDateTimeWithZone(((Timestamp) value).getMillisecond(), UTC_KEY));
             }
             else if (type.equals(TIME_MICROS)) {
-                type.writeLong(output, (int) value * MICROSECONDS_PER_MILLISECOND);
+                type.writeLong(output, ((int) value) * ((long) MICROSECONDS_PER_MILLISECOND));
             }
             else {
                 throw new TrinoException(
