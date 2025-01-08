@@ -83,6 +83,7 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
+import static java.time.format.DateTimeFormatter.ISO_ZONED_DATE_TIME;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
 import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
 import static java.time.temporal.ChronoField.YEAR;
@@ -184,7 +185,14 @@ public final class TransactionLogParser
     @VisibleForTesting
     static Long readPartitionTimestampWithZone(String timestamp)
     {
-        ZonedDateTime zonedDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER).atZone(UTC);
+        ZonedDateTime zonedDateTime;
+        try {
+            zonedDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER).atZone(UTC);
+        }
+        catch (DateTimeParseException _) {
+            // TODO: avoid this exception-driven logic
+            zonedDateTime = ZonedDateTime.parse(timestamp, ISO_ZONED_DATE_TIME);
+        }
         return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
     }
 
