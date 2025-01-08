@@ -45,6 +45,7 @@ import org.apache.paimon.types.RowKind;
 import org.apache.paimon.types.RowType;
 import org.apache.paimon.types.VarCharType;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import java.nio.file.Files;
 import java.time.Instant;
@@ -200,12 +201,7 @@ final class TestPaimonITCase
                     GenericRow.of(
                             1,
                             new GenericMap(
-                                    new HashMap<>()
-                                    {
-                                        {
-                                            put(fromString("1"), fromString("2"));
-                                        }
-                                    }),
+                                    new HashMap<>(ImmutableMap.of(fromString("1"), fromString("2")))),
                             GenericRow.of(2, fromString("male")),
                             new GenericArray(new int[] {1, 2, 3})));
             commit.commit(0, writer.prepareCommit(true, 0));
@@ -471,13 +467,7 @@ final class TestPaimonITCase
                                     rowType.getFields(),
                                     Collections.emptyList(),
                                     List.of("a"),
-                                    new HashMap<>()
-                                    {
-                                        {
-                                            put(CoreOptions.BUCKET.key(), "1");
-                                            put(CoreOptions.DELETION_VECTORS_ENABLED.key(), "true");
-                                        }
-                                    },
+                                    new HashMap<>(ImmutableMap.of(CoreOptions.BUCKET.key(), "1", CoreOptions.DELETION_VECTORS_ENABLED.key(), "true")),
                                     ""));
             FileStoreTable table = FileStoreTableFactory.create(LocalFileIO.create(), tablePath6);
             InnerTableWrite writer = table.newWrite("user");
@@ -506,12 +496,7 @@ final class TestPaimonITCase
                                     rowType.getFields(),
                                     Collections.emptyList(),
                                     Collections.emptyList(),
-                                    new HashMap<>()
-                                    {
-                                        {
-                                            put("file-index.bloom-filter.columns", "a,b,c");
-                                        }
-                                    },
+                                    new HashMap<>(ImmutableMap.of("file-index.bloom-filter.columns", "a,b,c")),
                                     ""));
             FileStoreTable table = FileStoreTableFactory.create(LocalFileIO.create(), tablePath);
             InnerTableWrite writer = table.newWrite("user");
@@ -546,14 +531,7 @@ final class TestPaimonITCase
                                     rowType.getFields(),
                                     Collections.emptyList(),
                                     Collections.emptyList(),
-                                    new HashMap<>()
-                                    {
-                                        {
-                                            put("file.format", "orc");
-                                            put("primary-key", "id");
-                                            put("bucket", "2");
-                                        }
-                                    },
+                                    new HashMap<>(ImmutableMap.of("file.format", "orc", "primary-key", "id", "bucket", "2")),
                                     ""));
         }
 
@@ -570,14 +548,7 @@ final class TestPaimonITCase
                                     rowType.getFields(),
                                     Collections.emptyList(),
                                     Collections.emptyList(),
-                                    new HashMap<>()
-                                    {
-                                        {
-                                            put("file.format", "orc");
-                                            put("bucket", "2");
-                                            put("bucket-key", "id");
-                                        }
-                                    },
+                                    new HashMap<>(ImmutableMap.of("file.format", "orc", "bucket", "2", "bucket-key", "id")),
                                     ""));
         }
 
@@ -594,12 +565,7 @@ final class TestPaimonITCase
                                     rowType.getFields(),
                                     Collections.emptyList(),
                                     Collections.emptyList(),
-                                    new HashMap<>()
-                                    {
-                                        {
-                                            put("file.format", "orc");
-                                        }
-                                    },
+                                    new HashMap<>(ImmutableMap.of("file.format", "orc")),
                                     ""));
         }
 
