@@ -60,7 +60,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
 import org.apache.paimon.deletionvectors.DeletionVector;
 import org.apache.paimon.fileindex.FileIndexPredicate;
 import org.apache.paimon.fs.Path;
@@ -116,21 +115,18 @@ public class PaimonPageSourceProvider
     private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final PaimonTrinoCatalogFactory paimonTrinoCatalogFactory;
-    private final TypeManager typeManager;
 
     @Inject
     public PaimonPageSourceProvider(
             TrinoFileSystemFactory fileSystemFactory,
             PaimonTrinoCatalogFactory paimonTrinoCatalogFactory,
-            FileFormatDataSourceStats fileFormatDataSourceStats,
-            TypeManager typeManager)
+            FileFormatDataSourceStats fileFormatDataSourceStats)
     {
         this.paimonTrinoCatalogFactory =
                 requireNonNull(paimonTrinoCatalogFactory, "paimonTrinoCatalogFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats =
                 requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     static TupleDomain<ColumnDescriptor> getParquetTupleDomain(
