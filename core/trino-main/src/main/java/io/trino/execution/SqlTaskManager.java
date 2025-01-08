@@ -359,6 +359,12 @@ public class SqlTaskManager
         return taskNotificationExecutorMBean;
     }
 
+    @Managed(description = "Tracked tasks count")
+    public long getTrackedTasksCount()
+    {
+        return tasks.size();
+    }
+
     @Managed(description = "Created tasks counter")
     @Nested
     public CounterStat getCreatedTasks()
