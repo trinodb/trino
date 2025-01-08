@@ -581,7 +581,7 @@ public class PaimonPageSourceProvider
                             0,
                             inputFile.length(),
                             dataSource,
-                            parquetMetadata.getBlocks(),
+                            parquetMetadata,
                             ImmutableList.of(parquetTupleDomain),
                             ImmutableList.of(parquetPredicate),
                             descriptorsByPath,
