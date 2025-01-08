@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.json.ObjectMapperProvider;
@@ -180,7 +181,8 @@ public final class TransactionLogParser
         return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND + divide(localDateTime.getNano(), NANOSECONDS_PER_MICROSECOND, UNNECESSARY);
     }
 
-    private static Long readPartitionTimestampWithZone(String timestamp)
+    @VisibleForTesting
+    static Long readPartitionTimestampWithZone(String timestamp)
     {
         ZonedDateTime zonedDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER).atZone(UTC);
         return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
