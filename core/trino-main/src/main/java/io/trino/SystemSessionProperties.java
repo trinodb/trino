@@ -219,6 +219,7 @@ public final class SystemSessionProperties
     public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
     public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
     public static final String COLUMNAR_FILTER_EVALUATION_ENABLED = "columnar_filter_evaluation_enabled";
+    public static final String SPOOLING_PROTOCOL_ENABLED = "spooling_protocol_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1128,6 +1129,11 @@ public final class SystemSessionProperties
                         ALLOW_UNSAFE_PUSHDOWN,
                         "Allow pushing down expressions that may fail for some inputs",
                         optimizerConfig.isUnsafePushdownAllowed(),
+                        true),
+                booleanProperty(
+                        SPOOLING_PROTOCOL_ENABLED,
+                        "Enable client spooling protocol",
+                        true,
                         true));
     }
 
@@ -2016,6 +2022,11 @@ public final class SystemSessionProperties
     public static boolean isColumnarFilterEvaluationEnabled(Session session)
     {
         return session.getSystemProperty(COLUMNAR_FILTER_EVALUATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isSpoolingProtocolEnabled(Session session)
+    {
+        return session.getSystemProperty(SPOOLING_PROTOCOL_ENABLED, Boolean.class);
     }
 
     public static boolean isUnsafePushdownAllowed(Session session)
