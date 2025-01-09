@@ -15,7 +15,7 @@ The following properties are related to the [](protocol-spooling).
 
 Enable the support for the client [](protocol-spooling). The protocol is used if
 client drivers and applications request usage, otherwise the direct protocol is
-used automatically.
+used automatically. The equivalent session property is `spooling_protocol_enabled`.
 
 ### `protocol.spooling.shared-secret-key`
 
