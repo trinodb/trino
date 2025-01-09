@@ -78,7 +78,7 @@ public class HudiConnectorFactory
                     new JsonModule(),
                     new HudiModule(),
                     new HiveMetastoreModule(Optional.empty()),
-                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry(), false),
+                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry(), false, false),
                     new MBeanServerModule(),
                     module.orElse(EMPTY_MODULE),
                     binder -> {
