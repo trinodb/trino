@@ -40,8 +40,6 @@ import static io.trino.tpch.TpchTable.SUPPLIER;
  */
 final class PaimonQueryRunner
 {
-    private static final Logger LOG = Logger.get(PaimonQueryRunner.class);
-
     private static final String PAIMON_CATALOG = "paimon";
 
     private PaimonQueryRunner() {}
