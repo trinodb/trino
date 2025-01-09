@@ -56,7 +56,7 @@ import java.util.stream.Collectors;
 /**
  * Trino type from Paimon Type.
  */
-public class PaimonTypeUtils
+public final class PaimonTypeUtils
 {
     private PaimonTypeUtils() {}
 
@@ -89,7 +89,7 @@ public class PaimonTypeUtils
                 return VarcharType.createUnboundedVarcharType();
             }
             return VarcharType.createVarcharType(
-                    Math.min(VarcharType.MAX_LENGTH, varCharType.getLength()));
+                    varCharType.getLength());
         }
 
         @Override
@@ -251,87 +251,87 @@ public class PaimonTypeUtils
 
         public DataType visit(Type trinoType)
         {
-            if (trinoType instanceof io.trino.spi.type.CharType) {
-                return DataTypes.CHAR(
-                        Math.min(
-                                io.trino.spi.type.CharType.MAX_LENGTH,
-                                ((io.trino.spi.type.CharType) trinoType).getLength()));
-            }
-            else if (trinoType instanceof VarcharType) {
-                Optional<Integer> length = ((VarcharType) trinoType).getLength();
-                if (length.isPresent()) {
-                    return DataTypes.VARCHAR(
+            switch (trinoType) {
+                case io.trino.spi.type.CharType charType -> {
+                    return DataTypes.CHAR(
                             Math.min(
-                                    VarcharType.MAX_LENGTH,
-                                    ((VarcharType) trinoType).getBoundedLength()));
+                                    io.trino.spi.type.CharType.MAX_LENGTH,
+                                    charType.getLength()));
                 }
-                return DataTypes.VARCHAR(VarcharType.MAX_LENGTH);
-            }
-            else if (trinoType instanceof io.trino.spi.type.BooleanType) {
-                return DataTypes.BOOLEAN();
-            }
-            else if (trinoType instanceof VarbinaryType) {
-                return DataTypes.VARBINARY(Integer.MAX_VALUE);
-            }
-            else if (trinoType instanceof io.trino.spi.type.DecimalType) {
-                return DataTypes.DECIMAL(
-                        ((io.trino.spi.type.DecimalType) trinoType).getPrecision(),
-                        ((io.trino.spi.type.DecimalType) trinoType).getScale());
-            }
-            else if (trinoType instanceof TinyintType) {
-                return DataTypes.TINYINT();
-            }
-            else if (trinoType instanceof SmallintType) {
-                return DataTypes.SMALLINT();
-            }
-            else if (trinoType instanceof IntegerType) {
-                return DataTypes.INT();
-            }
-            else if (trinoType instanceof BigintType) {
-                return DataTypes.BIGINT();
-            }
-            else if (trinoType instanceof RealType) {
-                return DataTypes.FLOAT();
-            }
-            else if (trinoType instanceof io.trino.spi.type.DoubleType) {
-                return DataTypes.DOUBLE();
-            }
-            else if (trinoType instanceof io.trino.spi.type.DateType) {
-                return DataTypes.DATE();
-            }
-            else if (trinoType instanceof io.trino.spi.type.TimeType) {
-                return new TimeType();
-            }
-            else if (trinoType instanceof io.trino.spi.type.TimestampType) {
-                int precision = ((io.trino.spi.type.TimestampType) trinoType).getPrecision();
-                return new TimestampType(precision);
-            }
-            else if (trinoType instanceof TimestampWithTimeZoneType) {
-                return DataTypes.TIMESTAMP_WITH_LOCAL_TIME_ZONE();
-            }
-            else if (trinoType instanceof io.trino.spi.type.ArrayType) {
-                return DataTypes.ARRAY(
-                        visit(((io.trino.spi.type.ArrayType) trinoType).getElementType()));
-            }
-            else if (trinoType instanceof io.trino.spi.type.MapType) {
-                return DataTypes.MAP(
-                        visit(((io.trino.spi.type.MapType) trinoType).getKeyType()),
-                        visit(((io.trino.spi.type.MapType) trinoType).getValueType()));
-            }
-            else if (trinoType instanceof io.trino.spi.type.RowType rowType) {
-                List<DataField> dataFields =
-                        rowType.getFields().stream()
-                                .map(
-                                        field ->
-                                                new DataField(
-                                                        currentIndex.getAndIncrement(),
-                                                        field.getName().get(),
-                                                        visit(field.getType())))
-                                .collect(Collectors.toList());
-                return new RowType(true, dataFields);
-            }
-            else {
-                throw new UnsupportedOperationException("Unsupported type: " + trinoType);
+                case VarcharType varcharType -> {
+                    Optional<Integer> length = varcharType.getLength();
+                    if (length.isPresent()) {
+                        return DataTypes.VARCHAR(
+                                Math.min(
+                                        VarcharType.MAX_LENGTH,
+                                        ((VarcharType) trinoType).getBoundedLength()));
+                    }
+                    return DataTypes.VARCHAR(VarcharType.MAX_LENGTH);
+                }
+                case io.trino.spi.type.BooleanType _ -> {
+                    return DataTypes.BOOLEAN();
+                }
+                case VarbinaryType _ -> {
+                    return DataTypes.VARBINARY(Integer.MAX_VALUE);
+                }
+                case io.trino.spi.type.DecimalType decimalType -> {
+                    return DataTypes.DECIMAL(
+                            decimalType.getPrecision(),
+                            decimalType.getScale());
+                }
+                case TinyintType _ -> {
+                    return DataTypes.TINYINT();
+                }
+                case SmallintType _ -> {
+                    return DataTypes.SMALLINT();
+                }
+                case IntegerType _ -> {
+                    return DataTypes.INT();
+                }
+                case BigintType _ -> {
+                    return DataTypes.BIGINT();
+                }
+                case RealType _ -> {
+                    return DataTypes.FLOAT();
+                }
+                case io.trino.spi.type.DoubleType _ -> {
+                    return DataTypes.DOUBLE();
+                }
+                case io.trino.spi.type.DateType _ -> {
+                    return DataTypes.DATE();
+                }
+                case io.trino.spi.type.TimeType _ -> {
+                    return new TimeType();
+                }
+                case io.trino.spi.type.TimestampType timestampType -> {
+                    int precision = timestampType.getPrecision();
+                    return new TimestampType(precision);
+                }
+                case TimestampWithTimeZoneType _ -> {
+                    return DataTypes.TIMESTAMP_WITH_LOCAL_TIME_ZONE();
+                }
+                case io.trino.spi.type.ArrayType arrayType -> {
+                    return DataTypes.ARRAY(
+                            visit(arrayType.getElementType()));
+                }
+                case io.trino.spi.type.MapType mapType -> {
+                    return DataTypes.MAP(
+                            visit(mapType.getKeyType()),
+                            visit(mapType.getValueType()));
+                }
+                case io.trino.spi.type.RowType rowType -> {
+                    List<DataField> dataFields =
+                            rowType.getFields().stream()
+                                    .map(
+                                            field ->
+                                                    new DataField(
+                                                            currentIndex.getAndIncrement(),
+                                                            field.getName().get(),
+                                                            visit(field.getType())))
+                                    .collect(Collectors.toList());
+                    return new RowType(true, dataFields);
+                }
+                case null, default -> throw new UnsupportedOperationException("Unsupported type: " + trinoType);
             }
         }
     }

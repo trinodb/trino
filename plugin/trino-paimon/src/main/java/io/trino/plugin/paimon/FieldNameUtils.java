@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 /**
  * Utils for fieldName.
  */
-public class FieldNameUtils
+public final class FieldNameUtils
 {
     private FieldNameUtils() {}
 

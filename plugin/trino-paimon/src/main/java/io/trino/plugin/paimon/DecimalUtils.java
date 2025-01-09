@@ -20,7 +20,7 @@ import java.math.BigInteger;
 /**
  * Utils for decimal.
  */
-public class DecimalUtils
+public final class DecimalUtils
 {
     private DecimalUtils() {}
 

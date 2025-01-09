@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
 /**
  * options utils.
  */
-public class PaimonTableOptionUtils
+public final class PaimonTableOptionUtils
 {
     private PaimonTableOptionUtils() {}
 
