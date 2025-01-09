@@ -13,12 +13,14 @@
  */
 package io.trino.plugin.hudi;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.configuration.ConfigPropertyMetadata;
 import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
@@ -26,6 +28,7 @@ import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
+import io.trino.plugin.base.config.ConfigUtils;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.NodeVersion;
@@ -52,6 +55,8 @@ import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 public class HudiConnectorFactory
         implements ConnectorFactory
 {
+    private static final Module DEFAULT_ADDITIONAL_MODULE = EMPTY_MODULE;
+
     @Override
     public String getName()
     {
@@ -62,38 +67,33 @@ public class HudiConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkStrictSpiVersionMatch(context, this);
-        return createConnector(catalogName, config, context, Optional.empty());
+        return createConnector(catalogName, config, context, DEFAULT_ADDITIONAL_MODULE);
     }
 
+    @Override
+    public Set<String> getSecuritySensitivePropertyNames(String catalogName, Map<String, String> config, ConnectorContext context)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(HudiConnectorFactory.class.getClassLoader())) {
+            Bootstrap app = createBootstrap(catalogName, config, context, DEFAULT_ADDITIONAL_MODULE, true);
+
+            Set<ConfigPropertyMetadata> usedProperties = app.configure();
+
+            return ConfigUtils.getSecuritySensitivePropertyNames(config, usedProperties);
+        }
+    }
+
+    @VisibleForTesting
     public static Connector createConnector(
             String catalogName,
             Map<String, String> config,
             ConnectorContext context,
-            Optional<Module> module)
+            Module module)
     {
         ClassLoader classLoader = HudiConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            Bootstrap app = new Bootstrap(
-                    new MBeanModule(),
-                    new JsonModule(),
-                    new HudiModule(),
-                    new HiveMetastoreModule(Optional.empty()),
-                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry(), false, false),
-                    new MBeanServerModule(),
-                    module.orElse(EMPTY_MODULE),
-                    binder -> {
-                        binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
-                        binder.bind(Tracer.class).toInstance(context.getTracer());
-                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
-                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                    });
+            Bootstrap app = createBootstrap(catalogName, config, context, module, false);
 
-            Injector injector = app
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+            Injector injector = app.initialize();
 
             LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
             HudiTransactionManager transactionManager = injector.getInstance(HudiTransactionManager.class);
@@ -114,5 +114,36 @@ public class HudiConnectorFactory
                     sessionPropertiesProviders,
                     hudiTableProperties.getTableProperties());
         }
+    }
+
+    private static Bootstrap createBootstrap(
+            String catalogName,
+            Map<String, String> config,
+            ConnectorContext context,
+            Module module,
+            boolean quietBootstrap)
+    {
+        Bootstrap app = new Bootstrap(
+                new MBeanModule(),
+                new JsonModule(),
+                new HudiModule(),
+                new HiveMetastoreModule(Optional.empty()),
+                new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry(), false, quietBootstrap),
+                new MBeanServerModule(),
+                module,
+                binder -> {
+                    binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
+                    binder.bind(Tracer.class).toInstance(context.getTracer());
+                    binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
+                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                    binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+                });
+
+        return app
+                .withQuiet(quietBootstrap)
+                .withSkipErrorReporting(quietBootstrap)
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config);
     }
 }

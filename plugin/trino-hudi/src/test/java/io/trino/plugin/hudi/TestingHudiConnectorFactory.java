@@ -23,7 +23,6 @@ import io.trino.spi.connector.ConnectorFactory;
 
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -55,10 +54,10 @@ public class TestingHudiConnectorFactory
         if (!config.containsKey("hive.metastore")) {
             configBuilder.put("hive.metastore", "file");
         }
-        return createConnector(catalogName, configBuilder.buildOrThrow(), context, Optional.of(binder -> {
+        return createConnector(catalogName, configBuilder.buildOrThrow(), context, binder -> {
             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
                     .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
             configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, metastoreConfig -> metastoreConfig.setCatalogDirectory("local:///managed/"));
-        }));
+        });
     }
 }
