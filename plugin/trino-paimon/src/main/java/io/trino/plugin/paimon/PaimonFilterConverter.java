@@ -34,7 +34,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.paimon.data.BinaryString;
-import org.apache.paimon.data.Decimal;
 import org.apache.paimon.data.Timestamp;
 import org.apache.paimon.fileindex.FileIndexOptions;
 import org.apache.paimon.predicate.In;

@@ -577,7 +577,8 @@ final class TestPaimonITCase
                             .build();
             queryRunner.installPlugin(new PaimonPlugin());
             Map<String, String> options = new HashMap<>();
-            options.put("warehouse", warehouse);
+            options.put("paimon.warehouse", warehouse);
+            options.put("paimon.catalog.type", "filesystem");
             options.put("fs.hadoop.enabled", "true");
             queryRunner.createCatalog(CATALOG, CATALOG, options);
             return queryRunner;

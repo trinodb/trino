@@ -15,21 +15,17 @@ package io.trino.plugin.paimon.catalog;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.paimon.ClassLoaderUtils;
+import io.trino.plugin.paimon.PaimonConfig;
 import io.trino.plugin.paimon.fileio.PaimonFileIO;
-import io.trino.plugin.paimon.fileio.PaimonFileIOLoader;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.paimon.catalog.Catalog;
-import org.apache.paimon.catalog.CatalogContext;
-import org.apache.paimon.catalog.CatalogFactory;
 import org.apache.paimon.catalog.Database;
+import org.apache.paimon.catalog.FileSystemCatalog;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.fs.Path;
-import org.apache.paimon.options.Options;
 import org.apache.paimon.schema.Schema;
 import org.apache.paimon.schema.SchemaChange;
-import org.apache.paimon.security.SecurityContext;
 import org.apache.paimon.table.Table;
 
 import java.io.IOException;
@@ -40,9 +36,7 @@ import java.util.List;
  */
 public class PaimonTrinoCatalog
 {
-    private final Options options;
-
-    private final Configuration configuration;
+    private final PaimonConfig config;
 
     private final TrinoFileSystemFactory trinoFileSystemFactory;
 
@@ -51,13 +45,11 @@ public class PaimonTrinoCatalog
     private PaimonFileIO paimonFileIO;
 
     public PaimonTrinoCatalog(
-            Options options,
-            Configuration configuration,
+            PaimonConfig config,
             TrinoFileSystemFactory trinoFileSystemFactory,
             ConnectorIdentity identity)
     {
-        this.options = options;
-        this.configuration = configuration;
+        this.config = config;
         this.trinoFileSystemFactory = trinoFileSystemFactory;
         init(identity);
     }
@@ -68,19 +60,13 @@ public class PaimonTrinoCatalog
                 ClassLoaderUtils.runWithContextClassLoader(
                         () -> {
                             paimonFileIO = new PaimonFileIO(trinoFileSystemFactory, identity, null);
-                            CatalogContext catalogContext =
-                                    CatalogContext.create(
-                                            options,
-                                            configuration,
-                                            new PaimonFileIOLoader(paimonFileIO),
-                                            null);
-                            try {
-                                SecurityContext.install(catalogContext);
+
+                            switch (config.getCatalogType()) {
+                                case FILESYSTEM:
+                                    return new FileSystemCatalog(paimonFileIO, new Path(config.getWarehouse()), config.toOptions());
+                                default:
+                                    throw new IllegalArgumentException("Unsupported catalog type: " + config.getCatalogType());
                             }
-                            catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                            return CatalogFactory.createCatalog(catalogContext);
                         },
                         this.getClass().getClassLoader());
     }

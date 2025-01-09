@@ -22,8 +22,6 @@ import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.manager.FileSystemModule;
-import io.trino.hdfs.HdfsModule;
-import io.trino.hdfs.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.spi.NodeManager;
@@ -33,7 +31,6 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.type.TypeManager;
-import org.apache.paimon.options.Options;
 import org.apache.paimon.utils.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +43,6 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -129,12 +125,9 @@ public class PaimonConnectorFactory
             Bootstrap app =
                     new Bootstrap(
                             new JsonModule(),
-                            new PaimonModule(config),
-                            // We need hdfs to access local files and hadoop file system
-                            new HdfsModule(),
-                            new HdfsAuthenticationModule(),
+                            new PaimonModule(),
                             // bind the trino file system module
-                            new PaimonFileSystemModule(catalogName, context, new Options(config)),
+                            new PaimonFileSystemModule(catalogName, context),
                             binder -> {
                                 binder.bind(ClassLoader.class)
                                         .toInstance(PaimonConnectorFactory.class.getClassLoader());
@@ -157,8 +150,7 @@ public class PaimonConnectorFactory
 
             Injector injector =
                     app.doNotInitializeLogging()
-                            .setRequiredConfigurationProperties(Map.of())
-                            .setOptionalConfigurationProperties(config)
+                            .setRequiredConfigurationProperties(config)
                             .initialize();
 
             return injector.getInstance(PaimonConnector.class);
@@ -181,24 +173,19 @@ public class PaimonConnectorFactory
         private final String catalogName;
         private final NodeManager nodeManager;
         private final OpenTelemetry openTelemetry;
-        private final Options config;
 
         public PaimonFileSystemModule(
-                String catalogName, ConnectorContext context, Options config)
+                String catalogName, ConnectorContext context)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.nodeManager = context.getNodeManager();
             this.openTelemetry = context.getOpenTelemetry();
-            this.config = config;
         }
 
         @Override
         protected void setup(Binder binder)
         {
-            boolean metadataCacheEnabled =
-                    Optional.ofNullable(config.get("metadata-cache.enabled"))
-                            .map(Boolean::parseBoolean)
-                            .orElse(false);
+            boolean metadataCacheEnabled = buildConfigObject(PaimonConfig.class).isMetadataCacheEnabled();
             install(
                     new FileSystemModule(
                             catalogName, nodeManager, openTelemetry, metadataCacheEnabled));

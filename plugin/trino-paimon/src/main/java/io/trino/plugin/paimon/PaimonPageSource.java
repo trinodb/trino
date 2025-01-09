@@ -215,7 +215,6 @@ public class PaimonPageSource
             }
         }
 
-
         if (count == 0) {
             return null;
         }

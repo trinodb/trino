@@ -49,9 +49,9 @@ import static org.apache.paimon.fileindex.FileIndexCommon.toMapKey;
  */
 public class PaimonFilterExtractor
 {
-    private PaimonFilterExtractor() {}
-
     public static final String TRINO_MAP_ELEMENT_AT_FUNCTION_NAME = "element_at";
+
+    private PaimonFilterExtractor() {}
 
     /**
      * Extract filter from trino , include ExpressionFilter.

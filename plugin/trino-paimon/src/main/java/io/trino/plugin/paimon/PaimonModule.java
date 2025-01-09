@@ -27,11 +27,9 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
-import org.apache.paimon.options.Options;
-
-import java.util.Map;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 /**
  * Module for binding instance.
@@ -39,17 +37,10 @@ import static com.google.inject.Scopes.SINGLETON;
 public class PaimonModule
         implements Module
 {
-    private final Map<String, String> config;
-
-    public PaimonModule(Map<String, String> config)
-    {
-        this.config = config;
-    }
-
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(Options.class).toInstance(new Options(config));
+        configBinder(binder).bindConfig(PaimonConfig.class);
         binder.bind(PaimonMetadataFactory.class).in(SINGLETON);
         binder.bind(PaimonSplitManager.class).in(SINGLETON);
         binder.bind(PaimonPageSourceProvider.class).in(SINGLETON);
