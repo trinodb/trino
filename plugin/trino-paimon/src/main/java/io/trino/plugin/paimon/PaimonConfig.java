@@ -34,6 +34,7 @@ public class PaimonConfig
     }
 
     @Config("paimon.catalog.type")
+    @ConfigDescription("Catalog type with paimon, default is FILESYSTEM")
     public PaimonConfig setCatalogType(CatalogType catalogType)
     {
         this.catalogType = catalogType;
@@ -46,6 +47,7 @@ public class PaimonConfig
     }
 
     @Config("paimon.warehouse")
+    @ConfigDescription("Warehouse path for paimon, this is the root path for all the tables")
     public PaimonConfig setWarehouse(String warehouse)
     {
         this.warehouse = warehouse;

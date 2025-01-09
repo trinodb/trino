@@ -180,7 +180,6 @@ public class PaimonRow
     public InternalArray getArray(int i)
     {
         // todo
-        //            singlePage.getBlock(i).getChildren()
         return null;
     }
 
