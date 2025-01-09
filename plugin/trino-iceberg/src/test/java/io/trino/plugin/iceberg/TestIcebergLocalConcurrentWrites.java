@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.concurrent.MoreFutures;
+import io.trino.Session;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -399,6 +400,57 @@ final class TestIcebergLocalConcurrentWrites
                     .forEach(MoreFutures::getDone);
 
             assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (2, 10), (12, 20), (22, NULL), (31, 40)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
+    void testConcurrentNonOverlappingUpdateMultipleDataFiles()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_non_overlapping_updates_table_" + randomNameSuffix();
+        // Force creating more parquet files
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "target_max_file_size", "1kB")
+                .build();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a BIGINT, part BIGINT) WITH (partitioning = ARRAY['part'])");
+        assertUpdate(session, " INSERT INTO " + tableName + " SELECT * FROM " +
+                "(select * from UNNEST(SEQUENCE(1, 10000)) AS t(a)) CROSS JOIN (select * from UNNEST(SEQUENCE(1, 3)) AS t(part))", 30000);
+
+        // UPDATE will increase every value by 1
+        long expectedDataSum = (long) computeScalar("SELECT sum(a + 1) FROM " + tableName);
+
+        try {
+            // update data concurrently by using non-overlapping partition predicate
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1 WHERE part = 1");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part = 2");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part = 3");
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat((long) computeScalar("SELECT SUM(a) FROM " + tableName)).isEqualTo(expectedDataSum);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
