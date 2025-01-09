@@ -60,13 +60,15 @@ public class FileSystemModule
     private final NodeManager nodeManager;
     private final OpenTelemetry openTelemetry;
     private final boolean coordinatorFileCaching;
+    private final boolean quietBootstrap;
 
-    public FileSystemModule(String catalogName, NodeManager nodeManager, OpenTelemetry openTelemetry, boolean coordinatorFileCaching)
+    public FileSystemModule(String catalogName, NodeManager nodeManager, OpenTelemetry openTelemetry, boolean coordinatorFileCaching, boolean quietBootstrap)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.coordinatorFileCaching = coordinatorFileCaching;
+        this.quietBootstrap = quietBootstrap;
     }
 
     @Override
@@ -84,7 +86,8 @@ public class FileSystemModule
                     !config.isNativeS3Enabled(),
                     catalogName,
                     nodeManager,
-                    openTelemetry);
+                    openTelemetry,
+                    quietBootstrap);
 
             loader.configure().forEach((name, securitySensitive) ->
                     consumeProperty(new ConfigPropertyMetadata(name, securitySensitive)));
