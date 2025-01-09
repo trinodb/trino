@@ -45,9 +45,7 @@ public class SpoolingExchangeOutputBuffer
     private volatile SpoolingOutputBuffers outputBuffers;
     // This field is not final to allow releasing the memory retained by the ExchangeSink instance.
     // It is modified (assigned to null) when the OutputBuffer is destroyed (either finished or aborted).
-    // It doesn't have to be declared as volatile as the nullification of this variable doesn't have to be immediately visible to other threads.
-    // However since the abort can be triggered at any moment of time this variable has to be accessed in a safe way (avoiding "check-then-use").
-    private ExchangeSink exchangeSink;
+    private volatile ExchangeSink exchangeSink;
     private Optional<Metrics> finalSinkMetrics;
     private final Supplier<LocalMemoryContext> memoryContextSupplier;
 
