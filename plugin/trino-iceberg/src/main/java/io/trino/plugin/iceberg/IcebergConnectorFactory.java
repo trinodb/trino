@@ -13,16 +13,19 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.ConfigPropertyMetadata;
 import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.manager.FileSystemModule;
+import io.trino.plugin.base.config.ConfigUtils;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.hive.HiveConfig;
@@ -42,6 +45,7 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
@@ -51,6 +55,9 @@ import static java.util.Objects.requireNonNull;
 public class IcebergConnectorFactory
         implements ConnectorFactory
 {
+    private static final Module DEFAULT_ADDITIONAL_MODULE = EMPTY_MODULE;
+    private static final Optional<Module> DEFAULT_ICEBERG_CATALOG_MODULE = Optional.empty();
+
     @Override
     public String getName()
     {
@@ -61,9 +68,22 @@ public class IcebergConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkStrictSpiVersionMatch(context, this);
-        return createConnector(catalogName, config, context, EMPTY_MODULE, Optional.empty());
+        return createConnector(catalogName, config, context, DEFAULT_ADDITIONAL_MODULE, DEFAULT_ICEBERG_CATALOG_MODULE);
     }
 
+    @Override
+    public Set<String> getSecuritySensitivePropertyNames(String catalogName, Map<String, String> config, ConnectorContext context)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(IcebergConnectorFactory.class.getClassLoader())) {
+            Bootstrap app = createBootstrap(catalogName, config, context, DEFAULT_ADDITIONAL_MODULE, DEFAULT_ICEBERG_CATALOG_MODULE, true);
+
+            Set<ConfigPropertyMetadata> usedProperties = app.configure();
+
+            return ConfigUtils.getSecuritySensitivePropertyNames(config, usedProperties);
+        }
+    }
+
+    @VisibleForTesting
     public static Connector createConnector(
             String catalogName,
             Map<String, String> config,
@@ -73,38 +93,52 @@ public class IcebergConnectorFactory
     {
         ClassLoader classLoader = IcebergConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            Bootstrap app = new Bootstrap(
-                    new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule("io.trino.plugin.iceberg", "trino.plugin.iceberg"),
-                    new JsonModule(),
-                    new IcebergModule(),
-                    new IcebergSecurityModule(),
-                    icebergCatalogModule.orElse(new IcebergCatalogModule()),
-                    new MBeanServerModule(),
-                    new IcebergFileSystemModule(catalogName, context),
-                    binder -> {
-                        binder.bind(ClassLoader.class).toInstance(IcebergConnectorFactory.class.getClassLoader());
-                        binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
-                        binder.bind(Tracer.class).toInstance(context.getTracer());
-                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
-                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                        binder.bind(CatalogHandle.class).toInstance(context.getCatalogHandle());
-                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                        binder.bind(PageSorter.class).toInstance(context.getPageSorter());
-                    },
-                    module);
+            Bootstrap app = createBootstrap(catalogName, config, context, module, icebergCatalogModule, false);
 
-            Injector injector = app
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+            Injector injector = app.initialize();
 
             verify(!injector.getBindings().containsKey(Key.get(HiveConfig.class)), "HiveConfig should not be bound");
 
             return injector.getInstance(IcebergConnector.class);
         }
+    }
+
+    private static Bootstrap createBootstrap(
+            String catalogName,
+            Map<String, String> config,
+            ConnectorContext context,
+            Module module,
+            Optional<Module> icebergCatalogModule,
+            boolean quietBootstrap)
+    {
+        Bootstrap app = new Bootstrap(
+                new MBeanModule(),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.iceberg", "trino.plugin.iceberg"),
+                new JsonModule(),
+                new IcebergModule(),
+                new IcebergSecurityModule(),
+                icebergCatalogModule.orElse(new IcebergCatalogModule()),
+                new MBeanServerModule(),
+                new IcebergFileSystemModule(catalogName, context, quietBootstrap),
+                binder -> {
+                    binder.bind(ClassLoader.class).toInstance(IcebergConnectorFactory.class.getClassLoader());
+                    binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
+                    binder.bind(Tracer.class).toInstance(context.getTracer());
+                    binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
+                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                    binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
+                    binder.bind(CatalogHandle.class).toInstance(context.getCatalogHandle());
+                    binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+                    binder.bind(PageSorter.class).toInstance(context.getPageSorter());
+                },
+                module);
+
+        return app
+                .withQuiet(quietBootstrap)
+                .withSkipErrorReporting(quietBootstrap)
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config);
     }
 
     private static class IcebergFileSystemModule
@@ -113,19 +147,21 @@ public class IcebergConnectorFactory
         private final String catalogName;
         private final NodeManager nodeManager;
         private final OpenTelemetry openTelemetry;
+        private final boolean quietBootstrap;
 
-        public IcebergFileSystemModule(String catalogName, ConnectorContext context)
+        public IcebergFileSystemModule(String catalogName, ConnectorContext context, boolean quietBootstrap)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.nodeManager = context.getNodeManager();
             this.openTelemetry = context.getOpenTelemetry();
+            this.quietBootstrap = quietBootstrap;
         }
 
         @Override
         protected void setup(Binder binder)
         {
             boolean metadataCacheEnabled = buildConfigObject(IcebergConfig.class).isMetadataCacheEnabled();
-            install(new FileSystemModule(catalogName, nodeManager, openTelemetry, metadataCacheEnabled, false));
+            install(new FileSystemModule(catalogName, nodeManager, openTelemetry, metadataCacheEnabled, quietBootstrap));
         }
     }
 }
