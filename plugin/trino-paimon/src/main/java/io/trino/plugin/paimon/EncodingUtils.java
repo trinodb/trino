@@ -22,7 +22,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 /**
  * Utils for encoding.
  */
-public class EncodingUtils
+public final class EncodingUtils
 {
     private static final Base64.Encoder BASE64_ENCODER = Base64.getUrlEncoder().withoutPadding();
     private static final Base64.Decoder BASE64_DECODER = Base64.getUrlDecoder();

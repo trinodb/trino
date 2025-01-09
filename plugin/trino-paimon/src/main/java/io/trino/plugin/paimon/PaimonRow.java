@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
-import io.trino.spi.type.TypeUtils;
 import org.apache.paimon.data.BinaryString;
 import org.apache.paimon.data.Decimal;
 import org.apache.paimon.data.InternalArray;
@@ -38,6 +37,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -86,20 +86,20 @@ public class PaimonRow
     @Override
     public boolean getBoolean(int i)
     {
-        return (boolean) TypeUtils.readNativeValue(BOOLEAN, singlePage.getBlock(i), 0);
+        return (boolean) readNativeValue(BOOLEAN, singlePage.getBlock(i), 0);
     }
 
     @Override
     public byte getByte(int i)
     {
-        Slice slice = (Slice) TypeUtils.readNativeValue(VARBINARY, singlePage.getBlock(i), 0);
+        Slice slice = (Slice) readNativeValue(VARBINARY, singlePage.getBlock(i), 0);
         return slice.getByte(0);
     }
 
     @Override
     public short getShort(int i)
     {
-        long value = (long) TypeUtils.readNativeValue(SMALLINT, singlePage.getBlock(i), 0);
+        long value = (long) readNativeValue(SMALLINT, singlePage.getBlock(i), 0);
         if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) {
             throw new IllegalArgumentException("Value out of range for short: " + value);
         }
@@ -109,7 +109,7 @@ public class PaimonRow
     @Override
     public int getInt(int i)
     {
-        long value = (long) TypeUtils.readNativeValue(INTEGER, singlePage.getBlock(i), 0);
+        long value = (long) readNativeValue(INTEGER, singlePage.getBlock(i), 0);
         if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("Value out of range for int: " + value);
         }
@@ -119,20 +119,20 @@ public class PaimonRow
     @Override
     public long getLong(int i)
     {
-        return (long) TypeUtils.readNativeValue(BIGINT, singlePage.getBlock(i), 0);
+        return (long) readNativeValue(BIGINT, singlePage.getBlock(i), 0);
     }
 
     @Override
     public float getFloat(int i)
     {
         return intBitsToFloat(
-                toIntExact((long) TypeUtils.readNativeValue(REAL, singlePage.getBlock(i), 0)));
+                toIntExact((long) readNativeValue(REAL, singlePage.getBlock(i), 0)));
     }
 
     @Override
     public double getDouble(int i)
     {
-        return (double) TypeUtils.readNativeValue(DOUBLE, singlePage.getBlock(i), 0);
+        return (double) readNativeValue(DOUBLE, singlePage.getBlock(i), 0);
     }
 
     @Override
@@ -145,7 +145,7 @@ public class PaimonRow
     public Decimal getDecimal(int i, int decimalPrecision, int decimalScale)
     {
         Object value =
-                TypeUtils.readNativeValue(
+                readNativeValue(
                         DecimalType.createDecimalType(decimalPrecision, decimalScale),
                         singlePage.getBlock(i),
                         0);
@@ -165,14 +165,14 @@ public class PaimonRow
     @Override
     public Timestamp getTimestamp(int i, int timestampPrecision)
     {
-        long value = (long) TypeUtils.readNativeValue(TIMESTAMP_MICROS, singlePage.getBlock(i), 0);
+        long value = (long) readNativeValue(TIMESTAMP_MICROS, singlePage.getBlock(i), 0);
         return Timestamp.fromMicros(value);
     }
 
     @Override
     public byte[] getBinary(int i)
     {
-        Slice slice = (Slice) TypeUtils.readNativeValue(VARBINARY, singlePage.getBlock(i), 0);
+        Slice slice = (Slice) readNativeValue(VARBINARY, singlePage.getBlock(i), 0);
         return slice.getBytes();
     }
 

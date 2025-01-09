@@ -34,7 +34,7 @@ final class TestPaimonConnectorFactory
     @Test
     void testCreateConnector()
     {
-        Map<String, String> config = ImmutableMap.of("warehouse", tempFile.toString());
+        Map<String, String> config = ImmutableMap.of("paimon.warehouse", tempFile.toString(), "paimon.catalog.type", "filesystem");
         ConnectorFactory factory = new PaimonConnectorFactory();
         Connector connector = factory.create("paimon", config, new TestingConnectorContext());
         assertThat(connector).isNotNull();

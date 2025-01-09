@@ -24,7 +24,7 @@ import java.util.Map;
 public class PaimonConfig
 {
     private String warehouse;
-    private CatalogType catalogType;
+    private CatalogType catalogType = CatalogType.FILESYSTEM;
     private boolean metadataCacheEnabled = true;
 
     @NotNull
@@ -40,7 +40,6 @@ public class PaimonConfig
         return this;
     }
 
-    @NotNull
     public String getWarehouse()
     {
         return warehouse;

@@ -74,7 +74,8 @@ final class PaimonQueryRunner
 
         Map<String, String> options =
                 ImmutableMap.<String, String>builder()
-                        .put("warehouse", catalogDir.toFile().toURI().toString())
+                        .put("paimon.warehouse", catalogDir.toFile().toURI().toString())
+                        .put("paimon.catalog.type", "filesystem")
                         .put("fs.hadoop.enabled", "true")
                         .putAll(extraConnectorProperties)
                         .build();

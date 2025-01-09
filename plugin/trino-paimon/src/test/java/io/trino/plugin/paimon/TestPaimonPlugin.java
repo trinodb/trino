@@ -43,7 +43,7 @@ final class TestPaimonPlugin
         Connector connector =
                 factory.create(
                         "paimon",
-                        ImmutableMap.of("warehouse", warehouse),
+                        ImmutableMap.of("paimon.warehouse", warehouse, "paimon.catalog.type", "filesystem"),
                         new TestingConnectorContext());
         assertThat(connector).isNotNull();
     }
