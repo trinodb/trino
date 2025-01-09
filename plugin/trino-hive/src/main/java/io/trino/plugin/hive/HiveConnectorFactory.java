@@ -13,12 +13,14 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.configuration.ConfigPropertyMetadata;
 import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
@@ -32,6 +34,7 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
+import io.trino.plugin.base.config.ConfigUtils;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
@@ -69,6 +72,10 @@ import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 public class HiveConnectorFactory
         implements ConnectorFactory
 {
+    private static final Module DEFAULT_ADDITIONAL_MODULE = EMPTY_MODULE;
+    private static final Optional<HiveMetastore> DEFAULT_METASTORE = Optional.empty();
+    private static final Optional<TrinoFileSystemFactory> DEFAULT_FILESYSTEM_FACTORY = Optional.empty();
+
     @Override
     public String getName()
     {
@@ -79,9 +86,23 @@ public class HiveConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkStrictSpiVersionMatch(context, this);
-        return createConnector(catalogName, config, context, EMPTY_MODULE, Optional.empty(), Optional.empty());
+        return createConnector(catalogName, config, context, DEFAULT_ADDITIONAL_MODULE, DEFAULT_METASTORE, DEFAULT_FILESYSTEM_FACTORY);
     }
 
+    @Override
+    public Set<String> getSecuritySensitivePropertyNames(String catalogName, Map<String, String> config, ConnectorContext context)
+    {
+        ClassLoader classLoader = HiveConnectorFactory.class.getClassLoader();
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            Bootstrap app = createBootstrap(catalogName, config, context, DEFAULT_ADDITIONAL_MODULE, DEFAULT_METASTORE, DEFAULT_FILESYSTEM_FACTORY, true);
+
+            Set<ConfigPropertyMetadata> usedProperties = app.configure();
+
+            return ConfigUtils.getSecuritySensitivePropertyNames(config, usedProperties);
+        }
+    }
+
+    @VisibleForTesting
     public static Connector createConnector(
             String catalogName,
             Map<String, String> config,
@@ -92,38 +113,9 @@ public class HiveConnectorFactory
     {
         ClassLoader classLoader = HiveConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            Bootstrap app = new Bootstrap(
-                    new CatalogNameModule(catalogName),
-                    new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule("io.trino.plugin.hive", "trino.plugin.hive"),
-                    new JsonModule(),
-                    new TypeDeserializerModule(context.getTypeManager()),
-                    new HiveModule(),
-                    new HiveMetastoreModule(metastore),
-                    new HiveSecurityModule(),
-                    fileSystemFactory
-                            .map(factory -> (Module) binder -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory))
-                            .orElseGet(() -> new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry(), false, false)),
-                    new HiveProcedureModule(),
-                    new MBeanServerModule(),
-                    binder -> {
-                        binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
-                        binder.bind(Tracer.class).toInstance(context.getTracer());
-                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
-                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder());
-                        binder.bind(MetadataProvider.class).toInstance(context.getMetadataProvider());
-                        binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                        binder.bind(PageSorter.class).toInstance(context.getPageSorter());
-                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                    },
-                    binder -> newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(HiveSessionProperties.class).in(Scopes.SINGLETON),
-                    module);
+            Bootstrap app = createBootstrap(catalogName, config, context, module, metastore, fileSystemFactory, false);
 
-            Injector injector = app
-                    .doNotInitializeLogging()
-                    .setRequiredConfigurationProperties(config)
-                    .initialize();
+            Injector injector = app.initialize();
 
             LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
             HiveTransactionManager transactionManager = injector.getInstance(HiveTransactionManager.class);
@@ -163,5 +155,52 @@ public class HiveConnectorFactory
                     injector.getInstance(HiveConfig.class).isSingleStatementWritesOnly(),
                     classLoader);
         }
+    }
+
+    private static Bootstrap createBootstrap(
+            String catalogName,
+            Map<String, String> config,
+            ConnectorContext context,
+            Module module,
+            Optional<HiveMetastore> metastore,
+            Optional<TrinoFileSystemFactory> fileSystemFactory,
+            boolean quietBootstrap)
+    {
+        Bootstrap app = new Bootstrap(
+                new CatalogNameModule(catalogName),
+                new MBeanModule(),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.hive", "trino.plugin.hive"),
+                new JsonModule(),
+                new TypeDeserializerModule(context.getTypeManager()),
+                new HiveModule(),
+                new HiveMetastoreModule(metastore),
+                new HiveSecurityModule(),
+                fileSystemFactory
+                        .map(factory -> (Module) binder -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory))
+                        .orElseGet(() -> new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry(), false, quietBootstrap)),
+                new HiveProcedureModule(),
+                new MBeanServerModule(),
+                binder -> {
+                    binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
+                    binder.bind(Tracer.class).toInstance(context.getTracer());
+                    binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
+                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                    binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder());
+                    binder.bind(MetadataProvider.class).toInstance(context.getMetadataProvider());
+                    binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
+                    binder.bind(PageSorter.class).toInstance(context.getPageSorter());
+                    binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+                },
+                binder -> newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(HiveSessionProperties.class).in(Scopes.SINGLETON),
+                module);
+
+        if (quietBootstrap) {
+            app.quiet()
+                    .skipErrorReporting();
+        }
+
+        return app
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config);
     }
 }
