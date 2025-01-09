@@ -125,8 +125,9 @@ public final class RedshiftQueryRunner
                 provisionTables(runner, initialTables);
 
                 // This step is necessary for product tests
-                executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA %s TO %s", TEST_SCHEMA, GRANTED_USER));
-
+                for (TpchTable<?> table : initialTables) {
+                    executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON TABLE %s.%s TO %s", TEST_SCHEMA, table.getTableName(), GRANTED_USER));
+                }
                 return runner;
             }
             catch (Throwable e) {
