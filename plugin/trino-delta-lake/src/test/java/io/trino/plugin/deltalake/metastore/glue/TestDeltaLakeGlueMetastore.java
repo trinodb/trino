@@ -129,7 +129,7 @@ public class TestDeltaLakeGlueMetastore
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),
                 // test setup
-                new FileSystemModule("test", context.getNodeManager(), context.getOpenTelemetry(), false));
+                new FileSystemModule("test", context.getNodeManager(), context.getOpenTelemetry(), false, false));
 
         Injector injector = app
                 .doNotInitializeLogging()
