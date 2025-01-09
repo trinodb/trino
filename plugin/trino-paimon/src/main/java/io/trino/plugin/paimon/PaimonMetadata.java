@@ -119,9 +119,8 @@ public class PaimonMetadata
     {
         PaimonTableHandle paimonTableHandle = (PaimonTableHandle) tableHandle;
         Table table = paimonTableHandle.table(session, catalog);
-        if (!(table instanceof FileStoreTable storeTable)) {
-            throw new IllegalArgumentException(table.getClass() + " is not supported");
-        }
+        checkArgument(table instanceof FileStoreTable, "%s is not supported", table.getClass());
+        FileStoreTable storeTable = (FileStoreTable) table;
         BucketMode bucketMode = storeTable.bucketMode();
         switch (bucketMode) {
             case HASH_FIXED:
@@ -239,13 +238,10 @@ public class PaimonMetadata
     {
         PaimonTableHandle paimonTableHandle = (PaimonTableHandle) tableHandle;
         Table table = paimonTableHandle.table(session, catalog);
-        if (!(table instanceof FileStoreTable storeTable)) {
-            throw new IllegalArgumentException(table.getClass() + " is not supported");
-        }
+        checkArgument(table instanceof FileStoreTable, "%s is not supported", table.getClass());
+        FileStoreTable storeTable = (FileStoreTable) table;
         BucketMode bucketMode = storeTable.bucketMode();
-        if (bucketMode != BucketMode.HASH_FIXED) {
-            throw new IllegalArgumentException("Unsupported table bucket mode: " + bucketMode);
-        }
+        checkArgument(bucketMode == BucketMode.HASH_FIXED, "Unsupported table bucket mode: %s", bucketMode);
         Set<String> pkSet = new HashSet<>(table.primaryKeys());
         DataField[] row =
                 table.rowType().getFields().stream()
@@ -261,13 +257,10 @@ public class PaimonMetadata
     {
         PaimonTableHandle paimonTableHandle = (PaimonTableHandle) tableHandle;
         Table table = paimonTableHandle.table(session, catalog);
-        if (!(table instanceof FileStoreTable storeTable)) {
-            throw new IllegalArgumentException(table.getClass() + " is not supported");
-        }
+        checkArgument(table instanceof FileStoreTable, "%s is not supported", table.getClass());
+        FileStoreTable storeTable = (FileStoreTable) table;
         BucketMode bucketMode = storeTable.bucketMode();
-        if (bucketMode != BucketMode.HASH_FIXED) {
-            throw new IllegalArgumentException("Unsupported table bucket mode: " + bucketMode);
-        }
+        checkArgument(bucketMode == BucketMode.HASH_FIXED, "Unsupported table bucket mode: %s", bucketMode);
         try {
             return Optional.of(
                     new PaimonPartitioningHandle(

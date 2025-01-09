@@ -42,6 +42,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static org.apache.paimon.shade.guava30.com.google.common.base.Verify.verify;
+import static org.apache.paimon.utils.Preconditions.checkArgument;
 
 /**
  * TrinoRow {@link InternalRow}.
@@ -100,9 +101,7 @@ public class PaimonRow
     public short getShort(int i)
     {
         long value = (long) readNativeValue(SMALLINT, singlePage.getBlock(i), 0);
-        if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) {
-            throw new IllegalArgumentException("Value out of range for short: " + value);
-        }
+        checkArgument(value > Short.MIN_VALUE && value < Short.MAX_VALUE, "Value out of range for short: %s", value);
         return (short) value;
     }
 
@@ -110,9 +109,7 @@ public class PaimonRow
     public int getInt(int i)
     {
         long value = (long) readNativeValue(INTEGER, singlePage.getBlock(i), 0);
-        if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException("Value out of range for int: " + value);
-        }
+        checkArgument(value > Integer.MIN_VALUE && value < Integer.MAX_VALUE, "Value out of range for int: %s", value);
         return (int) value;
     }
 
