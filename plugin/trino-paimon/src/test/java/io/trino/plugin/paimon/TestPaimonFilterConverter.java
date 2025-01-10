@@ -200,8 +200,7 @@ public class TestPaimonFilterConverter
                 builder.equal(
                         0,
                         Timestamp.fromEpochMillis(
-                                (fromEpochMillisAndFraction(1695645403000L, 0, TimeZoneKey.UTC_KEY))
-                                        .getEpochMillis()));
+                                fromEpochMillisAndFraction(1695645403000L, 0, TimeZoneKey.UTC_KEY).getEpochMillis()));
         Predicate actualEqq = converter.convert(eq).get();
         assertThat(actualEqq).isEqualTo(expectedEqq);
 
