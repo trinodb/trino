@@ -1403,6 +1403,35 @@ public class TestDeltaLakeBasic
     }
 
     @Test
+    void testDeletionVectorsPages()
+            throws Exception
+    {
+        testDeletionVectorsPages(true);
+        testDeletionVectorsPages(false);
+    }
+
+    private void testDeletionVectorsPages(boolean parquetUseColumnIndex)
+            throws Exception
+    {
+        String tableName = "deletion_vectors_pages" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/deletion_vector_pages").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("delta", "parquet_use_column_index", Boolean.toString(parquetUseColumnIndex))
+                .build();
+
+        assertQueryReturnsEmptyResult(session, "SELECT * FROM " + tableName + " WHERE id = 20001");
+        assertThat(query(session, "SELECT * FROM " + tableName + " WHERE id = 99999")).matches("VALUES 99999");
+
+        assertThat(query(session, "SELECT id, _change_type, _commit_version FROM TABLE(system.table_changes('tpch', '" +tableName+ "')) WHERE id = 20001"))
+                .matches("VALUES (20001, VARCHAR 'insert', BIGINT '1'), (20001, VARCHAR 'update_preimage', BIGINT '2')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testUnsupportedVacuumDeletionVectors()
             throws Exception
     {
