@@ -114,14 +114,6 @@
         </dependency>
 
         <dependency>
-            <!-- Clickhouse client will by default use LZ4 compression, which requires this dependency -->
-            <!-- https://github.com/ClickHouse/clickhouse-docs/pull/2408/files -->
-            <groupId>org.lz4</groupId>
-            <artifactId>lz4-java</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
             <scope>test</scope>

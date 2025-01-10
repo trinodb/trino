@@ -23,7 +23,6 @@ import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
-import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -48,8 +47,6 @@ public class EnvMultinodeClickhouse
 {
     private static final String ZOOKEEPER = "zookeeper";
 
-    private static final DockerImageName CLICKHOUSE_IMAGE = DockerImageName.parse("clickhouse/clickhouse-server"); // see TestingClickHouseServer for details
-    private static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("24.3.14.35"); // EOL in 1 year after 2024-03-27
     private static final String CLICKHOUSE = "clickhouse";
     private static final String CLICKHOUSE_NTH = CLICKHOUSE + "-";
     private static final String CONTAINER_CLICKHOUSE_CONFIG_DIR = "/etc/clickhouse-server/";
@@ -112,7 +109,7 @@ public class EnvMultinodeClickhouse
         int httpPort = CLICKHOUSE_DEFAULT_HTTP_PORT + number;
         int nativePort = CLICKHOUSE_DEFAULT_NATIVE_PORT + number;
 
-        DockerContainer container = new DockerContainer(CLICKHOUSE_DEFAULT_IMAGE.toString(), logicalName(number))
+        DockerContainer container = new DockerContainer("yandex/clickhouse-server:21.3.2.5", logicalName(number))
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-clickhouse/test.xml")),
                         CONTAINER_CLICKHOUSE_USERS_D + "test.xml")
