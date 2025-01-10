@@ -14,7 +14,6 @@
 package io.trino.plugin.paimon.catalog;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.paimon.ClassLoaderUtils;
 import io.trino.plugin.paimon.PaimonConfig;
 import io.trino.plugin.paimon.fileio.PaimonFileIO;
 import io.trino.spi.connector.ConnectorSession;
@@ -58,20 +57,15 @@ public class PaimonTrinoCatalog
 
     public void init(ConnectorIdentity identity)
     {
-        current =
-                ClassLoaderUtils.runWithContextClassLoader(
-                        () -> {
-                            paimonFileIO = new PaimonFileIO(trinoFileSystemFactory, identity, null);
-
-                            switch (config.getCatalogType()) {
-                                case FILESYSTEM:
-                                    checkArgument(config.getWarehouse() != null, "Warehouse is required for filesystem catalog");
-                                    return new FileSystemCatalog(paimonFileIO, new Path(config.getWarehouse()), config.toOptions());
-                                default:
-                                    throw new IllegalArgumentException("Unsupported catalog type: " + config.getCatalogType());
-                            }
-                        },
-                        this.getClass().getClassLoader());
+        paimonFileIO = new PaimonFileIO(trinoFileSystemFactory, identity, null);
+        switch (config.getCatalogType()) {
+            case FILESYSTEM:
+                checkArgument(config.getWarehouse() != null, "Warehouse is required for filesystem catalog");
+                current = new FileSystemCatalog(paimonFileIO, new Path(config.getWarehouse()), config.toOptions());
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported catalog type: " + config.getCatalogType());
+        }
     }
 
     public boolean exists(ConnectorSession session, Path path)

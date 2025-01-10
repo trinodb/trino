@@ -14,7 +14,6 @@
 package io.trino.plugin.paimon;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import io.trino.plugin.paimon.catalog.PaimonTrinoCatalog;
 import io.trino.spi.connector.ColumnHandle;
@@ -218,7 +217,7 @@ public final class PaimonFilterExtractor
             Type elementType,
             List<Range> ranges)
     {
-        Map<PaimonColumnHandle, Domain> expressionPredicates = Maps.newHashMap();
+        Map<PaimonColumnHandle, Domain> expressionPredicates = new HashMap<>();
         PaimonColumnHandle paimonColumnHandle = (PaimonColumnHandle) assignments.get(columnName);
         Type trinoType = paimonColumnHandle.getTrinoType();
         if (trinoType instanceof MapType) {

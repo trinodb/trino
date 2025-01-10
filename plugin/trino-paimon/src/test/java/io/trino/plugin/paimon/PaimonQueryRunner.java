@@ -75,7 +75,7 @@ final class PaimonQueryRunner
                         .put("paimon.catalog.type", "filesystem")
                         .put("fs.hadoop.enabled", "true")
                         .putAll(extraConnectorProperties)
-                        .build();
+                        .buildOrThrow();
 
         queryRunner.createCatalog(PAIMON_CATALOG, PAIMON_CATALOG, options);
 
