@@ -27,7 +27,6 @@ import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
@@ -42,6 +41,7 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.InternalDynamicFilter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
@@ -189,7 +189,7 @@ public class BenchmarkScanFilterAndProjectOperator
                     (_) -> pageProcessor,
                     TEST_TABLE_HANDLE,
                     columnHandles,
-                    DynamicFilter.EMPTY,
+                    InternalDynamicFilter.EMPTY,
                     types,
                     FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE,
                     FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT);

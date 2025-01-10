@@ -60,13 +60,11 @@ public class TestMemoryConnectorTest
                         // Adjust DF limits to test edge cases
                         .put("enable-large-dynamic-filters", "false")
                         .put("dynamic-filtering.small.max-distinct-values-per-driver", "100")
-                        .put("dynamic-filtering.small.range-row-limit-per-driver", "100")
                         .put("dynamic-filtering.large.max-distinct-values-per-driver", "100")
-                        .put("dynamic-filtering.large.range-row-limit-per-driver", "100000")
                         .put("dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "100")
-                        .put("dynamic-filtering.small-partitioned.range-row-limit-per-driver", "200")
                         .put("dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100")
-                        .put("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
+                        .put("dynamic-filtering.partitioned-bloom-filter.max-distinct-values-per-driver", "1000")
+                        .put("dynamic-filtering.bloom-filter.max-distinct-values-per-driver", "3000")
                         // disable semi join to inner join rewrite to test semi join operators explicitly
                         .put("optimizer.rewrite-filtering-semi-join-to-inner-join", "false")
                         // enable CREATE FUNCTION
@@ -222,20 +220,18 @@ public class TestMemoryConnectorTest
     public void testJoinLargeBuildSideDynamicFiltering()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
-            @Language("SQL") String sql = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey and orders.custkey BETWEEN 300 AND 700";
-            int expectedRowCount = 15793;
             // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
             assertDynamicFiltering(
-                    sql,
+                    "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey and orders.custkey BETWEEN 200 AND 1400",
                     noJoinReordering(joinDistributionType),
-                    expectedRowCount,
+                    48090,
                     LINEITEM_COUNT, ORDERS_COUNT);
             // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
             assertDynamicFiltering(
-                    sql,
+                    "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey and orders.custkey BETWEEN 200 AND 1200",
                     withLargeDynamicFilters(joinDistributionType),
-                    expectedRowCount,
-                    60139, ORDERS_COUNT);
+                    39874,
+                    60169, ORDERS_COUNT);
         }
     }
 
@@ -314,20 +310,22 @@ public class TestMemoryConnectorTest
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
             // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
-            @Language("SQL") String sql = "SELECT * FROM lineitem WHERE lineitem.orderkey IN " +
-                    "(SELECT orders.orderkey FROM orders WHERE orders.custkey BETWEEN 300 AND 700)";
-            int expectedRowCount = 15793;
-            // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
             assertDynamicFiltering(
-                    sql,
+                    """
+                            SELECT * FROM lineitem WHERE lineitem.orderkey IN
+                                (SELECT orders.orderkey FROM orders WHERE orders.custkey BETWEEN 300 AND 800)
+                            """,
                     noJoinReordering(joinDistributionType),
-                    expectedRowCount,
+                    19875,
                     LINEITEM_COUNT, ORDERS_COUNT);
             // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
             assertDynamicFiltering(
-                    sql,
+                    """
+                            SELECT * FROM lineitem WHERE lineitem.orderkey IN
+                                (SELECT orders.orderkey FROM orders WHERE orders.custkey BETWEEN 300 AND 500)
+                            """,
                     withLargeDynamicFilters(joinDistributionType),
-                    expectedRowCount,
+                    7936,
                     60139, ORDERS_COUNT);
         }
     }
@@ -440,9 +438,9 @@ public class TestMemoryConnectorTest
     {
         // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
         assertDynamicFiltering(
-                "SELECT * FROM orders o, customer c WHERE o.custkey < c.custkey AND c.name < 'Customer#000001000' AND o.custkey > 1000",
+                "SELECT COUNT(*) FROM orders o, customer c WHERE o.custkey < c.custkey AND c.name < 'Customer#000002000' AND o.custkey > 1000",
                 noJoinReordering(BROADCAST),
-                0,
+                1,
                 ORDERS_COUNT, CUSTOMER_COUNT);
     }
 

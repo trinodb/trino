@@ -32,6 +32,11 @@ public final class TestHiveDynamicRowFiltering
     {
         return HiveQueryRunner.builder()
                 .setInitialTables(REQUIRED_TPCH_TABLES)
+                .setExtraProperties(ImmutableMap.of(
+                        // keep limits lower to test edge cases
+                        "enable-large-dynamic-filters", "false",
+                        "dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "100",
+                        "dynamic-filtering.small.max-distinct-values-per-driver", "100"))
                 .setHiveProperties(ImmutableMap.of(
                         "hive.dynamic-filtering.wait-timeout", "1h",
                         "hive.target-max-file-size", "10kB"))  // Needed to generate multiple splits to allow dynamic filter to be ready

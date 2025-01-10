@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import io.trino.spi.predicate.Domain;
+import io.trino.sql.planner.DynamicFilterDomain;
 import io.trino.sql.planner.plan.DynamicFilterId;
 
 import java.util.HashMap;
@@ -44,7 +44,7 @@ public class DynamicFiltersCollector
         this.notifyTaskStatusChanged = requireNonNull(notifyTaskStatusChanged, "notifyTaskStatusChanged is null");
     }
 
-    public void updateDomains(Map<DynamicFilterId, Domain> newDynamicFilterDomains)
+    public void updateDomains(Map<DynamicFilterId, DynamicFilterDomain> newDynamicFilterDomains)
     {
         if (newDynamicFilterDomains.isEmpty()) {
             return;
@@ -52,7 +52,7 @@ public class DynamicFiltersCollector
 
         synchronized (this) {
             long currentVersion = ++this.currentVersion;
-            for (Map.Entry<DynamicFilterId, Domain> entry : newDynamicFilterDomains.entrySet()) {
+            for (Map.Entry<DynamicFilterId, DynamicFilterDomain> entry : newDynamicFilterDomains.entrySet()) {
                 dynamicFilterDomains.merge(
                         entry.getKey(),
                         new VersionedDomain(currentVersion, entry.getValue()),
@@ -95,10 +95,10 @@ public class DynamicFiltersCollector
     public static class VersionedDynamicFilterDomains
     {
         private final long version;
-        private final Map<DynamicFilterId, Domain> dynamicFilterDomains;
+        private final Map<DynamicFilterId, DynamicFilterDomain> dynamicFilterDomains;
 
         @JsonCreator
-        public VersionedDynamicFilterDomains(long version, Map<DynamicFilterId, Domain> dynamicFilterDomains)
+        public VersionedDynamicFilterDomains(long version, Map<DynamicFilterId, DynamicFilterDomain> dynamicFilterDomains)
         {
             this.version = version;
             this.dynamicFilterDomains = ImmutableMap.copyOf(requireNonNull(dynamicFilterDomains, "dynamicFilterDomains is null"));
@@ -111,7 +111,7 @@ public class DynamicFiltersCollector
         }
 
         @JsonProperty
-        public Map<DynamicFilterId, Domain> getDynamicFilterDomains()
+        public Map<DynamicFilterId, DynamicFilterDomain> getDynamicFilterDomains()
         {
             return dynamicFilterDomains;
         }
@@ -120,9 +120,9 @@ public class DynamicFiltersCollector
     private static class VersionedDomain
     {
         private final long version;
-        private final Domain domain;
+        private final DynamicFilterDomain domain;
 
-        private VersionedDomain(long version, Domain domain)
+        private VersionedDomain(long version, DynamicFilterDomain domain)
         {
             this.version = version;
             this.domain = requireNonNull(domain, "domain is null");
@@ -133,7 +133,7 @@ public class DynamicFiltersCollector
             return version;
         }
 
-        public Domain getDomain()
+        public DynamicFilterDomain getDomain()
         {
             return domain;
         }

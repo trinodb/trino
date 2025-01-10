@@ -42,7 +42,7 @@ import io.trino.operator.PipelineStatus;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
 import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.predicate.Domain;
+import io.trino.sql.planner.DynamicFilterDomain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -490,7 +490,7 @@ public class SqlTask
             Optional<PlanFragment> fragment,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
-            Map<DynamicFilterId, Domain> dynamicFilterDomains,
+            Map<DynamicFilterId, DynamicFilterDomain> dynamicFilterDomains,
             boolean speculative)
     {
         try {
