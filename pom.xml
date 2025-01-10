@@ -462,7 +462,7 @@
             <dependency>
                 <groupId>com.clickhouse</groupId>
                 <artifactId>clickhouse-jdbc</artifactId>
-                <version>0.7.1-patch1</version>
+                <version>0.6.3</version>
                 <classifier>all</classifier>
             </dependency>
 
@@ -2283,14 +2283,6 @@
             </dependency>
 
             <dependency>
-                <!-- Clickhouse client will by default use LZ4 compression, which requires this dependency -->
-                <!-- https://github.com/ClickHouse/clickhouse-docs/pull/2408/files -->
-                <groupId>org.lz4</groupId>
-                <artifactId>lz4-java</artifactId>
-                <version>1.8.0</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
                 <version>3.3.3</version>
@@ -2619,13 +2611,6 @@
                     <groupId>org.basepom.maven</groupId>
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
                     <configuration>
-                        <ignoredDependencies>
-                            <ignoredDependency>
-                                <!-- clickhouse-jdbc contains conflicting dependencies inside itself -->
-                                <groupId>com.clickhouse</groupId>
-                                <artifactId>clickhouse-jdbc</artifactId>
-                            </ignoredDependency>
-                        </ignoredDependencies>
                         <exceptions combine.children="append">
                             <exception>
                                 <conflictingDependencies>
