@@ -21,6 +21,8 @@ import static java.util.Objects.requireNonNull;
 
 public record RangePartitionDefinition(List<String> columns)
 {
+    public static final RangePartitionDefinition EMPTY_RANGE_PARTITION = new RangePartitionDefinition(ImmutableList.of());
+
     public RangePartitionDefinition
     {
         columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
