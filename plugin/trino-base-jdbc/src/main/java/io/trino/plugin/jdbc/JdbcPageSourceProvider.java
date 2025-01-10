@@ -15,11 +15,11 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import dev.failsafe.RetryPolicy;
 import io.trino.plugin.jdbc.MergeJdbcPageSource.ColumnAdaptation;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -29,7 +29,6 @@ import io.trino.spi.connector.RecordPageSource;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -43,13 +42,13 @@ public class JdbcPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final JdbcClient jdbcClient;
-    private final JdbcRecordSetProvider recordSetProvider;
+    private final ConnectorRecordSetProvider recordSetProvider;
 
     @Inject
-    public JdbcPageSourceProvider(JdbcClient jdbcClient, @ForRecordCursor ExecutorService executor, RetryPolicy<Object> policy)
+    public JdbcPageSourceProvider(JdbcClient jdbcClient, ConnectorRecordSetProvider recordSetProvider)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-        this.recordSetProvider = new JdbcRecordSetProvider(jdbcClient, executor, policy);
+        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
     }
 
     @Override
