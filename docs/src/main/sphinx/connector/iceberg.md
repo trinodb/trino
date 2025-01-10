@@ -1318,10 +1318,11 @@ The output of the query has the following columns:
   - File metrics in human-readable form.
 :::
 
-##### `$entries` table
+##### `$entries` and `$all_entries` tables
 
-The `$entries` table provides all the table's current manifest entries for both 
-data and delete files.
+The `$entries` and `$all_entries` tables provide the table's manifest entries
+for both data and delete files. The `$entries` table contains data for the
+current snapshot. The `$all_entries` table contains data for all snapshots.
 
 To retrieve the information about the entries of the Iceberg table
 `test_table`, use the following query:
