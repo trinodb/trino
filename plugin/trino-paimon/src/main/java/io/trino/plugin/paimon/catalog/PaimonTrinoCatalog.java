@@ -31,6 +31,8 @@ import org.apache.paimon.table.Table;
 import java.io.IOException;
 import java.util.List;
 
+import static org.apache.paimon.utils.Preconditions.checkArgument;
+
 /**
  * Trino catalog, use it after set session.
  */
@@ -63,6 +65,7 @@ public class PaimonTrinoCatalog
 
                             switch (config.getCatalogType()) {
                                 case FILESYSTEM:
+                                    checkArgument(config.getWarehouse() != null, "Warehouse is required for filesystem catalog");
                                     return new FileSystemCatalog(paimonFileIO, new Path(config.getWarehouse()), config.toOptions());
                                 default:
                                     throw new IllegalArgumentException("Unsupported catalog type: " + config.getCatalogType());
