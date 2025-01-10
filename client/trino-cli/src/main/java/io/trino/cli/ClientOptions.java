@@ -300,6 +300,9 @@ public class ClientOptions
     @Option(names = "--decimal-data-size", description = "Show data size and rate in base 10 rather than base 2")
     public boolean decimalDataSize;
 
+    @Option(names = "--prefetch-buffer-size", paramLabel = "<prefetch-buffer-size>", defaultValue = "64000", description = "Experimental spooled protocol prefetch buffer size, default: + " + DEFAULT_VALUE)
+    public String prefetchBufferSize;
+
     public enum OutputFormat
     {
         AUTO,
@@ -346,6 +349,7 @@ public class ClientOptions
                 .toClientSessionBuilder()
                 .source(uri.getSource().orElse(SOURCE_DEFAULT))
                 .encoding(encoding)
+                .prefetchBufferSize(prefetchBufferSize)
                 .build();
     }
 
