@@ -19,11 +19,11 @@ import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.DynamicPageFilter;
 import io.trino.sql.gen.columnar.FilterEvaluator;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
+import io.trino.sql.planner.InternalDynamicFilter;
 import io.trino.sql.relational.RowExpression;
 
 import java.util.List;
@@ -55,7 +55,7 @@ public class ExpressionCompiler
         return cursorProcessorCompiler.compileCursorProcessor(filter, projections, uniqueKey);
     }
 
-    public Function<DynamicFilter, PageProcessor> compilePageProcessor(
+    public Function<InternalDynamicFilter, PageProcessor> compilePageProcessor(
             boolean columnarFilterEvaluationEnabled,
             Optional<RowExpression> filter,
             Optional<DynamicPageFilter> dynamicPageFilter,
@@ -95,13 +95,13 @@ public class ExpressionCompiler
     public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections)
     {
         return () -> compilePageProcessor(true, filter, Optional.empty(), projections, Optional.empty(), OptionalInt.empty())
-                .apply(DynamicFilter.EMPTY);
+                .apply(InternalDynamicFilter.EMPTY);
     }
 
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, int initialBatchSize)
     {
         return () -> compilePageProcessor(true, filter, Optional.empty(), projections, Optional.empty(), OptionalInt.of(initialBatchSize))
-                .apply(DynamicFilter.EMPTY);
+                .apply(InternalDynamicFilter.EMPTY);
     }
 }
