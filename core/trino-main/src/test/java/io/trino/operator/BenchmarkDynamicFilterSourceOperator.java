@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.DynamicFilterSourceConsumer;
+import io.trino.sql.planner.DynamicFilterTupleDomain;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
@@ -71,8 +71,8 @@ public class BenchmarkDynamicFilterSourceOperator
         @Param({"32", "1024"})
         private int positionsPerPage = 32;
 
-        @Param({"100,0", "500,5000", "5000,50000"})
-        private String collectionLimits = "100,0";
+        @Param("1")
+        private int maxDistinctValuesCount = 10_000;
 
         private ExecutorService executor;
         private ScheduledExecutorService scheduledExecutor;
@@ -87,17 +87,13 @@ public class BenchmarkDynamicFilterSourceOperator
 
             pages = createInputPages(positionsPerPage);
 
-            String[] limits = collectionLimits.split(",", 2);
-            int maxDistinctValuesCount = Integer.parseInt(limits[0]);
-            int minMaxCollectionLimit = Integer.parseInt(limits[1]);
-
             TypeOperators typeOperators = new TypeOperators();
             operatorFactory = new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                     1,
                     new PlanNodeId("joinNodeId"),
                     new DynamicFilterSourceConsumer() {
                         @Override
-                        public void addPartition(TupleDomain<DynamicFilterId> tupleDomain) {}
+                        public void addPartition(DynamicFilterTupleDomain<DynamicFilterId> tupleDomain) {}
 
                         @Override
                         public void setPartitionCount(int partitionCount)
@@ -113,8 +109,8 @@ public class BenchmarkDynamicFilterSourceOperator
                     },
                     ImmutableList.of(new DynamicFilterSourceOperator.Channel(new DynamicFilterId("0"), BIGINT, 0)),
                     maxDistinctValuesCount,
+                    maxDistinctValuesCount * 2,
                     DataSize.ofBytes(Long.MAX_VALUE),
-                    minMaxCollectionLimit,
                     typeOperators);
         }
 

@@ -65,12 +65,9 @@ public class MongoPageSourceProvider
                 .transformKeys(MongoColumnHandle.class::cast)
                 .filter((mongoColumnHandle, domain) -> isPushdownSupportedType(mongoColumnHandle.type()));
 
-        MongoTableHandle newTableHandle;
+        MongoTableHandle newTableHandle = tableHandle;
 
-        if (dynamicFilter == DynamicFilter.EMPTY || tableHandle.limit().isPresent()) {
-            newTableHandle = tableHandle;
-        }
-        else {
+        if (!dynamicPredicate.isAll() && tableHandle.limit().isEmpty()) {
             TupleDomain<ColumnHandle> newDomain = tableHandle
                     .constraint()
                     .intersect(dynamicPredicate)
