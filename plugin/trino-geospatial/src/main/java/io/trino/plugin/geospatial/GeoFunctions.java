@@ -318,7 +318,7 @@ public final class GeoFunctions
 
     @Description("Returns a Geometry type object from OGC KML representation")
     @ScalarFunction("ST_GeomFromKML")
-    @SqlType(GEOMETRY_TYPE_NAME)
+    @SqlType(StandardTypes.GEOMETRY)
     public static Slice stGeomFromKML(@SqlType(VARCHAR) Slice input)
     {
         return serialize(geomFromKML(input));
