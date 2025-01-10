@@ -57,6 +57,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -77,7 +78,6 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.paimon.utils.Preconditions.checkArgument;
 
 /**
  * Trino {@link ConnectorPageSource}.

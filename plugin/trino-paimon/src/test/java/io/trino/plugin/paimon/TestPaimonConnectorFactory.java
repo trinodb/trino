@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.paimon;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.apache.paimon.shade.guava30.com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

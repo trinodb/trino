@@ -23,9 +23,9 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-import static org.apache.paimon.shade.guava30.com.google.common.base.Preconditions.checkArgument;
-import static org.apache.paimon.shade.guava30.com.google.common.base.Preconditions.checkState;
 
 public class PaimonTransactionManager
 {

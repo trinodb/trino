@@ -29,6 +29,8 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
@@ -41,8 +43,6 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
-import static org.apache.paimon.shade.guava30.com.google.common.base.Verify.verify;
-import static org.apache.paimon.utils.Preconditions.checkArgument;
 
 /**
  * TrinoRow {@link InternalRow}.

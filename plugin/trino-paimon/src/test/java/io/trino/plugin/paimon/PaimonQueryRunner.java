@@ -14,11 +14,10 @@
 package io.trino.plugin.paimon;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
-import org.apache.paimon.shade.guava30.com.google.common.collect.ImmutableMap;
 
 import java.nio.file.Path;
 import java.util.Map;

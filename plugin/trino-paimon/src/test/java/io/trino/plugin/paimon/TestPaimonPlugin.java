@@ -13,18 +13,18 @@
  */
 package io.trino.plugin.paimon;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.apache.paimon.shade.guava30.com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.UUID;
 
-import static org.apache.paimon.shade.guava30.com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**

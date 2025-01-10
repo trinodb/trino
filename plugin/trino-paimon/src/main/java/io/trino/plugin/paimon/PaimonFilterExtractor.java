@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.paimon;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import io.trino.plugin.paimon.catalog.PaimonTrinoCatalog;
 import io.trino.spi.connector.ColumnHandle;
@@ -28,8 +30,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import org.apache.paimon.shade.guava30.com.google.common.collect.ImmutableList;
-import org.apache.paimon.shade.guava30.com.google.common.collect.Maps;
 
 import java.util.Collections;
 import java.util.HashMap;

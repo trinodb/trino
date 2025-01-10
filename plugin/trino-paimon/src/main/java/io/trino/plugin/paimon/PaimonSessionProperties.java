@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.paimon;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
-import org.apache.paimon.shade.guava30.com.google.common.collect.ImmutableList;
 
 import java.util.List;
 

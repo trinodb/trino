@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.paimon;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.type.Type;
 import io.trino.type.TypeDeserializer;
-import org.apache.paimon.shade.guava30.com.google.common.collect.ImmutableMap;
 import org.apache.paimon.types.DataTypes;
 import org.junit.jupiter.api.Test;
 

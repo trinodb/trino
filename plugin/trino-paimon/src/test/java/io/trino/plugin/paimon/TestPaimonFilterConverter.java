@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.paimon;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -27,7 +28,6 @@ import org.apache.paimon.data.BinaryString;
 import org.apache.paimon.data.Timestamp;
 import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.predicate.PredicateBuilder;
-import org.apache.paimon.shade.guava30.com.google.common.collect.ImmutableMap;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.IntType;
 import org.apache.paimon.types.RowType;

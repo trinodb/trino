@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.paimon;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractDistributedEngineOnlyQueries;
 import io.trino.testing.QueryRunner;
-import org.apache.paimon.shade.guava30.com.google.common.collect.ImmutableMap;
 
 /**
  * The test of TrinoDistributedQuery.

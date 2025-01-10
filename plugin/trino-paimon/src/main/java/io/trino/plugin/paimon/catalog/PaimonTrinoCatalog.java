@@ -31,7 +31,7 @@ import org.apache.paimon.table.Table;
 import java.io.IOException;
 import java.util.List;
 
-import static org.apache.paimon.utils.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Trino catalog, use it after set session.
