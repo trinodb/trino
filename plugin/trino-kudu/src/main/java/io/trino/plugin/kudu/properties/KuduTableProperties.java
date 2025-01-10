@@ -41,6 +41,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
+import static io.trino.plugin.kudu.properties.RangePartitionDefinition.EMPTY_RANGE_PARTITION;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -133,7 +134,8 @@ public final class KuduTableProperties
         requireNonNull(tableProperties);
 
         @SuppressWarnings("unchecked")
-        List<String> hashColumns = (List<String>) tableProperties.get(PARTITION_BY_HASH_COLUMNS);
+        List<String> hashColumns = (List<String>) tableProperties.getOrDefault(PARTITION_BY_HASH_COLUMNS, ImmutableList.of());
+
         @SuppressWarnings("unchecked")
         List<String> hashColumns2 = (List<String>) tableProperties.getOrDefault(PARTITION_BY_HASH_COLUMNS_2, ImmutableList.of());
 
@@ -153,9 +155,13 @@ public final class KuduTableProperties
         }
 
         @SuppressWarnings("unchecked")
-        List<String> rangeColumns = (List<String>) tableProperties.get(PARTITION_BY_RANGE_COLUMNS);
+        List<String> rangeColumns = (List<String>) tableProperties.getOrDefault(PARTITION_BY_RANGE_COLUMNS, ImmutableList.of());
         if (!rangeColumns.isEmpty()) {
             design.setRange(new RangePartitionDefinition(rangeColumns));
+        }
+
+        if (!design.hasPartitions()) {
+            design.setRange(EMPTY_RANGE_PARTITION);
         }
 
         return design;
