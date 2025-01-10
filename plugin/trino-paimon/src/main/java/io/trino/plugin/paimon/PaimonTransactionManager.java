@@ -63,6 +63,9 @@ public class PaimonTransactionManager
     {
         MemoizedMetadata transactionalMetadata = transactions.remove(transaction);
         checkArgument(transactionalMetadata != null, "no such transaction: %s", transaction);
+        transactionalMetadata
+                .optionalGet()
+                .ifPresent(PaimonMetadata::close);
     }
 
     public void rollback(ConnectorTransactionHandle transaction)

@@ -798,6 +798,16 @@ public class PaimonMetadata
         return Optional.of(new LimitApplicationResult<>(table, false, false));
     }
 
+    public void close()
+    {
+        try {
+            this.catalog.close();
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Error happens while close catalog", e);
+        }
+    }
+
     public void rollback()
     {
         // do nothing
