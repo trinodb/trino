@@ -150,7 +150,7 @@ public class PagePartitioner
         }
         long outputSizeInBytes = flushPositionsAppenders(false);
         updateMemoryUsage();
-        operatorContext.recordOutput(outputSizeInBytes, outputPositionCount);
+        operatorContext.recordOutput(outputSizeInBytes, outputPositionCount, page.getUpdatedCount());
     }
 
     private long adjustFlushedOutputSizeWithEagerlyReportedBytes(long flushedOutputSize)
@@ -196,12 +196,14 @@ public class PagePartitioner
     {
         long bufferedSizeInBytes = 0;
         long outputSizeInBytes = 0;
+        long updatedPositions = 0;
         for (int partition = 0; partition < positionsAppenders.length; partition++) {
             PositionsAppenderPageBuilder positionsAppender = positionsAppenders[partition];
             Optional<Page> flushedPage = positionsAppender.flushOrFlattenBeforeRelease();
             if (flushedPage.isPresent()) {
                 Page page = flushedPage.get();
                 outputSizeInBytes += page.getSizeInBytes();
+                updatedPositions += page.getUpdatedCount();
                 enqueuePage(page, partition);
             }
             else {
@@ -214,7 +216,7 @@ public class PagePartitioner
         // Adjust flushed and buffered values against the previously eagerly reported sizes
         outputSizeInBytes = adjustFlushedOutputSizeWithEagerlyReportedBytes(outputSizeInBytes);
         bufferedSizeInBytes = adjustEagerlyReportedBytesWithBufferedBytesOnRelease(bufferedSizeInBytes);
-        operatorContext.recordOutput(outputSizeInBytes + bufferedSizeInBytes, 0 /* no new positions */);
+        operatorContext.recordOutput(outputSizeInBytes + bufferedSizeInBytes, 0 /* no new positions */, updatedPositions);
     }
 
     public void partitionPageByRow(Page page)

@@ -82,6 +82,7 @@ public class OperatorContext
     private final OperationTiming getOutputTiming = new OperationTiming();
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
+    private final CounterStat updatedPositions = new CounterStat();
 
     private final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
     private final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);  // this is not incremental, but gets overwritten by the latest value.
@@ -210,15 +211,22 @@ public class OperatorContext
         if (page != null) {
             outputDataSize.update(page.getSizeInBytes());
             outputPositions.update(page.getPositionCount());
+            updatedPositions.update(page.getUpdatedCount());
         }
     }
 
     public void recordOutput(long sizeInBytes, long positions)
     {
+        recordOutput(sizeInBytes, positions, 0);
+    }
+
+    public void recordOutput(long sizeInBytes, long positions, long updatedPositions)
+    {
         checkArgument(sizeInBytes >= 0, "sizeInBytes is negative (%s)", sizeInBytes);
         checkArgument(positions >= 0, "positions is negative (%s)", positions);
         outputDataSize.update(sizeInBytes);
         outputPositions.update(positions);
+        this.updatedPositions.update(updatedPositions);
     }
 
     public void recordDynamicFilterSplitProcessed(long dynamicFilterSplits)
@@ -490,6 +498,11 @@ public class OperatorContext
         return outputPositions;
     }
 
+    public CounterStat getUpdatedPositions()
+    {
+        return updatedPositions;
+    }
+
     public long getWriterInputDataSize()
     {
         return writerInputDataSize.get();
@@ -554,6 +567,7 @@ public class OperatorContext
                 new Duration(getOutputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 DataSize.ofBytes(outputDataSize.getTotalCount()),
                 outputPositions.getTotalCount(),
+                updatedPositions.getTotalCount(),
 
                 dynamicFilterSplitsProcessed.get(),
                 getOperatorMetrics(

@@ -271,6 +271,15 @@ public class DriverContext
         return new CounterStat();
     }
 
+    public CounterStat getUpdatedPositions()
+    {
+        OperatorContext inputOperator = getLast(operatorContexts, null);
+        if (inputOperator != null) {
+            return inputOperator.getUpdatedPositions();
+        }
+        return new CounterStat();
+    }
+
     public long getWriterInputDataSize()
     {
         // Avoid using stream api for performance reasons
@@ -346,6 +355,7 @@ public class DriverContext
         Duration inputBlockedTime;
         DataSize outputDataSize;
         long outputPositions;
+        long updatedPositions;
         Duration outputBlockedTime;
         if (inputOperator != null) {
             physicalInputDataSize = inputOperator.getPhysicalInputDataSize();
@@ -367,6 +377,7 @@ public class DriverContext
             OperatorStats outputOperator = requireNonNull(getLast(operators, null));
             outputDataSize = outputOperator.getOutputDataSize();
             outputPositions = outputOperator.getOutputPositions();
+            updatedPositions = outputOperator.getUpdatedPositions();
 
             outputBlockedTime = outputOperator.getBlockedWall();
         }
@@ -389,6 +400,7 @@ public class DriverContext
 
             outputDataSize = DataSize.ofBytes(0);
             outputPositions = 0;
+            updatedPositions = 0;
 
             outputBlockedTime = new Duration(0, MILLISECONDS);
         }
@@ -428,6 +440,7 @@ public class DriverContext
                 inputBlockedTime,
                 outputDataSize.succinct(),
                 outputPositions,
+                updatedPositions,
                 outputBlockedTime,
                 succinctBytes(physicalWrittenDataSize),
                 operators);

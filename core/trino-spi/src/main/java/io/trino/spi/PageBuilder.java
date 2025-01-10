@@ -34,6 +34,7 @@ public class PageBuilder
     private final BlockBuilder[] blockBuilders;
     private PageBuilderStatus pageBuilderStatus;
     private int declaredPositions;
+    private int updatedPositions;
 
     /**
      * Create a PageBuilder with given types.
@@ -88,6 +89,16 @@ public class PageBuilder
     public BlockBuilder getBlockBuilder(int channel)
     {
         return blockBuilders[channel];
+    }
+
+    public int getUpdatedPositions()
+    {
+        return updatedPositions;
+    }
+
+    public void setUpdatedPositions(int updatedPositions)
+    {
+        this.updatedPositions = updatedPositions;
     }
 
     public void declarePosition()
@@ -145,6 +156,6 @@ public class PageBuilder
             }
         }
 
-        return Page.wrapBlocksWithoutCopy(declaredPositions, blocks);
+        return Page.wrapBlocksWithoutCopy(declaredPositions, updatedPositions, blocks);
     }
 }

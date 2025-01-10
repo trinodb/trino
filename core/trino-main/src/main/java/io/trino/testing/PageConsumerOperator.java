@@ -138,7 +138,7 @@ public class PageConsumerOperator
 
         page = pagePreprocessor.apply(page);
         pageConsumer.accept(page);
-        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount(), page.getUpdatedCount());
     }
 
     @Override

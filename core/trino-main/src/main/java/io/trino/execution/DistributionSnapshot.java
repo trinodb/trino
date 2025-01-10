@@ -71,6 +71,7 @@ public record DistributionSnapshot(long total, double min, double max, double p0
                 operatorStats.getGetOutputCpu(),
                 operatorStats.getOutputDataSize(),
                 operatorStats.getOutputPositions(),
+                operatorStats.getUpdatedPositions(),
                 operatorStats.getDynamicFilterSplitsProcessed(),
                 pruneMetrics(operatorStats.getMetrics()),
                 pruneMetrics(operatorStats.getConnectorMetrics()),

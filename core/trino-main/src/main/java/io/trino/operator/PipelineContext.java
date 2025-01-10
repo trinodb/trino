@@ -98,6 +98,7 @@ public class PipelineContext
 
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
+    private final CounterStat updatedPositions = new CounterStat();
 
     private final AtomicLong outputBlockedTime = new AtomicLong();
 
@@ -237,6 +238,7 @@ public class PipelineContext
 
         outputDataSize.update(driverStats.getOutputDataSize().toBytes());
         outputPositions.update(driverStats.getOutputPositions());
+        updatedPositions.update(driverStats.getUpdatedPositions());
 
         outputBlockedTime.getAndAdd(driverStats.getOutputBlockedTime().roundTo(NANOSECONDS));
 
@@ -329,6 +331,16 @@ public class PipelineContext
         return stat;
     }
 
+    public CounterStat getUpdatedPositions()
+    {
+        CounterStat stat = new CounterStat();
+        stat.merge(updatedPositions);
+        for (DriverContext driver : drivers) {
+            stat.merge(driver.getUpdatedPositions());
+        }
+        return stat;
+    }
+
     public long getWriterInputDataSize()
     {
         // Avoid using stream api due to performance reasons
@@ -403,6 +415,7 @@ public class PipelineContext
 
         long outputDataSize = this.outputDataSize.getTotalCount();
         long outputPositions = this.outputPositions.getTotalCount();
+        long updatedPositions = this.updatedPositions.getTotalCount();
 
         long outputBlockedTime = this.outputBlockedTime.get();
 
@@ -455,6 +468,7 @@ public class PipelineContext
 
             outputDataSize += driverStats.getOutputDataSize().toBytes();
             outputPositions += driverStats.getOutputPositions();
+            updatedPositions += driverStats.getUpdatedPositions();
 
             outputBlockedTime += driverStats.getOutputBlockedTime().roundTo(NANOSECONDS);
 
@@ -538,6 +552,7 @@ public class PipelineContext
 
                 succinctBytes(outputDataSize),
                 outputPositions,
+                updatedPositions,
 
                 new Duration(outputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 

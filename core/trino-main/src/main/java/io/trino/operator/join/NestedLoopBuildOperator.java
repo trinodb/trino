@@ -140,7 +140,7 @@ public class NestedLoopBuildOperator
             nestedLoopJoinPagesBuilder.compact();
             localUserMemoryContext.setBytes(nestedLoopJoinPagesBuilder.getEstimatedSize().toBytes());
         }
-        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount(), page.getUpdatedCount());
     }
 
     @Override

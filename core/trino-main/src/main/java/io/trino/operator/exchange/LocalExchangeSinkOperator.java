@@ -133,7 +133,7 @@ public class LocalExchangeSinkOperator
     {
         requireNonNull(page, "page is null");
         page = pagePreprocessor.apply(page);
-        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount(), page.getUpdatedCount());
         sink.addPage(page);
     }
 

@@ -342,7 +342,7 @@ public class HashBuilderOperator
                 localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
             }
         }
-        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount(), page.getUpdatedCount());
     }
 
     private void spillInput(Page page)

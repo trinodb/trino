@@ -47,8 +47,18 @@ public final class Page
         return new Page(false, positionCount, blocks);
     }
 
+    /**
+     * Visible to give trusted classes like {@link PageBuilder} access to a constructor that doesn't
+     * defensively copy the blocks
+     */
+    static Page wrapBlocksWithoutCopy(int positionCount, int updatedCount, Block[] blocks)
+    {
+        return new Page(false, positionCount, updatedCount, blocks);
+    }
+
     private final Block[] blocks;
     private final int positionCount;
+    private final int updatedCount;
     private volatile long sizeInBytes = -1;
     private volatile long retainedSizeInBytes = -1;
 
@@ -69,11 +79,17 @@ public final class Page
 
     private Page(boolean blocksCopyRequired, int positionCount, Block[] blocks)
     {
+        this(blocksCopyRequired, positionCount, 0, blocks);
+    }
+
+    private Page(boolean blocksCopyRequired, int positionCount, int updatedCount, Block[] blocks)
+    {
         if (positionCount < 0) {
             throw new IllegalArgumentException(format("positionCount (%s) is negative", positionCount));
         }
         requireNonNull(blocks, "blocks is null");
         this.positionCount = positionCount;
+        this.updatedCount = updatedCount;
         if (blocks.length == 0) {
             this.blocks = EMPTY_BLOCKS;
             this.sizeInBytes = 0;
@@ -93,6 +109,11 @@ public final class Page
     public int getPositionCount()
     {
         return positionCount;
+    }
+
+    public int getUpdatedCount()
+    {
+        return updatedCount;
     }
 
     public long getSizeInBytes()

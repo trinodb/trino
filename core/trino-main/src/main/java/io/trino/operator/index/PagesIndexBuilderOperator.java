@@ -112,7 +112,7 @@ public class PagesIndexBuilderOperator
             finish();
             return;
         }
-        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount(), page.getUpdatedCount());
     }
 
     @Override

@@ -120,7 +120,7 @@ public class PageBufferOperator
         if (!future.isDone()) {
             this.blocked = future;
         }
-        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount(), page.getUpdatedCount());
     }
 
     @Override

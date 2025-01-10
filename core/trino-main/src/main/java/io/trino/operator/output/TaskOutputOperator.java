@@ -159,7 +159,7 @@ public class TaskOutputOperator
         page = pagePreprocessor.apply(page);
 
         outputBuffer.enqueue(splitAndSerializePage(page));
-        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount(), page.getUpdatedCount());
     }
 
     private List<Slice> splitAndSerializePage(Page page)

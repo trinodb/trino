@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -131,6 +132,7 @@ public class TableMutationOperator
         PageBuilder page = new PageBuilder(1, TYPES);
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
         page.declarePosition();
+        page.setUpdatedPositions((int) count.orElse(0));
         if (count.isPresent()) {
             BIGINT.writeLong(rowsBuilder, count.getAsLong());
         }

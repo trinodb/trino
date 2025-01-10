@@ -184,6 +184,20 @@
                         <revapi.differences>
                             <ignore>true</ignore>
                             <differences>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <justification>A new field updatedRows was added that holds the number of affected rows by DELETE/UPDATE queries</justification>
+                                    <package>io.trino.spi.eventlistener</package>
+                                    <classQualifiedName>io.trino.spi.eventlistener.QueryStatistics</classQualifiedName>
+                                    <classSimpleName>QueryStatistics</classSimpleName>
+                                    <methodName>&lt;init&gt;</methodName>
+                                    <elementKind>constructor</elementKind>
+                                    <oldArchive>io.trino:trino-spi:jar:468</oldArchive>
+                                    <oldArchiveRole>primary</oldArchiveRole>
+                                    <newArchive>io.trino:trino-spi:jar:469-SNAPSHOT</newArchive>
+                                    <newArchiveRole>primary</newArchiveRole>
+                                </item>
                                 <!-- Allow adding new annotations (such as @Nullable) -->
                                 <item>
                                     <code>java.annotation.added</code>
