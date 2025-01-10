@@ -8,6 +8,7 @@ running, and managing Trino clusters.
 
 admin/web-interface
 admin/preview-web-interface
+admin/logging
 admin/tuning
 admin/jmx
 admin/opentelemetry
