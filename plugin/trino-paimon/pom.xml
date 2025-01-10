@@ -13,10 +13,6 @@
     <packaging>trino-plugin</packaging>
     <description>Trino - Paimon connector</description>
 
-    <properties>
-        <spotless.version>2.43.0</spotless.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>com.google.cloud.bigdataoss</groupId>
