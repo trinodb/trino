@@ -41,7 +41,11 @@ connection-password=examplepassword
 
 The `connection-url` defines the connection information and parameters to pass
 to the ClickHouse JDBC driver. The supported parameters for the URL are
-available in the [ClickHouse JDBC driver configuration](https://clickhouse.com/docs/en/integrations/java#configuration).
+available in the [ClickHouse JDBC driver
+configuration](https://clickhouse.com/docs/en/integrations/java#configuration).
+When using ClickHouse 24.3 or higher, ensure to set `externalDatabase=false` as
+part of the JDBC connection parameters to avoid performance issues for fetching
+schema information.
 
 The `connection-user` and `connection-password` are typically required and
 determine the user credentials for the connection, often a service user. You can
