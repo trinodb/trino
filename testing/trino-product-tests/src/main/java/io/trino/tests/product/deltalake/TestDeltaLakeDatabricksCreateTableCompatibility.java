@@ -404,15 +404,19 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
         if (databricksRuntimeVersion.equals(DATABRICKS_104_RUNTIME_VERSION)) {
             return "TBLPROPERTIES (\n" +
                     "  'Type' = 'EXTERNAL',\n" +
+                    "  'delta.columnMapping.maxColumnId' = '3',\n" +
+                    "  'delta.columnMapping.mode' = 'name',\n" +
                     "  'delta.enableDeletionVectors' = 'false',\n" +
-                    "  'delta.minReaderVersion' = '1',\n" +
-                    "  'delta.minWriterVersion' = '2')\n";
+                    "  'delta.minReaderVersion' = '2',\n" +
+                    "  'delta.minWriterVersion' = '5')\n";
         }
         if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
             return "TBLPROPERTIES (\n" +
+                    "  'delta.columnMapping.maxColumnId' = '3',\n" +
+                    "  'delta.columnMapping.mode' = 'name',\n" +
                     "  'delta.enableDeletionVectors' = 'false',\n" +
-                    "  'delta.minReaderVersion' = '1',\n" +
-                    "  'delta.minWriterVersion' = '2')\n";
+                    "  'delta.minReaderVersion' = '2',\n" +
+                    "  'delta.minWriterVersion' = '5')\n";
         }
         throw new IllegalArgumentException("Unsupported databricks runtime version: " + databricksRuntimeVersion);
     }

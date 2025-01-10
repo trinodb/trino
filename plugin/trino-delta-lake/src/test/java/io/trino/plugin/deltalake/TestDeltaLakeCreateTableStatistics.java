@@ -464,7 +464,7 @@ public class TestDeltaLakeCreateTableStatistics
                     "(" + String.join(",", columnNames) + ")";
             String partitionedBy = partitionNames.isEmpty() ? "" :
                     format(", partitioned_by = ARRAY[%s]", partitionNames.stream().map(partitionName -> "'" + partitionName + "'").collect(Collectors.joining(",")));
-            computeActual(session, format("CREATE TABLE %s %s WITH (location = 's3://%s/%1$s' %s) AS %s",
+            computeActual(session, format("CREATE TABLE %s %s WITH (column_mapping_mode = 'none', location = 's3://%s/%1$s' %s) AS %s",
                     this.name, columns, bucketName, partitionedBy, values));
         }
 

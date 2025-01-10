@@ -138,8 +138,10 @@ public class TestDeltaLakeSystemTables
                     "('delta.enableChangeDataFeed', 'true')," +
                     "('delta.enableDeletionVectors', 'false')," +
                     "('delta.checkpointInterval', '5')," +
-                    "('delta.minReaderVersion', '1')," +
-                    "('delta.minWriterVersion', '4')");
+                    "('delta.minReaderVersion', '2')," +
+                    "('delta.minWriterVersion', '5')," +
+                    "('delta.columnMapping.mode', 'name')," +
+                    "('delta.columnMapping.maxColumnId', '1')");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);

@@ -80,8 +80,7 @@ public class DeltaLakeTableProperties
                 .add(stringProperty(
                         COLUMN_MAPPING_MODE_PROPERTY,
                         "Column mapping mode. Possible values: [ID, NAME, NONE]",
-                        // TODO: Consider using 'name' by default. 'none' column mapping doesn't support some statements
-                        ColumnMappingMode.NONE.name(),
+                        ColumnMappingMode.NAME.name(),
                         value -> {
                             EnumSet<ColumnMappingMode> allowed = EnumSet.of(ColumnMappingMode.ID, ColumnMappingMode.NAME, ColumnMappingMode.NONE);
                             if (allowed.stream().map(Enum::name).noneMatch(mode -> mode.equalsIgnoreCase(value))) {

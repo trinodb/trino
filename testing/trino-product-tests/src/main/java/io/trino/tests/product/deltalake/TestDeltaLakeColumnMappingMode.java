@@ -138,6 +138,7 @@ public class TestDeltaLakeColumnMappingMode
                 "CREATE TABLE delta.default." + tableName +
                 "(x INT) " +
                 "WITH (" +
+                " column_mapping_mode = 'none'," +
                 " location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 ")");
 

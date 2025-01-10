@@ -537,7 +537,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
         String schemaString = "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}";
 
-        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) WITH (column_mapping_mode = 'none')")) {
             assertThat(metastore.getTable(TPCH_SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(entry("trino_last_transaction_version", "0"), entry("trino_metadata_schema_string", schemaString));
 

@@ -182,7 +182,7 @@ public class TestDeltaLakeInsertCompatibility
         onTrino().executeQuery("" +
                 "CREATE TABLE delta.default." + tableName +
                 "(id INT, part TIMESTAMP WITH TIME ZONE)" +
-                "WITH (partitioned_by = ARRAY['part'], location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "')");
+                "WITH (partitioned_by = ARRAY['part'], column_mapping_mode = 'none', location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "')");
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES" +
                     "(1, TIMESTAMP '0001-01-01 00:00:00.000 UTC')," +

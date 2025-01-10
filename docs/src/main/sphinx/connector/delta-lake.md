@@ -697,7 +697,7 @@ The following table properties are available for use:
     * `NAME`
     * `NONE`
 
-    Defaults to `NONE`.
+    Defaults to `NAME`.
 * - `deletion_vectors_enabled`
   - Enables deletion vectors.
 :::
