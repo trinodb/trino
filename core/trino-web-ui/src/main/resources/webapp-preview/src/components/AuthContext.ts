@@ -11,27 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { createContext, useContext } from "react";
-import { AuthInfo } from '../api/webapp/auth';
+import { createContext, useContext } from 'react'
+import { AuthInfo } from '../api/webapp/auth'
 
 export interface LogoutParams {
-  redirect?: boolean;
+    redirect?: boolean
 }
 
 interface AuthContextType {
-  authInfo: AuthInfo | null;
-  login: (username: string, password: string) => Promise<void>;
-  logout: (params: LogoutParams) => void;
-  loading: boolean;
-  error: string | null;
+    authInfo: AuthInfo | null
+    login: (username: string, password: string) => Promise<void>
+    logout: (params: LogoutParams) => void
+    loading: boolean
+    error: string | null
 }
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('AuthContext must be used within an AuthProvider');
-  }
-  return context;
-};
+    const context = useContext(AuthContext)
+    if (context === undefined) {
+        throw new Error('AuthContext must be used within an AuthProvider')
+    }
+    return context
+}

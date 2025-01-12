@@ -11,22 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import {
-  Box,
-  Typography
-} from "@mui/material";
+import { Box, Typography } from '@mui/material'
 
 export const Workers = () => {
-  return (
-    <>
-      <Box sx={{ pb: 2 }}>
-        <Typography variant="h4">
-          Workers
-        </Typography>
-      </Box>
-      <Typography paragraph>
-        Placeholder for Workers
-      </Typography>
-    </>
-  );
+    return (
+        <>
+            <Box sx={{ pb: 2 }}>
+                <Typography variant="h4">Workers</Typography>
+            </Box>
+            <Typography paragraph>Placeholder for Workers</Typography>
+        </>
+    )
 }

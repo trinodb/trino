@@ -20,107 +20,107 @@ export const MAX_HISTORY = 60 * 5
 const MOVING_AVERAGE_ALPHA = 0.2
 
 export function addToHistory(value: number, valuesArray: number[]): number[] {
-  if (valuesArray.length === 0) {
-    return valuesArray.concat([value])
-  }
-  return valuesArray.concat([value]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0))
+    if (valuesArray.length === 0) {
+        return valuesArray.concat([value])
+    }
+    return valuesArray.concat([value]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0))
 }
 
 export function addExponentiallyWeightedToHistory(value: number, valuesArray: number[]): number[] {
-  if (valuesArray.length === 0) {
-    return valuesArray.concat([value])
-  }
+    if (valuesArray.length === 0) {
+        return valuesArray.concat([value])
+    }
 
-  let movingAverage = value * MOVING_AVERAGE_ALPHA + valuesArray[valuesArray.length - 1] * (1 - MOVING_AVERAGE_ALPHA)
-  if (value < 1) {
-    movingAverage = 0
-  }
+    let movingAverage = value * MOVING_AVERAGE_ALPHA + valuesArray[valuesArray.length - 1] * (1 - MOVING_AVERAGE_ALPHA)
+    if (value < 1) {
+        movingAverage = 0
+    }
 
-  return valuesArray.concat([movingAverage]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0))
+    return valuesArray.concat([movingAverage]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0))
 }
 
 export function precisionRound(n: number | null): string {
-  if (n === null) {
-    return '';
-  }
+    if (n === null) {
+        return ''
+    }
 
-  if (n === undefined) {
-    return 'n/a'
-  }
-  if (n < 10) {
-    return n.toFixed(2)
-  }
-  if (n < 100) {
-    return n.toFixed(1)
-  }
-  return Math.round(n).toString()
+    if (n === undefined) {
+        return 'n/a'
+    }
+    if (n < 10) {
+        return n.toFixed(2)
+    }
+    if (n < 100) {
+        return n.toFixed(1)
+    }
+    return Math.round(n).toString()
 }
 
 export function formatCount(count: number | null): string {
-  if (count === null) {
-    return '';
-  }
+    if (count === null) {
+        return ''
+    }
 
-  let unit = ''
-  if (count > 1000) {
-    count /= 1000
-    unit = 'K'
-  }
-  if (count > 1000) {
-    count /= 1000
-    unit = 'M'
-  }
-  if (count > 1000) {
-    count /= 1000
-    unit = 'B'
-  }
-  if (count > 1000) {
-    count /= 1000
-    unit = 'T'
-  }
-  if (count > 1000) {
-    count /= 1000
-    unit = 'Q'
-  }
-  return precisionRound(count) + unit
+    let unit = ''
+    if (count > 1000) {
+        count /= 1000
+        unit = 'K'
+    }
+    if (count > 1000) {
+        count /= 1000
+        unit = 'M'
+    }
+    if (count > 1000) {
+        count /= 1000
+        unit = 'B'
+    }
+    if (count > 1000) {
+        count /= 1000
+        unit = 'T'
+    }
+    if (count > 1000) {
+        count /= 1000
+        unit = 'Q'
+    }
+    return precisionRound(count) + unit
 }
 
 export function formatDataSizeBytes(size: number | null): string {
-  return formatDataSizeMinUnit(size, '')
+    return formatDataSizeMinUnit(size, '')
 }
 
 export function formatDataSize(size: number): string {
-  return formatDataSizeMinUnit(size, 'B')
+    return formatDataSizeMinUnit(size, 'B')
 }
 
 function formatDataSizeMinUnit(size: number | null, minUnit: string): string {
-  if (size === null) {
-    return '';
-  }
+    if (size === null) {
+        return ''
+    }
 
-  let unit = minUnit
-  if (size === 0) {
-    return '0' + unit
-  }
-  if (size >= 1024) {
-    size /= 1024
-    unit = 'K' + minUnit
-  }
-  if (size >= 1024) {
-    size /= 1024
-    unit = 'M' + minUnit
-  }
-  if (size >= 1024) {
-    size /= 1024
-    unit = 'G' + minUnit
-  }
-  if (size >= 1024) {
-    size /= 1024
-    unit = 'T' + minUnit
-  }
-  if (size >= 1024) {
-    size /= 1024
-    unit = 'P' + minUnit
-  }
-  return precisionRound(size) + unit
+    let unit = minUnit
+    if (size === 0) {
+        return '0' + unit
+    }
+    if (size >= 1024) {
+        size /= 1024
+        unit = 'K' + minUnit
+    }
+    if (size >= 1024) {
+        size /= 1024
+        unit = 'M' + minUnit
+    }
+    if (size >= 1024) {
+        size /= 1024
+        unit = 'G' + minUnit
+    }
+    if (size >= 1024) {
+        size /= 1024
+        unit = 'T' + minUnit
+    }
+    if (size >= 1024) {
+        size /= 1024
+        unit = 'P' + minUnit
+    }
+    return precisionRound(size) + unit
 }

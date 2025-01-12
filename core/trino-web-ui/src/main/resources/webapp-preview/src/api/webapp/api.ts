@@ -14,17 +14,17 @@
 import { api, ApiResponse } from '../base.ts'
 
 export interface Stats {
-    runningQueries: number;
-    blockedQueries: number;
-    queuedQueries: number;
-    activeCoordinators: number;
-    activeWorkers: number;
-    runningDrivers: number;
-    totalAvailableProcessors: number;
-    reservedMemory: number;
-    totalInputRows: number;
-    totalInputBytes: number;
-    totalCpuTimeSecs: number;
+    runningQueries: number
+    blockedQueries: number
+    queuedQueries: number
+    activeCoordinators: number
+    activeWorkers: number
+    runningDrivers: number
+    totalAvailableProcessors: number
+    reservedMemory: number
+    totalInputRows: number
+    totalInputBytes: number
+    totalCpuTimeSecs: number
 }
 
 export async function statsApi(): Promise<ApiResponse<Stats>> {
