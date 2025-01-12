@@ -10,8 +10,8 @@
     "package": "npm install && npm run build",
     "package:clean": "npm clean-install && npm run build",
     "preview": "vite preview",
-    "prettier:format": "prettier --write \"./src/*.{ts,tsx}\"",
-    "prettier:check": "prettier --check \"./src/*.{ts,tsx}\"",
+    "prettier:format": "prettier --write \"./src/**/*.{ts,tsx}\"",
+    "prettier:check": "prettier --check \"./src/**/*.{ts,tsx}\"",
     "check": "npm install && npm run lint && npm run prettier:check",
     "check:clean": "npm clean-install && npm run lint && npm run prettier:check"
   },
