@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests.product.scylla;
+package io.trino.tests.product.scylladb;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.google.inject.Inject;
@@ -26,11 +26,11 @@ import java.net.InetSocketAddress;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.TestGroups.SCYLLA;
+import static io.trino.tests.product.TestGroups.SCYLLADB;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestScylla
+public class TestScyllaDB
         extends ProductTest
 {
     @Inject
@@ -43,7 +43,7 @@ public class TestScylla
         onScylla("CREATE KEYSPACE test WITH replication={'class':'SimpleStrategy', 'replication_factor':1}");
     }
 
-    @Test(groups = {SCYLLA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SCYLLADB, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS scylla.test.nation");
@@ -61,8 +61,8 @@ public class TestScylla
     private void onScylla(@Language("SQL") String query)
     {
         try (CqlSession session = CqlSession.builder()
-                .addContactPoint(new InetSocketAddress(configuration.getStringMandatory("databases.scylla.host"), configuration.getIntMandatory("databases.scylla.port")))
-                .withLocalDatacenter(configuration.getStringMandatory("databases.scylla.local_datacenter"))
+                .addContactPoint(new InetSocketAddress(configuration.getStringMandatory("databases.scylladb.host"), configuration.getIntMandatory("databases.scylladb.port")))
+                .withLocalDatacenter(configuration.getStringMandatory("databases.scylladb.local_datacenter"))
                 .build()) {
             session.execute(query);
         }

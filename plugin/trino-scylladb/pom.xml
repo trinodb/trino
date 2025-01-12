@@ -5,13 +5,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>423-SNAPSHOT</version>
+        <version>469-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>trino-scylla</artifactId>
+    <artifactId>trino-scylladb</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Scylla Connector</description>
+    <description>Trino - ScyllaDB Connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

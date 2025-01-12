@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.cassandra;
+package io.trino.plugin.scylladb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.plugin.base.util.Closables;
+import io.trino.plugin.cassandra.CassandraServer;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -33,12 +34,11 @@ import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
-public final class ScyllaQueryRunner
-{
-    private ScyllaQueryRunner() {}
+public final class ScyllaDBQueryRunner {
+    private ScyllaDBQueryRunner() {
+    }
 
-    public static Builder builder(TestingScyllaServer server)
-    {
+    public static Builder builder(CassandraServer server) {
         return new Builder(server)
                 .addConnectorProperty("cassandra.contact-points", server.getHost())
                 .addConnectorProperty("cassandra.native-protocol-port", Integer.toString(server.getPort()))
@@ -48,46 +48,41 @@ public final class ScyllaQueryRunner
     }
 
     public static class Builder
-            extends DistributedQueryRunner.Builder<Builder>
-    {
-        private final TestingScyllaServer server;
+            extends DistributedQueryRunner.Builder<Builder> {
+        private final CassandraServer server;
         private final Map<String, String> connectorProperties = new HashMap<>();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-        private Builder(TestingScyllaServer server)
-        {
+        private Builder(CassandraServer server) {
             super(testSessionBuilder()
-                    .setCatalog("cassandra")
+                    .setCatalog("scylladb")
                     .setSchema("tpch")
                     .build());
             this.server = requireNonNull(server, "server is null");
         }
 
         @CanIgnoreReturnValue
-        public Builder addConnectorProperty(String key, String value)
-        {
+        public Builder addConnectorProperty(String key, String value) {
             this.connectorProperties.put(key, value);
             return this;
         }
 
         @CanIgnoreReturnValue
-        public Builder setInitialTables(List<TpchTable<?>> initialTables)
-        {
+        public Builder setInitialTables(List<TpchTable<?>> initialTables) {
             this.initialTables = ImmutableList.copyOf(initialTables);
             return this;
         }
 
         @Override
         public DistributedQueryRunner build()
-                throws Exception
-        {
+                throws Exception {
             DistributedQueryRunner queryRunner = super.build();
             try {
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
 
-                queryRunner.installPlugin(new CassandraPlugin());
-                queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);
+                queryRunner.installPlugin(new ScyllaDBPlugin());
+                queryRunner.createCatalog("scylladb", "scylladb", connectorProperties);
 
                 createKeyspace(server.getSession(), "tpch");
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
@@ -95,8 +90,7 @@ public final class ScyllaQueryRunner
                     server.refreshSizeEstimates("tpch", table.getTableName());
                 }
                 return queryRunner;
-            }
-            catch (Throwable e) {
+            } catch (Throwable e) {
                 Closables.closeAllSuppress(e, queryRunner);
                 throw e;
             }
@@ -104,16 +98,15 @@ public final class ScyllaQueryRunner
     }
 
     public static void main(String[] args)
-            throws Exception
-    {
+            throws Exception {
         Logging.initialize();
 
-        QueryRunner queryRunner = builder(new TestingScyllaServer())
+        QueryRunner queryRunner = builder(new TestingScyllaDBServer())
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .setInitialTables(TpchTable.getTables())
                 .build();
 
-        Logger log = Logger.get(ScyllaQueryRunner.class);
+        Logger log = Logger.get(ScyllaDBQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }

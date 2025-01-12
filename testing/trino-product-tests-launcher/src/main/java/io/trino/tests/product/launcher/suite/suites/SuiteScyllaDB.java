@@ -15,7 +15,7 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeScylla;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeScyllaDB;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -23,15 +23,15 @@ import java.util.List;
 
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
-public class SuiteScylla
+public class SuiteScyllaDB
         extends Suite
 {
     @Override
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
-                testOnEnvironment(EnvMultinodeScylla.class)
-                        .withGroups("configured_features", "scylla")
+                testOnEnvironment(EnvMultinodeScyllaDB.class)
+                        .withGroups("configured_features", "scylladb")
                         .build());
     }
 }
