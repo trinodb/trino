@@ -1119,10 +1119,12 @@ The output of the query has the following columns:
     snapshot.
 :::
 
-##### `$manifests` table
+##### `$manifests` and `$all_manifests` tables
 
-The `$manifests` table provides a detailed overview of the manifests
-corresponding to the snapshots performed in the log of the Iceberg table.
+The `$manifests` and `$all_manifests` tables provide a detailed overview of the
+manifests corresponding to the snapshots performed in the log of the Iceberg
+table. The `$manifests` table contains data for the current snapshot. The
+`$all_manifests` table contains data for all snapshots.
 
 You can retrieve the information about the manifests of the Iceberg table
 `test_table` by using the following query:
