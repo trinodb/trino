@@ -196,7 +196,7 @@ public class TestCassandraConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE cassandra.tpch.orders (\n" +
+                .isEqualTo("CREATE TABLE " + getSession().getCatalog().orElseThrow() + ".tpch.orders (\n" +
                         "   orderkey bigint,\n" +
                         "   custkey bigint,\n" +
                         "   orderstatus varchar,\n" +
@@ -1324,6 +1324,27 @@ public class TestCassandraConnectorTest
             assertThat(query(format("SELECT id FROM %s WHERE timestamp_column_with_empty IS NULL", tableName)))
                     .matches("VALUES 1");
         }
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String tableName = "test_empty_timestamp";
+
+        session.execute(format("DROP TABLE IF EXISTS %s.%s", KEYSPACE, tableName));
+        session.execute(format("CREATE TABLE %s.%s (id int PRIMARY KEY, timestamp_column_with_null timestamp, timestamp_column_with_empty timestamp)", KEYSPACE, tableName));
+        session.execute(format("INSERT INTO %s.%s (id, timestamp_column_with_null, timestamp_column_with_empty) VALUES (1, NULL, '')", KEYSPACE, tableName));
+        assertContainsEventually(() -> execute(format("SHOW TABLES FROM %s.%s LIKE '%s'", catalogName, KEYSPACE, tableName)), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row(tableName)
+                .build(), new Duration(1, MINUTES));
+
+        assertThat(query(format("SELECT timestamp_column_with_null FROM %s.%s", KEYSPACE, tableName)))
+                .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
+        assertThat(query(format("SELECT timestamp_column_with_empty FROM %s.%s", KEYSPACE, tableName)))
+                .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
+
+        assertThat(query(format("SELECT id FROM %s.%s WHERE timestamp_column_with_null IS NULL", KEYSPACE, tableName)))
+                .matches("VALUES 1");
+        assertThat(query(format("SELECT id FROM %s.%s WHERE timestamp_column_with_empty IS NULL", KEYSPACE, tableName)))
+                .matches("VALUES 1");
+
+        session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
     }
 
     @Test
