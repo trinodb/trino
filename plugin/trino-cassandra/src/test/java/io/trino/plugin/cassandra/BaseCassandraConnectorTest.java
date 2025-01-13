@@ -17,7 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.testing.*;
+import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.Bytes;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -37,7 +42,10 @@ import java.util.OptionalInt;
 
 import static com.datastax.oss.driver.api.core.data.ByteUtils.toHexString;
 import static com.google.common.io.BaseEncoding.base16;
-import static io.trino.plugin.cassandra.TestCassandraTable.*;
+import static io.trino.plugin.cassandra.TestCassandraTable.clusterColumn;
+import static io.trino.plugin.cassandra.TestCassandraTable.columnsValue;
+import static io.trino.plugin.cassandra.TestCassandraTable.generalColumn;
+import static io.trino.plugin.cassandra.TestCassandraTable.partitionColumn;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -67,7 +75,8 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
 public class BaseCassandraConnectorTest
-        extends BaseConnectorTest {
+        extends BaseConnectorTest
+{
     protected static final ZonedDateTime TIMESTAMP_VALUE = ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.of("UTC"));
     protected static final String KEYSPACE = "smoke_test";
 
@@ -75,7 +84,8 @@ public class BaseCassandraConnectorTest
     protected CassandraServer server;
 
     @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior) {
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN,
                  SUPPORTS_ARRAY,
@@ -101,7 +111,8 @@ public class BaseCassandraConnectorTest
 
     @Override
     protected QueryRunner createQueryRunner()
-            throws Exception {
+            throws Exception
+    {
         CassandraServer server = closeAfterClass(new CassandraServer());
         session = server.getSession();
         return CassandraQueryRunner.builder(server)
@@ -110,18 +121,21 @@ public class BaseCassandraConnectorTest
     }
 
     @AfterAll
-    public void cleanUp() {
+    public void cleanUp()
+    {
         session.close();
         session = null;
     }
 
     @Override
-    protected TestTable createTableWithDefaultColumns() {
+    protected TestTable createTableWithDefaultColumns()
+    {
         return abort("Cassandra connector does not support column default values");
     }
 
     @Override
-    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup) {
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("time")
                 || typeName.equals("timestamp")
@@ -140,7 +154,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Override
-    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup) {
+    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("char(1)")) {
             // TODO this should either work or fail cleanly
@@ -150,18 +165,21 @@ public class BaseCassandraConnectorTest
     }
 
     @Override
-    protected String dataMappingTableName(String trinoTypeName) {
+    protected String dataMappingTableName(String trinoTypeName)
+    {
         return "tmp_trino_" + System.nanoTime();
     }
 
     @Test
     @Override
-    public void testShowColumns() {
+    public void testShowColumns()
+    {
         assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
     }
 
     @Override
-    protected MaterializedResult getDescribeOrdersResult() {
+    protected MaterializedResult getDescribeOrdersResult()
+    {
         return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
@@ -177,7 +195,8 @@ public class BaseCassandraConnectorTest
 
     @Test
     @Override
-    public void testShowCreateTable() {
+    public void testShowCreateTable()
+    {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo("CREATE TABLE " + getSession().getCatalog().orElseThrow() + ".tpch.orders (\n" +
                         "   orderkey bigint,\n" +
@@ -194,25 +213,29 @@ public class BaseCassandraConnectorTest
 
     @Test
     @Override
-    public void testCharVarcharComparison() {
+    public void testCharVarcharComparison()
+    {
         assertThatThrownBy(super::testCharVarcharComparison)
                 .hasMessage("Unsupported type: char(3)");
     }
 
     @Test
     @Override // Override because some tests (e.g. testKeyspaceNameAmbiguity) cause table listing failure
-    public void testShowInformationSchemaTables() {
+    public void testShowInformationSchemaTables()
+    {
         executeExclusively(super::testShowInformationSchemaTables);
     }
 
     @Test
     @Override // Override because some tests (e.g. testKeyspaceNameAmbiguity, testNativeQueryCaseSensitivity) cause column listing failure
-    public void testSelectInformationSchemaColumns() {
+    public void testSelectInformationSchemaColumns()
+    {
         executeExclusively(super::testSelectInformationSchemaColumns);
     }
 
     @Test
-    public void testPushdownUuidPartitionKeyPredicate() {
+    public void testPushdownUuidPartitionKeyPredicate()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "table_pushdown_uuid_partition_key",
                 ImmutableList.of(partitionColumn("col_uuid", "uuid"), generalColumn("col_text", "text")),
@@ -223,7 +246,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testSelectWithFilterOnPartitioningKey() {
+    public void testSelectWithFilterOnPartitioningKey()
+    {
         try (TestCassandraTable table = testTable(
                 "table_filter_on_partition_key",
                 ImmutableList.of(generalColumn("id", "int"), partitionColumn("part", "int")),
@@ -241,7 +265,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testPushdownAllTypesPartitionKeyPredicate() {
+    public void testPushdownAllTypesPartitionKeyPredicate()
+    {
         // TODO partition key predicate pushdown for decimal types does not work https://github.com/trinodb/trino/issues/10927
         try (TestCassandraTable testCassandraTable = testTable(
                 "table_pushdown_all_types_partition_key",
@@ -268,8 +293,7 @@ public class BaseCassandraConnectorTest
                         generalColumn("typelist", "frozen <list<text>>"),
                         generalColumn("typemap", "frozen <map<int, bigint>>"),
                         generalColumn("typeset", "frozen <set<boolean>>")),
-                ImmutableList.of("" +
-                        "'key 7', " +
+                ImmutableList.of("'key 7', " +
                         "00000000-0000-0000-0000-000000000007, " +
                         "7, " +
                         "7, " +
@@ -308,8 +332,7 @@ public class BaseCassandraConnectorTest
                     " AND typefloat = REAL '2097152.0'" +
                     " AND typeinet = IPADDRESS '127.0.0.1'" +
                     " AND typevarchar = 'varchar 7'" +
-                    " AND typetimeuuid = UUID 'd2177dd0-eaa2-11de-a572-001b779c76e7'" +
-                    "";
+                    " AND typetimeuuid = UUID 'd2177dd0-eaa2-11de-a572-001b779c76e7'";
             MaterializedResult result = computeActual(sql);
 
             assertThat(result.getRowCount()).isEqualTo(1);
@@ -317,7 +340,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testPartitionPushdownsWithNotMatchingPredicate() {
+    public void testPartitionPushdownsWithNotMatchingPredicate()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "partition_not_pushed_down_keys",
                 ImmutableList.of(partitionColumn("id", "varchar"), generalColumn("trino_filter_col", "int")),
@@ -329,7 +353,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testPartitionKeyPredicate() {
+    public void testPartitionKeyPredicate()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "table_all_types_partition_key",
                 ImmutableList.of(
@@ -354,8 +379,7 @@ public class BaseCassandraConnectorTest
                         partitionColumn("typelist", "frozen <list<text>>"),
                         partitionColumn("typemap", "frozen <map<int, bigint>>"),
                         partitionColumn("typeset", "frozen <set<boolean>>")),
-                ImmutableList.of("" +
-                        "'key 7', " +
+                ImmutableList.of("'key 7', " +
                         "00000000-0000-0000-0000-000000000007, " +
                         "7, " +
                         "7, " +
@@ -398,8 +422,7 @@ public class BaseCassandraConnectorTest
                     " AND typetimeuuid = UUID 'd2177dd0-eaa2-11de-a572-001b779c76e7'" +
                     " AND typelist = '[\"list-value-17\",\"list-value-27\"]'" +
                     " AND typemap = '{7:8,9:10}'" +
-                    " AND typeset = '[false,true]'" +
-                    "";
+                    " AND typeset = '[false,true]'";
             MaterializedResult result = computeActual(sql);
 
             assertThat(result.getRowCount()).isEqualTo(1);
@@ -407,7 +430,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testTimestampPartitionKey() {
+    public void testTimestampPartitionKey()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "test_timestamp",
                 ImmutableList.of(partitionColumn("c1", "timestamp")),
@@ -423,7 +447,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testSelect() {
+    public void testSelect()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "table_all_types",
                 ImmutableList.of(
@@ -460,7 +485,7 @@ public class BaseCassandraConnectorTest
                         rowNumber -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(TIMESTAMP_VALUE)),
                         rowNumber -> format("'ansi %d'", rowNumber),
                         rowNumber -> String.valueOf(rowNumber % 2 == 0),
-                        rowNumber -> new BigDecimal(Math.pow(2, rowNumber)).toString(),
+                        rowNumber -> BigDecimal.valueOf(Math.pow(2, rowNumber)).toString(),
                         rowNumber -> String.valueOf(Math.pow(4, rowNumber)),
                         rowNumber -> String.valueOf((float) Math.pow(8, rowNumber)),
                         rowNumber -> format("'%s'", "127.0.0.1"),
@@ -469,7 +494,7 @@ public class BaseCassandraConnectorTest
                         rowNumber -> format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
                         rowNumber -> format("['list-value-1%d', 'list-value-2%d']", rowNumber, rowNumber),
                         rowNumber -> format("{%d:%d, %d:%d}", rowNumber, rowNumber + 1, rowNumber + 2, rowNumber + 3),
-                        rowNumber -> format("{false, true}"))))) {
+                        rowNumber -> "{false, true}")))) {
             assertSelect(testCassandraTable.getTableName());
         }
 
@@ -509,7 +534,7 @@ public class BaseCassandraConnectorTest
                         rowNumber -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(TIMESTAMP_VALUE)),
                         rowNumber -> format("'ansi %d'", rowNumber),
                         rowNumber -> String.valueOf(rowNumber % 2 == 0),
-                        rowNumber -> new BigDecimal(Math.pow(2, rowNumber)).toString(),
+                        rowNumber -> BigDecimal.valueOf(Math.pow(2, rowNumber)).toString(),
                         rowNumber -> String.valueOf(Math.pow(4, rowNumber)),
                         rowNumber -> String.valueOf((float) Math.pow(8, rowNumber)),
                         rowNumber -> format("'%s'", "127.0.0.1"),
@@ -518,13 +543,14 @@ public class BaseCassandraConnectorTest
                         rowNumber -> format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
                         rowNumber -> format("['list-value-1%d', 'list-value-2%d']", rowNumber, rowNumber),
                         rowNumber -> format("{%d:%d, %d:%d}", rowNumber, rowNumber + 1, rowNumber + 2, rowNumber + 3),
-                        rowNumber -> format("{false, true}"))))) {
+                        rowNumber -> "{false, true}")))) {
             assertSelect(testCassandraTable.getTableName());
         }
     }
 
     @Test
-    public void testInsertToTableWithHiddenId() {
+    public void testInsertToTableWithHiddenId()
+    {
         assertUpdate("DROP TABLE IF EXISTS test_create_table");
         assertUpdate("CREATE TABLE test_create_table (col1 integer)");
         assertUpdate("INSERT INTO test_create_table VALUES (12345)", 1);
@@ -533,7 +559,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    void testInsertIntoTupleType() {
+    void testInsertIntoTupleType()
+    {
         try (TestCassandraTable table = testTable(
                 "insert_tuple_table",
                 ImmutableList.of(partitionColumn("key", "int"), generalColumn("value", "frozen<tuple<int, text, float>>")),
@@ -545,7 +572,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    void testInsertIntoValuesToCassandraMaterializedView() {
+    void testInsertIntoValuesToCassandraMaterializedView()
+    {
         String materializedViewName = "test_insert_into_mv" + randomNameSuffix();
         onCassandra("CREATE MATERIALIZED VIEW tpch." + materializedViewName + " AS " +
                 "SELECT * FROM tpch.nation " +
@@ -567,25 +595,29 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    void testInvalidTable() {
+    void testInvalidTable()
+    {
         String tableName = "cassandra.tpch.bogus";
         assertQueryFails("SELECT * FROM " + tableName, ".* Table '%s' does not exist".formatted(tableName));
     }
 
     @Test
-    void testInvalidSchema() {
+    void testInvalidSchema()
+    {
         assertQueryFails(
                 "SELECT * FROM cassandra.does_not_exist.bogus",
                 ".* Schema 'does_not_exist' does not exist");
     }
 
     @Test
-    void testInvalidColumn() {
+    void testInvalidColumn()
+    {
         assertQueryFails("SELECT bogus FROM nation", ".* Column 'bogus' cannot be resolved");
     }
 
     @Test
-    public void testCreateTableAs() {
+    public void testCreateTableAs()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "table_all_types",
                 ImmutableList.of(
@@ -622,7 +654,7 @@ public class BaseCassandraConnectorTest
                         rowNumber -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(TIMESTAMP_VALUE)),
                         rowNumber -> format("'ansi %d'", rowNumber),
                         rowNumber -> String.valueOf(rowNumber % 2 == 0),
-                        rowNumber -> new BigDecimal(Math.pow(2, rowNumber)).toString(),
+                        rowNumber -> BigDecimal.valueOf(Math.pow(2, rowNumber)).toString(),
                         rowNumber -> String.valueOf(Math.pow(4, rowNumber)),
                         rowNumber -> String.valueOf((float) Math.pow(8, rowNumber)),
                         rowNumber -> format("'%s'", "127.0.0.1"),
@@ -631,7 +663,7 @@ public class BaseCassandraConnectorTest
                         rowNumber -> format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
                         rowNumber -> format("['list-value-1%d', 'list-value-2%d']", rowNumber, rowNumber),
                         rowNumber -> format("{%d:%d, %d:%d}", rowNumber, rowNumber + 1, rowNumber + 2, rowNumber + 3),
-                        rowNumber -> format("{false, true}"))))) {
+                        rowNumber -> "{false, true}")))) {
             assertUpdate("DROP TABLE IF EXISTS table_all_types_copy");
             assertUpdate("CREATE TABLE table_all_types_copy AS SELECT * FROM " + testCassandraTable.getTableName(), 9);
             assertSelect("table_all_types_copy");
@@ -640,7 +672,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testIdentifiers() {
+    public void testIdentifiers()
+    {
         String keyspaceName = "_keyspace" + randomNameSuffix();
         String quotedKeyspaceNameStartingWithUnderscore = "\"%s\"".formatted(keyspaceName);
         dropKeyspace(quotedKeyspaceNameStartingWithUnderscore);
@@ -658,7 +691,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testClusteringPredicates() {
+    public void testClusteringPredicates()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "table_clustering_keys",
                 ImmutableList.of(
@@ -695,7 +729,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testMultiplePartitionClusteringPredicates() {
+    public void testMultiplePartitionClusteringPredicates()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "table_multi_partition_clustering_keys",
                 ImmutableList.of(
@@ -738,7 +773,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testClusteringKeyOnlyPushdown() {
+    public void testClusteringKeyOnlyPushdown()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "table_clustering_keys",
                 ImmutableList.of(
@@ -806,7 +842,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testNotEqualPredicateOnClusteringColumn() {
+    public void testNotEqualPredicateOnClusteringColumn()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "table_clustering_keys_inequality",
                 ImmutableList.of(
@@ -833,7 +870,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testClusteringKeyPushdownInequality() {
+    public void testClusteringKeyPushdownInequality()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "table_clustering_keys_inequality",
                 ImmutableList.of(
@@ -874,7 +912,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    void testMultiColumnKey() {
+    void testMultiColumnKey()
+    {
         try (TestCassandraTable table = testTable(
                 "test_multi_column_key",
                 ImmutableList.of(
@@ -910,17 +949,20 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testSelectWithSecondaryIndex() {
+    public void testSelectWithSecondaryIndex()
+    {
         testSelectWithSecondaryIndex(true);
         testSelectWithSecondaryIndex(false);
     }
 
-    private void testSelectWithSecondaryIndex(boolean withClusteringKey) {
+    private void testSelectWithSecondaryIndex(boolean withClusteringKey)
+    {
         String table = "test_cluster_key_" + randomNameSuffix();
 
         if (withClusteringKey) {
             onCassandra("CREATE TABLE tpch." + table + "(pk1_col text, pk2_col text, idx1_col text, idx2_col text, cluster_col tinyint, PRIMARY KEY ((pk1_col, pk2_col), cluster_col)) WITH CLUSTERING ORDER BY (cluster_col ASC)");
-        } else {
+        }
+        else {
             onCassandra("CREATE TABLE tpch." + table + "(pk1_col text, pk2_col text, idx1_col text, idx2_col text, cluster_col tinyint, PRIMARY KEY ((pk1_col, pk2_col)))");
         }
 
@@ -950,7 +992,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testUpperCaseNameUnescapedInCassandra() {
+    public void testUpperCaseNameUnescapedInCassandra()
+    {
         /*
          * If an identifier is not escaped with double quotes it is stored as lowercase in the Cassandra metadata
          *
@@ -982,7 +1025,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testUppercaseNameEscaped() {
+    public void testUppercaseNameEscaped()
+    {
         /*
          * If an identifier is escaped with double quotes it is stored verbatim
          *
@@ -1014,7 +1058,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testKeyspaceNameAmbiguity() {
+    public void testKeyspaceNameAmbiguity()
+    {
         // This test creates keyspaces that collide in a way not supported by the connector. Run it exclusively to prevent other tests from failing.
         executeExclusively(() -> {
             // Identifiers enclosed in double quotes are stored in Cassandra verbatim. It is possible to create 2 keyspaces with names
@@ -1052,7 +1097,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testTableNameAmbiguity() {
+    public void testTableNameAmbiguity()
+    {
         // This test creates tables with names that collide in a way not supported by the connector. Run it exclusively to prevent other tests from failing.
         executeExclusively(() -> {
             String keyspaceName = "keyspace_4" + randomNameSuffix();
@@ -1086,7 +1132,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testColumnNameAmbiguity() {
+    public void testColumnNameAmbiguity()
+    {
         // This test creates columns with names that collide in a way not supported by the connector. Run it exclusively to prevent other tests from failing.
         executeExclusively(() -> {
             String keyspaceName = "keyspace_5" + randomNameSuffix();
@@ -1114,7 +1161,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testUserDefinedTypeInArray() {
+    public void testUserDefinedTypeInArray()
+    {
         String tableName = "test_udt_in_array" + randomNameSuffix();
         String userDefinedTypeName = "test_udt" + randomNameSuffix();
 
@@ -1132,7 +1180,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testUserDefinedTypeInMap() {
+    public void testUserDefinedTypeInMap()
+    {
         String tableName = "test_udt_in_map" + randomNameSuffix();
         String userDefinedTypeName = "test_udt" + randomNameSuffix();
 
@@ -1150,7 +1199,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testUserDefinedTypeInSet() {
+    public void testUserDefinedTypeInSet()
+    {
         String tableName = "test_udt_in_set" + randomNameSuffix();
         String userDefinedTypeName = "test_udt" + randomNameSuffix();
 
@@ -1168,7 +1218,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    void testPartitioningKeys() {
+    void testPartitioningKeys()
+    {
         try (TestCassandraTable table = testTable(
                 "test_partitioning_keys",
                 ImmutableList.of(generalColumn("data", "int"), partitionColumn("part", "int")),
@@ -1181,7 +1232,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    void testSelectClusteringMaterializedView() {
+    void testSelectClusteringMaterializedView()
+    {
         try (TestCassandraTable table = testTable(
                 "test_clustering_materialized_view_base",
                 ImmutableList.of(generalColumn("id", "int"), generalColumn("data", "int"), partitionColumn("key", "int")),
@@ -1212,7 +1264,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    void testSelectTupleTypeInPrimaryKey() {
+    void testSelectTupleTypeInPrimaryKey()
+    {
         try (TestCassandraTable table = testTable(
                 "test_tuple_in_primary_key",
                 ImmutableList.of(partitionColumn("intkey", "int"), partitionColumn("tuplekey", "frozen<tuple<int, text, float>>")),
@@ -1225,7 +1278,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    void testSelectUserDefinedTypeInPrimaryKey() {
+    void testSelectUserDefinedTypeInPrimaryKey()
+    {
         String udtName = "type_user_defined_primary_key" + randomNameSuffix();
         onCassandra("CREATE TYPE tpch." + udtName + " (field1 text)");
         try (TestCassandraTable table = testTable(
@@ -1241,12 +1295,14 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testUnsupportedColumnType() {
+    public void testUnsupportedColumnType()
+    {
         // TODO currently all standard types are supported to some extent. We should add a test with custom type if possible.
     }
 
     @Test
-    public void testNullAndEmptyTimestamp() {
+    public void testNullAndEmptyTimestamp()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "test_empty_timestamp",
                 ImmutableList.of(
@@ -1287,7 +1343,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testEmptyTimestampClusteringKey() {
+    public void testEmptyTimestampClusteringKey()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "test_empty_timestamp",
                 ImmutableList.of(
@@ -1305,7 +1362,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testNestedCollectionType() {
+    public void testNestedCollectionType()
+    {
         String keyspaceName = "keyspace_test_nested_collection" + randomNameSuffix();
         createKeyspace(keyspaceName);
         assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
@@ -1335,7 +1393,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testAllTypesInsert() {
+    public void testAllTypesInsert()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "table_all_types_insert",
                 ImmutableList.of(
@@ -1467,7 +1526,8 @@ public class BaseCassandraConnectorTest
 
     @Test
     @Override
-    public void testDelete() {
+    public void testDelete()
+    {
         try (TestCassandraTable testCassandraTable = testTable(
                 "table_delete_data",
                 ImmutableList.of(
@@ -1531,56 +1591,64 @@ public class BaseCassandraConnectorTest
 
     @Test
     @Override
-    public void testDeleteWithLike() {
+    public void testDeleteWithLike()
+    {
         assertThatThrownBy(super::testDeleteWithLike)
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
     @Test
     @Override
-    public void testDeleteWithComplexPredicate() {
+    public void testDeleteWithComplexPredicate()
+    {
         assertThatThrownBy(super::testDeleteWithComplexPredicate)
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
     @Test
     @Override
-    public void testDeleteWithSemiJoin() {
+    public void testDeleteWithSemiJoin()
+    {
         assertThatThrownBy(super::testDeleteWithSemiJoin)
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
     @Test
     @Override
-    public void testDeleteWithSubquery() {
+    public void testDeleteWithSubquery()
+    {
         assertThatThrownBy(super::testDeleteWithSubquery)
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
     @Test
     @Override
-    public void testExplainAnalyzeWithDeleteWithSubquery() {
+    public void testExplainAnalyzeWithDeleteWithSubquery()
+    {
         assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
     @Test
     @Override
-    public void testDeleteWithVarcharPredicate() {
+    public void testDeleteWithVarcharPredicate()
+    {
         assertThatThrownBy(super::testDeleteWithVarcharPredicate)
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
     @Test
     @Override
-    public void testDeleteAllDataFromTable() {
+    public void testDeleteAllDataFromTable()
+    {
         assertThatThrownBy(super::testDeleteAllDataFromTable)
                 .hasStackTraceContaining("Deleting without partition key is not supported");
     }
 
     @Test
     @Override
-    public void testRowLevelDelete() {
+    public void testRowLevelDelete()
+    {
         assertThatThrownBy(super::testRowLevelDelete)
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
@@ -1588,7 +1656,8 @@ public class BaseCassandraConnectorTest
     // test polymorphic table function
 
     @Test
-    public void testNativeQuerySelectFromNation() {
+    public void testNativeQuerySelectFromNation()
+    {
         assertQuery(
                 "SELECT * FROM TABLE(cassandra.system.query(query => 'SELECT name FROM tpch.nation WHERE nationkey = 0 ALLOW FILTERING'))",
                 "VALUES 'ALGERIA'");
@@ -1603,13 +1672,15 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testNativeQueryColumnAlias() {
+    public void testNativeQueryColumnAlias()
+    {
         assertThat(query("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0 ALLOW FILTERING'))"))
                 .matches("VALUES CAST('AFRICA' AS VARCHAR)");
     }
 
     @Test
-    public void testNativeQueryColumnAliasNotFound() {
+    public void testNativeQueryColumnAliasNotFound()
+    {
         assertQueryFails(
                 "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
                 ".* Column 'name' cannot be resolved");
@@ -1619,7 +1690,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testNativeQuerySelectFromTestTable() {
+    public void testNativeQuerySelectFromTestTable()
+    {
         String tableName = "test_select" + randomNameSuffix();
         onCassandra("CREATE TABLE tpch." + tableName + "(col BIGINT PRIMARY KEY)");
         onCassandra("INSERT INTO tpch." + tableName + "(col) VALUES (1)");
@@ -1635,7 +1707,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testNativeQueryCaseSensitivity() {
+    public void testNativeQueryCaseSensitivity()
+    {
         // This test creates columns with names that collide in a way not supported by the connector. Run it exclusively to prevent other tests from failing.
         executeExclusively(() -> {
             String tableName = "test_case" + randomNameSuffix();
@@ -1656,7 +1729,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testNativeQueryCreateTableFailure() {
+    public void testNativeQueryCreateTableFailure()
+    {
         String tableName = "test_create" + randomNameSuffix();
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'CREATE TABLE tpch." + tableName + "(col INT PRIMARY KEY)'))"))
@@ -1665,7 +1739,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testNativeQueryPreparingStatementFailure() {
+    public void testNativeQueryPreparingStatementFailure()
+    {
         String tableName = "test_insert" + randomNameSuffix();
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (1)'))"))
@@ -1675,7 +1750,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testNativeQueryUnsupportedStatement() {
+    public void testNativeQueryUnsupportedStatement()
+    {
         String tableName = "test_unsupported_statement" + randomNameSuffix();
         onCassandra("CREATE TABLE tpch." + tableName + "(col INT PRIMARY KEY)");
         onCassandra("INSERT INTO tpch." + tableName + "(col) VALUES (1)");
@@ -1694,7 +1770,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testNativeQueryIncorrectSyntax() {
+    public void testNativeQueryIncorrectSyntax()
+    {
         assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
                 .failure()
                 .hasMessage("Cannot get column definition")
@@ -1702,7 +1779,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    void testExecuteProcedure() {
+    void testExecuteProcedure()
+    {
         try (TestCassandraTable table = testTable(
                 "execute_procedure",
                 ImmutableList.of(partitionColumn("key", "int")),
@@ -1717,7 +1795,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    void testExecuteProcedureWithNamedArgument() {
+    void testExecuteProcedureWithNamedArgument()
+    {
         String tableName = "execute_procedure" + randomNameSuffix();
         String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
 
@@ -1726,39 +1805,46 @@ public class BaseCassandraConnectorTest
             assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
             assertUpdate("CALL system.execute(query => 'DROP TABLE " + schemaTableName + "')");
             assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        } finally {
+        }
+        finally {
             assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
         }
     }
 
     @Test
-    void testExecuteProcedureWithInvalidQuery() {
+    void testExecuteProcedureWithInvalidQuery()
+    {
         assertQueryFails("CALL system.execute('SELECT 1')", "(?s).*no viable alternative at input.*");
         assertQueryFails("CALL system.execute('invalid')", "(?s).*no viable alternative at input.*");
     }
 
     @Override
-    protected OptionalInt maxColumnNameLength() {
+    protected OptionalInt maxColumnNameLength()
+    {
         return OptionalInt.of(65535);
     }
 
     @Override
-    protected void verifyColumnNameLengthFailurePermissible(Throwable e) {
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
         assertThat(e).hasMessageContaining("Attempted serializing to buffer exceeded maximum of 65535 bytes:");
     }
 
     @Override
-    protected OptionalInt maxTableNameLength() {
+    protected OptionalInt maxTableNameLength()
+    {
         return OptionalInt.of(48);
     }
 
     @Override
-    protected void verifyTableNameLengthFailurePermissible(Throwable e) {
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
         assertThat(e).hasMessageContaining("Table names shouldn't be more than 48 characters long");
     }
 
     @Test
-    public void testNationJoinNation() {
+    public void testNationJoinNation()
+    {
         assertQuery("SELECT n1.name, n2.regionkey " +
                         "FROM nation n1 JOIN nation n2 ON n1.nationkey = n2.regionkey " +
                         "WHERE n1.nationkey = 3",
@@ -1766,7 +1852,8 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testNationJoinRegion() {
+    public void testNationJoinRegion()
+    {
         assertQuery("SELECT c.name, t.name " +
                         "FROM nation c JOIN tpch.tiny.region t ON c.regionkey = t.regionkey " +
                         "WHERE c.nationkey = 3",
@@ -1774,12 +1861,14 @@ public class BaseCassandraConnectorTest
     }
 
     @Test
-    public void testProtocolVersion() {
+    public void testProtocolVersion()
+    {
         assertQuery("SELECT native_protocol_version FROM system.local",
                 "VALUES 4");
     }
 
-    private void assertSelect(String tableName) {
+    private void assertSelect(String tableName)
+    {
         String sql = "SELECT " +
                 " key, " +
                 " typeuuid, " +
@@ -1852,20 +1941,24 @@ public class BaseCassandraConnectorTest
         }
     }
 
-    private TestCassandraTable testTable(String namePrefix, List<TestCassandraTable.ColumnDefinition> columnDefinitions, List<String> rowsToInsert) {
+    private TestCassandraTable testTable(String namePrefix, List<TestCassandraTable.ColumnDefinition> columnDefinitions, List<String> rowsToInsert)
+    {
         String keyspace = getQueryRunner().getDefaultSession().getSchema().orElseThrow();
         return new TestCassandraTable(getQueryRunner(), session::execute, keyspace, namePrefix, columnDefinitions, rowsToInsert);
     }
 
-    private void onCassandra(@Language("SQL") String sql) {
+    private void onCassandra(@Language("SQL") String sql)
+    {
         session.execute(sql);
     }
 
-    private void createKeyspace(String keyspaceName) {
+    private void createKeyspace(String keyspaceName)
+    {
         session.execute("CREATE KEYSPACE IF NOT EXISTS " + keyspaceName + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
     }
 
-    private void dropKeyspace(String keyspaceName) {
+    private void dropKeyspace(String keyspaceName)
+    {
         session.execute("DROP KEYSPACE IF EXISTS " + keyspaceName);
     }
 }

@@ -16,9 +16,11 @@ package io.trino.plugin.scylladb;
 import io.trino.plugin.cassandra.CassandraConnectorFactory;
 
 public class ScyllaDBConnectorFactory
-        extends CassandraConnectorFactory {
+        extends CassandraConnectorFactory
+{
     @Override
-    public String getName() {
+    public String getName()
+    {
         return "scylladb";
     }
 }

@@ -27,18 +27,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCassandraTypeManager
 {
-    @Test
-    public void testJsonArrayEncoding()
-    {
-        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList("one", "two", "three\""), DataTypes.TEXT))).isTrue();
-        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList(1, 2, 3), DataTypes.INT))).isTrue();
-        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList(100000L, 200000000L, 3000000000L), DataTypes.BIGINT))).isTrue();
-        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList(1.0, 2.0, 3.0), DataTypes.DOUBLE))).isTrue();
-        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList((short) -32768, (short) 0, (short) 32767), DataTypes.SMALLINT))).isTrue();
-        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList((byte) -128, (byte) 0, (byte) 127), DataTypes.TINYINT))).isTrue();
-        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList("1970-01-01", "5555-06-15", "9999-12-31"), DataTypes.DATE))).isTrue();
-    }
-
     private static void continueWhileNotNull(JsonParser parser, JsonToken token)
             throws IOException
     {
@@ -59,5 +47,17 @@ public class TestCassandraTypeManager
         catch (IOException _) {
         }
         return valid;
+    }
+
+    @Test
+    public void testJsonArrayEncoding()
+    {
+        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList("one", "two", "three\""), DataTypes.TEXT))).isTrue();
+        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList(1, 2, 3), DataTypes.INT))).isTrue();
+        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList(100000L, 200000000L, 3000000000L), DataTypes.BIGINT))).isTrue();
+        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList(1.0, 2.0, 3.0), DataTypes.DOUBLE))).isTrue();
+        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList((short) -32768, (short) 0, (short) 32767), DataTypes.SMALLINT))).isTrue();
+        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList((byte) -128, (byte) 0, (byte) 127), DataTypes.TINYINT))).isTrue();
+        assertThat(isValidJson(CASSANDRA_TYPE_MANAGER.buildArrayValue(Lists.newArrayList("1970-01-01", "5555-06-15", "9999-12-31"), DataTypes.DATE))).isTrue();
     }
 }

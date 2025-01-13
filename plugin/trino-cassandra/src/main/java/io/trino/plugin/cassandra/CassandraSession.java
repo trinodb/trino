@@ -124,6 +124,44 @@ public class CassandraSession
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
     }
 
+    private static RelationMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseInsensitiveTableName)
+    {
+        List<RelationMetadata> tables = Stream.concat(
+                        keyspace.getTables().values().stream(),
+                        keyspace.getViews().values().stream())
+                .filter(table -> table.getName().asInternal().equalsIgnoreCase(caseInsensitiveTableName))
+                .collect(toImmutableList());
+        if (tables.isEmpty()) {
+            throw new TableNotFoundException(new SchemaTableName(keyspace.getName().asInternal(), caseInsensitiveTableName));
+        }
+        if (tables.size() == 1) {
+            return getOnlyElement(tables);
+        }
+        String tableNames = tables.stream()
+                .map(metadata -> metadata.getName().asInternal())
+                .sorted()
+                .collect(joining(", "));
+        throw new TrinoException(
+                NOT_SUPPORTED,
+                format("More than one table has been found for the case insensitive table name: %s -> (%s)",
+                        caseInsensitiveTableName, tableNames));
+    }
+
+    private static void checkColumnNames(Collection<ColumnMetadata> columns)
+    {
+        Map<String, ColumnMetadata> lowercaseNameToColumnMap = new HashMap<>();
+        for (ColumnMetadata column : columns) {
+            String lowercaseName = column.getName().asInternal().toLowerCase(ENGLISH);
+            if (lowercaseNameToColumnMap.containsKey(lowercaseName)) {
+                throw new TrinoException(
+                        NOT_SUPPORTED,
+                        format("More than one column has been found for the case insensitive column name: %s -> (%s, %s)",
+                                lowercaseName, lowercaseNameToColumnMap.get(lowercaseName).getName(), column.getName()));
+            }
+            lowercaseNameToColumnMap.put(lowercaseName, column);
+        }
+    }
+
     private synchronized CqlSession session()
     {
         if (session == null) {
@@ -139,8 +177,8 @@ public class CassandraSession
         Row versionRow = result.one();
         if (versionRow == null) {
             throw new TrinoException(CASSANDRA_VERSION_ERROR, "The cluster version is not available. " +
-                                                              "Please make sure that the Cassandra cluster is up and running, " +
-                                                              "and that the contact points are specified correctly.");
+                    "Please make sure that the Cassandra cluster is up and running, " +
+                    "and that the contact points are specified correctly.");
         }
         return Version.parse(versionRow.getString("release_version"));
     }
@@ -328,48 +366,10 @@ public class CassandraSession
         return result;
     }
 
-    private static RelationMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseInsensitiveTableName)
-    {
-        List<RelationMetadata> tables = Stream.concat(
-                        keyspace.getTables().values().stream(),
-                        keyspace.getViews().values().stream())
-                .filter(table -> table.getName().asInternal().equalsIgnoreCase(caseInsensitiveTableName))
-                .collect(toImmutableList());
-        if (tables.isEmpty()) {
-            throw new TableNotFoundException(new SchemaTableName(keyspace.getName().asInternal(), caseInsensitiveTableName));
-        }
-        if (tables.size() == 1) {
-            return getOnlyElement(tables);
-        }
-        String tableNames = tables.stream()
-                .map(metadata -> metadata.getName().asInternal())
-                .sorted()
-                .collect(joining(", "));
-        throw new TrinoException(
-                NOT_SUPPORTED,
-                format("More than one table has been found for the case insensitive table name: %s -> (%s)",
-                        caseInsensitiveTableName, tableNames));
-    }
-
     public boolean isMaterializedView(SchemaTableName schemaTableName)
     {
         KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(schemaTableName.getSchemaName());
         return keyspace.getView(validTableName(schemaTableName.getTableName())).isPresent();
-    }
-
-    private static void checkColumnNames(Collection<ColumnMetadata> columns)
-    {
-        Map<String, ColumnMetadata> lowercaseNameToColumnMap = new HashMap<>();
-        for (ColumnMetadata column : columns) {
-            String lowercaseName = column.getName().asInternal().toLowerCase(ENGLISH);
-            if (lowercaseNameToColumnMap.containsKey(lowercaseName)) {
-                throw new TrinoException(
-                        NOT_SUPPORTED,
-                        format("More than one column has been found for the case insensitive column name: %s -> (%s, %s)",
-                                lowercaseName, lowercaseNameToColumnMap.get(lowercaseName).getName(), column.getName()));
-            }
-            lowercaseNameToColumnMap.put(lowercaseName, column);
-        }
     }
 
     private Optional<CassandraColumnHandle> buildColumnHandle(RelationMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)

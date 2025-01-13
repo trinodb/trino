@@ -16,8 +16,8 @@ package io.trino.plugin.cassandra;
 import java.io.Closeable;
 
 public interface CassandraServer
-        extends Closeable {
-
+        extends Closeable
+{
 
     CassandraSession getSession();
 

@@ -31,12 +31,19 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
-import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.*;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.CONTROL_CONNECTION_AGREEMENT_TIMEOUT;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.PROTOCOL_VERSION;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TIMEOUT;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.*;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestingScyllaDBServer extends CassandraServer {
+public class TestingScyllaDBServer
+        extends CassandraServer
+{
     private static final Logger log = Logger.get(TestingScyllaDBServer.class);
 
     private static final int PORT = 9042;
@@ -46,11 +53,15 @@ public class TestingScyllaDBServer extends CassandraServer {
     private final GenericContainer<?> container;
     private final CassandraSession session;
 
-    public TestingScyllaDBServer() throws Exception {
+    public TestingScyllaDBServer()
+            throws Exception
+    {
         this("6.2");
     }
 
-    public TestingScyllaDBServer(String version) throws Exception {
+    public TestingScyllaDBServer(String version)
+            throws Exception
+    {
         container = new GenericContainer<>("scylladb/scylladb:" + version)
                 .withExposedPorts(PORT);
         container.start();
@@ -76,23 +87,27 @@ public class TestingScyllaDBServer extends CassandraServer {
     }
 
     @Override
-    public CassandraSession getSession() {
+    public CassandraSession getSession()
+    {
         return session;
     }
 
     @Override
-    public String getHost() {
+    public String getHost()
+    {
         return container.getHost();
     }
 
     @Override
-    public int getPort() {
+    public int getPort()
+    {
         return container.getMappedPort(PORT);
     }
 
     @Override
     public void refreshSizeEstimates(String keyspace, String table)
-            throws Exception {
+            throws Exception
+    {
         long deadline = System.nanoTime() + REFRESH_SIZE_ESTIMATES_TIMEOUT.roundTo(NANOSECONDS);
         while (System.nanoTime() - deadline < 0) {
             flushTable(keyspace, table);
@@ -109,17 +124,20 @@ public class TestingScyllaDBServer extends CassandraServer {
     }
 
     private void flushTable(String keyspace, String table)
-            throws Exception {
+            throws Exception
+    {
         container.execInContainer("nodetool", "flush", keyspace, table);
     }
 
     private void refreshSizeEstimates()
-            throws Exception {
+            throws Exception
+    {
         container.execInContainer("nodetool", "refreshsizeestimates");
     }
 
     @Override
-    public void close() {
+    public void close()
+    {
         session.close();
         container.close();
     }

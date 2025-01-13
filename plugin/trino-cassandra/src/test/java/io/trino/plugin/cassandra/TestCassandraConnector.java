@@ -99,15 +99,94 @@ public class TestCassandraConnector
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(new CassandraSessionProperties(new CassandraClientConfig()).getSessionProperties())
             .build();
-    private TestingCassandraServer server;
     protected String database;
     protected SchemaTableName table;
     protected SchemaTableName tableForDelete;
     protected SchemaTableName tableTuple;
     protected SchemaTableName tableUdt;
+    private TestingCassandraServer server;
     private ConnectorMetadata metadata;
     private ConnectorSplitManager splitManager;
     private ConnectorRecordSetProvider recordSetProvider;
+
+    @SuppressWarnings({"ResultOfMethodCallIgnored", "CheckReturnValue"}) // we only check if the values are valid, we don't need them otherwise
+    private static void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
+    {
+        for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
+            ColumnMetadata column = schema.get(columnIndex);
+            if (!cursor.isNull(columnIndex)) {
+                Type type = column.getType();
+                if (BOOLEAN.equals(type)) {
+                    cursor.getBoolean(columnIndex);
+                }
+                else if (TINYINT.equals(type)) {
+                    SignedBytes.checkedCast(cursor.getLong(columnIndex));
+                }
+                else if (SMALLINT.equals(type)) {
+                    Shorts.checkedCast(cursor.getLong(columnIndex));
+                }
+                else if (INTEGER.equals(type)) {
+                    toIntExact(cursor.getLong(columnIndex));
+                }
+                else if (BIGINT.equals(type)) {
+                    cursor.getLong(columnIndex);
+                }
+                else if (DateType.DATE.equals(type)) {
+                    toIntExact(cursor.getLong(columnIndex));
+                }
+                else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
+                    cursor.getLong(columnIndex);
+                }
+                else if (DOUBLE.equals(type)) {
+                    cursor.getDouble(columnIndex);
+                }
+                else if (REAL.equals(type)) {
+                    cursor.getLong(columnIndex);
+                }
+                else if (type instanceof VarcharType || VARBINARY.equals(type)) {
+                    try {
+                        cursor.getSlice(columnIndex);
+                    }
+                    catch (RuntimeException e) {
+                        throw new RuntimeException("column " + column, e);
+                    }
+                }
+                else if (type instanceof RowType) {
+                    cursor.getObject(columnIndex);
+                }
+                else if (UuidType.UUID.equals(type)) {
+                    cursor.getSlice(columnIndex);
+                }
+                else if (IpAddressType.IPADDRESS.equals(type)) {
+                    cursor.getSlice(columnIndex);
+                }
+                else {
+                    fail("Unknown primitive type " + type + " for column " + columnIndex);
+                }
+            }
+        }
+    }
+
+    private static List<ConnectorSplit> getAllSplits(ConnectorSplitSource splitSource)
+    {
+        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+        while (!splitSource.isFinished()) {
+            splits.addAll(getFutureValue(splitSource.getNextBatch(1000)).getSplits());
+        }
+        return splits.build();
+    }
+
+    private static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
+    {
+        ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
+        int i = 0;
+        for (ColumnHandle columnHandle : columnHandles) {
+            String name = ((CassandraColumnHandle) columnHandle).name();
+            index.put(name, i);
+            i++;
+        }
+        return index.buildOrThrow();
+    }
 
     @BeforeAll
     public void setup()
@@ -121,11 +200,11 @@ public class TestCassandraConnector
         CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory();
 
         Connector connector = connectorFactory.create("test", ImmutableMap.of(
-                "cassandra.contact-points", server.getHost(),
-                "cassandra.load-policy.use-dc-aware", "true",
-                "cassandra.load-policy.dc-aware.local-dc", "datacenter1",
-                "cassandra.native-protocol-port", Integer.toString(server.getPort()),
-                "bootstrap.quiet", "true"),
+                        "cassandra.contact-points", server.getHost(),
+                        "cassandra.load-policy.use-dc-aware", "true",
+                        "cassandra.load-policy.dc-aware.local-dc", "datacenter1",
+                        "cassandra.native-protocol-port", Integer.toString(server.getPort()),
+                        "bootstrap.quiet", "true"),
                 new TestingConnectorContext());
 
         metadata = connector.getMetadata(SESSION, CassandraTransactionHandle.INSTANCE);
@@ -373,90 +452,11 @@ public class TestCassandraConnector
         assertThat(rowNumber).isEqualTo(1);
     }
 
-    @SuppressWarnings({"ResultOfMethodCallIgnored", "CheckReturnValue"}) // we only check if the values are valid, we don't need them otherwise
-    private static void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
-    {
-        for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
-            ColumnMetadata column = schema.get(columnIndex);
-            if (!cursor.isNull(columnIndex)) {
-                Type type = column.getType();
-                if (BOOLEAN.equals(type)) {
-                    cursor.getBoolean(columnIndex);
-                }
-                else if (TINYINT.equals(type)) {
-                    SignedBytes.checkedCast(cursor.getLong(columnIndex));
-                }
-                else if (SMALLINT.equals(type)) {
-                    Shorts.checkedCast(cursor.getLong(columnIndex));
-                }
-                else if (INTEGER.equals(type)) {
-                    toIntExact(cursor.getLong(columnIndex));
-                }
-                else if (BIGINT.equals(type)) {
-                    cursor.getLong(columnIndex);
-                }
-                else if (DateType.DATE.equals(type)) {
-                    toIntExact(cursor.getLong(columnIndex));
-                }
-                else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
-                    cursor.getLong(columnIndex);
-                }
-                else if (DOUBLE.equals(type)) {
-                    cursor.getDouble(columnIndex);
-                }
-                else if (REAL.equals(type)) {
-                    cursor.getLong(columnIndex);
-                }
-                else if (type instanceof VarcharType || VARBINARY.equals(type)) {
-                    try {
-                        cursor.getSlice(columnIndex);
-                    }
-                    catch (RuntimeException e) {
-                        throw new RuntimeException("column " + column, e);
-                    }
-                }
-                else if (type instanceof RowType) {
-                    cursor.getObject(columnIndex);
-                }
-                else if (UuidType.UUID.equals(type)) {
-                    cursor.getSlice(columnIndex);
-                }
-                else if (IpAddressType.IPADDRESS.equals(type)) {
-                    cursor.getSlice(columnIndex);
-                }
-                else {
-                    fail("Unknown primitive type " + type + " for column " + columnIndex);
-                }
-            }
-        }
-    }
-
     private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
     {
         ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName, Optional.empty(), Optional.empty());
         checkArgument(handle != null, "table not found: %s", tableName);
         return handle;
-    }
-
-    private static List<ConnectorSplit> getAllSplits(ConnectorSplitSource splitSource)
-    {
-        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        while (!splitSource.isFinished()) {
-            splits.addAll(getFutureValue(splitSource.getNextBatch(1000)).getSplits());
-        }
-        return splits.build();
-    }
-
-    private static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
-    {
-        ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
-        int i = 0;
-        for (ColumnHandle columnHandle : columnHandles) {
-            String name = ((CassandraColumnHandle) columnHandle).name();
-            index.put(name, i);
-            i++;
-        }
-        return index.buildOrThrow();
     }
 
     private CassandraTableHandle getTableHandle(Optional<List<CassandraPartition>> partitions, String clusteringKeyPredicates)

@@ -39,18 +39,6 @@ public class TestCassandraClusteringPredicatesExtractor
     private static final CassandraTable cassandraTable;
     private static final Version cassandraVersion;
 
-    static {
-        col1 = new CassandraColumnHandle("partitionKey1", 1, CassandraTypes.BIGINT, true, false, false, false);
-        col2 = new CassandraColumnHandle("clusteringKey1", 2, CassandraTypes.BIGINT, false, true, false, false);
-        col3 = new CassandraColumnHandle("clusteringKey2", 3, CassandraTypes.BIGINT, false, true, false, false);
-        col4 = new CassandraColumnHandle("clusteringKe3", 4, CassandraTypes.BIGINT, false, true, false, false);
-
-        cassandraTable = new CassandraTable(
-                new CassandraNamedRelationHandle("test", "records"), ImmutableList.of(col1, col2, col3, col4));
-
-        cassandraVersion = Version.parse("3.0");
-    }
-
     @Test
     public void testBuildClusteringPredicate()
     {
@@ -74,5 +62,17 @@ public class TestCassandraClusteringPredicatesExtractor
         CassandraClusteringPredicatesExtractor predicatesExtractor = new CassandraClusteringPredicatesExtractor(CASSANDRA_TYPE_MANAGER, cassandraTable.clusteringKeyColumns(), tupleDomain, cassandraVersion);
         TupleDomain<ColumnHandle> unenforcedPredicates = TupleDomain.withColumnDomains(ImmutableMap.of(col4, Domain.singleValue(BIGINT, 26L)));
         assertThat(predicatesExtractor.getUnenforcedConstraints()).isEqualTo(unenforcedPredicates);
+    }
+
+    static {
+        col1 = new CassandraColumnHandle("partitionKey1", 1, CassandraTypes.BIGINT, true, false, false, false);
+        col2 = new CassandraColumnHandle("clusteringKey1", 2, CassandraTypes.BIGINT, false, true, false, false);
+        col3 = new CassandraColumnHandle("clusteringKey2", 3, CassandraTypes.BIGINT, false, true, false, false);
+        col4 = new CassandraColumnHandle("clusteringKe3", 4, CassandraTypes.BIGINT, false, true, false, false);
+
+        cassandraTable = new CassandraTable(
+                new CassandraNamedRelationHandle("test", "records"), ImmutableList.of(col1, col2, col3, col4));
+
+        cassandraVersion = Version.parse("3.0");
     }
 }

@@ -67,6 +67,48 @@ public class CassandraClientModule
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
+    @Singleton
+    @Provides
+    public static CassandraSession createCassandraSession(
+            CassandraTypeManager cassandraTypeManager,
+            CassandraClientConfig config,
+            Set<CassandraSessionConfigurator> sessionConfigurators,
+            JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
+            OpenTelemetry openTelemetry)
+    {
+        requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
+
+        CqlSessionBuilder cqlSessionBuilder = CqlSession.builder();
+
+        List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
+        checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
+
+        for (CassandraSessionConfigurator sessionConfigurator : sessionConfigurators) {
+            sessionConfigurator.configure(cqlSessionBuilder);
+        }
+
+        return new CassandraSession(
+                cassandraTypeManager,
+                extraColumnMetadataCodec,
+                () -> {
+                    contactPoints.forEach(contactPoint -> cqlSessionBuilder.addContactPoint(
+                            createInetSocketAddress(contactPoint, config.getNativeProtocolPort())));
+                    CassandraTelemetry cassandraTelemetry = CassandraTelemetry.create(openTelemetry);
+                    return cassandraTelemetry.wrap(cqlSessionBuilder.build());
+                },
+                config.getNoHostAvailableRetryTimeout());
+    }
+
+    private static InetSocketAddress createInetSocketAddress(String contactPoint, int port)
+    {
+        try {
+            return new InetSocketAddress(InetAddress.getByName(contactPoint), port);
+        }
+        catch (UnknownHostException e) {
+            throw new IllegalArgumentException("Failed to add contact point: " + contactPoint, e);
+        }
+    }
+
     @Override
     public void setup(Binder binder)
     {
@@ -101,57 +143,6 @@ public class CassandraClientModule
         newSetBinder(binder, CassandraSessionConfigurator.class);
 
         closingBinder(binder).registerCloseable(CassandraSession.class);
-    }
-
-    public static final class TypeDeserializer
-            extends FromStringDeserializer<Type>
-    {
-        private final TypeManager typeManager;
-
-        @Inject
-        public TypeDeserializer(TypeManager typeManager)
-        {
-            super(Type.class);
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        }
-
-        @Override
-        protected Type _deserialize(String value, DeserializationContext context)
-        {
-            return typeManager.getType(TypeId.of(value));
-        }
-    }
-
-    @Singleton
-    @Provides
-    public static CassandraSession createCassandraSession(
-            CassandraTypeManager cassandraTypeManager,
-            CassandraClientConfig config,
-            Set<CassandraSessionConfigurator> sessionConfigurators,
-            JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
-            OpenTelemetry openTelemetry)
-    {
-        requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
-
-        CqlSessionBuilder cqlSessionBuilder = CqlSession.builder();
-
-        List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
-        checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
-
-        for (CassandraSessionConfigurator sessionConfigurator : sessionConfigurators) {
-            sessionConfigurator.configure(cqlSessionBuilder);
-        }
-
-        return new CassandraSession(
-                cassandraTypeManager,
-                extraColumnMetadataCodec,
-                () -> {
-                    contactPoints.forEach(contactPoint -> cqlSessionBuilder.addContactPoint(
-                            createInetSocketAddress(contactPoint, config.getNativeProtocolPort())));
-                    CassandraTelemetry cassandraTelemetry = CassandraTelemetry.create(openTelemetry);
-                    return cassandraTelemetry.wrap(cqlSessionBuilder.build());
-                },
-                config.getNoHostAvailableRetryTimeout());
     }
 
     @ProvidesIntoSet
@@ -206,6 +197,25 @@ public class CassandraClientModule
         };
     }
 
+    public static final class TypeDeserializer
+            extends FromStringDeserializer<Type>
+    {
+        private final TypeManager typeManager;
+
+        @Inject
+        public TypeDeserializer(TypeManager typeManager)
+        {
+            super(Type.class);
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        }
+
+        @Override
+        protected Type _deserialize(String value, DeserializationContext context)
+        {
+            return typeManager.getType(TypeId.of(value));
+        }
+    }
+
     private static class PasswordAuthenticationModule
             implements Module
     {
@@ -220,16 +230,6 @@ public class CassandraClientModule
         public CassandraSessionConfigurator passwordAuthenticationConfigurator(CassandraPasswordConfig config)
         {
             return builder -> builder.withAuthCredentials(config.getUsername(), config.getPassword());
-        }
-    }
-
-    private static InetSocketAddress createInetSocketAddress(String contactPoint, int port)
-    {
-        try {
-            return new InetSocketAddress(InetAddress.getByName(contactPoint), port);
-        }
-        catch (UnknownHostException e) {
-            throw new IllegalArgumentException("Failed to add contact point: " + contactPoint, e);
         }
     }
 }
