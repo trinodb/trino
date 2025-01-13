@@ -127,7 +127,7 @@ a few caveats:
   - The project ID Google Cloud Project to bill for the export.
   - Taken from the service account
 * - `bigquery.views-enabled`
-  - Enables the connector to read from views and not only tables. Please read
+  - Enables the connector to read from views and not only tables. Read
     [this section](bigquery-reading-from-views) before enabling this feature.
   - `false`
 * - `bigquery.view-expire-duration`
@@ -175,7 +175,7 @@ a few caveats:
   - `false`
 * - `bigquery.arrow-serialization.enabled`
   - Enable using Apache Arrow serialization when reading data from BigQuery.
-    Please read this [section](bigquery-arrow-serialization-support) before using this feature.
+    Read this [section](bigquery-arrow-serialization-support) before using this feature.
   - `true`
 * - `bigquery.channel-pool.initial-size`
   - The initial size of the connection pool, also known as a channel pool,
