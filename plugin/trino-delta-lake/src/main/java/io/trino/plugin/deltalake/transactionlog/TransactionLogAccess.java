@@ -134,7 +134,7 @@ public class TransactionLogAccess
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions().withBloomFilter(false);
+        this.parquetReaderOptions = ParquetReaderOptions.builder(parquetReaderConfig.toParquetReaderOptions()).withBloomFilter(false).build();
         this.executorService = requireNonNull(executorService, "ExecutorService is null");
         this.checkpointRowStatisticsWritingEnabled = deltaLakeConfig.isCheckpointRowStatisticsWritingEnabled();
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();

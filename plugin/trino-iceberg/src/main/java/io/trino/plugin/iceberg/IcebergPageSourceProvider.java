@@ -534,7 +534,7 @@ public class IcebergPageSourceProvider
                     partitionSpecId,
                     partitionData,
                     dataColumns,
-                    parquetReaderOptions
+                    ParquetReaderOptions.builder(parquetReaderOptions)
                             .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                             .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                             .withSmallFileThreshold(getParquetSmallFileThreshold(session))
@@ -542,7 +542,8 @@ public class IcebergPageSourceProvider
                             .withBloomFilter(useParquetBloomFilter(session))
                             // TODO https://github.com/trinodb/trino/issues/11000
                             .withUseColumnIndex(false)
-                            .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session)),
+                            .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
+                            .build(),
                     predicate,
                     fileFormatDataSourceStats,
                     nameMapping,
