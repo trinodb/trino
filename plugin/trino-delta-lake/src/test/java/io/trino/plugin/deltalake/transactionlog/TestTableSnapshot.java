@@ -65,7 +65,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTableSnapshot
 {
-    private final ParquetReaderOptions parquetReaderOptions = new ParquetReaderConfig().toParquetReaderOptions();
+    private final ParquetReaderOptions parquetReaderOptions = ParquetReaderOptions.defaultOptions();
     private final int domainCompactionThreshold = 32;
 
     private CheckpointSchemaManager checkpointSchemaManager;
