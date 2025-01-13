@@ -134,6 +134,7 @@ public class TestingAccessControlManager
         extends AccessControlManager
 {
     private static final BiPredicate<Identity, String> IDENTITY_TABLE_TRUE = (identity, table) -> true;
+    private static final BiPredicate<Identity, String> IDENTITY_FUNCTION_TRUE = (identity, function) -> true;
 
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
     private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
@@ -142,6 +143,7 @@ public class TestingAccessControlManager
     private Predicate<String> deniedSchemas = s -> true;
     private Predicate<SchemaTableName> deniedTables = s -> true;
     private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
+    private BiPredicate<Identity, String> denyIdentityFunction = IDENTITY_FUNCTION_TRUE;
 
     @Inject
     public TestingAccessControlManager(
@@ -214,6 +216,11 @@ public class TestingAccessControlManager
     public void denyIdentityTable(BiPredicate<Identity, String> denyIdentityTable)
     {
         this.denyIdentityTable = requireNonNull(denyIdentityTable, "denyIdentityTable is null");
+    }
+
+    public void denyIdentityFunction(BiPredicate<Identity, String> denyIdentityFunction)
+    {
+        this.denyIdentityFunction = requireNonNull(denyIdentityFunction, "denyIdentityFunction is null");
     }
 
     @Override
@@ -698,6 +705,9 @@ public class TestingAccessControlManager
     @Override
     public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
+        if (!denyIdentityFunction.test(context.getIdentity(), functionName.asSchemaFunctionName().toString())) {
+            return false;
+        }
         if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), EXECUTE_FUNCTION)) {
             return false;
         }
@@ -710,6 +720,9 @@ public class TestingAccessControlManager
     @Override
     public boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
+        if (!denyIdentityFunction.test(context.getIdentity(), functionName.asSchemaFunctionName().toString())) {
+            return false;
+        }
         if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), GRANT_EXECUTE_FUNCTION)) {
             return false;
         }
