@@ -187,6 +187,42 @@ public class TestIonFormat
     }
 
     @Test
+    public void testStringCoercions()
+            throws IOException
+    {
+        assertValues(
+                RowType.rowType(
+                        field("foo", VARCHAR)),
+                "{ foo: true }",
+                List.of("true"));
+        assertValues(
+                RowType.rowType(
+                        field("foo", VARCHAR)),
+                "{ foo: 31 }",
+                List.of("31"));
+        assertValues(
+                RowType.rowType(
+                        field("foo", VARCHAR)),
+                "{ foo: 31.50 }",
+                List.of("31.50"));
+        assertValues(
+                RowType.rowType(
+                        field("foo", VARCHAR)),
+                "{ foo: [1, 2, 3] }",
+                List.of("[1,2,3]"));
+        assertValues(
+                RowType.rowType(
+                        field("foo", VARCHAR)),
+                "{ foo: \"bar\" }",
+                List.of("bar"));
+        assertValues(
+                RowType.rowType(
+                        field("foo", VARCHAR)),
+                "{ foo: { nested_foo: 12 } }",
+                List.of("{nested_foo:12}"));
+    }
+
+    @Test
     public void testCaseInsensitivityOfDuplicateKeys()
             throws IOException
     {
