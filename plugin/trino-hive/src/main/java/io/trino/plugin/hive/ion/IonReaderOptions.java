@@ -13,13 +13,18 @@
  */
 package io.trino.plugin.hive.ion;
 
+import com.google.common.collect.ImmutableMap;
+import io.trino.hive.formats.ion.IonDecoderConfig;
+
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class IonReaderOptions
 {
     public static final String STRICT_PATH_TYPING_PROPERTY = "ion.path_extractor.strict";
     public static final String STRICT_PATH_TYPING_DEFAULT = "false";
-    public static final String PATH_EXTRACTOR_PROPERTY = "ion.\\w+.path_extractor";
+    public static final String PATH_EXTRACTOR_PROPERTY = "ion.(\\w+).path_extractor";
     public static final String PATH_EXTRACTION_CASE_SENSITIVITY = "ion.path_extractor.case_sensitive";
     public static final String PATH_EXTRACTION_CASE_SENSITIVITY_DEFAULT = "false";
     public static final String FAIL_ON_OVERFLOW_PROPERTY_WITH_COLUMN = "ion.\\w+.fail_on_overflow";
@@ -28,11 +33,27 @@ public final class IonReaderOptions
     public static final String IGNORE_MALFORMED = "ion.ignore_malformed";
     public static final String IGNORE_MALFORMED_DEFAULT = "false";
 
+    private static final Pattern pathExtractorPattern = Pattern.compile(PATH_EXTRACTOR_PROPERTY);
+
     private IonReaderOptions() {}
 
-    static boolean useStrictPathTyping(Map<String, String> propertiesMap)
+    public static IonDecoderConfig decoderConfigFor(Map<String, String> propertiesMap)
     {
-        return Boolean.parseBoolean(
+        ImmutableMap.Builder<String, String> extractionsBuilder = ImmutableMap.builder();
+
+        for (Map.Entry<String, String> property : propertiesMap.entrySet()) {
+            Matcher matcher = pathExtractorPattern.matcher(property.getKey());
+            if (matcher.matches()) {
+                extractionsBuilder.put(matcher.group(1), property.getValue());
+            }
+        }
+
+        Boolean strictTyping = Boolean.parseBoolean(
                 propertiesMap.getOrDefault(STRICT_PATH_TYPING_PROPERTY, STRICT_PATH_TYPING_DEFAULT));
+        Boolean caseSensitive = Boolean.parseBoolean(
+                propertiesMap.getOrDefault(PATH_EXTRACTION_CASE_SENSITIVITY, PATH_EXTRACTION_CASE_SENSITIVITY_DEFAULT));
+
+        // n.b.: the hive serde overwrote when there were duplicate extractors defined for a column
+        return new IonDecoderConfig(extractionsBuilder.buildOrThrow(), strictTyping, caseSensitive);
     }
 }
