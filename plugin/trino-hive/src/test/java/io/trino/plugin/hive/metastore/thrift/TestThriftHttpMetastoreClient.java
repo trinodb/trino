@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.NoSuchObjectException;
+import io.trino.hive.thrift.metastore.TableMeta;
 import io.trino.plugin.base.util.AutoCloseableCloser;
+import io.trino.plugin.hive.metastore.thrift.TestingThriftHttpMetastoreServer.TestingThriftRequestsHandler;
 import io.trino.testing.TestingNodeManager;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.http.HttpHeaders;
@@ -34,14 +36,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestThriftHttpMetastoreClient
 {
     private static final AutoCloseableCloser closer = AutoCloseableCloser.create();
-    private static ThriftMetastore delegate;
 
     @BeforeAll
     public static void setup()
@@ -49,7 +49,6 @@ public class TestThriftHttpMetastoreClient
     {
         File tempDir = Files.createTempDirectory(null).toFile();
         tempDir.deleteOnExit();
-        delegate = testingThriftHiveMetastoreBuilder().metastoreClient(createFakeMetastoreClient()).build(closer::register);
     }
 
     @AfterAll
@@ -57,28 +56,6 @@ public class TestThriftHttpMetastoreClient
             throws Exception
     {
         closer.close();
-    }
-
-    private static ThriftMetastoreClient createFakeMetastoreClient()
-    {
-        return new MockThriftMetastoreClient()
-        {
-            @Override
-            public Database getDatabase(String databaseName)
-                    throws NoSuchObjectException
-            {
-                if (databaseName.equals("testDbName")) {
-                    return new Database(databaseName, "testOwner", "testLocation", Map.of("key", "value"));
-                }
-                throw new NoSuchObjectException("Database does not exist");
-            }
-
-            @Override
-            public List<String> getAllDatabases()
-            {
-                return ImmutableList.of("testDbName");
-            }
-        };
     }
 
     @Test
@@ -89,13 +66,53 @@ public class TestThriftHttpMetastoreClient
         config.setAuthenticationMode(ThriftHttpMetastoreConfig.AuthenticationMode.BEARER);
         config.setAdditionalHeaders("key1:value1, key2:value2");
 
-        try (TestingThriftHttpMetastoreServer metastoreServer = new TestingThriftHttpMetastoreServer(delegate, new TestRequestHeaderInterceptor())) {
+        TestingThriftRequestsHandler handler = new TestingThriftRequestsHandler()
+        {
+            @Override
+            public List<String> getAllDatabases()
+            {
+                return ImmutableList.of("testDbName");
+            }
+
+            @Override
+            public Database getDatabase(String name)
+                    throws NoSuchObjectException
+            {
+                if (name.equals("testDbName")) {
+                    return new Database(name, "testOwner", "testLocation", Map.of("key", "value"));
+                }
+                throw new NoSuchObjectException("Database does not exist");
+            }
+
+            @Override
+            public List<String> getTables(String databaseName, String pattern)
+            {
+                if (databaseName.equals("testDbName")) {
+                    return ImmutableList.of("testTable1", "testTable2");
+                }
+                return ImmutableList.of();
+            }
+
+            @Override
+            public List<String> getTablesByType(String databaseName, String pattern, String tableType)
+            {
+                if (databaseName.equals("testDbName")) {
+                    return ImmutableList.of("testTable3", "testTable4");
+                }
+                return ImmutableList.of();
+            }
+        };
+
+        try (TestingThriftHttpMetastoreServer metastoreServer = new TestingThriftHttpMetastoreServer(handler, new TestRequestHeaderInterceptor())) {
             ThriftMetastoreClientFactory factory = new HttpThriftMetastoreClientFactory(config, new TestingNodeManager(), OpenTelemetry.noop());
             URI metastoreUri = URI.create("http://localhost:" + metastoreServer.getPort());
             ThriftMetastoreClient client = factory.create(
                     metastoreUri, Optional.empty());
             assertThat(client.getAllDatabases()).containsExactly("testDbName");
             assertThat(client.getDatabase("testDbName")).isEqualTo(new Database("testDbName", "testOwner", "testLocation", Map.of("key", "value")));
+            assertThat(client.getTableMeta("testDbName"))
+                    .extracting(TableMeta::getTableName)
+                    .containsExactlyInAnyOrder("testTable1", "testTable2", "testTable3", "testTable4");
             // negative case
             assertThatThrownBy(() -> client.getDatabase("does-not-exist")).isInstanceOf(NoSuchObjectException.class);
         }
