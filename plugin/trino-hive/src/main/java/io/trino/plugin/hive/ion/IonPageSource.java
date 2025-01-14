@@ -112,7 +112,7 @@ public class IonPageSource
         }
 
         pageBuilder.declarePosition();
-        decoder.decode(ionReader, pageBuilder);
+        decoder.decode(ionReader);
         return true;
     }
 }

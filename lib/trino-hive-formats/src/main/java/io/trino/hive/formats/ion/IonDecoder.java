@@ -15,7 +15,6 @@ package io.trino.hive.formats.ion;
 
 import com.amazon.ion.IonException;
 import com.amazon.ion.IonReader;
-import io.trino.spi.PageBuilder;
 
 public interface IonDecoder
 {
@@ -25,6 +24,6 @@ public interface IonDecoder
      * Expects that the calling code has called IonReader.next()
      * to position the reader at the value to be decoded.
      */
-    void decode(IonReader reader, PageBuilder builder)
+    void decode(IonReader reader)
             throws IonException;
 }
