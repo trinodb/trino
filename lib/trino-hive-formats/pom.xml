@@ -25,6 +25,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.amazon.ion</groupId>
+            <artifactId>ion-java-path-extraction</artifactId>
+            <version>1.5.0</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
         </dependency>

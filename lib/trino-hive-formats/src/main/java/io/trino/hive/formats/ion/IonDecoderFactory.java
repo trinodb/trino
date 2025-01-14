@@ -19,11 +19,15 @@ import com.amazon.ion.IonType;
 import com.amazon.ion.IonWriter;
 import com.amazon.ion.Timestamp;
 import com.amazon.ion.system.IonTextWriterBuilder;
+import com.amazon.ionpathextraction.PathExtractor;
+import com.amazon.ionpathextraction.PathExtractorBuilder;
+import com.amazon.ionpathextraction.pathcomponents.Text;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.hive.formats.DistinctMapKeys;
 import io.trino.hive.formats.line.Column;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -65,8 +69,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.IntFunction;
 
 public class IonDecoderFactory
@@ -79,37 +83,64 @@ public class IonDecoderFactory
      * The decoder expects to decode the _current_ Ion Value.
      * It also expects that the calling code will manage the PageBuilder.
      * <p>
-     *
-     * @param strictPathing controls behavior when encountering mistyped
-     * values during path extraction. That is outside (before), the trino
-     * type model. The ion-hive-serde used path extraction for navigating
-     * the top-level-values even if no path extractions were configured.
-     * So, in absence of support for path extraction configurations this
-     * still affects the handling of mistyped top-level-values.
-     * todo: revisit the above once path extraction config is supported.
      */
-    public static IonDecoder buildDecoder(List<Column> columns, boolean strictPathing)
+    public static IonDecoder buildDecoder(
+            List<Column> columns,
+            IonDecoderConfig decoderConfig,
+            PageBuilder pageBuilder)
     {
-        RowDecoder rowDecoder = RowDecoder.forFields(
-                columns.stream()
-                        .map(c -> new RowType.Field(Optional.of(c.name()), c.type()))
-                        .toList());
+        PathExtractorBuilder<PageExtractionContext> extractorBuilder = PathExtractorBuilder.<PageExtractionContext>standard()
+                .withMatchCaseInsensitive(!decoderConfig.caseSensitive());
 
-        return (ionReader, pageBuilder) -> {
-            IonType ionType = ionReader.getType();
-            IntFunction<BlockBuilder> blockSelector = pageBuilder::getBlockBuilder;
+        for (int pos = 0; pos < columns.size(); pos++) {
+            String name = columns.get(pos).name();
+            BlockDecoder decoder = decoderForType(columns.get(pos).type());
+            BiFunction<IonReader, PageExtractionContext, Integer> callback = callbackFor(decoder, pos);
 
-            if (ionType == IonType.STRUCT && !ionReader.isNullValue()) {
-                rowDecoder.decode(ionReader, blockSelector);
-            }
-            else if (ionType == IonType.STRUCT || ionType == IonType.NULL || !strictPathing) {
-                rowDecoder.appendNulls(blockSelector);
+            String extractionPath = decoderConfig.pathExtractors().get(name);
+            if (extractionPath == null) {
+                extractorBuilder.withSearchPath(List.of(new Text(name)), callback);
             }
             else {
-                throw new TrinoException(StandardErrorCode.GENERIC_USER_ERROR,
-                        "Top-level-value of IonType %s is not valid with strict typing.".formatted(ionType));
+                extractorBuilder.withSearchPath(extractionPath, callback);
             }
+        }
+        PathExtractor<PageExtractionContext> extractor = extractorBuilder.buildStrict(decoderConfig.strictTyping());
+        PageExtractionContext context = new PageExtractionContext(pageBuilder, new boolean[columns.size()]);
+
+        return (ionReader) -> {
+            extractor.matchCurrentValue(ionReader, context);
+            context.completeRowAndReset();
         };
+    }
+
+    private static BiFunction<IonReader, PageExtractionContext, Integer> callbackFor(BlockDecoder decoder, int pos)
+    {
+        return (ionReader, context) -> {
+            BlockBuilder blockBuilder = context.pageBuilder.getBlockBuilder(pos);
+            if (context.encountered[pos]) {
+                blockBuilder.resetTo(blockBuilder.getPositionCount() - 1);
+            }
+            else {
+                context.encountered[pos] = true;
+            }
+
+            decoder.decode(ionReader, context.pageBuilder.getBlockBuilder(pos));
+            return 0;
+        };
+    }
+
+    private record PageExtractionContext(PageBuilder pageBuilder, boolean[] encountered)
+    {
+        private void completeRowAndReset()
+        {
+            for (int i = 0; i < encountered.length; i++) {
+                if (!encountered[i]) {
+                    pageBuilder.getBlockBuilder(i).appendNull();
+                }
+                encountered[i] = false;
+            }
+        }
     }
 
     private interface BlockDecoder
@@ -169,10 +200,6 @@ public class IonDecoderFactory
         };
     }
 
-    /**
-     * The RowDecoder is used as the BlockDecoder for nested RowTypes and is used for decoding
-     * top-level structs into pages.
-     */
     private record RowDecoder(Map<String, Integer> fieldPositions, List<BlockDecoder> fieldDecoders)
             implements BlockDecoder
     {
@@ -223,13 +250,6 @@ public class IonDecoderFactory
             }
 
             ionReader.stepOut();
-        }
-
-        private void appendNulls(IntFunction<BlockBuilder> blockSelector)
-        {
-            for (int i = 0; i < fieldDecoders.size(); i++) {
-                blockSelector.apply(i).appendNull();
-            }
         }
     }
 
