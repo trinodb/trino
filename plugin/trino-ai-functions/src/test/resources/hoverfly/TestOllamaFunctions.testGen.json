@@ -1,0 +1,48 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"What is the capital of France?\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T10:16:25.665502Z\",\"response\":\"The capital of France is Paris.\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,3923,374,279,6864,315,9822,30,128009,128006,78191,128007,271,791,6864,315,9822,374,12366,13],\"total_duration\":11252410083,\"load_duration\":30097666,\"prompt_eval_count\":17,\"prompt_eval_duration\":10150000000,\"eval_count\":8,\"eval_duration\":1069000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "421" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:16:25 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-09T02:16:27-08:00"
+  }
+}

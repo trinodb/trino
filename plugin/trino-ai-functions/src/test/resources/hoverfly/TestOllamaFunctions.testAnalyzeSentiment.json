@@ -1,0 +1,153 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Classify the text below into one of the following labels: [positive, negative, neutral, mixed]\\nOutput only the label.\\n=====\\nI love Trino\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T10:12:45.612583Z\",\"response\":\"positive\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,1999,1463,279,1495,3770,1139,832,315,279,2768,9382,25,510,31587,11,8389,11,21277,11,9709,933,5207,1193,279,2440,627,65997,40,3021,1183,3394,198,128009,128006,78191,128007,271,31587],\"total_duration\":21407288042,\"load_duration\":825934000,\"prompt_eval_count\":42,\"prompt_eval_duration\":20412000000,\"eval_count\":2,\"eval_duration\":164000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "487" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:12:45 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Classify the text below into one of the following labels: [positive, negative, neutral, mixed]\\nOutput only the label.\\n=====\\nI am sad\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T10:12:47.656208Z\",\"response\":\"negative\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,1999,1463,279,1495,3770,1139,832,315,279,2768,9382,25,510,31587,11,8389,11,21277,11,9709,933,5207,1193,279,2440,627,65997,40,1097,12703,198,128009,128006,78191,128007,271,43324],\"total_duration\":958283416,\"load_duration\":30138791,\"prompt_eval_count\":41,\"prompt_eval_duration\":770000000,\"eval_count\":2,\"eval_duration\":157000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "478" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:12:47 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Classify the text below into one of the following labels: [positive, negative, neutral, mixed]\\nOutput only the label.\\n=====\\nThe earth is round\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T10:12:49.004861Z\",\"response\":\"neutral\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,1999,1463,279,1495,3770,1139,832,315,279,2768,9382,25,510,31587,11,8389,11,21277,11,9709,933,5207,1193,279,2440,627,65997,791,9578,374,4883,198,128009,128006,78191,128007,271,60668],\"total_duration\":950518334,\"load_duration\":13660667,\"prompt_eval_count\":42,\"prompt_eval_duration\":778000000,\"eval_count\":2,\"eval_duration\":157000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "481" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:12:49 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Classify the text below into one of the following labels: [positive, negative, neutral, mixed]\\nOutput only the label.\\n=====\\nThe food tasted good but was too salty\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T10:12:50.343255Z\",\"response\":\"mixed\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,1999,1463,279,1495,3770,1139,832,315,279,2768,9382,25,510,31587,11,8389,11,21277,11,9709,933,5207,1193,279,2440,627,65997,791,3691,61580,1695,719,574,2288,74975,198,128009,128006,78191,128007,271,57785],\"total_duration\":962124250,\"load_duration\":15236917,\"prompt_eval_count\":46,\"prompt_eval_duration\":793000000,\"eval_count\":2,\"eval_duration\":153000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "500" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:12:50 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-09T02:12:50-08:00"
+  }
+}

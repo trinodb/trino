@@ -1,0 +1,83 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"urgent\\\", \\\"not urgent\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe deadline is approaching\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T04:56:14.097813Z\",\"response\":\"\\\"urgent\\\"\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,1999,1463,279,1495,3770,1139,832,315,279,2768,4823,21136,9382,25,510,330,86153,498,330,1962,34771,1,5243,5207,279,2440,439,264,4823,925,320,1962,264,4823,1665,4390,5207,1193,279,2440,627,65997,791,22143,374,31047,198,128009,128006,78191,128007,271,1,86153,1],\"total_duration\":1888923458,\"load_duration\":18531625,\"prompt_eval_count\":57,\"prompt_eval_duration\":1414000000,\"eval_count\":4,\"eval_duration\":455000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "563" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 04:56:14 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"urgent\\\", \\\"not urgent\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe deadline is far away\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T04:56:16.185058Z\",\"response\":\"\\\"not urgent\\\"\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,1999,1463,279,1495,3770,1139,832,315,279,2768,4823,21136,9382,25,510,330,86153,498,330,1962,34771,1,5243,5207,279,2440,439,264,4823,925,320,1962,264,4823,1665,4390,5207,1193,279,2440,627,65997,791,22143,374,3117,3201,198,128009,128006,78191,128007,271,1,1962,34771,1],\"total_duration\":1397344500,\"load_duration\":16630083,\"prompt_eval_count\":58,\"prompt_eval_duration\":742000000,\"eval_count\":5,\"eval_duration\":637000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "575" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 04:56:16 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-08T20:56:17-08:00"
+  }
+}

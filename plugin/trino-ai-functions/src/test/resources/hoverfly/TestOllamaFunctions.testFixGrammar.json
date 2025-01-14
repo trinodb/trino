@@ -1,0 +1,188 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nI are happy. What you doing?\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T04:56:30.368859Z\",\"response\":\"I am happy. What are you doing?\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,27048,279,32528,304,279,1495,3770,627,5207,1193,279,1495,627,65997,40,527,6380,13,3639,499,3815,5380,128009,128006,78191,128007,271,40,1097,6380,13,3639,527,499,3815,30],\"total_duration\":2226144958,\"load_duration\":16174208,\"prompt_eval_count\":32,\"prompt_eval_duration\":825000000,\"eval_count\":10,\"eval_duration\":1383000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "496" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 04:56:30 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nThe sky ain't blue.\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T04:56:33.688019Z\",\"response\":\"The sky isn't blue.\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,27048,279,32528,304,279,1495,3770,627,5207,1193,279,1495,627,65997,791,13180,37202,956,6437,627,128009,128006,78191,128007,271,791,13180,4536,956,6437,13],\"total_duration\":1713097542,\"load_duration\":14831583,\"prompt_eval_count\":30,\"prompt_eval_duration\":786000000,\"eval_count\":7,\"eval_duration\":910000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "467" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 04:56:33 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nThis sentence have some mistake\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T04:56:36.531385Z\",\"response\":\"This sentence has some mistakes.\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,27048,279,32528,304,279,1495,3770,627,5207,1193,279,1495,627,65997,2028,11914,617,1063,16930,198,128009,128006,78191,128007,271,2028,11914,706,1063,21294,13],\"total_duration\":1714719583,\"load_duration\":15878125,\"prompt_eval_count\":30,\"prompt_eval_duration\":783000000,\"eval_count\":7,\"eval_duration\":914000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "483" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 04:56:36 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nShe dont know what to did.\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T04:56:39.694144Z\",\"response\":\"She doesn't know what to do.\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,27048,279,32528,304,279,1495,3770,627,5207,1193,279,1495,627,65997,8100,15890,1440,1148,311,1550,627,128009,128006,78191,128007,271,8100,3250,956,1440,1148,311,656,13],\"total_duration\":2032724958,\"load_duration\":16611625,\"prompt_eval_count\":31,\"prompt_eval_duration\":789000000,\"eval_count\":9,\"eval_duration\":1225000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "490" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 04:56:39 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nHe go to school every days.\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T04:56:43.00409Z\",\"response\":\"He goes to school every day.\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,27048,279,32528,304,279,1495,3770,627,5207,1193,279,1495,627,65997,1548,733,311,2978,1475,2919,627,128009,128006,78191,128007,271,1548,5900,311,2978,1475,1938,13],\"total_duration\":1875360542,\"load_duration\":14758042,\"prompt_eval_count\":31,\"prompt_eval_duration\":794000000,\"eval_count\":8,\"eval_duration\":1065000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "484" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 04:56:43 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-08T20:56:44-08:00"
+  }
+}

@@ -1,0 +1,278 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.openai.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Compute a semantic textual similarity score for the two strings below.\\nThe similarity score is a decimal value between 0.0 and 1.0.\\nThe strings are encoded as a JSON array.\\nOutput only the similarity score, as a decimal number.\\nDo not output anything else.\\nData: [ \\\"The sky is blue\\\", \\\"The sky is blue\\\" ]\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\n  \"id\": \"chatcmpl-AyyjbkouwXXBb4SsgHb60Q7VPKKjJ\",\n  \"object\": \"chat.completion\",\n  \"created\": 1739096507,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"1.0\",\n        \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 79,\n    \"completion_tokens\": 4,\n    \"total_tokens\": 83,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_72ed7ab54c\"\n}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Access-Control-Expose-Headers" : [ "X-Request-ID" ],
+          "Alt-Svc" : [ "h3=\":443\"; ma=86400" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "90f322709894642f-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:21:47 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Openai-Organization" : [ "trino-j5yehe" ],
+          "Openai-Processing-Ms" : [ "382" ],
+          "Openai-Version" : [ "2020-10-01" ],
+          "Server" : [ "cloudflare" ],
+          "Set-Cookie" : [ "__cf_bm=5M9HebgpSANffu9oAWeO8yIPb9X41cHN_gkPT7GrV5U-1739096507-1.0.1.1-lx7GLlq2vZNz_2iLj4avcIPsbIn9MyPTj8eDZHvlpUS4lDDHoeBi4ivum.9iscravrBGqRLfar9q5L1PtdQW2w; path=/; expires=Sun, 09-Feb-25 10:51:47 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None", "_cfuvid=Vxd_H4GNhUrEzVVyQUn.Fw_cMaO0TUlEdT2qVj1NUZM-1739096507398-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None" ],
+          "Strict-Transport-Security" : [ "max-age=31536000; includeSubDomains; preload" ],
+          "X-Content-Type-Options" : [ "nosniff" ],
+          "X-Ratelimit-Limit-Requests" : [ "10000" ],
+          "X-Ratelimit-Limit-Tokens" : [ "200000" ],
+          "X-Ratelimit-Remaining-Requests" : [ "9906" ],
+          "X-Ratelimit-Remaining-Tokens" : [ "199907" ],
+          "X-Ratelimit-Reset-Requests" : [ "13m27.28s" ],
+          "X-Ratelimit-Reset-Tokens" : [ "27ms" ],
+          "X-Request-Id" : [ "req_57c46df268f9eb86a408f1142ddb3f8a" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.openai.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Compute a semantic textual similarity score for the two strings below.\\nThe similarity score is a decimal value between 0.0 and 1.0.\\nThe strings are encoded as a JSON array.\\nOutput only the similarity score, as a decimal number.\\nDo not output anything else.\\nData: [ \\\"The sky is blue\\\", \\\"The sky is green\\\" ]\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\n  \"id\": \"chatcmpl-AyyjciU3Z3siL8uAW9Qp48r3SmYQ5\",\n  \"object\": \"chat.completion\",\n  \"created\": 1739096508,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"0.7\",\n        \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 79,\n    \"completion_tokens\": 4,\n    \"total_tokens\": 83,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_72ed7ab54c\"\n}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Access-Control-Expose-Headers" : [ "X-Request-ID" ],
+          "Alt-Svc" : [ "h3=\":443\"; ma=86400" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "90f32276eb41642f-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:21:48 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Openai-Organization" : [ "trino-j5yehe" ],
+          "Openai-Processing-Ms" : [ "311" ],
+          "Openai-Version" : [ "2020-10-01" ],
+          "Server" : [ "cloudflare" ],
+          "Set-Cookie" : [ "__cf_bm=9ffYrhthkQN_RscYUUnxKrRnELCnttpUL3swQeYQilI-1739096508-1.0.1.1-gpiAvXPTpzVMjM.fAx1MRh9KI2fa8Azia9ePd3qSlj0aeZbr3JI6x1zPP7IxR56qUi9K4mGPrAy0C2cHT0D7SA; path=/; expires=Sun, 09-Feb-25 10:51:48 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None", "_cfuvid=k28PDMckTXAWBkqXPwgdbfzsl8yxlZdZ9ToaGcDVNjs-1739096508340-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None" ],
+          "Strict-Transport-Security" : [ "max-age=31536000; includeSubDomains; preload" ],
+          "X-Content-Type-Options" : [ "nosniff" ],
+          "X-Ratelimit-Limit-Requests" : [ "10000" ],
+          "X-Ratelimit-Limit-Tokens" : [ "200000" ],
+          "X-Ratelimit-Remaining-Requests" : [ "9904" ],
+          "X-Ratelimit-Remaining-Tokens" : [ "199906" ],
+          "X-Ratelimit-Reset-Requests" : [ "13m43.566s" ],
+          "X-Ratelimit-Reset-Tokens" : [ "28ms" ],
+          "X-Request-Id" : [ "req_4a32dda9431592f39444b280ae25ef8c" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.openai.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Compute a semantic textual similarity score for the two strings below.\\nThe similarity score is a decimal value between 0.0 and 1.0.\\nThe strings are encoded as a JSON array.\\nOutput only the similarity score, as a decimal number.\\nDo not output anything else.\\nData: [ \\\"The sky is blue\\\", \\\"The car is red\\\" ]\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\n  \"id\": \"chatcmpl-AyyjcLmo2LjAeBRYCtF30lUpMw9Io\",\n  \"object\": \"chat.completion\",\n  \"created\": 1739096508,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"0.2\",\n        \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 79,\n    \"completion_tokens\": 4,\n    \"total_tokens\": 83,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_72ed7ab54c\"\n}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Access-Control-Expose-Headers" : [ "X-Request-ID" ],
+          "Alt-Svc" : [ "h3=\":443\"; ma=86400" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "90f3227c4d6a642f-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:21:49 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Openai-Organization" : [ "trino-j5yehe" ],
+          "Openai-Processing-Ms" : [ "232" ],
+          "Openai-Version" : [ "2020-10-01" ],
+          "Server" : [ "cloudflare" ],
+          "Set-Cookie" : [ "__cf_bm=__eAkzLbtI8nZhp.1Oi9t1QJDwchI06xo8XbxapST6Y-1739096509-1.0.1.1-32TbI5pdbZFW94FLbA69nKa9nZ0AfS_yPGABlbLUoh8F3FSkaXD_CJkMtoHSp7NDKf_TWdyoeluYEF1zHqFB0Q; path=/; expires=Sun, 09-Feb-25 10:51:49 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None", "_cfuvid=hIzk_i3ggYi85uRRbVWUikOB7qvEHtuf2QNEoagDqRo-1739096509123-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None" ],
+          "Strict-Transport-Security" : [ "max-age=31536000; includeSubDomains; preload" ],
+          "X-Content-Type-Options" : [ "nosniff" ],
+          "X-Ratelimit-Limit-Requests" : [ "10000" ],
+          "X-Ratelimit-Limit-Tokens" : [ "200000" ],
+          "X-Ratelimit-Remaining-Requests" : [ "9902" ],
+          "X-Ratelimit-Remaining-Tokens" : [ "199906" ],
+          "X-Ratelimit-Reset-Requests" : [ "13m59.964s" ],
+          "X-Ratelimit-Reset-Tokens" : [ "27ms" ],
+          "X-Request-Id" : [ "req_c13b9d91dbc8b6ea2639c3084328ee75" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.openai.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Compute a semantic textual similarity score for the two strings below.\\nThe similarity score is a decimal value between 0.0 and 1.0.\\nThe strings are encoded as a JSON array.\\nOutput only the similarity score, as a decimal number.\\nDo not output anything else.\\nData: [ \\\"I hate pizza\\\", \\\"We drink water\\\" ]\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\n  \"id\": \"chatcmpl-AyyjdufMUDQJjrpMkVshYQhzUVjxd\",\n  \"object\": \"chat.completion\",\n  \"created\": 1739096509,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"0.0\",\n        \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 77,\n    \"completion_tokens\": 4,\n    \"total_tokens\": 81,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_72ed7ab54c\"\n}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Access-Control-Expose-Headers" : [ "X-Request-ID" ],
+          "Alt-Svc" : [ "h3=\":443\"; ma=86400" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "90f32281c804642f-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:21:49 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Openai-Organization" : [ "trino-j5yehe" ],
+          "Openai-Processing-Ms" : [ "214" ],
+          "Openai-Version" : [ "2020-10-01" ],
+          "Server" : [ "cloudflare" ],
+          "Set-Cookie" : [ "__cf_bm=ifpu3_IP8KQObnhhjq9V7m1dJXje0PteDVZunaaxFKs-1739096509-1.0.1.1-qTcfaVNpIGtlaTeqPRSftlqv0byOUqCgj5ToRe7S.I6CnGTM1JzHmZ_XbzntksIk1ZQRJaCMlEoZVszE_GzlYg; path=/; expires=Sun, 09-Feb-25 10:51:49 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None", "_cfuvid=0aYFyhNf3eDmbtBeL9QWmvXGMeOaGxq3VhqIOXZUH5w-1739096509975-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None" ],
+          "Strict-Transport-Security" : [ "max-age=31536000; includeSubDomains; preload" ],
+          "X-Content-Type-Options" : [ "nosniff" ],
+          "X-Ratelimit-Limit-Requests" : [ "10000" ],
+          "X-Ratelimit-Limit-Tokens" : [ "200000" ],
+          "X-Ratelimit-Remaining-Requests" : [ "9900" ],
+          "X-Ratelimit-Remaining-Tokens" : [ "199908" ],
+          "X-Ratelimit-Reset-Requests" : [ "14m16.377s" ],
+          "X-Ratelimit-Reset-Tokens" : [ "27ms" ],
+          "X-Request-Id" : [ "req_3c1897c02e85e58caa098c3537183830" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.openai.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Compute a semantic textual similarity score for the two strings below.\\nThe similarity score is a decimal value between 0.0 and 1.0.\\nThe strings are encoded as a JSON array.\\nOutput only the similarity score, as a decimal number.\\nDo not output anything else.\\nData: [ \\\"What is that?\\\", \\\"Go home now\\\" ]\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\n  \"id\": \"chatcmpl-Ayyjejz1Oy2NPRvYA8duzHVspHYgM\",\n  \"object\": \"chat.completion\",\n  \"created\": 1739096510,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"0.2\",\n        \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 77,\n    \"completion_tokens\": 4,\n    \"total_tokens\": 81,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_72ed7ab54c\"\n}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Access-Control-Expose-Headers" : [ "X-Request-ID" ],
+          "Alt-Svc" : [ "h3=\":443\"; ma=86400" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "90f322866a11642f-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:21:50 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Openai-Organization" : [ "trino-j5yehe" ],
+          "Openai-Processing-Ms" : [ "256" ],
+          "Openai-Version" : [ "2020-10-01" ],
+          "Server" : [ "cloudflare" ],
+          "Set-Cookie" : [ "__cf_bm=MiTydao5S6kRpQV1RW6vuqsJguMxbneDw0.mbgdWX6g-1739096510-1.0.1.1-if6nb60NE8VeocDnvtlQSEylhTfDBqI7Ge179EQdLKy_DPldj7INeK_cF6XGktn2jVvpoVFRTERQapVK7S9OIw; path=/; expires=Sun, 09-Feb-25 10:51:50 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None", "_cfuvid=r589cGeWhIoCpBWPS6V65fsSeVfTXCrq8ASM1FTmx8o-1739096510766-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None" ],
+          "Strict-Transport-Security" : [ "max-age=31536000; includeSubDomains; preload" ],
+          "X-Content-Type-Options" : [ "nosniff" ],
+          "X-Ratelimit-Limit-Requests" : [ "10000" ],
+          "X-Ratelimit-Limit-Tokens" : [ "200000" ],
+          "X-Ratelimit-Remaining-Requests" : [ "9898" ],
+          "X-Ratelimit-Remaining-Tokens" : [ "199908" ],
+          "X-Ratelimit-Reset-Requests" : [ "14m32.906s" ],
+          "X-Ratelimit-Reset-Tokens" : [ "27ms" ],
+          "X-Request-Id" : [ "req_6d8ec30072fbbe4390d866228d2a1e65" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-09T02:21:51-08:00"
+  }
+}

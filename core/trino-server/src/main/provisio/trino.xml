@@ -33,6 +33,12 @@
     </artifactSet>
 
     <!-- Plugins -->
+    <artifactSet to="plugin/ai-functions">
+        <artifact id="${project.groupId}:trino-ai-functions:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/apache-ranger">
         <artifact id="${project.groupId}:trino-ranger:zip:${project.version}">
             <unpack />

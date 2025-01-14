@@ -1,0 +1,188 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Extract a value for each of the JSON encoded labels from the text below.\\nFor each label, only extract a single value.\\nLabels: [ \\\"date\\\" ]\\nOutput the extracted values as a JSON object.\\nOutput only the JSON.\\nDo not output a code block for the JSON.\\n=====\\nThe deadline is tomorrow\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T10:28:18.431285Z\",\"response\":\"{\\\"date\\\": \\\"tomorrow\\\"}\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,30059,264,907,369,1855,315,279,4823,21136,9382,505,279,1495,3770,627,2520,1855,2440,11,1193,8819,264,3254,907,627,24600,25,510,330,1045,1,5243,5207,279,28532,2819,439,264,4823,1665,627,5207,1193,279,4823,627,5519,539,2612,264,2082,2565,369,279,4823,627,65997,791,22143,374,16986,198,128009,128006,78191,128007,271,5018,1045,794,330,38501,7924,9388],\"total_duration\":1801057209,\"load_duration\":14669584,\"prompt_eval_count\":72,\"prompt_eval_duration\":717000000,\"eval_count\":8,\"eval_duration\":1067000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "667" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:28:18 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Extract a value for each of the JSON encoded labels from the text below.\\nFor each label, only extract a single value.\\nLabels: [ \\\"date\\\" ]\\nOutput the extracted values as a JSON object.\\nOutput only the JSON.\\nDo not output a code block for the JSON.\\n=====\\nThe deadline is 2022-12-31\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T10:28:22.247446Z\",\"response\":\"{\\\"date\\\": \\\"2022-12-31\\\"}\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,30059,264,907,369,1855,315,279,4823,21136,9382,505,279,1495,3770,627,2520,1855,2440,11,1193,8819,264,3254,907,627,24600,25,510,330,1045,1,5243,5207,279,28532,2819,439,264,4823,1665,627,5207,1193,279,4823,627,5519,539,2612,264,2082,2565,369,279,4823,627,65997,791,22143,374,220,2366,17,12,717,12,2148,198,128009,128006,78191,128007,271,5018,1045,794,330,2366,17,12,717,12,2148,9388],\"total_duration\":2479680125,\"load_duration\":16952083,\"prompt_eval_count\":78,\"prompt_eval_duration\":781000000,\"eval_count\":12,\"eval_duration\":1680000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "703" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:28:22 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Extract a value for each of the JSON encoded labels from the text below.\\nFor each label, only extract a single value.\\nLabels: [ \\\"date\\\", \\\"money\\\" ]\\nOutput the extracted values as a JSON object.\\nOutput only the JSON.\\nDo not output a code block for the JSON.\\n=====\\nThe deadline is 2022-12-31 and the budget is $1000\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T10:28:28.371932Z\",\"response\":\"{\\\"date\\\": \\\"2022-12-31\\\", \\\"money\\\": \\\"$1000\\\"}\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,30059,264,907,369,1855,315,279,4823,21136,9382,505,279,1495,3770,627,2520,1855,2440,11,1193,8819,264,3254,907,627,24600,25,510,330,1045,498,330,29359,1,5243,5207,279,28532,2819,439,264,4823,1665,627,5207,1193,279,4823,627,5519,539,2612,264,2082,2565,369,279,4823,627,65997,791,22143,374,220,2366,17,12,717,12,2148,323,279,8199,374,400,1041,15,198,128009,128006,78191,128007,271,5018,1045,794,330,2366,17,12,717,12,2148,498,330,29359,794,5312,1041,15,9388],\"total_duration\":4175369667,\"load_duration\":19838542,\"prompt_eval_count\":88,\"prompt_eval_duration\":1416000000,\"eval_count\":19,\"eval_duration\":2738000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "800" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:28:28 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Extract a value for each of the JSON encoded labels from the text below.\\nFor each label, only extract a single value.\\nLabels: [ \\\"person\\\", \\\"location\\\", \\\"organization\\\" ]\\nOutput the extracted values as a JSON object.\\nOutput only the JSON.\\nDo not output a code block for the JSON.\\n=====\\nJohn Doe lives in New York and works for Acme Corp.\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T10:28:36.142071Z\",\"response\":\"{\\\"person\\\": \\\"John Doe\\\", \\\"location\\\": \\\"New York\\\", \\\"organization\\\": \\\"Acme Corp\\\"}\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,30059,264,907,369,1855,315,279,4823,21136,9382,505,279,1495,3770,627,2520,1855,2440,11,1193,8819,264,3254,907,627,24600,25,510,330,9164,498,330,2588,498,330,24844,1,5243,5207,279,28532,2819,439,264,4823,1665,627,5207,1193,279,4823,627,5519,539,2612,264,2082,2565,369,279,4823,627,65997,13379,50728,6439,304,1561,4356,323,4375,369,6515,2727,22621,627,128009,128006,78191,128007,271,5018,9164,794,330,13379,50728,498,330,2588,794,330,3648,4356,498,330,24844,794,330,11916,2727,22621,9388],\"total_duration\":4783531167,\"load_duration\":18327667,\"prompt_eval_count\":86,\"prompt_eval_duration\":1415000000,\"eval_count\":23,\"eval_duration\":3349000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "870" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:28:36 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Extract a value for each of the JSON encoded labels from the text below.\\nFor each label, only extract a single value.\\nLabels: [ \\\"email\\\", \\\"time\\\" ]\\nOutput the extracted values as a JSON object.\\nOutput only the JSON.\\nDo not output a code block for the JSON.\\n=====\\nSend an email to jane.doe@example.com about the meeting at 10am.\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T10:28:43.92252Z\",\"response\":\"{\\\"email\\\": \\\"jane.doe@example.com\\\", \\\"time\\\": \\\"10am\\\"}\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,30059,264,907,369,1855,315,279,4823,21136,9382,505,279,1495,3770,627,2520,1855,2440,11,1193,8819,264,3254,907,627,24600,25,510,330,2386,498,330,1712,1,5243,5207,279,28532,2819,439,264,4823,1665,627,5207,1193,279,4823,627,5519,539,2612,264,2082,2565,369,279,4823,627,65997,11764,459,2613,311,99706,962,4748,36587,916,922,279,6574,520,220,605,309,627,128009,128006,78191,128007,271,5018,2386,794,330,73,2194,962,4748,36587,916,498,330,1712,794,330,605,309,9388],\"total_duration\":4179543042,\"load_duration\":17047834,\"prompt_eval_count\":87,\"prompt_eval_duration\":1415000000,\"eval_count\":19,\"eval_duration\":2746000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "812" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:28:43 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-09T02:28:46-08:00"
+  }
+}
