@@ -42,12 +42,14 @@ import io.trino.execution.QueryStateMachine;
 import io.trino.execution.StageInfo;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.CatalogScalarFunctions;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ScalarFunctionRegistry;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
@@ -136,6 +138,7 @@ public class TestLocalDispatchQuery
                 metadata,
                 new FunctionManager(
                         new ConnectorCatalogServiceProvider<>("function provider", new NoConnectorServicesProvider(), ConnectorServices::getFunctionProvider),
+                        new ScalarFunctionRegistry(_ -> new CatalogScalarFunctions(List.of())),
                         new GlobalFunctionCatalog(
                                 () -> { throw new UnsupportedOperationException(); },
                                 () -> { throw new UnsupportedOperationException(); },

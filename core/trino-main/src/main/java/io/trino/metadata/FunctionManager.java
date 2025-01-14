@@ -44,6 +44,7 @@ import io.trino.type.BlockTypeOperators;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -64,11 +65,12 @@ public class FunctionManager
     private final NonEvictableCache<ResolvedFunction, WindowFunctionSupplier> specializedWindowCache;
 
     private final CatalogServiceProvider<FunctionProvider> functionProviders;
+    private final ScalarFunctionRegistry scalarFunctionRegistry;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final LanguageFunctionProvider languageFunctionProvider;
 
     @Inject
-    public FunctionManager(CatalogServiceProvider<FunctionProvider> functionProviders, GlobalFunctionCatalog globalFunctionCatalog, LanguageFunctionProvider languageFunctionProvider)
+    public FunctionManager(CatalogServiceProvider<FunctionProvider> functionProviders, ScalarFunctionRegistry scalarFunctionRegistry, GlobalFunctionCatalog globalFunctionCatalog, LanguageFunctionProvider languageFunctionProvider)
     {
         specializedScalarCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -83,6 +85,7 @@ public class FunctionManager
                 .expireAfterWrite(1, HOURS));
 
         this.functionProviders = requireNonNull(functionProviders, "functionProviders is null");
+        this.scalarFunctionRegistry = requireNonNull(scalarFunctionRegistry, "scalarFunctionRegistry is null");
         this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
         this.languageFunctionProvider = requireNonNull(languageFunctionProvider, "functionProvider is null");
     }
@@ -106,6 +109,11 @@ public class FunctionManager
         }
         else {
             FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
+            Optional<SqlScalarFunction> function = scalarFunctionRegistry.resolve(resolvedFunction.catalogHandle(), resolvedFunction.name().getSchemaFunctionName());
+            if (function.isPresent()) {
+                return function.get().specialize(resolvedFunction.signature(), functionDependencies).getScalarFunctionImplementation(invocationConvention);
+            }
+
             scalarFunctionImplementation = getFunctionProvider(resolvedFunction).getScalarFunctionImplementation(
                     resolvedFunction.functionId(),
                     resolvedFunction.signature(),
@@ -322,11 +330,12 @@ public class FunctionManager
     public static FunctionManager createTestingFunctionManager()
     {
         TypeOperators typeOperators = new TypeOperators();
+        ScalarFunctionRegistry scalarFunctionRegistry = new ScalarFunctionRegistry(_ -> new CatalogScalarFunctions(List.of()));
         GlobalFunctionCatalog functionCatalog = new GlobalFunctionCatalog(
                 () -> { throw new UnsupportedOperationException(); },
                 () -> { throw new UnsupportedOperationException(); },
                 () -> { throw new UnsupportedOperationException(); });
         functionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
-        return new FunctionManager(CatalogServiceProvider.fail(), functionCatalog, LanguageFunctionProvider.DISABLED);
+        return new FunctionManager(CatalogServiceProvider.fail(), scalarFunctionRegistry, functionCatalog, LanguageFunctionProvider.DISABLED);
     }
 }

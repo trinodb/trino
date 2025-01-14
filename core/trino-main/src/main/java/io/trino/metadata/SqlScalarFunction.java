@@ -18,14 +18,28 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 
+import java.util.Optional;
+
 public abstract class SqlScalarFunction
         implements SqlFunction
 {
+    private final Optional<String> schemaName;
     private final FunctionMetadata functionMetadata;
 
     protected SqlScalarFunction(FunctionMetadata functionMetadata)
     {
+        this(Optional.empty(), functionMetadata);
+    }
+
+    protected SqlScalarFunction(Optional<String> schemaName, FunctionMetadata functionMetadata)
+    {
+        this.schemaName = schemaName;
         this.functionMetadata = functionMetadata;
+    }
+
+    public Optional<String> getSchemaName()
+    {
+        return schemaName;
     }
 
     @Override
