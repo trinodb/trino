@@ -27,6 +27,7 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.plugin.hive.orc.OrcDeletedRows.MaskDeletedRowsFunction;
+import io.trino.plugin.hive.util.ValueAdjuster;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -271,6 +272,16 @@ public class OrcPageSource
             return new CoercedColumn(sourceColumn(index), typeCoercer);
         }
 
+        static ColumnAdaptation coercedColumn(int sourceIndex, ValueAdjuster<?> valueAdjuster, TypeCoercer<?, ?> typeCoercer)
+        {
+            return new CoercedColumn(new ValueAdjustedColumn(sourceColumn(sourceIndex), valueAdjuster), typeCoercer);
+        }
+
+        static ColumnAdaptation valueAdjustedColumn(int sourceIndex, ValueAdjuster<?> valueAdjuster)
+        {
+            return new ValueAdjustedColumn(sourceColumn(sourceIndex), valueAdjuster);
+        }
+
         static ColumnAdaptation constantColumn(Block singleValueBlock)
         {
             return new ConstantAdaptation(singleValueBlock);
@@ -397,6 +408,35 @@ public class OrcPageSource
                     .add("delegate", delegate)
                     .add("fromType", typeCoercer.getFromType())
                     .add("toType", typeCoercer.getToType())
+                    .toString();
+        }
+    }
+
+    private static class ValueAdjustedColumn
+            implements ColumnAdaptation
+    {
+        private final ColumnAdaptation delegate;
+        private final ValueAdjuster<?> valueAdjuster;
+
+        public ValueAdjustedColumn(ColumnAdaptation delegate, ValueAdjuster<?> valueAdjuster)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.valueAdjuster = requireNonNull(valueAdjuster, "valueAdjustable is null");
+        }
+
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
+        {
+            Block block = delegate.block(sourcePage, maskDeletedRowsFunction, filePosition, startRowId);
+            return new LazyBlock(block.getPositionCount(), () -> valueAdjuster.apply(block.getLoadedBlock()));
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("delegate", delegate)
+                    .add("forType", valueAdjuster.getForType())
                     .toString();
         }
     }

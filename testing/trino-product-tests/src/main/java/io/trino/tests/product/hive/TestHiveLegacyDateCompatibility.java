@@ -34,6 +34,7 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveLegacyDateCompatibility
@@ -52,12 +53,25 @@ public class TestHiveLegacyDateCompatibility
     @Test(groups = {HIVE4, PROFILE_SPECIFIC_TESTS})
     public void testHiveParquetLegacyDateCompatibility()
     {
-        String hiveTableName = "test_hive_parquet_legacy_date_compatibility_%s".formatted(randomNameSuffix());
+        testHiveLegacyDateCompatibility("PARQUET");
+    }
+
+    @Test(groups = {HIVE4, PROFILE_SPECIFIC_TESTS})
+    public void testHiveOrcLegacyDateCompatibility()
+    {
+        testHiveLegacyDateCompatibility("ORC");
+    }
+
+    private void testHiveLegacyDateCompatibility(String format)
+    {
+        String hiveTableName = "test_hive_%s_legacy_date_compatibility_%s".formatted(format.toLowerCase(ENGLISH), randomNameSuffix());
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, hiveTableName);
 
         try {
-            assertThat(onHive().executeQuery("SET hive.parquet.date.proleptic.gregorian;")).containsOnly(List.of(row("hive.parquet.date.proleptic.gregorian=false")));
-            onHive().executeQuery(format("CREATE TABLE default.%s (value integer, date_col date) STORED AS PARQUET LOCATION 's3://%s/%s'", hiveTableName, bucketName, hiveTableName));
+            if (format.equalsIgnoreCase("PARQUET")) {
+                assertThat(onHive().executeQuery("SET hive.parquet.date.proleptic.gregorian;")).containsOnly(List.of(row("hive.parquet.date.proleptic.gregorian=false")));
+            }
+            onHive().executeQuery(format("CREATE TABLE default.%s (value integer, date_col date) STORED AS %s LOCATION 's3://%s/%s'", hiveTableName, format, bucketName, hiveTableName));
             onHive().executeQuery(format("""
                     INSERT INTO %s VALUES
                         (1, '2022-04-13'),
@@ -91,20 +105,28 @@ public class TestHiveLegacyDateCompatibility
     @Test(groups = {HIVE4, PROFILE_SPECIFIC_TESTS})
     public void testHiveParquetLegacyTimestampCompatibility()
     {
-        testHiveLegacyTimestampCompatibility(MILLISECONDS, "123");
-        testHiveLegacyTimestampCompatibility(MICROSECONDS, "123456");
-        testHiveLegacyTimestampCompatibility(NANOSECONDS, "123456789");
+        testHiveLegacyTimestampCompatibility("PARQUET", MILLISECONDS, "123");
+        testHiveLegacyTimestampCompatibility("PARQUET", MICROSECONDS, "123456");
+        testHiveLegacyTimestampCompatibility("PARQUET", NANOSECONDS, "123456789");
     }
 
-    private void testHiveLegacyTimestampCompatibility(HiveTimestampPrecision hiveTimestampPrecision, String fractionalPart)
+    @Test(groups = {HIVE4, PROFILE_SPECIFIC_TESTS})
+    public void testHiveOrcLegacyTimestampCompatibility()
     {
-        String hiveTableName = "test_hive_parquet_legacy_tmst_compatibility_%s".formatted(randomNameSuffix());
+        testHiveLegacyTimestampCompatibility("ORC", MILLISECONDS, "123");
+        testHiveLegacyTimestampCompatibility("ORC", MICROSECONDS, "123456");
+        testHiveLegacyTimestampCompatibility("ORC", NANOSECONDS, "123456789");
+    }
+
+    private void testHiveLegacyTimestampCompatibility(String format, HiveTimestampPrecision hiveTimestampPrecision, String fractionalPart)
+    {
+        String hiveTableName = "test_hive_%s_legacy_tmst_compatibility_%s".formatted(format.toLowerCase(ENGLISH), randomNameSuffix());
         String trinoTableName = format("%s.default.%s", TRINO_CATALOG, hiveTableName);
 
         try {
             assertThat(onHive().executeQuery("SET hive.parquet.date.proleptic.gregorian;")).containsOnly(List.of(row("hive.parquet.date.proleptic.gregorian=false")));
             onTrino().executeQuery("SET SESSION hive.timestamp_precision='%s'".formatted(hiveTimestampPrecision));
-            onHive().executeQuery(format("CREATE TABLE default.%s (tmst timestamp) STORED AS PARQUET LOCATION 's3://%s/%s'", hiveTableName, bucketName, hiveTableName));
+            onHive().executeQuery(format("CREATE TABLE default.%s (tmst timestamp) STORED AS %s LOCATION 's3://%s/%s'", hiveTableName, format, bucketName, hiveTableName));
             onHive().executeQuery(format("INSERT INTO %s VALUES ('2022-04-13 15:30:12.%s')", hiveTableName, fractionalPart));
             onHive().executeQuery(format("INSERT INTO %s VALUES ('1584-09-15 15:30:12.%s')", hiveTableName, fractionalPart));
             onHive().executeQuery(format("INSERT INTO %s VALUES ('1584-09-10 15:30:12.%s')", hiveTableName, fractionalPart));

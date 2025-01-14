@@ -141,7 +141,8 @@ public class OrcMetadataWriter
                         .collect(toList()))
                 .addAllMetadata(footer.getUserMetadata().entrySet().stream()
                         .map(OrcMetadataWriter::toUserMetadata)
-                        .collect(toList()));
+                        .collect(toList()))
+                .setCalendar(toCalendarKind(footer.getCalendar()));
 
         setWriter(builder);
 
@@ -359,6 +360,15 @@ public class OrcMetadataWriter
                 return OrcProto.Stream.Kind.BLOOM_FILTER_UTF8;
         }
         throw new IllegalArgumentException("Unsupported stream kind: " + streamKind);
+    }
+
+    private static OrcProto.CalendarKind toCalendarKind(CalendarKind calendarKind)
+    {
+        return switch (calendarKind) {
+            case UNKNOWN_CALENDAR -> OrcProto.CalendarKind.UNKNOWN_CALENDAR;
+            case JULIAN_GREGORIAN -> OrcProto.CalendarKind.JULIAN_GREGORIAN;
+            case PROLEPTIC_GREGORIAN -> OrcProto.CalendarKind.PROLEPTIC_GREGORIAN;
+        };
     }
 
     private static OrcProto.ColumnEncoding toColumnEncoding(ColumnEncoding columnEncodings)
