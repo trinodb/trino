@@ -26,6 +26,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.ion.IonDecoder;
+import io.trino.hive.formats.ion.IonDecoderConfig;
 import io.trino.hive.formats.ion.IonDecoderFactory;
 import io.trino.hive.formats.line.Column;
 import io.trino.plugin.hive.AcidInfo;
@@ -62,9 +63,6 @@ import static io.trino.plugin.hive.ion.IonReaderOptions.FAIL_ON_OVERFLOW_PROPERT
 import static io.trino.plugin.hive.ion.IonReaderOptions.FAIL_ON_OVERFLOW_PROPERTY_WITH_COLUMN;
 import static io.trino.plugin.hive.ion.IonReaderOptions.IGNORE_MALFORMED;
 import static io.trino.plugin.hive.ion.IonReaderOptions.IGNORE_MALFORMED_DEFAULT;
-import static io.trino.plugin.hive.ion.IonReaderOptions.PATH_EXTRACTION_CASE_SENSITIVITY;
-import static io.trino.plugin.hive.ion.IonReaderOptions.PATH_EXTRACTION_CASE_SENSITIVITY_DEFAULT;
-import static io.trino.plugin.hive.ion.IonReaderOptions.PATH_EXTRACTOR_PROPERTY;
 import static io.trino.plugin.hive.ion.IonWriterOptions.ION_SERIALIZATION_AS_NULL_DEFAULT;
 import static io.trino.plugin.hive.ion.IonWriterOptions.ION_SERIALIZATION_AS_NULL_PROPERTY;
 import static io.trino.plugin.hive.ion.IonWriterOptions.ION_SERIALIZATION_AS_PROPERTY;
@@ -82,14 +80,12 @@ public class IonPageSourceFactory
     private static final Map<String, String> TABLE_PROPERTIES = ImmutableMap.of(
             FAIL_ON_OVERFLOW_PROPERTY, FAIL_ON_OVERFLOW_PROPERTY_DEFAULT,
             IGNORE_MALFORMED, IGNORE_MALFORMED_DEFAULT,
-            PATH_EXTRACTION_CASE_SENSITIVITY, PATH_EXTRACTION_CASE_SENSITIVITY_DEFAULT,
             ION_TIMESTAMP_OFFSET_PROPERTY, ION_TIMESTAMP_OFFSET_DEFAULT,
             ION_SERIALIZATION_AS_NULL_PROPERTY, ION_SERIALIZATION_AS_NULL_DEFAULT);
 
     private static final Set<Pattern> COLUMN_PROPERTIES = ImmutableSet.of(
             Pattern.compile(FAIL_ON_OVERFLOW_PROPERTY_WITH_COLUMN),
-            Pattern.compile(ION_SERIALIZATION_AS_PROPERTY),
-            Pattern.compile(PATH_EXTRACTOR_PROPERTY));
+            Pattern.compile(ION_SERIALIZATION_AS_PROPERTY));
 
     @Inject
     public IonPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, HiveConfig hiveConfig)
@@ -172,8 +168,9 @@ public class IonPageSourceFactory
             List<Column> decoderColumns = projectedReaderColumns.stream()
                     .map(hc -> new Column(hc.getName(), hc.getType(), hc.getBaseHiveColumnIndex()))
                     .toList();
-            boolean strictPathing = IonReaderOptions.useStrictPathTyping(schema.serdeProperties());
-            IonDecoder decoder = IonDecoderFactory.buildDecoder(decoderColumns, strictPathing);
+
+            IonDecoderConfig decoderConfig = IonReaderOptions.decoderConfigFor(schema.serdeProperties());
+            IonDecoder decoder = IonDecoderFactory.buildDecoder(decoderColumns, decoderConfig, pageBuilder);
             IonPageSource pageSource = new IonPageSource(ionReader, countingInputStream::getCount, decoder, pageBuilder);
 
             return Optional.of(new ReaderPageSource(pageSource, readerProjections));

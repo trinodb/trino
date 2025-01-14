@@ -19,6 +19,7 @@ import com.amazon.ion.IonSystem;
 import com.amazon.ion.IonWriter;
 import com.amazon.ion.system.IonReaderBuilder;
 import com.amazon.ion.system.IonSystemBuilder;
+import com.amazon.ionpathextraction.exceptions.PathExtractionException;
 import com.google.common.collect.ImmutableMap;
 import io.trino.hive.formats.line.Column;
 import io.trino.spi.Page;
@@ -48,6 +49,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.IntStream;
 
 import static io.trino.hive.formats.FormatTestUtils.assertColumnValuesEquals;
@@ -108,18 +110,20 @@ public class TestIonFormat
             throws IOException
     {
         RowType rowType = RowType.rowType(field("foo", INTEGER), field("bar", VARCHAR));
+        IonDecoderConfig decoderConfig = IonDecoderConfig.defaultConfig().withStrictTyping();
         List<Object> expected = new ArrayList<>(2);
         expected.add(null);
         expected.add(null);
 
         assertValues(rowType,
+                decoderConfig,
                 // empty struct, untyped null, struct null, and explicitly typed null null, phew.
                 "{} null null.struct null.null",
                 expected, expected, expected, expected);
 
-        Assertions.assertThrows(TrinoException.class, () -> {
-            assertValues(rowType, "null.int", expected);
-            assertValues(rowType, "[]", expected);
+        Assertions.assertThrows(PathExtractionException.class, () -> {
+            assertValues(rowType, decoderConfig, "null.int", expected);
+            assertValues(rowType, decoderConfig, "[]", expected);
         });
     }
 
@@ -133,7 +137,6 @@ public class TestIonFormat
         expected.add(null);
 
         assertValues(rowType,
-                false,
                 "{} 37 null.list null.struct null spam false",
                 expected, expected, expected, expected, expected, expected, expected);
     }
@@ -234,6 +237,20 @@ public class TestIonFormat
                         field("BAR", VARCHAR)),
                 "{ bar: baz, Foo: 31, foo: 5 }",
                 List.of(5, "baz"));
+    }
+
+    @Test
+    public void testCaseSensitiveExtraction()
+            throws IOException
+    {
+        assertValues(
+                RowType.rowType(
+                        field("Foo", INTEGER),
+                        field("Bar", VARCHAR)),
+                IonDecoderConfig.defaultConfig().withCaseSensitive(),
+                // assumes duplicate fields overwrite, which is asserted in the test above
+                "{ Bar: baz, bar: blegh, Foo: 31, foo: 67 }",
+                List.of(31, "baz"));
     }
 
     @Test
@@ -449,6 +466,53 @@ public class TestIonFormat
     }
 
     @Test
+    public void testPathExtraction()
+            throws IOException
+    {
+        Map<String, String> pathExtractions = Map.of("bar", "(foo bar)", "baz", "(foo baz)");
+        assertValues(
+                RowType.rowType(field("qux", BOOLEAN), field("bar", INTEGER), field("baz", VARCHAR)),
+                IonDecoderConfig.defaultConfig().withPathExtractors(pathExtractions),
+                "{ foo: { bar: 31, baz: quux }, qux: true }",
+                List.of(true, 31, "quux"));
+    }
+
+    @Test
+    public void testNonStructTlvPathExtraction()
+            throws IOException
+    {
+        Map<String, String> pathExtractions = Map.of("tlv", "()");
+        assertValues(
+                RowType.rowType(field("tlv", new ArrayType(INTEGER))),
+                IonDecoderConfig.defaultConfig().withPathExtractors(pathExtractions),
+                "[13, 17] [19, 23]",
+                List.of(List.of(13, 17)),
+                List.of(List.of(19, 23)));
+    }
+
+    /**
+     * Shows how users can configure mapping sequence positions from Ion values to a Trino row.
+     */
+    @Test
+    public void testPositionalPathExtraction()
+            throws IOException
+    {
+        Map<String, String> pathExtractions = Map.of(
+                "foo", "(0)",
+                "bar", "(1)");
+        RowType rowType = RowType.rowType(
+                field("foo", INTEGER),
+                field("bar", VARCHAR));
+
+        assertValues(
+                rowType,
+                IonDecoderConfig.defaultConfig().withPathExtractors(pathExtractions),
+                "[13, baz] [17, qux]",
+                List.of(13, "baz"),
+                List.of(17, "qux"));
+    }
+
+    @Test
     public void testEncode()
             throws IOException
     {
@@ -531,10 +595,10 @@ public class TestIonFormat
     private void assertValues(RowType rowType, String ionText, List<Object>... expected)
             throws IOException
     {
-        assertValues(rowType, true, ionText, expected);
+        assertValues(rowType, IonDecoderConfig.defaultConfig(), ionText, expected);
     }
 
-    private void assertValues(RowType rowType, Boolean strictTlvs, String ionText, List<Object>... expected)
+    private void assertValues(RowType rowType, IonDecoderConfig config, String ionText, List<Object>... expected)
             throws IOException
     {
         List<RowType.Field> fields = rowType.getFields();
@@ -545,14 +609,14 @@ public class TestIonFormat
                     return new Column(field.getName().get(), field.getType(), i);
                 })
                 .toList();
-        IonDecoder decoder = IonDecoderFactory.buildDecoder(columns, strictTlvs);
         PageBuilder pageBuilder = new PageBuilder(expected.length, rowType.getFields().stream().map(RowType.Field::getType).toList());
+        IonDecoder decoder = IonDecoderFactory.buildDecoder(columns, config, pageBuilder);
 
         try (IonReader ionReader = IonReaderBuilder.standard().build(ionText)) {
             for (int i = 0; i < expected.length; i++) {
                 assertThat(ionReader.next()).isNotNull();
                 pageBuilder.declarePosition();
-                decoder.decode(ionReader, pageBuilder);
+                decoder.decode(ionReader);
             }
             assertThat(ionReader.next()).isNull();
         }
