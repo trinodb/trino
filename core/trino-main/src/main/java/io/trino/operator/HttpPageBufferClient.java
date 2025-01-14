@@ -51,6 +51,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -552,7 +553,9 @@ public final class HttpPageBufferClient
             public void onFailure(Throwable t)
             {
                 assertNotHoldsLock(HttpPageBufferClient.this);
-
+                if (t instanceof CancellationException) {
+                    return;
+                }
                 log.error("Request to delete %s failed %s", location, t);
                 if (!(t instanceof TrinoException) && backoff.failure()) {
                     String message = format("Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",
