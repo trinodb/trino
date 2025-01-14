@@ -16,7 +16,9 @@ package io.trino.hive.formats.ion;
 import com.amazon.ion.IonException;
 import com.amazon.ion.IonReader;
 import com.amazon.ion.IonType;
+import com.amazon.ion.IonWriter;
 import com.amazon.ion.Timestamp;
+import com.amazon.ion.system.IonTextWriterBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
@@ -53,6 +55,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.spi.type.Varchars;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -127,8 +130,8 @@ public class IonDecoderFactory
             case BooleanType t -> wrapDecoder(boolDecoder, t, IonType.BOOL);
             case DateType t -> wrapDecoder(dateDecoder, t, IonType.TIMESTAMP);
             case TimestampType t -> wrapDecoder(timestampDecoder(t), t, IonType.TIMESTAMP);
-            case VarcharType t -> wrapDecoder(varcharDecoder(t), t, IonType.STRING, IonType.SYMBOL);
-            case CharType t -> wrapDecoder(charDecoder(t), t, IonType.STRING, IonType.SYMBOL);
+            case VarcharType t -> wrapDecoder(varcharDecoder(t), t, IonType.values());
+            case CharType t -> wrapDecoder(charDecoder(t), t, IonType.values());
             case VarbinaryType t -> wrapDecoder(binaryDecoder, t, IonType.BLOB, IonType.CLOB);
             case RowType t -> wrapDecoder(RowDecoder.forFields(t.getFields()), t, IonType.STRUCT);
             case ArrayType t -> wrapDecoder(new ArrayDecoder(decoderForType(t.getElementType())), t, IonType.LIST, IonType.SEXP);
@@ -148,7 +151,7 @@ public class IonDecoderFactory
      */
     private static BlockDecoder wrapDecoder(BlockDecoder decoder, Type trinoType, IonType... allowedTypes)
     {
-        Set<IonType> allowedWithNull = new HashSet<>(Arrays.asList(allowedTypes));
+        final Set<IonType> allowedWithNull = new HashSet<>(Arrays.asList(allowedTypes));
         allowedWithNull.add(IonType.NULL);
 
         return (reader, builder) -> {
@@ -360,16 +363,52 @@ public class IonDecoderFactory
         };
     }
 
+    private static String getCoercedValue(IonReader ionReader)
+    {
+        IonTextWriterBuilder textWriterBuilder = IonTextWriterBuilder.standard();
+        StringBuilder stringBuilder = new StringBuilder();
+        IonWriter writer = textWriterBuilder.build(stringBuilder);
+        try {
+            writer.writeValue(ionReader);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return stringBuilder.toString();
+    }
+
     private static BlockDecoder varcharDecoder(VarcharType type)
     {
-        return (ionReader, blockBuilder) ->
-                type.writeSlice(blockBuilder, Varchars.truncateToLength(Slices.utf8Slice(ionReader.stringValue()), type));
+        return (ionReader, blockBuilder) -> {
+            IonType valueType = ionReader.getType();
+            String value;
+
+            if (valueType == IonType.SYMBOL || valueType == IonType.STRING) {
+                value = ionReader.stringValue();
+            }
+            else {
+                // For any types other than IonType.SYMBOL and IonType.STRING, performs text coercion
+                value = getCoercedValue(ionReader);
+            }
+            type.writeSlice(blockBuilder, Varchars.truncateToLength(Slices.utf8Slice(value), type));
+        };
     }
 
     private static BlockDecoder charDecoder(CharType type)
     {
-        return (ionReader, blockBuilder) ->
-                type.writeSlice(blockBuilder, Chars.truncateToLengthAndTrimSpaces(Slices.utf8Slice(ionReader.stringValue()), type));
+        return (ionReader, blockBuilder) -> {
+            IonType valueType = ionReader.getType();
+            String value;
+
+            if (valueType == IonType.SYMBOL || valueType == IonType.STRING) {
+                value = ionReader.stringValue();
+            }
+            else {
+                // For any types other than IonType.SYMBOL and IonType.STRING, performs text coercion
+                value = getCoercedValue(ionReader);
+            }
+            type.writeSlice(blockBuilder, Chars.truncateToLengthAndTrimSpaces(Slices.utf8Slice(value), type));
+        };
     }
 
     private static final BlockDecoder byteDecoder = (ionReader, blockBuilder) ->
