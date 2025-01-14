@@ -100,6 +100,7 @@ public final class TestMetadataManager
                 languageFunctionManager = new LanguageFunctionManager(new SqlParser(), typeManager, _ -> ImmutableSet.of(), blockEncodingSerde, engineManager);
             }
 
+            ScalarFunctionRegistry scalarFunctionRegistry = new ScalarFunctionRegistry(_ -> new CatalogScalarFunctions(ImmutableList.of()));
             TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(_ -> new CatalogTableFunctions(ImmutableList.of()));
 
             return new MetadataManager(
@@ -108,6 +109,7 @@ public final class TestMetadataManager
                     transactionManager,
                     globalFunctionCatalog,
                     languageFunctionManager,
+                    scalarFunctionRegistry,
                     tableFunctionRegistry,
                     typeManager,
                     new NotImplementedQueryManager());

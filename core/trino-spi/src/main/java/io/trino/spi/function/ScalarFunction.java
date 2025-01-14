@@ -27,6 +27,8 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Target({METHOD, TYPE})
 public @interface ScalarFunction
 {
+    String schema() default "";
+
     String value() default "";
 
     String[] alias() default {};

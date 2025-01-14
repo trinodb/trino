@@ -51,7 +51,7 @@ public class ParametricScalar
             ParametricImplementationsGroup<ParametricScalarImplementation> implementations,
             boolean deprecated)
     {
-        super(createFunctionMetadata(signature, details, deprecated, implementations.getFunctionNullability()));
+        super(details.getSchemaName(), createFunctionMetadata(signature, details, deprecated, implementations.getFunctionNullability()));
         this.implementations = requireNonNull(implementations);
     }
 

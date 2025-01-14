@@ -19,8 +19,11 @@ import io.airlift.log.Logger;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.metadata.CatalogMetadata.SecurityManagement;
 import io.trino.metadata.CatalogProcedures;
+import io.trino.metadata.CatalogScalarFunctions;
 import io.trino.metadata.CatalogTableFunctions;
 import io.trino.metadata.CatalogTableProcedures;
+import io.trino.metadata.SqlScalarFunction;
+import io.trino.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
@@ -48,6 +51,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.split.RecordPageSourceProvider;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +62,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
 import static java.lang.String.format;
@@ -74,6 +79,7 @@ public class ConnectorServices
     private final CatalogProcedures procedures;
     private final CatalogTableProcedures tableProcedures;
     private final Optional<FunctionProvider> functionProvider;
+    private final CatalogScalarFunctions scalarFunctions;
     private final CatalogTableFunctions tableFunctions;
     private final Optional<ConnectorSplitManager> splitManager;
     private final Optional<ConnectorPageSourceProviderFactory> pageSourceProviderFactory;
@@ -111,6 +117,12 @@ public class ConnectorServices
         this.tableProcedures = new CatalogTableProcedures(tableProcedures);
 
         this.functionProvider = requireNonNull(connector.getFunctionProvider(), format("Connector '%s' returned a null function provider", catalogHandle));
+        Collection<SqlScalarFunction> scalarFunctions = requireNonNull(connector.getFunctions(), format("Connector '%s' returned a null functions", catalogHandle)).stream()
+                .map(ScalarFromAnnotationsParser::parseFunctionDefinitions)
+                .flatMap(Collection::stream)
+                .peek(function -> checkArgument(function.getSchemaName().isPresent(), "Catalog function must have a schema name: %s", function))
+                .collect(toImmutableList());
+        this.scalarFunctions = new CatalogScalarFunctions(scalarFunctions);
 
         Set<ConnectorTableFunction> tableFunctions = connector.getTableFunctions();
         requireNonNull(tableFunctions, format("Connector '%s' returned a null table functions set", catalogHandle));
@@ -248,6 +260,11 @@ public class ConnectorServices
     {
         checkArgument(functionProvider.isPresent(), "Connector '%s' does not have functions", catalogHandle);
         return functionProvider.get();
+    }
+
+    public CatalogScalarFunctions getScalarFunctions()
+    {
+        return scalarFunctions;
     }
 
     public CatalogTableFunctions getTableFunctions()
