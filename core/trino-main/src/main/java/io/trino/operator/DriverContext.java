@@ -346,6 +346,7 @@ public class DriverContext
         Duration inputBlockedTime;
         DataSize outputDataSize;
         long outputPositions;
+        long updatedPositions;
         Duration outputBlockedTime;
         if (inputOperator != null) {
             physicalInputDataSize = inputOperator.getPhysicalInputDataSize();
@@ -363,6 +364,8 @@ public class DriverContext
             processedInputPositions = inputOperator.getInputPositions();
 
             inputBlockedTime = inputOperator.getBlockedWall();
+
+            updatedPositions = inputOperator.getUpdatedPositions();
 
             OperatorStats outputOperator = requireNonNull(getLast(operators, null));
             outputDataSize = outputOperator.getOutputDataSize();
@@ -389,6 +392,7 @@ public class DriverContext
 
             outputDataSize = DataSize.ofBytes(0);
             outputPositions = 0;
+            updatedPositions = 0;
 
             outputBlockedTime = new Duration(0, MILLISECONDS);
         }
@@ -428,6 +432,7 @@ public class DriverContext
                 inputBlockedTime,
                 outputDataSize.succinct(),
                 outputPositions,
+                updatedPositions,
                 outputBlockedTime,
                 succinctBytes(physicalWrittenDataSize),
                 operators);
