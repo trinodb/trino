@@ -18,7 +18,7 @@
         <dependency>
             <groupId>com.amazon.ion</groupId>
             <artifactId>ion-java</artifactId>
-            <version>1.11.9</version>
+            <version>${dep.ion.version}</version>
         </dependency>
 
         <dependency>
