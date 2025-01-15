@@ -15,7 +15,6 @@ package io.trino.filesystem;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
@@ -1153,7 +1152,7 @@ public abstract class AbstractTestTrinoFileSystem
             TrinoInputFile inputFile = getFileSystem().newInputFile(location);
             assertThat(inputFile.exists()).as("exists").isTrue();
             try (TrinoInputStream inputStream = inputFile.newStream()) {
-                byte[] bytes = ByteStreams.toByteArray(inputStream);
+                byte[] bytes = inputStream.readAllBytes();
                 assertThat(bytes).isEqualTo(("test blob content for " + location).getBytes(UTF_8));
             }
 
@@ -1165,7 +1164,7 @@ public abstract class AbstractTestTrinoFileSystem
             // This can break some file system read operations (e.g., TrinoInput.readTail for most filesystems, newStream for caching file systems).
             TrinoInputFile newInputFile = getFileSystem().newInputFile(location);
             try (TrinoInputStream inputStream = newInputFile.newStream()) {
-                byte[] bytes = ByteStreams.toByteArray(inputStream);
+                byte[] bytes = inputStream.readAllBytes();
                 assertThat(bytes).isEqualTo(newContents);
             }
 
@@ -1182,7 +1181,7 @@ public abstract class AbstractTestTrinoFileSystem
                 assertThat(getFileSystem().newInputFile(target).exists()).as("target exists after rename").isTrue();
 
                 try (TrinoInputStream inputStream = getFileSystem().newInputFile(target).newStream()) {
-                    byte[] bytes = ByteStreams.toByteArray(inputStream);
+                    byte[] bytes = inputStream.readAllBytes();
                     assertThat(bytes).isEqualTo(("test blob content for " + source).getBytes(UTF_8));
                 }
 

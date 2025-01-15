@@ -49,7 +49,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
@@ -226,7 +225,7 @@ public class WorkerResource
                 if (!APPLICATION_JSON.equals(response.getHeader(CONTENT_TYPE))) {
                     throw new RuntimeException("Response received was not of type " + APPLICATION_JSON);
                 }
-                return toByteArray(response.getInputStream());
+                return response.getInputStream().readAllBytes();
             }
             catch (IOException e) {
                 throw new RuntimeException("Unable to read response from worker", e);

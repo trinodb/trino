@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.io.ByteStreams;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.json.JsonCodec;
@@ -1406,7 +1405,7 @@ public class FileHiveMetastore
     {
         try {
             try (InputStream inputStream = fileSystem.newInputFile(file).newStream()) {
-                byte[] json = ByteStreams.toByteArray(inputStream);
+                byte[] json = inputStream.readAllBytes();
                 return Optional.of(codec.fromJson(json));
             }
         }

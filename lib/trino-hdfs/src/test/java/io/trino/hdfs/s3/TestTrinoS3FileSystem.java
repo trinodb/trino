@@ -74,7 +74,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.NO_SUCH_BUCKET_ERROR_CODE;
@@ -894,7 +893,7 @@ public class TestTrinoS3FileSystem
             InputStream concatInputStream = parts.stream()
                     .map(UploadPartRequest::getInputStream)
                     .reduce(new ByteArrayInputStream(new byte[0]), SequenceInputStream::new);
-            String data = new String(toByteArray(concatInputStream), US_ASCII);
+            String data = new String(concatInputStream.readAllBytes(), US_ASCII);
             assertThat(data).isEqualTo("a" + "foo".repeat(21) + "bar".repeat(44) + "orange".repeat(22));
         }
     }
