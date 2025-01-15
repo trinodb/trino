@@ -23,6 +23,7 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.metastore.StorageFormat;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -42,7 +43,6 @@ import static io.trino.hive.formats.HiveClassNames.ION_OUTPUT_FORMAT;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
-import static io.trino.plugin.hive.ion.IonWriterOptions.getIonEncoding;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
@@ -52,14 +52,17 @@ public class IonFileWriterFactory
 {
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
+    private final boolean nativeTrinoEnabled;
 
     @Inject
     public IonFileWriterFactory(
             TrinoFileSystemFactory fileSystemFactory,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            HiveConfig hiveConfig)
     {
         this.fileSystemFactory = fileSystemFactory;
         this.typeManager = typeManager;
+        this.nativeTrinoEnabled = hiveConfig.getIonNativeTrinoEnabled();
     }
 
     @Override
@@ -75,9 +78,12 @@ public class IonFileWriterFactory
             boolean useAcidSchema,
             WriterKind writerKind)
     {
-        if (!ION_OUTPUT_FORMAT.equals(storageFormat.getOutputFormat())) {
+        if (!nativeTrinoEnabled
+                || !ION_OUTPUT_FORMAT.equals(storageFormat.getOutputFormat())
+                || IonSerDeProperties.hasUnsupportedProperty(schema)) {
             return Optional.empty();
         }
+
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             TrinoOutputFile outputFile = fileSystem.newOutputFile(location);
@@ -100,7 +106,7 @@ public class IonFileWriterFactory
                     rollbackAction,
                     typeManager,
                     compressionCodec.getHiveCompressionKind(),
-                    getIonEncoding(schema),
+                    IonSerDeProperties.getIonEncoding(schema),
                     columns));
         }
         catch (Exception e) {

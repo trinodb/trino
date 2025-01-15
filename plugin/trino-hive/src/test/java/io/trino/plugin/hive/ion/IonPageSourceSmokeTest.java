@@ -63,17 +63,18 @@ import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.projectedColumn;
 import static io.trino.plugin.hive.HiveTestUtils.toHiveBaseColumnHandle;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
-import static io.trino.plugin.hive.ion.IonReaderOptions.FAIL_ON_OVERFLOW_PROPERTY;
-import static io.trino.plugin.hive.ion.IonReaderOptions.FAIL_ON_OVERFLOW_PROPERTY_DEFAULT;
-import static io.trino.plugin.hive.ion.IonReaderOptions.IGNORE_MALFORMED;
-import static io.trino.plugin.hive.ion.IonReaderOptions.IGNORE_MALFORMED_DEFAULT;
-import static io.trino.plugin.hive.ion.IonWriterOptions.BINARY_ENCODING;
-import static io.trino.plugin.hive.ion.IonWriterOptions.ION_ENCODING_PROPERTY;
-import static io.trino.plugin.hive.ion.IonWriterOptions.ION_SERIALIZATION_AS_NULL_DEFAULT;
-import static io.trino.plugin.hive.ion.IonWriterOptions.ION_SERIALIZATION_AS_NULL_PROPERTY;
-import static io.trino.plugin.hive.ion.IonWriterOptions.ION_TIMESTAMP_OFFSET_DEFAULT;
-import static io.trino.plugin.hive.ion.IonWriterOptions.ION_TIMESTAMP_OFFSET_PROPERTY;
-import static io.trino.plugin.hive.ion.IonWriterOptions.TEXT_ENCODING;
+import static io.trino.plugin.hive.ion.IonSerDeProperties.BINARY_ENCODING;
+import static io.trino.plugin.hive.ion.IonSerDeProperties.FAIL_ON_OVERFLOW_PROPERTY;
+import static io.trino.plugin.hive.ion.IonSerDeProperties.FAIL_ON_OVERFLOW_PROPERTY_DEFAULT;
+import static io.trino.plugin.hive.ion.IonSerDeProperties.IGNORE_MALFORMED;
+import static io.trino.plugin.hive.ion.IonSerDeProperties.IGNORE_MALFORMED_DEFAULT;
+import static io.trino.plugin.hive.ion.IonSerDeProperties.ION_ENCODING_PROPERTY;
+import static io.trino.plugin.hive.ion.IonSerDeProperties.ION_SERIALIZE_NULL_AS_DEFAULT;
+import static io.trino.plugin.hive.ion.IonSerDeProperties.ION_SERIALIZE_NULL_AS_PROPERTY;
+import static io.trino.plugin.hive.ion.IonSerDeProperties.ION_TIMESTAMP_OFFSET_DEFAULT;
+import static io.trino.plugin.hive.ion.IonSerDeProperties.ION_TIMESTAMP_OFFSET_PROPERTY;
+import static io.trino.plugin.hive.ion.IonSerDeProperties.STRICT_PATH_TYPING_PROPERTY;
+import static io.trino.plugin.hive.ion.IonSerDeProperties.TEXT_ENCODING;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -131,11 +132,11 @@ public class IonPageSourceSmokeTest
         defaultFixture.assertRowCount("37 null.timestamp []", 3);
 
         TestFixture laxFixture = new TestFixture(FOO_BAR_COLUMNS);
-        laxFixture.withStrictPathTyping("false");
+        laxFixture.withSerdeProperty(STRICT_PATH_TYPING_PROPERTY, "false");
         laxFixture.assertRowCount("37 null.timestamp []", 3);
 
         TestFixture strictFixture = new TestFixture(FOO_BAR_COLUMNS);
-        strictFixture.withStrictPathTyping("true");
+        strictFixture.withSerdeProperty(STRICT_PATH_TYPING_PROPERTY, "true");
 
         Assertions.assertThrows(TrinoException.class, () ->
                 strictFixture.assertRowCount("37 null.timestamp []", 3));
@@ -185,15 +186,20 @@ public class IonPageSourceSmokeTest
     }
 
     @Test
-    public void testPageSourceWithNativeTrinoDisabled()
+    public void testNativeTrinoDisabled()
             throws IOException
     {
         TestFixture fixture = new TestFixture(FOO_BAR_COLUMNS)
                 .withNativeIonDisabled();
-        fixture.writeIonTextFile("{ foo: 31, bar: baz } { foo: 31, bar: \"baz\" }");
 
-        Optional<ConnectorPageSource> connectorPageSource = fixture.getOptionalPageSource();
-        Assertions.assertTrue(connectorPageSource.isEmpty(), "Expected empty page source when native Trino is disabled");
+        Assertions.assertTrue(
+                fixture.getOptionalFileWriter().isEmpty(),
+                "Expected empty file writer when native trino is disabled");
+
+        fixture.writeIonTextFile("");
+        Assertions.assertTrue(
+                fixture.getOptionalPageSource().isEmpty(),
+                "Expected empty page source when native trino is disabled");
     }
 
     private static Stream<Map.Entry<String, String>> propertiesWithDefaults()
@@ -202,7 +208,7 @@ public class IonPageSourceSmokeTest
                 entry(FAIL_ON_OVERFLOW_PROPERTY, FAIL_ON_OVERFLOW_PROPERTY_DEFAULT),
                 entry(IGNORE_MALFORMED, IGNORE_MALFORMED_DEFAULT),
                 entry(ION_TIMESTAMP_OFFSET_PROPERTY, ION_TIMESTAMP_OFFSET_DEFAULT),
-                entry(ION_SERIALIZATION_AS_NULL_PROPERTY, ION_SERIALIZATION_AS_NULL_DEFAULT));
+                entry(ION_SERIALIZE_NULL_AS_PROPERTY, ION_SERIALIZE_NULL_AS_DEFAULT));
     }
 
     private static Stream<Map.Entry<String, String>> propertiesWithValues()
@@ -211,13 +217,12 @@ public class IonPageSourceSmokeTest
                 entry(FAIL_ON_OVERFLOW_PROPERTY, "false"),
                 entry(IGNORE_MALFORMED, "true"),
                 entry(ION_TIMESTAMP_OFFSET_PROPERTY, "01:00"),
-                entry(ION_SERIALIZATION_AS_NULL_PROPERTY, "TYPED"),
+                entry(ION_SERIALIZE_NULL_AS_PROPERTY, "TYPED"),
                 // These entries represent column-specific properties that are not supported.
                 // Any presence of these properties in the schema will result in an empty PageSource,
                 // regardless of their assigned values.
                 entry("ion.foo.fail_on_overflow", "property_value"),
                 entry("ion.foo.serialize_as", "property_value"));
-                //entry("ion.foo.path_extractor", "property_value"));
     }
 
     private static Map.Entry<String, String> entry(String key, String value)
@@ -232,10 +237,15 @@ public class IonPageSourceSmokeTest
     {
         TestFixture fixture = new TestFixture(FOO_BAR_COLUMNS)
                 .withSerdeProperty(property.getKey(), property.getValue());
-        fixture.writeIonTextFile("{ foo: 31, bar: baz } { foo: 31, bar: \"baz\" }");
 
-        Optional<ConnectorPageSource> connectorPageSource = fixture.getOptionalPageSource();
-        Assertions.assertTrue(connectorPageSource.isEmpty(), "Expected empty page source when there are unsupported Serde properties");
+        Assertions.assertTrue(
+                fixture.getOptionalFileWriter().isEmpty(),
+                "Expected empty file writer when there are unsupported Serde properties");
+
+        fixture.writeIonTextFile("{ }");
+        Assertions.assertTrue(
+                fixture.getOptionalPageSource().isEmpty(),
+                "Expected empty page source when there are unsupported Serde properties");
     }
 
     @ParameterizedTest
@@ -245,7 +255,15 @@ public class IonPageSourceSmokeTest
     {
         TestFixture fixture = new TestFixture(FOO_BAR_COLUMNS)
                 .withSerdeProperty(property.getKey(), property.getValue());
-        fixture.assertRowCount("{ foo: 31, bar: baz } { foo: 31, bar: \"baz\" }", 2);
+
+        Assertions.assertTrue(
+                fixture.getOptionalFileWriter().isPresent(),
+                "Expected present file writer when there are unsupported Serde properties");
+
+        fixture.writeIonTextFile("");
+        Assertions.assertTrue(
+                fixture.getOptionalPageSource().isPresent(),
+                "Expected present page source when there are unsupported Serde properties");
     }
 
     @Test
@@ -275,7 +293,7 @@ public class IonPageSourceSmokeTest
             throws IOException
     {
         TestFixture fixture = new TestFixture(FOO_BAR_COLUMNS)
-                .withEncoding("unknown_encoding_name");
+                .withSerdeProperty(ION_ENCODING_PROPERTY, "unknown_encoding_name");
 
         Assertions.assertThrows(TrinoException.class, fixture::getFileWriter);
     }
@@ -285,7 +303,7 @@ public class IonPageSourceSmokeTest
             throws IOException
     {
         TestFixture fixture = new TestFixture(tableColumns)
-                .withEncoding(encoding);
+                .withSerdeProperty(ION_ENCODING_PROPERTY, encoding);
 
         writeTestData(fixture.getFileWriter());
         byte[] inputStreamBytes = fixture.getTrinoInputFile()
@@ -346,21 +364,9 @@ public class IonPageSourceSmokeTest
             hiveConfig.setIonNativeTrinoEnabled(true);
         }
 
-        TestFixture withEncoding(String encoding)
-        {
-            tableProperties.put(ION_ENCODING_PROPERTY, encoding);
-            return this;
-        }
-
         TestFixture withNativeIonDisabled()
         {
             hiveConfig.setIonNativeTrinoEnabled(false);
-            return this;
-        }
-
-        TestFixture withStrictPathTyping(String strict)
-        {
-            tableProperties.put(IonReaderOptions.STRICT_PATH_TYPING_PROPERTY, strict);
             return this;
         }
 
@@ -433,9 +439,9 @@ public class IonPageSourceSmokeTest
             return bytes.length;
         }
 
-        FileWriter getFileWriter()
+        Optional<FileWriter> getOptionalFileWriter()
         {
-            return new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER)
+            return new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, hiveConfig)
                     .createFileWriter(
                             fileLocation,
                             columns.stream().map(HiveColumnHandle::getName).collect(toList()),
@@ -446,8 +452,12 @@ public class IonPageSourceSmokeTest
                             OptionalInt.empty(),
                             NO_ACID_TRANSACTION,
                             false,
-                            WriterKind.INSERT)
-                    .orElseThrow();
+                            WriterKind.INSERT);
+        }
+
+        FileWriter getFileWriter()
+        {
+            return getOptionalFileWriter().orElseThrow();
         }
 
         TrinoInputFile getTrinoInputFile()

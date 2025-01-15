@@ -51,7 +51,7 @@ public class IonFileWriter
             Closeable rollbackAction,
             TypeManager typeManager,
             Optional<CompressionKind> compressionKind,
-            IonWriterOptions.IonEncoding ionEncoding,
+            IonSerDeProperties.IonEncoding ionEncoding,
             List<Column> columns)
             throws IOException
     {
