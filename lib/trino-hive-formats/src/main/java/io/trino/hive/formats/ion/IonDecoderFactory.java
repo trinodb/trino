@@ -70,6 +70,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.IntFunction;
 
@@ -166,7 +167,7 @@ public class IonDecoderFactory
             case VarbinaryType t -> wrapDecoder(binaryDecoder, t, IonType.BLOB, IonType.CLOB);
             case RowType t -> wrapDecoder(RowDecoder.forFields(t.getFields()), t, IonType.STRUCT);
             case ArrayType t -> wrapDecoder(new ArrayDecoder(decoderForType(t.getElementType())), t, IonType.LIST, IonType.SEXP);
-            case MapType t -> wrapDecoder(new MapDecoder(t, decoderForType(t.getValueType())), t, IonType.STRUCT);
+            case MapType t -> wrapDecoder(new MapDecoder(t), t, IonType.STRUCT);
             default -> throw new IllegalArgumentException(String.format("Unsupported type: %s", type));
         };
     }
@@ -256,24 +257,32 @@ public class IonDecoderFactory
     private static class MapDecoder
             implements BlockDecoder
     {
+        private final BiConsumer<String, BlockBuilder> keyConsumer;
         private final BlockDecoder valueDecoder;
-        private final Type keyType;
-        private final Type valueType;
         private final DistinctMapKeys distinctMapKeys;
         private BlockBuilder keyBlockBuilder;
         private BlockBuilder valueBlockBuilder;
 
-        public MapDecoder(MapType mapType, BlockDecoder valueDecoder)
+        MapDecoder(MapType mapType)
         {
-            this.keyType = mapType.getKeyType();
-            if (!(keyType instanceof VarcharType _ || keyType instanceof CharType _)) {
-                throw new UnsupportedOperationException("Unsupported map key type: " + keyType);
-            }
-            this.valueType = mapType.getValueType();
-            this.valueDecoder = valueDecoder;
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
+            this.valueDecoder = decoderForType(valueType);
             this.distinctMapKeys = new DistinctMapKeys(mapType, true);
-            this.keyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, 128);
-            this.valueBlockBuilder = mapType.getValueType().createBlockBuilder(null, 128);
+            this.keyBlockBuilder = keyType.createBlockBuilder(null, 128);
+            this.valueBlockBuilder = valueType.createBlockBuilder(null, 128);
+
+            this.keyConsumer = switch (keyType) {
+                case VarcharType t -> {
+                    yield (String fieldName, BlockBuilder blockBuilder) ->
+                            t.writeSlice(blockBuilder, Varchars.truncateToLength(Slices.utf8Slice(fieldName), t));
+                }
+                case CharType t -> {
+                    yield (String fieldName, BlockBuilder blockBuilder) ->
+                            t.writeSlice(blockBuilder, Chars.truncateToLengthAndTrimSpaces(Slices.utf8Slice(fieldName), t));
+                }
+                default -> throw new UnsupportedOperationException("Unsupported map key type: " + keyType);
+            };
         }
 
         @Override
@@ -282,13 +291,13 @@ public class IonDecoderFactory
             ionReader.stepIn();
             // buffer the keys and values
             while (ionReader.next() != null) {
-                VarcharType.VARCHAR.writeSlice(keyBlockBuilder, Slices.utf8Slice(ionReader.getFieldName()));
+                keyConsumer.accept(ionReader.getFieldName(), keyBlockBuilder);
                 valueDecoder.decode(ionReader, valueBlockBuilder);
             }
             ValueBlock keys = keyBlockBuilder.buildValueBlock();
             ValueBlock values = valueBlockBuilder.buildValueBlock();
-            keyBlockBuilder = keyType.createBlockBuilder(null, keys.getPositionCount());
-            valueBlockBuilder = valueType.createBlockBuilder(null, values.getPositionCount());
+            keyBlockBuilder = keyBlockBuilder.newBlockBuilderLike(null);
+            valueBlockBuilder = valueBlockBuilder.newBlockBuilderLike(null);
 
             // copy the distinct key entries to the output
             boolean[] distinctKeys = distinctMapKeys.selectDistinctKeys(keys);
