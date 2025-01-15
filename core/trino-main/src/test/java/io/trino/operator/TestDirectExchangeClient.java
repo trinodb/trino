@@ -71,7 +71,6 @@ import static com.google.common.collect.ImmutableListMultimap.toImmutableListMul
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
@@ -887,7 +886,7 @@ public class TestDirectExchangeClient
                     checkState(response.getStatusCode() == HttpStatus.OK.code(), "Unexpected status code: %s", response.getStatusCode());
                     ListMultimap<String, String> headers = response.getHeaders().entries().stream()
                             .collect(toImmutableListMultimap(entry -> entry.getKey().toString(), Map.Entry::getValue));
-                    byte[] bytes = toByteArray(response.getInputStream());
+                    byte[] bytes = response.getInputStream().readAllBytes();
                     checkState(bytes.length > 42, "too short");
                     savedResponse = new TestingResponse(HttpStatus.OK, headers, bytes.clone());
                     // corrupt
