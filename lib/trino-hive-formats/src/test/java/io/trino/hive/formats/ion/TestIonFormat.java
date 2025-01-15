@@ -27,11 +27,9 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
@@ -61,12 +59,16 @@ import static io.trino.hive.formats.FormatTestUtils.toPage;
 import static io.trino.hive.formats.FormatTestUtils.toSqlTimestamp;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIonFormat
@@ -82,7 +84,14 @@ public class TestIonFormat
             new Column("struction", RowType.rowType(
                     field("foo", INTEGER),
                     field("bar", VARCHAR)), 5),
-            new Column("map", new MapType(VARCHAR, INTEGER, TYPE_OPERATORS), 6));
+            new Column("map", new MapType(VARCHAR, INTEGER, TYPE_OPERATORS), 6),
+            new Column("double_value", DOUBLE, 7),
+            new Column("decimal_value", DecimalType.createDecimalType(10, 2), 8),
+            new Column("tiny_int", TINYINT, 9),
+            new Column("small_int", SMALLINT, 10),
+            new Column("big_int", BIGINT, 11),
+            new Column("real_num", REAL, 12),
+            new Column("date", DATE, 13));
 
     @Test
     public void testSuperBasicStruct()
@@ -410,7 +419,7 @@ public class TestIonFormat
     public void testDoubleAsFloat()
             throws IOException
     {
-        RowType rowType = RowType.rowType(field("my_float", RealType.REAL));
+        RowType rowType = RowType.rowType(field("my_float", REAL));
         assertValues(
                 rowType,
                 "{ my_float: 625e-3 }",
@@ -428,7 +437,7 @@ public class TestIonFormat
     public void testDateDecoding()
             throws IOException
     {
-        RowType rowType = RowType.rowType(field("my_date", DateType.DATE));
+        RowType rowType = RowType.rowType(field("my_date", DATE));
         SqlDate expected = new SqlDate((int) LocalDate.of(2022, 2, 22).toEpochDay());
 
         List<String> ions = List.of(
@@ -592,15 +601,17 @@ public class TestIonFormat
                 3), List.of(51, "baz"), ImmutableMap.builder()
                 .put("a", 2)
                 .put("b", 5)
-                .buildOrThrow());
+                .buildOrThrow(), 5e0, new SqlDecimal(BigInteger.valueOf(123400), 10, 2), (byte) -1, (short) 32767,
+                15L, 12.0f, new SqlDate(toIntExact(LocalDate.of(2025, 1, 1).toEpochDay())));
         List<Object> row2 = List.of(31, "somebody", false, new SqlVarbinary(new byte[] {(byte) 0x01, (byte) 0xaa}),
                 List.of(7, 8, 9), List.of(67, "qux"), ImmutableMap.builder()
                         .put("foo", 12)
                         .put("bar", 50)
-                        .buildOrThrow());
+                        .buildOrThrow(), 5e0, new SqlDecimal(BigInteger.valueOf(123400), 10, 2), (byte) 0, (short) -1
+                , 0L, 0.0f, new SqlDate(toIntExact(LocalDate.of(2025, 1, 1).toEpochDay())));
         String ionText = """
-                { magic_num:17, some_text:"something", is_summer:true, byte_clob:{{/w==}}, sequencer:[1,2,3], struction:{ foo:51, bar:"baz"}, map: {a: 2, b: 5}}
-                { magic_num:31, some_text:"somebody", is_summer:false, byte_clob:{{Aao=}}, sequencer:[7,8,9], struction:{ foo:67, bar:"qux"}, map: {foo: 12, bar: 50}}
+                { magic_num:17, some_text:"something", is_summer:true, byte_clob:{{/w==}}, sequencer:[1,2,3], struction:{ foo:51, bar:"baz"}, map: {a: 2, b: 5}, double_value: 5e0, decimal_value: 1234.00, tiny_int: -1, small_int: 32767, big_int: 15, real_num: 12e0, date: 2025-01-01T00:00:00.000Z }
+                { magic_num:31, some_text:"somebody", is_summer:false, byte_clob:{{Aao=}}, sequencer:[7,8,9], struction:{ foo:67, bar:"qux"}, map: {foo: 12, bar: 50}, double_value: 5e0, decimal_value: 1234.00, tiny_int: 0, small_int: -1, big_int: 0, real_num: 0e0, date: 2025-01-01T00:00:00.000Z }
                 """;
 
         Page page = toPage(TEST_COLUMNS, row1, row2);
@@ -632,7 +643,8 @@ public class TestIonFormat
     public void testEncodeWithNullField()
             throws IOException
     {
-        List<Object> row1 = Arrays.asList(null, null, null, null, null, null, null);
+        List<Object> row1 = Arrays.asList(null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null);
         String ionText = """
                 {}
                 """;
@@ -649,15 +661,17 @@ public class TestIonFormat
                 List.of(1, 2, 3), Arrays.asList(null, "baz"), ImmutableMap.builder()
                         .put("a", 2)
                         .put("b", 5)
-                        .buildOrThrow());
+                        .buildOrThrow(), 5e0, new SqlDecimal(BigInteger.valueOf(123400), 10, 2), (byte) -1,
+                (short) 32767, 15L, 12.0f, new SqlDate(toIntExact(LocalDate.of(2025, 1, 1).toEpochDay())));
         List<Object> row2 = Arrays.asList(31, "somebody", null, new SqlVarbinary(new byte[] {(byte) 0x01,
                 (byte) 0xaa}), List.of(7, 8, 9), Arrays.asList(null, "qux"), ImmutableMap.builder()
                 .put("foo", 12)
                 .put("bar", 50)
-                .buildOrThrow());
+                .buildOrThrow(), 5e0, new SqlDecimal(BigInteger.valueOf(123400), 10, 2), (byte) 0, (short) -1, 0L,
+                0.0f, new SqlDate(toIntExact(LocalDate.of(2025, 1, 1).toEpochDay())));
         String ionText = """
-                { magic_num:17, some_text:"something", is_summer:true, byte_clob:{{/w==}}, sequencer:[1,2,3], struction:{bar:"baz"},  map: {a: 2, b: 5}}
-                { magic_num:31, some_text:"somebody", byte_clob:{{Aao=}}, sequencer:[7,8,9], struction:{bar:"qux"}, map: {foo: 12, bar: 50}}
+                { magic_num:17, some_text:"something", is_summer:true, byte_clob:{{/w==}}, sequencer:[1,2,3], struction:{bar:"baz"},  map: {a: 2, b: 5}, double_value: 5e0, decimal_value: 1234.00, tiny_int: -1, small_int: 32767, big_int: 15, real_num: 12e0, date: 2025-01-01T00:00:00.000Z }
+                { magic_num:31, some_text:"somebody", byte_clob:{{Aao=}}, sequencer:[7,8,9], struction:{bar:"qux"}, map: {foo: 12, bar: 50}, double_value: 5e0, decimal_value: 1234.00, tiny_int: 0, small_int: -1, big_int: 0, real_num: 0e0, date: 2025-01-01T00:00:00.000Z }
                 """;
 
         Page page = toPage(TEST_COLUMNS, row1, row2);
