@@ -16,6 +16,7 @@ package io.trino.plugin.hive.ion;
 import com.amazon.ion.IonBufferConfiguration;
 import com.amazon.ion.IonReader;
 import com.amazon.ion.IonType;
+import io.trino.hive.formats.TrinoDataInputStream;
 import io.trino.hive.formats.ion.IonDecoder;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -23,7 +24,6 @@ import io.trino.spi.connector.ConnectorPageSource;
 
 import java.io.IOException;
 import java.util.OptionalLong;
-import java.util.function.LongSupplier;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 
@@ -32,26 +32,26 @@ public class IonPageSource
 {
     private static final int INSTANCE_SIZE = instanceSize(IonPageSource.class);
 
+    private final TrinoDataInputStream inputStream;
     private final IonReader ionReader;
     private final PageBuilder pageBuilder;
     private final IonDecoder decoder;
-    private final LongSupplier counter;
     private int completedPositions;
     private boolean finished;
 
-    public IonPageSource(IonReader ionReader, LongSupplier counter, IonDecoder decoder, PageBuilder pageBuilder)
+    public IonPageSource(IonReader ionReader, TrinoDataInputStream inputStream, IonDecoder decoder, PageBuilder pageBuilder)
     {
         this.ionReader = ionReader;
+        this.inputStream = inputStream;
         this.decoder = decoder;
         this.pageBuilder = pageBuilder;
-        this.counter = counter;
         this.completedPositions = 0;
     }
 
     @Override
     public long getCompletedBytes()
     {
-        return counter.getAsLong();
+        return inputStream.getReadBytes();
     }
 
     @Override
@@ -63,7 +63,7 @@ public class IonPageSource
     @Override
     public long getReadTimeNanos()
     {
-        return 0;
+        return inputStream.getReadTimeNanos();
     }
 
     @Override

@@ -95,7 +95,7 @@ public class IonFileWriter
             catch (Exception _) {
                 // ignore
             }
-            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Ion file", e);
         }
         return rollbackAction;
     }
@@ -107,7 +107,7 @@ public class IonFileWriter
             writer.close();
         }
         catch (IOException e) {
-            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Ion file", e);
         }
     }
 
