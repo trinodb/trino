@@ -17,12 +17,12 @@ import com.amazon.ion.IonReader;
 import com.amazon.ion.system.IonReaderBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.CountingInputStream;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.hive.formats.TrinoDataInputStream;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.ion.IonDecoder;
@@ -150,13 +150,14 @@ public class IonPageSourceFactory
         try {
             Optional<Codec> codec = CompressionKind.forFile(inputFile.location().fileName())
                     .map(CompressionKind::createCodec);
-            CountingInputStream countingInputStream = new CountingInputStream(inputFile.newStream());
+
+            TrinoDataInputStream trinoInputStream = new TrinoDataInputStream(inputFile.newStream());
             InputStream inputStream;
             if (codec.isPresent()) {
-                inputStream = codec.get().createStreamDecompressor(countingInputStream);
+                inputStream = codec.get().createStreamDecompressor(inputFile.newStream());
             }
             else {
-                inputStream = countingInputStream;
+                inputStream = inputFile.newStream();
             }
 
             IonReader ionReader = IonReaderBuilder
@@ -171,7 +172,7 @@ public class IonPageSourceFactory
 
             IonDecoderConfig decoderConfig = IonReaderOptions.decoderConfigFor(schema.serdeProperties());
             IonDecoder decoder = IonDecoderFactory.buildDecoder(decoderColumns, decoderConfig, pageBuilder);
-            IonPageSource pageSource = new IonPageSource(ionReader, countingInputStream::getCount, decoder, pageBuilder);
+            IonPageSource pageSource = new IonPageSource(ionReader, trinoInputStream, decoder, pageBuilder);
 
             return Optional.of(new ReaderPageSource(pageSource, readerProjections));
         }
