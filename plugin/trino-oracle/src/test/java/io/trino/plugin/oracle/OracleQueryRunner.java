@@ -16,7 +16,9 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -37,6 +39,15 @@ import static java.util.Objects.requireNonNull;
 
 public final class OracleQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        // Disable chatty Oracle JDBC logging
+        logging.setLevel("oracle.jdbc", Level.ERROR);
+        logging.setLevel("oracle.jdbc.level", Level.ERROR);
+        logging.setLevel("oracle.jdbc.driver", Level.ERROR);
+        logging.setLevel("oracle.jdbc.driver.level", Level.ERROR);
+    }
+
     private OracleQueryRunner() {}
 
     public static Builder builder(TestingOracleServer server)
