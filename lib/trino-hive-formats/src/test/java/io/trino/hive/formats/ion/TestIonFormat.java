@@ -29,6 +29,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
@@ -37,6 +38,7 @@ import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Assertions;
@@ -44,6 +46,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -60,6 +63,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -95,14 +100,27 @@ public class TestIonFormat
     public void testMap()
             throws IOException
     {
-        MapType mapType = new MapType(VARCHAR, INTEGER, TYPE_OPERATORS);
+        MapType mapType = new MapType(VarcharType.createVarcharType(3), INTEGER, TYPE_OPERATORS);
         assertValues(
                 RowType.rowType(field("foo", mapType)),
-                "{ foo: { a: 1, a: 2, b: 5 } }",
-                List.of(ImmutableMap.builder()
-                        .put("a", 2)
-                        .put("b", 5)
-                        .buildOrThrow()));
+                "{ foo: { bar: 1, bar: 2, baz: 5, quxx: 8 } } { foo: { bar: 17, baz: 31, qux: 53 } }",
+                List.of(Map.of("bar", 2, "baz", 5, "qux", 8)),
+                List.of(Map.of("bar", 17, "baz", 31, "qux", 53)));
+
+        mapType = new MapType(CharType.createCharType(3), INTEGER, TYPE_OPERATORS);
+        assertValues(
+                RowType.rowType(field("foo", mapType)),
+                "{ foo: { bar: 1, bar: 2, baz: 5, quxx: 8 } }",
+                List.of(Map.of("bar", 2, "baz", 5, "qux", 8)));
+    }
+
+    @Test
+    public void testUnsupportedMapKeys()
+            throws IOException
+    {
+        MapType mapType = new MapType(INTEGER, INTEGER, TYPE_OPERATORS);
+        Assertions.assertThrows(UnsupportedOperationException.class, () ->
+                assertValues(RowType.rowType(field("bad_map", mapType)), "", List.of()));
     }
 
     @Test
@@ -257,16 +275,12 @@ public class TestIonFormat
     public void testStructWithNullAndMissingValues()
             throws IOException
     {
-        final List<Object> listWithNulls = new ArrayList<>();
-        listWithNulls.add(null);
-        listWithNulls.add(null);
-
         assertValues(
                 RowType.rowType(
                         field("foo", INTEGER),
                         field("bar", VARCHAR)),
                 "{ bar: null.symbol }",
-                listWithNulls);
+                Arrays.asList(null, null));
     }
 
     @Test
@@ -303,8 +317,25 @@ public class TestIonFormat
                         field("name", RowType.rowType(
                                 field("first", VARCHAR),
                                 field("last", VARCHAR)))),
-                "{ name: { first: Woody, last: Guthrie } }",
+                "{ name: { first: Woody, last: Guthrie, superfluous: ignored } }",
                 List.of(List.of("Woody", "Guthrie")));
+    }
+
+    @Test
+    public void testNestedStructWithDuplicateAndMissingKeys()
+            throws IOException
+    {
+        assertValues(
+                RowType.rowType(
+                        field("name", RowType.rowType(
+                                field("first", VARCHAR),
+                                field("last", VARCHAR)))),
+                """
+                        { name: { last: Godfrey, last: Guthrie } }
+                        { name: { first: Joan, last: Baez } }
+                        """,
+                List.of(Arrays.asList(null, "Guthrie")),
+                List.of(List.of("Joan", "Baez")));
     }
 
     @Test
@@ -324,14 +355,55 @@ public class TestIonFormat
     }
 
     @Test
-    public void testIonIntTooLargeForLong()
+    public void testIntsOfVariousSizes()
             throws IOException
     {
-        Assertions.assertThrows(TrinoException.class, () -> {
-            assertValues(RowType.rowType(field("my_bigint", BIGINT)),
-                    "{ my_bigint: 18446744073709551786 }",
-                    List.of());
-        });
+        List<String> ions = List.of(
+                "{ ion_int: 0x7f }", // < one byte
+                "{ ion_int: 0x7fff }", // < two bytes
+                "{ ion_int: 0x7fffffff }",  // < four bytes
+                "{ ion_int: 0x7fffffffffffffff }", // < eight bytes
+                "{ ion_int: 0x7fffffffffffffff1 }" // > eight bytes
+        );
+
+        List<Type> intTypes = List.of(TINYINT, SMALLINT, INTEGER, BIGINT);
+        List<Object> expected = List.of((byte) 0x7f, (short) 0x7fff, 0x7fffffff, 0x7fffffffffffffffL);
+        for (int i = 0; i < intTypes.size(); i++) {
+            RowType rowType = RowType.rowType(field("ion_int", intTypes.get(i)));
+            assertValues(
+                    rowType,
+                    ions.get(i),
+                    List.of(expected.get(i)));
+
+            int nextIon = i + 1;
+            Assertions.assertThrows(TrinoException.class, () -> {
+                assertValues(rowType,
+                        ions.get(nextIon),
+                        List.of());
+            });
+        }
+    }
+
+    @Test
+    public void testFloat()
+            throws IOException
+    {
+        RowType rowType = RowType.rowType(field("my_double", DoubleType.DOUBLE));
+        assertValues(
+                rowType,
+                "{ my_double: 4444e-4 }",
+                List.of(.4444));
+    }
+
+    @Test
+    public void testBytes()
+            throws IOException
+    {
+        RowType rowType = RowType.rowType(field("blobby", VARBINARY));
+        assertValues(
+                rowType,
+                "{ blobby: {{ YmxvYmJ5IG1jYmxvYmZhY2U= }} }",
+                List.of(new SqlVarbinary("blobby mcblobface".getBytes(StandardCharsets.UTF_8))));
     }
 
     @Test
