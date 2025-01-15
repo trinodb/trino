@@ -92,6 +92,11 @@ public final class TypeConverter
                 return VarcharType.createUnboundedVarcharType();
             case UUID:
                 return UuidType.UUID;
+            case VARIANT:
+                // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
+                break;
+            case UNKNOWN:
+                break;
             case LIST:
                 Types.ListType listType = (Types.ListType) type;
                 return new ArrayType(toTrinoType(listType.elementType(), typeManager));
