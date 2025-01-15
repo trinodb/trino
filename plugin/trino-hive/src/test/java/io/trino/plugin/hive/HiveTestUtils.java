@@ -202,7 +202,7 @@ public final class HiveTestUtils
                 .add(new RcFileFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion, hiveConfig))
                 .add(new OrcFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion, new FileFormatDataSourceStats(), new OrcWriterConfig()))
                 .add(new ParquetFileWriterFactory(fileSystemFactory, nodeVersion, TESTING_TYPE_MANAGER, hiveConfig, new FileFormatDataSourceStats()))
-                .add(new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
+                .add(new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, hiveConfig))
                 .build();
     }
 
