@@ -1,0 +1,2 @@
+iceberg:
+    default_schema_location: s3://test-bucket/default

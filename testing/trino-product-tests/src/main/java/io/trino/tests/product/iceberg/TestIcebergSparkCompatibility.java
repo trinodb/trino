@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import io.airlift.concurrent.MoreFutures;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.tempto.AfterMethodWithContext;
@@ -88,6 +89,9 @@ public class TestIcebergSparkCompatibility
         extends ProductTest
 {
     @Inject
+    @Named("iceberg.default_schema_location")
+    private String schemaLocation;
+    @Inject
     private HdfsClient hdfsClient;
     @Inject
     private TestHiveMetastoreClientFactory testHiveMetastoreClientFactory;
@@ -99,7 +103,7 @@ public class TestIcebergSparkCompatibility
     {
         metastoreClient = testHiveMetastoreClientFactory.createMetastoreClient();
         // Create 'default' schema if it doesn't exist because JDBC catalog doesn't have such schema
-        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS iceberg.default WITH (location = 'hdfs://hadoop-master:9000/user/hive/warehouse/default')");
+        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS iceberg.default WITH (location = '" + schemaLocation + "')");
     }
 
     @AfterMethodWithContext

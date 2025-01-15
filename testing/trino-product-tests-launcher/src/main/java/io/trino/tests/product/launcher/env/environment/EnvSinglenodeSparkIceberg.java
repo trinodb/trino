@@ -32,6 +32,7 @@ import java.io.File;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.EnvironmentDefaults.HADOOP_BASE_IMAGE;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static java.util.Objects.requireNonNull;
@@ -48,6 +49,7 @@ public class EnvSinglenodeSparkIceberg
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
     private final String hadoopImagesVersion;
+    private final DockerFiles.ResourceProvider configDir;
 
     @Inject
     public EnvSinglenodeSparkIceberg(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, EnvironmentConfig config, PortBinder portBinder)
@@ -56,6 +58,7 @@ public class EnvSinglenodeSparkIceberg
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.hadoopImagesVersion = config.getHadoopImagesVersion();
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-spark-iceberg");
     }
 
     @Override
@@ -76,6 +79,8 @@ public class EnvSinglenodeSparkIceberg
         builder.configureContainer(TESTS, dockerContainer -> dockerContainer
                 // Binding instead of copying for avoiding OutOfMemoryError https://github.com/testcontainers/testcontainers-java/issues/2863
                 .withFileSystemBind(HIVE_JDBC_PROVIDER.getParent(), "/docker/jdbc", BindMode.READ_ONLY));
+
+        configureTempto(builder, configDir);
     }
 
     @SuppressWarnings("resource")

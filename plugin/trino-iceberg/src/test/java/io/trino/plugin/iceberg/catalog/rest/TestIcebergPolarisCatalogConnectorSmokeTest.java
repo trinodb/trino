@@ -49,6 +49,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @Isolated // TODO remove
 @TestInstance(PER_CLASS)
+@Disabled("https://github.com/trinodb/trino/issues/24945 Reenable after Polaris supports Iceberg versions >= 1.8.0")
 final class TestIcebergPolarisCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
