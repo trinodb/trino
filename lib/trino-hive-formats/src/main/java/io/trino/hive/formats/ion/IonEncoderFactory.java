@@ -148,7 +148,9 @@ public class IonEncoderFactory
         {
             writer.stepIn(IonType.STRUCT);
             for (int i = 0; i < fieldEncoders.size(); i++) {
-                // Omit the filed when the field is null
+                // fields are omitted by default, as was true in the hive serde.
+                // there is an unimplemented hive legacy property of `ion.serialize_null`
+                // that could be used to specify typed or untyped ion nulls instead.
                 Block block = blockSelector.apply(i);
                 if (block.isNull(position)) {
                     continue;
