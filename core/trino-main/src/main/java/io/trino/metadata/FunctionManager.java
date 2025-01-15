@@ -109,7 +109,7 @@ public class FunctionManager
         }
         else {
             FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
-            Optional<SqlScalarFunction> function = scalarFunctionRegistry.resolve(resolvedFunction.catalogHandle(), resolvedFunction.name().getSchemaFunctionName());
+            Optional<SqlScalarFunction> function = scalarFunctionRegistry.resolve(resolvedFunction);
             if (function.isPresent()) {
                 return function.get().specialize(resolvedFunction.signature(), functionDependencies).getScalarFunctionImplementation(invocationConvention);
             }

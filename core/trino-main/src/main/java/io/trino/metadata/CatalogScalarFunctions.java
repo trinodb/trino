@@ -13,12 +13,13 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import com.google.errorprone.annotations.ThreadSafe;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.SchemaFunctionName;
 
 import java.util.Collection;
-import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Locale.ENGLISH;
@@ -28,22 +29,24 @@ import static java.util.Objects.requireNonNull;
 public class CatalogScalarFunctions
 {
     // schema and function name in lowercase
-    private final Map<SchemaFunctionName, SqlScalarFunction> functions;
+    private final Multimap<SchemaFunctionName, SqlScalarFunction> functions;
 
     public CatalogScalarFunctions(Collection<SqlScalarFunction> functions)
     {
         requireNonNull(functions, "functions is null");
-        this.functions = Maps.uniqueIndex(functions, function -> lowerCaseSchemaFunctionName(new SchemaFunctionName(function.getSchemaName().orElseThrow(), function.getFunctionMetadata().getCanonicalName())));
+        this.functions = Multimaps.index(functions, function -> lowerCaseSchemaFunctionName(new SchemaFunctionName(function.getSchemaName().orElseThrow(), function.getFunctionMetadata().getCanonicalName())));
     }
 
-    public Map<SchemaFunctionName, SqlScalarFunction> listScalarFunctions()
+    public Multimap<SchemaFunctionName, SqlScalarFunction> listScalarFunctions()
     {
         return functions;
     }
 
-    public Optional<SqlScalarFunction> getScalarFunction(SchemaFunctionName schemaFunctionName)
+    public Optional<SqlScalarFunction> getScalarFunction(SchemaFunctionName schemaFunctionName, FunctionId functionId)
     {
-        return Optional.ofNullable(functions.get(lowerCaseSchemaFunctionName(schemaFunctionName)));
+        return functions.get(lowerCaseSchemaFunctionName(schemaFunctionName)).stream()
+                .filter(function -> function.getFunctionMetadata().getFunctionId().equals(functionId))
+                .findAny();
     }
 
     private static SchemaFunctionName lowerCaseSchemaFunctionName(SchemaFunctionName name)

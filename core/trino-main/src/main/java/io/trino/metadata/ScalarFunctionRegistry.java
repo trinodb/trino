@@ -18,7 +18,6 @@ import com.google.inject.Inject;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.function.FunctionMetadata;
-import io.trino.spi.function.SchemaFunctionName;
 
 import java.util.List;
 import java.util.Optional;
@@ -56,10 +55,10 @@ public class ScalarFunctionRegistry
      * Resolve table function with given qualified name.
      * Table functions are resolved case-insensitive for consistency with existing scalar function resolution.
      */
-    public Optional<SqlScalarFunction> resolve(CatalogHandle catalogHandle, SchemaFunctionName schemaFunctionName)
+    public Optional<SqlScalarFunction> resolve(ResolvedFunction resolvedFunction)
     {
-        return tableFunctionsProvider.getService(catalogHandle)
-                .getScalarFunction(schemaFunctionName);
+        return tableFunctionsProvider.getService(resolvedFunction.catalogHandle())
+                .getScalarFunction(resolvedFunction.name().getSchemaFunctionName(), resolvedFunction.functionId());
     }
 
     private static FunctionMetadata toFunctionMetadata(SqlScalarFunction tableFunction)
