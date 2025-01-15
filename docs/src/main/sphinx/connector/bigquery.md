@@ -86,12 +86,12 @@ create the two catalogs, `sales` and `analytics` respectively.
 ### Arrow serialization support
 
 This is a feature which introduces support for using Apache Arrow
-as the serialization format when reading from BigQuery.  Please note there are
-a few caveats:
+as the serialization format when reading from BigQuery. Add the following
+required, additional JVM argument to the [](jvm-config):
 
-- Using Apache Arrow serialization is enabled by default. Add
-  `--add-opens=java.base/java.nio=ALL-UNNAMED` to the Trino
-  {ref}`jvm-config`.
+```none
+--add-opens=java.base/java.nio=ALL-UNNAMED
+```
 
 (bigquery-reading-from-views)=
 ### Reading from views
