@@ -13,7 +13,12 @@
  */
 package io.trino.plugin.starrocks;
 
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import org.junit.Test;
+
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class StarrocksTypeMapperTest
 {
@@ -21,6 +26,13 @@ public class StarrocksTypeMapperTest
     public void testToTrinoType()
     {
         String statement = "struct<row_type struct<id bigint(20), name varchar(65533)>, time_type bigint(20), array_type array<struct<id bigint(20), name varchar(65533)>>>";
-        System.out.println(StarrocksTypeMapper.mappingSemiStructure(statement));
+        try {
+            Type trinoType = StarrocksTypeMapper.mappingSemiStructure(statement);
+            assertTrue(true);
+            assertTrue("Expected RowType as result", trinoType instanceof RowType);
+        }
+        catch (Exception e) {
+            fail("Should not throw any exception, but got: " + e.getMessage());
+        }
     }
 }
