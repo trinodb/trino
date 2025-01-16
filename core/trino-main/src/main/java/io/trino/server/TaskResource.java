@@ -328,6 +328,15 @@ public class TaskResource
         return taskManager.failTask(taskId, failTaskRequest.getFailureInfo().toException());
     }
 
+    @POST
+    @Path("{taskId}/cleanup")
+    public void cleanupTask(
+            @PathParam("taskId") TaskId taskId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        taskManager.cleanupTask(taskId);
+    }
+
     @GET
     @Path("{taskId}/results/{bufferId}/{token}")
     @Produces(TRINO_PAGES)

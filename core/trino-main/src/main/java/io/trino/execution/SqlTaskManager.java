@@ -82,6 +82,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -654,6 +655,17 @@ public class SqlTaskManager
         requireNonNull(failure, "failure is null");
 
         return tasks.getUnchecked(taskId).failed(failure);
+    }
+
+    public void cleanupTask(TaskId taskId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        SqlTask sqlTask = tasks.getIfPresent(taskId);
+        if (sqlTask == null) {
+            return;
+        }
+        checkState(sqlTask.getTaskState() == TaskState.FINISHED, "cleanup called for task %s which is in state %s", taskId, sqlTask.getTaskState());
+        tasks.unsafeInvalidate(taskId);
     }
 
     @VisibleForTesting

@@ -61,6 +61,7 @@ class DynamicFiltersFetcher
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
     private final DynamicFilterService dynamicFilterService;
+    private final RemoteTaskCleaner remoteTaskCleaner;
 
     @GuardedBy("this")
     private long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
@@ -83,7 +84,8 @@ class DynamicFiltersFetcher
             Duration maxErrorDuration,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
-            DynamicFilterService dynamicFilterService)
+            DynamicFilterService dynamicFilterService,
+            RemoteTaskCleaner remoteTaskCleaner)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskUri = requireNonNull(taskUri, "taskUri is null");
@@ -99,6 +101,8 @@ class DynamicFiltersFetcher
         this.errorTracker = new RequestErrorTracker(taskId, taskUri, maxErrorDuration, errorScheduledExecutor, "getting dynamic filter domains");
         this.stats = requireNonNull(stats, "stats is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+
+        this.remoteTaskCleaner = requireNonNull(remoteTaskCleaner, "remoteTaskCleaner is null");
     }
 
     public synchronized void start()
@@ -124,6 +128,7 @@ class DynamicFiltersFetcher
     private synchronized void stop()
     {
         running = false;
+        remoteTaskCleaner.markDynamidFilterFetcherStopped();
     }
 
     @VisibleForTesting
