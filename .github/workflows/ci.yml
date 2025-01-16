@@ -51,7 +51,7 @@ concurrency:
 
 jobs:
   maven-checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     name: maven-checks ${{ matrix.java-version }}
     strategy:
       fail-fast: false
@@ -89,7 +89,7 @@ jobs:
         run: rm -rf ~/.m2/repository/io/trino/trino-*
 
   artifact-checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -126,7 +126,7 @@ jobs:
         run: core/docker/build.sh
 
   check-commits-dispatcher:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     if: github.event_name == 'pull_request'
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -157,7 +157,7 @@ jobs:
 
   check-commit:
     needs: check-commits-dispatcher
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     if: github.event_name == 'pull_request' && needs.check-commits-dispatcher.outputs.matrix != ''
     strategy:
       fail-fast: false
@@ -178,7 +178,7 @@ jobs:
           base_ref: ${{ github.event.pull_request.base.ref }}
 
   error-prone-checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -205,7 +205,7 @@ jobs:
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
   test-jdbc-compatibility:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -244,7 +244,7 @@ jobs:
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
 
   hive-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     strategy:
       fail-fast: false
       matrix:
@@ -310,7 +310,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   test-other-modules:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -391,7 +391,7 @@ jobs:
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
 
   build-test-matrix:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
@@ -500,7 +500,7 @@ jobs:
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
 
   test:
-    runs-on: 'ubuntu-latest'
+    runs-on: 'ubuntu-24.04-arm'
     needs: build-test-matrix
     if: needs.build-test-matrix.outputs.matrix != '{}'
     strategy:
@@ -811,7 +811,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   build-pt:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       product-tests-changed: ${{ steps.filter.outputs.product-tests }}

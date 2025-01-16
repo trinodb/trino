@@ -7,7 +7,7 @@ on:
 
 jobs:
   test-with-secrets:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     # Only run for PRs, not issue comments and not on forks
     if: ${{ github.event.issue.pull_request }} && github.repository_owner == 'trinodb'
     steps:
