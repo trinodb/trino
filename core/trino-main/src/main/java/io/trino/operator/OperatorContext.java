@@ -227,6 +227,12 @@ public class OperatorContext
         dynamicFilterSplitsProcessed.getAndAdd(dynamicFilterSplits);
     }
 
+    public void recordUpdatedPositions(long updatedPositions)
+    {
+        checkArgument(updatedPositions >= 0, "updatedPositions is negative (%s)", updatedPositions);
+        this.updatedPositions.update(updatedPositions);
+    }
+
     /**
      * Overwrites the metrics with the latest one.
      *
