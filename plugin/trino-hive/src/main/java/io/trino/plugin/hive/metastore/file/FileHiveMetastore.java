@@ -86,6 +86,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -1405,14 +1406,13 @@ public class FileHiveMetastore
     {
         try {
             try (InputStream inputStream = fileSystem.newInputFile(file).newStream()) {
-                byte[] json = inputStream.readAllBytes();
-                return Optional.of(codec.fromJson(json));
+                return Optional.of(codec.fromJson(inputStream));
             }
         }
-        catch (FileNotFoundException e) {
-            return Optional.empty();
-        }
         catch (Exception e) {
+            if (getCausalChain(e).stream().anyMatch(FileNotFoundException.class::isInstance)) {
+                return Optional.empty();
+            }
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not read " + type, e);
         }
     }

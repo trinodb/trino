@@ -112,7 +112,7 @@ public class TestGeoFunctions
                 rectangles.add(new Rectangle(x, y, x + 1, y + 2));
             }
         }
-        return KdbTreeUtils.toJson(buildKdbTree(10, new Rectangle(0, 0, 9, 4), rectangles.build()));
+        return KdbTreeUtils.toJson(buildKdbTree(10, new Rectangle(0, 0, 9, 4), rectangles.build())).toStringUtf8();
     }
 
     private void assertSpatialPartitions(String kdbTreeJson, String wkt, List<Integer> expectedPartitions)

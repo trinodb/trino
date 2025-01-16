@@ -64,7 +64,7 @@ public final class RedisTestUtils
     {
         RedisTableDescription tpchTemplate;
         try (InputStream data = RedisTestUtils.class.getResourceAsStream(format("/tpch/%s/%s.json", dataFormat, schemaTableName.getTableName()))) {
-            tpchTemplate = tableDescriptionJsonCodec.fromJson(data.readAllBytes());
+            tpchTemplate = tableDescriptionJsonCodec.fromJson(data);
         }
 
         RedisTableDescription tableDescription = new RedisTableDescription(
@@ -90,7 +90,7 @@ public final class RedisTestUtils
     {
         JsonCodec<RedisTableDescription> tableDescriptionJsonCodec = new CodecSupplier<>(RedisTableDescription.class, queryRunner.getPlannerContext().getTypeManager()).get();
         try (InputStream data = RedisTestUtils.class.getResourceAsStream(format("/simple/%s_value_table.json", valueDataFormat))) {
-            return tableDescriptionJsonCodec.fromJson(data.readAllBytes());
+            return tableDescriptionJsonCodec.fromJson(data);
         }
     }
 }

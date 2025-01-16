@@ -23,9 +23,10 @@ import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.session.AbstractSessionPropertyManager;
 import io.trino.plugin.session.SessionMatchSpec;
 
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -45,8 +46,8 @@ public class FileSessionPropertyManager
     public FileSessionPropertyManager(FileSessionPropertyManagerConfig config)
     {
         Path configurationFile = config.getConfigFile().toPath();
-        try {
-            sessionMatchSpecs = ImmutableList.copyOf(CODEC.fromJson(Files.readAllBytes(configurationFile)));
+        try (InputStream stream = new FileInputStream(configurationFile.toFile())) {
+            sessionMatchSpecs = ImmutableList.copyOf(CODEC.fromJson(stream));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

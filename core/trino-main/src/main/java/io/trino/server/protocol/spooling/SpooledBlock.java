@@ -62,15 +62,15 @@ public record SpooledBlock(Slice identifier, Optional<URI> directUri, Map<String
             return new SpooledBlock(
                     VARCHAR.getSlice(row.getRawFieldBlock(0), 0),
                     Optional.empty(), // Not a direct location
-                    HEADERS_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(2), 0).toStringUtf8()),
-                    ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(3), 0).toStringUtf8()));
+                    HEADERS_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(2), 0).getInput()),
+                    ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(3), 0).getInput()));
         }
 
         return new SpooledBlock(
                 VARCHAR.getSlice(row.getRawFieldBlock(0), 0),
                 Optional.of(URI.create(VARCHAR.getSlice(row.getRawFieldBlock(1), 0).toStringUtf8())),
-                HEADERS_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(2), 0).toStringUtf8()),
-                ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(3), 0).toStringUtf8()));
+                HEADERS_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(2), 0).getInput()),
+                ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(3), 0).getInput()));
     }
 
     public static SpooledBlock forLocation(SpooledLocation location, DataAttributes attributes)

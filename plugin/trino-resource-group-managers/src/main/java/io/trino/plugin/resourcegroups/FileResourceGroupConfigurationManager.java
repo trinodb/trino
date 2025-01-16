@@ -28,9 +28,10 @@ import io.trino.spi.resourcegroups.ResourceGroup;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
 
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
@@ -85,8 +86,8 @@ public class FileResourceGroupConfigurationManager
     static ManagerSpec parseManagerSpec(FileResourceGroupConfig config)
     {
         ManagerSpec managerSpec;
-        try {
-            managerSpec = CODEC.fromJson(Files.readAllBytes(Paths.get(config.getConfigFile())));
+        try (InputStream stream = new FileInputStream(Paths.get(config.getConfigFile()).toFile())) {
+            managerSpec = CODEC.fromJson(stream);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

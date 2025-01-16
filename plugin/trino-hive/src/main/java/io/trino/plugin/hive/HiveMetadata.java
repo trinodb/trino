@@ -1847,7 +1847,7 @@ public class HiveMetadata
         HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
 
         List<PartitionUpdate> partitionUpdates = fragments.stream()
-                .map(Slice::getBytes)
+                .map(Slice::getInput)
                 .map(partitionUpdateCodec::fromJson)
                 .collect(toImmutableList());
 
@@ -2086,7 +2086,7 @@ public class HiveMetadata
 
         requireNonNull(fragments, "fragments is null");
         List<PartitionUpdateAndMergeResults> partitionMergeResults = fragments.stream()
-                .map(Slice::getBytes)
+                .map(Slice::getInput)
                 .map(PartitionUpdateAndMergeResults.CODEC::fromJson)
                 .collect(toImmutableList());
 
@@ -2204,7 +2204,7 @@ public class HiveMetadata
         HiveInsertTableHandle handle = (HiveInsertTableHandle) insertHandle;
 
         List<PartitionUpdate> partitionUpdates = fragments.stream()
-                .map(Slice::getBytes)
+                .map(Slice::getInput)
                 .map(partitionUpdateCodec::fromJson)
                 .collect(toImmutableList());
 
@@ -2614,7 +2614,7 @@ public class HiveMetadata
         checkArgument(handle.getWriteDeclarationId().isPresent(), "no write declaration id present in tableExecuteHandle");
 
         List<PartitionUpdate> partitionUpdates = fragments.stream()
-                .map(Slice::getBytes)
+                .map(Slice::getInput)
                 .map(partitionUpdateCodec::fromJson)
                 .collect(toImmutableList());
 
