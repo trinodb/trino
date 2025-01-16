@@ -101,7 +101,6 @@ import static io.trino.plugin.hive.parquet.ParquetTypeTranslator.createCoercer;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class ParquetPageSourceFactory
         implements HivePageSourceFactory
@@ -265,8 +264,8 @@ public class ParquetPageSourceFactory
             List<HiveColumnHandle> baseColumns = readerProjections.map(projection ->
                             projection.get().stream()
                                     .map(HiveColumnHandle.class::cast)
-                                    .collect(toUnmodifiableList()))
-                    .orElse(columns);
+                                    .collect(toImmutableList()))
+                    .orElse(ImmutableList.copyOf(columns));
 
             ParquetDataSourceId dataSourceId = dataSource.getId();
             ParquetDataSource finalDataSource = dataSource;
@@ -324,8 +323,8 @@ public class ParquetPageSourceFactory
         Optional<MessageType> message = projectSufficientColumns(columns)
                 .map(projection -> projection.get().stream()
                         .map(HiveColumnHandle.class::cast)
-                        .collect(toUnmodifiableList()))
-                .orElse(columns).stream()
+                        .collect(toImmutableList()))
+                .orElse(ImmutableList.copyOf(columns)).stream()
                 .filter(column -> column.getColumnType() == REGULAR)
                 .map(column -> getColumnType(column, fileSchema, useColumnNames))
                 .filter(Optional::isPresent)
