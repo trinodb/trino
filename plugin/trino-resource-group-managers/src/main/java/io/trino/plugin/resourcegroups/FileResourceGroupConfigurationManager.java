@@ -28,7 +28,6 @@ import io.trino.spi.resourcegroups.ResourceGroup;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -38,6 +37,7 @@ import java.util.Optional;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 import static java.lang.String.format;
+import static java.nio.file.Files.newInputStream;
 import static java.util.Objects.requireNonNull;
 
 public class FileResourceGroupConfigurationManager
@@ -86,7 +86,7 @@ public class FileResourceGroupConfigurationManager
     static ManagerSpec parseManagerSpec(FileResourceGroupConfig config)
     {
         ManagerSpec managerSpec;
-        try (InputStream stream = new FileInputStream(Paths.get(config.getConfigFile()).toFile())) {
+        try (InputStream stream = newInputStream(Paths.get(config.getConfigFile()))) {
             managerSpec = CODEC.fromJson(stream);
         }
         catch (IOException e) {

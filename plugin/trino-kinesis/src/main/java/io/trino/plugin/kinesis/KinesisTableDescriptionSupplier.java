@@ -23,7 +23,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import jakarta.annotation.PreDestroy;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.DirectoryIteratorException;
@@ -37,6 +36,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.nio.file.Files.newInputStream;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -82,7 +82,7 @@ public class KinesisTableDescriptionSupplier
         try {
             for (Path file : listFiles(Paths.get(tableDescriptionLocation))) {
                 if (Files.isRegularFile(file) && file.getFileName().toString().endsWith("json")) {
-                    try (InputStream stream = new FileInputStream(file.toFile())) {
+                    try (InputStream stream = newInputStream(file)) {
                         KinesisStreamDescription table = streamDescriptionCodec.fromJson(stream);
                         String schemaName = firstNonNull(table.schemaName(), defaultSchema);
                         log.debug("Kinesis table %s %s %s", schemaName, table.tableName(), table);
