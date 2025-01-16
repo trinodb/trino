@@ -61,6 +61,7 @@ class DynamicFiltersFetcher
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
     private final DynamicFilterService dynamicFilterService;
+    private final RemoteTaskCleaner remoteTaskCleaner;
 
     @GuardedBy("this")
     private long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
@@ -70,6 +71,7 @@ class DynamicFiltersFetcher
     private boolean running;
     @GuardedBy("this")
     private ListenableFuture<JsonResponse<VersionedDynamicFilterDomains>> future;
+    private boolean finalRequest;
 
     public DynamicFiltersFetcher(
             Consumer<Throwable> onFail,
@@ -83,7 +85,8 @@ class DynamicFiltersFetcher
             Duration maxErrorDuration,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
-            DynamicFilterService dynamicFilterService)
+            DynamicFilterService dynamicFilterService,
+            RemoteTaskCleaner remoteTaskCleaner)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskUri = requireNonNull(taskUri, "taskUri is null");
@@ -99,6 +102,8 @@ class DynamicFiltersFetcher
         this.errorTracker = new RequestErrorTracker(taskId, taskUri, maxErrorDuration, errorScheduledExecutor, "getting dynamic filter domains");
         this.stats = requireNonNull(stats, "stats is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+
+        this.remoteTaskCleaner = requireNonNull(remoteTaskCleaner, "remoteTaskCleaner is null");
     }
 
     public synchronized void start()
@@ -111,12 +116,15 @@ class DynamicFiltersFetcher
         fetchDynamicFiltersIfNecessary();
     }
 
-    public synchronized void updateDynamicFiltersVersionAndFetchIfNecessary(long newDynamicFiltersVersion)
+    public synchronized void updateDynamicFiltersVersionAndFetchIfNecessary(long newDynamicFiltersVersion, boolean finalRequest)
     {
         if (dynamicFiltersVersion >= newDynamicFiltersVersion) {
+            if (finalRequest) {
+                remoteTaskCleaner.markDynamicFilterFetcherStopped();
+            }
             return;
         }
-
+        this.finalRequest = finalRequest;
         dynamicFiltersVersion = newDynamicFiltersVersion;
         fetchDynamicFiltersIfNecessary();
     }
@@ -124,6 +132,7 @@ class DynamicFiltersFetcher
     private synchronized void stop()
     {
         running = false;
+        remoteTaskCleaner.markDynamicFilterFetcherStopped();
     }
 
     @VisibleForTesting
@@ -141,6 +150,9 @@ class DynamicFiltersFetcher
 
         // local dynamic filters are up to date
         if (localDynamicFiltersVersion >= dynamicFiltersVersion) {
+            if (finalRequest) {
+                remoteTaskCleaner.markDynamicFilterFetcherStopped();
+            }
             return;
         }
 
