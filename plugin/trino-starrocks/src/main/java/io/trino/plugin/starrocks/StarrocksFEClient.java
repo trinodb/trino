@@ -22,7 +22,6 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
-import io.trino.plugin.jdbc.credential.StaticzCredentialProvider;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
