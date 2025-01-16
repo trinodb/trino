@@ -47,7 +47,9 @@ public class TestingExasolServer
 
     public TestingExasolServer()
     {
-        container = new ExasolContainer<>("8.27.0").withRequiredServices(ExasolService.JDBC);
+        container = new ExasolContainer<>("8.27.0")
+                .withExposedPorts(8563)
+                .withRequiredServices(ExasolService.JDBC);
         cleanup = startOrReuse(container);
         executeAsSys(format("CREATE USER %s IDENTIFIED BY \"%s\"", TEST_USER, TEST_PASSWORD));
         executeAsSys("GRANT CREATE SESSION TO " + TEST_USER);
