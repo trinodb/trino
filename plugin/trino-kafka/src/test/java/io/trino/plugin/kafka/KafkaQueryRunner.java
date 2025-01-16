@@ -203,7 +203,7 @@ public final class KafkaQueryRunner
             throws IOException
     {
         String fileName = format("/%s/%s.json", table.getSchemaName(), table.getTableName());
-        KafkaTopicDescription tableTemplate = topicDescriptionJsonCodec.fromJson(KafkaQueryRunner.class.getResourceAsStream(fileName).readAllBytes());
+        KafkaTopicDescription tableTemplate = topicDescriptionJsonCodec.fromJson(KafkaQueryRunner.class.getResourceAsStream(fileName));
 
         Optional<KafkaTopicFieldGroup> key = tableTemplate.key()
                 .map(keyTemplate -> new KafkaTopicFieldGroup(

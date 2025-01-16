@@ -36,7 +36,7 @@ public final class TestUtils
     public static Map.Entry<SchemaTableName, KafkaTopicDescription> loadTpchTopicDescription(JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec, String topicName, SchemaTableName schemaTableName)
             throws IOException
     {
-        KafkaTopicDescription tpchTemplate = topicDescriptionJsonCodec.fromJson(TestUtils.class.getResourceAsStream(format("/tpch/%s.json", schemaTableName.getTableName())).readAllBytes());
+        KafkaTopicDescription tpchTemplate = topicDescriptionJsonCodec.fromJson(TestUtils.class.getResourceAsStream(format("/tpch/%s.json", schemaTableName.getTableName())));
 
         return new AbstractMap.SimpleImmutableEntry<>(
                 schemaTableName,
