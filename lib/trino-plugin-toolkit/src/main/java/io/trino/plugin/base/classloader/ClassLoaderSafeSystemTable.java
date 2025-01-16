@@ -16,6 +16,7 @@ package io.trino.plugin.base.classloader;
 import com.google.inject.Inject;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -82,10 +83,36 @@ public class ClassLoaderSafeSystemTable
     }
 
     @Override
+    public RecordCursor cursor(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            TupleDomain<Integer> constraint,
+            Set<Integer> requiredColumns,
+            ConnectorSplit split,
+            ConnectorAccessControl accessControl)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.cursor(transactionHandle, session, constraint, requiredColumns, split, accessControl);
+        }
+    }
+
+    @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.pageSource(transactionHandle, session, constraint);
+        }
+    }
+
+    @Override
+    public ConnectorPageSource pageSource(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            TupleDomain<Integer> constraint,
+            ConnectorAccessControl accessControl)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.pageSource(transactionHandle, session, constraint, accessControl);
         }
     }
 

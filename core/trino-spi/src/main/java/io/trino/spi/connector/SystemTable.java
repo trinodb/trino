@@ -53,6 +53,17 @@ public interface SystemTable
         return cursor(transactionHandle, session, constraint);
     }
 
+    default RecordCursor cursor(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            TupleDomain<Integer> constraint,
+            Set<Integer> requiredColumns,
+            ConnectorSplit split,
+            ConnectorAccessControl accessControl)
+    {
+        return cursor(transactionHandle, session, constraint, requiredColumns, split);
+    }
+
     /**
      * Create a page source for the data in this table.
      *
@@ -62,6 +73,15 @@ public interface SystemTable
     default ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         throw new UnsupportedOperationException();
+    }
+
+    default ConnectorPageSource pageSource(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            TupleDomain<Integer> constraint,
+            ConnectorAccessControl accessControl)
+    {
+        return pageSource(transactionHandle, session, constraint);
     }
 
     default Optional<ConnectorSplitSource> splitSource(ConnectorSession connectorSession, TupleDomain<ColumnHandle> constraint)
