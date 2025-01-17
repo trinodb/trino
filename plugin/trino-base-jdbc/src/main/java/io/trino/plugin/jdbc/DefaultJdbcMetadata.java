@@ -31,6 +31,7 @@ import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -1398,11 +1399,11 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata, ColumnPosition position)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
-        jdbcClient.addColumn(session, tableHandle, columnMetadata);
+        jdbcClient.addColumn(session, tableHandle, columnMetadata, position);
     }
 
     @Override

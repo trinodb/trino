@@ -20,6 +20,7 @@ import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -305,6 +306,13 @@ public class RetryingJdbcClient
     {
         // no retrying as it could be not idempotent operation
         delegate.addColumn(session, handle, column);
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
+    {
+        // no retrying as it could be not idempotent operation
+        delegate.addColumn(session, handle, column, position);
     }
 
     @Override
