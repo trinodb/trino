@@ -55,7 +55,8 @@ public abstract class BaseMySqlConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_AGGREGATION_PUSHDOWN,
+            case SUPPORTS_ADD_COLUMN_WITH_POSITION,
+                 SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_JOIN_PUSHDOWN -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
