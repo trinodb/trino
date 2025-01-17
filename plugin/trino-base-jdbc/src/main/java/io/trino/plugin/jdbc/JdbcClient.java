@@ -19,6 +19,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -184,7 +185,16 @@ public interface JdbcClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column comments");
     }
 
-    void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column);
+    /**
+     * @deprecated use {@link #addColumn(ConnectorSession, JdbcTableHandle, ColumnMetadata, ColumnPosition)} which add column with position
+     */
+    @Deprecated
+    default void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    {
+        addColumn(session, handle, column, new ColumnPosition.Last());
+    }
+
+    void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position);
 
     void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column);
 
