@@ -14,8 +14,9 @@
 package io.trino.filesystem.alluxio;
 
 import alluxio.conf.AlluxioConfiguration;
-import alluxio.conf.AlluxioProperties;
+import alluxio.conf.Configuration;
 import alluxio.conf.InstancedConfiguration;
+import alluxio.conf.Source;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -58,17 +59,17 @@ public class AlluxioConfigurationFactory
                         .map(directory -> totalSpace(Path.of(directory))).collect(toImmutableList()))
                 : config.getMaxCacheSizes();
 
-        AlluxioProperties alluxioProperties = new AlluxioProperties();
-        alluxioProperties.set(USER_CLIENT_CACHE_ENABLED, true);
-        alluxioProperties.set(USER_CLIENT_CACHE_DIRS, join(",", config.getCacheDirectories()));
-        alluxioProperties.set(USER_CLIENT_CACHE_SIZE, join(",", maxCacheSizes.stream().map(DataSize::toBytesValueString).toList()));
-        alluxioProperties.set(USER_CLIENT_CACHE_PAGE_SIZE, config.getCachePageSize().toBytesValueString());
+        InstancedConfiguration alluxioConf = Configuration.copyGlobal();
+        alluxioConf.set(USER_CLIENT_CACHE_ENABLED, true, Source.RUNTIME);
+        alluxioConf.set(USER_CLIENT_CACHE_DIRS, join(",", config.getCacheDirectories()), Source.RUNTIME);
+        alluxioConf.set(USER_CLIENT_CACHE_SIZE, join(",", maxCacheSizes.stream().map(DataSize::toBytesValueString).toList()), Source.RUNTIME);
+        alluxioConf.set(USER_CLIENT_CACHE_PAGE_SIZE, config.getCachePageSize().toBytesValueString(), Source.RUNTIME);
         Optional<Duration> ttl = config.getCacheTTL();
         if (ttl.isPresent()) {
-            alluxioProperties.set(USER_CLIENT_CACHE_TTL_THRESHOLD_SECONDS, ttl.orElseThrow().roundTo(TimeUnit.SECONDS));
-            alluxioProperties.set(USER_CLIENT_CACHE_TTL_ENABLED, true);
+            alluxioConf.set(USER_CLIENT_CACHE_TTL_THRESHOLD_SECONDS, ttl.orElseThrow().roundTo(TimeUnit.SECONDS));
+            alluxioConf.set(USER_CLIENT_CACHE_TTL_ENABLED, true);
         }
-        return new InstancedConfiguration(alluxioProperties);
+        return alluxioConf;
     }
 
     private static void canWrite(Path path)

@@ -518,7 +518,7 @@ public class IcebergConfig
     }
 
     @Config("iceberg.metadata-cache.enabled")
-    @ConfigDescription("Enables in-memory caching of metadata files on coordinator if fs.cache.enabled is not set to true")
+    @ConfigDescription("Enables in-memory caching of metadata files on coordinator if fs.cache.type is set to NO_CACHE")
     public IcebergConfig setMetadataCacheEnabled(boolean metadataCacheEnabled)
     {
         this.metadataCacheEnabled = metadataCacheEnabled;

@@ -579,7 +579,7 @@ public class DeltaLakeConfig
     }
 
     @Config("delta.fs.cache.disable-transaction-log-caching")
-    @ConfigDescription("Disable filesystem caching of the _delta_log directory (effective only when fs.cache.enabled=true)")
+    @ConfigDescription("Disable filesystem caching of the _delta_log directory (effective only when fs.cache.type=LOCAL_CACHE)")
     public DeltaLakeConfig setDeltaLogFileSystemCacheDisabled(boolean deltaLogFileSystemCacheDisabled)
     {
         this.deltaLogFileSystemCacheDisabled = deltaLogFileSystemCacheDisabled;
