@@ -141,6 +141,26 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot drop catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyRenameCatalog(String catalog, String newCatalog)
+    {
+        denyRenameCatalog(catalog, newCatalog, null);
+    }
+
+    public static void denyRenameCatalog(String catalog, String newCatalog, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot rename catalog from %s to %s%s", catalog, newCatalog, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denySetCatalogProperties(String catalog)
+    {
+        denySetCatalogProperties(catalog, null);
+    }
+
+    public static void denySetCatalogProperties(String catalog, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set catalog properties to %s%s", catalog, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateSchema(String schemaName)
     {
         denyCreateSchema(schemaName, null);

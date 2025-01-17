@@ -75,6 +75,8 @@ public class SetCatalogPropertiesTask
 
         Map<String, Optional<String>> properties = getProperties(statement, parameters, session);
 
+        accessControl.checkCanSetCatalogProperties(session.toSecurityContext(), catalogName, properties);
+
         catalogManager.alterCatalog(new CatalogName(catalogName), properties);
 
         return immediateVoidFuture();
