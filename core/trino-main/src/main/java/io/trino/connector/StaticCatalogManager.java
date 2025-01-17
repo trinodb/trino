@@ -238,6 +238,18 @@ public class StaticCatalogManager
     }
 
     @Override
+    public void renameCatalog(CatalogName catalogName, CatalogName newCatalogName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "RENAME CATALOG is not supported by the static catalog store");
+    }
+
+    @Override
+    public void alterCatalog(CatalogName catalogName, Map<String, Optional<String>> properties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "ALTER CATALOG is not supported by the static catalog store");
+    }
+
+    @Override
     public void dropCatalog(CatalogName catalogName, boolean exists)
     {
         throw new TrinoException(NOT_SUPPORTED, "DROP CATALOG is not supported by the static catalog store");

@@ -612,6 +612,16 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitRenameCatalog(RenameCatalog node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitSetCatalogProperties(SetCatalogProperties node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitCreateSchema(CreateSchema node, C context)
     {
         return visitStatement(node, context);
