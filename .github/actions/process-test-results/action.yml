@@ -50,7 +50,8 @@ runs:
         **/*.hprof
       retention-days: 14
   - name: Process unit and integration test reports
-    uses: trinodb/github-actions/action-surefire-report@b63800bedfbc7ab1ff2e5fe7eaecf5ab82ce6a70
+    # TODO revert to using the action from trinodb org, once https://github.com/trinodb/github-actions/pull/59 is merged
+    uses: nineinchnick/github-actions/action-surefire-report@dae80b90a8aa21db3618eaf8d4b05350f68c5a38
     if: format('{0}', inputs.has-failed-tests) == 'true'
     with:
       # this workflow should never fail, as it is not a quality gateway
