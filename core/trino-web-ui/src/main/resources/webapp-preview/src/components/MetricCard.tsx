@@ -11,28 +11,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { Link as RouterLink } from 'react-router-dom'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Typography from '@mui/material/Typography'
 import { Grid2 as Grid } from '@mui/material'
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
+import { styled } from '@mui/material/styles'
 
 interface IMetricCardProps {
     title: string
     values: number[]
     numberFormatter?: (n: number | null) => string
+    link?: string
 }
 
+const StyledLink = styled(RouterLink)(({ theme }) => ({
+    textDecoration: 'none',
+    color: theme.palette.info.main,
+    '&:hover': {
+        textDecoration: 'underline',
+    },
+}))
+
 export const MetricCard = (props: IMetricCardProps) => {
-    const { title, values, numberFormatter } = props
+    const { title, values, numberFormatter, link } = props
     const lastValue = values[values.length - 1]
 
     return (
         <Card variant="outlined" sx={{ minWidth: 275 }}>
             <CardContent sx={{ flex: '1 0 auto' }}>
-                <Typography variant="h6" color="info" gutterBottom>
-                    {title}
-                </Typography>
+                {link ? (
+                    <StyledLink to={link}>
+                        <Typography variant="h6" gutterBottom>
+                            {title}
+                        </Typography>
+                    </StyledLink>
+                ) : (
+                    <Typography variant="h6" color="info" gutterBottom>
+                        {title}
+                    </Typography>
+                )}
                 <Grid container>
                     <Grid sx={{ display: 'flex', flexGrow: 1 }}>
                         <Grid

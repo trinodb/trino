@@ -27,6 +27,65 @@ export interface Stats {
     totalCpuTimeSecs: number
 }
 
+export interface Worker {
+    coordinator: boolean
+    nodeId: string
+    nodeIp: string
+    nodeVersion: string
+    state: string
+}
+
+export interface MemoryAllocationItem {
+    tag: string
+    allocation: number
+}
+
+export interface MemoryUsagePool {
+    freeBytes: number
+    maxBytes: number
+    reservedBytes: number
+    reservedRevocableBytes: number
+    queryMemoryAllocations: {
+        [key: string]: MemoryAllocationItem
+    }
+    queryMemoryReservations: {
+        [key: string]: number
+    }
+    queryMemoryRevocableReservations: {
+        [key: string]: number
+    }
+}
+
+export interface WorkerStatusInfo {
+    coordinator: boolean
+    environment: string
+    externalAddress: string
+    heapAvailable: number
+    heapUsed: number
+    internalAddress: string
+    memoryInfo: {
+        availableProcessors: number
+        pool: MemoryUsagePool
+    }
+    nodeId: string
+    nodeVersion: {
+        version: string
+    }
+    nonHeapUsed: number
+    processCpuLoad: number
+    processors: number
+    systemCpuLoad: number
+    uptime: string
+}
+
 export async function statsApi(): Promise<ApiResponse<Stats>> {
     return await api.get<Stats>('/ui/api/stats')
+}
+
+export async function workerApi(): Promise<ApiResponse<Worker[]>> {
+    return await api.get<Worker[]>('/ui/api/worker')
+}
+
+export async function workerStatusApi(nodeId: string): Promise<ApiResponse<WorkerStatusInfo>> {
+    return await api.get<WorkerStatusInfo>(`/ui/api/worker/${nodeId}/status`)
 }
