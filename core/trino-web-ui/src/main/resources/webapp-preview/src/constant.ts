@@ -42,6 +42,7 @@ export const Texts = {
         Communication: 'Communication error to Trino.',
         Forbidden: 'Forbidden',
         Network: 'The network has wandered off, please try again later!',
+        NodeInformationNotLoaded: 'Node information could not be loaded',
     },
     Menu: {
         Header: {

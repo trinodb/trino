@@ -157,7 +157,7 @@ export const Dashboard = () => {
                         <MetricCard title="Running Queries" values={clusterStats.runningQueries} />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
-                        <MetricCard title="Active Workers" values={clusterStats.activeWorkers} />
+                        <MetricCard title="Active Workers" values={clusterStats.activeWorkers} link="/workers" />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
                         <MetricCard title="Rows/sec" values={clusterStats.rowInputRate} numberFormatter={formatCount} />
