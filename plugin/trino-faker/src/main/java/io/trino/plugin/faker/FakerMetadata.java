@@ -83,6 +83,7 @@ import static com.google.common.collect.Maps.filterKeys;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.NULL_PROBABILITY_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
@@ -95,6 +96,7 @@ import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -452,6 +454,7 @@ public class FakerMetadata
         ImmutableMap.Builder<String, Object> minimumsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<String, Object> maximumsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<String, Long> distinctValuesBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Long> nonNullValuesBuilder = ImmutableMap.builder();
         List<ColumnInfo> columns = info.columns();
         Map<String, Type> types = columns.stream().collect(toImmutableMap(ColumnInfo::name, ColumnInfo::type));
         Long rowCount = null;
@@ -474,6 +477,7 @@ public class FakerMetadata
                     case MIN_VALUE -> minimumsBuilder.put(columnName, requireNonNull(readNativeValue(type, block, 0)));
                     case MAX_VALUE -> maximumsBuilder.put(columnName, requireNonNull(readNativeValue(type, block, 0)));
                     case NUMBER_OF_DISTINCT_VALUES -> distinctValuesBuilder.put(columnName, BIGINT.getLong(block, 0));
+                    case NUMBER_OF_NON_NULL_VALUES -> nonNullValuesBuilder.put(columnName, BIGINT.getLong(block, 0));
                     default -> throw new IllegalArgumentException("Unexpected column statistic type: " + metadata.getStatisticType());
                 }
             });
@@ -481,16 +485,13 @@ public class FakerMetadata
         Map<String, Object> minimums = minimumsBuilder.buildOrThrow();
         Map<String, Object> maximums = maximumsBuilder.buildOrThrow();
         Map<String, Long> distinctValues = distinctValuesBuilder.buildOrThrow();
+        Map<String, Long> nonNullValues = info.properties().containsKey(TableInfo.NULL_PROBABILITY_PROPERTY) ? ImmutableMap.of() : nonNullValuesBuilder.buildOrThrow();
 
         if (!info.properties().containsKey(TableInfo.DEFAULT_LIMIT_PROPERTY) && rowCount != null) {
             info = info.withProperties(ImmutableMap.<String, Object>builder()
                     .putAll(info.properties())
                     .put(TableInfo.DEFAULT_LIMIT_PROPERTY, rowCount)
                     .buildOrThrow());
-        }
-
-        if (minimums.isEmpty() && distinctValues.isEmpty()) {
-            return info;
         }
 
         long finalRowCount = firstNonNull(rowCount, 1L);
@@ -503,15 +504,16 @@ public class FakerMetadata
                         minimums.get(column.name()),
                         maximums.get(column.name()),
                         requireNonNull(distinctValues.getOrDefault(column.name(), 0L)),
+                        Optional.ofNullable(nonNullValues.get(column.name())),
                         finalRowCount,
                         isTableSequenceDetectionEnabled,
                         columnValues.get(column.name())))
                 .collect(toImmutableList()));
     }
 
-    private static ColumnInfo createColumnInfoFromStats(ColumnInfo column, Object min, Object max, long distinctValues, long rowCount, boolean isSequenceDetectionEnabled, List<Object> allowedValues)
+    private static ColumnInfo createColumnInfoFromStats(ColumnInfo column, Object min, Object max, long distinctValues, Optional<Long> nonNullValues, long rowCount, boolean isSequenceDetectionEnabled, List<Object> allowedValues)
     {
-        if (isNotRangeType(column.type()) || min == null || max == null) {
+        if (isNotRangeType(column.type())) {
             return column;
         }
         FakerColumnHandle handle = column.handle();
@@ -522,10 +524,15 @@ public class FakerMetadata
                     .map(value -> Literal.format(column.type(), value))
                     .collect(toImmutableList()));
         }
-        else {
+        else if (min != null && max != null) {
             handle = handle.withDomain(Domain.create(ValueSet.ofRanges(Range.range(column.type(), min, true, max, true)), false));
             properties.put(MIN_PROPERTY, Literal.format(column.type(), min));
             properties.put(MAX_PROPERTY, Literal.format(column.type(), max));
+        }
+        if (nonNullValues.isPresent()) {
+            double nullProbability = 1 - (double) nonNullValues.get() / rowCount;
+            handle = handle.withNullProbability(nullProbability);
+            properties.put(NULL_PROBABILITY_PROPERTY, nullProbability);
         }
         // Only include types that support generating sequences in FakerPageSource,
         // but don't include types with configurable precision, dates, or intervals.
@@ -591,7 +598,8 @@ public class FakerMetadata
                         .flatMap(column -> Stream.of(
                                 new ColumnStatisticMetadata(column.getName(), MIN_VALUE),
                                 new ColumnStatisticMetadata(column.getName(), MAX_VALUE),
-                                new ColumnStatisticMetadata(column.getName(), NUMBER_OF_DISTINCT_VALUES)))
+                                new ColumnStatisticMetadata(column.getName(), NUMBER_OF_DISTINCT_VALUES),
+                                new ColumnStatisticMetadata(column.getName(), NUMBER_OF_NON_NULL_VALUES)))
                         .collect(toImmutableSet()),
                 Set.of(ROW_COUNT),
                 List.of());

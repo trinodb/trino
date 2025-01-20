@@ -578,4 +578,18 @@ final class TestFakerQueries
             assertThat(createTable).containsPattern("seq_bigint bigint WITH \\(max = '\\d+', min = '-\\d+', step = '1'\\)");
         }
     }
+
+    @Test
+    void testCreateTableAsSelectNulls()
+    {
+        String source = """
+                        SELECT
+                          cast(NULL AS INTEGER) AS nullable
+                        FROM TABLE(sequence(start => 0, stop => 1000, step => 1))
+                        """;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "only_nulls", "WITH (dictionary_detection_enabled = false) AS " + source)) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("nullable integer WITH \\(null_probability = 1E0\\)");
+        }
+    }
 }
