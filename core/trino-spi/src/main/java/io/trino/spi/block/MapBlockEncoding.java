@@ -16,6 +16,7 @@ package io.trino.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.trino.spi.block.vstream.IntStreamVByte;
 import io.trino.spi.type.MapType;
 
 import java.util.Optional;
@@ -58,7 +59,8 @@ public class MapBlockEncoding
         if (hashTable.isPresent()) {
             int hashTableLength = (entriesEndOffset - entriesStartOffset) * HASH_MULTIPLIER;
             sliceOutput.appendInt(hashTableLength); // hashtable length
-            sliceOutput.writeInts(hashTable.get(), entriesStartOffset * HASH_MULTIPLIER, hashTableLength);
+
+            IntStreamVByte.writeInts(sliceOutput, hashTable.get(), entriesStartOffset * HASH_MULTIPLIER, hashTableLength);
         }
         else {
             // if the hashTable is null, we write the length -1
@@ -84,7 +86,7 @@ public class MapBlockEncoding
         int[] hashTable = null;
         if (hashTableLength >= 0) {
             hashTable = new int[hashTableLength];
-            sliceInput.readInts(hashTable);
+            IntStreamVByte.readInts(sliceInput, hashTable);
         }
 
         if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
