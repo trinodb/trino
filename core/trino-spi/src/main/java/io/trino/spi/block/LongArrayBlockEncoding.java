@@ -15,6 +15,7 @@ package io.trino.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.trino.spi.block.vstream.MaskedLongVByte;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -38,11 +39,10 @@ public class LongArrayBlockEncoding
         LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         int positionCount = longArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
-
         encodeNullsAsBits(sliceOutput, longArrayBlock);
 
         if (!longArrayBlock.mayHaveNull()) {
-            sliceOutput.writeLongs(longArrayBlock.getRawValues(), longArrayBlock.getRawValuesOffset(), longArrayBlock.getPositionCount());
+            MaskedLongVByte.writeLongs(sliceOutput, longArrayBlock.getRawValues(), longArrayBlock.getRawValuesOffset(), longArrayBlock.getPositionCount());
         }
         else {
             long[] valuesWithoutNull = new long[positionCount];
@@ -55,7 +55,7 @@ public class LongArrayBlockEncoding
             }
 
             sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeLongs(valuesWithoutNull, 0, nonNullPositionCount);
+            MaskedLongVByte.writeLongs(sliceOutput, valuesWithoutNull, 0, nonNullPositionCount);
         }
     }
 
@@ -68,13 +68,13 @@ public class LongArrayBlockEncoding
         long[] values = new long[positionCount];
 
         if (valueIsNullPacked == null) {
-            sliceInput.readLongs(values);
+            MaskedLongVByte.readLongs(sliceInput, values);
             return new LongArrayBlock(0, positionCount, null, values);
         }
         boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
 
         int nonNullPositionCount = sliceInput.readInt();
-        sliceInput.readLongs(values, 0, nonNullPositionCount);
+        MaskedLongVByte.readLongs(sliceInput, values, 0, nonNullPositionCount);
         int position = nonNullPositionCount - 1;
 
         // Handle Last (positionCount % 8) values

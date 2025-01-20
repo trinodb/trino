@@ -15,6 +15,7 @@ package io.trino.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.trino.spi.block.vstream.MaskedIntVByte;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -40,7 +41,7 @@ public class Fixed12BlockEncoding
         encodeNullsAsBits(sliceOutput, fixed12Block);
 
         if (!fixed12Block.mayHaveNull()) {
-            sliceOutput.writeInts(fixed12Block.getRawValues(), fixed12Block.getRawOffset() * 3, fixed12Block.getPositionCount() * 3);
+            MaskedIntVByte.writeInts(sliceOutput, fixed12Block.getRawValues(), fixed12Block.getRawOffset() * 3, fixed12Block.getPositionCount() * 3);
         }
         else {
             int[] valuesWithoutNull = new int[positionCount * 3];
@@ -55,7 +56,7 @@ public class Fixed12BlockEncoding
             }
 
             sliceOutput.writeInt(nonNullPositionCount / 3);
-            sliceOutput.writeInts(valuesWithoutNull, 0, nonNullPositionCount);
+            MaskedIntVByte.writeInts(sliceOutput, valuesWithoutNull, 0, nonNullPositionCount);
         }
     }
 
@@ -68,11 +69,11 @@ public class Fixed12BlockEncoding
 
         int[] values = new int[positionCount * 3];
         if (valueIsNull == null) {
-            sliceInput.readInts(values);
+            MaskedIntVByte.readInts(sliceInput, values);
         }
         else {
             int nonNullPositionCount = sliceInput.readInt();
-            sliceInput.readInts(values, 0, nonNullPositionCount * 3);
+            MaskedIntVByte.readInts(sliceInput, values, 0, nonNullPositionCount * 3);
             int position = 3 * (nonNullPositionCount - 1);
             for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
                 System.arraycopy(values, position, values, 3 * i, 3);

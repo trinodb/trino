@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.trino.spi.block.vstream.MaskedIntVByte;
 
 import java.util.Arrays;
 
@@ -55,9 +56,8 @@ public class VariableWidthBlockEncoding
             nonNullsCount += variableWidthBlock.isNull(position) ? 0 : 1;
         }
 
-        sliceOutput
-                .appendInt(nonNullsCount)
-                .writeInts(lengths, 0, nonNullsCount);
+        sliceOutput.appendInt(nonNullsCount);
+        MaskedIntVByte.writeInts(sliceOutput, lengths, 0, nonNullsCount);
 
         encodeNullsAsBits(sliceOutput, variableWidthBlock);
 
@@ -79,7 +79,8 @@ public class VariableWidthBlockEncoding
         int[] offsets = new int[positionCount + 1];
         // Read the lengths array into the end of the offsets array, since nonNullsCount <= positionCount
         int lengthIndex = offsets.length - nonNullsCount;
-        sliceInput.readInts(offsets, lengthIndex, nonNullsCount);
+
+        MaskedIntVByte.readInts(sliceInput, offsets, lengthIndex, nonNullsCount);
 
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
         // Transform lengths back to offsets
