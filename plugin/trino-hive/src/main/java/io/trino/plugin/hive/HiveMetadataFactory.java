@@ -23,7 +23,6 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
@@ -83,7 +82,7 @@ public class HiveMetadataFactory
     public HiveMetadataFactory(
             CatalogName catalogName,
             HiveConfig hiveConfig,
-            HiveMetastoreConfig hiveMetastoreConfig,
+            @HideDeltaLakeTables boolean hideDeltaLakeTables,
             HiveMetastoreFactory metastoreFactory,
             Set<HiveFileWriterFactory> fileWriterFactories,
             TrinoFileSystemFactory fileSystemFactory,
@@ -120,7 +119,7 @@ public class HiveMetadataFactory
                 hiveConfig.isHiveViewsRunAsInvoker(),
                 hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 hiveConfig.getHiveTransactionHeartbeatInterval(),
-                hiveMetastoreConfig.isHideDeltaLakeTables(),
+                hideDeltaLakeTables,
                 typeManager,
                 metadataProvider,
                 locationService,
