@@ -55,16 +55,20 @@ with Parquet files performed by supported object storage connectors:
     off by setting this property to `0`.
   - `5`
 * - `parquet.writer.page-size`
-  - Maximum size of pages written by Parquet writer.
+  - Maximum size of pages written by Parquet writer. The equivalent catalog 
+    session property is `parquet_writer_page_size`.
   - `1 MB`
 * - `parquet.writer.page-value-count`
-  - Maximum values count of pages written by Parquet writer.
+  - Maximum values count of pages written by Parquet writer. The equivalent 
+    catalog session property is `parquet_writer_page_value_count`.
   - `80000`
 * - `parquet.writer.block-size`
-  - Maximum size of row groups written by Parquet writer.
+  - Maximum size of row groups written by Parquet writer. The equivalent 
+    catalog session property is `parquet_writer_block_size`.
   - `128 MB`
 * - `parquet.writer.batch-size`
   - Maximum number of rows processed by the parquet writer in a batch.
+    The equivalent catalog session property is `parquet_writer_batch_size`.
   - `10000`
 * - `parquet.use-bloom-filter`
   - Whether bloom filters are used for predicate pushdown when reading Parquet
