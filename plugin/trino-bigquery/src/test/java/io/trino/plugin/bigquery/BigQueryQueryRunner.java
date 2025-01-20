@@ -58,7 +58,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class BigQueryQueryRunner
 {
-    private static final String BIGQUERY_CREDENTIALS_KEY = requiredNonEmptySystemProperty("bigquery.credentials-key");
+    static final String BIGQUERY_CREDENTIALS_KEY = requiredNonEmptySystemProperty("testing.bigquery.credentials-key");
     public static final String TPCH_SCHEMA = "tpch";
     public static final String TEST_SCHEMA = "test";
 
@@ -113,6 +113,7 @@ public final class BigQueryQueryRunner
 
                 // note: additional copy via ImmutableList so that if fails on nulls
                 Map<String, String> connectorProperties = new HashMap<>(ImmutableMap.copyOf(this.connectorProperties));
+                connectorProperties.putIfAbsent("bigquery.credentials-key", BIGQUERY_CREDENTIALS_KEY);
                 connectorProperties.putIfAbsent("bigquery.views-enabled", "true");
                 connectorProperties.putIfAbsent("bigquery.view-expire-duration", "30m");
                 connectorProperties.putIfAbsent("bigquery.rpc-retries", "10");

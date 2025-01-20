@@ -647,7 +647,7 @@ jobs:
         if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-1 \
-            -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
+            -Dtesting.bigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.bigquery-connection-id="${BIGQUERY_TESTING_BIGLAKE_CONNECTION_ID}"
       - name: Cloud BigQuery Smoke Tests
@@ -658,7 +658,7 @@ jobs:
         if: matrix.modules == 'plugin/trino-bigquery' && contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-2 \
-            -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
+            -Dtesting.bigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.alternate-bq-project-id=bigquery-cicd-alternate
       - name: Cloud BigQuery Case Insensitive Mapping Tests
@@ -667,7 +667,7 @@ jobs:
           BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
         if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
+          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dtesting.bigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
       - name: Cloud Snowflake Tests
         id: tests-snowflake
         env:

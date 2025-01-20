@@ -40,6 +40,7 @@ import java.util.OptionalLong;
 import static com.google.cloud.bigquery.Field.Mode.REQUIRED;
 import static com.google.cloud.bigquery.StandardSQLTypeName.INT64;
 import static io.trino.plugin.bigquery.BigQueryFilterQueryBuilder.buildFilter;
+import static io.trino.plugin.bigquery.BigQueryQueryRunner.BIGQUERY_CREDENTIALS_KEY;
 import static io.trino.plugin.bigquery.ViewMaterializationCache.TEMP_TABLE_PREFIX;
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -56,7 +57,10 @@ public class TestBigQuerySplitManager
     public TestBigQuerySplitManager()
     {
         BigQueryConnectorFactory connectorFactory = new BigQueryConnectorFactory();
-        connector = connectorFactory.create("bigquery", ImmutableMap.of("bigquery.views-enabled", "true"), new TestingConnectorContext());
+        connector = connectorFactory.create(
+                "bigquery",
+                ImmutableMap.of("bigquery.views-enabled", "true", "bigquery.credentials-key", BIGQUERY_CREDENTIALS_KEY),
+                new TestingConnectorContext());
         bigQueryExecutor = new BigQuerySqlExecutor();
     }
 
