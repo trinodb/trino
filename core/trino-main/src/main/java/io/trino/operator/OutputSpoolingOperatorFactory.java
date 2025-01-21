@@ -56,6 +56,11 @@ import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOper
 import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_SYMBOL;
 import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_TYPE;
 import static io.trino.server.protocol.spooling.SpooledBlock.createNonSpooledPage;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInitialSegmentSize;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getMaxInlinedRows;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getMaxInlinedSize;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getMaxSegmentSize;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.isAllowInlining;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -160,11 +165,11 @@ public class OutputSpoolingOperatorFactory
         {
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.controller = new OutputSpoolingController(
-                    spoolingConfig.isAllowInlining(),
-                    spoolingConfig.getMaximumInlinedRows(),
-                    spoolingConfig.getMaximumSegmentSize().toBytes(),
-                    spoolingConfig.getInitialSegmentSize().toBytes(),
-                    spoolingConfig.getMaximumSegmentSize().toBytes());
+                    isAllowInlining(operatorContext.getSession()),
+                    getMaxInlinedRows(operatorContext.getSession()),
+                    getMaxInlinedSize(operatorContext.getSession()).toBytes(),
+                    getInitialSegmentSize(operatorContext.getSession()).toBytes(),
+                    getMaxSegmentSize(operatorContext.getSession()).toBytes());
             this.userMemoryContext = operatorContext.newLocalUserMemoryContext(OutputSpoolingOperator.class.getSimpleName());
             this.queryDataEncoder = requireNonNull(queryDataEncoder, "queryDataEncoder is null");
             this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
