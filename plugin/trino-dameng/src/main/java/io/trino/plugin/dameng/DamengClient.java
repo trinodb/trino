@@ -281,6 +281,15 @@ public class DamengClient
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
         }
 
+        if (jdbcTypeName.toLowerCase(ENGLISH).startsWith("datetime")) {
+            TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.requiredColumnSize()));
+            checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+            return Optional.of(ColumnMapping.longMapping(
+                    timestampType,
+                    timestampReadFunction(timestampType),
+                    timestampWriteFunction(timestampType)));
+        }
+
         switch (typeHandle.jdbcType()) {
             case Types.BIT:
                 return Optional.of(booleanColumnMapping());
