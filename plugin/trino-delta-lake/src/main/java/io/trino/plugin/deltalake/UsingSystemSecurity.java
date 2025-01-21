@@ -13,19 +13,17 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.security.AccessControlMetadata;
+import com.google.inject.BindingAnnotation;
 
-public interface DeltaLakeAccessControlMetadataFactory
-{
-    DeltaLakeAccessControlMetadataFactory SYSTEM = metastore -> new AccessControlMetadata() {
-        @Override
-        public boolean isUsingSystemSecurity()
-        {
-            return true;
-        }
-    };
-    DeltaLakeAccessControlMetadataFactory DEFAULT = metastore -> new AccessControlMetadata() {};
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-    AccessControlMetadata create(HiveMetastore metastore);
-}
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@BindingAnnotation
+public @interface UsingSystemSecurity {}
