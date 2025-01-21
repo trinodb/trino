@@ -201,7 +201,8 @@ public class DeltaLakePageSinkProvider
                 fileFormatDataSourceStats,
                 isDeletionVectorEnabled(tableHandle.metadataEntry(), tableHandle.protocolEntry()),
                 merge.deletionVectors(),
-                getRandomPrefixLength(tableHandle.metadataEntry()));
+                getRandomPrefixLength(tableHandle.metadataEntry()),
+                merge.shallowCloneSourceTableLocation());
     }
 
     private DeltaLakeCdfPageSink createCdfPageSink(

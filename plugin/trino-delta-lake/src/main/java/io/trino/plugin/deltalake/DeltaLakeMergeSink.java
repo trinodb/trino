@@ -132,6 +132,7 @@ public class DeltaLakeMergeSink
     private final boolean deletionVectorEnabled;
     private final Map<String, DeletionVectorEntry> deletionVectors;
     private final int randomPrefixLength;
+    private final Optional<String> shallowCloneSourceTableLocation;
 
     @Nullable
     private DeltaLakeCdfPageSink cdfPageSink;
@@ -156,7 +157,8 @@ public class DeltaLakeMergeSink
             FileFormatDataSourceStats fileFormatDataSourceStats,
             boolean deletionVectorEnabled,
             Map<String, DeletionVectorEntry> deletionVectors,
-            int randomPrefixLength)
+            int randomPrefixLength,
+            Optional<String> shallowCloneSourceTableLocation)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
@@ -185,6 +187,8 @@ public class DeltaLakeMergeSink
         this.deletionVectorEnabled = deletionVectorEnabled;
         this.deletionVectors = ImmutableMap.copyOf(requireNonNull(deletionVectors, "deletionVectors is null"));
         this.randomPrefixLength = randomPrefixLength;
+        this.shallowCloneSourceTableLocation = requireNonNull(shallowCloneSourceTableLocation, "shallowCloneSourceTableLocation is null");
+
         dataColumnsIndices = new int[tableColumnCount];
         dataAndRowIdColumnsIndices = new int[tableColumnCount + 1];
         for (int i = 0; i < tableColumnCount; i++) {
@@ -408,8 +412,8 @@ public class DeltaLakeMergeSink
             long rowCount)
     {
         String tablePath = rootTableLocation.toString();
-        String sourceRelativePath = relativePath(tablePath, sourcePath);
-        DeletionVectorEntry oldDeletionVector = deletionVectors.get(sourceRelativePath);
+        String sourceReferencePath = getReferencedPath(tablePath, sourcePath);
+        DeletionVectorEntry oldDeletionVector = deletionVectors.get(sourceReferencePath);
 
         DeletionVectorEntry deletionVectorEntry;
         try {
@@ -421,14 +425,14 @@ public class DeltaLakeMergeSink
 
         try {
             DataFileInfo newFileInfo = new DataFileInfo(
-                    sourceRelativePath,
+                    sourceReferencePath,
                     length,
                     lastModified.toEpochMilli(),
                     DATA,
                     deletion.partitionValues,
                     readStatistics(parquetMetadata, dataColumns, rowCount),
                     Optional.of(deletionVectorEntry));
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceRelativePath), Optional.ofNullable(oldDeletionVector), Optional.of(newFileInfo));
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceReferencePath), Optional.ofNullable(oldDeletionVector), Optional.of(newFileInfo));
             return utf8Slice(mergeResultJsonCodec.toJson(result));
         }
         catch (Throwable e) {
@@ -446,9 +450,9 @@ public class DeltaLakeMergeSink
 
     private Slice onlySourceFile(String sourcePath, FileDeletion deletion)
     {
-        String sourceRelativePath = relativePath(rootTableLocation.toString(), sourcePath);
-        DeletionVectorEntry deletionVector = deletionVectors.get(sourceRelativePath);
-        DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), Optional.ofNullable(deletionVector), Optional.empty());
+        String sourceReferencePath = getReferencedPath(rootTableLocation.toString(), sourcePath);
+        DeletionVectorEntry deletionVector = deletionVectors.get(sourceReferencePath);
+        DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceReferencePath), Optional.ofNullable(deletionVector), Optional.empty());
         return utf8Slice(mergeResultJsonCodec.toJson(result));
     }
 
@@ -458,9 +462,18 @@ public class DeltaLakeMergeSink
         try {
             String tablePath = rootTableLocation.toString();
             Location sourceLocation = Location.of(sourcePath);
-            String sourceRelativePath = relativePath(tablePath, sourcePath);
+            String sourceReferencePath = getReferencedPath(tablePath, sourcePath);
 
-            Location targetLocation = sourceLocation.sibling(session.getQueryId() + "_" + randomUUID());
+            // get the relative path for the cloned table if `sourcePath` is a source table file location
+            Optional<String> sourceRelativePath = shallowCloneSourceTableLocation
+                    .filter(sourcePath::startsWith)
+                    .map(location -> relativePath(location, sourcePath));
+            // build the target location by appending the source relative path after current table location if
+            // it's a cloned table and the sourcePath is a source table file location
+            Location targetLocation = sourceRelativePath.map(rootTableLocation::appendPath)
+                    .orElse(sourceLocation)
+                    .sibling(session.getQueryId() + "_" + randomUUID());
+            // write under current table location, no matter the table is cloned or not
             String targetRelativePath = relativePath(tablePath, targetLocation.toString());
             ParquetFileWriter fileWriter = createParquetFileWriter(targetLocation, dataColumns);
 
@@ -475,7 +488,7 @@ public class DeltaLakeMergeSink
 
             Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourceLocation, deletion, writer);
 
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), Optional.empty(), newFileInfo);
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceReferencePath), Optional.empty(), newFileInfo);
             return ImmutableList.of(utf8Slice(mergeResultJsonCodec.toJson(result)));
         }
         catch (IOException e) {
@@ -525,8 +538,8 @@ public class DeltaLakeMergeSink
 
     private RoaringBitmapArray loadDeletionVector(Location path)
     {
-        String relativePath = relativePath(rootTableLocation.toString(), path.toString());
-        DeletionVectorEntry deletionVector = deletionVectors.get(relativePath);
+        String referencedPath = getReferencedPath(rootTableLocation.toString(), path.toString());
+        DeletionVectorEntry deletionVector = deletionVectors.get(referencedPath);
         if (deletionVector == null) {
             return new RoaringBitmapArray();
         }
@@ -678,6 +691,16 @@ public class DeltaLakeMergeSink
                 Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.of(fileSize));
+    }
+
+    private String getReferencedPath(String basePath, String sourcePath)
+    {
+        if (shallowCloneSourceTableLocation.isPresent() && sourcePath.startsWith(shallowCloneSourceTableLocation.get())) {
+            // It's the absolute path of shallow clone source table file
+            return sourcePath;
+        }
+
+        return relativePath(basePath, sourcePath);
     }
 
     @Override
