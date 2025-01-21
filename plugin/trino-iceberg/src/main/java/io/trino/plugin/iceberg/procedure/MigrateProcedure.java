@@ -31,7 +31,7 @@ import io.trino.metastore.Storage;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileFormat;
-import io.trino.plugin.iceberg.IcebergSecurityConfig;
+import io.trino.plugin.iceberg.UsingSystemSecurity;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.procedure.MigrationUtils.RecursiveDirectory;
@@ -86,7 +86,6 @@ import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
-import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.procedure.MigrationUtils.buildDataFiles;
@@ -140,14 +139,14 @@ public class MigrateProcedure
             TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             IcebergConfig icebergConfig,
-            IcebergSecurityConfig securityConfig)
+            @UsingSystemSecurity boolean usingSystemSecurity)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.formatVersion = icebergConfig.getFormatVersion();
-        this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
+        this.isUsingSystemSecurity = usingSystemSecurity;
     }
 
     @Override
