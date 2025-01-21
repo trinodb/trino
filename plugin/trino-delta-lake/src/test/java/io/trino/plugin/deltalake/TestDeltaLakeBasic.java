@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.Resources;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.Session;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -64,8 +65,10 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -78,6 +81,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -2353,6 +2357,107 @@ public class TestDeltaLakeBasic
         assertQueryFails(
                 "CALL delta.system.vacuum('tpch', 'unsupported_writer_version', '7d')",
                 "Cannot execute vacuum procedure with 8 writer version");
+    }
+
+    /**
+     * @see deltalake.clone_merge
+     */
+    @Test
+    public void testMergeOnClonedTable()
+            throws Exception
+    {
+        testMergeOnClonedTable("deltalake/clone_merge/clone_merge_source",  "deltalake/clone_merge/clone_merge_cloned", "clone_merge_source");
+        testMergeOnClonedTable("deltalake/clone_merge/clone_merge_deletion_vector_source",  "deltalake/clone_merge/clone_merge_deletion_vector_cloned", "clone_merge_deletion_vector_source");
+    }
+
+    private void testMergeOnClonedTable(String sourceResourceName, String clonedResourceName, String sourceTableDir)
+            throws Exception
+    {
+        String sourceTable = sourceTableDir + randomNameSuffix();
+        // load source table to a random suffix sub dir of the catalogDir
+        Path sourceLocation = catalogDir.resolve("clone_test_dir" + randomNameSuffix()).resolve(sourceTableDir);
+        FILE_SYSTEM.createDirectory(Location.of(sourceLocation.toString()));
+        copyDirectoryContents(new File(Resources.getResource(sourceResourceName).toURI()).toPath(), sourceLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(sourceTable, sourceLocation.toUri()));
+
+        @Language("SQL") String sourceTableValues = """
+                VALUES
+                (1, 'A', TIMESTAMP '2024-01-01'),
+                (2, 'B', TIMESTAMP '2024-01-01'),
+                (3, 'C', TIMESTAMP '2024-02-02'),
+                (4, 'D', TIMESTAMP '2024-02-02')
+                """;
+
+        assertQuery("SELECT * FROM " + sourceTable, sourceTableValues);
+
+        String clonedTable = "test_clone_merge_cloned_" + randomNameSuffix();
+        Path cloneTableLocation = sourceLocation.resolveSibling(clonedTable);
+        copyDirectoryContents(new File(Resources.getResource(clonedResourceName).toURI()).toPath(), cloneTableLocation);
+
+        // Replace the fixed s3 prefix with actual(local) absolute path prefix
+        updateClonedTableDeletionVectorPathPrefix(cloneTableLocation, sourceLocation.toString());
+
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(clonedTable, cloneTableLocation.toUri()));
+
+        // cloned table without any changes
+        assertQuery("SELECT * FROM " + clonedTable, sourceTableValues);
+
+        // update on cloned table
+        @Language("SQL") String expectedValuesAfterUpdate = """
+                VALUES
+                (1, 'A', TIMESTAMP '2024-01-01'),
+                (2, 'updated', TIMESTAMP '2024-01-01'),
+                (3, 'C', TIMESTAMP '2024-02-02'),
+                (4, 'updated', TIMESTAMP '2024-02-02')
+        """;
+        assertUpdate("UPDATE " + clonedTable + " SET v = 'updated' WHERE id IN (2, 4)", 2);
+        assertQuery("SELECT * FROM " + clonedTable, expectedValuesAfterUpdate);
+
+        // merge on cloned table, including insert,update,delete
+        String mergeSql = """
+                MERGE INTO %s t
+                USING (VALUES (1, 'yyy', TIMESTAMP '2025-01-01'), (2, 'merged', TIMESTAMP '2025-02-02'), (5, 'kkk', TIMESTAMP '2025-03-03')) AS s(id, v, part)
+                ON (t.id = s.id)
+                WHEN MATCHED AND s.v = 'yyy' THEN DELETE
+                WHEN MATCHED THEN UPDATE SET v = s.v
+                WHEN NOT MATCHED THEN INSERT (id, v, part) VALUES(s.id, s.v, s.part)
+                """.formatted(clonedTable);
+
+        @Language("SQL") String expectedValuesAfterMerge = """
+                VALUES
+                (2, 'merged', TIMESTAMP '2024-01-01'),
+                (3, 'C', TIMESTAMP '2024-02-02'),
+                (4, 'updated', TIMESTAMP '2024-02-02'),
+                (5, 'kkk', TIMESTAMP '2025-03-03')
+                """;
+
+        assertUpdate(mergeSql, 3);
+        assertQuery("SELECT * FROM " + clonedTable, expectedValuesAfterMerge);
+
+        // source table not change
+        assertQuery("SELECT * FROM " + sourceTable, sourceTableValues);
+    }
+
+    public static void updateClonedTableDeletionVectorPathPrefix(Path location, String newPrefix)
+            throws IOException
+    {
+        String oldPrefix = "s3://test-bucket/tiny/clone_merge_deletion_vector_source";
+        Pattern pattern = Pattern.compile("(?<=\\\"pathOrInlineDv\\\":\\\")" + Pattern.quote(oldPrefix));
+
+        try (Stream<Path> stream = Files.walk(location)) {
+            stream.filter(file -> !Files.isDirectory(file))
+                    .filter(file -> file.getFileName().toString().endsWith(".json"))
+                    .forEach(file -> {
+                        try {
+                            String content = Files.readString(file);
+                            if (pattern.matcher(content).find()) {
+                                Files.write(file, pattern.matcher(content).replaceAll(newPrefix).getBytes(StandardCharsets.UTF_8), StandardOpenOption.TRUNCATE_EXISTING);
+                            }
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+        }
     }
 
     private static MetadataEntry loadMetadataEntry(long entryNumber, Path tableLocation)
