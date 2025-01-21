@@ -68,14 +68,17 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeComputedStatistics;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.UnsupportedTypeException;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
+import io.trino.plugin.deltalake.transactionlog.Transaction;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogEntries;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.MetadataAndProtocolEntries;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionConflictException;
@@ -225,6 +228,7 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isCollectExtendedStatisticsColumnStatisticsOnWrite;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
@@ -288,6 +292,7 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getM
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.loadNewTail;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
@@ -2068,6 +2073,18 @@ public class DeltaLakeMetadata
     private static void appendAddFileEntries(TransactionLogWriter transactionLogWriter, List<DataFileInfo> dataFileInfos, List<String> partitionColumnNames, List<String> originalColumnNames, boolean dataChange)
             throws JsonProcessingException
     {
+        appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumnNames, originalColumnNames, dataChange, Optional.empty());
+    }
+
+    private static void appendAddFileEntries(
+            TransactionLogWriter transactionLogWriter,
+            List<DataFileInfo> dataFileInfos,
+            List<String> partitionColumnNames,
+            List<String> originalColumnNames,
+            boolean dataChange,
+            Optional<String> cloneSourceLocation)
+            throws JsonProcessingException
+    {
         Map<String, String> toOriginalColumnNames = originalColumnNames.stream()
                 .collect(toImmutableMap(name -> name.toLowerCase(ENGLISH), identity()));
         for (DataFileInfo info : dataFileInfos) {
@@ -2084,9 +2101,13 @@ public class DeltaLakeMetadata
 
             partitionValues = unmodifiableMap(partitionValues);
 
+            String path = cloneSourceLocation.isPresent() && info.path().startsWith(cloneSourceLocation.get())
+                    ? info.path()
+                    : toUriFormat(info.path()); // Paths are RFC 2396 URI encoded https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
+
             transactionLogWriter.appendAddFileEntry(
                     new AddFileEntry(
-                            toUriFormat(info.path()), // Paths are RFC 2396 URI encoded https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
+                            path,
                             partitionValues,
                             info.size(),
                             info.creationTime(),
@@ -2451,7 +2472,59 @@ public class DeltaLakeMetadata
         DeltaLakeInsertTableHandle insertHandle = createInsertHandle(retryMode, handle, inputColumns);
 
         Map<String, DeletionVectorEntry> deletionVectors = loadDeletionVectors(session, handle);
-        return new DeltaLakeMergeTableHandle(handle, insertHandle, deletionVectors);
+        return new DeltaLakeMergeTableHandle(handle, insertHandle, deletionVectors, findShallowCloneSourceTableLocation(session, handle));
+    }
+
+    private Optional<String> findShallowCloneSourceTableLocation(ConnectorSession session, DeltaLakeTableHandle handle)
+    {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        String sourceTableName;
+        try {
+            // The clone commit is the first commit of the cloned table, so set the endVersion to 0
+            TransactionLogTail transactionLogTail = loadNewTail(fileSystem, handle.getLocation(), Optional.empty(), Optional.of(0L), DataSize.ofBytes(0));
+            List<Transaction> transactions = transactionLogTail.getTransactions();
+            if (transactions.isEmpty()) {
+                return Optional.empty();
+            }
+
+            Optional<CommitInfoEntry> cloneCommit = transactions.getFirst().transactionEntries().getEntries(fileSystem)
+                    .map(DeltaLakeTransactionLogEntry::getCommitInfo)
+                    .filter(Objects::nonNull)
+                    .filter(commitInfoEntry -> commitInfoEntry.operation().equals("CLONE"))
+                    .findFirst();
+            if (cloneCommit.isEmpty()) {
+                return Optional.empty();
+            }
+
+            // It's the cloned table
+            sourceTableName = cloneCommit.get().operationParameters().get("source");
+            if (sourceTableName == null) {
+                throw new TrinoException(NOT_SUPPORTED, "Not support reading source table for cloned table with null source table name");
+            }
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        // Currently, only supports reading cloned tables where the "source" content in the cloned commit follows the pattern: catalog.schema.table.
+        // Not support catalogs, schemas or tables containing dots
+        // TODO: support reading catalogs, schemas or table names contain dots
+        if (!sourceTableName.contains(".") || sourceTableName.split("\\.").length != 3) {
+            throw new TrinoException(NOT_SUPPORTED, "Not support reading source table for cloned table by source table name:" + sourceTableName);
+        }
+
+        String[] names = sourceTableName.split("\\.");
+        DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) getTableHandle(session, new SchemaTableName(names[1], names[2]), Optional.empty(), Optional.empty());
+        if (tableHandle == null) {
+            throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Failed to get source table for cloned table by source table name: " + sourceTableName);
+        }
+
+        String tableLocation = tableHandle.getLocation();
+        if (!tableLocation.endsWith("/")) {
+            tableLocation += "/";
+        }
+
+        return Optional.of(tableLocation);
     }
 
     private Map<String, DeletionVectorEntry> loadDeletionVectors(ConnectorSession session, DeltaLakeTableHandle handle)
@@ -2580,14 +2653,20 @@ public class DeltaLakeMetadata
             appendCdcFilesInfos(transactionLogWriter, cdcFiles, partitionColumns);
         }
 
+        Optional<String> cloneSourceTableLocation = mergeHandle.shallowCloneSourceTableLocation();
         for (DeltaLakeMergeResult mergeResult : mergeResults) {
             if (mergeResult.oldFile().isEmpty()) {
                 continue;
             }
-            transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(toUriFormat(mergeResult.oldFile().get()), createPartitionValuesMap(partitionColumns, mergeResult.partitionValues()), writeTimestamp, true, mergeResult.oldDeletionVector()));
+
+            String oldFile = cloneSourceTableLocation.isPresent() && mergeResult.oldFile().get().startsWith(cloneSourceTableLocation.get())
+                    ? mergeResult.oldFile().get()
+                    : toUriFormat(mergeResult.oldFile().get()); // Paths are RFC 2396 URI encoded
+
+            transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(oldFile, createPartitionValuesMap(partitionColumns, mergeResult.partitionValues()), writeTimestamp, true, mergeResult.oldDeletionVector()));
         }
 
-        appendAddFileEntries(transactionLogWriter, newFiles, partitionColumns, getExactColumnNames(handle.getMetadataEntry()), true);
+        appendAddFileEntries(transactionLogWriter, newFiles, partitionColumns, getExactColumnNames(handle.getMetadataEntry()), true, cloneSourceTableLocation);
 
         transactionLogWriter.flush();
         return commitVersion;
