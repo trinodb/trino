@@ -17,8 +17,12 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.DataSize;
+import io.airlift.units.MaxDataSize;
+import io.airlift.units.MinDataSize;
 import io.trino.util.Ciphers;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -68,6 +72,8 @@ public class SpoolingConfig
         return this;
     }
 
+    @MinDataSize("1kB")
+    @MaxDataSize("128MB")
     public DataSize getInitialSegmentSize()
     {
         return initialSegmentSize;
@@ -81,6 +87,8 @@ public class SpoolingConfig
         return this;
     }
 
+    @MinDataSize("1kB")
+    @MaxDataSize("128MB")
     public DataSize getMaximumSegmentSize()
     {
         return maximumSegmentSize;
@@ -107,6 +115,8 @@ public class SpoolingConfig
         return this;
     }
 
+    @Min(1)
+    @Max(1_000_000)
     public long getMaximumInlinedRows()
     {
         return maximumInlinedRows;
@@ -120,6 +130,8 @@ public class SpoolingConfig
         return this;
     }
 
+    @MinDataSize("1kB")
+    @MaxDataSize("1MB")
     public DataSize getMaximumInlinedSize()
     {
         return maximumInlinedSize;
@@ -139,6 +151,12 @@ public class SpoolingConfig
         return sharedSecretKey
                 .map(Ciphers::is256BitSecretKeySpec)
                 .orElse(true);
+    }
+
+    @AssertTrue(message = "protocol.spooling.initial-segment-size must be smaller than protocol.spooling.maximum-segment-size")
+    public boolean areSegmentSizesCorrect()
+    {
+        return getInitialSegmentSize().compareTo(getMaximumSegmentSize()) < 0;
     }
 
     @AssertTrue(message = "protocol.spooling.shared-secret-key must be set")
