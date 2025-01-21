@@ -201,6 +201,7 @@ public class TestDeltaLakeMetadata
                     binder.bind(Tracer.class).toInstance(context.getTracer());
                 },
                 // connector modules
+                new DeltaLakeSecurityModule(),
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),
                 // test setup
