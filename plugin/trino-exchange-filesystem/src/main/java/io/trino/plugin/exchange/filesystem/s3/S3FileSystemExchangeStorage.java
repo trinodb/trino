@@ -360,7 +360,7 @@ public class S3FileSystemExchangeStorage
 
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .bucket(getBucketName(dir))
-                .prefix(keyFromUri(dir))
+                .prefix(keyFromUri(dir) + PATH_SEPARATOR)
                 .build();
 
         return s3AsyncClient.listObjectsV2Paginator(request);
