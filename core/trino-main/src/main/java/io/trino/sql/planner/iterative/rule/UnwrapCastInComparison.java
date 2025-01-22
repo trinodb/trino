@@ -431,11 +431,7 @@ public class UnwrapCastInComparison
                     }
 
                     // Cast from DATE to TIMESTAMP WITH TIME ZONE is not monotonic when there is a forward DST change in the session zone
-                    if (!isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value))) {
-                        return false;
-                    }
-
-                    return true;
+                    return isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value));
                 }
                 if (source instanceof TimestampType) {
                     // Cast from TIMESTAMP WITH TIME ZONE to TIMESTAMP and back to TIMESTAMP WITH TIME ZONE does not round trip, unless the value's zone is equal to session zone
@@ -444,11 +440,7 @@ public class UnwrapCastInComparison
                     }
 
                     // Cast from TIMESTAMP to TIMESTAMP WITH TIME ZONE is not monotonic when there is a forward DST change in the session zone
-                    if (!isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value))) {
-                        return false;
-                    }
-
-                    return true;
+                    return isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value));
                 }
                 // CAST from TIMESTAMP WITH TIME ZONE to d and back to TIMESTAMP WITH TIME ZONE does not round trip for most types d
                 // TODO add test coverage
@@ -541,9 +533,7 @@ public class UnwrapCastInComparison
         ZoneOffsetTransition transition = zone.getRules().previousTransition(instant.plusNanos(1));
         if (transition != null) {
             // DST change forward and the instant is ambiguous, being within the 'gap' area non-monotonic remapping
-            if (!transition.getDuration().isNegative() && !transition.getDateTimeAfter().minusNanos(1).atZone(zone).toInstant().isBefore(instant)) {
-                return false;
-            }
+            return transition.getDuration().isNegative() || transition.getDateTimeAfter().minusNanos(1).atZone(zone).toInstant().isBefore(instant);
         }
         return true;
     }
