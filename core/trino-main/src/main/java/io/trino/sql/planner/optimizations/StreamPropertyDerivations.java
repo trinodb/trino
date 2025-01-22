@@ -95,6 +95,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
+import static io.trino.sql.planner.SymbolUtils.containsAll;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
@@ -158,7 +159,7 @@ public final class StreamPropertyDerivations
                 .flatMap(property -> property.getColumns().stream())
                 .collect(Collectors.toSet());
 
-        verify(node.getOutputSymbols().containsAll(localPropertyColumns), "Stream-level local properties contain columns not present in node's output");
+        verify(containsAll(node.getOutputSymbols(), localPropertyColumns), "Stream-level local properties contain columns not present in node's output");
 
         return result;
     }
@@ -202,7 +203,7 @@ public final class StreamPropertyDerivations
         StreamProperties result = node.accept(new Visitor(metadata, session), inputProperties);
 
         result.getPartitioningColumns().ifPresent(columns ->
-                verify(node.getOutputSymbols().containsAll(columns), "Stream-level partitioning properties contain columns not present in node's output"));
+                verify(containsAll(node.getOutputSymbols(), columns), "Stream-level partitioning properties contain columns not present in node's output"));
 
         return result;
     }

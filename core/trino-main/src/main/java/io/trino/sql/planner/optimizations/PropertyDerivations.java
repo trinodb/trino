@@ -100,6 +100,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
+import static io.trino.sql.planner.SymbolUtils.containsAll;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSinglePartition;
@@ -138,15 +139,15 @@ public final class PropertyDerivations
         ActualProperties output = node.accept(new Visitor(plannerContext, session), inputProperties);
 
         output.getNodePartitioning().ifPresent(partitioning ->
-                verify(node.getOutputSymbols().containsAll(partitioning.getColumns()), "Node-level partitioning properties contain columns not present in node's output"));
+                verify(containsAll(node.getOutputSymbols(), partitioning.getColumns()), "Node-level partitioning properties contain columns not present in node's output"));
 
-        verify(node.getOutputSymbols().containsAll(output.getConstants().keySet()), "Node-level constant properties contain columns not present in node's output");
+        verify(containsAll(node.getOutputSymbols(), output.getConstants().keySet()), "Node-level constant properties contain columns not present in node's output");
 
         Set<Symbol> localPropertyColumns = output.getLocalProperties().stream()
                 .flatMap(property -> property.getColumns().stream())
                 .collect(Collectors.toSet());
 
-        verify(node.getOutputSymbols().containsAll(localPropertyColumns), "Node-level local properties contain columns not present in node's output");
+        verify(containsAll(node.getOutputSymbols(), localPropertyColumns), "Node-level local properties contain columns not present in node's output");
         return output;
     }
 

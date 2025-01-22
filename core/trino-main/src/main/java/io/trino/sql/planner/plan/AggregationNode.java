@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.sql.planner.SymbolUtils.containsAll;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static java.util.Objects.requireNonNull;
 
@@ -114,7 +115,7 @@ public class AggregationNode
         this.hashSymbol = hashSymbol;
 
         requireNonNull(preGroupedSymbols, "preGroupedSymbols is null");
-        checkArgument(preGroupedSymbols.isEmpty() || groupingSets.getGroupingKeys().containsAll(preGroupedSymbols), "Pre-grouped symbols must be a subset of the grouping keys");
+        checkArgument(preGroupedSymbols.isEmpty() || containsAll(groupingSets.getGroupingKeys(), preGroupedSymbols), "Pre-grouped symbols must be a subset of the grouping keys");
         this.preGroupedSymbols = ImmutableList.copyOf(preGroupedSymbols);
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();

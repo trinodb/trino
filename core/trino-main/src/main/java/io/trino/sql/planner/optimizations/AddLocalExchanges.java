@@ -82,6 +82,7 @@ import static io.trino.SystemSessionProperties.getTaskMinWriterCount;
 import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
+import static io.trino.sql.planner.SymbolUtils.containsAll;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
@@ -609,7 +610,7 @@ public class AddLocalExchanges
                 if (property instanceof ConstantProperty) {
                     redundantSymbolsBuilder.add(((ConstantProperty<Symbol>) property).getColumn());
                 }
-                else if (!node.getDistinctSymbols().containsAll(property.getColumns())) {
+                else if (!containsAll(node.getDistinctSymbols(), property.getColumns())) {
                     // Ran into a non-distinct symbol. There will be no more symbols that are functionally dependent on distinct symbols exclusively.
                     break;
                 }

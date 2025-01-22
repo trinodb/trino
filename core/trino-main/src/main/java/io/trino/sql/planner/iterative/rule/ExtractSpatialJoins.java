@@ -68,7 +68,6 @@ import io.trino.sql.planner.plan.UnnestNode;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -88,6 +87,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
+import static io.trino.sql.planner.SymbolUtils.containsAll;
+import static io.trino.sql.planner.SymbolUtils.containsNone;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -304,7 +305,7 @@ public class ExtractSpatialJoins
             // ST_Distance(a, b) <= r
             radius = spatialComparison.right();
             Set<Symbol> radiusSymbols = extractUnique(radius);
-            if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
+            if (radiusSymbols.isEmpty() || containsAll(rightSymbols, radiusSymbols) && containsNone(leftSymbols, radiusSymbols)) {
                 newRadiusSymbol = newRadiusSymbol(context, radius);
                 newComparison = new Comparison(spatialComparison.operator(), spatialComparison.left(), toExpression(newRadiusSymbol, radius));
             }
@@ -316,7 +317,7 @@ public class ExtractSpatialJoins
             // r >= ST_Distance(a, b)
             radius = spatialComparison.left();
             Set<Symbol> radiusSymbols = extractUnique(radius);
-            if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
+            if (radiusSymbols.isEmpty() || (containsAll(rightSymbols, radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
                 newRadiusSymbol = newRadiusSymbol(context, radius);
                 newComparison = new Comparison(spatialComparison.operator().flip(), spatialComparison.right(), toExpression(newRadiusSymbol, radius));
             }
@@ -529,16 +530,16 @@ public class ExtractSpatialJoins
         List<Symbol> leftSymbols = joinNode.getLeft().getOutputSymbols();
         List<Symbol> rightSymbols = joinNode.getRight().getOutputSymbols();
 
-        if (leftSymbols.containsAll(maybeLeftSymbols)
+        if (containsAll(leftSymbols, maybeLeftSymbols)
                 && containsNone(leftSymbols, maybeRightSymbols)
-                && rightSymbols.containsAll(maybeRightSymbols)
+                && containsAll(rightSymbols, maybeRightSymbols)
                 && containsNone(rightSymbols, maybeLeftSymbols)) {
             return 1;
         }
 
-        if (leftSymbols.containsAll(maybeRightSymbols)
+        if (containsAll(leftSymbols, maybeRightSymbols)
                 && containsNone(leftSymbols, maybeLeftSymbols)
-                && rightSymbols.containsAll(maybeLeftSymbols)
+                && containsAll(rightSymbols, maybeLeftSymbols)
                 && containsNone(rightSymbols, maybeRightSymbols)) {
             return -1;
         }
@@ -605,10 +606,5 @@ public class ExtractSpatialJoins
                 ImmutableList.of(new UnnestNode.Mapping(partitionsSymbol, ImmutableList.of(partitionSymbol))),
                 Optional.empty(),
                 INNER);
-    }
-
-    private static boolean containsNone(Collection<Symbol> values, Collection<Symbol> testValues)
-    {
-        return values.stream().noneMatch(ImmutableSet.copyOf(testValues)::contains);
     }
 }

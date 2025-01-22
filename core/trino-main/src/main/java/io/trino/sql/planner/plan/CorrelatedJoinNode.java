@@ -24,6 +24,7 @@ import io.trino.sql.tree.Node;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.sql.planner.SymbolUtils.containsAll;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -70,7 +71,7 @@ public class CorrelatedJoinNode
         requireNonNull(filter, "filter is null");
         requireNonNull(originSubquery, "originSubquery is null");
 
-        checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
+        checkArgument(containsAll(input.getOutputSymbols(), correlation), "Input does not contain symbols from correlation");
 
         this.input = input;
         this.subquery = subquery;

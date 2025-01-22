@@ -102,6 +102,7 @@ import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.EqualityInference.isInferenceCandidate;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static io.trino.sql.planner.SymbolUtils.containsAll;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.unwrapCasts;
@@ -239,8 +240,7 @@ public class PredicatePushDown
             // function is injective, but that's a rare case. The majority of window nodes are expected to be partitioned by
             // pre-projected symbols.
             Predicate<Expression> isSupported = conjunct ->
-                    isDeterministic(conjunct) &&
-                            partitionSymbols.containsAll(extractUnique(conjunct));
+                    isDeterministic(conjunct) && containsAll(partitionSymbols, extractUnique(conjunct));
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(isSupported));
 
@@ -260,8 +260,7 @@ public class PredicatePushDown
 
             // TODO: This could be broader. See the comment in visitWindow().
             Predicate<Expression> isSupported = conjunct ->
-                    isDeterministic(conjunct) &&
-                            partitionSymbols.containsAll(extractUnique(conjunct));
+                    isDeterministic(conjunct) && containsAll(partitionSymbols, extractUnique(conjunct));
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(isSupported));
 
@@ -500,7 +499,7 @@ public class PredicatePushDown
                 if (joinEqualityExpression(conjunct, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols())) {
                     Comparison equality = (Comparison) conjunct;
 
-                    boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(extractUnique(equality.left()));
+                    boolean alignedComparison = containsAll(node.getLeft().getOutputSymbols(), extractUnique(equality.left()));
                     Expression leftExpression = alignedComparison ? equality.left() : equality.right();
                     Expression rightExpression = alignedComparison ? equality.right() : equality.left();
 
@@ -625,7 +624,7 @@ public class PredicatePushDown
                                         Comparison comparison = expression.getComparison();
                                         Expression leftExpression = comparison.left();
                                         Expression rightExpression = comparison.right();
-                                        boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(extractUnique(leftExpression));
+                                        boolean alignedComparison = containsAll(node.getLeft().getOutputSymbols(), extractUnique(leftExpression));
                                         return new DynamicFilterExpression(
                                                 new Comparison(
                                                         alignedComparison ? comparison.operator() : comparison.operator().flip(),

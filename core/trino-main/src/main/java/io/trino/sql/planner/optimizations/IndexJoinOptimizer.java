@@ -61,6 +61,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.planner.SymbolUtils.containsAll;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -288,7 +289,7 @@ public class IndexJoinOptimizer
                     .transformKeys(node.getAssignments()::get)
                     .intersect(node.getEnforcedConstraint());
 
-            checkState(node.getOutputSymbols().containsAll(context.getLookupSymbols()));
+            checkState(containsAll(node.getOutputSymbols(), context.getLookupSymbols()));
 
             Set<ColumnHandle> lookupColumns = context.getLookupSymbols().stream()
                     .map(node.getAssignments()::get)
@@ -375,8 +376,7 @@ public class IndexJoinOptimizer
             }
 
             // Lookup symbols can only be passed through if they are part of the partitioning
-
-            if (!node.getPartitionBy().containsAll(context.get().getLookupSymbols())) {
+            if (!containsAll(node.getPartitionBy(), context.get().getLookupSymbols())) {
                 return node;
             }
 
@@ -393,7 +393,7 @@ public class IndexJoinOptimizer
         public PlanNode visitIndexJoin(IndexJoinNode node, RewriteContext<Context> context)
         {
             // Lookup symbols can only be passed through the probe side of an index join
-            if (!node.getProbeSource().getOutputSymbols().containsAll(context.get().getLookupSymbols())) {
+            if (!containsAll(node.getProbeSource().getOutputSymbols(), context.get().getLookupSymbols())) {
                 return node;
             }
 
@@ -411,7 +411,7 @@ public class IndexJoinOptimizer
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Context> context)
         {
             // Lookup symbols can only be passed through if they are part of the group by columns
-            if (!node.getGroupingKeys().containsAll(context.get().getLookupSymbols())) {
+            if (!containsAll(node.getGroupingKeys(), context.get().getLookupSymbols())) {
                 return node;
             }
 

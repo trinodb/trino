@@ -79,6 +79,7 @@ import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.EqualityInference.isInferenceCandidate;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.AUTOMATIC;
+import static io.trino.sql.planner.SymbolUtils.containsAll;
 import static io.trino.sql.planner.SymbolsExtractor.extractAll;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType.canReplicate;
@@ -518,7 +519,7 @@ public class ReorderJoins
             this.pushedProjectionThroughJoin = pushedProjectionThroughJoin;
 
             List<Symbol> inputSymbols = sources.stream().flatMap(source -> source.getOutputSymbols().stream()).collect(toImmutableList());
-            checkArgument(inputSymbols.containsAll(outputSymbols), "inputs do not contain all output symbols");
+            checkArgument(containsAll(inputSymbols, outputSymbols), "inputs do not contain all output symbols");
         }
 
         public Expression getFilter()

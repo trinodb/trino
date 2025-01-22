@@ -26,6 +26,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.planner.SymbolUtils.containsAll;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -50,7 +51,7 @@ public class UnnestNode
         super(id);
         this.source = requireNonNull(source, "source is null");
         this.replicateSymbols = ImmutableList.copyOf(requireNonNull(replicateSymbols, "replicateSymbols is null"));
-        checkArgument(source.getOutputSymbols().containsAll(replicateSymbols), "Source does not contain all replicateSymbols");
+        checkArgument(containsAll(source.getOutputSymbols(), replicateSymbols), "Source does not contain all replicateSymbols");
         requireNonNull(mappings, "mappings is null");
         checkArgument(!mappings.isEmpty(), "mappings is empty");
         this.mappings = ImmutableList.copyOf(mappings);
