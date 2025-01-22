@@ -28,6 +28,7 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManag
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
+import io.trino.plugin.hive.security.UsingSystemSecurity;
 import io.trino.spi.NodeManager;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
