@@ -16,9 +16,10 @@ package io.trino.plugin.deltalake;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.security.AllowAllSecurityModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
-import io.trino.plugin.hive.security.AllowAllSecurityModule;
+import io.trino.plugin.hive.security.UsingSystemSecurity;
 
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 

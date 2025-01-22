@@ -11,24 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.security;
+package io.trino.plugin.base.security;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
+import io.trino.spi.connector.ConnectorAccessControl;
 
-public class SystemSecurityModule
+public class AllowAllSecurityModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        // do not bind an ConnectorAccessControl so the engine will use system security with system roles
-        binder.bind(AccessControlMetadataFactory.class).toInstance(metastore -> new AccessControlMetadata() {
-            @Override
-            public boolean isUsingSystemSecurity()
-            {
-                return true;
-            }
-        });
+        binder.bind(ConnectorAccessControl.class).to(AllowAllAccessControl.class).in(Scopes.SINGLETON);
     }
 }
