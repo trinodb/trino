@@ -15,12 +15,12 @@ package io.trino.plugin.hive.ion;
 
 import com.amazon.ion.IonReader;
 import com.amazon.ion.system.IonReaderBuilder;
+import com.google.common.io.CountingInputStream;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.hive.formats.TrinoDataInputStream;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.ion.IonDecoder;
@@ -118,18 +118,15 @@ public class IonPageSourceFactory
             Optional<Codec> codec = CompressionKind.forFile(inputFile.location().fileName())
                     .map(CompressionKind::createCodec);
 
-            TrinoDataInputStream trinoInputStream = new TrinoDataInputStream(inputFile.newStream());
+            CountingInputStream countingInputStream = new CountingInputStream(inputFile.newStream());
             InputStream inputStream;
             if (codec.isPresent()) {
-                inputStream = codec.get().createStreamDecompressor(inputFile.newStream());
+                inputStream = codec.get().createStreamDecompressor(countingInputStream);
             }
             else {
-                inputStream = inputFile.newStream();
+                inputStream = countingInputStream;
             }
 
-            IonReader ionReader = IonReaderBuilder
-                    .standard()
-                    .build(inputStream);
             PageBuilder pageBuilder = new PageBuilder(projectedReaderColumns.stream()
                     .map(HiveColumnHandle::getType)
                     .toList());
@@ -139,7 +136,8 @@ public class IonPageSourceFactory
 
             IonDecoderConfig decoderConfig = IonSerDeProperties.decoderConfigFor(schema.serdeProperties());
             IonDecoder decoder = IonDecoderFactory.buildDecoder(decoderColumns, decoderConfig, pageBuilder);
-            IonPageSource pageSource = new IonPageSource(ionReader, trinoInputStream, decoder, pageBuilder);
+            IonReader ionReader = IonReaderBuilder.standard().build(inputStream);
+            IonPageSource pageSource = new IonPageSource(ionReader, countingInputStream::getCount, decoder, pageBuilder);
 
             return Optional.of(new ReaderPageSource(pageSource, readerProjections));
         }
