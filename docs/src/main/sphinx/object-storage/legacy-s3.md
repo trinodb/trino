@@ -346,7 +346,6 @@ implementation is recommended. Legacy support will be deprecated and removed.
 The following considerations apply to legacy configurations moving to the native
 implementation:
 
-* SSL is always enabled and cannot be disabled.
 * Client-side encryption is not supported. Server-side encryption (SSE) is
   the recommended alternative.
 * Multipart (non-streaming) writes and upload are not supported.
