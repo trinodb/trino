@@ -529,11 +529,8 @@ public class QueuedStatementResource
                 // Query took too long to be submitted by the client
                 return true;
             }
-            if (query.isCreated() && !dispatchManager.isQueryRegistered(query.getQueryId())) {
-                // Query was created in the DispatchManager, and DispatchManager has already purged the query
-                return true;
-            }
-            return false;
+            // Query was created in the DispatchManager, and DispatchManager has already purged the query
+            return query.isCreated() && !dispatchManager.isQueryRegistered(query.getQueryId());
         }
 
         private void removeQuery(QueryId queryId)

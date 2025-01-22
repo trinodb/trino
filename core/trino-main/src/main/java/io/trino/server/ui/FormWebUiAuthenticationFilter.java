@@ -206,10 +206,7 @@ public class FormWebUiAuthenticationFilter
             return true;
         }
 
-        if (path.equals(UI_PREVIEW_AUTH_INFO) && method.equals("GET")) {
-            return true;
-        }
-        return false;
+        return path.equals(UI_PREVIEW_AUTH_INFO) && method.equals("GET");
     }
 
     private static void handleProtocolLoginRequest(Authenticator authenticator, ContainerRequestContext request)
