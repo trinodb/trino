@@ -16,11 +16,14 @@ package io.trino.plugin.hive.ion;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
+import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.metastore.HiveType;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -183,6 +186,36 @@ public class IonPageSourceSmokeTest
                 // so this test will fail if you change that to something other than an int
                 "{ spam: { nested_to_prune: 31, eggs: 12 }, ham: exploding }",
                 1);
+    }
+
+    @Test
+    public void testPageSourceTelemetryUncompressed()
+            throws IOException
+    {
+        TestFixture fixture = new TestFixture(FOO_BAR_COLUMNS);
+        int bytes = fixture.writeIonTextFile("{ foo: 17, bar: baz } { foo: 31, bar: qux }");
+
+        ConnectorPageSource pageSource = fixture.getPageSource();
+
+        Assertions.assertNotNull(pageSource.getNextPage());
+        Assertions.assertEquals(2, pageSource.getCompletedPositions().getAsLong());
+        Assertions.assertEquals(bytes, pageSource.getCompletedBytes());
+        Assertions.assertTrue(pageSource.getReadTimeNanos() > 0);
+    }
+
+    @Test
+    public void testPageSourceTelemetryCompressed()
+            throws IOException
+    {
+        TestFixture fixture = new TestFixture(FOO_BAR_COLUMNS);
+        int bytes = fixture.writeZstdCompressedIonText("{ foo: 17, bar: baz } { foo: 31, bar: qux }");
+
+        ConnectorPageSource pageSource = fixture.getPageSource();
+
+        Assertions.assertNotNull(pageSource.getNextPage());
+        Assertions.assertEquals(2, pageSource.getCompletedPositions().getAsLong());
+        Assertions.assertEquals(bytes, pageSource.getCompletedBytes());
+        Assertions.assertTrue(pageSource.getReadTimeNanos() > 0);
     }
 
     @Test
@@ -437,6 +470,19 @@ public class IonPageSourceSmokeTest
             outputFile.createOrOverwrite(bytes);
 
             return bytes.length;
+        }
+
+        int writeZstdCompressedIonText(String ionText)
+                throws IOException
+        {
+            fileLocation = Location.of(TEST_ION_LOCATION + ".zst");
+            TrinoOutputFile outputFile = fileSystemFactory.create(getSession()).newOutputFile(fileLocation);
+
+            Slice textSlice = Slices.wrappedBuffer(ionText.getBytes(StandardCharsets.UTF_8));
+            Slice compressed = CompressionKind.ZSTD.createCodec().createValueCompressor().compress(textSlice);
+            outputFile.createOrOverwrite(compressed.getBytes());
+
+            return compressed.length();
         }
 
         Optional<FileWriter> getOptionalFileWriter()
