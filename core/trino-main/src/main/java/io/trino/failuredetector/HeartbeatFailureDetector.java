@@ -234,7 +234,7 @@ public class HeartbeatFailureDetector
                     .map(ServiceDescriptor::getId)
                     .collect(toImmutableList());
 
-            tasks.keySet().removeAll(expiredIds);
+            expiredIds.forEach(tasks.keySet()::remove);
 
             // 2. disable offline services
             tasks.values().stream()

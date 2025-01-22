@@ -325,9 +325,9 @@ public class TimeSharingTaskExecutor
 
             splits = taskHandle.destroy();
             // stop tracking splits (especially blocked splits which may never unblock)
-            allSplits.removeAll(splits);
-            intermediateSplits.removeAll(splits);
-            blockedSplits.keySet().removeAll(splits);
+            splits.forEach(allSplits::remove);
+            splits.forEach(intermediateSplits::remove);
+            splits.forEach(blockedSplits.keySet()::remove);
             waitingSplits.removeAll(splits);
             recordLeafSplitsSize();
         }
