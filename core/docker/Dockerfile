@@ -21,7 +21,7 @@ ENV JAVA_HOME="/usr/lib/jvm/${JDK_VERSION}"
 RUN \
     set -xeuo pipefail && \
     # Configure BoH AlmaLinux 9 BaseOS repo
-    microdnf config-manager --disable \* && \
+    rm -f /etc/yum.repos.d/*.repo && \
     echo "[alma-9-baseos]" > /etc/yum.repos.d/alma-9-baseos.repo && \
     echo "name=AlmaLinux 9 BaseOS" >> /etc/yum.repos.d/alma-9-baseos.repo && \
     echo "baseurl=https://bagofholding-pb.cse-cst.gc.ca/repository/AlmaLinux9-BaseOS/" >> /etc/yum.repos.d/alma-9-baseos.repo && \
