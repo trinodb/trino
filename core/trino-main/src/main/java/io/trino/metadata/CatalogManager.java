@@ -52,6 +52,12 @@ public interface CatalogManager
         }
 
         @Override
+        public CatalogProperties createCatalogProperties(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void createCatalog(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
         {
             throw new UnsupportedOperationException();
@@ -71,6 +77,12 @@ public interface CatalogManager
     Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle);
 
     Set<CatalogHandle> getActiveCatalogs();
+
+    /**
+     * Creates {@link CatalogProperties} in the same way as {@link CatalogManager#createCatalog(CatalogName, ConnectorName, Map, boolean)},
+     * but does not modify any state.
+     */
+    CatalogProperties createCatalogProperties(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties);
 
     void createCatalog(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists);
 

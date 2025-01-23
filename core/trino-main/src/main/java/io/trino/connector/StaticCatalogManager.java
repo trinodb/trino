@@ -212,6 +212,12 @@ public class StaticCatalogManager
     }
 
     @Override
+    public CatalogProperties createCatalogProperties(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "CREATE CATALOG is not supported by the static catalog store");
+    }
+
+    @Override
     public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
     {
         CatalogConnector catalogConnector = catalogs.get(catalogHandle.getCatalogName());
