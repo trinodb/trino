@@ -34,3 +34,5 @@ product-test-reports
 **/dependency-reduced-pom.xml
 core/trino-web-ui/src/main/resources/webapp/dist/
 .node
+*.swo
+*.swp

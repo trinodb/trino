@@ -72,6 +72,8 @@ public class TestVarbinaryFunctions
     {
         assertThat(assertions.expression("X'58F7'"))
                 .isEqualTo(sqlVarbinaryFromHex("58F7"));
+        assertThat(assertions.expression("X' 0123_4567 __ 89ab_CDEF'"))
+                .isEqualTo(sqlVarbinaryFromHex("0123456789ABCDEF"));
     }
 
     @Test

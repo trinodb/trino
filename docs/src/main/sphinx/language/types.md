@@ -178,8 +178,8 @@ The binary data has to use hexadecimal format. For example, the binary form of
 SELECT from_utf8(x'65683F');
 ```
 
-Binary literals ignore any whitespace characters. For example, the literal
-`X'FFFF 0FFF  3FFF FFFF'` is equivalent to `X'FFFF0FFF3FFFFFFF'`.
+Binary literals ignore any whitespace or underscore characters. For example, the literal
+`X'0123_4567 89ab_cdef'` is equivalent to `X'0123456789abcdef'`.
 
 :::{note}
 Binary strings with length are not yet supported: `varbinary(n)`

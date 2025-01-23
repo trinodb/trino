@@ -25,8 +25,10 @@ import static java.util.Objects.requireNonNull;
 public class BinaryLiteral
         extends Literal
 {
-    // the grammar could possibly include whitespace in the value it passes to us
-    private static final CharMatcher WHITESPACE_MATCHER = CharMatcher.whitespace();
+    // the grammar could possibly include whitespace or underscores in the value it passes to us
+    private static final CharMatcher IGNORED_CHARS_MATCHER = CharMatcher.whitespace()
+            .or(CharMatcher.is('_'))
+            .precomputed();
     private static final CharMatcher HEX_DIGIT_MATCHER = CharMatcher.inRange('A', 'F')
             .or(CharMatcher.inRange('0', '9'))
             .precomputed();
@@ -37,7 +39,7 @@ public class BinaryLiteral
     {
         super(location);
         requireNonNull(value, "value is null");
-        String hexString = WHITESPACE_MATCHER.removeFrom(value).toUpperCase(ENGLISH);
+        String hexString = IGNORED_CHARS_MATCHER.removeFrom(value).toUpperCase(ENGLISH);
         if (!HEX_DIGIT_MATCHER.matchesAllOf(hexString)) {
             throw new ParsingException("Binary literal can only contain hexadecimal digits", location);
         }
