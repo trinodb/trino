@@ -25,9 +25,9 @@ import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.testing.QueryRunner;
-import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
+import reactor.netty.resources.ConnectionProvider;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -77,13 +77,10 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
             throws Exception
     {
         String connectionString = format("DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s;EndpointSuffix=core.windows.net", account, accessKey);
-        OkHttpClient okHttpClient = new OkHttpClient.Builder().build();
-        closeAfterClass(() -> {
-            okHttpClient.dispatcher().executorService().shutdownNow();
-            okHttpClient.connectionPool().evictAll();
-        });
+        ConnectionProvider provider = ConnectionProvider.create("TestDeltaLakeAdsl");
+        closeAfterClass(provider::dispose);
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder().connectionString(connectionString)
-                .httpClient(createAzureHttpClient(okHttpClient, new HttpClientOptions()))
+                .httpClient(createAzureHttpClient(provider, new HttpClientOptions()))
                 .buildClient();
         this.azureContainerClient = blobServiceClient.getBlobContainerClient(container);
 

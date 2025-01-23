@@ -14,22 +14,19 @@
 package io.trino.filesystem.azure;
 
 import com.azure.core.http.HttpClient;
-import com.azure.core.http.okhttp.OkHttpAsyncHttpClientBuilder;
+import com.azure.core.http.netty.NettyAsyncHttpClientBuilder;
 import com.azure.core.tracing.opentelemetry.OpenTelemetryTracingOptions;
 import com.azure.core.util.HttpClientOptions;
 import com.azure.core.util.TracingOptions;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
-import okhttp3.ConnectionPool;
-import okhttp3.Dispatcher;
-import okhttp3.OkHttpClient;
-
-import java.util.concurrent.TimeUnit;
+import reactor.netty.resources.ConnectionProvider;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -44,8 +41,8 @@ public class AzureFileSystemFactory
     private final int maxWriteConcurrency;
     private final DataSize maxSingleUploadSize;
     private final TracingOptions tracingOptions;
-    private final OkHttpClient okHttpClient;
     private final HttpClient httpClient;
+    private final ConnectionProvider connectionProvider;
 
     @Inject
     public AzureFileSystemFactory(OpenTelemetry openTelemetry, AzureAuth azureAuth, AzureFileSystemConfig config)
@@ -78,23 +75,19 @@ public class AzureFileSystemFactory
         this.maxWriteConcurrency = maxWriteConcurrency;
         this.maxSingleUploadSize = requireNonNull(maxSingleUploadSize, "maxSingleUploadSize is null");
         this.tracingOptions = new OpenTelemetryTracingOptions().setOpenTelemetry(openTelemetry);
-
-        Dispatcher dispatcher = new Dispatcher();
-        dispatcher.setMaxRequests(maxHttpRequests);
-        dispatcher.setMaxRequestsPerHost(maxHttpRequests);
-        okHttpClient = new OkHttpClient.Builder()
-                .dispatcher(dispatcher)
-                .build();
+        this.connectionProvider = ConnectionProvider.create(applicationId, maxHttpRequests);
         HttpClientOptions clientOptions = new HttpClientOptions();
         clientOptions.setTracingOptions(tracingOptions);
-        httpClient = createAzureHttpClient(okHttpClient, clientOptions);
+        clientOptions.setMaximumConnectionPoolSize(maxHttpRequests);
+        httpClient = createAzureHttpClient(connectionProvider, clientOptions);
     }
 
     @PreDestroy
     public void destroy()
     {
-        okHttpClient.dispatcher().executorService().shutdownNow();
-        okHttpClient.connectionPool().evictAll();
+        if (connectionProvider != null) {
+            connectionProvider.dispose();
+        }
     }
 
     @Override
@@ -103,20 +96,20 @@ public class AzureFileSystemFactory
         return new AzureFileSystem(httpClient, tracingOptions, auth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize);
     }
 
-    public static HttpClient createAzureHttpClient(OkHttpClient okHttpClient, HttpClientOptions clientOptions)
+    public static HttpClient createAzureHttpClient(ConnectionProvider connectionProvider, HttpClientOptions clientOptions)
     {
         Integer poolSize = clientOptions.getMaximumConnectionPoolSize();
         // By default, OkHttp uses a maximum idle connection count of 5.
         int maximumConnectionPoolSize = (poolSize != null && poolSize > 0) ? poolSize : 5;
 
-        return new OkHttpAsyncHttpClientBuilder(okHttpClient)
+        return new NettyAsyncHttpClientBuilder()
                 .proxy(clientOptions.getProxyOptions())
                 .configuration(clientOptions.getConfiguration())
-                .connectionTimeout(clientOptions.getConnectTimeout())
+                .connectTimeout(clientOptions.getConnectTimeout())
                 .writeTimeout(clientOptions.getWriteTimeout())
                 .readTimeout(clientOptions.getReadTimeout())
-                .connectionPool(new ConnectionPool(maximumConnectionPoolSize,
-                        clientOptions.getConnectionIdleTimeout().toMillis(), TimeUnit.MILLISECONDS))
+                .connectionProvider(connectionProvider)
+                .eventLoopGroup(new NioEventLoopGroup(maximumConnectionPoolSize)) // default is 2 * availableProcessors
                 .build();
     }
 }
