@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -78,6 +79,20 @@ public class CreateCatalogTask
         CatalogName catalog = new CatalogName(statement.getCatalogName().getValue().toLowerCase(ENGLISH));
         accessControl.checkCanCreateCatalog(session.toSecurityContext(), catalog.toString());
 
+        Map<String, String> properties = evaluateProperties(statement, session, plannerContext, accessControl, parameters);
+
+        ConnectorName connectorName = new ConnectorName(statement.getConnectorName().toString());
+        catalogManager.createCatalog(catalog, connectorName, properties, statement.isNotExists());
+        return immediateVoidFuture();
+    }
+
+    private static Map<String, String> evaluateProperties(
+            CreateCatalog statement,
+            Session session,
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            List<Expression> parameters)
+    {
         Map<String, String> properties = new HashMap<>();
         for (Property property : statement.getProperties()) {
             if (property.isSetToDefault()) {
@@ -97,9 +112,6 @@ public class CreateCatalogTask
                             INVALID_CATALOG_PROPERTY,
                             "catalog property"));
         }
-
-        ConnectorName connectorName = new ConnectorName(statement.getConnectorName().toString());
-        catalogManager.createCatalog(catalog, connectorName, properties, statement.isNotExists());
-        return immediateVoidFuture();
+        return ImmutableMap.copyOf(properties);
     }
 }
