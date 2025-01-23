@@ -19,6 +19,8 @@ import org.apache.arrow.memory.AllocationListener;
 import org.apache.arrow.memory.AllocationOutcome;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Managed;
 
 import static java.util.Objects.requireNonNull;
 
@@ -27,42 +29,97 @@ public class BigQueryArrowBufferAllocator
     private static final Logger log = Logger.get(BigQueryArrowBufferAllocator.class);
 
     private final long maximumAllocation;
+    private final BigQueryArrowAllocatorStats stats;
     private final BufferAllocator rootAllocator;
 
     @Inject
-    public BigQueryArrowBufferAllocator(BigQueryArrowConfig config)
+    public BigQueryArrowBufferAllocator(BigQueryArrowConfig config, BigQueryArrowAllocatorStats stats)
     {
         this.maximumAllocation = requireNonNull(config, "config is null").getMaxAllocation().toBytes();
-        this.rootAllocator = new RootAllocator(maximumAllocation);
+        this.stats = requireNonNull(stats, "stats is null");
+        this.rootAllocator = new RootAllocator(stats, maximumAllocation);
     }
 
     public BufferAllocator newChildAllocator(BigQuerySplit split)
     {
         return rootAllocator.newChildAllocator(
                 split.streamName(),
-                new RetryingAllocationListener(split.streamName()),
+                new RetryingAllocationListener(split.streamName(), stats),
                 split.dataSize().orElse(0),
                 maximumAllocation);
+    }
+
+    @Managed
+    @Flatten
+    public BigQueryArrowAllocatorStats getStats()
+    {
+        return stats;
+    }
+
+    @Managed
+    public long getCurrentAllocatedMemory()
+    {
+        return rootAllocator.getAllocatedMemory();
+    }
+
+    @Managed
+    public long getPeakAllocatedMemory()
+    {
+        return rootAllocator.getPeakMemoryAllocation();
+    }
+
+    @Managed
+    public long getCurrentMemoryHeadroom()
+    {
+        return rootAllocator.getHeadroom();
+    }
+
+    @Managed
+    public long getChildAllocatorsCount()
+    {
+        return rootAllocator.getChildAllocators().size();
     }
 
     private static class RetryingAllocationListener
             implements AllocationListener
     {
         private final String name;
+        private final BigQueryArrowAllocatorStats stats;
 
-        private RetryingAllocationListener(String name)
+        private RetryingAllocationListener(String name, BigQueryArrowAllocatorStats stats)
         {
             this.name = requireNonNull(name, "name is null");
+            this.stats = requireNonNull(stats, "stats is null");
         }
 
         @Override
         public boolean onFailedAllocation(long size, AllocationOutcome outcome)
         {
+            stats.onFailedAllocation(size, outcome);
+
             log.warn("Failed to allocate %d bytes for allocator '%s' due to %s", size, name, outcome.getStatus());
             outcome.getDetails().ifPresent(details -> {
                 log.warn("Allocation failure details: %s", details.toString());
             });
             return false;
+        }
+
+        @Override
+        public void onPreAllocation(long size)
+        {
+            stats.onPreAllocation(size);
+        }
+
+        @Override
+        public void onAllocation(long size)
+        {
+            stats.onAllocation(size);
+        }
+
+        @Override
+        public void onRelease(long size)
+        {
+            stats.onRelease(size);
         }
     }
 }

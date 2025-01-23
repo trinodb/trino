@@ -51,6 +51,7 @@ import static io.trino.plugin.bigquery.BigQueryConfig.ARROW_SERIALIZATION_ENABLE
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toSet;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class BigQueryConnectorModule
         extends AbstractConfigurationAwareModule
@@ -181,8 +182,12 @@ public class BigQueryConnectorModule
         protected void setup(Binder binder)
         {
             verifyPackageAccessAllowed(binder);
+
             configBinder(binder).bindConfig(BigQueryArrowConfig.class);
             binder.bind(BigQueryArrowBufferAllocator.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryArrowAllocatorStats.class).in(Scopes.SINGLETON);
+
+            newExporter(binder).export(BigQueryArrowBufferAllocator.class).withGeneratedName();
         }
 
         /**
