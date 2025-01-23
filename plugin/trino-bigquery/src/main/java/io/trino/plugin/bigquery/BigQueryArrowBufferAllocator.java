@@ -14,6 +14,9 @@
 package io.trino.plugin.bigquery;
 
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
+import org.apache.arrow.memory.AllocationListener;
+import org.apache.arrow.memory.AllocationOutcome;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
@@ -21,6 +24,8 @@ import static java.util.Objects.requireNonNull;
 
 public class BigQueryArrowBufferAllocator
 {
+    private static final Logger log = Logger.get(BigQueryArrowBufferAllocator.class);
+
     private final long maximumAllocation;
     private final BufferAllocator rootAllocator;
 
@@ -35,7 +40,29 @@ public class BigQueryArrowBufferAllocator
     {
         return rootAllocator.newChildAllocator(
                 split.streamName(),
+                new RetryingAllocationListener(split.streamName()),
                 split.dataSize().orElse(0),
                 maximumAllocation);
+    }
+
+    private static class RetryingAllocationListener
+            implements AllocationListener
+    {
+        private final String name;
+
+        private RetryingAllocationListener(String name)
+        {
+            this.name = requireNonNull(name, "name is null");
+        }
+
+        @Override
+        public boolean onFailedAllocation(long size, AllocationOutcome outcome)
+        {
+            log.warn("Failed to allocate %d bytes for allocator '%s' due to %s", size, name, outcome.getStatus());
+            outcome.getDetails().ifPresent(details -> {
+                log.warn("Allocation failure details: %s", details.toString());
+            });
+            return false;
+        }
     }
 }
