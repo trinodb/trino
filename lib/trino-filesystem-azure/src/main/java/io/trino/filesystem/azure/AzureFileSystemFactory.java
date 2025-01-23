@@ -54,7 +54,8 @@ public class AzureFileSystemFactory
                 config.getWriteBlockSize(),
                 config.getMaxWriteConcurrency(),
                 config.getMaxSingleUploadSize(),
-                config.getMaxHttpRequests());
+                config.getMaxHttpRequests(),
+                config.getApplicationId());
     }
 
     public AzureFileSystemFactory(
@@ -79,6 +80,7 @@ public class AzureFileSystemFactory
         this.connectionProvider = ConnectionProvider.create(applicationId, maxHttpRequests);
         HttpClientOptions clientOptions = new HttpClientOptions();
         clientOptions.setTracingOptions(tracingOptions);
+        clientOptions.setApplicationId(applicationId);
         clientOptions.setMaximumConnectionPoolSize(maxHttpRequests);
         httpClient = createAzureHttpClient(connectionProvider, clientOptions);
     }
@@ -100,8 +102,8 @@ public class AzureFileSystemFactory
     public static HttpClient createAzureHttpClient(ConnectionProvider connectionProvider, HttpClientOptions clientOptions)
     {
         Integer poolSize = clientOptions.getMaximumConnectionPoolSize();
-        // By default, OkHttp uses a maximum idle connection count of 5.
         int maximumConnectionPoolSize = (poolSize != null && poolSize > 0) ? poolSize : 5;
+        clientOptions.setMaximumConnectionPoolSize(maximumConnectionPoolSize);
 
         return new NettyAsyncHttpClientBuilder()
                 .proxy(clientOptions.getProxyOptions())
