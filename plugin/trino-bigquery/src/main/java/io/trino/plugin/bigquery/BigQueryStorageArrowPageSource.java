@@ -15,11 +15,14 @@ package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import io.airlift.log.Logger;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.metrics.Metrics;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -145,6 +148,14 @@ public class BigQueryStorageArrowPageSource
     public CompletableFuture<?> isBlocked()
     {
         return nextResponse;
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return new Metrics(ImmutableMap.of(
+                "ArrowAllocatedMemory", new LongCount(streamBufferAllocator.getAllocatedMemory()),
+                "ArrowPeakAllocatedMemory", new LongCount(streamBufferAllocator.getPeakMemoryAllocation())));
     }
 
     private ReadRowsResponse getResponse()
