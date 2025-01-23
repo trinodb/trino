@@ -18,6 +18,7 @@ import io.trino.hive.formats.avro.model.AvroLogicalType.BytesDecimalLogicalType;
 import io.trino.hive.formats.avro.model.AvroLogicalType.DateLogicalType;
 import io.trino.hive.formats.avro.model.AvroLogicalType.TimestampMillisLogicalType;
 import io.trino.spi.block.Block;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Timestamps;
@@ -29,6 +30,7 @@ import java.util.Optional;
 import java.util.TimeZone;
 import java.util.function.BiFunction;
 
+import static io.trino.hive.formats.HiveFormatsErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.hive.formats.avro.AvroHiveConstants.CHAR_TYPE_LOGICAL_NAME;
 import static io.trino.hive.formats.avro.AvroHiveConstants.VARCHAR_TYPE_LOGICAL_NAME;
 import static io.trino.hive.formats.avro.model.AvroLogicalType.DATE;
@@ -77,9 +79,14 @@ public class HiveAvroTypeManager
                     else {
                         yield Optional.of((block, pos) ->
                         {
-                            SqlTimestamp timestamp = (SqlTimestamp) timestampType.getObject(block, pos);
-                            // see org.apache.hadoop.hive.serde2.avro.AvroSerializer.serializePrimitive
-                            return DateTimeZone.forTimeZone(TimeZone.getDefault()).convertLocalToUTC(timestamp.getMillis(), false);
+                            try {
+                                SqlTimestamp timestamp = (SqlTimestamp) timestampType.getObject(block, pos);
+                                // see org.apache.hadoop.hive.serde2.avro.AvroSerializer.serializePrimitive
+                                return DateTimeZone.forTimeZone(TimeZone.getDefault()).convertLocalToUTC(timestamp.getMillis(), false);
+                            }
+                            catch (Exception e) {
+                                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Any timestamp precision higher than micro is not supported for avro files");
+                            }
                         });
                     }
                 }

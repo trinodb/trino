@@ -26,6 +26,7 @@ public enum HiveFormatsErrorCode
 {
     HIVE_INVALID_METADATA(12, EXTERNAL),
     HIVE_UNSERIALIZABLE_JSON_VALUE(44, USER_ERROR),
+    HIVE_UNSUPPORTED_FORMAT(19, EXTERNAL),
     /**/;
 
     private final ErrorCode errorCode;
