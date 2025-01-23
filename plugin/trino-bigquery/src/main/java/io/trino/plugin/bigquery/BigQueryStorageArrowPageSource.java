@@ -21,7 +21,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
@@ -47,12 +46,6 @@ public class BigQueryStorageArrowPageSource
 {
     private static final Logger log = Logger.get(BigQueryStorageArrowPageSource.class);
 
-    private static final BufferAllocator allocator = new RootAllocator(RootAllocator
-            .configBuilder()
-            .from(RootAllocator.defaultConfig())
-            .maxAllocation(Integer.MAX_VALUE)
-            .build());
-
     private final AtomicLong readBytes = new AtomicLong();
     private final AtomicLong readTimeNanos = new AtomicLong();
     private final BigQueryReadClient bigQueryReadClient;
@@ -70,6 +63,7 @@ public class BigQueryStorageArrowPageSource
             BigQueryTypeManager typeManager,
             BigQueryReadClient bigQueryReadClient,
             ExecutorService executor,
+            BigQueryArrowBufferAllocator bufferAllocator,
             int maxReadRowsRetries,
             BigQuerySplit split,
             List<BigQueryColumnHandle> columns)
@@ -83,7 +77,7 @@ public class BigQueryStorageArrowPageSource
         log.debug("Starting to read from %s", split.streamName());
         responses = new ReadRowsHelper(bigQueryReadClient, split.streamName(), maxReadRowsRetries).readRows();
         nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
-        this.streamBufferAllocator = allocator.newChildAllocator(split.streamName(), 1024, Long.MAX_VALUE);
+        this.streamBufferAllocator = bufferAllocator.newChildAllocator(split);
         this.bigQueryArrowToPageConverter = new BigQueryArrowToPageConverter(typeManager, streamBufferAllocator, schema, columns);
         this.pageBuilder = new PageBuilder(columns.stream()
                 .map(BigQueryColumnHandle::trinoType)
