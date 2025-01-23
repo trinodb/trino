@@ -179,7 +179,8 @@ SELECT from_utf8(x'65683F');
 ```
 
 Binary literals ignore any whitespace or underscore characters. For example, the literal
-`X'0123_4567 89ab_cdef'` is equivalent to `X'0123456789abcdef'`.
+`X'0123_4567 89ab_cdef'` is equivalent to `X'0123456789abcdef'`. The string must have an
+even number of hexadecimal digits.
 
 :::{note}
 Binary strings with length are not yet supported: `varbinary(n)`
