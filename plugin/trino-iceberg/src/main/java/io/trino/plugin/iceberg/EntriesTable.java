@@ -61,6 +61,8 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
+import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.apache.iceberg.MetadataTableType.ALL_ENTRIES;
 import static org.apache.iceberg.MetadataTableType.ENTRIES;
 
@@ -202,13 +204,26 @@ public class EntriesTable
             Map<Integer, Long> nanValueCounts = dataFile.get(++position, Map.class);
             appendIntegerBigintMap((MapBlockBuilder) fieldBuilders.get(position), nanValueCounts);
 
-            //noinspection unchecked
-            Map<Integer, ByteBuffer> lowerBounds = dataFile.get(++position, Map.class);
-            appendIntegerVarcharMap((MapBlockBuilder) fieldBuilders.get(position), lowerBounds);
+            switch (ContentType.of(content)) {
+                case DATA, EQUALITY_DELETE -> {
+                    //noinspection unchecked
+                    Map<Integer, ByteBuffer> lowerBounds = dataFile.get(++position, Map.class);
+                    appendIntegerVarcharMap((MapBlockBuilder) fieldBuilders.get(position), lowerBounds);
 
-            //noinspection unchecked
-            Map<Integer, ByteBuffer> upperBounds = dataFile.get(++position, Map.class);
-            appendIntegerVarcharMap((MapBlockBuilder) fieldBuilders.get(position), upperBounds);
+                    //noinspection unchecked
+                    Map<Integer, ByteBuffer> upperBounds = dataFile.get(++position, Map.class);
+                    appendIntegerVarcharMap((MapBlockBuilder) fieldBuilders.get(position), upperBounds);
+                }
+                case POSITION_DELETE -> {
+                    //noinspection unchecked
+                    Map<Integer, ByteBuffer> lowerBounds = dataFile.get(++position, Map.class);
+                    appendBoundsForPositionDelete((MapBlockBuilder) fieldBuilders.get(position), lowerBounds);
+
+                    //noinspection unchecked
+                    Map<Integer, ByteBuffer> upperBounds = dataFile.get(++position, Map.class);
+                    appendBoundsForPositionDelete((MapBlockBuilder) fieldBuilders.get(position), upperBounds);
+                }
+            }
 
             ByteBuffer keyMetadata = dataFile.get(++position, ByteBuffer.class);
             if (keyMetadata == null) {
@@ -222,12 +237,30 @@ public class EntriesTable
             List<Long> splitOffsets = dataFile.get(++position, List.class);
             appendBigintArray((ArrayBlockBuilder) fieldBuilders.get(position), splitOffsets);
 
-            //noinspection unchecked
-            List<Long> equalityIds = dataFile.get(++position, List.class);
-            appendBigintArray((ArrayBlockBuilder) fieldBuilders.get(position), equalityIds);
+            switch (ContentType.of(content)) {
+                case DATA -> {
+                    // data files don't have equality ids
+                    fieldBuilders.get(++position).appendNull();
 
-            Integer sortOrderId = dataFile.get(++position, Integer.class);
-            INTEGER.writeLong(fieldBuilders.get(position), Long.valueOf(sortOrderId));
+                    Integer sortOrderId = dataFile.get(++position, Integer.class);
+                    INTEGER.writeLong(fieldBuilders.get(position), Long.valueOf(sortOrderId));
+                }
+                case POSITION_DELETE -> {
+                    // position delete files don't have equality ids
+                    fieldBuilders.get(++position).appendNull();
+
+                    // position delete files don't have sort order id
+                    fieldBuilders.get(++position).appendNull();
+                }
+                case EQUALITY_DELETE -> {
+                    //noinspection unchecked
+                    List<Integer> equalityIds = dataFile.get(++position, List.class);
+                    appendIntegerArray((ArrayBlockBuilder) fieldBuilders.get(position), equalityIds);
+
+                    Integer sortOrderId = dataFile.get(++position, Integer.class);
+                    INTEGER.writeLong(fieldBuilders.get(position), Long.valueOf(sortOrderId));
+                }
+            }
         });
     }
 
@@ -240,6 +273,19 @@ public class EntriesTable
         blockBuilder.buildEntry(elementBuilder -> {
             for (Long value : values) {
                 BIGINT.writeLong(elementBuilder, value);
+            }
+        });
+    }
+
+    public static void appendIntegerArray(ArrayBlockBuilder blockBuilder, @Nullable List<Integer> values)
+    {
+        if (values == null) {
+            blockBuilder.appendNull();
+            return;
+        }
+        blockBuilder.buildEntry(elementBuilder -> {
+            for (Integer value : values) {
+                INTEGER.writeLong(elementBuilder, value);
             }
         });
     }
@@ -267,5 +313,44 @@ public class EntriesTable
             INTEGER.writeLong(keyBuilder, key);
             VARCHAR.writeString(valueBuilder, Transforms.identity().toHumanString(type, Conversions.fromByteBuffer(type, value)));
         }));
+    }
+
+    private static void appendBoundsForPositionDelete(MapBlockBuilder blockBuilder, @Nullable Map<Integer, ByteBuffer> values)
+    {
+        if (values == null) {
+            blockBuilder.appendNull();
+            return;
+        }
+
+        blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+            INTEGER.writeLong(keyBuilder, DELETE_FILE_POS.fieldId());
+            ByteBuffer pos = values.get(DELETE_FILE_POS.fieldId());
+            checkArgument(pos != null, "delete file pos is null");
+            VARCHAR.writeString(valueBuilder, Transforms.identity().toHumanString(Types.LongType.get(), Conversions.fromByteBuffer(Types.LongType.get(), pos)));
+
+            INTEGER.writeLong(keyBuilder, DELETE_FILE_PATH.fieldId());
+            ByteBuffer path = values.get(DELETE_FILE_PATH.fieldId());
+            checkArgument(path != null, "delete file path is null");
+            VARCHAR.writeString(valueBuilder, Transforms.identity().toHumanString(Types.StringType.get(), Conversions.fromByteBuffer(Types.StringType.get(), path)));
+        });
+    }
+
+    private enum ContentType
+    {
+        DATA,
+        POSITION_DELETE,
+        EQUALITY_DELETE;
+
+        static ContentType of(int content)
+        {
+            checkArgument(content >= 0 && content <= 2, "Unexpected content type: %s", content);
+            if (content == 0) {
+                return DATA;
+            }
+            if (content == 1) {
+                return POSITION_DELETE;
+            }
+            return EQUALITY_DELETE;
+        }
     }
 }

@@ -38,6 +38,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -45,11 +46,14 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
+import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -636,6 +640,129 @@ public abstract class BaseIcebergSystemTables
                             "\"dt\":{\"column_size\":" + value(36, null) + ",\"value_count\":1,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":\"2014-01-01\",\"upper_bound\":\"2014-01-01\"}," +
                             "\"id\":{\"column_size\":" + value(36, null) + ",\"value_count\":1,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":1,\"upper_bound\":1}" +
                             "}");
+        }
+    }
+
+    @Test
+    void testEntriesAfterPositionDelete()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_entries", "AS SELECT 1 id, DATE '2014-01-01' dt")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id = 1", 1);
+
+            Table icebergTable = loadTable(table.getName());
+            Snapshot snapshot = icebergTable.currentSnapshot();
+            long snapshotId = snapshot.snapshotId();
+            long sequenceNumber = snapshot.sequenceNumber();
+
+            assertThat(computeScalar("SELECT status FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
+                    .isEqualTo(1);
+            assertThat(computeScalar("SELECT snapshot_id FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
+                    .isEqualTo(snapshotId);
+            assertThat(computeScalar("SELECT sequence_number FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
+                    .isEqualTo(sequenceNumber);
+            assertThat(computeScalar("SELECT file_sequence_number FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
+                    .isEqualTo(2L);
+
+            MaterializedRow deleteFile = (MaterializedRow) computeScalar("SELECT data_file FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId);
+            assertThat(deleteFile.getFieldCount()).isEqualTo(16);
+            assertThat(deleteFile.getField(0)).isEqualTo(1); // content
+            assertThat((String) deleteFile.getField(1)).endsWith(format.toString().toLowerCase(ENGLISH)); // file_path
+            assertThat(deleteFile.getField(2)).isEqualTo(format.toString()); // file_format
+            assertThat(deleteFile.getField(3)).isEqualTo(0); // spec_id
+            assertThat(deleteFile.getField(4)).isEqualTo(1L); // record_count
+            assertThat((long) deleteFile.getField(5)).isPositive(); // file_size_in_bytes
+
+            //noinspection unchecked
+            Map<Integer, Long> columnSizes = (Map<Integer, Long>) deleteFile.getField(6);
+            switch (format) {
+                case ORC -> assertThat(columnSizes).isNull();
+                case PARQUET -> assertThat(columnSizes)
+                        .hasSize(2)
+                        .satisfies(_ -> assertThat(columnSizes.get(DELETE_FILE_POS.fieldId())).isPositive())
+                        .satisfies(_ -> assertThat(columnSizes.get(DELETE_FILE_PATH.fieldId())).isPositive());
+                default -> throw new IllegalArgumentException("Unsupported format: " + format);
+            }
+
+            assertThat(deleteFile.getField(7)).isEqualTo(Map.of(DELETE_FILE_POS.fieldId(), 1L, DELETE_FILE_PATH.fieldId(), 1L)); // value_counts
+            assertThat(deleteFile.getField(8)).isEqualTo(Map.of(DELETE_FILE_POS.fieldId(), 0L, DELETE_FILE_PATH.fieldId(), 0L)); // null_value_counts
+            assertThat(deleteFile.getField(9)).isEqualTo(value(Map.of(), null)); // nan_value_counts
+
+            // lower_bounds
+            //noinspection unchecked
+            Map<Integer, String> lowerBounds = (Map<Integer, String>) deleteFile.getField(10);
+            assertThat(lowerBounds)
+                    .hasSize(2)
+                    .satisfies(_ -> assertThat(lowerBounds.get(DELETE_FILE_POS.fieldId())).isEqualTo("0"))
+                    .satisfies(_ -> assertThat(lowerBounds.get(DELETE_FILE_PATH.fieldId())).contains(table.getName()));
+
+            // upper_bounds
+            //noinspection unchecked
+            Map<Integer, String> upperBounds = (Map<Integer, String>) deleteFile.getField(11);
+            assertThat(lowerBounds)
+                    .hasSize(2)
+                    .satisfies(_ -> assertThat(upperBounds.get(DELETE_FILE_POS.fieldId())).isEqualTo("0"))
+                    .satisfies(_ -> assertThat(upperBounds.get(DELETE_FILE_PATH.fieldId())).contains(table.getName()));
+
+            assertThat(deleteFile.getField(12)).isNull(); // key_metadata
+            assertThat(deleteFile.getField(13)).isEqualTo(List.of(value(4L, 3L))); // split_offsets
+            assertThat(deleteFile.getField(14)).isNull(); // equality_ids
+            assertThat(deleteFile.getField(15)).isNull(); // sort_order_id
+
+            assertThat(computeScalar("SELECT readable_metrics FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
+                    .isEqualTo("""
+                            {\
+                            "dt":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null},\
+                            "id":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null}\
+                            }""");
+        }
+    }
+
+    @Test
+    void testEntriesAfterEqualityDelete()
+            throws Exception
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_entries", "AS SELECT 1 id, DATE '2014-01-01' dt")) {
+            Table icebergTable = loadTable(table.getName());
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+            writeEqualityDeleteForTable(icebergTable, fileSystemFactory, Optional.empty(), Optional.empty(), ImmutableMap.of("id", 1), Optional.empty());
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
+
+            Snapshot snapshot = icebergTable.currentSnapshot();
+            long snapshotId = snapshot.snapshotId();
+            long sequenceNumber = snapshot.sequenceNumber();
+
+            assertThat(computeScalar("SELECT status FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
+                    .isEqualTo(1);
+            assertThat(computeScalar("SELECT snapshot_id FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
+                    .isEqualTo(snapshotId);
+            assertThat(computeScalar("SELECT sequence_number FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
+                    .isEqualTo(sequenceNumber);
+            assertThat(computeScalar("SELECT file_sequence_number FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
+                    .isEqualTo(2L);
+
+            MaterializedRow dataFile = (MaterializedRow) computeScalar("SELECT data_file FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId);
+            assertThat(dataFile.getFieldCount()).isEqualTo(16);
+            assertThat(dataFile.getField(0)).isEqualTo(2); // content
+            assertThat(dataFile.getField(3)).isEqualTo(0); // spec_id
+            assertThat(dataFile.getField(4)).isEqualTo(1L); // record_count
+            assertThat((long) dataFile.getField(5)).isPositive(); // file_size_in_bytes
+            assertThat(dataFile.getField(6)).isEqualTo(Map.of(1, 45L)); // column_sizes
+            assertThat(dataFile.getField(7)).isEqualTo(Map.of(1, 1L)); // value_counts
+            assertThat(dataFile.getField(8)).isEqualTo(Map.of(1, 0L)); // null_value_counts
+            assertThat(dataFile.getField(9)).isEqualTo(Map.of()); // nan_value_counts
+            assertThat(dataFile.getField(10)).isEqualTo(Map.of(1, "1")); // lower_bounds
+            assertThat(dataFile.getField(11)).isEqualTo(Map.of(1, "1")); // upper_bounds
+            assertThat(dataFile.getField(12)).isNull(); // key_metadata
+            assertThat(dataFile.getField(13)).isEqualTo(List.of(4L)); // split_offsets
+            assertThat(dataFile.getField(14)).isEqualTo(List.of(1)); // equality_ids
+            assertThat(dataFile.getField(15)).isEqualTo(0); // sort_order_id
+
+            assertThat(computeScalar("SELECT readable_metrics FROM \"" + table.getName() + "$entries\"" + " WHERE snapshot_id = " + snapshotId))
+                    .isEqualTo("""
+                            {\
+                            "dt":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null},\
+                            "id":{"column_size":45,"value_count":1,"null_value_count":0,"nan_value_count":null,"lower_bound":1,"upper_bound":1}\
+                            }""");
         }
     }
 
