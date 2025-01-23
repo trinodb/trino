@@ -65,7 +65,8 @@ public class AzureFileSystemFactory
             DataSize writeBlockSize,
             int maxWriteConcurrency,
             DataSize maxSingleUploadSize,
-            int maxHttpRequests)
+            int maxHttpRequests,
+            String applicationId)
     {
         this.auth = requireNonNull(azureAuth, "azureAuth is null");
         this.endpoint = requireNonNull(endpoint, "endpoint is null");

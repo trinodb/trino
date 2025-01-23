@@ -20,6 +20,7 @@ import io.airlift.units.DataSize.Unit;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 public class AzureFileSystemConfig
 {
@@ -37,6 +38,7 @@ public class AzureFileSystemConfig
     private int maxWriteConcurrency = 8;
     private DataSize maxSingleUploadSize = DataSize.of(4, Unit.MEGABYTE);
     private Integer maxHttpRequests = 2 * Runtime.getRuntime().availableProcessors();
+    private String applicationId = "Trino";
 
     @NotNull
     public AuthType getAuthType()
@@ -126,6 +128,20 @@ public class AzureFileSystemConfig
     public AzureFileSystemConfig setMaxHttpRequests(int maxHttpRequests)
     {
         this.maxHttpRequests = maxHttpRequests;
+        return this;
+    }
+
+    @Size(max = 50)
+    @NotNull
+    public String getApplicationId()
+    {
+        return applicationId;
+    }
+    @Config("azure.application-id")
+    @ConfigDescription("Suffix that will be added to HTTP User-Agent header to identify the application")
+    public AzureFileSystemConfig setApplicationId(String applicationId)
+    {
+        this.applicationId = applicationId;
         return this;
     }
 }
