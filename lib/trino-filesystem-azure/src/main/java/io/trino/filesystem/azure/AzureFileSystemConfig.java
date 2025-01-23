@@ -137,6 +137,7 @@ public class AzureFileSystemConfig
     {
         return applicationId;
     }
+
     @Config("azure.application-id")
     @ConfigDescription("Suffix that will be added to HTTP User-Agent header to identify the application")
     public AzureFileSystemConfig setApplicationId(String applicationId)
