@@ -18,18 +18,14 @@ ARG JDK_DOWNLOAD_LINK
 ARG JDK_VERSION
 ENV JAVA_HOME="/usr/lib/jvm/${JDK_VERSION}"
 
-# Copy the local repo metadata file into the image
-COPY repomd.xml /etc/yum.repos.d/local-repo/repodata/repomd.xml
-
 RUN \
     set -xeuo pipefail && \
-    # Update repo configuration to use the local file \
-    mkdir -p /etc/yum.repos.d/local-repo/ && \
-    echo "[local-repo]" > /etc/yum.repos.d/local-repo.repo && \
-    echo "name=Local Repo" >> /etc/yum.repos.d/local-repo.repo && \
-    echo "baseurl=file:///etc/yum.repos.d/local-repo/" >> /etc/yum.repos.d/local-repo.repo && \
-    echo "enabled=1" >> /etc/yum.repos.d/local-repo.repo && \
-    echo "gpgcheck=0" >> /etc/yum.repos.d/local-repo.repo && \
+    # Configure BoH AlmaLinux 9 BaseOS repo
+    echo "[alma-9-baseos]" > /etc/yum.repos.d/alma-9-baseos.repo && \
+    echo "name=AlmaLinux 9 BaseOS" >> /etc/yum.repos.d/alma-9-baseos.repo && \
+    echo "baseurl=https://bagofholding-pb.cse-cst.gc.ca/repository/AlmaLinux9-BaseOS/" >> /etc/yum.repos.d/alma-9-baseos.repo && \
+    echo "enabled=1" >> /etc/yum.repos.d/alma-9-baseos.repo && \
+    echo "gpgcheck=0" >> /etc/yum.repos.d/alma-9-baseos.repo && \
     microdnf install -y tar gzip && \
     # Install JDK from the provided archive link \
     echo "Downloading JDK from ${JDK_DOWNLOAD_LINK}" && \
