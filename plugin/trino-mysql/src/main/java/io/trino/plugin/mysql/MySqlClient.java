@@ -1147,7 +1147,7 @@ public class MySqlClient
                         // row count from INFORMATION_SCHEMA.TABLES is very inaccurate but rowCount already includes MAX(CARDINALITY) from indexes
                         // This can still happen if table's index statistics change concurrently
                         log.debug("Table %s rowCount calculated so far [%s] is less than index cardinality for %s: %s", table, rowCount, columnName, columnIndexStatistics);
-                        rowCount = max(rowCount, columnIndexStatistics.cardinality());
+                        rowCount = columnIndexStatistics.cardinality();
                     }
                 }
 

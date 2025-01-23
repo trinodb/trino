@@ -4,10 +4,6 @@ A Python user-defined function is a [user-defined function](/udf) that uses the
 [Python programming language and statements](python-udf-lang) for the definition
 of the function.
 
-:::{warning}
-Python user-defined functions are an experimental feature.
-:::
-
 ## Python UDF declaration
 
 Declare a Python UDF as [inline](udf-inline) or [catalog UDF](udf-catalog) with

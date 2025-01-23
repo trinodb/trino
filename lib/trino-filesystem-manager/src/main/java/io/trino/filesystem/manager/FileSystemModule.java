@@ -19,6 +19,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.ConfigPropertyMetadata;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
@@ -85,7 +86,9 @@ public class FileSystemModule
                     nodeManager,
                     openTelemetry);
 
-            loader.configure().forEach(this::consumeProperty);
+            loader.configure().forEach((name, securitySensitive) ->
+                    consumeProperty(new ConfigPropertyMetadata(name, securitySensitive)));
+
             binder.bind(HdfsFileSystemLoader.class).toInstance(loader);
         }
 

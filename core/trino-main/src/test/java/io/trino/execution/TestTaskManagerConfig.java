@@ -51,7 +51,7 @@ public class TestTaskManagerConfig
                 .setMinDrivers(Runtime.getRuntime().availableProcessors() * 2 * 2)
                 .setMinDriversPerTask(3)
                 .setMaxDriversPerTask(Integer.MAX_VALUE)
-                .setInfoMaxAge(new Duration(15, TimeUnit.MINUTES))
+                .setInfoMaxAge(new Duration(5, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(2, TimeUnit.MINUTES))
                 .setMaxIndexMemoryUsage(DataSize.of(64, Unit.MEGABYTE))
                 .setShareIndexLoading(false)

@@ -236,7 +236,7 @@ public class DeltaLakeMergeSink
             long rowPosition = BIGINT.getLong(rowPositionBlock, position);
             Slice partitions = VARCHAR.getSlice(partitionsBlock, position);
 
-            List<String> partitionValues = PARTITIONS_CODEC.fromJson(partitions.toStringUtf8());
+            List<String> partitionValues = PARTITIONS_CODEC.fromJson(partitions.getInput());
 
             FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, _ -> new FileDeletion(partitionValues));
 
@@ -329,7 +329,7 @@ public class DeltaLakeMergeSink
         List<Slice> fragments = new ArrayList<>();
 
         insertPageSink.finish().join().stream()
-                .map(Slice::getBytes)
+                .map(Slice::getInput)
                 .map(dataFileInfoCodec::fromJson)
                 .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
                 .map(mergeResultJsonCodec::toJsonBytes)
@@ -347,7 +347,7 @@ public class DeltaLakeMergeSink
 
         if (cdfEnabled && cdfPageSink != null) { // cdf may be enabled but there may be no update/deletion so sink was not instantiated
             MoreFutures.getDone(cdfPageSink.finish()).stream()
-                    .map(Slice::getBytes)
+                    .map(Slice::getInput)
                     .map(dataFileInfoCodec::fromJson)
                     .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
                     .map(mergeResultJsonCodec::toJsonBytes)

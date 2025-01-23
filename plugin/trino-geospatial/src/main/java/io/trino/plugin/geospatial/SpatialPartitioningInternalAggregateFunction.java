@@ -93,6 +93,6 @@ public final class SpatialPartitioningInternalAggregateFunction
         // Add a small buffer on the right and upper sides
         Rectangle paddedExtent = new Rectangle(envelope.getXMin(), envelope.getYMin(), Math.nextUp(envelope.getXMax()), Math.nextUp(envelope.getYMax()));
 
-        VARCHAR.writeString(out, KdbTreeUtils.toJson(buildKdbTree(maxItemsPerNode, paddedExtent, samples)));
+        VARCHAR.writeSlice(out, KdbTreeUtils.toJson(buildKdbTree(maxItemsPerNode, paddedExtent, samples)));
     }
 }

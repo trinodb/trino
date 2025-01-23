@@ -39,7 +39,7 @@ public record MemoryDataFragment(HostAddress hostAddress, long rows)
 
     public static MemoryDataFragment fromSlice(Slice fragment)
     {
-        return MEMORY_DATA_FRAGMENT_CODEC.fromJson(fragment.getBytes());
+        return MEMORY_DATA_FRAGMENT_CODEC.fromJson(fragment.getInput());
     }
 
     public static MemoryDataFragment merge(MemoryDataFragment a, MemoryDataFragment b)

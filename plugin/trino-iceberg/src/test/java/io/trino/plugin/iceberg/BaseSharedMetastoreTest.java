@@ -153,13 +153,6 @@ public abstract class BaseSharedMetastoreTest
     }
 
     @Test
-    public void testIcebergTablesFunction()
-    {
-        assertQuery("SELECT * FROM TABLE(iceberg.system.iceberg_tables(SCHEMA_NAME => '%s'))".formatted(tpchSchema), "VALUES ('%s', 'nation')".formatted(tpchSchema));
-        assertQuery("SELECT * FROM TABLE(iceberg_with_redirections.system.iceberg_tables(SCHEMA_NAME => '%s'))".formatted(tpchSchema), "VALUES ('%s', 'nation')".formatted(tpchSchema));
-    }
-
-    @Test
     public void testTimeTravelWithRedirection()
             throws InterruptedException
     {

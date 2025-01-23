@@ -45,6 +45,7 @@ public class BigQueryPageSourceProvider
     private final int maxReadRowsRetries;
     private final boolean arrowSerializationEnabled;
     private final ExecutorService executor;
+    private final Optional<BigQueryArrowBufferAllocator> arrowBufferAllocator;
 
     @Inject
     public BigQueryPageSourceProvider(
@@ -52,6 +53,7 @@ public class BigQueryPageSourceProvider
             BigQueryReadClientFactory bigQueryReadClientFactory,
             BigQueryTypeManager typeManager,
             BigQueryConfig config,
+            Optional<BigQueryArrowBufferAllocator> arrowBufferAllocator,
             @ForBigQueryPageSource ExecutorService executor)
     {
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory is null");
@@ -60,6 +62,7 @@ public class BigQueryPageSourceProvider
         this.maxReadRowsRetries = config.getMaxReadRowsRetries();
         this.arrowSerializationEnabled = config.isArrowSerializationEnabled();
         this.executor = requireNonNull(executor, "executor is null");
+        this.arrowBufferAllocator = requireNonNull(arrowBufferAllocator, "arrowBufferAllocator is null");
     }
 
     @Override
@@ -111,6 +114,7 @@ public class BigQueryPageSourceProvider
                     typeManager,
                     bigQueryReadClientFactory.create(session),
                     executor,
+                    arrowBufferAllocator.orElseThrow(() -> new IllegalStateException("ArrowBufferAllocator was not bound")),
                     maxReadRowsRetries,
                     split,
                     columnHandles);

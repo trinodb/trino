@@ -17,6 +17,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.configuration.ConfigPropertyMetadata;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsModule;
@@ -34,9 +35,9 @@ import org.weakref.jmx.guice.MBeanModule;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.stream.Collectors.toMap;
 
 public final class HdfsFileSystemManager
 {
@@ -84,9 +85,11 @@ public final class HdfsFileSystemManager
                 .setOptionalConfigurationProperties(config);
     }
 
-    public Set<String> configure()
+    public Map<String, Boolean> configure()
     {
-        return bootstrap.configure();
+        return bootstrap.configure()
+                .stream()
+                .collect(toMap(ConfigPropertyMetadata::name, ConfigPropertyMetadata::securitySensitive));
     }
 
     public TrinoFileSystemFactory create()

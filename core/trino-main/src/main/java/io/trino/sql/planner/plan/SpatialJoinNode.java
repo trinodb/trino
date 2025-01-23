@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
+import io.airlift.slice.Slice;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 
@@ -66,7 +67,7 @@ public class SpatialJoinNode
     private final Expression filter;
     private final Optional<Symbol> leftPartitionSymbol;
     private final Optional<Symbol> rightPartitionSymbol;
-    private final Optional<String> kdbTree;
+    private final Optional<Slice> kdbTree;
     private final DistributionType distributionType;
 
     public enum DistributionType
@@ -85,7 +86,7 @@ public class SpatialJoinNode
             @JsonProperty("filter") Expression filter,
             @JsonProperty("leftPartitionSymbol") Optional<Symbol> leftPartitionSymbol,
             @JsonProperty("rightPartitionSymbol") Optional<Symbol> rightPartitionSymbol,
-            @JsonProperty("kdbTree") Optional<String> kdbTree)
+            @JsonProperty("kdbTree") Optional<Slice> kdbTree)
     {
         super(id);
 
@@ -174,7 +175,7 @@ public class SpatialJoinNode
     }
 
     @JsonProperty("kdbTree")
-    public Optional<String> getKdbTree()
+    public Optional<Slice> getKdbTree()
     {
         return kdbTree;
     }

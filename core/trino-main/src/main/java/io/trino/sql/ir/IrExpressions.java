@@ -120,11 +120,7 @@ public class IrExpressions
             return false;
         }
 
-        if (cast.type().equals(VARCHAR)) {
-            return false;
-        }
-
-        return true;
+        return !cast.type().equals(VARCHAR);
     }
 
     private static boolean mayFail(ResolvedFunction function)

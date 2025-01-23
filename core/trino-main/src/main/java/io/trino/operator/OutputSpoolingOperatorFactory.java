@@ -23,7 +23,6 @@ import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.server.protocol.OutputColumn;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.SpooledBlock;
-import io.trino.server.protocol.spooling.SpoolingConfig;
 import io.trino.spi.Mergeable;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -56,6 +55,11 @@ import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOper
 import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_SYMBOL;
 import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_TYPE;
 import static io.trino.server.protocol.spooling.SpooledBlock.createNonSpooledPage;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInitialSegmentSize;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInliningMaxRows;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInliningMaxSize;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getMaxSegmentSize;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.isInliningEnabled;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -68,18 +72,16 @@ public class OutputSpoolingOperatorFactory
     private final Map<Symbol, Integer> operatorLayout;
     private final SpoolingManager spoolingManager;
     private final QueryDataEncoder queryDataEncoder;
-    private final SpoolingConfig spoolingConfig;
 
     private boolean closed;
 
-    public OutputSpoolingOperatorFactory(int operatorId, PlanNodeId planNodeId, Map<Symbol, Integer> operatorLayout, QueryDataEncoder queryDataEncoder, SpoolingManager spoolingManager, SpoolingConfig spoolingConfig)
+    public OutputSpoolingOperatorFactory(int operatorId, PlanNodeId planNodeId, Map<Symbol, Integer> operatorLayout, QueryDataEncoder queryDataEncoder, SpoolingManager spoolingManager)
     {
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.operatorLayout = ImmutableMap.copyOf(requireNonNull(operatorLayout, "layout is null"));
         this.queryDataEncoder = requireNonNull(queryDataEncoder, "queryDataEncoder is null");
         this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
-        this.spoolingConfig = requireNonNull(spoolingConfig, "spoolingConfig is null");
     }
 
     public static List<OutputColumn> spooledOutputLayout(OutputNode outputNode, Map<Symbol, Integer> layout)
@@ -116,7 +118,7 @@ public class OutputSpoolingOperatorFactory
     {
         checkState(!closed, "Factory is already closed");
         OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, OutputSpoolingOperator.class.getSimpleName());
-        return new OutputSpoolingOperator(operatorContext, queryDataEncoder, spoolingManager, spoolingConfig, operatorLayout);
+        return new OutputSpoolingOperator(operatorContext, queryDataEncoder, spoolingManager, operatorLayout);
     }
 
     @Override
@@ -128,7 +130,7 @@ public class OutputSpoolingOperatorFactory
     @Override
     public OperatorFactory duplicate()
     {
-        return new OutputSpoolingOperatorFactory(operatorId, planNodeId, operatorLayout, queryDataEncoder, spoolingManager, spoolingConfig);
+        return new OutputSpoolingOperatorFactory(operatorId, planNodeId, operatorLayout, queryDataEncoder, spoolingManager);
     }
 
     static class OutputSpoolingOperator
@@ -156,15 +158,15 @@ public class OutputSpoolingOperatorFactory
 
         private Page outputPage;
 
-        public OutputSpoolingOperator(OperatorContext operatorContext, QueryDataEncoder queryDataEncoder, SpoolingManager spoolingManager, SpoolingConfig spoolingConfig, Map<Symbol, Integer> layout)
+        public OutputSpoolingOperator(OperatorContext operatorContext, QueryDataEncoder queryDataEncoder, SpoolingManager spoolingManager, Map<Symbol, Integer> layout)
         {
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.controller = new OutputSpoolingController(
-                    spoolingConfig.isAllowInlining(),
-                    spoolingConfig.getMaximumInlinedRows(),
-                    spoolingConfig.getMaximumSegmentSize().toBytes(),
-                    spoolingConfig.getInitialSegmentSize().toBytes(),
-                    spoolingConfig.getMaximumSegmentSize().toBytes());
+                    isInliningEnabled(operatorContext.getSession()),
+                    getInliningMaxRows(operatorContext.getSession()),
+                    getInliningMaxSize(operatorContext.getSession()).toBytes(),
+                    getInitialSegmentSize(operatorContext.getSession()).toBytes(),
+                    getMaxSegmentSize(operatorContext.getSession()).toBytes());
             this.userMemoryContext = operatorContext.newLocalUserMemoryContext(OutputSpoolingOperator.class.getSimpleName());
             this.queryDataEncoder = requireNonNull(queryDataEncoder, "queryDataEncoder is null");
             this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");

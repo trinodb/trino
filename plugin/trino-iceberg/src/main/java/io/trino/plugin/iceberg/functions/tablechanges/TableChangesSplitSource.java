@@ -96,7 +96,7 @@ public class TableChangesSplitSource
     @Override
     public boolean isFinished()
     {
-        return changelogScanIterator != null && !changelogScanIterator.hasNext();
+        return changelogScanIterator != null && !changelogScanIterator.hasNext() && !fileTasksIterator.hasNext();
     }
 
     @Override

@@ -105,6 +105,7 @@ import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_COMMENT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_POSITION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD_IN_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
@@ -2410,6 +2411,40 @@ public abstract class BaseConnectorTest
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
         throw new AssertionError("Unexpected failure when adding not null column", e);
+    }
+
+    @Test
+    public void testAddColumnWithPosition()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN)); // covered by testAddColumn
+
+        if (!hasBehavior(SUPPORTS_ADD_COLUMN_WITH_POSITION)) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "AS SELECT 2 second, 4 fourth")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ADD COLUMN first integer FIRST",
+                        "This connector does not support adding columns with FIRST clause");
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ADD COLUMN third integer AFTER second",
+                        "This connector does not support adding columns with AFTER clause");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "AS SELECT 2 second, 4 fourth")) {
+            assertTableColumnNames(table.getName(), "second", "fourth");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (2, 4)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN first integer FIRST");
+            assertTableColumnNames(table.getName(), "first", "second", "fourth");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, 4)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN third integer AFTER second");
+            assertTableColumnNames(table.getName(), "first", "second", "third", "fourth");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, null, 4)");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (10, 20, 30, 40)", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, null, 4), (10, 20, 30, 40)");
+        }
     }
 
     @Test
@@ -4996,6 +5031,40 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM (VALUES (1, 10), (1, 20), (2, 10)) AS t(a, b)")) {
             assertUpdate("UPDATE " + table.getName() + " SET b = 100 WHERE a = 1 AND b = 10", 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 100), (1, 20), (2, 10)");
+        }
+    }
+
+    @Test
+    public void testUpdateWithNullValues()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_nulls", "AS SELECT * FROM nation")) {
+            String tableName = table.getName();
+
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey IS NULL", "VALUES 0");
+            assertUpdate("UPDATE " + tableName + " SET nationkey = NULL WHERE regionkey = 2", 5);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey IS NULL", "VALUES 5");
+        }
+
+        if (!hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT)) {
+            return;
+        }
+
+        try (TestTable table = createTestTableForWrites("test_update_nulls", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL, pk INT)", "pk")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1, 1), (2, 2, 2)", 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1, 1), (2, 2, 2)");
+
+            assertUpdate("UPDATE " + tableName + " SET nullable_col = null WHERE not_null_col = 1", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (null, 1, 1), (2, 2, 2)");
+
+            if (hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
+                // Covered by testUpdateNotNullColumn
+                return;
+            }
+
+            assertQueryFails("UPDATE " + tableName + " SET not_null_col = TRY(1 / 0) WHERE not_null_col = 2", MODIFYING_ROWS_MESSAGE);
         }
     }
 

@@ -238,7 +238,7 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration>
                         <compilerArgs combine.children="append">
-                            <compilerArg>${extraJavaVectorArgs}</compilerArg>
+                            <arg>${extraJavaVectorArgs}</arg>
                         </compilerArgs>
                     </configuration>
                 </plugin>

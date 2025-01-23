@@ -63,6 +63,7 @@ import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.net.Proxy.Type.HTTP;
 import static java.net.Proxy.Type.SOCKS;
+import static java.nio.file.Files.newInputStream;
 import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
 
@@ -325,7 +326,7 @@ public final class OkHttpUtil
         catch (IOException | GeneralSecurityException ignored) {
         }
 
-        try (InputStream in = new FileInputStream(trustStorePath)) {
+        try (InputStream in = newInputStream(trustStorePath.toPath())) {
             trustStore.load(in, trustStorePassword.map(String::toCharArray).orElse(null));
         }
         return trustStore;

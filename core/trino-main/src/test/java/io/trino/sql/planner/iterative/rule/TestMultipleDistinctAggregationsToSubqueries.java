@@ -925,7 +925,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                             .source(
                                     p.tableScan(
                                             testTableHandle(ruleTester),
-                                            ImmutableList.of(input1Symbol, input2Symbol),
+                                            ImmutableList.of(input1Symbol, input2Symbol, groupingKey),
                                             ImmutableMap.of(
                                                     input1Symbol, COLUMN_1_HANDLE,
                                                     input2Symbol, COLUMN_2_HANDLE,

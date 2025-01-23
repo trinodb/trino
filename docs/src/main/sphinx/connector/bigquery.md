@@ -127,7 +127,7 @@ a few caveats:
   - The project ID Google Cloud Project to bill for the export.
   - Taken from the service account
 * - `bigquery.views-enabled`
-  - Enables the connector to read from views and not only tables. Please read
+  - Enables the connector to read from views and not only tables. Read
     [this section](bigquery-reading-from-views) before enabling this feature.
   - `false`
 * - `bigquery.view-expire-duration`
@@ -175,8 +175,61 @@ a few caveats:
   - `false`
 * - `bigquery.arrow-serialization.enabled`
   - Enable using Apache Arrow serialization when reading data from BigQuery.
-    Please read this [section](bigquery-arrow-serialization-support) before using this feature.
+    Read this [section](bigquery-arrow-serialization-support) before using this feature.
   - `true`
+* - `bigquery.channel-pool.initial-size`
+  - The initial size of the connection pool, also known as a channel pool,
+    used for gRPC communication.
+  - `1`
+* - `bigquery.channel-pool.min-size`
+  - The minimum number of connections in the connection pool, also known as a
+    channel pool, used for gRPC communication.
+  - `1`
+* - `bigquery.channel-pool.max-size`
+  - The maximum number of connections in the connection pool, also known as a
+    channel pool, used for gRPC communication.
+  - `1`
+* - `bigquery.channel-pool.min-rpc-per-channel`
+  - Threshold to start scaling down the channel pool.
+    When the average of outstanding RPCs in a single minute drop below this
+    threshold, channels are removed from the pool.
+  - `0`
+* - `bigquery.channel-pool.max-rpc-per-channel`
+  - Threshold to start scaling up the channel pool.
+    When the average of outstanding RPCs in a single minute surpass this
+    threshold, channels are added to the pool.
+  - `2147483647`
+* - `bigquery.rpc-retries`
+  - The maximum number of retry attempts to perform for the RPC calls.
+    If this value is set to `0`, the value from 
+    `bigquery.rpc-timeout` is used. 
+    Retry is deactivated when both `bigquery.rpc-retries` and
+    `bigquery.rpc-timeout` are `0`.
+    If this value is positive, and the number of attempts exceeds
+    `bigquery.rpc-retries` limit, retries stop even if
+    the total retry time is still lower than `bigquery.rpc-timeout`.
+  - `0`
+* - `bigquery.rpc-timeout`
+  - Timeout [duration](prop-type-duration) on when the retries for the
+    RPC call should be given up completely. The higher the timeout, the
+    more retries can be attempted. If this value is `0s`, then
+    `bigquery.rpc-retries` is used to determine retries.
+    Retry is deactivated when `bigquery.rpc-retries` and 
+    `bigquery.rpc-timeout` are both `0`. 
+    If this value is positive, and the retry duration has reached the timeout
+    value, retries stop even if the number of attempts is lower than 
+    the `bigquery.rpc-retries` value.
+  - `0s`
+* - `bigquery.rpc-retry-delay`
+  - The delay [duration](prop-type-duration) before the first retry attempt
+    for RPC calls.
+  - `0s`
+* - `bigquery.rpc-retry-delay-multiplier`
+  - Controls the change in delay before the next retry.
+    The retry delay of the previous call is multiplied by the
+    `bigquery.rpc-retry-delay-multiplier` to calculate the retry delay
+    for the next RPC call.
+  - `1.0`
 * - `bigquery.rpc-proxy.enabled`
   - Use a proxy for communication with BigQuery.
   - `false`

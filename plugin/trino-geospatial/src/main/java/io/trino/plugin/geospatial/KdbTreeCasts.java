@@ -34,7 +34,7 @@ public final class KdbTreeCasts
     public static Object castVarcharToKdbTree(@SqlType("varchar(x)") Slice json)
     {
         try {
-            return KdbTreeUtils.fromJson(json.toStringUtf8());
+            return KdbTreeUtils.fromJson(json);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid JSON string for KDB tree", e);

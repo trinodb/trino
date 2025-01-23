@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.io.ByteStreams;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.json.JsonCodec;
@@ -87,6 +86,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -1406,14 +1406,13 @@ public class FileHiveMetastore
     {
         try {
             try (InputStream inputStream = fileSystem.newInputFile(file).newStream()) {
-                byte[] json = ByteStreams.toByteArray(inputStream);
-                return Optional.of(codec.fromJson(json));
+                return Optional.of(codec.fromJson(inputStream));
             }
         }
-        catch (FileNotFoundException e) {
-            return Optional.empty();
-        }
         catch (Exception e) {
+            if (getCausalChain(e).stream().anyMatch(FileNotFoundException.class::isInstance)) {
+                return Optional.empty();
+            }
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not read " + type, e);
         }
     }

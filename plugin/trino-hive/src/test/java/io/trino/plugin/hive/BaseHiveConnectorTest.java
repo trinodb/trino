@@ -250,7 +250,8 @@ public abstract class BaseHiveConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_MULTI_STATEMENT_WRITES,
                  SUPPORTS_REPORTING_WRITTEN_BYTES -> true; // FIXME: Fails because only allowed with transactional tables
-            case SUPPORTS_ADD_FIELD,
+            case SUPPORTS_ADD_COLUMN_WITH_POSITION,
+                 SUPPORTS_ADD_FIELD,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_DROP_FIELD,
                  SUPPORTS_MERGE,
@@ -348,6 +349,14 @@ public abstract class BaseHiveConnectorTest
     public void testUpdateMultipleCondition()
     {
         assertThatThrownBy(super::testUpdateMultipleCondition)
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+    }
+
+    @Test
+    @Override
+    public void testUpdateWithNullValues()
+    {
+        assertThatThrownBy(super::testUpdateWithNullValues)
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 

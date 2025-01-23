@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>210</version>
+        <version>212</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -185,7 +185,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>294</dep.airlift.version>
+        <dep.airlift.version>297</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
@@ -194,25 +194,25 @@
         <dep.confluent.version>7.7.1</dep.confluent.version>
         <dep.docker.images.version>108</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
-        <dep.flyway.version>11.1.1</dep.flyway.version>
+        <dep.flyway.version>11.2.0</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.11.0</dep.frontend-node.version>
         <dep.frontend-npm.version>10.9.0</dep.frontend-npm.version>
         <dep.gib.version>4.5.4</dep.gib.version>
         <dep.google.http.client.version>1.45.3</dep.google.http.client.version>
-        <dep.httpcore5.version>5.3.1</dep.httpcore5.version>
+        <dep.httpcore5.version>5.3.2</dep.httpcore5.version>
         <dep.iceberg.version>1.7.1</dep.iceberg.version>
         <dep.jna.version>5.16.0</dep.jna.version>
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>3.9.0</dep.kafka-clients.version>
-        <dep.okio.version>3.10.1</dep.okio.version>
+        <dep.okio.version>3.10.2</dep.okio.version>
         <dep.parquet.version>1.15.0</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.5</dep.protobuf.version>
         <dep.snowflake.version>3.21.0</dep.snowflake.version>
-        <dep.swagger.version>2.2.27</dep.swagger.version>
+        <dep.swagger.version>2.2.28</dep.swagger.version>
         <dep.takari.version>2.2.0</dep.takari.version>
         <dep.tcnative.version>2.0.69.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
@@ -229,7 +229,6 @@
 
     <dependencyManagement>
         <dependencies>
-
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
@@ -241,7 +240,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.52.0</version>
+                <version>26.53.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -273,7 +272,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.1.116.Final</version>
+                <version>4.1.117.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -313,7 +312,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.29.47</version>
+                <version>2.30.3</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -494,7 +493,7 @@
             <dependency>
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
-                <version>3.1.8</version>
+                <version>3.2.0</version>
             </dependency>
 
             <dependency>
@@ -611,14 +610,14 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.20.1</version>
+                <version>11.21.2</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
             <dependency>
                 <groupId>com.opencsv</groupId>
                 <artifactId>opencsv</artifactId>
-                <version>5.9</version>
+                <version>5.10</version>
             </dependency>
 
             <dependency>
@@ -654,7 +653,7 @@
             <dependency>
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
-                <version>1.17.1</version>
+                <version>1.17.2</version>
             </dependency>
 
             <dependency>
@@ -839,7 +838,7 @@
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>
-                <version>4.2.29</version>
+                <version>4.2.30</version>
             </dependency>
 
             <dependency>
@@ -944,7 +943,7 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.7.1</version>
+                <version>3.7.2</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->

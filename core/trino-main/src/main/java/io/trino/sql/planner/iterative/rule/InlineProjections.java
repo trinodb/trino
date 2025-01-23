@@ -180,9 +180,7 @@ public class InlineProjections
                     Expression assignment = child.getAssignments().get(entry.getKey());
 
                     if (assignment instanceof FieldReference) {
-                        if (((FieldReference) assignment).base().type() instanceof RowType) {
-                            return false;
-                        }
+                        return !(((FieldReference) assignment).base().type() instanceof RowType);
                     }
 
                     return true;

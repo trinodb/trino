@@ -30,7 +30,6 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Streams.stream;
@@ -85,10 +84,10 @@ final class HdfsFileSystemLoader
     }
 
     @SuppressWarnings("unchecked")
-    public Set<String> configure()
+    public Map<String, Boolean> configure()
     {
         try (var _ = new ThreadContextClassLoader(classLoader)) {
-            return (Set<String>) manager.getClass().getMethod("configure").invoke(manager);
+            return (Map<String, Boolean>) manager.getClass().getMethod("configure").invoke(manager);
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException("Failed to configure HDFS:\n%s\n%s\n%s".formatted("<".repeat(70), e.getCause(), ">".repeat(70)), e);

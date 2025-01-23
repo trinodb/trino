@@ -15,6 +15,7 @@ package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.geospatial.KdbTree;
@@ -85,7 +86,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestSpatialJoinPlanning
         extends BasePlanTest
 {
-    private static final String KDB_TREE_JSON = KdbTreeUtils.toJson(new KdbTree(newLeaf(new Rectangle(0, 0, 10, 10), 0)));
+    private static final Slice KDB_TREE_JSON = KdbTreeUtils.toJson(new KdbTree(newLeaf(new Rectangle(0, 0, 10, 10), 0)));
     private static final Expression KDB_TREE_LITERAL = new Constant(KDB_TREE, KdbTreeUtils.fromJson(KDB_TREE_JSON));
 
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(new GeoPlugin());
@@ -109,7 +110,7 @@ public class TestSpatialJoinPlanning
         planTester.installPlugin(new GeoPlugin());
         planTester.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
         planTester.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.of());
-        planTester.executeStatement(format("CREATE TABLE kdb_tree AS SELECT '%s' AS v", KDB_TREE_JSON));
+        planTester.executeStatement(format("CREATE TABLE kdb_tree AS SELECT '%s' AS v", KDB_TREE_JSON.toStringUtf8()));
         planTester.executeStatement("CREATE TABLE points (lng, lat, name) AS (VALUES (2.1e0, 2.1e0, 'x'))");
         planTester.executeStatement("CREATE TABLE polygons (wkt, name) AS (VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a'))");
         return planTester;

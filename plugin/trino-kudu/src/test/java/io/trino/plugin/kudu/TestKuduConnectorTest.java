@@ -59,7 +59,8 @@ public class TestKuduConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_ARRAY,
+            case SUPPORTS_ADD_COLUMN_WITH_POSITION,
+                 SUPPORTS_ARRAY,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
@@ -92,6 +93,33 @@ public class TestKuduConnectorTest
 
         return createTable.replaceFirst(",", " WITH (primary_key=true),") +
                 format("WITH (partition_by_hash_columns = ARRAY['%s'], partition_by_hash_buckets = 2)", column);
+    }
+
+    @Test
+    public void testUnpartitionedTable()
+    {
+        String tableName = "test_unpartitioned_table" + randomNameSuffix();
+        // success create the table without partition keys
+        assertUpdate("CREATE TABLE " + tableName + " (id int WITH (primary_key=true), val varchar)");
+
+        assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 0");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'hello'), (2, 'world')", 2);
+        assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 2");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (2, 'world')");
+
+        assertThat(computeScalar("SHOW CREATE TABLE " + tableName))
+                .isEqualTo(format("CREATE TABLE kudu.default.%s (\n" +
+                        "   id integer COMMENT '' WITH (primary_key = true),\n" +
+                        "   val varchar COMMENT ''\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   number_of_replicas = 1,\n" +
+                        "   range_partitions = '[]'\n" +
+                        ")", tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -300,7 +328,7 @@ public class TestKuduConnectorTest
     {
         // TODO: Enable this test
         assertThatThrownBy(super::testAddNotNullColumnToEmptyTable)
-                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+                .hasMessage("must specify at least one key column");
         abort("TODO");
     }
 
@@ -750,7 +778,7 @@ public class TestKuduConnectorTest
     public void testVarcharCastToDateInPredicate()
     {
         assertThatThrownBy(super::testVarcharCastToDateInPredicate)
-                .hasStackTraceContaining("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+                .hasStackTraceContaining("must specify at least one key column");
 
         abort("TODO: implement the test for Kudu");
     }
@@ -950,6 +978,30 @@ public class TestKuduConnectorTest
     @Disabled
     @Override
     public void testUpdateMultipleCondition() {}
+
+    /**
+     * The test is overridden because Kudu requires nullable columns to be explicitly specified in the creation statement using `WITH (nullable=true)`.
+     * Additionally, the first column will be the primary key in the table, override to use `regionkey` to test.
+     */
+    @Test
+    @Override
+    public void testUpdateWithNullValues()
+    {
+        withTableName("test_update_nulls", tableName -> {
+            assertUpdate(createKuduTableForWrites("CREATE TABLE %s (nationkey bigint, name varchar(25), regionkey bigint WITH (nullable=true), comment varchar(152))".formatted(tableName)));
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation", 25);
+
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE regionkey IS NULL", "VALUES 0");
+            assertUpdate("UPDATE " + tableName + " SET regionkey = NULL WHERE nationkey > 20", 4);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE regionkey IS NULL", "VALUES 4");
+
+            // Kudu connector does not have ConnectorCapabilities with `SUPPORTS_NOT_NULL_CONSTRAINT`, but column definition not null by default
+            // Here verify set null to the not null column will fail in Kudu
+            assertThatThrownBy(() -> getQueryRunner().execute("UPDATE " + tableName + " SET nationkey = NULL WHERE nationkey > 20"))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("nationkey cannot be set to null");
+        });
+    }
 
     /**
      * This test fails intermittently because Kudu doesn't have strong enough

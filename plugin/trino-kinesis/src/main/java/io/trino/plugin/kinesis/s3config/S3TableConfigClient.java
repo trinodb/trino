@@ -22,7 +22,6 @@ import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.CharStreams;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -203,7 +202,7 @@ public class S3TableConfigClient
                 S3Object object = s3client.getObject(new GetObjectRequest(summary.getBucketName(), summary.getKey()));
 
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(object.getObjectContent(), UTF_8))) {
-                    KinesisStreamDescription table = streamDescriptionCodec.fromJson(CharStreams.toString(reader));
+                    KinesisStreamDescription table = streamDescriptionCodec.fromJson(reader);
                     descriptors.put(summary.getKey(), table);
                     log.info("Put table description into the map from %s", summary.getKey());
                 }

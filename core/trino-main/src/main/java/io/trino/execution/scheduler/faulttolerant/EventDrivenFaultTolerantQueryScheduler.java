@@ -1527,14 +1527,10 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return true;
             }
 
-            if (!stage.getFragment().getRemoteSourceNodes().isEmpty()) {
-                // If coordinator stage is processing workers data we want to enable retries.
-                // Even if coordinator is working fine the task from coordinator stage may fail e.g. if
-                // upstream task fails while data it produces is speculatively processed by coordinator stage task.
-                return true;
-            }
-
-            return false;
+            // If coordinator stage is processing workers data we want to enable retries.
+            // Even if coordinator is working fine the task from coordinator stage may fail e.g. if
+            // upstream task fails while data it produces is speculatively processed by coordinator stage task.
+            return !stage.getFragment().getRemoteSourceNodes().isEmpty();
         }
 
         private StageId getStageId(PlanFragmentId fragmentId)
