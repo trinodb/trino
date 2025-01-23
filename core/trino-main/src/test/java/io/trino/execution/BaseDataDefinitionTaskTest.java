@@ -55,6 +55,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.RedactedQuery;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.QueryRunner;
@@ -230,8 +231,7 @@ public abstract class BaseDataDefinitionTaskTest
     {
         return QueryStateMachine.begin(
                 Optional.empty(),
-                "test",
-                Optional.empty(),
+                _ -> new RedactedQuery("test", Optional.empty()),
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

@@ -21,6 +21,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.sql.RedactedQuery;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.transaction.TransactionId;
@@ -110,8 +111,7 @@ public class TestSetSessionAuthorizationTask
     {
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 transactionId,
-                query,
-                Optional.empty(),
+                _ -> new RedactedQuery(query, Optional.empty()),
                 testSessionBuilder().build(),
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

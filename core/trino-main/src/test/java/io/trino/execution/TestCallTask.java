@@ -34,6 +34,7 @@ import io.trino.spi.procedure.Procedure;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.RedactedQuery;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
@@ -156,8 +157,7 @@ public class TestCallTask
     {
         return QueryStateMachine.begin(
                 Optional.empty(),
-                "CALL testing_procedure()",
-                Optional.empty(),
+                _ -> new RedactedQuery("CALL testing_procedure()", Optional.empty()),
                 testSessionBuilder()
                         .setCatalog(TEST_CATALOG_NAME)
                         .setSchema("test")

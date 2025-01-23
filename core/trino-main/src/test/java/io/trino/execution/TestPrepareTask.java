@@ -25,6 +25,7 @@ import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.sql.RedactedQuery;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.Execute;
@@ -125,8 +126,7 @@ public class TestPrepareTask
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 Optional.empty(),
-                sqlString,
-                Optional.empty(),
+                _ -> new RedactedQuery(sqlString, Optional.empty()),
                 testSession(session),
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

@@ -47,6 +47,7 @@ import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
+import io.trino.sql.RedactedQuery;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -852,8 +853,7 @@ public class TestQueryStateMachine
             accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
             QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
                     Optional.empty(),
-                    QUERY,
-                    Optional.empty(),
+                    _ -> new RedactedQuery(QUERY, Optional.empty()),
                     TEST_SESSION,
                     LOCATION,
                     new ResourceGroupId("test"),
