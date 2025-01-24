@@ -70,7 +70,7 @@ public abstract class BaseClickHouseTypeMapping
     // no DST in 1970, but has DST in later years (e.g. 2018)
     private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
 
-    // minutes offset change since 1970-01-01, no DST
+    // minutes offset change since 1932-04-01, no DST
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
 
     protected TestingClickHouseServer clickhouseServer;
@@ -79,7 +79,7 @@ public abstract class BaseClickHouseTypeMapping
     public void setUp()
     {
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1932, 4, 1);
         checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
 
         LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
