@@ -49,7 +49,10 @@ import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -99,6 +102,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Map.entry;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -4904,6 +4908,72 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testSelectTableUsingTemporalVersion()
+            throws InterruptedException
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable(
+                "test_select_table_using_temporal_version",
+                "(id INT, country VARCHAR)")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'India')", 1);
+            String timeAfterInsert1 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'Germany')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 'United States')", 1);
+            String timeAfterInsert2 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'"))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (2, CAST('Germany' AS varchar)), (3, CAST('United States' AS varchar))");
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'")).matches("VALUES (1, CAST('India' AS varchar))");
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert2 + "'"))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (2, CAST('Germany' AS varchar)), (3, CAST('United States' AS varchar))");
+
+            // Dummy delete to increase transaction logs and generate checkpoint file
+            for (int i = 0; i < 20; i++) {
+                assertUpdate("DELETE FROM " + table.getName() + " WHERE id  = 10", 0);
+                MILLISECONDS.sleep(10);
+            }
+
+            // DML operations to create new transaction log
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 'Austria')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (5, 'Poland')", 1);
+            assertUpdate("UPDATE " + table.getName() + " SET country = 'USA' WHERE id  = 3", 1);
+            String timeAfterUpdate = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id  = 2", 1);
+            String timeAfterDelete = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (6, 'Japan')", 1);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (3, CAST('USA' AS varchar)), (4, CAST('Austria' AS varchar)), (5, CAST('Poland' AS varchar)), (6, CAST('Japan' AS varchar))");
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert2 + "'"))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (2, CAST('Germany' AS varchar)), (3, CAST('United States' AS varchar))");
+
+            // After Update
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterUpdate + "'"))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (2, CAST('Germany' AS varchar)), (3, CAST('USA' AS varchar)), (4, CAST('Austria' AS varchar)), (5, CAST('Poland' AS varchar))");
+
+            // After Delete
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterDelete + "'"))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (3, CAST('USA' AS varchar)), (4, CAST('Austria' AS varchar)), (5, CAST('Poland' AS varchar))");
+
+            // Recover data from last version after deleting whole table
+            assertUpdate("DELETE FROM " + table.getName(), 5);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .returnsEmptyResult();
+            assertUpdate("INSERT INTO " + table.getName() + " (id, country) SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterDelete + "'", 4);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (3, CAST('USA' AS varchar)), (4, CAST('Austria' AS varchar)), (5, CAST('Poland' AS varchar))");
+        }
+    }
+
+    @Test
     public void testReadMultipleVersions()
     {
         try (TestTable table = newTrinoTable("test_read_multiple_versions", "AS SELECT 1 id")) {
@@ -4912,6 +4982,22 @@ public class TestDeltaLakeConnectorTest
                     "SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0 " +
                             "UNION ALL " +
                             "SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1",
+                    "VALUES 1, 1, 2");
+        }
+    }
+
+    @Test
+    public void testReadMultipleTemporalVersions()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable("test_read_multiple_versions_using_temporal", "AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            String timeAfterInsert = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+            assertQuery(
+                    "SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'" +
+                            "UNION ALL " +
+                            "SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert + "'",
                     "VALUES 1, 1, 2");
         }
     }
@@ -4935,6 +5021,35 @@ public class TestDeltaLakeConnectorTest
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", "VALUES 1, 2");
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 2", "VALUES 1, 2");
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 3", "VALUES 1, 2, 3");
+        }
+    }
+
+    @Test
+    public void testReadTemporalVersionedTableWithOptimize()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable("test_read_temporal_versioned_optimize", "AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            String timeAfterInsert1 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            Set<String> beforeActiveFiles = getActiveFiles(table.getName());
+            computeActual("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE");
+            String timeAfterOptimize = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertThat(getActiveFiles(table.getName())).isNotEqualTo(beforeActiveFiles);
+
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'", "VALUES 1, 2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterOptimize + "'", "VALUES 1, 2");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 3", 1);
+            String timeAfterInsert2 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'", "VALUES 1, 2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterOptimize + "'", "VALUES 1, 2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert2 + "'", "VALUES 1, 2, 3");
         }
     }
 
@@ -4985,6 +5100,61 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testReadTemporalVersionedTableWithVacuum()
+            throws Exception
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable("test_add_column_and_vacuum_temporal", "(x VARCHAR)")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
+            String timeAfterInsert1 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second'", 1);
+            String timeAfterInsert2 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            Set<String> initialFiles = getActiveFiles(table.getName());
+            assertThat(initialFiles).hasSize(2);
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN a varchar(50)");
+            String timeAfterAddColumn = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("UPDATE " + table.getName() + " SET a = 'new column'", 2);
+            String timeAfterUpdate = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            Stopwatch timeSinceUpdate = Stopwatch.createStarted();
+            Set<String> updatedFiles = getActiveFiles(table.getName());
+            assertThat(updatedFiles)
+                    .hasSizeGreaterThanOrEqualTo(1)
+                    .hasSizeLessThanOrEqualTo(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
+            assertThat(getAllDataFilesFromTableDirectory(table.getName())).isEqualTo(union(initialFiles, updatedFiles));
+
+            assertQuery("SELECT x, a FROM " + table.getName(), "VALUES ('first', 'new column'), ('second', 'new column')");
+
+            MILLISECONDS.sleep(1_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + table.getName() + "', retention => '1s')");
+
+            // Verify VACUUM happened, but table data didn't change
+            assertThat(getAllDataFilesFromTableDirectory(table.getName())).isEqualTo(updatedFiles);
+
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'");
+
+            // Failure is the expected behavior because the data file doesn't exist
+            // TODO: Improve error message
+            assertQueryFails("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'", "Error opening Hive split.*");
+            assertQueryFails("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert2 + "'", "Error opening Hive split.*");
+            assertQueryFails("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterAddColumn + "'", "Error opening Hive split.*");
+
+            assertQuery("SELECT x, a FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterUpdate + "'", "VALUES ('first', 'new column'), ('second', 'new column')");
+        }
+    }
+
+    @Test
     public void testInsertFromVersionedTable()
     {
         try (TestTable targetTable = newTrinoTable("test_read_versioned_insert", "(col int)");
@@ -4996,6 +5166,27 @@ public class TestDeltaLakeConnectorTest
             assertQuery("SELECT * FROM " + targetTable.getName(), "VALUES 1");
 
             assertUpdate("INSERT INTO " + targetTable.getName() + " SELECT * FROM " + sourceTable.getName() + " FOR VERSION AS OF 1", 2);
+            assertQuery("SELECT * FROM " + targetTable.getName(), "VALUES 1, 1, 2");
+        }
+    }
+
+    @Test
+    public void testInsertFromTemporalVersionedTable()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable targetTable = newTrinoTable("test_read_versioned_insert", "(col int)");
+                TestTable sourceTable = newTrinoTable("test_read_versioned_insert", "AS SELECT 1 col")) {
+            String timeAfterCreateSourceTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + sourceTable.getName() + " VALUES 2", 1);
+            String timeAfterInsertSourceTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + sourceTable.getName() + " VALUES 3", 1);
+
+            assertUpdate("INSERT INTO " + targetTable.getName() + " SELECT * FROM " + sourceTable.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateSourceTable + "'", 1);
+            assertQuery("SELECT * FROM " + targetTable.getName(), "VALUES 1");
+
+            assertUpdate("INSERT INTO " + targetTable.getName() + " SELECT * FROM " + sourceTable.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsertSourceTable + "'", 2);
             assertQuery("SELECT * FROM " + targetTable.getName(), "VALUES 1, 1, 2");
         }
     }
@@ -5025,6 +5216,25 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testInsertFromTemporalVersionedSameTable()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable("test_read_temporal_versioned_insert", "AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            String timeAfterInsert1 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2, 1");
+
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'", 2);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2, 1, 2, 1");
+        }
+    }
+
+
+    @Test
     public void testInsertFromMultipleVersionedSameTable()
     {
         try (TestTable table = newTrinoTable("test_read_versioned_insert", "AS SELECT 1 id")) {
@@ -5036,6 +5246,28 @@ public class TestDeltaLakeConnectorTest
                             "SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0 " +
                             "UNION ALL " +
                             "SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1",
+                    3);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2, 1, 1, 2");
+        }
+    }
+
+    @Test
+    public void testInsertFromMultipleTemporalVersionedSameTable()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable("test_read_temporal_versioned_insert", "AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            String timeAfterInsert = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
+
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " " +
+                            "SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'" +
+                            "UNION ALL " +
+                            "SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert + "'",
                     3);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2, 1, 1, 2");
         }
@@ -5057,6 +5289,29 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testReadTemporalVersionedTableWithChangeDataFeed()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable("test_read_temporal_versioned_cdf", "WITH (change_data_feed_enabled=true) AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            String timeAfterInsert = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("UPDATE " + table.getName() + " SET id = -2 WHERE id = 2", 1);
+            String timeAfterUpdate = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id = 1", 1);
+            String timeAfterDelete = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert + "'", "VALUES 1, 2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterUpdate + "'", "VALUES 1, -2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterDelete + "'", "VALUES -2");
+        }
+    }
+
+    @Test
     public void testSelectTableUsingVersionSchemaEvolution()
     {
         // Delta Lake respects the old schema unlike Iceberg connector
@@ -5064,6 +5319,22 @@ public class TestDeltaLakeConnectorTest
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN new_col VARCHAR");
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0", "VALUES 1");
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", "VALUES (1, NULL)");
+        }
+    }
+
+    @Test
+    public void testSelectTableUsingTemporalVersionSchemaEvolution()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        // Delta Lake respects the old schema unlike Iceberg connector
+        try (TestTable table = newTrinoTable("test_select_table_using_temporal_version", "AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN new_col VARCHAR");
+            String timeAfterAddColumn = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterAddColumn + "'", "VALUES (1, NULL)");
         }
     }
 
@@ -5097,12 +5368,63 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testSelectTableUsingTemporalVersionDeletedCheckpoints()
+            throws InterruptedException
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+
+        String tableName = "test_time_travel_temporal_" + randomNameSuffix();
+        String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
+        String deltaLog = "%s/%s/_delta_log".formatted(SCHEMA, tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " WITH (location = '" + tableLocation + "', checkpoint_interval = 1) AS SELECT 1 id", 1);
+        MILLISECONDS.sleep(10);
+        Instant InstantAfterCreateTable = Instant.ofEpochMilli(System.currentTimeMillis());
+        String timeAfterCreateTable = ZonedDateTime.ofInstant(InstantAfterCreateTable, ZoneId.of("UTC")).format(timestampWithTimeZoneFormatter);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+        Instant InstantAfterInsert = Instant.ofEpochMilli(System.currentTimeMillis());
+        String timeAfterInsert = ZonedDateTime.ofInstant(InstantAfterInsert, ZoneId.of("UTC")).format(timestampWithTimeZoneFormatter);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+
+        // Remove 0 and 1 versions
+        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(7);
+        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000000.json");
+        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.json");
+        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.checkpoint.parquet");
+        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(4);
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2, 3");
+
+        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "No temporal version history at or before " + InstantAfterCreateTable);
+        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert + "'", "No temporal version history at or before " + InstantAfterInsert);
+
+        assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + ZonedDateTime.now().format(timestampWithTimeZoneFormatter) + "'", "VALUES 1, 2, 3");
+    }
+
+    @Test
     public void testSelectAfterReadVersionedTable()
     {
         // Run normal SELECT after reading from versioned table
         try (TestTable table = newTrinoTable("test_select_after_version", "AS SELECT 1 id")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
+        }
+    }
+
+    @Test
+    public void testSelectAfterReadTemporalVersionedTable()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        // Run normal SELECT after reading from versioned table
+        try (TestTable table = newTrinoTable("test_select_after_temporal_version", "AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "VALUES 1");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
         }
     }
@@ -5130,10 +5452,95 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testReadTemporalVersionedTableWithoutCheckpointFiltering()
+    {
+        String tableName = "test_without_checkpoint_filtering_temporal_" + randomNameSuffix();
+
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
+                .build();
+
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+
+        assertUpdate("CREATE TABLE " + tableName + "(col INT) WITH (checkpoint_interval = 3)");
+        String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1", 1);
+        String timeAfterInsert1 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 2, 3", 2);
+        String timeAfterInsert2 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 4, 5", 2);
+        String timeAfterInsert3 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+        assertQueryReturnsEmptyResult(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'");
+        assertQuery(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'", "VALUES 1");
+        assertQuery(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert2 + "'", "VALUES 1, 2, 3");
+        assertQuery(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert3 + "'", "VALUES 1, 2, 3, 4, 5");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testTimeTravelUsingTemporalVersionWithDifferentTimePrecision()
+            throws InterruptedException
+    {
+        testTimeTravelUsingTemporalVersionWithDifferentTimePrecision(true);
+        testTimeTravelUsingTemporalVersionWithDifferentTimePrecision(false);
+    }
+
+    private void testTimeTravelUsingTemporalVersionWithDifferentTimePrecision(boolean partition)
+            throws InterruptedException
+    {
+        String tableName = "test_time_travel_temporal_different_precision_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + "(col INT, part varchar)" +
+                (partition ? " WITH (partitioned_by = ARRAY['part'])" : ""));
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')", 3);
+        ZonedDateTime timeAfterInsert = ZonedDateTime.now(ZoneId.of("UTC"));
+
+        SECONDS.sleep(1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE col = 3", 1);
+
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        // TODO: Add success case that using date to do time travel
+        // make sure the date is not in the past we plus 2 days
+        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF DATE '" + timeAfterInsert.plusDays(2).format(dateFormatter) + "'", ".* Pointer value '" + timeAfterInsert.plusDays(2).format(dateFormatter) + "' is not in the past");
+        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF DATE '" + timeAfterInsert.minusSeconds(1).format(dateFormatter) + "'", "No temporal version history at or before .*");
+
+        // precision 1-9
+        String pattern = "yyyy-MM-dd HH:mm:ss.%s VV";
+        for (int precision = 1; precision <= 9; precision++) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern.formatted("S".repeat(precision)));
+            assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert.plusSeconds(1).format(formatter) + "'", "VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')");
+        }
+
+        // precision 0
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert.plusSeconds(1).format(formatter) + "'", "VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')");
+
+        // precision 10
+        String timestampWithPrecision10 = timeAfterInsert.plusSeconds(1).format(formatter) + "." + "0".repeat(10) + " UTC";
+        assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timestampWithPrecision10 + "'", "VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')");
+
+        // precision 11
+        String timestampWithPrecision11 = timeAfterInsert.plusSeconds(1).format(formatter) + "." + "0".repeat(11) + " UTC";
+        assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timestampWithPrecision11 + "'", "VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')");
+
+        // precision 12
+        String timestampWithPrecision12 = timeAfterInsert.plusSeconds(1).format(formatter) + "." + "0".repeat(12) + " UTC";
+        assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timestampWithPrecision12 + "'", "VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testReadVersionedSystemTables()
     {
         // TODO https://github.com/trinodb/trino/issues/12920 System tables not accessible with AS OF syntax
         assertQueryFails("SELECT * FROM \"region$history\" FOR VERSION AS OF 0", "This connector does not support versioned tables");
+        assertQueryFails("SELECT * FROM \"region$history\" FOR TIMESTAMP AS OF DATE '2025-01-01'", "This connector does not support versioned tables");
     }
 
     @Override
@@ -5142,7 +5549,8 @@ public class TestDeltaLakeConnectorTest
         assertThat(e)
                 .hasMessageMatching("This connector does not support reading tables with TIMESTAMP AS OF|" +
                         "Delta Lake snapshot ID does not exists: .*|" +
-                        "Unsupported type for table version: .*");
+                        "Unsupported type for table version: .*|" +
+                        "No temporal version history at or before .*");
     }
 
     @Test
