@@ -35,6 +35,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "preferred-write-partitioning-min-number-of-partitions",
         "optimizer.use-mark-distinct",
         "optimizer.optimize-mixed-distinct-aggregations",
+        "optimizer.optimize-hash-generation",
 })
 public class OptimizerConfig
 {
@@ -67,7 +68,6 @@ public class OptimizerConfig
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
     private boolean optimizeMetadataQueries;
-    private boolean optimizeHashGeneration;
     private boolean pushTableWriteThroughUnion = true;
     private boolean dictionaryAggregation;
     private MarkDistinctStrategy markDistinctStrategy;
@@ -541,18 +541,6 @@ public class OptimizerConfig
     public OptimizerConfig setOptimizeTopNRanking(boolean optimizeTopNRanking)
     {
         this.optimizeTopNRanking = optimizeTopNRanking;
-        return this;
-    }
-
-    public boolean isOptimizeHashGeneration()
-    {
-        return optimizeHashGeneration;
-    }
-
-    @Config("optimizer.optimize-hash-generation")
-    public OptimizerConfig setOptimizeHashGeneration(boolean optimizeHashGeneration)
-    {
-        this.optimizeHashGeneration = optimizeHashGeneration;
         return this;
     }
 

@@ -668,21 +668,16 @@ public abstract class BaseJdbcConnectorTest
 
         try (TestTable testTable = newTrinoTable("distinct_strings", "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
             if (!(hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN) && hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY))) {
-                // disabling hash generation to prevent extra projections in the plan which make it hard to write matchers for isNotFullyPushedDown
-                Session optimizeHashGenerationDisabled = Session.builder(getSession())
-                        .setSystemProperty("optimize_hash_generation", "false")
-                        .build();
-
                 // It is not captured in the `isNotFullyPushedDown` calls (can't do that) but depending on the connector in use some aggregations
                 // still can be pushed down to connector.
                 // If `SUPPORTS_AGGREGATION_PUSHDOWN == false` but `SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY == true` the DISTINCT part of aggregation
                 // will still be pushed down to connector as `GROUP BY`. Only the `count` part will remain on the Trino side.
                 // If `SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY == false` both parts of aggregation will be executed on Trino side.
 
-                assertThat(query(optimizeHashGenerationDisabled, "SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                assertThat(query("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
                         .matches("VALUES BIGINT '7'")
                         .isNotFullyPushedDown(AggregationNode.class);
-                assertThat(query(optimizeHashGenerationDisabled, "SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
+                assertThat(query("SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
                         .matches("VALUES BIGINT '7'")
                         .isNotFullyPushedDown(AggregationNode.class);
 
@@ -1258,7 +1253,6 @@ public abstract class BaseJdbcConnectorTest
                 // Disable dynamic filtering so that expected plans in case of no pushdown remain "simple"
                 .setSystemProperty("enable_dynamic_filtering", "false")
                 // Disable optimized hash generation so that expected plans in case of no pushdown remain "simple"
-                .setSystemProperty("optimize_hash_generation", "false")
                 .build();
 
         assertThat(query(noJoinPushdown, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
