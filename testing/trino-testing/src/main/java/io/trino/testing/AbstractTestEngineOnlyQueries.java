@@ -1460,8 +1460,6 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputRowCount("CREATE TABLE foo AS SELECT * FROM nation");
 
         assertDescribeOutputEmpty("CALL foo()");
-        assertDescribeOutputEmpty("SET SESSION optimize_hash_generation=false");
-        assertDescribeOutputEmpty("RESET SESSION optimize_hash_generation");
         assertDescribeOutputEmpty("START TRANSACTION");
         assertDescribeOutputEmpty("COMMIT");
         assertDescribeOutputEmpty("ROLLBACK");
