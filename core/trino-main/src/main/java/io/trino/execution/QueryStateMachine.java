@@ -703,6 +703,7 @@ public class QueryStateMachine
         ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
         for (StageInfo stageInfo : allStages) {
             StageStats stageStats = stageInfo.getStageStats();
+            updatedPositions += stageStats.getUpdatedPositions();
             totalTasks += stageStats.getTotalTasks();
             runningTasks += stageStats.getRunningTasks();
             completedTasks += stageStats.getCompletedTasks();
@@ -773,7 +774,6 @@ public class QueryStateMachine
             outputDataSize += outputStageStats.getOutputDataSize().toBytes();
             failedOutputDataSize += outputStageStats.getFailedOutputDataSize().toBytes();
             outputPositions += outputStageStats.getOutputPositions();
-            updatedPositions += outputStageStats.getUpdatedPositions();
             failedOutputPositions += outputStageStats.getFailedOutputPositions();
         }
 
