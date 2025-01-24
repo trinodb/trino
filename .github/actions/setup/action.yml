@@ -3,7 +3,8 @@ description: "Verify checked out commits and setup Java"
 inputs:
   java-version:
     description: "Java version to setup"
-    default: 23
+    # TODO Use 23 once CI failures about a gap in 'America/Bahia_Banderas' are fixed
+    default: 23.0.1
   cache:
     description: "Cache Maven repo (true/false/restore)"
     default: restore
