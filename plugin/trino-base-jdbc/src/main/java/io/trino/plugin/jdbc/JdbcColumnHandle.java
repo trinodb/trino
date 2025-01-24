@@ -17,11 +17,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import io.airlift.slice.SizeOf;
+import io.trino.plugin.jdbc.properties.JdbcColumnProperties;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.type.Type;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -40,11 +43,13 @@ public final class JdbcColumnHandle
     private final Type columnType;
     private final boolean nullable;
     private final Optional<String> comment;
+    private final boolean autoIncrement;
+    private final boolean primaryKey;
 
     // All and only required fields
     public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType)
     {
-        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty());
+        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty(), false, false);
     }
 
     /**
@@ -57,13 +62,17 @@ public final class JdbcColumnHandle
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
             @JsonProperty("nullable") boolean nullable,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("autoIncrement") boolean autoIncrement,
+            @JsonProperty("primaryKey") boolean primaryKey)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
         this.comment = requireNonNull(comment, "comment is null");
+        this.autoIncrement = autoIncrement;
+        this.primaryKey = primaryKey;
     }
 
     @JsonProperty
@@ -96,14 +105,41 @@ public final class JdbcColumnHandle
         return comment;
     }
 
+    @JsonProperty
+    public boolean isAutoIncrement()
+    {
+        return autoIncrement;
+    }
+
+    @JsonProperty
+    public boolean isPrimaryKey()
+    {
+        return primaryKey;
+    }
+
     public ColumnMetadata getColumnMetadata()
     {
-        return ColumnMetadata.builder()
+        ColumnMetadata.Builder columnMetadataBuilder = ColumnMetadata.builder()
                 .setName(columnName)
                 .setType(columnType)
                 .setNullable(nullable)
-                .setComment(comment)
-                .build();
+                .setComment(comment);
+
+        Map<String, Object> properties = new LinkedHashMap<>();
+        if (primaryKey) {
+            properties.put(JdbcColumnProperties.PRIMARY_KEY, true);
+        }
+
+        if (autoIncrement) {
+            properties.put(JdbcColumnProperties.AUTO_INCREMENT, true);
+        }
+
+        if (!properties.isEmpty()) {
+            columnMetadataBuilder.setExtraInfo(Optional.of(String.join(",", properties.keySet())))
+                    .setProperties(properties);
+        }
+
+        return columnMetadataBuilder.build();
     }
 
     public ColumnSchema getColumnSchema()
@@ -149,6 +185,8 @@ public final class JdbcColumnHandle
                 + sizeOf(nullable)
                 + estimatedSizeOf(columnName)
                 + sizeOf(comment, SizeOf::estimatedSizeOf)
+                + sizeOf(autoIncrement)
+                + sizeOf(primaryKey)
                 + jdbcTypeHandle.getRetainedSizeInBytes();
     }
 
@@ -169,6 +207,8 @@ public final class JdbcColumnHandle
         private Type columnType;
         private boolean nullable = true;
         private Optional<String> comment = Optional.empty();
+        private boolean autoIncrement;
+        private boolean primaryKey;
 
         public Builder() {}
 
@@ -179,6 +219,8 @@ public final class JdbcColumnHandle
             this.columnType = handle.getColumnType();
             this.nullable = handle.isNullable();
             this.comment = handle.getComment();
+            this.autoIncrement = handle.isAutoIncrement();
+            this.primaryKey = handle.isPrimaryKey();
         }
 
         public Builder setColumnName(String columnName)
@@ -211,6 +253,18 @@ public final class JdbcColumnHandle
             return this;
         }
 
+        public Builder setAutoIncrement(boolean autoIncrement)
+        {
+            this.autoIncrement = autoIncrement;
+            return this;
+        }
+
+        public Builder setPrimaryKey(boolean primaryKey)
+        {
+            this.primaryKey = primaryKey;
+            return this;
+        }
+
         public JdbcColumnHandle build()
         {
             return new JdbcColumnHandle(
@@ -218,7 +272,9 @@ public final class JdbcColumnHandle
                     jdbcTypeHandle,
                     columnType,
                     nullable,
-                    comment);
+                    comment,
+                    autoIncrement,
+                    primaryKey);
         }
     }
 }

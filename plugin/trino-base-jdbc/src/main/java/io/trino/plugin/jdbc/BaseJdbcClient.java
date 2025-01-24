@@ -308,54 +308,69 @@ public abstract class BaseJdbcClient
     @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        try (Connection connection = connectionFactory.openConnection(session);
-                ResultSet resultSet = getColumns(remoteTableName, connection.getMetaData())) {
-            Map<String, CaseSensitivity> caseSensitivityMapping = getCaseSensitivityForColumns(session, connection, schemaTableName, remoteTableName);
-            int allColumns = 0;
-            List<JdbcColumnHandle> columns = new ArrayList<>();
-            while (resultSet.next()) {
-                // skip if table doesn't match expected
-                if (!Objects.equals(remoteTableName, getRemoteTable(resultSet))) {
-                    continue;
-                }
-                allColumns++;
-                String columnName = resultSet.getString("COLUMN_NAME");
-                JdbcTypeHandle typeHandle = new JdbcTypeHandle(
-                        getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
-                        Optional.ofNullable(resultSet.getString("TYPE_NAME")),
-                        getInteger(resultSet, "COLUMN_SIZE"),
-                        getInteger(resultSet, "DECIMAL_DIGITS"),
-                        Optional.empty(),
-                        Optional.ofNullable(caseSensitivityMapping.get(columnName)));
-                Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
-                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
-                boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
-                // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
-                Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
-                // skip unsupported column types
-                columnMapping.ifPresent(mapping -> columns.add(JdbcColumnHandle.builder()
-                        .setColumnName(columnName)
-                        .setJdbcTypeHandle(typeHandle)
-                        .setColumnType(mapping.getType())
-                        .setNullable(nullable)
-                        .setComment(comment)
-                        .build()));
-                if (columnMapping.isEmpty()) {
-                    UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
-                    verify(
-                            unsupportedTypeHandling == IGNORE,
-                            "Unsupported type handling is set to %s, but toColumnMapping() returned empty for %s",
-                            unsupportedTypeHandling,
-                            typeHandle);
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            List<String> primaryKeyColumns = new ArrayList<>();
+            try (ResultSet primaryKeyResultSet = getPrimaryKeys(remoteTableName, connection.getMetaData())) {
+                while (primaryKeyResultSet.next()) {
+                    // skip if table doesn't match expected
+                    if (!Objects.equals(remoteTableName, getRemoteTable(primaryKeyResultSet))) {
+                        continue;
+                    }
+                    primaryKeyColumns.add(primaryKeyResultSet.getString("COLUMN_NAME"));
                 }
             }
-            if (columns.isEmpty()) {
-                // A table may have no supported columns. In rare cases (e.g. PostgreSQL) a table might have no columns at all.
-                throw new TableNotFoundException(
-                        schemaTableName,
-                        format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
+            try (ResultSet columnResultSet = getColumns(remoteTableName, connection.getMetaData())) {
+                Map<String, CaseSensitivity> caseSensitivityMapping = getCaseSensitivityForColumns(session, connection, schemaTableName, remoteTableName);
+                int allColumns = 0;
+                List<JdbcColumnHandle> columns = new ArrayList<>();
+                while (columnResultSet.next()) {
+                    // skip if table doesn't match expected
+                    if (!Objects.equals(remoteTableName, getRemoteTable(columnResultSet))) {
+                        continue;
+                    }
+                    allColumns++;
+                    String columnName = columnResultSet.getString("COLUMN_NAME");
+                    JdbcTypeHandle typeHandle = new JdbcTypeHandle(
+                            getInteger(columnResultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
+                            Optional.ofNullable(columnResultSet.getString("TYPE_NAME")),
+                            getInteger(columnResultSet, "COLUMN_SIZE"),
+                            getInteger(columnResultSet, "DECIMAL_DIGITS"),
+                            Optional.empty(),
+                            Optional.ofNullable(caseSensitivityMapping.get(columnName)));
+                    Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
+                    log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
+                    boolean nullable = (columnResultSet.getInt("NULLABLE") != columnNoNulls);
+                    // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
+                    Optional<String> comment = Optional.ofNullable(emptyToNull(columnResultSet.getString("REMARKS")));
+                    boolean autoIncrement = "YES".equalsIgnoreCase(columnResultSet.getString("IS_AUTOINCREMENT"));
+                    boolean primaryKey = primaryKeyColumns.contains(columnName);
+                    // skip unsupported column types
+                    columnMapping.ifPresent(mapping -> columns.add(JdbcColumnHandle.builder()
+                            .setColumnName(columnName)
+                            .setJdbcTypeHandle(typeHandle)
+                            .setColumnType(mapping.getType())
+                            .setNullable(nullable)
+                            .setComment(comment)
+                            .setAutoIncrement(autoIncrement)
+                            .setPrimaryKey(primaryKey)
+                            .build()));
+                    if (columnMapping.isEmpty()) {
+                        UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
+                        verify(
+                                unsupportedTypeHandling == IGNORE,
+                                "Unsupported type handling is set to %s, but toColumnMapping() returned empty for %s",
+                                unsupportedTypeHandling,
+                                typeHandle);
+                    }
+                }
+                if (columns.isEmpty()) {
+                    // A table may have no supported columns. In rare cases (e.g. PostgreSQL) a table might have no columns at all.
+                    throw new TableNotFoundException(
+                            schemaTableName,
+                            format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
+                }
+                return ImmutableList.copyOf(columns);
             }
-            return ImmutableList.copyOf(columns);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -560,6 +575,15 @@ public abstract class BaseJdbcClient
                 escapeObjectNameForMetadataQuery(remoteTableName.getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
                 escapeObjectNameForMetadataQuery(remoteTableName.getTableName(), metadata.getSearchStringEscape()),
                 null);
+    }
+
+    protected ResultSet getPrimaryKeys(RemoteTableName remoteTableName, DatabaseMetaData metadata)
+            throws SQLException
+    {
+        return metadata.getPrimaryKeys(
+                remoteTableName.getCatalogName().orElse(null),
+                remoteTableName.getSchemaName().orElse(null),
+                remoteTableName.getTableName());
     }
 
     protected ResultSet getAllTableColumns(Connection connection, Optional<String> remoteSchemaName)
