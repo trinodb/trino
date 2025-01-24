@@ -17,6 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tempto.assertions.QueryAssert;
 import org.testng.annotations.Test;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -104,6 +107,44 @@ public class TestDeltaLakeTimeTravelCompatibility
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testSelectForTemporalAsOf()
+    {
+        String tableName = "test_dl_select_temporal_" + randomNameSuffix();
+        DateTimeFormatter timestampFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                "(id INT, part STRING) " +
+                "USING delta " +
+                "PARTITIONED BY (part)" +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 'spark')");
+            ZonedDateTime timeAfterInsert = ZonedDateTime.now(ZoneId.of("UTC"));
+
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMN new_column INT");
+
+            // Both Spark and Trino Delta Lake connector use the old table definition for the versioned query
+            List<QueryAssert.Row> expectedRows = ImmutableList.of(row(1, "spark"));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName + " TIMESTAMP AS OF '" + timeAfterInsert.format(timestampFormatter) + "'"))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert.format(timestampWithTimeZoneFormatter) + "'"))
+                    .containsOnly(expectedRows);
+
+            // Do time travel after table replacement
+            onDelta().executeQuery("CREATE OR REPLACE TABLE " + tableName + " USING DELTA AS SELECT id + 1 AS id, part, new_column FROM " + tableName);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName + " TIMESTAMP AS OF '" + timeAfterInsert.format(timestampFormatter) + "'"))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert.format(timestampWithTimeZoneFormatter) + "'"))
+                    .containsOnly(expectedRows);
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
         }
     }
 }
