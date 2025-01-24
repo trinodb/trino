@@ -93,6 +93,7 @@ import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.mapping.MappedField;
 import org.apache.iceberg.mapping.MappedFields;
+import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.mapping.NameMappingParser;
 import org.apache.iceberg.parquet.ParquetSchemaUtil;
@@ -265,7 +266,7 @@ public class IcebergPageSourceProvider
                 split.getFileFormat(),
                 split.getFileIoProperties(),
                 split.getDataSequenceNumber(),
-                tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
+                tableHandle.getNameMappingJson().map(NameMappingParser::fromJson).orElseGet(() -> MappingUtil.create(schema)));
     }
 
     public ConnectorPageSource createPageSource(
@@ -287,7 +288,7 @@ public class IcebergPageSourceProvider
             IcebergFileFormat fileFormat,
             Map<String, String> fileIoProperties,
             long dataSequenceNumber,
-            Optional<NameMapping> nameMapping)
+            NameMapping nameMapping)
     {
         Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, deletes);
         Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
@@ -465,6 +466,7 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> columns,
             TupleDomain<IcebergColumnHandle> tupleDomain)
     {
+        Schema schema = schemaFromHandles(columns);
         return createDataPageSource(
                 session,
                 fileSystem.newInputFile(Location.of(delete.path()), delete.fileSizeInBytes()),
@@ -472,10 +474,10 @@ public class IcebergPageSourceProvider
                 delete.fileSizeInBytes(),
                 delete.fileSizeInBytes(),
                 IcebergFileFormat.fromIceberg(delete.format()),
-                schemaFromHandles(columns),
+                schema,
                 columns,
                 tupleDomain,
-                Optional.empty(),
+                MappingUtil.create(schema),
                 ImmutableMap.of())
                 .readerPageSource()
                 .get();
@@ -491,7 +493,7 @@ public class IcebergPageSourceProvider
             Schema fileSchema,
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate,
-            Optional<NameMapping> nameMapping,
+            NameMapping nameMapping,
             Map<Integer, Optional<String>> partitionKeys)
     {
         return switch (fileFormat) {
@@ -531,14 +533,14 @@ public class IcebergPageSourceProvider
                             .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session)),
                     predicate,
                     fileFormatDataSourceStats,
-                    nameMapping,
+                    Optional.of(nameMapping),
                     partitionKeys);
             case AVRO -> createAvroPageSource(
                     inputFile,
                     start,
                     length,
                     fileSchema,
-                    nameMapping,
+                    Optional.of(nameMapping),
                     dataColumns);
         };
     }
@@ -587,7 +589,7 @@ public class IcebergPageSourceProvider
             OrcReaderOptions options,
             FileFormatDataSourceStats stats,
             TypeManager typeManager,
-            Optional<NameMapping> nameMapping,
+            NameMapping nameMapping,
             Map<Integer, Optional<String>> partitionKeys)
     {
         OrcDataSource orcDataSource = null;
