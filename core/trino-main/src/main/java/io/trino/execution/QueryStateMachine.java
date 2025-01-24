@@ -774,7 +774,6 @@ public class QueryStateMachine
             outputDataSize += outputStageStats.getOutputDataSize().toBytes();
             failedOutputDataSize += outputStageStats.getFailedOutputDataSize().toBytes();
             outputPositions += outputStageStats.getOutputPositions();
-            updatedPositions += outputStageStats.getUpdatedPositions();
             failedOutputPositions += outputStageStats.getFailedOutputPositions();
         }
 
