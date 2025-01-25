@@ -18,7 +18,6 @@ import java.io.Closeable;
 public interface CassandraServer
         extends Closeable
 {
-
     CassandraSession getSession();
 
     String getHost();

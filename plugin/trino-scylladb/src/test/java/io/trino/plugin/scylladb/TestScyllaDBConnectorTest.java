@@ -27,7 +27,7 @@ public class TestScyllaDBConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = closeAfterClass(new TestingScyllaDBServer("6.2"));
+        server = closeAfterClass(new TestingScyllaDBServer());
         session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
         return ScyllaDBQueryRunner.builder(server).setInitialTables(REQUIRED_TPCH_TABLES).build();

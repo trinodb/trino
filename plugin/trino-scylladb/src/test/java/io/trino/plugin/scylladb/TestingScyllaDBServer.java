@@ -42,11 +42,13 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestingScyllaDBServer
-        extends CassandraServer
+        implements CassandraServer
 {
     private static final Logger log = Logger.get(TestingScyllaDBServer.class);
 
     private static final int PORT = 9042;
+
+    private static final String VERSION = "6.2";
 
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
@@ -54,13 +56,11 @@ public class TestingScyllaDBServer
     private final CassandraSession session;
 
     public TestingScyllaDBServer()
-            throws Exception
     {
-        this("6.2");
+        this(VERSION);
     }
 
     public TestingScyllaDBServer(String version)
-            throws Exception
     {
         container = new GenericContainer<>("scylladb/scylladb:" + version)
                 .withExposedPorts(PORT);

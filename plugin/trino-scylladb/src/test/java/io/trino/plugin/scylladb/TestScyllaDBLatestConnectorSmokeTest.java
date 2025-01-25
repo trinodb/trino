@@ -28,7 +28,7 @@ public class TestScyllaDBLatestConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingScyllaDBServer server = closeAfterClass(new TestingScyllaDBServer("6.2"));
+        TestingScyllaDBServer server = closeAfterClass(new TestingScyllaDBServer());
         CassandraSession session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
         return ScyllaDBQueryRunner.builder(server).setInitialTables(REQUIRED_TPCH_TABLES).build();
