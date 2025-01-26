@@ -1379,6 +1379,7 @@ INVALID_NUMBER
     | HEXADECIMAL_INTEGER '__' ('_' | HEX_DIGIT)*
     | OCTAL_INTEGER '__' ('_' | OCTAL_DIGIT)*
     | BINARY_INTEGER '__' ('_' | BINARY_DIGIT)*
+    | DIGIT ('_' | DIGIT)* '.' DECIMAL_INTEGER '__' ('_' | DIGIT)*
     // Underscore besides comma
     | DIGIT ('_' | DIGIT)* '_' '.' ('_' | DIGIT)*
     | DECIMAL_INTEGER '.' '_' ('_' | DIGIT)*

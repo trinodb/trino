@@ -37,11 +37,12 @@ public class TestSqlParserErrorHandling
                 Arguments.of("1_", "line 1:1: numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
                 Arguments.of("1__2", "line 1:1: numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
                 Arguments.of("12_.", "line 1:1: numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
-                Arguments.of("12._", "line 1:1 numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
-                Arguments.of("12._34", "line 1:1 numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
-                Arguments.of("0x_", "line 1:1 numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
-                Arguments.of("0b_", "line 1:1 numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
-                Arguments.of("0o_", "line 1:1 numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"));
+                Arguments.of("12._", "line 1:1: numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
+                Arguments.of("12._34", "line 1:1: numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
+                Arguments.of("12.3__4", "line 1:1: numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
+                Arguments.of("0x_", "line 1:1: numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
+                Arguments.of("0b_", "line 1:1: numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
+                Arguments.of("0o_", "line 1:1: numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"));
     }
 
     private static Stream<Arguments> statements()
