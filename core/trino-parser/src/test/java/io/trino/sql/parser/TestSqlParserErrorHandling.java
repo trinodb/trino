@@ -33,7 +33,15 @@ public class TestSqlParserErrorHandling
     {
         return Stream.of(
                 Arguments.of("", "line 1:1: mismatched input '<EOF>'. Expecting: <expression>"),
-                Arguments.of("1 + 1 x", "line 1:7: mismatched input 'x'. Expecting: '%', '*', '+', '-', '.', '/', 'AND', 'AT', 'OR', '[', '||', <EOF>, <predicate>"));
+                Arguments.of("1 + 1 x", "line 1:7: mismatched input 'x'. Expecting: '%', '*', '+', '-', '.', '/', 'AND', 'AT', 'OR', '[', '||', <EOF>, <predicate>"),
+                Arguments.of("1_", "line 1:1: numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
+                Arguments.of("1__2", "line 1:1: numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
+                Arguments.of("12_.", "line 1:1: numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
+                Arguments.of("12._", "line 1:1 numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
+                Arguments.of("12._34", "line 1:1 numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
+                Arguments.of("0x_", "line 1:1 numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
+                Arguments.of("0b_", "line 1:1 numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"),
+                Arguments.of("0o_", "line 1:1 numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point"));
     }
 
     private static Stream<Arguments> statements()
@@ -215,7 +223,7 @@ public class TestSqlParserErrorHandling
                 "line 24:1: mismatched input 'GROUP'. Expecting: '%', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AT', 'FILTER', 'IGNORE', 'OR', 'OVER', 'RESPECT', '[', '||', <predicate>");
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "{index}: {0}")
     @MethodSource("statements")
     public void testStatement(String sql, String error)
     {
@@ -224,7 +232,7 @@ public class TestSqlParserErrorHandling
                 .hasMessage(error);
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "{index}: {0}")
     @MethodSource("expressions")
     public void testExpression(String sql, String error)
     {

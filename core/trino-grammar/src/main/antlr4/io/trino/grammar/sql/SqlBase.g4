@@ -983,6 +983,7 @@ number
     : MINUS? DECIMAL_VALUE  #decimalLiteral
     | MINUS? DOUBLE_VALUE   #doubleLiteral
     | MINUS? INTEGER_VALUE  #integerLiteral
+    | MINUS? INVALID_NUMBER #invalidNumber
     ;
 
 authorizationUser
@@ -1367,6 +1368,23 @@ DOUBLE_VALUE
     | '.' DIGIT+ EXPONENT
     ;
 
+INVALID_NUMBER
+    // Trailing underscore
+    : DIGIT ('_' | DIGIT)* '_'
+    | '0X' ('_' | HEX_DIGIT)* '_'
+    | '0O' ('_' | OCTAL_DIGIT)* '_'
+    | '0B' ('_' | BINARY_DIGIT)* '_'
+    // Consecutive underscores
+    | DECIMAL_INTEGER '__' ('_' | DIGIT)*
+    | HEXADECIMAL_INTEGER '__' ('_' | HEX_DIGIT)*
+    | OCTAL_INTEGER '__' ('_' | OCTAL_DIGIT)*
+    | BINARY_INTEGER '__' ('_' | BINARY_DIGIT)*
+    // Underscore besides comma
+    | DIGIT ('_' | DIGIT)* '_' '.' ('_' | DIGIT)*
+    | DECIMAL_INTEGER '.' '_' ('_' | DIGIT)*
+    | '.' '_' ('_' | DIGIT)*
+    ;
+
 IDENTIFIER
     : (LETTER | '_') (LETTER | DIGIT | '_')*
     ;
@@ -1388,15 +1406,15 @@ fragment DECIMAL_INTEGER
     ;
 
 fragment HEXADECIMAL_INTEGER
-    : '0X' ('_'? (DIGIT | [A-F]))+
+    : '0X' ('_'? HEX_DIGIT)+
     ;
 
 fragment OCTAL_INTEGER
-    : '0O' ('_'? [0-7])+
+    : '0O' ('_'? OCTAL_DIGIT)+
     ;
 
 fragment BINARY_INTEGER
-    : '0B' ('_'? [01])+
+    : '0B' ('_'? BINARY_DIGIT)+
     ;
 
 fragment EXPONENT
@@ -1405,6 +1423,18 @@ fragment EXPONENT
 
 fragment DIGIT
     : [0-9]
+    ;
+
+fragment HEX_DIGIT
+    : [0-9A-F]
+    ;
+
+fragment OCTAL_DIGIT
+    : [0-7]
+    ;
+
+fragment BINARY_DIGIT
+    : [01]
     ;
 
 fragment LETTER

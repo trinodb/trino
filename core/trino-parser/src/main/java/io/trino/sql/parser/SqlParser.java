@@ -236,6 +236,17 @@ public class SqlParser
         }
 
         @Override
+        public void exitInvalidNumber(SqlBaseParser.InvalidNumberContext context)
+        {
+            Token token = context.INVALID_NUMBER().getSymbol();
+            throw new ParsingException(
+                    "numbers may not contain trailing underscores, consecutive underscores, or underscores besides the decimal point",
+                    null,
+                    token.getLine(),
+                    token.getCharPositionInLine() + 1);
+        }
+
+        @Override
         public void exitNonReserved(SqlBaseParser.NonReservedContext context)
         {
             // we can't modify the tree during rule enter/exit event handling unless we're dealing with a terminal.
