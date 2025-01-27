@@ -312,6 +312,7 @@ public class TestStageStateMachine
                 new Duration(baseValue, MILLISECONDS),
                 DataSize.ofBytes(baseValue),
                 baseValue,
+                baseValue,
                 new Duration(baseValue, MILLISECONDS),
                 DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
