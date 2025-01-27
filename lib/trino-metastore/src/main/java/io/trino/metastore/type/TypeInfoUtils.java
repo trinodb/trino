@@ -294,11 +294,33 @@ public final class TypeInfoUtils
                             break;
                         }
                     }
-                    Token name = expect("name", ">");
-                    if (name.text().equals(">")) {
+                    // Build name from multiple tokens in case name contains colon(:) as colons in name causes name to be tokenized into multiple tokens.
+                    StringBuilder nameParts = new StringBuilder();
+                    String lastTokenString = null;
+                    while (index < typeInfoTokens.size() - 2
+                            && getTypeEntryFromTypeName(typeInfoTokens.get(index + 1).text) == null
+                            && !LIST_TYPE_NAME.equals(typeInfoTokens.get(index + 1).text)
+                            && !MAP_TYPE_NAME.equals(typeInfoTokens.get(index + 1).text)
+                            && !STRUCT_TYPE_NAME.equals(typeInfoTokens.get(index + 1).text)
+                            && !UNION_TYPE_NAME.equals(typeInfoTokens.get(index + 1).text)) {
+                        Token currentToken = peek();
+                        if (currentToken.text.equals(":")) {
+                            nameParts.append(currentToken.text);
+                            index += 1;
+                        }
+                        else {
+                            Token nameToken = expect("name", ">");
+                            lastTokenString = nameToken.text;
+                            if (lastTokenString.equals(">")) {
+                                break;
+                            }
+                            nameParts.append(nameToken.text);
+                        }
+                    }
+                    if (lastTokenString != null && lastTokenString.equals(">")) {
                         break;
                     }
-                    fieldNames.add(name.text());
+                    fieldNames.add(nameParts.toString());
                     expect(":");
                     fieldTypeInfos.add(parseType());
                 }
