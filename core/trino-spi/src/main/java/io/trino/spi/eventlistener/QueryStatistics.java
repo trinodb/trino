@@ -60,6 +60,7 @@ public class QueryStatistics
     private final long totalRows;
     private final long outputBytes;
     private final long outputRows;
+    private final long updatedRows;
     private final long writtenBytes;
     private final long writtenRows;
     private final long spilledBytes;
@@ -122,6 +123,7 @@ public class QueryStatistics
             long totalRows,
             long outputBytes,
             long outputRows,
+            long updatedRows,
             long writtenBytes,
             long writtenRows,
             long spilledBytes,
@@ -169,6 +171,7 @@ public class QueryStatistics
                 totalRows,
                 outputBytes,
                 outputRows,
+                updatedRows,
                 writtenBytes,
                 writtenRows,
                 spilledBytes,
@@ -217,6 +220,7 @@ public class QueryStatistics
             long totalRows,
             long outputBytes,
             long outputRows,
+            long updatedRows,
             long writtenBytes,
             long writtenRows,
             long spilledBytes,
@@ -263,6 +267,7 @@ public class QueryStatistics
         this.totalRows = totalRows;
         this.outputBytes = outputBytes;
         this.outputRows = outputRows;
+        this.updatedRows = updatedRows;
         this.writtenBytes = writtenBytes;
         this.writtenRows = writtenRows;
         this.spilledBytes = spilledBytes;
@@ -458,6 +463,12 @@ public class QueryStatistics
     public long getOutputRows()
     {
         return outputRows;
+    }
+
+    @JsonProperty
+    public long getUpdatedRows()
+    {
+        return updatedRows;
     }
 
     @JsonProperty
