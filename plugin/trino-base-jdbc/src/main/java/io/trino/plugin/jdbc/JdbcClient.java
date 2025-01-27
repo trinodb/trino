@@ -185,15 +185,6 @@ public interface JdbcClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column comments");
     }
 
-    /**
-     * @deprecated use {@link #addColumn(ConnectorSession, JdbcTableHandle, ColumnMetadata, ColumnPosition)} which add column with position
-     */
-    @Deprecated
-    default void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
-    {
-        addColumn(session, handle, column, new ColumnPosition.Last());
-    }
-
     void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position);
 
     void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column);

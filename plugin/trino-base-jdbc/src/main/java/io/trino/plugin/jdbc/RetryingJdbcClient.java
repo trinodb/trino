@@ -302,13 +302,6 @@ public class RetryingJdbcClient
     }
 
     @Override
-    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
-    {
-        // no retrying as it could be not idempotent operation
-        delegate.addColumn(session, handle, column);
-    }
-
-    @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
     {
         // no retrying as it could be not idempotent operation
