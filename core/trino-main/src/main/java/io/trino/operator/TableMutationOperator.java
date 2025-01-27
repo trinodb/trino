@@ -121,6 +121,8 @@ public class TableMutationOperator
 
         OptionalLong rowsUpdatedCount = operation.execute();
 
+        operatorContext.recordUpdatedPositions(rowsUpdatedCount.orElse(0L));
+
         return buildUpdatedCountPage(rowsUpdatedCount);
     }
 
