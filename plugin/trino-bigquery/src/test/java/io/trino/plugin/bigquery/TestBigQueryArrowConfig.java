@@ -22,7 +22,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 class TestBigQueryArrowConfig
 {
@@ -30,18 +30,18 @@ class TestBigQueryArrowConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(BigQueryArrowConfig.class)
-                .setMaxAllocation(DataSize.ofBytes(Integer.MAX_VALUE)));
+                .setMaxAllocation(DataSize.of(100, MEGABYTE)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("bigquery.arrow-serialization.max-allocation", "1GB")
+                .put("bigquery.arrow-serialization.max-allocation", "10MB")
                 .buildOrThrow();
 
         BigQueryArrowConfig expected = new BigQueryArrowConfig()
-                .setMaxAllocation(DataSize.of(1, GIGABYTE));
+                .setMaxAllocation(DataSize.of(10, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }
