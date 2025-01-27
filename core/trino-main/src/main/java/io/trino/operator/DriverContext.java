@@ -314,6 +314,14 @@ public class DriverContext
                 .collect(toImmutableList());
     }
 
+    public Long getUpdatedPositions()
+    {
+        return operatorContexts.stream()
+                .map(OperatorContext::getOperatorStats)
+                .mapToLong(OperatorStats::getUpdatedPositions)
+                .sum();
+    }
+
     public DriverStats getDriverStats()
     {
         long totalScheduledTime = overallTiming.getWallNanos();
@@ -352,6 +360,7 @@ public class DriverContext
         Duration inputBlockedTime;
         DataSize outputDataSize;
         long outputPositions;
+        long updatedPositions = getUpdatedPositions();
         Duration outputBlockedTime;
         if (inputOperator != null) {
             physicalInputDataSize = inputOperator.getPhysicalInputDataSize();
@@ -395,6 +404,7 @@ public class DriverContext
 
             outputDataSize = DataSize.ofBytes(0);
             outputPositions = 0;
+            updatedPositions = 0;
 
             outputBlockedTime = new Duration(0, MILLISECONDS);
         }
@@ -437,6 +447,7 @@ public class DriverContext
                 inputBlockedTime,
                 outputDataSize.succinct(),
                 outputPositions,
+                updatedPositions,
                 outputBlockedTime,
                 succinctBytes(physicalWrittenDataSize),
                 operators);
