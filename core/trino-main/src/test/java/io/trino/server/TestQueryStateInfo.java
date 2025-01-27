@@ -175,6 +175,7 @@ public class TestQueryStateInfo
                         DataSize.valueOf("36GB"),
                         DataSize.valueOf("37GB"),
                         38,
+                        0,
                         39,
                         new Duration(103, SECONDS),
                         new Duration(104, SECONDS),
