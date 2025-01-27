@@ -16,6 +16,7 @@ package io.trino.plugin.google.sheets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -211,5 +212,21 @@ public class SheetsMetadata
             return new SchemaTableName("_generated", "_generated");
         }
         throw new IllegalStateException("Found unexpected table handle type " + handle);
+    }
+
+    @Override
+    public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        if (!(tableHandle instanceof SheetsNamedTableHandle namedTableHandle)) {
+            throw new TrinoException(NOT_SUPPORTED, format("Can only truncate named tables. Found table handle type: %s", tableHandle));
+        }
+
+        String expression = sheetsClient.getCachedSheetExpressionForTable(namedTableHandle.tableName());
+
+        Logger log = Logger.get(SheetsMetadata.class);
+
+        log.info("Look expression: %s", expression);
+
+        sheetsClient.clearSheet(expression);
     }
 }

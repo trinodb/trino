@@ -20,6 +20,7 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
+import com.google.api.services.sheets.v4.model.ClearValuesRequest;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -56,6 +57,7 @@ import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_BAD_CREDENTIA
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_INSERT_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_METASTORE_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_TABLE_LOAD_ERROR;
+import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_TRUNCATE_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_TABLE_ERROR;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
@@ -231,6 +233,21 @@ public class SheetsClient
         return values.stream()
                 .map(columns -> columns.stream().map(String::valueOf).collect(toImmutableList()))
                 .collect(toImmutableList());
+    }
+
+    public void clearSheet(String sheetExpression)
+    {
+        SheetsSheetIdAndRange sheetIdAndRange = new SheetsSheetIdAndRange(sheetExpression);
+        ClearValuesRequest clearValuesRequest = new ClearValuesRequest();
+
+        try {
+            sheetsService.spreadsheets().values().clear(sheetIdAndRange.getSheetId(), sheetIdAndRange.getRange(), clearValuesRequest).execute();
+        }
+        catch (IOException e) {
+            throw new TrinoException(SHEETS_TRUNCATE_ERROR, "Error truncating data in sheet: ", e);
+        }
+
+        sheetDataCache.invalidate(sheetExpression);
     }
 
     private Optional<String> getSheetExpressionForTable(String tableName)
