@@ -593,8 +593,13 @@
             <dependency>
                 <groupId>com.mysql</groupId>
                 <artifactId>mysql-connector-j</artifactId>
-                <!-- TODO https://github.com/trinodb/trino/issues/21945 Check performance when upgrading this version -->
-                <version>8.3.0</version>
+                <version>9.2.0</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.protobuf</groupId>
+                        <artifactId>protobuf-java</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
