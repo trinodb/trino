@@ -905,7 +905,6 @@ jobs:
             - suite-clickhouse
             - suite-mysql
             - suite-iceberg
-            - suite-snowflake
             - suite-hudi
             - suite-ignite
           exclude:

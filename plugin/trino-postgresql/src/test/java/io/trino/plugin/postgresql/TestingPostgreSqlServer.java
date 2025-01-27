@@ -53,7 +53,7 @@ import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
 public class TestingPostgreSqlServer
         implements AutoCloseable
 {
-    public static final String DEFAULT_IMAGE_NAME = "postgres:11";
+    public static final String DEFAULT_IMAGE_NAME = "postgres:12";
 
     private static final String USER = "test";
     private static final String PASSWORD = "test";
