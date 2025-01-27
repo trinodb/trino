@@ -62,7 +62,7 @@ public class TestingScyllaDBServer
 
     public TestingScyllaDBServer(String version)
     {
-        container = new GenericContainer<>("scylladb/scylladb:" + version)
+        container = new GenericContainer<>("scylla/scylladb:" + version)
                 .withExposedPorts(PORT);
         container.start();
 
