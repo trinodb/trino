@@ -482,6 +482,7 @@ public class TaskContext
 
         long outputDataSize = 0;
         long outputPositions = 0;
+        long updatedPositions = 0;
 
         long outputBlockedTime = 0;
 
@@ -536,6 +537,7 @@ public class TaskContext
             if (pipeline.isOutputPipeline()) {
                 outputDataSize += pipeline.getOutputDataSize().toBytes();
                 outputPositions += pipeline.getOutputPositions();
+                updatedPositions += pipeline.getUpdatedPositions();
 
                 outputBlockedTime += pipeline.getOutputBlockedTime().roundTo(NANOSECONDS);
             }
@@ -617,6 +619,7 @@ public class TaskContext
                 new Duration(inputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(outputDataSize),
                 outputPositions,
+                updatedPositions,
                 new Duration(outputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(getWriterInputDataSize()),
                 succinctBytes(physicalWrittenDataSize),
