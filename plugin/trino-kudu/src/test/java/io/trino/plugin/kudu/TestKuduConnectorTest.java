@@ -19,6 +19,7 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.eventlistener.NamedClosable;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -708,6 +710,25 @@ public class TestKuduConnectorTest
 
     @Test
     @Override
+    public void testDeleteStatsWithRaisedEvents()
+    {
+        Supplier<NamedClosable> supplier = () -> {
+            String tableName = "%s_%s".formatted("test_delete", randomNameSuffix());
+            createTableForWrites("CREATE TABLE %s " + ORDER_COLUMNS, tableName, Optional.empty());
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM orders", 15000);
+            return new NamedClosable(tableName, null) {
+                @Override
+                public void close()
+                {
+                    assertUpdate("DROP TABLE " + tableName);
+                }
+            };
+        };
+        runUpdateDeleteStatsWithRaisedEvents(supplier, table -> "DELETE FROM " + table + " WHERE custkey <= 100");
+    }
+
+    @Test
+    @Override
     public void testDeleteWithLike()
     {
         withTableName("test_with_like", tableName -> {
@@ -968,6 +989,25 @@ public class TestKuduConnectorTest
             assertUpdate("UPDATE " + tableName + " SET regionkey = 100 WHERE regionkey = 2", 5);
             assertQuery("SELECT count(*) FROM " + tableName + " WHERE regionkey = 100", "VALUES 5");
         });
+    }
+
+    @Test
+    @Override
+    public void testUpdateStatsWithRaisedEvents()
+    {
+        Supplier<NamedClosable> supplier = () -> {
+            String tableName = "%s_%s".formatted("test_update", randomNameSuffix());
+            createTableForWrites("CREATE TABLE %s " + NATION_COLUMNS, tableName, Optional.empty());
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation", 25);
+            return new NamedClosable(tableName, null) {
+                @Override
+                public void close()
+                {
+                    assertUpdate("DROP TABLE " + tableName);
+                }
+            };
+        };
+        runUpdateDeleteStatsWithRaisedEvents(supplier, table -> "UPDATE " + table + "  SET regionkey = 100 WHERE regionkey = 2");
     }
 
     /**
