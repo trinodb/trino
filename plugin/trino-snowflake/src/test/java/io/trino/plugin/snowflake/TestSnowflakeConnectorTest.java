@@ -44,6 +44,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
+@Disabled("Temporary disabled due to lack of payment for the Snowflake account")
 public class TestSnowflakeConnectorTest
         extends BaseJdbcConnectorTest
 {
