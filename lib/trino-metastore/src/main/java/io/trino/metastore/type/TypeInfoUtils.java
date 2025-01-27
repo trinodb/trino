@@ -296,7 +296,6 @@ public final class TypeInfoUtils
                     }
                     // Build name from multiple tokens in case name contains colon(:) as colons in name causes name to be tokenized into multiple tokens.
                     StringBuilder nameParts = new StringBuilder();
-                    String lastTokenString = null;
                     while (index < typeInfoTokens.size() - 2
                             && getTypeEntryFromTypeName(typeInfoTokens.get(index + 1).text) == null
                             && !LIST_TYPE_NAME.equals(typeInfoTokens.get(index + 1).text)
@@ -310,15 +309,8 @@ public final class TypeInfoUtils
                         }
                         else {
                             Token nameToken = expect("name", ">");
-                            lastTokenString = nameToken.text;
-                            if (lastTokenString.equals(">")) {
-                                break;
-                            }
                             nameParts.append(nameToken.text);
                         }
-                    }
-                    if (lastTokenString != null && lastTokenString.equals(">")) {
-                        break;
                     }
                     fieldNames.add(nameParts.toString());
                     expect(":");
