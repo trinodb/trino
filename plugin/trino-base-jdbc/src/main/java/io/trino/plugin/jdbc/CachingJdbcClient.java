@@ -513,13 +513,6 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
-    {
-        delegate.addColumn(session, handle, column);
-        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
-    }
-
-    @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
     {
         delegate.addColumn(session, handle, column, position);

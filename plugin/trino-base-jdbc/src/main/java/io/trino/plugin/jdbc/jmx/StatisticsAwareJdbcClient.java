@@ -295,12 +295,6 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
-    {
-        stats.getAddColumn().wrap(() -> delegate().addColumn(session, handle, column));
-    }
-
-    @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
     {
         stats.getAddColumn().wrap(() -> delegate().addColumn(session, handle, column, position));

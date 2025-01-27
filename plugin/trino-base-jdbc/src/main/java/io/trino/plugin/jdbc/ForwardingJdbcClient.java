@@ -380,12 +380,6 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
-    {
-        delegate().addColumn(session, handle, column);
-    }
-
-    @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
     {
         delegate().addColumn(session, handle, column, position);
