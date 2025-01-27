@@ -640,6 +640,35 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    public void testPartitionColumns()
+    {
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_partition_columns", """
+                WITH (partitioning = ARRAY[
+                    '"r1.f1"',
+                    'bucket(b1, 4)'
+                ]) AS
+                SELECT
+                    CAST(ROW(1, 2) AS ROW(f1 INTEGER, f2 integeR)) as r1
+                    , CAST('b' AS VARCHAR) as b1""")) {
+            assertThat(query("SELECT partition FROM \"" + testTable.getName() + "$partitions\""))
+                    .matches("SELECT CAST(ROW(1, 3) AS ROW(\"r1.f1\" INTEGER, b1_bucket INTEGER))");
+        }
+
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_partition_columns", """
+                WITH (partitioning = ARRAY[
+                    '"r1.f2"',
+                    'bucket(b1, 4)',
+                    '"r1.f1"'
+                ]) AS
+                SELECT
+                    CAST(ROW('f1', 'f2') AS ROW(f1 VARCHAR, f2 VARCHAR)) as r1
+                    , CAST('b' AS VARCHAR) as b1""")) {
+            assertThat(query("SELECT partition FROM \"" + testTable.getName() + "$partitions\""))
+                    .matches("SELECT CAST(ROW('f2', 3, 'f1') AS ROW(\"r1.f2\" VARCHAR, b1_bucket INTEGER, \"r1.f1\" VARCHAR))");
+        }
+    }
+
+    @Test
     void testEntriesPartitionTable()
     {
         try (TestTable table = new TestTable(
