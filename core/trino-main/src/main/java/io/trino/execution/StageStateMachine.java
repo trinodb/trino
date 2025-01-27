@@ -476,6 +476,7 @@ public class StageStateMachine
         long outputDataSize = 0;
         long failedOutputDataSize = 0;
         long outputPositions = 0;
+        long updatedPositions = 0;
         long failedOutputPositions = 0;
         Metrics.Accumulator outputBufferMetrics = Metrics.accumulator();
 
@@ -556,6 +557,7 @@ public class StageStateMachine
             taskInfo.outputBuffers().getUtilization().ifPresent(bufferUtilizationHistograms::add);
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
+            updatedPositions += taskStats.getUpdatedPositions();
             bufferMetrics.ifPresent(outputBufferMetrics::add);
 
             outputBlockedTime += taskStats.getOutputBlockedTime().roundTo(NANOSECONDS);
@@ -664,6 +666,7 @@ public class StageStateMachine
                 succinctBytes(outputDataSize),
                 succinctBytes(failedOutputDataSize),
                 outputPositions,
+                updatedPositions,
                 failedOutputPositions,
                 outputBufferMetrics.get(),
                 succinctDuration(outputBlockedTime, NANOSECONDS),
