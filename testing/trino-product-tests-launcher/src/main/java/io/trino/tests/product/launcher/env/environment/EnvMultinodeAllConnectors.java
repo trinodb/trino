@@ -59,7 +59,6 @@ public final class EnvMultinodeAllConnectors
                         "iceberg",
                         "ignite",
                         "kafka",
-                        "kinesis",
                         "kudu",
                         "mariadb",
                         "memory",
