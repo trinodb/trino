@@ -311,7 +311,7 @@ public abstract class BaseIcebergSystemTables
     @Test
     void testAllManifests()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_all_manifests", "AS SELECT 1 x")) {
+        try (TestTable table = newTrinoTable("test_all_manifests", "AS SELECT 1 x")) {
             assertThat(query("SHOW COLUMNS FROM \"" + table.getName() + "$all_manifests\""))
                     .skippingTypesCheck()
                     .matches("VALUES " +
@@ -341,7 +341,7 @@ public abstract class BaseIcebergSystemTables
     @Test
     void testAllManifestsWithPartitionTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_all_manifests", "WITH (partitioning = ARRAY['dt']) AS SELECT 1 x, DATE '2021-01-01' dt")) {
+        try (TestTable table = newTrinoTable("test_all_manifests", "WITH (partitioning = ARRAY['dt']) AS SELECT 1 x, DATE '2021-01-01' dt")) {
             assertThat(query("SELECT partition_summaries FROM \"" + table.getName() + "$all_manifests\""))
                     .matches("VALUES CAST(ARRAY[ROW(false, false, VARCHAR '2021-01-01', VARCHAR '2021-01-01')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))");
         }
@@ -565,7 +565,7 @@ public abstract class BaseIcebergSystemTables
     @Test
     void testAllEntriesTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_all_entries", "AS SELECT 1 id, DATE '2014-01-01' dt")) {
+        try (TestTable table = newTrinoTable("test_all_entries", "AS SELECT 1 id, DATE '2014-01-01' dt")) {
             assertThat(query("DESCRIBE \"" + table.getName() + "$all_entries\""))
                     .matches("DESCRIBE \"" + table.getName() + "$entries\"");
 
@@ -586,7 +586,7 @@ public abstract class BaseIcebergSystemTables
     @Test
     void testEntriesTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_entries", "AS SELECT 1 id, DATE '2014-01-01' dt")) {
+        try (TestTable table = newTrinoTable("test_entries", "AS SELECT 1 id, DATE '2014-01-01' dt")) {
             assertQuery("SHOW COLUMNS FROM \"" + table.getName() + "$entries\"",
                     "VALUES ('status', 'integer', '', '')," +
                             "('snapshot_id', 'bigint', '', '')," +
@@ -642,7 +642,7 @@ public abstract class BaseIcebergSystemTables
     @Test
     public void testPartitionColumns()
     {
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_partition_columns", """
+        try (TestTable testTable = newTrinoTable("test_partition_columns", """
                 WITH (partitioning = ARRAY[
                     '"r1.f1"',
                     'bucket(b1, 4)'
@@ -654,7 +654,7 @@ public abstract class BaseIcebergSystemTables
                     .matches("SELECT CAST(ROW(1, 3) AS ROW(\"r1.f1\" INTEGER, b1_bucket INTEGER))");
         }
 
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_partition_columns", """
+        try (TestTable testTable = newTrinoTable("test_partition_columns", """
                 WITH (partitioning = ARRAY[
                     '"r1.f2"',
                     'bucket(b1, 4)',
@@ -671,8 +671,7 @@ public abstract class BaseIcebergSystemTables
     @Test
     void testEntriesPartitionTable()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_entries_partition",
                 "WITH (partitioning = ARRAY['dt']) AS SELECT 1 id, DATE '2014-01-01' dt")) {
             assertQuery("SHOW COLUMNS FROM \"" + table.getName() + "$entries\"",

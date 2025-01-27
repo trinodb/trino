@@ -2419,7 +2419,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN)); // covered by testAddColumn
 
         if (!hasBehavior(SUPPORTS_ADD_COLUMN_WITH_POSITION)) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "AS SELECT 2 second, 4 fourth")) {
+            try (TestTable table = newTrinoTable("test_add_column_", "AS SELECT 2 second, 4 fourth")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " ADD COLUMN first integer FIRST",
                         "This connector does not support adding columns with FIRST clause");
@@ -2430,7 +2430,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "AS SELECT 2 second, 4 fourth")) {
+        try (TestTable table = newTrinoTable("test_add_column_", "AS SELECT 2 second, 4 fourth")) {
             assertTableColumnNames(table.getName(), "second", "fourth");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (2, 4)");
 
@@ -4864,12 +4864,12 @@ public abstract class BaseConnectorTest
 
     protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, String primaryKey)
     {
-        return new TestTable(getQueryRunner()::execute, namePrefix, tableDefinition);
+        return newTrinoTable(namePrefix, tableDefinition);
     }
 
     protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, List<String> rowsToInsert, String primaryKey)
     {
-        return new TestTable(getQueryRunner()::execute, namePrefix, tableDefinition, rowsToInsert);
+        return newTrinoTable(namePrefix, tableDefinition, rowsToInsert);
     }
 
     @Test
@@ -5039,7 +5039,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_nulls", "AS SELECT * FROM nation")) {
+        try (TestTable table = newTrinoTable("test_update_nulls", "AS SELECT * FROM nation")) {
             String tableName = table.getName();
 
             assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey IS NULL", "VALUES 0");

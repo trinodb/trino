@@ -154,7 +154,7 @@ public abstract class BaseConnectorSmokeTest
 
     protected TestTable createTestTableForWrites(String tablePrefix)
     {
-        return new TestTable(getQueryRunner()::execute, tablePrefix, getCreateTableDefaultDefinition());
+        return newTrinoTable(tablePrefix, getCreateTableDefaultDefinition());
     }
 
     protected String getCreateTableDefaultDefinition()

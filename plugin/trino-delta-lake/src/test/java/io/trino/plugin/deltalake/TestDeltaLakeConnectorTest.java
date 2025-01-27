@@ -4169,7 +4169,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     void testAddTimestampNtzColumnToCdfEnabledTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_timestamp_ntz", "(x int) WITH (change_data_feed_enabled = true)")) {
+        try (TestTable table = newTrinoTable("test_timestamp_ntz", "(x int) WITH (change_data_feed_enabled = true)")) {
             assertThat(getTableProperties(table.getName()))
                     .containsExactlyInAnyOrderEntriesOf(ImmutableMap.<String, String>builder()
                             .put("delta.enableChangeDataFeed", "true")
