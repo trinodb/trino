@@ -14,6 +14,7 @@
 package io.trino.plugin.mysql;
 
 import com.google.common.collect.ImmutableMap;
+import com.mysql.cj.jdbc.exceptions.MysqlDataTruncation;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -27,7 +28,6 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
@@ -608,7 +608,6 @@ public abstract class BaseMySqlConnectorTest
 
     @Test
     public void verifyMySqlJdbcDriverNegativeDateHandling()
-            throws Exception
     {
         LocalDate negativeDate = LocalDate.of(-1, 1, 1);
         try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.verify_negative_date", "(dt DATE)")) {
@@ -617,22 +616,17 @@ public abstract class BaseMySqlConnectorTest
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageMatching(".*\\QIncorrect DATE value: '" + negativeDate + "'\\E");
 
-            // Insert via prepared statement succeeds but writes incorrect value due to bug in driver
-            try (Connection connection = mySqlServer.createConnection();
-                    PreparedStatement insert = connection.prepareStatement("INSERT INTO " + table.getName() + " VALUES (?)")) {
-                insert.setObject(1, negativeDate);
-                int affectedRows = insert.executeUpdate();
-                assertThat(affectedRows).isEqualTo(1);
-            }
-
-            try (Connection connection = mySqlServer.createConnection();
-                    ResultSet resultSet = connection.createStatement().executeQuery("SELECT dt FROM " + table.getName())) {
-                while (resultSet.next()) {
-                    LocalDate dateReadBackFromMySql = resultSet.getObject(1, LocalDate.class);
-                    assertThat(dateReadBackFromMySql).isNotEqualTo(negativeDate);
-                    assertThat(dateReadBackFromMySql.toString()).isEqualTo("0002-01-01");
+            assertThatThrownBy(() -> {
+                // Insert via prepared statement fails too
+                try (Connection connection = mySqlServer.createConnection();
+                     PreparedStatement insert = connection.prepareStatement("INSERT INTO " + table.getName() + " VALUES (?)")) {
+                    insert.setObject(1, negativeDate);
+                    int affectedRows = insert.executeUpdate();
+                    assertThat(affectedRows).isEqualTo(1);
                 }
-            }
+            })
+            .isInstanceOf(MysqlDataTruncation.class)
+            .hasMessageContaining("Incorrect date value: '-0001-01-01'");
         }
     }
 
