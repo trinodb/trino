@@ -30,6 +30,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.eventlistener.NamedClosable;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.Handle;
@@ -43,6 +44,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -337,6 +339,17 @@ public class TestRedshiftConnectorTest
             assertUpdate("DELETE FROM " + table.getName(), "SELECT count(*) FROM nation WHERE nationkey > 15");
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation WHERE false");
         }
+    }
+
+    @Test
+    @Override
+    public void testDeleteStatsWithRaisedEvents() {
+        Supplier<NamedClosable> supplier = () -> {
+            TestTable table = newTrinoTable("test_delete_", "AS SELECT * FROM nation");
+            return new NamedClosable(table.getName(), table);
+        };
+        runUpdateDeleteStatsWithRaisedEvents(supplier,
+                table -> "DELETE FROM " + table + " WHERE nationkey <= 5");
     }
 
     @Test

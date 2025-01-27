@@ -308,6 +308,14 @@ public abstract class BaseHiveConnectorTest
 
     @Test
     @Override
+    public void testDeleteStatsWithRaisedEvents()
+    {
+        assertThatThrownBy(super::testDeleteStatsWithRaisedEvents)
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+    }
+
+    @Test
+    @Override
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
@@ -352,6 +360,14 @@ public abstract class BaseHiveConnectorTest
     {
         assertThatThrownBy(super::testUpdateMultipleCondition)
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+    }
+
+    @Test
+    @Override
+    public void testUpdateStatsWithRaisedEvents()
+    {
+        assertThatThrownBy(super::testUpdateStatsWithRaisedEvents)
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Test

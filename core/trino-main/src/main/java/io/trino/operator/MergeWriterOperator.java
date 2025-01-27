@@ -185,6 +185,8 @@ public class MergeWriterOperator
             VARBINARY.writeSlice(fragmentBuilder, fragment);
         }
 
+        this.operatorContext.recordUpdatedPositions(rowCount);
+
         return page.build();
     }
 
