@@ -89,6 +89,7 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 
@@ -629,6 +630,9 @@ public class SqlRoutineAnalyzer
     private static String identifierValue(Identifier name)
     {
         // TODO: this should use getCanonicalValue()
-        return name.getValue();
+        // stop-gap: lowercasing for now to match what is happening during analysis;
+        // otherwise we do not support non-lowercase variables in functions.
+        // Rework as part of https://github.com/trinodb/trino/pull/24829
+        return name.getValue().toLowerCase(ENGLISH);
     }
 }
