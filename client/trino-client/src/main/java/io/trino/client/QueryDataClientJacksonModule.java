@@ -35,7 +35,7 @@ import java.io.IOException;
 public class QueryDataClientJacksonModule
         extends SimpleModule
 {
-    private static final TypeReference<EncodedQueryData> ENCODED_FORMAT = new TypeReference<EncodedQueryData>(){};
+    private static final TypeReference<EncodedQueryData> ENCODED_FORMAT = new TypeReference<>() {};
 
     public QueryDataClientJacksonModule()
     {
