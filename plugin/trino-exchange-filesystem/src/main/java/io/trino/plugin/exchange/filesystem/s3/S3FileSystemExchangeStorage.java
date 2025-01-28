@@ -55,6 +55,8 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.endpoint.AwsClientEndpointProvider;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
+import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.internal.retry.SdkDefaultRetryStrategy;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
@@ -480,6 +482,8 @@ public class S3FileSystemExchangeStorage
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(isS3PathStyleAccess)
                         .build())
+                .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
+                .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
                 .httpClientBuilder(NettyNioAsyncHttpClient.builder()
                         .maxConcurrency(maxConcurrency)
                         .maxPendingConnectionAcquires(maxPendingConnectionAcquires)
