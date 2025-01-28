@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>212</version>
+        <version>214</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>469-SNAPSHOT</version>
+    <version>470-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -85,7 +85,6 @@
         <module>plugin/trino-jmx</module>
         <module>plugin/trino-kafka</module>
         <module>plugin/trino-kafka-event-listener</module>
-        <module>plugin/trino-kinesis</module>
         <module>plugin/trino-kudu</module>
         <module>plugin/trino-mariadb</module>
         <module>plugin/trino-memory</module>
@@ -148,7 +147,7 @@
     <properties>
         <project.build.targetJdk>23</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2024-12-17T21:29:19Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2025-01-27T23:28:18Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
@@ -161,10 +160,7 @@
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
         <!--
           America/Bahia_Banderas has:
-           - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
            - DST (e.g. at 2017-04-02 02:00:00 clocks turned forward 1 hour; 2017-10-29 02:00:00 clocks turned backward 1 hour)
-           - has forward offset change on first day of epoch (1970-01-01 00:00:00 clocks turned forward 1 hour)
-           - had forward change at midnight (1970-01-01 00:00:00 clocks turned forward 1 hour)
           -->
         <air.test.timezone>America/Bahia_Banderas</air.test.timezone>
         <!-- Be conservative about memory allotment, because tests start background process (e.g. docker containers) -->
@@ -184,7 +180,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>297</dep.airlift.version>
+        <dep.airlift.version>299</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
@@ -202,14 +198,14 @@
         <dep.httpcore5.version>5.3.2</dep.httpcore5.version>
         <dep.iceberg.version>1.7.1</dep.iceberg.version>
         <dep.jna.version>5.16.0</dep.jna.version>
-        <dep.joda.version>2.12.7</dep.joda.version>
+        <dep.joda.version>2.13.0</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>3.9.0</dep.kafka-clients.version>
         <dep.okio.version>3.10.2</dep.okio.version>
         <dep.parquet.version>1.15.0</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
-        <dep.protobuf.version>3.25.5</dep.protobuf.version>
+        <dep.protobuf.version>3.25.6</dep.protobuf.version>
         <dep.snowflake.version>3.21.0</dep.snowflake.version>
         <dep.swagger.version>2.2.28</dep.swagger.version>
         <dep.takari.version>2.2.0</dep.takari.version>
@@ -231,7 +227,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.30</version>
+                <version>1.2.31</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -311,7 +307,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.30.3</version>
+                <version>2.30.7</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -320,38 +316,6 @@
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
                 <version>3.12.0</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.amazonaws</groupId>
-                <artifactId>amazon-kinesis-client</artifactId>
-                <version>1.15.2</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.amazonaws</groupId>
-                        <artifactId>aws-java-sdk</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.amazonaws</groupId>
-                        <artifactId>aws-java-sdk-core</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.google.protobuf</groupId>
-                        <artifactId>protobuf-java</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>commons-lang</groupId>
-                        <artifactId>commons-lang</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>joda-time</groupId>
-                        <artifactId>joda-time</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -379,22 +343,6 @@
             <dependency>
                 <groupId>com.amazonaws</groupId>
                 <artifactId>aws-java-sdk-glue</artifactId>
-                <version>${dep.aws-sdk.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>joda-time</groupId>
-                        <artifactId>joda-time</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.amazonaws</groupId>
-                <artifactId>aws-java-sdk-kinesis</artifactId>
                 <version>${dep.aws-sdk.version}</version>
                 <exclusions>
                     <exclusion>
@@ -510,7 +458,7 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.6.5</version>
+                <version>6.6.6</version>
             </dependency>
 
             <dependency>
@@ -596,8 +544,13 @@
             <dependency>
                 <groupId>com.mysql</groupId>
                 <artifactId>mysql-connector-j</artifactId>
-                <!-- TODO https://github.com/trinodb/trino/issues/21945 Check performance when upgrading this version -->
-                <version>8.3.0</version>
+                <version>9.2.0</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.protobuf</groupId>
+                        <artifactId>protobuf-java</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -2260,7 +2213,7 @@
             <dependency>
                 <groupId>org.jetbrains</groupId>
                 <artifactId>annotations</artifactId>
-                <version>26.0.1</version>
+                <version>26.0.2</version>
             </dependency>
 
             <dependency>

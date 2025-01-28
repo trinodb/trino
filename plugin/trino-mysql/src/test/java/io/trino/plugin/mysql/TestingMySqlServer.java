@@ -32,7 +32,7 @@ import static org.testcontainers.containers.MySQLContainer.MYSQL_PORT;
 public class TestingMySqlServer
         implements AutoCloseable
 {
-    public static final String DEFAULT_IMAGE_8 = "mysql:8.0.36";
+    public static final String DEFAULT_IMAGE_8 = "mysql:8.0.41";
     public static final String DEFAULT_IMAGE = DEFAULT_IMAGE_8;
     public static final String LEGACY_IMAGE = "mysql:5.7.44"; // oldest available on RDS
 

@@ -1973,9 +1973,14 @@ public class IcebergMetadata
 
     private static void commitUpdateAndTransaction(SnapshotUpdate<?> update, ConnectorSession session, Transaction transaction, String operation)
     {
+        commitUpdate(update, session, operation);
+        commitTransaction(transaction, operation);
+    }
+
+    private static void commitUpdate(SnapshotUpdate<?> update, ConnectorSession session, String operation)
+    {
         try {
             commit(update, session);
-            commitTransaction(transaction, operation);
         }
         catch (UncheckedIOException | ValidationException | CommitFailedException | CommitStateUnknownException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit during %s: %s", operation, firstNonNull(e.getMessage(), e)), e);
@@ -1987,7 +1992,7 @@ public class IcebergMetadata
         try {
             transaction.commitTransaction();
         }
-        catch (ValidationException | CommitFailedException | CommitStateUnknownException e) {
+        catch (UncheckedIOException | ValidationException | CommitFailedException | CommitStateUnknownException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit the transaction during %s: %s", operation, firstNonNull(e.getMessage(), e)), e);
         }
     }
@@ -2458,7 +2463,7 @@ public class IcebergMetadata
         AtomicInteger nextFieldId = new AtomicInteger(icebergTable.schema().highestFieldId() + 2);
         try {
             UpdateSchema updateSchema = icebergTable.updateSchema();
-            updateSchema.addColumn(column.getName(), toIcebergTypeForNewColumn(column.getType(), nextFieldId), column.getComment());
+            updateSchema.addColumn(null, column.getName(), toIcebergTypeForNewColumn(column.getType(), nextFieldId), column.getComment());
             switch (position) {
                 case ColumnPosition.First _ -> updateSchema.moveFirst(column.getName());
                 case ColumnPosition.After after -> updateSchema.moveAfter(column.getName(), after.columnName());
@@ -3107,7 +3112,7 @@ public class IcebergMetadata
 
         DeleteFiles deleteFiles = icebergTable.newDelete()
                 .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()));
-        commit(deleteFiles, session);
+        commitUpdate(deleteFiles, session, "delete");
 
         Map<String, String> summary = icebergTable.currentSnapshot().summary();
         String deletedRowsStr = summary.get(DELETED_RECORDS_PROP);
@@ -3128,7 +3133,7 @@ public class IcebergMetadata
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         DeleteFiles deleteFiles = icebergTable.newDelete()
                 .deleteFromRowFilter(alwaysTrue());
-        commit(deleteFiles, session);
+        commitUpdate(deleteFiles, session, "truncate");
     }
 
     public void rollback()

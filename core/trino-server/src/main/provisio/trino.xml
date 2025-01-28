@@ -195,12 +195,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/kinesis">
-        <artifact id="${project.groupId}:trino-kinesis:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/kudu">
         <artifact id="${project.groupId}:trino-kudu:zip:${project.version}">
             <unpack />

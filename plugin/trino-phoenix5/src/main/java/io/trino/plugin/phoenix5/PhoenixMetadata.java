@@ -31,6 +31,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -269,19 +270,25 @@ public class PhoenixMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         if (column.getComment() != null) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
         }
 
-        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
-        phoenixClient.execute(session, format(
-                "ALTER TABLE %s ADD %s %s",
-                getEscapedTableName(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
-                phoenixClient.quoted(column.getName()),
-                phoenixClient.toWriteMapping(session, column.getType()).getDataType()));
+        switch (position) {
+            case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            case ColumnPosition.After _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+            case ColumnPosition.Last _ -> {
+                JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+                RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
+                phoenixClient.execute(session, format(
+                        "ALTER TABLE %s ADD %s %s",
+                        getEscapedTableName(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
+                        phoenixClient.quoted(column.getName()),
+                        phoenixClient.toWriteMapping(session, column.getType()).getDataType()));
+            }
+        }
     }
 
     @Override

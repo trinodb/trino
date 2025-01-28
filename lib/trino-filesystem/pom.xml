@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>469-SNAPSHOT</version>
+        <version>470-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -66,11 +66,6 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-context</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.opentelemetry.semconv</groupId>
-            <artifactId>opentelemetry-semconv</artifactId>
         </dependency>
 
         <dependency>

@@ -2419,7 +2419,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN)); // covered by testAddColumn
 
         if (!hasBehavior(SUPPORTS_ADD_COLUMN_WITH_POSITION)) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "AS SELECT 2 second, 4 fourth")) {
+            try (TestTable table = newTrinoTable("test_add_column_", "AS SELECT 2 second, 4 fourth")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " ADD COLUMN first integer FIRST",
                         "This connector does not support adding columns with FIRST clause");
@@ -2430,7 +2430,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "AS SELECT 2 second, 4 fourth")) {
+        try (TestTable table = newTrinoTable("test_add_column_", "AS SELECT 2 second, 4 fourth")) {
             assertTableColumnNames(table.getName(), "second", "fourth");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (2, 4)");
 
@@ -4797,7 +4797,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
-        try (TestTable table = newTrinoTable("test_with_like_", "AS SELECT * FROM nation")) {
+        try (TestTable table = createTestTableForWrites("test_with_like_", "AS SELECT * FROM nation", "nationkey")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%a%'", "VALUES 0");
             assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%A%'", "SELECT count(*) FROM nation WHERE name LIKE '%A%'");
         }
@@ -4864,12 +4864,12 @@ public abstract class BaseConnectorTest
 
     protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, String primaryKey)
     {
-        return new TestTable(getQueryRunner()::execute, namePrefix, tableDefinition);
+        return newTrinoTable(namePrefix, tableDefinition);
     }
 
     protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, List<String> rowsToInsert, String primaryKey)
     {
-        return new TestTable(getQueryRunner()::execute, namePrefix, tableDefinition, rowsToInsert);
+        return newTrinoTable(namePrefix, tableDefinition, rowsToInsert);
     }
 
     @Test
@@ -5039,7 +5039,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_nulls", "AS SELECT * FROM nation")) {
+        try (TestTable table = newTrinoTable("test_update_nulls", "AS SELECT * FROM nation")) {
             String tableName = table.getName();
 
             assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey IS NULL", "VALUES 0");
@@ -5078,7 +5078,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = createTestTableForWrites("test_update", "AS TABLE tpch.tiny.nation", "name,regionkey")) {
+        try (TestTable table = createTestTableForWrites("test_update", "AS TABLE tpch.tiny.nation", "nationkey,regionkey")) {
             String tableName = table.getName();
             assertUpdate("UPDATE " + tableName + " SET nationkey = 100 + nationkey WHERE regionkey = 2", 5);
             assertThat(query("SELECT * FROM " + tableName))

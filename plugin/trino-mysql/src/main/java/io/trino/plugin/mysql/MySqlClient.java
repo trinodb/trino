@@ -67,6 +67,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
@@ -111,9 +112,11 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
@@ -126,8 +129,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_NO_SUCH_TABLE;
+import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_TABLE_EXISTS_ERROR;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_UNKNOWN_TABLE;
-import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_ER_TABLE_EXISTS_ERROR;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
@@ -899,8 +902,47 @@ public class MySqlClient
             createTable(session, tableMetadata, tableMetadata.getTable().getTableName());
         }
         catch (SQLException e) {
-            boolean exists = SQL_STATE_ER_TABLE_EXISTS_ERROR.equals(e.getSQLState());
-            throw new TrinoException(exists ? ALREADY_EXISTS : JDBC_ERROR, e);
+            if (e.getErrorCode() == ER_TABLE_EXISTS_ERROR) {
+                throw new TrinoException(ALREADY_EXISTS, e);
+            }
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
+    {
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
+
+        RemoteTableName table = handle.asPlainTable().getRemoteTableName();
+
+        switch (position) {
+            case ColumnPosition.First _ -> addColumn(session, table, column, "FIRST");
+            case ColumnPosition.After after -> addColumn(session, table, column, "AFTER " + quoted(after.columnName()));
+            case ColumnPosition.Last _ -> addColumn(session, table, column, "");
+        }
+    }
+
+    private void addColumn(ConnectorSession session, RemoteTableName table, ColumnMetadata column, String position)
+    {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
+        }
+
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
+            String columnName = column.getName();
+            verifyColumnName(connection.getMetaData(), columnName);
+            String remoteColumnName = getIdentifierMapping().toRemoteColumnName(getRemoteIdentifiers(connection), columnName);
+            String sql = format(
+                    "ALTER TABLE %s ADD %s %s",
+                    quoted(table),
+                    getColumnDefinitionSql(session, column, remoteColumnName),
+                    position);
+            execute(session, connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -971,6 +1013,12 @@ public class MySqlClient
 
     @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean supportsMerge()
     {
         return true;
     }
@@ -1156,6 +1204,43 @@ public class MySqlClient
 
             tableStatistics.setRowCount(Estimate.of(rowCount));
             return tableStatistics.build();
+        }
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        SchemaTableName tableName = new SchemaTableName(remoteTableName.getCatalogName().orElse(null), remoteTableName.getTableName());
+        List<JdbcColumnHandle> columns = getColumns(session, tableName, remoteTableName);
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            DatabaseMetaData metaData = connection.getMetaData();
+
+            ResultSet primaryKeys = metaData.getPrimaryKeys(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName());
+
+            Set<String> primaryKeyNames = new HashSet<>();
+            while (primaryKeys.next()) {
+                primaryKeyNames.add(primaryKeys.getString("COLUMN_NAME"));
+            }
+            if (primaryKeyNames.isEmpty()) {
+                return ImmutableList.of();
+            }
+            ImmutableList.Builder<JdbcColumnHandle> primaryKeysBuilder = ImmutableList.builder();
+            for (JdbcColumnHandle columnHandle : columns) {
+                String name = columnHandle.getColumnName();
+                if (!primaryKeyNames.contains(name)) {
+                    continue;
+                }
+                JdbcTypeHandle handle = columnHandle.getJdbcTypeHandle();
+                primaryKeysBuilder.add(new JdbcColumnHandle(
+                        name,
+                        // make sure the primary keys that are varchar/char relate types can be pushdown
+                        new JdbcTypeHandle(handle.jdbcType(), handle.jdbcTypeName(), handle.columnSize(), handle.decimalDigits(), handle.arrayDimensions(), Optional.of(CASE_SENSITIVE)),
+                        columnHandle.getColumnType()));
+            }
+            return primaryKeysBuilder.build();
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 

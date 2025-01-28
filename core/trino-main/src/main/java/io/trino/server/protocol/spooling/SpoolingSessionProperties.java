@@ -39,9 +39,9 @@ public class SpoolingSessionProperties
     public static final String MAX_SEGMENT_SIZE = "spooling_max_segment_size";
 
     // Inlined segments
-    public static final String ALLOW_INLINING = "spooling_inlining_enabled";
-    public static final String MAX_INLINED_SIZE = "spooling_max_inlined_size";
-    public static final String MAX_INLINED_ROWS = "spooling_max_inlined_rows";
+    public static final String INLINING_ENABLED = "spooling_inlining_enabled";
+    public static final String INLINING_MAX_SIZE = "spooling_inlining_max_size";
+    public static final String INLINING_MAX_ROWS = "spooling_inlining_max_rows";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -62,20 +62,20 @@ public class SpoolingSessionProperties
                         isDataSizeBetween(MAX_SEGMENT_SIZE, DataSize.of(1, KILOBYTE), DataSize.of(128, MEGABYTE)),
                         false))
                 .add(booleanProperty(
-                        ALLOW_INLINING,
+                        INLINING_ENABLED,
                         "Allow inlining initial rows",
-                        spoolingConfig.isAllowInlining(),
+                        spoolingConfig.isInliningEnabled(),
                         false))
                 .add(dataSizeProperty(
-                        MAX_INLINED_SIZE,
+                        INLINING_MAX_SIZE,
                         "Maximum size of inlined data",
-                        spoolingConfig.getMaximumInlinedSize(),
-                        isDataSizeBetween(MAX_INLINED_SIZE, DataSize.of(1, KILOBYTE), DataSize.of(1, MEGABYTE)),
+                        spoolingConfig.getInliningMaxSize(),
+                        isDataSizeBetween(INLINING_MAX_SIZE, DataSize.of(1, KILOBYTE), DataSize.of(1, MEGABYTE)),
                         false))
                 .add(longProperty(
-                        MAX_INLINED_ROWS,
+                        INLINING_MAX_ROWS,
                         "Maximum number of rows that are allowed to be inlined per worker",
-                        spoolingConfig.getMaximumInlinedRows(),
+                        spoolingConfig.getInliningMaxRows(),
                         false))
                 .build();
     }
@@ -103,19 +103,19 @@ public class SpoolingSessionProperties
         return session.getSystemProperty(MAX_SEGMENT_SIZE, DataSize.class);
     }
 
-    public static boolean isAllowInlining(Session session)
+    public static boolean isInliningEnabled(Session session)
     {
-        return session.getSystemProperty(ALLOW_INLINING, Boolean.class);
+        return session.getSystemProperty(INLINING_ENABLED, Boolean.class);
     }
 
-    public static DataSize getMaxInlinedSize(Session session)
+    public static DataSize getInliningMaxSize(Session session)
     {
-        return session.getSystemProperty(MAX_INLINED_SIZE, DataSize.class);
+        return session.getSystemProperty(INLINING_MAX_SIZE, DataSize.class);
     }
 
-    public static long getMaxInlinedRows(Session session)
+    public static long getInliningMaxRows(Session session)
     {
-        return session.getSystemProperty(MAX_INLINED_ROWS, Long.class);
+        return session.getSystemProperty(INLINING_MAX_ROWS, Long.class);
     }
 
     @Override

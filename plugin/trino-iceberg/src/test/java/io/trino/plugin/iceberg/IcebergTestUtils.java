@@ -138,12 +138,9 @@ public final class IcebergTestUtils
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static boolean checkParquetFileSorting(TrinoInputFile inputFile, String sortColumnName)
     {
-        ParquetMetadata parquetMetadata;
+        ParquetMetadata parquetMetadata = getParquetFileMetadata(inputFile);
         List<BlockMetadata> blocks;
         try {
-            parquetMetadata = MetadataReader.readFooter(
-                    new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats()),
-                    Optional.empty());
             blocks = parquetMetadata.getBlocks();
         }
         catch (IOException e) {
@@ -215,5 +212,17 @@ public final class IcebergTestUtils
             }
         }
         return metadataFiles;
+    }
+
+    public static ParquetMetadata getParquetFileMetadata(TrinoInputFile inputFile)
+    {
+        try {
+            return MetadataReader.readFooter(
+                    new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats()),
+                    Optional.empty());
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

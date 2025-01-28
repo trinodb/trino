@@ -56,10 +56,10 @@ import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_S
 import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_TYPE;
 import static io.trino.server.protocol.spooling.SpooledBlock.createNonSpooledPage;
 import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInitialSegmentSize;
-import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getMaxInlinedRows;
-import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getMaxInlinedSize;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInliningMaxRows;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInliningMaxSize;
 import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getMaxSegmentSize;
-import static io.trino.server.protocol.spooling.SpoolingSessionProperties.isAllowInlining;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.isInliningEnabled;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -162,9 +162,9 @@ public class OutputSpoolingOperatorFactory
         {
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.controller = new OutputSpoolingController(
-                    isAllowInlining(operatorContext.getSession()),
-                    getMaxInlinedRows(operatorContext.getSession()),
-                    getMaxInlinedSize(operatorContext.getSession()).toBytes(),
+                    isInliningEnabled(operatorContext.getSession()),
+                    getInliningMaxRows(operatorContext.getSession()),
+                    getInliningMaxSize(operatorContext.getSession()).toBytes(),
                     getInitialSegmentSize(operatorContext.getSession()).toBytes(),
                     getMaxSegmentSize(operatorContext.getSession()).toBytes());
             this.userMemoryContext = operatorContext.newLocalUserMemoryContext(OutputSpoolingOperator.class.getSimpleName());

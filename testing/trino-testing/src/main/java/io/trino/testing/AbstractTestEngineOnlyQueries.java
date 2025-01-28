@@ -46,7 +46,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -192,20 +191,6 @@ public abstract class AbstractTestEngineOnlyQueries
         // This tests that both Trino runner and H2 can return TIMESTAMP value that never happened in JVM's zone (e.g. is not representable using java.sql.Timestamp)
         @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSS''").format(localTimeThatDidNotExist);
         assertThat(computeScalar(sql)).isEqualTo(localTimeThatDidNotExist); // this tests Trino and the QueryRunner
-        assertQuery(sql); // this tests H2QueryRunner
-
-        LocalDate localDateThatDidNotHaveMidnight = LocalDate.of(1970, 1, 1);
-        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localDateThatDidNotHaveMidnight.atStartOfDay()).isEmpty(), "This test assumes certain JVM time zone");
-        // This tests that both Trino runner and H2 can return DATE value for a day which midnight never happened in JVM's zone (e.g. is not exactly representable using java.sql.Date)
-        sql = DateTimeFormatter.ofPattern("'SELECT DATE '''uuuu-MM-dd''").format(localDateThatDidNotHaveMidnight);
-        assertThat(computeScalar(sql)).isEqualTo(localDateThatDidNotHaveMidnight); // this tests Trino and the QueryRunner
-        assertQuery(sql); // this tests H2QueryRunner
-
-        LocalTime localTimeThatDidNotOccurOn19700101 = LocalTime.of(0, 10);
-        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotOccurOn19700101.atDate(LocalDate.ofEpochDay(0))).isEmpty(), "This test assumes certain JVM time zone");
-        checkState(!Objects.equals(java.sql.Time.valueOf(localTimeThatDidNotOccurOn19700101).toLocalTime(), localTimeThatDidNotOccurOn19700101), "This test assumes certain JVM time zone");
-        sql = DateTimeFormatter.ofPattern("'SELECT TIME '''HH:mm:ss''").format(localTimeThatDidNotOccurOn19700101);
-        assertThat(computeScalar(sql)).isEqualTo(localTimeThatDidNotOccurOn19700101); // this tests Trino and the QueryRunner
         assertQuery(sql); // this tests H2QueryRunner
     }
 

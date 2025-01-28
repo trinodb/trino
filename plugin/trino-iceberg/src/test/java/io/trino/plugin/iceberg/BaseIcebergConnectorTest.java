@@ -256,20 +256,6 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
-    @Test
-    @Override
-    public void testAddAndDropColumnName()
-    {
-        for (String columnName : testColumnNameDataProvider()) {
-            if (columnName.equals("a.dot")) {
-                assertThatThrownBy(() -> testAddAndDropColumnName(columnName, requiresDelimiting(columnName)))
-                        .hasMessage("Failed to add column: Cannot add column with ambiguous name: a.dot, use addColumn(parent, name, type)");
-                return;
-            }
-            testAddAndDropColumnName(columnName, requiresDelimiting(columnName));
-        }
-    }
-
     @Override
     protected void verifyVersionedQueryFailurePermissible(Exception e)
     {
@@ -5224,7 +5210,7 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("CREATE TABLE ambiguous (a ROW(cow BIGINT))");
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE ambiguous ADD COLUMN \"a.cow\" BIGINT"))
-                .hasMessage("Failed to add column: Cannot add column with ambiguous name: a.cow, use addColumn(parent, name, type)");
+                .hasMessage("Failed to add column: Cannot add column, name already exists: a.cow");
         assertUpdate("DROP TABLE ambiguous");
     }
 

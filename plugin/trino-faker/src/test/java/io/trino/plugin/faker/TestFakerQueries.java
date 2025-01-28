@@ -115,7 +115,7 @@ final class TestFakerQueries
                 .build();
 
         for (TestDataType testCase : testCases) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "types_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+            try (TestTable table = newTrinoTable("types_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
@@ -261,7 +261,7 @@ final class TestFakerQueries
                 .build();
 
         for (TestDataType testCase : testCases) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "range_small_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+            try (TestTable table = newTrinoTable("range_small_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
@@ -294,7 +294,7 @@ final class TestFakerQueries
                 .build();
 
         for (TestDataType testCase : testCases) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "range_max_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+            try (TestTable table = newTrinoTable("range_max_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
@@ -327,7 +327,7 @@ final class TestFakerQueries
                 .build();
 
         for (TestDataType testCase : testCases) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "range_min_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+            try (TestTable table = newTrinoTable("range_min_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
@@ -379,7 +379,7 @@ final class TestFakerQueries
                 .build();
 
         for (TestDataType testCase : testCases) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "values_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+            try (TestTable table = newTrinoTable("values_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
@@ -424,7 +424,7 @@ final class TestFakerQueries
                 .build();
 
         for (TestDataType testCase : testCases) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "step_small_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+            try (TestTable table = newTrinoTable("step_small_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }

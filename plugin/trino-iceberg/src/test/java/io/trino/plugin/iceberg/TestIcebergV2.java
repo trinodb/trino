@@ -1512,7 +1512,7 @@ public class TestIcebergV2
     @Test
     void testEnvironmentContext()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_environment_context", "(x int)")) {
+        try (TestTable table = newTrinoTable("test_environment_context", "(x int)")) {
             Table icebergTable = loadTable(table.getName());
             assertThat(icebergTable.currentSnapshot().summary())
                     .contains(entry("engine-name", "trino"), entry("engine-version", "testversion"));
