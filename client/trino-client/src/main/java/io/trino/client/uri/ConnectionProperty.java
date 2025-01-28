@@ -40,7 +40,7 @@ public interface ConnectionProperty<V, T>
 
     default boolean isValid(Properties properties)
     {
-        return !validate(properties).isPresent();
+        return validate(properties).isEmpty();
     }
 
     Optional<T> getValue(Properties properties);
