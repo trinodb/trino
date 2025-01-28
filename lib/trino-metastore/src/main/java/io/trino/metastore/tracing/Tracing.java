@@ -13,16 +13,20 @@
  */
 package io.trino.metastore.tracing;
 
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
 
 import java.util.function.Supplier;
 
+import static io.opentelemetry.api.common.AttributeKey.booleanKey;
 import static io.opentelemetry.api.trace.StatusCode.ERROR;
-import static io.opentelemetry.semconv.ExceptionAttributes.EXCEPTION_ESCAPED;
 
 final class Tracing
 {
+    // This attribute was deprecated and removed from stable attributes
+    public static final AttributeKey<Boolean> EXCEPTION_ESCAPED = booleanKey("exception.escaped");
+
     private Tracing() {}
 
     public static void withTracing(Span span, Runnable runnable)

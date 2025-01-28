@@ -19,7 +19,6 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.semconv.ExceptionAttributes;
 import io.trino.spi.spool.SpooledLocation;
 import io.trino.spi.spool.SpooledLocation.DirectLocation;
 import io.trino.spi.spool.SpooledSegmentHandle;
@@ -35,6 +34,7 @@ import java.util.Optional;
 
 import static io.opentelemetry.api.common.AttributeKey.longKey;
 import static io.opentelemetry.api.common.AttributeKey.stringKey;
+import static io.trino.filesystem.tracing.Tracing.EXCEPTION_ESCAPED;
 import static java.util.Objects.requireNonNull;
 
 public class TracingSpoolingManager
@@ -136,7 +136,7 @@ public class TracingSpoolingManager
         }
         catch (Throwable t) {
             span.setStatus(StatusCode.ERROR, t.getMessage());
-            span.recordException(t, Attributes.of(ExceptionAttributes.EXCEPTION_ESCAPED, true));
+            span.recordException(t, Attributes.of(EXCEPTION_ESCAPED, true));
             throw t;
         }
         finally {
