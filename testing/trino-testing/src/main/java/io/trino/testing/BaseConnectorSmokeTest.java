@@ -375,11 +375,15 @@ public abstract class BaseConnectorSmokeTest
             return;
         }
 
-        assertUpdate(createSchemaSql(schemaName));
-        assertThat(query("SHOW SCHEMAS"))
-                .skippingTypesCheck()
-                .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), schemaName));
-        assertUpdate("DROP SCHEMA " + schemaName);
+        try {
+            assertUpdate(createSchemaSql(schemaName));
+            assertThat(query("SHOW SCHEMAS"))
+                    .skippingTypesCheck()
+                    .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), schemaName));
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
     }
 
     @Test

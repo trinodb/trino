@@ -3527,11 +3527,15 @@ public abstract class BaseConnectorTest
                 .setIdentity(Identity.ofUser("ADMIN"))
                 .build();
         String schemaName = "test_schema_create_uppercase_owner_name_" + randomNameSuffix();
-        assertUpdate(newSession, createSchemaSql(schemaName));
-        assertThat(query(newSession, "SHOW SCHEMAS"))
-                .skippingTypesCheck()
-                .containsAll(format("VALUES '%s'", schemaName));
-        assertUpdate(newSession, "DROP SCHEMA " + schemaName);
+        try {
+            assertUpdate(newSession, createSchemaSql(schemaName));
+            assertThat(query(newSession, "SHOW SCHEMAS"))
+                    .skippingTypesCheck()
+                    .containsAll(format("VALUES '%s'", schemaName));
+        }
+        finally {
+            assertUpdate(newSession, "DROP SCHEMA IF EXISTS " + schemaName);
+        }
     }
 
     @Test
