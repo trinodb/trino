@@ -62,9 +62,9 @@ public class StatusPrinter
     private final PrintStream out;
     private final ConsolePrinter console;
     private final boolean checkInput;
+    private final boolean decimalDataSize;
 
     private boolean debug;
-    private boolean decimalDataSize;
 
     public StatusPrinter(StatementClient client, PrintStream out, boolean debug, boolean checkInput, boolean decimalDataSize)
     {
