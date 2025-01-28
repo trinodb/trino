@@ -6652,6 +6652,19 @@ public abstract class AbstractTestEngineOnlyQueries
                 """))
                 .matches("VALUES 256");
 
+        assertThat(query(
+                """
+                WITH
+                  FUNCTION fun_with_uppercase_var()
+                  RETURNS int
+                  BEGIN
+                    DECLARE R int DEFAULT 7;
+                    RETURN R;
+                  END
+                SELECT fun_with_uppercase_var()
+                """))
+                .matches("VALUES 7");
+
         // invoke function on data from connector to prevent constant folding on the coordinator
         assertThat(query(
                 """
