@@ -304,7 +304,7 @@ final class ConnectionProperties
             extends AbstractConnectionProperty<String, HostAndPort>
     {
         private static final Validator<Properties> NO_HTTP_PROXY = validator(
-                properties -> !HTTP_PROXY.getValue(properties).isPresent(),
+                properties -> HTTP_PROXY.getValue(properties).isEmpty(),
                 format("Connection property %s cannot be used when %s is set", PropertyName.SOCKS_PROXY, PropertyName.HTTP_PROXY));
 
         public SocksProxy()
@@ -317,7 +317,7 @@ final class ConnectionProperties
             extends AbstractConnectionProperty<String, HostAndPort>
     {
         private static final Validator<Properties> NO_SOCKS_PROXY = validator(
-                properties -> !SOCKS_PROXY.getValue(properties).isPresent(),
+                properties -> SOCKS_PROXY.getValue(properties).isEmpty(),
                 format("Connection property %s cannot be used when %s is set", PropertyName.HTTP_PROXY, PropertyName.SOCKS_PROXY));
 
         public HttpProxy()

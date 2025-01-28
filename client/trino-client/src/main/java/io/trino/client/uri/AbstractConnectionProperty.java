@@ -94,7 +94,7 @@ abstract class AbstractConnectionProperty<V, T>
     {
         Object value = properties.get(key);
         if (value == null) {
-            if (isRequired(properties) && !defaultValue.isPresent()) {
+            if (isRequired(properties) && defaultValue.isEmpty()) {
                 throw new RuntimeException(format("Connection property %s is required", key));
             }
             return defaultValue;
