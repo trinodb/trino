@@ -19,6 +19,7 @@ import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
@@ -229,6 +230,10 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingSnapshotFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
+                .isInstanceOf(QueryFailedException.class)
+                .cause()
+                .hasMessageContaining("Failed to drop table")
+                .cause()
                 .hasMessageMatching("Server error: NotFoundException: Failed to open input stream for file: (.*)");
     }
 

@@ -22,13 +22,13 @@ import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TestingTypeManager;
-import org.apache.iceberg.exceptions.BadRequestException;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.assertj.core.util.Files;
@@ -149,7 +149,9 @@ public class TestTrinoRestCatalog
                         namespace,
                         defaultNamespaceProperties(namespace),
                         new TrinoPrincipal(PrincipalType.USER, SESSION.getUser())))
-                .isInstanceOf(BadRequestException.class)
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Failed to create namespace")
+                .cause()
                 .as("should fail as the prefix dev is not implemented for the current endpoint")
                 .hasMessageContaining("Malformed request: No route for request: POST v1/dev/namespaces");
     }
