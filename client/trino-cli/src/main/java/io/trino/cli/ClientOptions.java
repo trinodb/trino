@@ -664,7 +664,7 @@ public class ClientOptions
         @Override
         public String toString()
         {
-            return (catalog.isPresent() ? catalog.get() + '.' : "") + name + '=' + value;
+            return catalog.map(catalogName -> catalogName + '.').orElse("") + name + '=' + value;
         }
 
         @Override
