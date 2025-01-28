@@ -343,14 +343,6 @@ S3](/object-storage/file-system-s3) with a catalog using the Delta Lake, Hive,
 Hudi, or Iceberg connectors. Upgrading existing deployments to the new native
 implementation is recommended. Legacy support will be deprecated and removed.
 
-The following considerations apply to legacy configurations moving to the native
-implementation:
-
-* SSL is always enabled and cannot be disabled.
-* Client-side encryption is not supported. Server-side encryption (SSE) is
-  the recommended alternative.
-* Multipart (non-streaming) writes and upload are not supported.
-
 To migrate a catalog to use the native file system implementation for S3, make
 the following edits to your catalog configuration:
 
