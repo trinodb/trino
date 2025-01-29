@@ -36,7 +36,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.loki.LokiTableFunction.SCHEMA_NAME;
+import static io.trino.plugin.loki.LokiErrorCode.LOKI_TABLE_ERROR;
+import static io.trino.plugin.loki.QueryRangeTableFunction.SCHEMA_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TypeSignature.mapType;
@@ -62,11 +63,11 @@ public class LokiMetadata
     @Override
     public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
-        if (!(handle instanceof LokiTableFunction.QueryHandle queryHandle)) {
+        if (!(handle instanceof QueryRangeTableFunction.QueryHandle queryHandle)) {
             return Optional.empty();
         }
 
-        LokiTableHandle tableHandle = queryHandle.getTableHandle();
+        LokiTableHandle tableHandle = queryHandle.tableHandle();
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, tableHandle.columnHandles()));
     }
 
@@ -75,8 +76,7 @@ public class LokiMetadata
     {
         LokiTableHandle lokiTableHandle = (LokiTableHandle) table;
 
-        List<ColumnMetadata> columns = lokiTableHandle.columnHandles()
-                .stream()
+        List<ColumnMetadata> columns = lokiTableHandle.columnHandles().stream()
                 .map(LokiColumnHandle.class::cast)
                 .map(LokiColumnHandle::columnMetadata)
                 .collect(toImmutableList());
@@ -91,7 +91,7 @@ public class LokiMetadata
             Optional<ConnectorTableVersion> startVersion,
             Optional<ConnectorTableVersion> endVersion)
     {
-        throw new TrinoException(LokiErrorCode.LOKI_TABLE_ERROR, "Loki connector does not support querying tables directly. Use the TABLE function instead.");
+        throw new TrinoException(LOKI_TABLE_ERROR, "Loki connector does not support querying tables directly. Use the TABLE function instead.");
     }
 
     @Override

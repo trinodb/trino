@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.loki;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
@@ -51,7 +49,7 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.util.Objects.requireNonNull;
 
-public class LokiTableFunction
+public class QueryRangeTableFunction
         extends AbstractConnectorTableFunction
 {
     public static final String SCHEMA_NAME = "system";
@@ -59,7 +57,7 @@ public class LokiTableFunction
 
     private final LokiMetadata metadata;
 
-    public LokiTableFunction(LokiMetadata metadata)
+    public QueryRangeTableFunction(LokiMetadata metadata)
     {
         super(
                 SCHEMA_NAME,
@@ -94,9 +92,8 @@ public class LokiTableFunction
         if (Strings.isNullOrEmpty(query)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, query);
         }
-        requireNonNull(startArgument);
-        requireNonNull(endArgument);
-        requireNonNull(metadata);
+        requireNonNull(startArgument, "startArgument is null");
+        requireNonNull(endArgument, "endArgument is null");
 
         // determine the returned row type
         List<ColumnHandle> columnHandles;
@@ -132,28 +129,19 @@ public class LokiTableFunction
     /**
      * Convert LongTimestampWithTimeZone to Instant. See BigQuery code for an example
      */
-    private Instant toInstant(LongTimestampWithTimeZone timestamp)
+    private static Instant toInstant(LongTimestampWithTimeZone timestamp)
     {
         long epochSeconds = floorDiv(timestamp.getEpochMillis(), MILLISECONDS_PER_SECOND);
         long nanosOfSecond = (long) floorMod(timestamp.getEpochMillis(), MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND + timestamp.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
         return Instant.ofEpochSecond(epochSeconds, nanosOfSecond);
     }
 
-    public static class QueryHandle
+    public record QueryHandle(LokiTableHandle tableHandle)
             implements ConnectorTableFunctionHandle
     {
-        private final LokiTableHandle tableHandle;
-
-        @JsonCreator
-        public QueryHandle(@JsonProperty("tableHandle") LokiTableHandle tableHandle)
+        public QueryHandle
         {
-            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        }
-
-        @JsonProperty
-        public LokiTableHandle getTableHandle()
-        {
-            return tableHandle;
+            requireNonNull(tableHandle, "tableHandle is null");
         }
     }
 }

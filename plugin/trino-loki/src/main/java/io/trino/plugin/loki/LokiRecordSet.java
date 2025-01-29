@@ -27,6 +27,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.loki.LokiErrorCode.LOKI_CLIENT_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class LokiRecordSet
@@ -51,7 +52,7 @@ public class LokiRecordSet
             this.result = lokiClient.rangeQuery(split.query(), split.start(), split.end());
         }
         catch (LokiClientException e) {
-            throw new TrinoException(LokiErrorCode.LOKI_CLIENT_ERROR, e);
+            throw new TrinoException(LOKI_CLIENT_ERROR, e);
         }
     }
 

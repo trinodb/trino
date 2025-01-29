@@ -40,13 +40,13 @@ public class LokiModule
         binder.bind(ConnectorSplitManager.class).to(LokiSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).to(LokiRecordSetProvider.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(LokiTableFunctionProvider.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(LokiConnectorConfig.class);
+        configBinder(binder).bindConfig(LokiConfig.class);
     }
 
     @Provides
     @Singleton
-    public static LokiClient getLokiClient(LokiConnectorConfig config)
+    public static LokiClient getLokiClient(LokiConfig config)
     {
-        return new LokiClient(new LokiClientConfig(config.getLokiUri(), config.getQueryTimeout().toJavaTime()));
+        return new LokiClient(new LokiClientConfig(config.getUri(), config.getQueryTimeout().toJavaTime()));
     }
 }

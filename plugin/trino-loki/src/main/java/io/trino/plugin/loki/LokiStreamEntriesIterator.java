@@ -74,7 +74,7 @@ public class LokiStreamEntriesIterator
      * @param nanos nanoseconds since epoch.
      * @return time in Trino's packed format.
      */
-    long toTimeWithTimeZone(Long nanos)
+    private static long toTimeWithTimeZone(Long nanos)
     {
         return packDateTimeWithZone(nanos / NANOSECONDS_PER_MILLISECOND, TimeZoneKey.UTC_KEY);
     }

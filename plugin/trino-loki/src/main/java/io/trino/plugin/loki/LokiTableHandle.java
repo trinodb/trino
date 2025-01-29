@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.loki;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 
@@ -26,9 +27,9 @@ public record LokiTableHandle(String query, Instant start, Instant end, List<Col
 {
     public LokiTableHandle
     {
-        requireNonNull(query);
-        requireNonNull(start);
-        requireNonNull(end);
-        requireNonNull(columnHandles);
+        requireNonNull(query, "query is null");
+        requireNonNull(start, "start is null");
+        requireNonNull(end, "end is null");
+        columnHandles = ImmutableList.copyOf(columnHandles);
     }
 }
