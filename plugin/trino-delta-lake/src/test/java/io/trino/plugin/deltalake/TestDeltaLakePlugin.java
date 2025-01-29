@@ -22,9 +22,12 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakePlugin
@@ -221,6 +224,26 @@ public class TestDeltaLakePlugin
                 .shutdown();
 
         verify(tempFile.delete());
+    }
+
+    @Test
+    void testGetSecuritySensitivePropertyNames()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        Map<String, String> config = ImmutableMap.of(
+                "non-existent-property", "value",
+                "fs.hadoop.enabled", "true",
+                "hive.azure.abfs.oauth.client-id", "test-client-id", // security-sensitive property from trino-hdfs
+                "hive.azure.adl-proxy-host", "proxy-host:9800", // non-sensitive property from trino-hdfs
+                "hive.dfs-timeout", "invalidValue", // property from trino-hdfs with invalid value
+                "hive.metastore.uri", "thrift://foo:1234",
+                "hive.metastore.thrift.client.ssl.key-password", "password",
+                "delta.checkpoint-row-statistics-writing.enabled", "shouldBeBoolean");
+
+        Set<String> sensitiveProperties = factory.getSecuritySensitivePropertyNames("catalog", config, new TestingConnectorContext());
+
+        assertThat(sensitiveProperties)
+                .containsExactlyInAnyOrder("non-existent-property", "hive.azure.abfs.oauth.client-id", "hive.metastore.thrift.client.ssl.key-password");
     }
 
     private static ConnectorFactory getConnectorFactory()

@@ -25,6 +25,7 @@ import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.RedactedQuery;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
@@ -194,8 +195,7 @@ public class TestSetSessionTask
         QualifiedName qualifiedPropName = QualifiedName.of(CATALOG_NAME, property);
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 Optional.empty(),
-                format("set %s = 'old_value'", qualifiedPropName),
-                Optional.empty(),
+                _ -> new RedactedQuery(format("set %s = 'old_value'", qualifiedPropName), Optional.empty()),
                 testSession(),
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

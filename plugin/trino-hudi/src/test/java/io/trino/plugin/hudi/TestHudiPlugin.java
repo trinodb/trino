@@ -18,7 +18,11 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+import java.util.Set;
+
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestHudiPlugin
 {
@@ -34,5 +38,25 @@ final class TestHudiPlugin
                                 .buildOrThrow(),
                         new TestingConnectorContext())
                 .shutdown();
+    }
+
+    @Test
+    void testGetSecuritySensitivePropertyNames()
+    {
+        ConnectorFactory factory = getOnlyElement(new HudiPlugin().getConnectorFactories());
+        Map<String, String> config = ImmutableMap.of(
+                "non-existent-property", "value",
+                "fs.hadoop.enabled", "true",
+                "hive.azure.abfs.oauth.client-id", "test-client-id", // security-sensitive property from trino-hdfs
+                "hive.azure.adl-proxy-host", "proxy-host:9800", // non-sensitive property from trino-hdfs
+                "hive.dfs-timeout", "invalidValue", // property from trino-hdfs with invalid value
+                "hive.metastore.uri", "thrift://foo:1234",
+                "hive.metastore.thrift.client.ssl.key-password", "password",
+                "hudi.size-based-split-weights-enabled", "shouldBeBoolean");
+
+        Set<String> sensitiveProperties = factory.getSecuritySensitivePropertyNames("catalog", config, new TestingConnectorContext());
+
+        assertThat(sensitiveProperties)
+                .containsExactlyInAnyOrder("non-existent-property", "hive.azure.abfs.oauth.client-id", "hive.metastore.thrift.client.ssl.key-password");
     }
 }

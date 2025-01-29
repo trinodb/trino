@@ -86,7 +86,7 @@ public class QueryPreparer
         }
         validateParameters(statement, parameters);
 
-        return new PreparedQuery(statement, parameters, prepareSql);
+        return new PreparedQuery(wrappedStatement, statement, parameters, prepareSql);
     }
 
     private static void validateParameters(Statement node, List<Expression> parameterValues)
@@ -102,15 +102,22 @@ public class QueryPreparer
 
     public static class PreparedQuery
     {
+        private final Statement wrappedStatement;
         private final Statement statement;
         private final List<Expression> parameters;
         private final Optional<String> prepareSql;
 
-        public PreparedQuery(Statement statement, List<Expression> parameters, Optional<String> prepareSql)
+        public PreparedQuery(Statement wrappedStatement, Statement statement, List<Expression> parameters, Optional<String> prepareSql)
         {
+            this.wrappedStatement = requireNonNull(wrappedStatement, "wrappedStatement is null");
             this.statement = requireNonNull(statement, "statement is null");
             this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
             this.prepareSql = requireNonNull(prepareSql, "prepareSql is null");
+        }
+
+        public Statement getWrappedStatement()
+        {
+            return wrappedStatement;
         }
 
         public Statement getStatement()

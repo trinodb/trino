@@ -13,6 +13,7 @@
  */
 package io.trino.connector;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.configuration.secrets.SecretsResolver;
@@ -45,6 +46,7 @@ import io.trino.transaction.TransactionManager;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -144,6 +146,25 @@ public class DefaultCatalogFactory
         return createCatalog(catalogHandle, connectorName, connector, Optional.empty());
     }
 
+    @Override
+    public Set<String> getSecuritySensitivePropertyNames(CatalogProperties catalogProperties)
+    {
+        ConnectorFactory connectorFactory = connectorFactories.get(catalogProperties.connectorName());
+        if (connectorFactory == null) {
+            // If someone tries to use a non-existent connector, we assume they
+            // misspelled the name and, for safety, we redact all the properties.
+            return ImmutableSet.copyOf(catalogProperties.properties().keySet());
+        }
+
+        ConnectorContext context = createConnectorContext(catalogProperties.catalogHandle());
+        String catalogName = catalogProperties.catalogHandle().getCatalogName().toString();
+        Map<String, String> config = secretsResolver.getResolvedConfiguration(catalogProperties.properties());
+
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
+            return connectorFactory.getSecuritySensitivePropertyNames(catalogName, config, context);
+        }
+    }
+
     private CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector, Optional<CatalogProperties> catalogProperties)
     {
         Tracer tracer = createTracer(catalogHandle);
@@ -196,7 +217,16 @@ public class DefaultCatalogFactory
             ConnectorFactory connectorFactory,
             Map<String, String> properties)
     {
-        ConnectorContext context = new ConnectorContextInstance(
+        ConnectorContext context = createConnectorContext(catalogHandle);
+
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
+            return connectorFactory.create(catalogName, properties, context);
+        }
+    }
+
+    private ConnectorContext createConnectorContext(CatalogHandle catalogHandle)
+    {
+        return new ConnectorContextInstance(
                 catalogHandle,
                 openTelemetry,
                 createTracer(catalogHandle),
@@ -206,10 +236,6 @@ public class DefaultCatalogFactory
                 new InternalMetadataProvider(metadata, typeManager),
                 pageSorter,
                 pageIndexerFactory);
-
-        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
-            return connectorFactory.create(catalogName, properties, context);
-        }
     }
 
     private Tracer createTracer(CatalogHandle catalogHandle)

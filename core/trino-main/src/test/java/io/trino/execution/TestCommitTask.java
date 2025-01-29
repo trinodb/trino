@@ -26,6 +26,7 @@ import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.sql.RedactedQuery;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.transaction.TransactionId;
@@ -133,8 +134,7 @@ public class TestCommitTask
     {
         return QueryStateMachine.begin(
                 Optional.empty(),
-                query,
-                Optional.empty(),
+                _ -> new RedactedQuery(query, Optional.empty()),
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

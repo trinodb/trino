@@ -59,6 +59,7 @@ import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.sql.RedactedQuery;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.QualifiedName;
@@ -109,8 +110,7 @@ public class TestLocalDispatchQuery
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine queryStateMachine = QueryStateMachine.begin(
                 Optional.empty(),
-                "sql",
-                Optional.empty(),
+                _ -> new RedactedQuery("sql", Optional.empty()),
                 TEST_SESSION,
                 URI.create("fake://fake-query"),
                 new ResourceGroupId("test"),
@@ -143,7 +143,7 @@ public class TestLocalDispatchQuery
                         LanguageFunctionProvider.DISABLED),
                 new QueryMonitorConfig());
         CreateTable createTable = new CreateTable(QualifiedName.of("table"), ImmutableList.of(), FAIL, ImmutableList.of(), Optional.empty());
-        QueryPreparer.PreparedQuery preparedQuery = new QueryPreparer.PreparedQuery(createTable, ImmutableList.of(), Optional.empty());
+        QueryPreparer.PreparedQuery preparedQuery = new QueryPreparer.PreparedQuery(createTable, createTable, ImmutableList.of(), Optional.empty());
         DataDefinitionExecution.DataDefinitionExecutionFactory dataDefinitionExecutionFactory = new DataDefinitionExecution.DataDefinitionExecutionFactory(
                 ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>of(CreateTable.class, new TestCreateTableTask()));
         DataDefinitionExecution dataDefinitionExecution = dataDefinitionExecutionFactory.createQueryExecution(

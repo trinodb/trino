@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -320,6 +322,26 @@ public class TestHivePlugin
                         .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageContaining("'hive.metastore.http.client.bearer-token' must be set while using https metastore URIs in 'hive.metastore.uri'");
+    }
+
+    @Test
+    void testGetSecuritySensitivePropertyNames()
+    {
+        ConnectorFactory factory = getHiveConnectorFactory();
+        Map<String, String> config = ImmutableMap.of(
+                "non-existent-property", "value",
+                "fs.hadoop.enabled", "true",
+                "hive.azure.abfs.oauth.client-id", "test-client-id", // security-sensitive property from trino-hdfs
+                "hive.azure.adl-proxy-host", "proxy-host:9800", // non-sensitive property from trino-hdfs
+                "hive.dfs-timeout", "invalidValue", // property from trino-hdfs with invalid value
+                "hive.metastore.uri", "thrift://foo:1234",
+                "hive.metastore.thrift.client.ssl.key-password", "password",
+                "hive.single-statement-writes", "shouldBeBoolean");
+
+        Set<String> sensitiveProperties = factory.getSecuritySensitivePropertyNames("catalog", config, new TestingConnectorContext());
+
+        assertThat(sensitiveProperties)
+                .containsExactlyInAnyOrder("non-existent-property", "hive.azure.abfs.oauth.client-id", "hive.metastore.thrift.client.ssl.key-password");
     }
 
     private static ConnectorFactory getHiveConnectorFactory()

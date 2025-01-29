@@ -140,6 +140,12 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
         {
             throw new UnsupportedOperationException("Only implement what is needed by worker catalog manager");
         }
+
+        @Override
+        public Set<String> getSecuritySensitivePropertyNames(CatalogProperties catalogProperties)
+        {
+            throw new UnsupportedOperationException("Only implement what is needed by worker catalog manager");
+        }
     };
     private static final TaskExecutor NOOP_TASK_EXECUTOR = new TaskExecutor() {
         @Override

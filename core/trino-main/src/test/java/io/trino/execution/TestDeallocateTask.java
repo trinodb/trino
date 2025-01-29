@@ -26,6 +26,7 @@ import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.sql.RedactedQuery;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.NodeLocation;
@@ -102,8 +103,7 @@ public class TestDeallocateTask
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 Optional.empty(),
-                sqlString,
-                Optional.empty(),
+                _ -> new RedactedQuery(sqlString, Optional.empty()),
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

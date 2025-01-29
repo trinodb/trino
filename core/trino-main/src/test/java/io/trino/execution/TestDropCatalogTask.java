@@ -20,6 +20,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.sql.RedactedQuery;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.NodeLocation;
@@ -115,8 +116,7 @@ public class TestDropCatalogTask
     {
         return QueryStateMachine.begin(
                 Optional.empty(),
-                "test",
-                Optional.empty(),
+                _ -> new RedactedQuery("test", Optional.empty()),
                 testSession(queryRunner.getDefaultSession()),
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
