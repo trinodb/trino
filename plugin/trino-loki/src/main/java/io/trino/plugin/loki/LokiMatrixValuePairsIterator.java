@@ -15,13 +15,13 @@ package io.trino.plugin.loki;
 
 import io.github.jeschkies.loki.client.model.Matrix;
 import io.github.jeschkies.loki.client.model.MetricPoint;
-import io.trino.spi.type.TimeZoneKey;
 
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.Map;
 
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 
 public class LokiMatrixValuePairsIterator
         implements LokiQueryResultIterator
@@ -34,8 +34,7 @@ public class LokiMatrixValuePairsIterator
 
     public LokiMatrixValuePairsIterator(Matrix matrix)
     {
-        this.metrics = matrix.getMetrics()
-                .stream()
+        this.metrics = matrix.getMetrics().stream()
                 .flatMap(metric -> metric.values().stream()
                         .map(value -> new LokiMatrixValuePairsIterator.Point(value, metric.labels()))).iterator();
     }
@@ -74,8 +73,8 @@ public class LokiMatrixValuePairsIterator
      * @param seconds since epoch.
      * @return time in Trino's packed format.
      */
-    long toTimeWithTimeZone(Long seconds)
+    private static long toTimeWithTimeZone(Long seconds)
     {
-        return packDateTimeWithZone(Instant.ofEpochSecond(seconds).toEpochMilli(), TimeZoneKey.UTC_KEY);
+        return packDateTimeWithZone(Instant.ofEpochSecond(seconds).toEpochMilli(), UTC_KEY);
     }
 }

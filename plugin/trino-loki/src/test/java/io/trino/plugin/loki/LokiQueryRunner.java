@@ -80,6 +80,7 @@ public final class LokiQueryRunner
         logger.setLevel("io.trino.loki", Level.DEBUG);
         logger.setLevel("io.trino", Level.INFO);
 
+        //noinspection resource
         QueryRunner queryRunner = builder(new TestingLokiServer())
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .build();

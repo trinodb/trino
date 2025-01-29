@@ -28,8 +28,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 
 import static io.trino.type.DateTimes.MILLISECONDS_PER_DAY;
+import static java.lang.String.format;
 
-public class TestLokiIntegration
+final class TestLokiIntegration
         extends AbstractTestQueryFramework
 {
     private LokiClient client;
@@ -41,24 +42,24 @@ public class TestLokiIntegration
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        final TestingLokiServer server = closeAfterClass(new TestingLokiServer());
+        TestingLokiServer server = closeAfterClass(new TestingLokiServer());
         this.client = server.createLokiClient();
         return LokiQueryRunner.builder(server).build();
     }
 
     @Test
-    public void testLogsQuery()
+    void testLogsQuery()
             throws Exception
     {
         Instant start = Instant.now().minus(Duration.ofHours(3));
         Instant end = start.plus(Duration.ofHours(2));
 
-        this.client.pushLogLine("line 1", end.minus(Duration.ofMinutes(10)), ImmutableMap.of("test", "logs_query"));
-        this.client.pushLogLine("line 2", end.minus(Duration.ofMinutes(5)), ImmutableMap.of("test", "logs_query"));
-        this.client.pushLogLine("line 3", end.minus(Duration.ofMinutes(1)), ImmutableMap.of("test", "logs_query"));
-        this.client.flush();
+        client.pushLogLine("line 1", end.minus(Duration.ofMinutes(10)), ImmutableMap.of("test", "logs_query"));
+        client.pushLogLine("line 2", end.minus(Duration.ofMinutes(5)), ImmutableMap.of("test", "logs_query"));
+        client.pushLogLine("line 3", end.minus(Duration.ofMinutes(1)), ImmutableMap.of("test", "logs_query"));
+        client.flush();
 
-        assertQuery(String.format("""
+        assertQuery(format("""
                         SELECT value FROM
                         TABLE(system.query_range(
                          '{test="logs_query"}',
@@ -69,7 +70,7 @@ public class TestLokiIntegration
                         """, timestampFormatter.format(start), timestampFormatter.format(end)),
                 "VALUES ('line 1')");
 
-        assertQuery(String.format("""
+        assertQuery(format("""
                         SELECT value FROM
                         TABLE(system.query_range(
                          '{test="logs_query"}',
@@ -82,17 +83,17 @@ public class TestLokiIntegration
     }
 
     @Test
-    public void testMetricsQuery()
+    void testMetricsQuery()
             throws Exception
     {
         Instant start = Instant.now().minus(Duration.ofHours(3));
         Instant end = start.plus(Duration.ofHours(2));
 
-        this.client.pushLogLine("line 1", end.minus(Duration.ofMinutes(3)), ImmutableMap.of("test", "metrics_query"));
-        this.client.pushLogLine("line 2", end.minus(Duration.ofMinutes(2)), ImmutableMap.of("test", "metrics_query"));
-        this.client.pushLogLine("line 3", end.minus(Duration.ofMinutes(1)), ImmutableMap.of("test", "metrics_query"));
-        this.client.flush();
-        assertQuery(String.format("""
+        client.pushLogLine("line 1", end.minus(Duration.ofMinutes(3)), ImmutableMap.of("test", "metrics_query"));
+        client.pushLogLine("line 2", end.minus(Duration.ofMinutes(2)), ImmutableMap.of("test", "metrics_query"));
+        client.pushLogLine("line 3", end.minus(Duration.ofMinutes(1)), ImmutableMap.of("test", "metrics_query"));
+        client.flush();
+        assertQuery(format("""
                         SELECT value FROM
                         TABLE(system.query_range(
                          'count_over_time({test="metrics_query"}[5m])',
@@ -105,17 +106,17 @@ public class TestLokiIntegration
     }
 
     @Test
-    public void testLabels()
+    void testLabels()
             throws Exception
     {
         Instant start = Instant.now().minus(Duration.ofHours(3));
         Instant end = start.plus(Duration.ofHours(2));
 
-        this.client.pushLogLine("line 1", end.minus(Duration.ofMinutes(3)), ImmutableMap.of("test", "labels"));
-        this.client.pushLogLine("line 2", end.minus(Duration.ofMinutes(2)), ImmutableMap.of("test", "labels"));
-        this.client.pushLogLine("line 3", end.minus(Duration.ofMinutes(1)), ImmutableMap.of("test", "labels"));
-        this.client.flush();
-        assertQuery(String.format("""
+        client.pushLogLine("line 1", end.minus(Duration.ofMinutes(3)), ImmutableMap.of("test", "labels"));
+        client.pushLogLine("line 2", end.minus(Duration.ofMinutes(2)), ImmutableMap.of("test", "labels"));
+        client.pushLogLine("line 3", end.minus(Duration.ofMinutes(1)), ImmutableMap.of("test", "labels"));
+        client.flush();
+        assertQuery(format("""
                         SELECT labels['test'] FROM
                         TABLE(system.query_range(
                          'count_over_time({test="labels"}[5m])',
@@ -128,17 +129,17 @@ public class TestLokiIntegration
     }
 
     @Test
-    public void testLabelsComplex()
+    void testLabelsComplex()
             throws Exception
     {
         Instant start = Instant.now().minus(Duration.ofHours(3));
         Instant end = start.plus(Duration.ofHours(2));
 
-        this.client.pushLogLine("line 1", end.minus(Duration.ofMinutes(3)), ImmutableMap.of("test", "labels_complex", "service", "one"));
-        this.client.pushLogLine("line 2", end.minus(Duration.ofMinutes(2)), ImmutableMap.of("test", "labels_complex", "service", "two"));
-        this.client.pushLogLine("line 3", end.minus(Duration.ofMinutes(1)), ImmutableMap.of("test", "labels_complex", "service", "one"));
-        this.client.flush();
-        assertQuery(String.format("""
+        client.pushLogLine("line 1", end.minus(Duration.ofMinutes(3)), ImmutableMap.of("test", "labels_complex", "service", "one"));
+        client.pushLogLine("line 2", end.minus(Duration.ofMinutes(2)), ImmutableMap.of("test", "labels_complex", "service", "two"));
+        client.pushLogLine("line 3", end.minus(Duration.ofMinutes(1)), ImmutableMap.of("test", "labels_complex", "service", "one"));
+        client.flush();
+        assertQuery(format("""
                         SELECT labels['service'], COUNT(*) FROM
                         TABLE(system.query_range(
                           '{test="labels_complex"}',
@@ -151,7 +152,7 @@ public class TestLokiIntegration
     }
 
     @Test
-    public void testSelectTimestampLogsQuery()
+    void testSelectTimestampLogsQuery()
             throws Exception
     {
         DateTimeFormatter isoTimestampFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);
@@ -159,11 +160,11 @@ public class TestLokiIntegration
         Instant end = start.plus(Duration.ofHours(4));
         Instant firstLineTimestamp = start.truncatedTo(ChronoUnit.MILLIS);
 
-        this.client.pushLogLine("line 1", firstLineTimestamp, ImmutableMap.of("test", "select_timestamp_query"));
-        this.client.pushLogLine("line 2", firstLineTimestamp.plus(Duration.ofHours(1)), ImmutableMap.of("test", "select_timestamp_query"));
-        this.client.pushLogLine("line 3", firstLineTimestamp.plus(Duration.ofHours(2)), ImmutableMap.of("test", "select_timestamp_query"));
-        this.client.flush();
-        assertQuery(String.format("""
+        client.pushLogLine("line 1", firstLineTimestamp, ImmutableMap.of("test", "select_timestamp_query"));
+        client.pushLogLine("line 2", firstLineTimestamp.plus(Duration.ofHours(1)), ImmutableMap.of("test", "select_timestamp_query"));
+        client.pushLogLine("line 3", firstLineTimestamp.plus(Duration.ofHours(2)), ImmutableMap.of("test", "select_timestamp_query"));
+        client.flush();
+        assertQuery(format("""
                         SELECT
                           -- H2 does not support TIMESTAMP WITH TIME ZONE so cast to VARCHAR
                           to_iso8601(timestamp), value
@@ -176,11 +177,11 @@ public class TestLokiIntegration
                         ORDER BY timestamp
                         LIMIT 1
                         """, timestampFormatter.format(start), timestampFormatter.format(end)),
-                String.format("VALUES ('%s', 'line 1')", isoTimestampFormatter.format(firstLineTimestamp)));
+                format("VALUES ('%s', 'line 1')", isoTimestampFormatter.format(firstLineTimestamp)));
     }
 
     @Test
-    public void testTimestampMetricsQuery()
+    void testTimestampMetricsQuery()
             throws Exception
     {
         LocalDate baseLineDate = LocalDate.now();
@@ -191,7 +192,7 @@ public class TestLokiIntegration
         this.client.pushLogLine("line 2", start.plus(Duration.ofHours(2)), ImmutableMap.of("test", "timestamp_metrics_query"));
         this.client.pushLogLine("line 3", start.plus(Duration.ofHours(3)), ImmutableMap.of("test", "timestamp_metrics_query"));
         this.client.flush();
-        assertQuery(String.format("""
+        assertQuery(format("""
                         SELECT CAST(timestamp AS DATE) FROM
                         TABLE(system.query_range(
                          'count_over_time({test="timestamp_metrics_query"}[5m])',
@@ -204,7 +205,7 @@ public class TestLokiIntegration
     }
 
     @Test
-    public void testSelectFromTableFails()
+    void testSelectFromTableFails()
     {
         assertQueryFails("SELECT * FROM default", "Loki connector does not support querying tables directly. Use the TABLE function instead.");
     }

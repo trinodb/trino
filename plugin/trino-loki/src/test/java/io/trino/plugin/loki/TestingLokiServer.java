@@ -32,21 +32,22 @@ public class TestingLokiServer
 
     public TestingLokiServer()
     {
-        this(DEFAULT_VERSION, false);
+        this(DEFAULT_VERSION);
     }
 
-    public TestingLokiServer(String version, boolean enableBasicAuth)
+    private TestingLokiServer(String version)
     {
-        this.loki = new GenericContainer<>("grafana/loki:%s".formatted(version))
+        //noinspection resource
+        loki = new GenericContainer<>("grafana/loki:%s".formatted(version))
                 .withExposedPorts(LOKI_PORT)
                 .waitingFor(Wait.forHttp("/ready").forResponsePredicate(response -> response.contains("ready")))
                 .withStartupTimeout(Duration.ofMinutes(6));
-        this.loki.start();
+        loki.start();
     }
 
     public LokiClient createLokiClient()
     {
-        LokiClientConfig config = new LokiClientConfig(this.getUri(), Duration.ofSeconds(10));
+        LokiClientConfig config = new LokiClientConfig(getUri(), Duration.ofSeconds(10));
         return new LokiClient(config);
     }
 

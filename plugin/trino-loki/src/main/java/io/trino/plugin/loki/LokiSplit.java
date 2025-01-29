@@ -13,25 +13,19 @@
  */
 package io.trino.plugin.loki;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.time.Instant;
 
 import static java.util.Objects.requireNonNull;
 
-public record LokiSplit(
-        @JsonProperty("query") String query,
-        @JsonProperty("start") Instant start,
-        @JsonProperty("end") Instant end)
+public record LokiSplit(String query, Instant start, Instant end)
         implements ConnectorSplit
 {
-    @JsonCreator
     public LokiSplit
     {
-        requireNonNull(query);
-        requireNonNull(start);
-        requireNonNull(end);
+        requireNonNull(query, "query is null");
+        requireNonNull(start, "start is null");
+        requireNonNull(end, "end is null");
     }
 }
