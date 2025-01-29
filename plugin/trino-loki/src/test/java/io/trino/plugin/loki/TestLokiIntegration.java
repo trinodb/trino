@@ -21,10 +21,13 @@ import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+
+import static io.trino.type.DateTimes.MILLISECONDS_PER_DAY;
 
 public class TestLokiIntegration
         extends AbstractTestQueryFramework
@@ -148,7 +151,7 @@ public class TestLokiIntegration
     }
 
     @Test
-    public void testSelectTimestamp()
+    public void testSelectTimestampLogsQuery()
             throws Exception
     {
         DateTimeFormatter isoTimestampFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);
@@ -174,22 +177,30 @@ public class TestLokiIntegration
                         LIMIT 1
                         """, timestampFormatter.format(start), timestampFormatter.format(end)),
                 String.format("VALUES ('%s', 'line 1')", isoTimestampFormatter.format(firstLineTimestamp)));
+    }
 
+    @Test
+    public void testTimestampMetricsQuery()
+            throws Exception
+    {
+        LocalDate baseLineDate = LocalDate.now();
+        Instant start = Instant.ofEpochMilli(baseLineDate.toEpochDay() * MILLISECONDS_PER_DAY);
+        Instant end = start.plus(Duration.ofHours(4));
+
+        this.client.pushLogLine("line 1", start.plus(Duration.ofHours(1)), ImmutableMap.of("test", "timestamp_metrics_query"));
+        this.client.pushLogLine("line 2", start.plus(Duration.ofHours(2)), ImmutableMap.of("test", "timestamp_metrics_query"));
+        this.client.pushLogLine("line 3", start.plus(Duration.ofHours(3)), ImmutableMap.of("test", "timestamp_metrics_query"));
+        this.client.flush();
         assertQuery(String.format("""
-                        SELECT
-                          -- H2 does not support TIMESTAMP WITH TIME ZONE so cast to VARCHAR
-                          to_iso8601(timestamp), value
-                        FROM
+                        SELECT CAST(timestamp AS DATE) FROM
                         TABLE(system.query_range(
-                         'count_over_time({test="select_timestamp_query"}[5m])',
+                         'count_over_time({test="timestamp_metrics_query"}[5m])',
                          TIMESTAMP '%s',
                          TIMESTAMP '%s'
                         ))
-                        ORDER BY timestamp ASC
                         LIMIT 1
                         """, timestampFormatter.format(start), timestampFormatter.format(end)),
-                // Since the start is always noon the previous day we know how the steps align.
-                String.format("VALUES ('%s', 1.0)", isoTimestampFormatter.format(start.plus(Duration.ofSeconds(48)))));
+                "VALUES DATE '%s'".formatted(baseLineDate));
     }
 
     @Test
