@@ -107,6 +107,7 @@ public abstract class AbstractTestAzureFileSystem
         fileSystemFactory = new AzureFileSystemFactory(
                 OpenTelemetry.noop(),
                 azureAuth,
+                "test_version",
                 new AzureFileSystemConfig());
         fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser("test"));
 
