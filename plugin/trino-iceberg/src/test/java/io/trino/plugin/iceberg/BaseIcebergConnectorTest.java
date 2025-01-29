@@ -72,6 +72,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -167,8 +168,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.offset;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ;
+import static org.junit.jupiter.api.parallel.ResourceAccessMode.READ_WRITE;
 
 @Isolated // TODO remove
+@ResourceLock(value = "BaseIcebergConnectorTest", mode = READ)
 @TestInstance(PER_CLASS)
 public abstract class BaseIcebergConnectorTest
         extends BaseConnectorTest
@@ -1565,6 +1569,7 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    @ResourceLock(value = "BaseIcebergConnectorTest", mode = READ_WRITE)
     public void testUpdateWithSortOrder()
     {
         Session withSmallRowGroups = withSmallRowGroups(getSession());
