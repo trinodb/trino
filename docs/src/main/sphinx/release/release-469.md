@@ -128,7 +128,7 @@
 * Fix table read failures when using the Alluxio file system. ({issue}`23815`)
 * Prevent return of incomplete results by the `table_changes` table function. ({issue}`24709`) 
 * Prevent failures on queries accessing tables with multiple nested partition
-  columns. ({issue}`24709`)
+  columns. ({issue}`24628`)
 
 ## Ignite connector
 
