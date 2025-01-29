@@ -3477,7 +3477,7 @@ public abstract class BaseConnectorTest
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
                 .contains(tableName);
         assertTableColumnNames(tableName, "a", "b", "c");
-        assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName)).isNull();
+        assertThat(getTableComment(tableName)).isNull();
 
         assertUpdate("DROP TABLE " + tableName);
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
@@ -3906,7 +3906,7 @@ public abstract class BaseConnectorTest
         }
 
         assertUpdate("CREATE TABLE " + tableName + " (a bigint) COMMENT 'test comment'");
-        assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName)).isEqualTo("test comment");
+        assertThat(getTableComment(tableName)).isEqualTo("test comment");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -3956,7 +3956,7 @@ public abstract class BaseConnectorTest
         }
         assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
         assertTableColumnNames(tableName, "name", "regionkey");
-        assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName)).isNull();
+        assertThat(getTableComment(tableName)).isNull();
         assertUpdate("DROP TABLE " + tableName);
 
         // Some connectors support CREATE TABLE AS but not the ordinary CREATE TABLE. Let's test CTAS IF NOT EXISTS with a table that is guaranteed to exist.
@@ -4033,7 +4033,7 @@ public abstract class BaseConnectorTest
         }
 
         assertUpdate("CREATE TABLE " + tableName + " COMMENT 'test comment' AS SELECT name FROM nation", 25);
-        assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName)).isEqualTo("test comment");
+        assertThat(getTableComment(tableName)).isEqualTo("test comment");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -4244,12 +4244,12 @@ public abstract class BaseConnectorTest
         String schemaName = getSession().getSchema().orElseThrow();
         try (TestTable table = newTrinoTable("test_comment_", "(a integer)")) {
             // comment initially not set
-            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo(null);
+            assertThat(getTableComment(table.getName())).isEqualTo(null);
 
             // comment set
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'new comment'");
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("COMMENT 'new comment'");
-            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo("new comment");
+            assertThat(getTableComment(table.getName())).isEqualTo("new comment");
             assertThat(query(
                     "SELECT table_name, comment FROM system.metadata.table_comments " +
                             "WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "'")) // without table_name filter
@@ -4258,28 +4258,22 @@ public abstract class BaseConnectorTest
 
             // comment deleted
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS NULL");
-            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo(null);
+            assertThat(getTableComment(table.getName())).isEqualTo(null);
         }
 
         String tableName = "test_comment_" + randomNameSuffix();
         try {
             // comment set when creating a table
             assertUpdate("CREATE TABLE " + tableName + "(key integer) COMMENT 'new table comment'");
-            assertThat(getTableComment(catalogName, schemaName, tableName)).isEqualTo("new table comment");
+            assertThat(getTableComment(tableName)).isEqualTo("new table comment");
 
             // comment set to empty or deleted
             assertUpdate("COMMENT ON TABLE " + tableName + " IS ''");
-            assertThat(getTableComment(catalogName, schemaName, tableName)).isIn("", null); // Some storages do not preserve empty comment
+            assertThat(getTableComment(tableName)).isIn("", null); // Some storages do not preserve empty comment
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
-    }
-
-    protected String getTableComment(String catalogName, String schemaName, String tableName)
-    {
-        String sql = format("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'", catalogName, schemaName, tableName);
-        return (String) computeScalar(sql);
     }
 
     @Test
@@ -4295,32 +4289,30 @@ public abstract class BaseConnectorTest
             abort("Skipping as connector does not support CREATE VIEW");
         }
 
-        String catalogName = getSession().getCatalog().orElseThrow();
-        String schemaName = getSession().getSchema().orElseThrow();
         try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM region")) {
             // comment set
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'new comment'");
             assertThat((String) computeScalar("SHOW CREATE VIEW " + view.getName())).contains("COMMENT 'new comment'");
-            assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo("new comment");
+            assertThat(getTableComment(view.getName())).isEqualTo("new comment");
 
             // comment deleted
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS NULL");
-            assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo(null);
+            assertThat(getTableComment(view.getName())).isEqualTo(null);
 
             // comment set to non-empty value before verifying setting empty comment
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'updated comment'");
-            assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo("updated comment");
+            assertThat(getTableComment(view.getName())).isEqualTo("updated comment");
 
             // comment set to empty
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS ''");
-            assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo("");
+            assertThat(getTableComment(view.getName())).isEqualTo("");
         }
 
         String viewName = "test_comment_view" + randomNameSuffix();
         try {
             // comment set when creating a table
             assertUpdate("CREATE VIEW " + viewName + " COMMENT 'new view comment' AS SELECT * FROM region");
-            assertThat(getTableComment(catalogName, schemaName, viewName)).isEqualTo("new view comment");
+            assertThat(getTableComment(viewName)).isEqualTo("new view comment");
         }
         finally {
             assertUpdate("DROP VIEW IF EXISTS " + viewName);
@@ -5854,7 +5846,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT));
 
         try (TestTable table = newTrinoTable("test_create_", "(a bigint) COMMENT " + varcharLiteral(comment))) {
-            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName())).isEqualTo(comment);
+            assertThat(getTableComment(table.getName())).isEqualTo(comment);
         }
     }
 
@@ -5877,7 +5869,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT));
 
         try (TestTable table = newTrinoTable("test_create_", " COMMENT " + varcharLiteral(comment) + " AS SELECT 1 a")) {
-            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName())).isEqualTo(comment);
+            assertThat(getTableComment(table.getName())).isEqualTo(comment);
         }
     }
 
@@ -5948,7 +5940,7 @@ public abstract class BaseConnectorTest
 
         try (TestTable table = newTrinoTable("test_comment_table_", "(a integer)")) {
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS " + varcharLiteral(comment));
-            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName())).isEqualTo(comment);
+            assertThat(getTableComment(table.getName())).isEqualTo(comment);
         }
     }
 

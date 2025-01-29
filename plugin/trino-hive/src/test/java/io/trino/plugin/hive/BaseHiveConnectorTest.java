@@ -9346,28 +9346,28 @@ public abstract class BaseHiveConnectorTest
 
         assertThat(getColumnComment(table, "regular_column")).isEqualTo("regular column comment");
         assertThat(getColumnComment(table, "partition_column")).isEqualTo("partition column comment");
-        assertThat(getTableComment("hive", "tpch", table)).isEqualTo("table comment");
+        assertThat(getTableComment(table)).isEqualTo("table comment");
 
         assertUpdate("COMMENT ON COLUMN %s.regular_column IS 'new regular column comment'".formatted(table));
         assertThat(getColumnComment(table, "regular_column")).isEqualTo("new regular column comment");
         assertUpdate("COMMENT ON COLUMN %s.partition_column IS 'new partition column comment'".formatted(table));
         assertThat(getColumnComment(table, "partition_column")).isEqualTo("new partition column comment");
         assertUpdate("COMMENT ON TABLE %s IS 'new table comment'".formatted(table));
-        assertThat(getTableComment("hive", "tpch", table)).isEqualTo("new table comment");
+        assertThat(getTableComment(table)).isEqualTo("new table comment");
 
         assertUpdate("COMMENT ON COLUMN %s.regular_column IS ''".formatted(table));
         assertThat(getColumnComment(table, "regular_column")).isEmpty();
         assertUpdate("COMMENT ON COLUMN %s.partition_column IS ''".formatted(table));
         assertThat(getColumnComment(table, "partition_column")).isEmpty();
         assertUpdate("COMMENT ON TABLE %s IS ''".formatted(table));
-        assertThat(getTableComment("hive", "tpch", table)).isEmpty();
+        assertThat(getTableComment(table)).isEmpty();
 
         assertUpdate("COMMENT ON COLUMN %s.regular_column IS NULL".formatted(table));
         assertThat(getColumnComment(table, "regular_column")).isNull();
         assertUpdate("COMMENT ON COLUMN %s.partition_column IS NULL".formatted(table));
         assertThat(getColumnComment(table, "partition_column")).isNull();
         assertUpdate("COMMENT ON TABLE %s IS NULL".formatted(table));
-        assertThat(getTableComment("hive", "tpch", table)).isNull();
+        assertThat(getTableComment(table)).isNull();
 
         assertUpdate("DROP TABLE " + table);
     }

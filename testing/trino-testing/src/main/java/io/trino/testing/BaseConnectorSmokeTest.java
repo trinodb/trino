@@ -747,11 +747,6 @@ public abstract class BaseConnectorSmokeTest
         }
     }
 
-    protected String getTableComment(String tableName)
-    {
-        return (String) computeScalar(format("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName));
-    }
-
     protected String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar(format(
