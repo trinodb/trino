@@ -7025,14 +7025,14 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
                     .returnsEmptyResult();
 
-            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()))
+            assertThat(getTableComment(table.getName()))
                     .isNull();
             assertThat(getColumnComment(table.getName(), "a"))
                     .isNull();
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (a BIGINT COMMENT 'This is a column') COMMENT 'This is a table'");
 
-            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()))
+            assertThat(getTableComment(table.getName()))
                     .isEqualTo("This is a table");
             assertThat(getColumnComment(table.getName(), "a"))
                     .isEqualTo("This is a column");
