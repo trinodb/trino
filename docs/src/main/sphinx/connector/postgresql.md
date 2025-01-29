@@ -19,7 +19,7 @@ PostgreSQL instances.
 
 To connect to PostgreSQL, you need:
 
-- PostgreSQL 11.x or higher.
+- PostgreSQL 12.x or higher.
 - Network access from the Trino coordinator and workers to PostgreSQL.
   Port 5432 is the default port.
 
