@@ -235,13 +235,10 @@ public class IonDecoderFactory
                     continue;
                 }
                 final BlockBuilder blockBuilder = blockSelector.apply(fieldIndex);
-                if (encountered[fieldIndex]) {
-                    blockBuilder.resetTo(blockBuilder.getPositionCount() - 1);
-                }
-                else {
+                if (!encountered[fieldIndex]) {
+                    fieldDecoders.get(fieldIndex).decode(ionReader, blockBuilder);
                     encountered[fieldIndex] = true;
                 }
-                fieldDecoders.get(fieldIndex).decode(ionReader, blockBuilder);
             }
 
             for (int i = 0; i < encountered.length; i++) {

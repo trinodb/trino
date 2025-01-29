@@ -293,20 +293,6 @@ public class TestIonFormat
     }
 
     @Test
-    public void testStructWithDuplicateKeys()
-            throws IOException
-    {
-        // this test is not making a value judgement; capturing the last
-        // is not necessarily the "right" behavior. the test just
-        // documents what the behavior is, which is based on the behavior
-        // of the hive serde, and is consistent with the trino json parser.
-        assertValues(
-                RowType.rowType(field("foo", INTEGER)),
-                "{ foo: 17, foo: 31, foo: 53 } { foo: 67 }",
-                List.of(53), List.of(67));
-    }
-
-    @Test
     public void testNestedList()
             throws IOException
     {
@@ -330,6 +316,25 @@ public class TestIonFormat
                 List.of(List.of("Woody", "Guthrie")));
     }
 
+    /**
+     * The Ion Hive SerDe captures the last value for fields with
+     * duplicate keys. There is different behavior for nested Rows,
+     * which you can see below.
+     */
+    @Test
+    public void testTopLevelStructWithDuplicateKeys()
+            throws IOException
+    {
+        assertValues(
+                RowType.rowType(field("foo", INTEGER)),
+                "{ foo: 17, foo: 31, foo: 53 } { foo: 67 }",
+                List.of(53), List.of(67));
+    }
+
+    /**
+     * The Ion Hive SerDe captures the first value for duplicate fields in
+     * nested Rows, so that is what we default to here.
+     */
     @Test
     public void testNestedStructWithDuplicateAndMissingKeys()
             throws IOException
@@ -340,7 +345,7 @@ public class TestIonFormat
                                 field("first", VARCHAR),
                                 field("last", VARCHAR)))),
                 """
-                        { name: { last: Godfrey, last: Guthrie } }
+                        { name: { last: Guthrie, last: Godfrey } }
                         { name: { first: Joan, last: Baez } }
                         """,
                 List.of(Arrays.asList(null, "Guthrie")),
