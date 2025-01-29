@@ -50,6 +50,21 @@ final class TestFakerQueries
     }
 
     @Test
+    void testTableComment()
+    {
+        try (TestTable table = newTrinoTable("table_comment", "(id INTEGER, name VARCHAR)")) {
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'test comment'");
+            assertThat(getTableComment(table.getName())).isEqualTo("test comment");
+
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS ''");
+            assertThat(getTableComment(table.getName())).isEmpty();
+
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS NULL");
+            assertThat(getTableComment(table.getName())).isNull();
+        }
+    }
+
+    @Test
     void testColumnComment()
     {
         try (TestTable table = newTrinoTable("comment", "(id INTEGER, name VARCHAR)")) {
