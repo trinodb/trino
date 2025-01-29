@@ -601,6 +601,7 @@ public class TestMySqlTimeMappingsWithServerTimeZone
     @Test
     public void testUnsupportedTimestampWithTimeZoneValues()
     {
+        // The range for supported TIMESTAMP values in MySQL is '1970-01-01 00:00:01.000000' to '2038-01-19 03:14:07.499999'
         try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_timestamp", "(data TIMESTAMP)")) {
             // Verify MySQL writes -- the server timezone is set to Pacific/Apia, so we have to account for that when inserting into MySQL
             assertMySqlQueryFails(
