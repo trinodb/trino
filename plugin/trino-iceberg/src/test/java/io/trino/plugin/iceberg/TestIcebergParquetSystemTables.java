@@ -13,7 +13,14 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.Session;
+import io.trino.testing.sql.TestTable;
+import org.apache.parquet.format.CompressionCodec;
+import org.junit.jupiter.api.Test;
+
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.testing.TestingNames.randomNameSuffix;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergParquetSystemTables
         extends BaseIcebergSystemTables
@@ -21,5 +28,32 @@ public class TestIcebergParquetSystemTables
     public TestIcebergParquetSystemTables()
     {
         super(PARQUET);
+    }
+
+    @Test
+    public void testPropertiesTable()
+    {
+        try (TestTable table = newTrinoTable("test_properties_table", "AS SELECT 1 x")) {
+            assertThat(query("SELECT * FROM \"%s$properties\"".formatted(table.getName())))
+                    .matches("""
+                            VALUES (VARCHAR 'write.format.default', VARCHAR 'PARQUET'),
+                            (VARCHAR 'commit.retry.num-retries', VARCHAR '4'),
+                            (VARCHAR 'write.parquet.compression-codec', VARCHAR 'zstd')""");
+        }
+        String tableName = "test_table_codec" + randomNameSuffix();
+        Session snappySession = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "compression_codec", CompressionCodec.SNAPPY.name())
+                .build();
+        try {
+            assertUpdate(snappySession, "CREATE TABLE test_schema.%s (_varchar VARCHAR, _date DATE) WITH (partitioning = ARRAY['_date'])".formatted(tableName));
+            assertThat(query("SELECT * FROM test_schema.\"%s$properties\"".formatted(tableName)))
+                    .matches("""
+                            VALUES (VARCHAR 'write.format.default', VARCHAR 'PARQUET'),
+                            (VARCHAR 'commit.retry.num-retries', VARCHAR '4'),
+                            (VARCHAR 'write.parquet.compression-codec', VARCHAR 'snappy')""");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_schema.%s".formatted(tableName));
+        }
     }
 }
