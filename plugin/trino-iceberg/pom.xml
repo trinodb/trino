@@ -23,7 +23,7 @@
             <dependency>
                 <groupId>org.jboss.resteasy</groupId>
                 <artifactId>resteasy-core</artifactId>
-                <version>6.0.0.Final</version>
+                <version>6.0.3.Final</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
