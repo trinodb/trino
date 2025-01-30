@@ -120,14 +120,6 @@ public final class DuckDbClient
     }
 
     @Override
-    protected String escapeObjectNameForMetadataQuery(String name, String escape)
-    {
-        // org.duckdb.DuckDBDatabaseMetaData.getSearchStringEscape returns null
-        checkArgument(escape == null, "escape must be null");
-        return name;
-    }
-
-    @Override
     protected Optional<List<String>> getTableTypes()
     {
         return Optional.of(ImmutableList.of("BASE TABLE", "LOCAL TEMPORARY", "VIEW"));
