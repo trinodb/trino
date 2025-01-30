@@ -130,7 +130,7 @@ public final class DuckDbClient
     @Override
     protected Optional<List<String>> getTableTypes()
     {
-        return Optional.of(ImmutableList.of("BASE TABLE", "LOCAL TEMPORARY", "VIEW"));
+        return Optional.of(ImmutableList.of("BASE TABLE", "VIEW"));
     }
 
     @Override
