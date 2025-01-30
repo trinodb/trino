@@ -661,6 +661,7 @@ public class JsonDeserializer
 
         private final Map<String, Integer> fieldPositions;
         private final Decoder[] fieldDecoders;
+        private final boolean[] fieldWritten;
         private final IntUnaryOperator ordinalToFieldPosition;
 
         public RowDecoder(RowType rowType, Decoder[] fieldDecoders, IntUnaryOperator ordinalToFieldPosition)
@@ -677,6 +678,7 @@ public class JsonDeserializer
             this.fieldDecoders = requireNonNull(fieldDecoders, "fieldDecoders is null");
             checkArgument(this.fieldDecoders.length == fields.size(), "fieldDecoders size mismatch: %s <> %s", this.fieldDecoders.length, fields.size());
             checkArgument(Arrays.stream(this.fieldDecoders).noneMatch(Objects::isNull), "fieldDecoders contains null element");
+            this.fieldWritten = new boolean[this.fieldDecoders.length];
             this.ordinalToFieldPosition = ordinalToFieldPosition;
         }
 
@@ -701,7 +703,7 @@ public class JsonDeserializer
                 throw invalidJson("start of object expected");
             }
 
-            boolean[] fieldWritten = new boolean[fieldDecoders.length];
+            Arrays.fill(fieldWritten, false);
 
             while (nextObjectField(parser)) {
                 String fieldName = parser.getText();
