@@ -183,7 +183,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
         try {
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             catalog.createMaterializedView(
-                    SESSION,
+                    SESSION_WITH_PROPERTIES,
                     new SchemaTableName(namespace, materializedViewName),
                     new ConnectorMaterializedViewDefinition(
                             "SELECT * FROM tpch.tiny.nation",
@@ -198,7 +198,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                     ImmutableMap.of(FILE_FORMAT_PROPERTY, PARQUET, FORMAT_VERSION_PROPERTY, 1),
                     false,
                     false);
-            List<SchemaTableName> materializedViews = catalog.listTables(SESSION, Optional.of(namespace)).stream()
+            List<SchemaTableName> materializedViews = catalog.listTables(SESSION_WITH_PROPERTIES, Optional.of(namespace)).stream()
                     .filter(info -> info.extendedRelationType() == TableInfo.ExtendedRelationType.TRINO_MATERIALIZED_VIEW)
                     .map(TableInfo::tableName)
                     .toList();
