@@ -26,7 +26,6 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -54,21 +53,20 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-@Disabled("Temporary disabled due to lack of payment for the Snowflake account")
 public class TestSnowflakeTypeMapping
         extends AbstractTestQueryFramework
 {
     private final ZoneId jvmZone = ZoneId.systemDefault();
     // no DST in 1970, but has DST in later years (e.g. 2018)
     private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
-    // minutes offset change since 1970-01-01, no DST
+    // minutes offset change since 1932-04-01, no DST
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
 
     @BeforeAll
     public void setUp()
     {
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
-        checkIsGap(jvmZone, LocalDate.of(1970, 1, 1));
+        checkIsGap(jvmZone, LocalDate.of(1932, 4, 1));
         checkIsGap(vilnius, LocalDate.of(1983, 4, 1));
         verify(vilnius.getRules().getValidOffsets(LocalDate.of(1983, 10, 1).atStartOfDay().minusMinutes(1)).size() == 2);
     }
@@ -371,7 +369,7 @@ public class TestSnowflakeTypeMapping
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 01:33:17.456'", createTimestampType(3), "TIMESTAMP '2018-10-28 01:33:17.456'")
                 // time double in Vilnius
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 03:33:33.333'", createTimestampType(3), "TIMESTAMP '2018-10-28 03:33:33.333'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:13:42.000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:13:42.000'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1932-04-01 00:13:42.000'", createTimestampType(3), "TIMESTAMP '1932-04-01 00:13:42.000'")
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-04-01 02:13:55.123'", createTimestampType(3), "TIMESTAMP '2018-04-01 02:13:55.123'")
                 // time gap in Vilnius
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-03-25 03:17:17.000'", createTimestampType(3), "TIMESTAMP '2018-03-25 03:17:17.000'")
@@ -380,12 +378,12 @@ public class TestSnowflakeTypeMapping
                 // max value 2038-01-19 03:14:07
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '2038-01-19 03:14:07.000'", createTimestampType(3), "TIMESTAMP '2038-01-19 03:14:07.000'")
                 // test arbitrary time for all supported precisions
-                .addRoundTrip("timestamp(0)", "TIMESTAMP '1970-01-01 00:00:01'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:01'")
-                .addRoundTrip("timestamp(1)", "TIMESTAMP '1970-01-01 00:00:01.1'", createTimestampType(1), "TIMESTAMP '1970-01-01 00:00:01.1'")
-                .addRoundTrip("timestamp(1)", "TIMESTAMP '1970-01-01 00:00:01.9'", createTimestampType(1), "TIMESTAMP '1970-01-01 00:00:01.9'")
-                .addRoundTrip("timestamp(2)", "TIMESTAMP '1970-01-01 00:00:01.12'", createTimestampType(2), "TIMESTAMP '1970-01-01 00:00:01.12'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:01.123'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:01.123'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:01.999'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:01.999'")
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1932-04-01 00:00:01'", createTimestampType(0), "TIMESTAMP '1932-04-01 00:00:01'")
+                .addRoundTrip("timestamp(1)", "TIMESTAMP '1932-04-01 00:00:01.1'", createTimestampType(1), "TIMESTAMP '1932-04-01 00:00:01.1'")
+                .addRoundTrip("timestamp(1)", "TIMESTAMP '1932-04-01 00:00:01.9'", createTimestampType(1), "TIMESTAMP '1932-04-01 00:00:01.9'")
+                .addRoundTrip("timestamp(2)", "TIMESTAMP '1932-04-01 00:00:01.12'", createTimestampType(2), "TIMESTAMP '1932-04-01 00:00:01.12'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1932-04-01 00:00:01.123'", createTimestampType(3), "TIMESTAMP '1932-04-01 00:00:01.123'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1932-04-01 00:00:01.999'", createTimestampType(3), "TIMESTAMP '1932-04-01 00:00:01.999'")
                 .addRoundTrip("timestamp(1)", "TIMESTAMP '2020-09-27 12:34:56.1'", createTimestampType(1), "TIMESTAMP '2020-09-27 12:34:56.1'")
                 .addRoundTrip("timestamp(1)", "TIMESTAMP '2020-09-27 12:34:56.9'", createTimestampType(1), "TIMESTAMP '2020-09-27 12:34:56.9'")
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '2020-09-27 12:34:56.123'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.123'")
