@@ -47,9 +47,11 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.IntUnaryOperator;
@@ -62,6 +64,7 @@ import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveFormatUtils.createTimestampParser;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
@@ -85,6 +88,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
 
 /**
@@ -135,7 +139,7 @@ public class JsonDeserializer
                 columns.stream()
                         .map(Column::type)
                         .map(fieldType -> createDecoder(fieldType, timestampParser))
-                        .collect(toImmutableList()),
+                        .toArray(Decoder[]::new),
                 topLevelOrdinalMap::get);
     }
 
@@ -212,7 +216,7 @@ public class JsonDeserializer
                     rowType.getFields().stream()
                             .map(Field::getType)
                             .map(fieldType -> createDecoder(fieldType, timestampParser))
-                            .collect(toImmutableList()),
+                            .toArray(Decoder[]::new),
                     IntUnaryOperator.identity());
         }
         throw new UnsupportedOperationException("Unsupported column type: " + type);
@@ -656,10 +660,10 @@ public class JsonDeserializer
         private static final Pattern INTERNAL_PATTERN = Pattern.compile("_col([0-9]+)");
 
         private final Map<String, Integer> fieldPositions;
-        private final List<Decoder> fieldDecoders;
+        private final Decoder[] fieldDecoders;
         private final IntUnaryOperator ordinalToFieldPosition;
 
-        public RowDecoder(RowType rowType, List<Decoder> fieldDecoders, IntUnaryOperator ordinalToFieldPosition)
+        public RowDecoder(RowType rowType, Decoder[] fieldDecoders, IntUnaryOperator ordinalToFieldPosition)
         {
             super(rowType);
 
@@ -670,7 +674,9 @@ public class JsonDeserializer
                 fieldPositions.put(field.getName().orElseThrow().toLowerCase(Locale.ROOT), i);
             }
             this.fieldPositions = fieldPositions.buildOrThrow();
-            this.fieldDecoders = fieldDecoders;
+            this.fieldDecoders = requireNonNull(fieldDecoders, "fieldDecoders is null");
+            checkArgument(this.fieldDecoders.length == fields.size(), "fieldDecoders size mismatch: %s <> %s", this.fieldDecoders.length, fields.size());
+            checkArgument(Arrays.stream(this.fieldDecoders).noneMatch(Objects::isNull), "fieldDecoders contains null element");
             this.ordinalToFieldPosition = ordinalToFieldPosition;
         }
 
@@ -695,7 +701,7 @@ public class JsonDeserializer
                 throw invalidJson("start of object expected");
             }
 
-            boolean[] fieldWritten = new boolean[fieldDecoders.size()];
+            boolean[] fieldWritten = new boolean[fieldDecoders.length];
 
             while (nextObjectField(parser)) {
                 String fieldName = parser.getText();
@@ -711,7 +717,7 @@ public class JsonDeserializer
                 }
 
                 nextTokenRequired(parser);
-                fieldDecoders.get(rowIndex).decode(parser, fieldBuilder);
+                fieldDecoders[rowIndex].decode(parser, fieldBuilder);
                 fieldWritten[rowIndex] = true;
             }
 
