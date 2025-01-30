@@ -228,7 +228,7 @@ public class JsonDeserializer
 
         public Decoder(Type type)
         {
-            this.type = type;
+            this.type = requireNonNull(type, "type is null");
         }
 
         public final void decode(JsonParser parser, BlockBuilder builder)
@@ -344,7 +344,7 @@ public class JsonDeserializer
         public DecimalDecoder(DecimalType decimalType)
         {
             super(decimalType);
-            this.decimalType = decimalType;
+            this.decimalType = requireNonNull(decimalType, "decimalType is null");
         }
 
         @Override
@@ -431,8 +431,8 @@ public class JsonDeserializer
         public TimestampDecoder(TimestampType timestampType, Function<String, DecodedTimestamp> timestampParser)
         {
             super(timestampType);
-            this.timestampType = timestampType;
-            this.timestampParser = timestampParser;
+            this.timestampType = requireNonNull(timestampType, "timestampType is null");
+            this.timestampParser = requireNonNull(timestampParser, "timestampParser is null");
         }
 
         @Override
@@ -487,7 +487,7 @@ public class JsonDeserializer
         public VarcharDecoder(VarcharType varcharType)
         {
             super(varcharType);
-            this.varcharType = varcharType;
+            this.varcharType = requireNonNull(varcharType, "varcharType is null");
         }
 
         @Override
@@ -506,7 +506,7 @@ public class JsonDeserializer
         public CharDecoder(CharType charType)
         {
             super(charType);
-            this.charType = charType;
+            this.charType = requireNonNull(charType, "charType is null");
         }
 
         @Override
@@ -525,7 +525,7 @@ public class JsonDeserializer
         public ArrayDecoder(ArrayType arrayType, Decoder elementDecoder)
         {
             super(arrayType);
-            this.elementDecoder = elementDecoder;
+            this.elementDecoder = requireNonNull(elementDecoder, "elementDecoder is null");
         }
 
         @Override
@@ -562,8 +562,8 @@ public class JsonDeserializer
             super(mapType);
             this.keyType = mapType.getKeyType();
             this.valueType = mapType.getValueType();
-            this.valueDecoder = valueDecoder;
-            this.timestampParser = timestampParser;
+            this.valueDecoder = requireNonNull(valueDecoder, "valueDecoder is null");
+            this.timestampParser = requireNonNull(timestampParser, "timestampParser is null");
 
             this.distinctMapKeys = new DistinctMapKeys(mapType, true);
             this.keyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, 128);
@@ -679,7 +679,7 @@ public class JsonDeserializer
             checkArgument(this.fieldDecoders.length == fields.size(), "fieldDecoders size mismatch: %s <> %s", this.fieldDecoders.length, fields.size());
             checkArgument(Arrays.stream(this.fieldDecoders).noneMatch(Objects::isNull), "fieldDecoders contains null element");
             this.fieldWritten = new boolean[this.fieldDecoders.length];
-            this.ordinalToFieldPosition = ordinalToFieldPosition;
+            this.ordinalToFieldPosition = requireNonNull(ordinalToFieldPosition, "ordinalToFieldPosition is null");
         }
 
         public void decode(JsonParser parser, PageBuilder builder)
