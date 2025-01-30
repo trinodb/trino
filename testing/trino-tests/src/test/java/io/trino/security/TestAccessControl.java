@@ -65,6 +65,7 @@ import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.testing.TestingGroupProvider;
 import io.trino.testing.TestingSession;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
@@ -292,11 +293,15 @@ public class TestAccessControl
         groupProvider.reset();
     }
 
+    @BeforeEach
+    public void setup()
+    {
+        reset();
+    }
+
     @Test
     public void testAccessControl()
     {
-        reset();
-
         assertAccessDenied("SELECT * FROM orders", "Cannot execute query", privilege("query", EXECUTE_QUERY));
         assertAccessDenied("INSERT INTO orders SELECT * FROM orders", "Cannot insert into table .*.orders.*", privilege("orders", INSERT_TABLE));
         assertAccessDenied("DELETE FROM orders", "Cannot delete from table .*.orders.*", privilege("orders", DELETE_TABLE));
@@ -371,8 +376,6 @@ public class TestAccessControl
     @Test
     public void testViewColumnAccessControl()
     {
-        reset();
-
         Session viewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(Identity.ofUser("test_view_access_owner"))
                 .setCatalog(getSession().getCatalog())
@@ -471,8 +474,6 @@ public class TestAccessControl
     @Test
     public void testViewOwnersRoleGrants()
     {
-        reset();
-
         String viewOwner = "view_owner";
         TrinoPrincipal viewOwnerPrincipal = new TrinoPrincipal(USER, viewOwner);
         String viewName = "test_view_column_access_" + randomNameSuffix();
@@ -513,8 +514,6 @@ public class TestAccessControl
     @Test
     public void testJoinBaseTableWithView()
     {
-        reset();
-
         String viewOwner = "view_owner";
         TrinoPrincipal viewOwnerPrincipal = new TrinoPrincipal(USER, viewOwner);
         String viewName = "test_join_base_table_with_view_" + randomNameSuffix();
@@ -557,8 +556,6 @@ public class TestAccessControl
     @Test
     public void testAllowCallFunction()
     {
-        reset();
-
         String functionOwner = "function_owner";
         CatalogSchemaFunctionName outerFunction = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "function_allow_outer"));
         CatalogSchemaFunctionName innerFunction = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "function_allow_inner"));
@@ -607,8 +604,6 @@ public class TestAccessControl
     @Test
     public void testAllowCallFunctionWithRoleGrant()
     {
-        reset();
-
         String functionOwner = "function_owner";
         CatalogSchemaFunctionName outerFunction = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "function_deny_outer"));
         CatalogSchemaFunctionName innerFunction = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "function_deny_inner"));
@@ -668,8 +663,6 @@ public class TestAccessControl
     @Test
     public void testFunctionOwnerWhenDroppingFunction()
     {
-        reset();
-
         String functionOwner1 = "function_owner1";
         String functionOwner2 = "function_owner2";
         CatalogSchemaFunctionName functionName = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "my_function"));
@@ -703,8 +696,6 @@ public class TestAccessControl
     @Test
     public void testFunctionOwnerWhenReplacingFunction()
     {
-        reset();
-
         String functionOwner1 = "function_owner1";
         String functionOwner2 = "function_owner2";
         CatalogSchemaFunctionName functionName = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "my_replace_function"));
@@ -734,8 +725,6 @@ public class TestAccessControl
     @Test
     public void testViewFunctionAccessControl()
     {
-        reset();
-
         Session viewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(Identity.ofUser("test_view_access_owner"))
                 .setCatalog(getSession().getCatalog())
@@ -783,8 +772,6 @@ public class TestAccessControl
     @Test
     public void testFunctionAccessControl()
     {
-        reset();
-
         assertAccessDenied(
                 "SELECT my_function(42)",
                 "Cannot execute function my_function",
@@ -804,8 +791,6 @@ public class TestAccessControl
     @Test
     public void testTableFunctionRequiredColumns()
     {
-        reset();
-
         assertAccessDenied(
                 "SELECT * FROM TABLE(exclude_columns(TABLE(nation), descriptor(regionkey, comment)))",
                 "Cannot select from columns \\[nationkey, name] in table .*.nation.*",
@@ -815,8 +800,6 @@ public class TestAccessControl
     @Test
     public void testAnalyzeAccessControl()
     {
-        reset();
-
         assertAccessAllowed("ANALYZE nation");
         assertAccessDenied("ANALYZE nation", "Cannot ANALYZE \\(missing insert privilege\\) table .*.nation.*", privilege("nation", INSERT_TABLE));
         assertAccessDenied("ANALYZE nation", "Cannot select from columns \\[.*] in table or view .*.nation", privilege("nation", SELECT_COLUMN));
@@ -826,8 +809,6 @@ public class TestAccessControl
     @Test
     public void testMetadataFilterColumns()
     {
-        reset();
-
         getQueryRunner().getAccessControl().deny(privilege("nation.regionkey", SELECT_COLUMN));
 
         assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_catalog = CURRENT_CATALOG AND table_schema = CURRENT_SCHEMA and table_name = 'nation'"))
@@ -840,8 +821,6 @@ public class TestAccessControl
     @Test
     public void testCommentView()
     {
-        reset();
-
         String viewName = "comment_view" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " COMMENT 'old comment' AS SELECT * FROM orders");
         assertAccessDenied("COMMENT ON VIEW " + viewName + " IS 'new comment'", "Cannot comment view to .*", privilege(viewName, COMMENT_VIEW));
@@ -851,8 +830,6 @@ public class TestAccessControl
     @Test
     public void testCommentOnRedirectedTable()
     {
-        reset();
-
         String query = "SELECT * FROM system.metadata.table_comments WHERE catalog_name = 'mock' AND schema_name = 'default' AND table_name LIKE 'redirected%'";
         assertQuery(query, "VALUES ('mock', 'default', 'redirected_source', 'this is a redirected table')");
         getQueryRunner().getAccessControl().denyTables(schemaTableName -> !schemaTableName.getTableName().equals("redirected_target"));
@@ -862,8 +839,6 @@ public class TestAccessControl
     @Test
     public void testViewWithTableFunction()
     {
-        reset();
-
         for (boolean securityDefiner : Arrays.asList(true, false)) {
             Session viewOwner = getSession();
             Session otherUser = Session.builder(getSession())
@@ -897,8 +872,6 @@ public class TestAccessControl
     @Test
     public void testCommentColumnView()
     {
-        reset();
-
         String viewName = "comment_view" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM orders");
         assertAccessDenied("COMMENT ON COLUMN " + viewName + ".orderkey IS 'new order key comment'", "Cannot comment column to .*", privilege(viewName, COMMENT_COLUMN));
@@ -908,8 +881,6 @@ public class TestAccessControl
     @Test
     public void testCommentColumnMaterializedView()
     {
-        reset();
-
         String viewName = "comment_materialized_view" + randomNameSuffix();
         assertUpdate("CREATE MATERIALIZED VIEW mock.default." + viewName + " AS SELECT * FROM orders");
         assertAccessDenied("COMMENT ON COLUMN mock.default." + viewName + ".column_0 IS 'new comment'", "Cannot comment column to .*", privilege(viewName, COMMENT_COLUMN));
@@ -919,8 +890,6 @@ public class TestAccessControl
     @Test
     public void testAddColumn()
     {
-        reset();
-
         String tableName = "test_add_column" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
 
@@ -931,8 +900,6 @@ public class TestAccessControl
     @Test
     public void testDropColumn()
     {
-        reset();
-
         String tableName = "test_drop_column" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
 
@@ -943,8 +910,6 @@ public class TestAccessControl
     @Test
     public void testRenameColumn()
     {
-        reset();
-
         String tableName = "test_rename_column" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
 
@@ -955,8 +920,6 @@ public class TestAccessControl
     @Test
     public void testSetColumnType()
     {
-        reset();
-
         String tableName = "test_set_colun_type" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
 
@@ -967,8 +930,6 @@ public class TestAccessControl
     @Test
     public void testDropNotNullConstraint()
     {
-        reset();
-
         String tableName = "test_drop_not_null" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
 
@@ -980,8 +941,6 @@ public class TestAccessControl
     @Test
     public void testSetTableProperties()
     {
-        reset();
-
         assertAccessDenied("ALTER TABLE orders SET PROPERTIES field_length = 32", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
         assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "ALTER TABLE orders SET PROPERTIES field_length = 32"))
                 .hasMessageContaining("This connector does not support setting table properties");
@@ -990,8 +949,6 @@ public class TestAccessControl
     @Test
     public void testDeleteAccessControl()
     {
-        reset();
-
         assertAccessDenied("DELETE FROM orders WHERE orderkey < 12", "Cannot select from columns \\[orderkey] in table or view .*.orders.*", privilege("orders.orderkey", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM orders WHERE orderkey < 12", privilege("orders" + ".orderdate", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM orders", privilege("orders", SELECT_COLUMN));
@@ -1000,16 +957,12 @@ public class TestAccessControl
     @Test
     public void testTruncateAccessControl()
     {
-        reset();
-
         assertAccessAllowed("TRUNCATE TABLE orders", privilege("orders", SELECT_COLUMN));
     }
 
     @Test
     public void testUpdateAccessControl()
     {
-        reset();
-
         assertAccessDenied("UPDATE orders SET orderkey=123", "Cannot update columns \\[orderkey] in table .*", privilege("orders", UPDATE_TABLE));
         assertAccessDenied("UPDATE orders SET orderkey=123 WHERE custkey < 12", "Cannot select from columns \\[custkey] in table or view .*.default.orders", privilege("orders.custkey", SELECT_COLUMN));
         assertAccessAllowed("UPDATE orders SET orderkey=123", privilege("orders", SELECT_COLUMN));
@@ -1018,8 +971,6 @@ public class TestAccessControl
     @Test
     public void testMergeAccessControl()
     {
-        reset();
-
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
 
@@ -1078,8 +1029,6 @@ public class TestAccessControl
     @Test
     public void testNonQueryAccessControl()
     {
-        reset();
-
         assertAccessDenied("SET SESSION " + QUERY_MAX_MEMORY + " = '10MB'",
                 "Cannot set system session property " + QUERY_MAX_MEMORY,
                 privilege(QUERY_MAX_MEMORY, SET_SESSION));
@@ -1107,8 +1056,6 @@ public class TestAccessControl
     @Test
     public void testDescribe()
     {
-        reset();
-
         assertAccessDenied("DESCRIBE orders", "Cannot show columns of table default.orders", privilege("orders", SHOW_COLUMNS));
         getQueryRunner().getAccessControl().deny(privilege("orders.orderkey", SELECT_COLUMN));
         assertQuery(
@@ -1128,8 +1075,6 @@ public class TestAccessControl
     @Test
     public void testDescribeForViews()
     {
-        reset();
-
         String viewName = "describe_orders_view" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM orders");
         assertAccessDenied("DESCRIBE " + viewName, "Cannot show columns of table default.*", privilege(viewName, SHOW_COLUMNS));
@@ -1152,8 +1097,6 @@ public class TestAccessControl
     @Test
     public void testNoCatalogIsNeededInSessionForShowRoles()
     {
-        reset();
-
         Session session = testSessionBuilder()
                 .setIdentity(Identity.forUser("alice")
                         .withConnectorRoles(ImmutableMap.of("mock", new SelectedRole(ROLE, Optional.of("alice_role"))))
@@ -1168,8 +1111,6 @@ public class TestAccessControl
     @Test
     public void testShowRolesWithLegacyCatalogRoles()
     {
-        reset();
-
         Session session = testSessionBuilder()
                 .setCatalog("mock")
                 .setIdentity(Identity.forUser("alice")
@@ -1186,8 +1127,6 @@ public class TestAccessControl
     @Test
     public void testEmptyRoles()
     {
-        reset();
-
         assertQueryReturnsEmptyResult("SHOW ROLES");
         assertQueryReturnsEmptyResult("SHOW ROLE GRANTS");
         assertQueryReturnsEmptyResult("SHOW CURRENT ROLES");
@@ -1197,24 +1136,18 @@ public class TestAccessControl
     @Test
     public void testSetViewAuthorizationWithSecurityDefiner()
     {
-        reset();
-
         assertQuerySucceeds("ALTER VIEW mock.default.test_view_definer SET AUTHORIZATION some_other_user");
     }
 
     @Test
     public void testSetViewAuthorizationWithSecurityInvoker()
     {
-        reset();
-
         assertQuerySucceeds("ALTER VIEW mock.default.test_view_invoker SET AUTHORIZATION some_other_user");
     }
 
     @Test
     public void testSystemMetadataAnalyzePropertiesFilteringValues()
     {
-        reset();
-
         getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
         assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.analyze_properties");
     }
@@ -1222,8 +1155,6 @@ public class TestAccessControl
     @Test
     public void testSystemMetadataMaterializedViewPropertiesFilteringValues()
     {
-        reset();
-
         getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
         assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.materialized_view_properties");
     }
@@ -1231,8 +1162,6 @@ public class TestAccessControl
     @Test
     public void testSystemMetadataSchemaPropertiesFilteringValues()
     {
-        reset();
-
         getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
         assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.schema_properties");
     }
@@ -1240,8 +1169,6 @@ public class TestAccessControl
     @Test
     public void testSystemMetadataTablePropertiesFilteringValues()
     {
-        reset();
-
         getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("blackhole") && !catalog.equals("mock"));
         assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.table_properties");
     }
@@ -1249,8 +1176,6 @@ public class TestAccessControl
     @Test
     public void testSystemMetadataColumnPropertiesFilteringValues()
     {
-        reset();
-
         getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
         assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.column_properties");
     }
@@ -1258,8 +1183,6 @@ public class TestAccessControl
     @Test
     public void testUseStatementAccessControl()
     {
-        reset();
-
         Session session = testSessionBuilder()
                 .setCatalog(Optional.empty())
                 .setSchema(Optional.empty())
@@ -1274,8 +1197,6 @@ public class TestAccessControl
     @Test
     public void testUseStatementAccessControlWithDeniedCatalog()
     {
-        reset();
-
         getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("tpch"));
         assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.tiny"))
                 .hasMessageMatching("Access Denied: Cannot access catalog tpch");
@@ -1286,8 +1207,6 @@ public class TestAccessControl
     @Test
     public void testUseStatementAccessControlWithDeniedSchema()
     {
-        reset();
-
         getQueryRunner().getAccessControl().denySchemas(schema -> !schema.equals("tiny"));
         assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.tiny"))
                 .hasMessageMatching("Access Denied: Cannot access schema: tpch.tiny");
@@ -1296,8 +1215,6 @@ public class TestAccessControl
     @Test
     public void testPropertiesAccessControl()
     {
-        reset();
-
         systemAccessControl.set(new DenySetPropertiesSystemAccessControl());
         assertAccessDenied(
                 "CREATE TABLE mock.default.new_table (pk bigint) WITH (double_table_property = 0.0)", // default value
@@ -1382,8 +1299,6 @@ public class TestAccessControl
     @Test
     public void testPropertiesAccessControlIsSkippedWhenUsingDefaults()
     {
-        reset();
-
         systemAccessControl.set(new DenySetPropertiesSystemAccessControl());
         systemAccessControl.set(new DenySetPropertiesSystemAccessControl());
         assertAccessAllowed("CREATE TABLE mock.default.new_table (pk bigint)");
@@ -1394,8 +1309,6 @@ public class TestAccessControl
     @Test
     public void testAccessControlWithGroupsAndColumnMask()
     {
-        reset();
-
         groupProvider.setUserGroups(ImmutableMap.of(getSession().getUser(), ImmutableSet.of("group")));
         TestingAccessControlManager accessControlManager = getQueryRunner().getAccessControl();
         accessControlManager.denyIdentityTable((identity, table) -> (identity.getGroups().contains("group") && "orders".equals(table)));
@@ -1411,8 +1324,6 @@ public class TestAccessControl
     @Test
     public void testAccessControlWithGroupsAndRowFilter()
     {
-        reset();
-
         groupProvider.setUserGroups(ImmutableMap.of(getSession().getUser(), ImmutableSet.of("group")));
         TestingAccessControlManager accessControlManager = getQueryRunner().getAccessControl();
         accessControlManager.denyIdentityTable((identity, table) -> (identity.getGroups().contains("group") && "nation".equals(table)));
@@ -1427,8 +1338,6 @@ public class TestAccessControl
     @Test
     public void testAccessControlWithRolesAndColumnMask()
     {
-        reset();
-
         String role = "role";
         String user = "user";
         Session session = Session.builder(getSession())
@@ -1451,8 +1360,6 @@ public class TestAccessControl
     @Test
     public void testAccessControlWithRolesAndRowFilter()
     {
-        reset();
-
         String role = "role";
         String user = "user";
         Session session = Session.builder(getSession())
