@@ -225,21 +225,24 @@ public class JsonDeserializer
     private abstract static class Decoder
     {
         private final Type type;
+        private final boolean isScalarType;
 
         public Decoder(Type type)
         {
             this.type = requireNonNull(type, "type is null");
+            this.isScalarType = isScalarType(type);
         }
 
         public final void decode(JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            if (parser.currentToken() == VALUE_NULL) {
+            JsonToken currentToken = parser.currentToken();
+            if (currentToken == VALUE_NULL) {
                 builder.appendNull();
                 return;
             }
 
-            if (isScalarType(type) && !parser.currentToken().isScalarValue()) {
+            if (isScalarType && !currentToken.isScalarValue()) {
                 throw invalidJson(type + " value must be a scalar json value");
             }
             decodeValue(parser, builder);
