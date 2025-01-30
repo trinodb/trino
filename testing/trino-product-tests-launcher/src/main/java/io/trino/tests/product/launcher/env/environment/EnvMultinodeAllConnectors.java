@@ -61,6 +61,7 @@ public final class EnvMultinodeAllConnectors
                         "ignite",
                         "kafka",
                         "kudu",
+                        "loki",
                         "mariadb",
                         "memory",
                         "mongodb",
