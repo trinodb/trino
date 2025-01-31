@@ -14,7 +14,6 @@
 
 package io.trino.plugin.faker;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -32,11 +31,9 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.GENERATOR_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
@@ -87,20 +84,13 @@ public record FakerColumnHandle(
             }
             domain = Domain.create(ValueSet.ofRanges(range(column.getType(), min, max)), false);
         }
-        if (column.getProperties().containsKey(ALLOWED_VALUES_PROPERTY)) {
+        Object allowedValues = propertyValue(column, ALLOWED_VALUES_PROPERTY);
+
+        if (allowedValues != null) {
             if (min != null || max != null || generator != null) {
                 throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property cannot be set together with `%s`, `%s`, and `%s` properties".formatted(ALLOWED_VALUES_PROPERTY, MIN_PROPERTY, MAX_PROPERTY, GENERATOR_PROPERTY));
             }
-            ImmutableList.Builder<Object> builder = ImmutableList.builder();
-            for (String value : strings((List<?>) column.getProperties().get(ALLOWED_VALUES_PROPERTY))) {
-                try {
-                    builder.add(Literal.parse(value, column.getType()));
-                }
-                catch (IllegalArgumentException | ClassCastException e) {
-                    throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property must only contain valid %s literals, failed to parse `%s`".formatted(ALLOWED_VALUES_PROPERTY, column.getType().getDisplayName(), value), e);
-                }
-            }
-            domain = Domain.create(ValueSet.copyOf(column.getType(), builder.build()), false);
+            domain = Domain.create(ValueSet.copyOf(column.getType(), (Collection<?>) allowedValues), false);
         }
 
         return new FakerColumnHandle(
@@ -157,13 +147,6 @@ public record FakerColumnHandle(
             return Range.lessThanOrEqual(type, max);
         }
         return Range.range(type, min, true, max, true);
-    }
-
-    private static List<String> strings(Collection<?> values)
-    {
-        return values.stream()
-                .map(String.class::cast)
-                .collect(toImmutableList());
     }
 
     public FakerColumnHandle withNullProbability(double nullProbability)
