@@ -21,13 +21,11 @@ import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 
-import static io.trino.type.DateTimes.MILLISECONDS_PER_DAY;
 import static java.lang.String.format;
 
 final class TestLokiIntegration
@@ -37,6 +35,7 @@ final class TestLokiIntegration
 
     private static final DateTimeFormatter timestampFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);
     private static final DateTimeFormatter timestampFormatterAtEasternTime = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss'-05:00'").withZone(ZoneId.of("US/Eastern"));
+    private static final DateTimeFormatter isoTimestampFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -155,7 +154,6 @@ final class TestLokiIntegration
     void testSelectTimestampLogsQuery()
             throws Exception
     {
-        DateTimeFormatter isoTimestampFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);
         Instant start = Instant.now().truncatedTo(ChronoUnit.DAYS).minus(Duration.ofHours(12));
         Instant end = start.plus(Duration.ofHours(4));
         Instant firstLineTimestamp = start.truncatedTo(ChronoUnit.MILLIS);
@@ -184,29 +182,58 @@ final class TestLokiIntegration
     void testTimestampMetricsQuery()
             throws Exception
     {
-        LocalDate baseLineDate = LocalDate.now();
-        Instant start = Instant.ofEpochMilli(baseLineDate.toEpochDay() * MILLISECONDS_PER_DAY);
-        Instant end = start.plus(Duration.ofHours(4));
+        Instant start = Instant.now().truncatedTo(ChronoUnit.HOURS).minus(Duration.ofHours(4));
+        Instant end = start.plus(Duration.ofHours(3));
 
-        this.client.pushLogLine("line 1", start.plus(Duration.ofHours(1)), ImmutableMap.of("test", "timestamp_metrics_query"));
+        this.client.pushLogLine("line 1", start.plus(Duration.ofMinutes(4)), ImmutableMap.of("test", "timestamp_metrics_query"));
         this.client.pushLogLine("line 2", start.plus(Duration.ofHours(2)), ImmutableMap.of("test", "timestamp_metrics_query"));
         this.client.pushLogLine("line 3", start.plus(Duration.ofHours(3)), ImmutableMap.of("test", "timestamp_metrics_query"));
         this.client.flush();
         assertQuery(format("""
-                        SELECT CAST(timestamp AS DATE) FROM
+                        SELECT to_iso8601(timestamp), value FROM
                         TABLE(system.query_range(
                          'count_over_time({test="timestamp_metrics_query"}[5m])',
                          TIMESTAMP '%s',
-                         TIMESTAMP '%s'
+                         TIMESTAMP '%s',
+                         300
                         ))
                         LIMIT 1
                         """, timestampFormatter.format(start), timestampFormatter.format(end)),
-                "VALUES DATE '%s'".formatted(baseLineDate));
+                "VALUES ('%s', 1.0)".formatted(isoTimestampFormatter.format(start.plus(Duration.ofMinutes(5)))));
     }
 
     @Test
     void testSelectFromTableFails()
     {
         assertQueryFails("SELECT * FROM default", "Loki connector does not support querying tables directly. Use the TABLE function instead.");
+    }
+
+    @Test
+    void testQueryRangeInvalidArguments()
+    {
+        assertQueryFails(
+                """
+                SELECT to_iso8601(timestamp), value FROM
+                TABLE(system.query_range(
+                 'count_over_time({test="timestamp_metrics_query"}[5m])',
+                 TIMESTAMP '2012-08-08',
+                 TIMESTAMP '2012-08-09',
+                 -300
+                ))
+                LIMIT 1
+                """,
+                "step must be positive");
+        assertQueryFails(
+                """
+                SELECT to_iso8601(timestamp), value FROM
+                TABLE(system.query_range(
+                 'count_over_time({test="timestamp_metrics_query"}[5m])',
+                 TIMESTAMP '2012-08-08',
+                 TIMESTAMP '2012-08-09',
+                 NULL
+                ))
+                LIMIT 1
+                """,
+                "step must be positive");
     }
 }
