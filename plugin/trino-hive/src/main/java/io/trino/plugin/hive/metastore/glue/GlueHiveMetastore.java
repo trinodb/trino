@@ -449,7 +449,7 @@ public class GlueHiveMetastore
             return glueTables.stream()
                     .map(table -> new TableInfo(
                             new SchemaTableName(databaseName, table.name()),
-                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(GlueConverter.getTableTypeNullable(table), table.parameters().get(TABLE_COMMENT))))
+                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(GlueConverter.getTableType(table), table.parameters().get(TABLE_COMMENT))))
                     .toList();
         }
         catch (EntityNotFoundException _) {
