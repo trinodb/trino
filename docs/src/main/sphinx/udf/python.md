@@ -40,7 +40,7 @@ value `x` multiplied by two. The example shows declaration as [](udf-inline) and
 invocation with the value `21` to yield the result `42`.
 
 Set the language to `PYTHON` to override the default `SQL` for [](/udf/sql).
-The Python code is enclosed with ``$$` and must use valid formatting.
+The Python code is enclosed with `$$` and must use valid formatting.
 
 ```text
 WITH
