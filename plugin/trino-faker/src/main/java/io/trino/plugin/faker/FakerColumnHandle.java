@@ -14,7 +14,6 @@
 
 package io.trino.plugin.faker;
 
-import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -31,7 +30,6 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import java.util.Collection;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
@@ -111,27 +109,18 @@ public record FakerColumnHandle(
     private static ValueSet stepValue(ColumnMetadata column)
     {
         Type type = column.getType();
-        String rawStep = (String) column.getProperties().get(STEP_PROPERTY);
-        if (rawStep == null) {
+        Object step = propertyValue(column, STEP_PROPERTY);
+        if (step == null) {
             return ValueSet.none(type);
         }
         if (isCharacterColumn(column)) {
             throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property cannot be set for CHAR, VARCHAR or VARBINARY columns".formatted(STEP_PROPERTY));
         }
-        if (DATE.equals(column.getType()) || type instanceof TimestampType || type instanceof TimestampWithTimeZoneType || type instanceof TimeType || type instanceof TimeWithTimeZoneType) {
-            try {
-                return ValueSet.of(BIGINT, Duration.valueOf(rawStep).roundTo(TimeUnit.NANOSECONDS));
-            }
-            catch (IllegalArgumentException e) {
-                throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property for a %s column must be a valid duration literal".formatted(STEP_PROPERTY, column.getType().getDisplayName()), e);
-            }
+        Type stepType = type;
+        if (DATE.equals(type) || type instanceof TimestampType || type instanceof TimestampWithTimeZoneType || type instanceof TimeType || type instanceof TimeWithTimeZoneType) {
+            stepType = BIGINT;
         }
-        try {
-            return ValueSet.of(type, Literal.parse(rawStep, type));
-        }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property for a %s column must be a valid %s literal".formatted(STEP_PROPERTY, column.getType().getDisplayName(), type.getDisplayName()), e);
-        }
+        return ValueSet.of(stepType, step);
     }
 
     private static Range range(Type type, Object min, Object max)

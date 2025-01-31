@@ -13,14 +13,22 @@
  */
 package io.trino.plugin.faker;
 
+import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.Type;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
+import static io.trino.spi.type.DateType.DATE;
 
 public class PropertyValues
 {
@@ -45,6 +53,18 @@ public class PropertyValues
                         }
                     })
                     .collect(toImmutableList());
+        }
+
+        if (property.equals(ColumnInfo.STEP_PROPERTY)) {
+            Type type = column.getType();
+            if (DATE.equals(type) || type instanceof TimestampType || type instanceof TimestampWithTimeZoneType || type instanceof TimeType || type instanceof TimeWithTimeZoneType) {
+                try {
+                    return Duration.valueOf((String) propertyValue).roundTo(TimeUnit.NANOSECONDS);
+                }
+                catch (IllegalArgumentException e) {
+                    throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property for a %s column must be a valid duration literal".formatted(property, type.getDisplayName()), e);
+                }
+            }
         }
 
         try {
