@@ -16,18 +16,28 @@ package io.trino.plugin.hive.metastore;
 import io.airlift.configuration.Config;
 import jakarta.validation.constraints.NotNull;
 
+import static io.trino.plugin.hive.metastore.MetastoreTypeConfig.MetastoreType.THRIFT;
+
 public class MetastoreTypeConfig
 {
-    private String metastoreType = "thrift";
+    public enum MetastoreType
+    {
+        THRIFT,
+        FILE,
+        GLUE,
+        GLUE_V1,
+    }
+
+    private MetastoreType metastoreType = THRIFT;
 
     @NotNull
-    public String getMetastoreType()
+    public MetastoreType getMetastoreType()
     {
         return metastoreType;
     }
 
     @Config("hive.metastore")
-    public MetastoreTypeConfig setMetastoreType(String metastoreType)
+    public MetastoreTypeConfig setMetastoreType(MetastoreType metastoreType)
     {
         this.metastoreType = metastoreType;
         return this;
