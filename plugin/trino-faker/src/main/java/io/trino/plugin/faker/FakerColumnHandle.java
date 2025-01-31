@@ -43,6 +43,7 @@ import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.NULL_PROBABILITY_PROPERTY;
 import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
+import static io.trino.plugin.faker.PropertyValues.propertyValue;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -115,16 +116,6 @@ public record FakerColumnHandle(
     private static boolean isCharacterColumn(ColumnMetadata column)
     {
         return column.getType() instanceof CharType || column.getType() instanceof VarcharType || column.getType() instanceof VarbinaryType;
-    }
-
-    private static Object propertyValue(ColumnMetadata column, String property)
-    {
-        try {
-            return Literal.parse((String) column.getProperties().get(property), column.getType());
-        }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(INVALID_COLUMN_PROPERTY, "The `%s` property must be a valid %s literal".formatted(property, column.getType().getDisplayName()), e);
-        }
     }
 
     private static ValueSet stepValue(ColumnMetadata column)
