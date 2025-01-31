@@ -283,6 +283,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPE
 import static io.trino.plugin.iceberg.IcebergTableProperties.EXTRA_PROPERTIES_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_COMMIT_RETRY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
@@ -375,6 +376,7 @@ import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_RECORDS_PROP;
+import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
@@ -401,6 +403,7 @@ public class IcebergMetadata
             .add(EXTRA_PROPERTIES_PROPERTY)
             .add(FILE_FORMAT_PROPERTY)
             .add(FORMAT_VERSION_PROPERTY)
+            .add(MAX_COMMIT_RETRY)
             .add(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
             .add(DATA_LOCATION_PROPERTY)
             .add(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)
@@ -2363,6 +2366,12 @@ public class IcebergMetadata
             int formatVersion = (int) properties.get(FORMAT_VERSION_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The format_version property cannot be empty"));
             updateProperties.set(FORMAT_VERSION, Integer.toString(formatVersion));
+        }
+
+        if (properties.containsKey(MAX_COMMIT_RETRY)) {
+            int formatVersion = (int) properties.get(MAX_COMMIT_RETRY)
+                    .orElseThrow(() -> new IllegalArgumentException("The max_commit_retry property cannot be empty"));
+            updateProperties.set(COMMIT_NUM_RETRIES, Integer.toString(formatVersion));
         }
 
         if (properties.containsKey(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)) {

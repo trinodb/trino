@@ -361,7 +361,8 @@ public abstract class BaseIcebergConnectorTest
                         "WITH (\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
-                        "   location = '\\E.*/tpch/orders-.*\\Q'\n" +
+                        "   location = '\\E.*/tpch/orders-.*\\Q',\n" +
+                        "   max_commit_retry = 4\n" +
                         ")\\E");
     }
 
@@ -1264,6 +1265,7 @@ public abstract class BaseIcebergConnectorTest
                         "   format = '%s',\n" +
                         "   format_version = 2,\n" +
                         "   location = '%s',\n" +
+                        "   max_commit_retry = 4,\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(\"order key\", 9)']\n" +
                         ")",
                 getSession().getCatalog().orElseThrow(),
@@ -1626,7 +1628,8 @@ public abstract class BaseIcebergConnectorTest
                 "WITH (\n" +
                 format("   format = '%s',\n", format) +
                 "   format_version = 2,\n" +
-                format("   location = '%s'\n", tempDirPath) +
+                format("   location = '%s',\n", tempDirPath) +
+                "   max_commit_retry = 4\n" +
                 ")";
         String createTableWithoutComment = "" +
                 "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
@@ -1635,7 +1638,8 @@ public abstract class BaseIcebergConnectorTest
                 "WITH (\n" +
                 "   format = '" + format + "',\n" +
                 "   format_version = 2,\n" +
-                "   location = '" + tempDirPath + "'\n" +
+                "   location = '" + tempDirPath + "',\n" +
+                "   max_commit_retry = 4\n" +
                 ")";
         String createTableSql = format(createTableTemplate, "test table comment", format);
         assertUpdate(createTableSql);
@@ -1932,6 +1936,7 @@ public abstract class BaseIcebergConnectorTest
                            format = '%s',
                            format_version = 2,
                            location = '%s',
+                           max_commit_retry = 4,
                            partitioning = ARRAY['adate']
                         )""",
                 format,
@@ -1947,7 +1952,8 @@ public abstract class BaseIcebergConnectorTest
                         WITH (
                            format = '%s',
                            format_version = 2,
-                           location = '%s'
+                           location = '%s',
+                           max_commit_retry = 4
                         )""",
                 format,
                 getTableLocation("test_create_table_like_copy1")));
@@ -1958,7 +1964,8 @@ public abstract class BaseIcebergConnectorTest
                         WITH (
                            format = '%s',
                            format_version = 2,
-                           location = '%s'
+                           location = '%s',
+                           max_commit_retry = 4
                         )""",
                 format,
                 getTableLocation("test_create_table_like_copy2")));
@@ -5052,7 +5059,9 @@ public abstract class BaseIcebergConnectorTest
         assertThat(actual).isNotNull();
         MaterializedResult expected = resultBuilder(getSession())
                 .row("write.format.default", format.name())
-                .row("write.parquet.compression-codec", "zstd").build();
+                .row("write.parquet.compression-codec", "zstd")
+                .row("commit.retry.num-retries", "4")
+                .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
@@ -6481,6 +6490,31 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE file_path LIKE '%.parquet'", "VALUES 1");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUpdatingMaxCommitRetry()
+    {
+        try (TestTable table = newTrinoTable("test_max_commit_retry", "(x int) WITH (max_commit_retry = 1)")) {
+            assertThat(computeScalar("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'commit.retry.num-retries'"))
+                    .isEqualTo("1");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_commit_retry = 100");
+            assertThat(computeScalar("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'commit.retry.num-retries'"))
+                    .isEqualTo("100");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_commit_retry = 0");
+            assertThat(computeScalar("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'commit.retry.num-retries'"))
+                    .isEqualTo("0");
+
+            assertQueryFails("ALTER TABLE " + table.getName() + " SET PROPERTIES max_commit_retry = -1", ".* max_commit_retry must be greater than or equal to 0");
+            assertThat(computeScalar("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'commit.retry.num-retries'"))
+                    .isEqualTo("0");
+
+            assertQueryFails("ALTER TABLE " + table.getName() + " SET PROPERTIES max_commit_retry = NULL", ".* \\QInvalid null value for catalog 'iceberg' table property 'max_commit_retry' from [null]");
+            assertThat(computeScalar("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'commit.retry.num-retries'"))
+                    .isEqualTo("0");
+        }
     }
 
     @Test

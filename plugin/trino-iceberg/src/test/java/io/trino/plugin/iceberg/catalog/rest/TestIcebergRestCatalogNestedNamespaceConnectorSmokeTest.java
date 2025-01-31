@@ -178,7 +178,8 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
                         "WITH \\(\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
-                        format("   location = '.*/" + schemaName + "/region.*'\n") +
+                        format("   location = '.*/" + schemaName + "/region.*',\n" +
+                        "   max_commit_retry = 4\n") +
                         "\\)");
     }
 
