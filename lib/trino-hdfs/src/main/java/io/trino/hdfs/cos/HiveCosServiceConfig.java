@@ -22,12 +22,14 @@ public class HiveCosServiceConfig
 {
     private File serviceConfig;
 
+    @Deprecated
     @FileExists
     public File getServiceConfig()
     {
         return serviceConfig;
     }
 
+    @Deprecated
     @Config("hive.cos.service-config")
     public HiveCosServiceConfig setServiceConfig(File serviceConfig)
     {
