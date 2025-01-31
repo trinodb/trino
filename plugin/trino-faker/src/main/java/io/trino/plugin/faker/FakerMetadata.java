@@ -49,7 +49,10 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
+import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
@@ -758,5 +761,42 @@ public class FakerMetadata
     public FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session, FunctionId functionId, BoundSignature boundSignature)
     {
         return FunctionDependencyDeclaration.NO_DEPENDENCIES;
+    }
+
+    @Override
+    public synchronized TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        FakerTableHandle fakerTableHandle = (FakerTableHandle) tableHandle;
+        TableInfo info = tables.get(fakerTableHandle.schemaTableName());
+
+        TableStatistics.Builder tableStatisitics = TableStatistics.builder();
+        tableStatisitics.setRowCount(Estimate.of(fakerTableHandle.limit()));
+
+        info.columns().forEach(columnInfo -> {
+            Object min = PropertyValues.propertyValue(columnInfo.metadata(), MIN_PROPERTY);
+            Object max = PropertyValues.propertyValue(columnInfo.metadata(), MAX_PROPERTY);
+            Object step = PropertyValues.propertyValue(columnInfo.metadata(), STEP_PROPERTY);
+            Collection<?> allowedValues = (Collection<?>) columnInfo.metadata().getProperties().get(ALLOWED_VALUES_PROPERTY); // skip parsing as we don't need the values
+
+            checkState(allowedValues == null || (min == null && max == null), "The `%s` property cannot be set together with `%s` and `%s` properties".formatted(ALLOWED_VALUES_PROPERTY, MIN_PROPERTY, MAX_PROPERTY));
+
+            ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
+            if (allowedValues != null) {
+                columnStatistics.setDistinctValuesCount(Estimate.of(allowedValues.size()));
+            }
+            else {
+                Type type = columnInfo.metadata().getType();
+                if (min != null && max != null && type.getJavaType() == long.class) {
+                    long distinctValuesCount = (long) max - (long) min;
+                    if (step != null) {
+                        distinctValuesCount = distinctValuesCount / (long) step;
+                    }
+                    columnStatistics.setDistinctValuesCount(Estimate.of(distinctValuesCount));
+                }
+            }
+            columnStatistics.setNullsFraction(Estimate.of(columnInfo.handle().nullProbability()));
+            tableStatisitics.setColumnStatistics(columnInfo.handle(), columnStatistics.build());
+        });
+        return tableStatisitics.build();
     }
 }
