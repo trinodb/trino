@@ -50,6 +50,15 @@ The following table details all general configuration properties:
 * - `faker.locale`
   - Default locale for generating character-based data, specified as a IETF BCP
     47 language tag string. Defaults to `en`.
+* - `faker.sequence-detection-enabled`
+  - If true, when creating a table using existing data, columns with the number
+    of distinct values close to the number of rows are treated as sequences.
+    Defaults to `true`.
+* - `faker.dictionary-detection-enabled`
+  - If true, when creating a table using existing data, columns with a low
+    number of distinct values are treated as dictionaries, and get
+    the `allowed_values` column property populated with random values.
+    Defaults to `true`.
 :::
 
 The following table details all supported schema properties. If they're not
@@ -66,6 +75,15 @@ set, values from corresponding configuration properties are used.
     them, in any table of this schema.
 * - `default_limit`
   - Default number of rows in a table.
+* - `sequence_detection_enabled`
+  - If true, when creating a table using existing data, columns with the number
+    of distinct values close to the number of rows are treated as sequences.
+    Defaults to `true`.
+* - `dictionary_detection_enabled`
+  - If true, when creating a table using existing data, columns with a low
+    number of distinct values are treated as dictionaries, and get
+    the `allowed_values` column property populated with random values.
+    Defaults to `true`.
 :::
 
 The following table details all supported table properties. If they're not set,
@@ -82,6 +100,15 @@ values from corresponding schema properties are used.
     `null` in the table.
 * - `default_limit`
   - Default number of rows in the table.
+* - `sequence_detection_enabled`
+  - If true, when creating a table using existing data, columns with the number
+    of distinct values close to the number of rows are treated as sequences.
+    Defaults to `true`.
+* - `dictionary_detection_enabled`
+  - If true, when creating a table using existing data, columns with a low
+    number of distinct values are treated as dictionaries, and get
+    the `allowed_values` column property populated with random values.
+    Defaults to `true`.
 :::
 
 The following table details all supported column properties.
@@ -245,7 +272,7 @@ operation](sql-read-operations) statements to generate data.
 To define the schema for generating data, it supports the following features:
 
 - [](/sql/create-table)
-- [](/sql/create-table-as)
+- [](/sql/create-table-as), see also [](faker-statistics)
 - [](/sql/drop-table)
 - [](/sql/create-schema)
 - [](/sql/drop-schema)
@@ -316,4 +343,78 @@ CREATE TABLE generator.default.customer (
   age_years INTEGER WITH (min = '0', max = '150'),
   group_id INTEGER WITH (allowed_values = ARRAY['10', '32', '81'])
 );
+```
+
+(faker-statistics)=
+### Using existing data statistics
+
+The Faker connector automatically sets the `default_limit` table property, and
+the `min`, `max`, and `null_probability` column properties, based on statistics
+collected by scanning existing data read by Trino from the data source. The
+connector uses these statistics to be able to generate data that is more similar
+to the original data set, without using any of that data:
+
+
+```sql
+CREATE TABLE generator.default.customer AS
+SELECT *
+FROM production.public.customer
+WHERE created_at > CURRENT_DATE - INTERVAL '1' YEAR;
+```
+
+Instead of using range, or other predicates, tables can be sampled,
+see [](tablesample).
+
+When the `SELECT` statement doesn't contain a `WHERE` clause, a shorter notation
+can be used:
+
+```sql
+CREATE TABLE generator.default.customer AS TABLE production.public.customer;
+```
+
+The Faker connector detects sequence columns, which are integer column with the
+number of distinct values almost equal to the number of rows in the table. For
+such columns, Faker sets the `step` column property to 1.
+
+Sequence detection can be turned off using the `sequence_detection_enabled`
+table, or schema property or in the connector configuration file, using the
+`faker.sequence-detection-enabled` property.
+
+The Faker connector detects dictionary columns, which are columns of
+non-character types with the number of distinct values lower or equal to 1000.
+For such columns, Faker generates a list of random values to choose from, and
+saves it in the `allowed_values` column property.
+
+Dictionary detection can be turned off using the `dictionary_detection_enabled`
+table, or schema property or in the connector configuration file, using
+the `faker.dictionary-detection-enabled` property.
+
+For example, copy the `orders` table from the TPC-H connector with
+statistics, using the following query:
+
+```sql
+CREATE TABLE generator.default.orders AS TABLE tpch.tiny.orders;
+```
+
+Inspect the schema of the table created by the Faker connector:
+```sql
+SHOW CREATE TABLE generator.default.orders;
+```
+
+The table schema should contain additional column and table properties.
+```
+CREATE TABLE generator.default.orders (
+   orderkey bigint WITH (max = '60000', min = '1', null_probability = 0E0, step = '1'),
+   custkey bigint WITH (allowed_values = ARRAY['153','662','1453','63','784', ..., '1493','657'], null_probability = 0E0),
+   orderstatus varchar(1),
+   totalprice double WITH (max = '466001.28', min = '874.89', null_probability = 0E0),
+   orderdate date WITH (max = '1998-08-02', min = '1992-01-01', null_probability = 0E0),
+   orderpriority varchar(15),
+   clerk varchar(15),
+   shippriority integer WITH (allowed_values = ARRAY['0'], null_probability = 0E0),
+   comment varchar(79)
+)
+WITH (
+   default_limit = 15000
+)
 ```
