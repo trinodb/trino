@@ -1039,6 +1039,7 @@ ORDER BY regionkey FETCH FIRST ROW WITH TIES;
 (5 rows)
 ```
 
+(tablesample)=
 ## TABLESAMPLE
 
 There are multiple sample methods:

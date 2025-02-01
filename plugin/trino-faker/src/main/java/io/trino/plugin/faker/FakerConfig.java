@@ -80,7 +80,7 @@ public class FakerConfig
     @ConfigDescription(
             """
             If true, when creating a table using existing data, columns with the number of distinct values close to
-            the number of rows will be treated as sequences""")
+            the number of rows are treated as sequences""")
     public FakerConfig setSequenceDetectionEnabled(boolean value)
     {
         this.sequenceDetectionEnabled = value;
@@ -96,7 +96,7 @@ public class FakerConfig
     @ConfigDescription(
             """
             If true, when creating a table using existing data, columns with a low number of distinct values
-            will have the allowed_values column property populated with random values""")
+            are treated as dictionaries, and get the allowed_values column property populated with random values""")
     public FakerConfig setDictionaryDetectionEnabled(boolean value)
     {
         this.dictionaryDetectionEnabled = value;
