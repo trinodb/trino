@@ -116,6 +116,7 @@ public final class TestingPhoenixServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:phoenix:localhost:%d:/hbase;phoenix.schema.isNamespaceMappingEnabled=true", port);
+        // Alternative: "jdbc:phoenix+rpc:localhost\\:%d;phoenix.schema.isNamespaceMappingEnabled=true" where %d = master's port
+        return format("jdbc:phoenix+zk:localhost\\:%d:/hbase;phoenix.schema.isNamespaceMappingEnabled=true", port);
     }
 }
