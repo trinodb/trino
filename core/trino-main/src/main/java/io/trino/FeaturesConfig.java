@@ -21,6 +21,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
+import io.trino.execution.ThreadCountParser;
 import io.trino.execution.buffer.CompressionCodec;
 import io.trino.sql.analyzer.RegexLibrary;
 import jakarta.validation.constraints.DecimalMax;
@@ -290,9 +291,9 @@ public class FeaturesConfig
     }
 
     @Config("spiller-threads")
-    public FeaturesConfig setSpillerThreads(int spillerThreads)
+    public FeaturesConfig setSpillerThreads(String spillerThreads)
     {
-        this.spillerThreads = spillerThreads;
+        this.spillerThreads = ThreadCountParser.DEFAULT.parse(spillerThreads);
         return this;
     }
 

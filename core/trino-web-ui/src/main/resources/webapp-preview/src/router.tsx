@@ -15,12 +15,10 @@ import { ReactNode } from 'react'
 import AppsOutlinedIcon from '@mui/icons-material/AppsOutlined'
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined'
 import DnsOutlinedIcon from '@mui/icons-material/DnsOutlined'
-import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined'
 import { RouteProps } from 'react-router-dom'
 import { Dashboard } from './components/Dashboard'
 import { DemoComponents } from './components/DemoComponents'
 import { WorkersList } from './components/WorkersList.tsx'
-import { QueryHistory } from './components/QueryHistory'
 import { Texts } from './constant'
 
 export interface RouterItem {
@@ -49,15 +47,6 @@ export const routers: RouterItems = [
         routeProps: {
             path: '/workers',
             element: <WorkersList />,
-        },
-    },
-    {
-        itemKey: 'query-history',
-        text: Texts.Menu.Drawer.QueryHistory,
-        icon: <HistoryOutlinedIcon />,
-        routeProps: {
-            path: '/query-history',
-            element: <QueryHistory />,
         },
     },
     {

@@ -789,6 +789,7 @@ public final class ThriftMetastoreUtil
             case TIMESTAMPLOCALTZ:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_DAY_TIME:
+            case VARIANT:
                 // TODO support these, when we add support for these Hive types
             case VOID:
             case UNKNOWN:

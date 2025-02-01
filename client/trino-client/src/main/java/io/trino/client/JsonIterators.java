@@ -39,21 +39,22 @@ import static io.trino.client.JsonDecodingUtils.createTypeDecoders;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
-public final class JsonResultRows
+public final class JsonIterators
 {
     private static final JsonFactory JSON_FACTORY = createJsonFactory();
 
-    private JsonResultRows() {}
+    private JsonIterators() {}
 
-    private static class RowWiseIterator
+    private static class JsonIterator
             extends AbstractIterator<List<Object>>
+            implements CloseableIterator<List<Object>>
     {
         private final Closer closer = Closer.create();
         private boolean closed;
         private final JsonParser parser;
         private final TypeDecoder[] decoders;
 
-        public RowWiseIterator(JsonParser parser, TypeDecoder[] decoders)
+        public JsonIterator(JsonParser parser, TypeDecoder[] decoders)
                 throws IOException
         {
             requireNonNull(decoders, "decoders is null");
@@ -77,7 +78,7 @@ public final class JsonResultRows
             }
         }
 
-        public RowWiseIterator(InputStream stream, TypeDecoder[] decoders)
+        public JsonIterator(InputStream stream, TypeDecoder[] decoders)
                 throws IOException
         {
             this(JSON_FACTORY.createParser(requireNonNull(stream, "stream is null")), decoders);
@@ -128,7 +129,8 @@ public final class JsonResultRows
             }
         }
 
-        private void close()
+        @Override
+        public void close()
                 throws IOException
         {
             this.closed = true;
@@ -136,28 +138,16 @@ public final class JsonResultRows
         }
     }
 
-    public static ResultRows forJsonParser(JsonParser parser, List<Column> columns)
+    public static CloseableIterator<List<Object>> forJsonParser(JsonParser parser, List<Column> columns)
+            throws IOException
     {
-        return () -> {
-            try {
-                return new RowWiseIterator(parser, createTypeDecoders(columns));
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        };
+        return new JsonIterator(parser, createTypeDecoders(columns));
     }
 
-    public static ResultRows forInputStream(InputStream stream, TypeDecoder[] decoders)
+    public static CloseableIterator<List<Object>> forInputStream(InputStream stream, TypeDecoder[] decoders)
+            throws IOException
     {
-        return () -> {
-            try {
-                return new RowWiseIterator(stream, decoders);
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        };
+        return new JsonIterator(stream, decoders);
     }
 
     @SuppressModernizer // There is no JsonFactory in the client module

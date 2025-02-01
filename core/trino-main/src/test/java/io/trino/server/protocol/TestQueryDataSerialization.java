@@ -16,15 +16,16 @@ package io.trino.server.protocol;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
-import io.trino.client.JsonCodec;
 import io.trino.client.QueryData;
 import io.trino.client.QueryResults;
 import io.trino.client.ResultRowsDecoder;
 import io.trino.client.StatementStats;
+import io.trino.client.TrinoJsonCodec;
 import io.trino.client.TypedQueryData;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
@@ -38,7 +39,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static io.trino.client.ClientStandardTypes.BIGINT;
-import static io.trino.client.JsonCodec.jsonCodec;
+import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.ROW_OFFSET;
 import static io.trino.client.spooling.DataAttribute.SCHEMA;
@@ -54,8 +55,8 @@ import static org.assertj.core.api.Fail.fail;
 public class TestQueryDataSerialization
 {
     private static final List<Column> COLUMNS_LIST = ImmutableList.of(new Column("_col0", "bigint", new ClientTypeSignature("bigint")));
-    private static final JsonCodec<QueryResults> CLIENT_CODEC = jsonCodec(QueryResults.class);
-    private static final io.airlift.json.JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
+    private static final TrinoJsonCodec<QueryResults> CLIENT_CODEC = jsonCodec(QueryResults.class);
+    private static final JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
             .withModules(Set.of(new QueryDataJacksonModule())))
             .jsonCodec(QueryResults.class);
 

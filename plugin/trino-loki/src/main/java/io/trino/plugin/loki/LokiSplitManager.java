@@ -42,7 +42,7 @@ public class LokiSplitManager
     {
         final LokiTableHandle table = (LokiTableHandle) connectorTableHandle;
 
-        List<ConnectorSplit> splits = ImmutableList.of(new LokiSplit(table.query(), table.start(), table.end()));
+        List<ConnectorSplit> splits = ImmutableList.of(new LokiSplit(table.query(), table.start(), table.end(), table.step()));
 
         log.debug("created %d splits", splits.size());
         return new FixedSplitSource(splits);

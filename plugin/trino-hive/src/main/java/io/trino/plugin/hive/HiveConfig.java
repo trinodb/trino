@@ -1255,11 +1255,13 @@ public class HiveConfig
         return this;
     }
 
+    @Deprecated
     public S3StorageClassFilter getS3StorageClassFilter()
     {
         return s3StorageClassFilter;
     }
 
+    @Deprecated
     @Config("hive.s3.storage-class-filter")
     @ConfigDescription("Filter based on storage class of S3 object")
     public HiveConfig setS3StorageClassFilter(S3StorageClassFilter s3StorageClassFilter)

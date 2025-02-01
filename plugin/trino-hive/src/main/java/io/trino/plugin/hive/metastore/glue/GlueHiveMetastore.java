@@ -122,6 +122,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.fromGlueStatistics;
+import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueColumnStatistics;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueDatabaseInput;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueFunctionInput;
@@ -448,7 +449,7 @@ public class GlueHiveMetastore
             return glueTables.stream()
                     .map(table -> new TableInfo(
                             new SchemaTableName(databaseName, table.name()),
-                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(table.tableType(), table.parameters().get(TABLE_COMMENT))))
+                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(GlueConverter.getTableType(table), table.parameters().get(TABLE_COMMENT))))
                     .toList();
         }
         catch (EntityNotFoundException _) {
@@ -716,7 +717,7 @@ public class GlueHiveMetastore
                 .partitionKeys(table.partitionKeys())
                 .viewOriginalText(table.viewOriginalText())
                 .viewExpandedText(table.viewExpandedText())
-                .tableType(table.tableType())
+                .tableType(getTableTypeNullable(table))
                 .targetTable(table.targetTable())
                 .parameters(table.parameters());
     }

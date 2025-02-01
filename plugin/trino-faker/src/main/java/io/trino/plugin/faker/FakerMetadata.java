@@ -49,7 +49,10 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
+import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
@@ -395,9 +398,9 @@ public class FakerMetadata
         return new FakerOutputTableHandle(tableName);
     }
 
-    private static boolean isNotRangeType(Type type)
+    private static boolean isRangeType(Type type)
     {
-        return type instanceof CharType || type instanceof VarcharType || type instanceof VarbinaryType;
+        return !(type instanceof CharType || type instanceof VarcharType || type instanceof VarbinaryType);
     }
 
     private static boolean isSequenceType(Type type)
@@ -513,7 +516,7 @@ public class FakerMetadata
 
     private static ColumnInfo createColumnInfoFromStats(ColumnInfo column, Object min, Object max, long distinctValues, Optional<Long> nonNullValues, long rowCount, boolean isSequenceDetectionEnabled, List<Object> allowedValues)
     {
-        if (isNotRangeType(column.type())) {
+        if (!isRangeType(column.type())) {
             return column;
         }
         FakerColumnHandle handle = column.handle();
@@ -560,6 +563,7 @@ public class FakerMetadata
                 .filter(entry -> entry.getValue() <= MAX_DICTIONARY_SIZE)
                 .map(entry -> columnHandles.get(entry.getKey()))
                 .filter(Objects::nonNull)
+                .filter(column -> isRangeType(column.type()))
                 .map(column -> !minimums.containsKey(column.name()) ? column : column.withDomain(Domain.create(ValueSet.ofRanges(Range.range(
                         column.type(),
                         minimums.get(column.name()),
@@ -567,6 +571,9 @@ public class FakerMetadata
                         maximums.get(column.name()),
                         true)), false)))
                 .collect(toImmutableList());
+        if (dictionaryColumns.isEmpty()) {
+            return ImmutableMap.of();
+        }
         ImmutableMap.Builder<String, List<Object>> columnValues = ImmutableMap.builder();
         try (FakerPageSource pageSource = new FakerPageSource(faker, random, dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
             Page page = null;
@@ -758,5 +765,42 @@ public class FakerMetadata
     public FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session, FunctionId functionId, BoundSignature boundSignature)
     {
         return FunctionDependencyDeclaration.NO_DEPENDENCIES;
+    }
+
+    @Override
+    public synchronized TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        FakerTableHandle fakerTableHandle = (FakerTableHandle) tableHandle;
+        TableInfo info = tables.get(fakerTableHandle.schemaTableName());
+
+        TableStatistics.Builder tableStatisitics = TableStatistics.builder();
+        tableStatisitics.setRowCount(Estimate.of(fakerTableHandle.limit()));
+
+        info.columns().forEach(columnInfo -> {
+            Object min = PropertyValues.propertyValue(columnInfo.metadata(), MIN_PROPERTY);
+            Object max = PropertyValues.propertyValue(columnInfo.metadata(), MAX_PROPERTY);
+            Object step = PropertyValues.propertyValue(columnInfo.metadata(), STEP_PROPERTY);
+            Collection<?> allowedValues = (Collection<?>) columnInfo.metadata().getProperties().get(ALLOWED_VALUES_PROPERTY); // skip parsing as we don't need the values
+
+            checkState(allowedValues == null || (min == null && max == null), "The `%s` property cannot be set together with `%s` and `%s` properties".formatted(ALLOWED_VALUES_PROPERTY, MIN_PROPERTY, MAX_PROPERTY));
+
+            ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
+            if (allowedValues != null) {
+                columnStatistics.setDistinctValuesCount(Estimate.of(allowedValues.size()));
+            }
+            else {
+                Type type = columnInfo.metadata().getType();
+                if (min != null && max != null && type.getJavaType() == long.class) {
+                    long distinctValuesCount = (long) max - (long) min;
+                    if (step != null) {
+                        distinctValuesCount = distinctValuesCount / (long) step;
+                    }
+                    columnStatistics.setDistinctValuesCount(Estimate.of(distinctValuesCount));
+                }
+            }
+            columnStatistics.setNullsFraction(Estimate.of(columnInfo.handle().nullProbability()));
+            tableStatisitics.setColumnStatistics(columnInfo.handle(), columnStatistics.build());
+        });
+        return tableStatisitics.build();
     }
 }

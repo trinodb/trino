@@ -22,7 +22,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public record LokiTableHandle(String query, Instant start, Instant end, List<ColumnHandle> columnHandles)
+public record LokiTableHandle(String query, Instant start, Instant end, int step, List<ColumnHandle> columnHandles)
         implements ConnectorTableHandle
 {
     public LokiTableHandle

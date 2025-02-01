@@ -41,6 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
@@ -74,6 +75,11 @@ public class QueryRangeTableFunction
                         ScalarArgumentSpecification.builder()
                                 .name("END")
                                 .type(TIMESTAMP_TZ_NANOS)
+                                .build(),
+                        ScalarArgumentSpecification.builder()
+                                .name("STEP")
+                                .type(INTEGER)
+                                .defaultValue(0L)
                                 .build()),
                 GENERIC_TABLE);
 
@@ -88,6 +94,11 @@ public class QueryRangeTableFunction
 
         LongTimestampWithTimeZone startArgument = (LongTimestampWithTimeZone) ((ScalarArgument) arguments.get("START")).getValue();
         LongTimestampWithTimeZone endArgument = (LongTimestampWithTimeZone) ((ScalarArgument) arguments.get("END")).getValue();
+
+        Long step = (Long) ((ScalarArgument) arguments.get("STEP")).getValue();
+        if (step == null || step < 0L) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "step must be positive");
+        }
 
         if (Strings.isNullOrEmpty(query)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, query);
@@ -118,6 +129,7 @@ public class QueryRangeTableFunction
                 query,
                 start,
                 end,
+                step.intValue(),
                 columnHandles);
 
         return TableFunctionAnalysis.builder()

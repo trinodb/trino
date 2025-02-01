@@ -15,15 +15,16 @@ package io.trino.server.protocol;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
-import io.trino.client.JsonCodec;
 import io.trino.client.QueryData;
 import io.trino.client.QueryResults;
 import io.trino.client.ResultRowsDecoder;
 import io.trino.client.StatementStats;
+import io.trino.client.TrinoJsonCodec;
 import io.trino.client.TypedQueryData;
 import io.trino.server.protocol.spooling.QueryDataJacksonModule;
 import org.junit.jupiter.api.Test;
@@ -35,7 +36,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static io.trino.client.ClientStandardTypes.BIGINT;
-import static io.trino.client.JsonCodec.jsonCodec;
+import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -45,11 +46,11 @@ public class TestQueryResultsSerialization
     private static final List<Column> COLUMNS = ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature("bigint")));
 
     // As close as possible to the server mapper (client mapper differs)
-    private static final io.airlift.json.JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
+    private static final JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
             .withModules(Set.of(new QueryDataJacksonModule())))
             .jsonCodec(QueryResults.class);
 
-    private static final JsonCodec<QueryResults> CLIENT_CODEC = jsonCodec(QueryResults.class);
+    private static final TrinoJsonCodec<QueryResults> CLIENT_CODEC = jsonCodec(QueryResults.class);
 
     @Test
     public void testNullDataSerialization()

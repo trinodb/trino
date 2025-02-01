@@ -13,17 +13,15 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import com.google.common.collect.ImmutableMap;
+import io.airlift.http.server.testing.TestingHttpServer;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.catalog.Namespace;
-import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
 import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.rest.HTTPClient;
-import org.apache.iceberg.rest.RESTSessionCatalog;
+import org.apache.iceberg.jdbc.JdbcCatalog;
+import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.view.ViewBuilder;
 import org.assertj.core.util.Files;
@@ -41,59 +39,48 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
-import static io.trino.plugin.iceberg.catalog.rest.TestingPolarisCatalog.WAREHOUSE;
+import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.nio.file.Files.createDirectories;
 import static java.util.Locale.ENGLISH;
-import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
-import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
-import static org.apache.iceberg.rest.auth.OAuth2Properties.SCOPE;
 import static org.apache.iceberg.types.Types.NestedField.required;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
-final class TestIcebergPolarisCatalogCaseInsensitiveMapping
+final class TestIcebergRestCatalogCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
-    private static final SessionContext SESSION_CONTEXT = new SessionContext("dummy", null, null, ImmutableMap.of(), null);
     private static final String SCHEMA = "LeVeL1_" + randomNameSuffix();
     private static final String LOWERCASE_SCHEMA = SCHEMA.toLowerCase(ENGLISH);
     private static final Namespace NAMESPACE = Namespace.of(SCHEMA);
 
-    private RESTSessionCatalog icebergCatalog;
+    private JdbcCatalog backend;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         File warehouseLocation = Files.newTemporaryFolder();
-        TestingPolarisCatalog polarisCatalog = closeAfterClass(new TestingPolarisCatalog(warehouseLocation.getPath()));
+        closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
 
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put(CatalogProperties.URI, polarisCatalog.restUri() + "/api/catalog")
-                .put(WAREHOUSE_LOCATION, WAREHOUSE)
-                .put(CREDENTIAL, polarisCatalog.oauth2Credentials())
-                .put(SCOPE, "PRINCIPAL_ROLE:ALL")
-                .put("view-endpoints-supported", "true")
-                .buildOrThrow();
+        backend = closeAfterClass((JdbcCatalog) backendCatalog(warehouseLocation));
 
-        RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog(
-                config -> HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(), null);
-        icebergCatalogInstance.initialize("test_catalog", properties);
+        DelegatingRestSessionCatalog delegatingCatalog = DelegatingRestSessionCatalog.builder()
+                .delegate(backend)
+                .build();
 
-        icebergCatalog = icebergCatalogInstance;
-        closeAfterClass(icebergCatalog);
+        TestingHttpServer testServer = delegatingCatalog.testServer();
+        testServer.start();
+        closeAfterClass(testServer::stop);
 
         return IcebergQueryRunner.builder(LOWERCASE_SCHEMA)
                 .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
                 .addIcebergProperty("iceberg.catalog.type", "rest")
-                .addIcebergProperty("iceberg.rest-catalog.uri", polarisCatalog.restUri() + "/api/catalog")
-                .addIcebergProperty("iceberg.rest-catalog.warehouse", WAREHOUSE)
-                .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
-                .addIcebergProperty("iceberg.rest-catalog.oauth2.credential", polarisCatalog.oauth2Credentials())
-                .addIcebergProperty("iceberg.rest-catalog.oauth2.scope", "PRINCIPAL_ROLE:ALL")
+                .addIcebergProperty("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
                 .addIcebergProperty("iceberg.rest-catalog.case-insensitive-name-matching", "true")
                 .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
                 .build();
@@ -102,7 +89,7 @@ final class TestIcebergPolarisCatalogCaseInsensitiveMapping
     @BeforeAll
     void setup()
     {
-        icebergCatalog.createNamespace(SESSION_CONTEXT, NAMESPACE);
+        backend.createNamespace(NAMESPACE);
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet())
                 .containsExactlyInAnyOrder(
                         "information_schema",
@@ -125,7 +112,7 @@ final class TestIcebergPolarisCatalogCaseInsensitiveMapping
     @Test
     void testCaseInsensitiveMatchingForTable()
     {
-        Map<String, String> namespaceMetadata = icebergCatalog.loadNamespaceMetadata(SESSION_CONTEXT, NAMESPACE);
+        Map<String, String> namespaceMetadata = backend.loadNamespaceMetadata(NAMESPACE);
         String namespaceLocation = namespaceMetadata.get(LOCATION_PROPERTY);
         createDir(namespaceLocation);
 
@@ -143,8 +130,8 @@ final class TestIcebergPolarisCatalogCaseInsensitiveMapping
         createDir(table2Location);
         createDir(table2Location + "/data");
         createDir(table2Location + "/metadata");
-        icebergCatalog
-                .buildTable(SESSION_CONTEXT, TableIdentifier.of(NAMESPACE, tableName2), new Schema(required(1, "x", Types.LongType.get())))
+        backend
+                .buildTable(TableIdentifier.of(NAMESPACE, tableName2), new Schema(required(1, "x", Types.LongType.get())))
                 .withLocation(table2Location)
                 .createTransaction()
                 .commitTransaction();
@@ -152,7 +139,7 @@ final class TestIcebergPolarisCatalogCaseInsensitiveMapping
         assertQuery("SELECT * FROM " + tableName2, "VALUES (78)");
 
         // Test register/unregister table. Re-register for further testing.
-        assertThat(icebergCatalog.dropTable(SESSION_CONTEXT, TableIdentifier.of(NAMESPACE, lowercaseTableName1))).isTrue();
+        assertThat(backend.dropTable(TableIdentifier.of(NAMESPACE, lowercaseTableName1), false)).isTrue();
         assertQueryFails("SELECT * FROM " + tableName1, ".*'iceberg.%s.%s' does not exist".formatted(LOWERCASE_SCHEMA, lowercaseTableName1));
         assertUpdate("CALL system.register_table (CURRENT_SCHEMA, '" + tableName1 + "', '" + table1Location + "')");
         assertQuery("SELECT * FROM " + tableName1, "VALUES (42, -38.5)");
@@ -196,7 +183,7 @@ final class TestIcebergPolarisCatalogCaseInsensitiveMapping
     @Test
     void testCaseInsensitiveMatchingForView()
     {
-        Map<String, String> namespaceMetadata = icebergCatalog.loadNamespaceMetadata(SESSION_CONTEXT, NAMESPACE);
+        Map<String, String> namespaceMetadata = backend.loadNamespaceMetadata(NAMESPACE);
         String namespaceLocation = namespaceMetadata.get(LOCATION_PROPERTY);
         createDir(namespaceLocation);
 
@@ -213,7 +200,7 @@ final class TestIcebergPolarisCatalogCaseInsensitiveMapping
         createDir(view2Location);
         createDir(view2Location + "/data");
         createDir(view2Location + "/metadata");
-        ViewBuilder viewBuilder = icebergCatalog.buildView(SESSION_CONTEXT, TableIdentifier.of(NAMESPACE, viewName2));
+        ViewBuilder viewBuilder = backend.buildView(TableIdentifier.of(NAMESPACE, viewName2));
         viewBuilder
                 .withQuery("trino", "SELECT BIGINT '34' y")
                 .withSchema(new Schema(required(1, "y", Types.LongType.get())))

@@ -27,8 +27,6 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Storage;
-import io.trino.plugin.base.util.Closables;
-import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
@@ -77,22 +75,17 @@ import org.junit.jupiter.api.TestInstance;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -111,8 +104,8 @@ import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Map.entry;
-import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
+import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
@@ -144,15 +137,6 @@ public class TestIcebergV2
         queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
                 .put("hive.security", "allow-all")
                 .buildOrThrow());
-
-        try {
-            queryRunner.installPlugin(new BlackHolePlugin());
-            queryRunner.createCatalog("blackhole", "blackhole");
-        }
-        catch (RuntimeException e) {
-            Closables.closeAllSuppress(e, queryRunner);
-            throw e;
-        }
 
         return queryRunner;
     }
@@ -279,7 +263,7 @@ public class TestIcebergV2
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation", 25);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {2L})), ImmutableMap.of("regionkey", 2L));
         // the equality delete file is applied to 2 data files
-        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = " + FileContent.EQUALITY_DELETES.id(), "VALUES 2");
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
     }
 
     @Test
@@ -672,93 +656,27 @@ public class TestIcebergV2
     }
 
     @Test
-    public void testOptimizeDuringWriteOperations()
+    public void testOptimizingWholeTableRemovesDeleteFiles()
             throws Exception
     {
-        runOptimizeDuringWriteOperations(true);
-        runOptimizeDuringWriteOperations(false);
-    }
+        try (TestTable testTable = newTrinoTable("test_optimize_removes_obsolete_delete_files_", "AS SELECT * FROM tpch.tiny.nation")) {
+            assertUpdate("DELETE FROM " + testTable.getName() + " WHERE regionkey % 2 = 0", 15);
+            Table icebergTable = loadTable(testTable.getName());
+            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
 
-    private void runOptimizeDuringWriteOperations(boolean useSmallFiles)
-            throws Exception
-    {
-        int threads = 5;
-        int deletionThreads = threads - 1;
-        int rows = 12;
-        int rowsPerThread = rows / deletionThreads;
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1 AND regionkey % 2 = 1");
 
-        CyclicBarrier barrier = new CyclicBarrier(threads);
-        ExecutorService executor = newFixedThreadPool(threads);
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 1");
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 1");
 
-        // Slow down the delete operations so optimize is more likely to complete
-        String blackholeTable = "blackhole_table_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE blackhole.default.%s (a INT, b INT) WITH (split_count = 1, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '3s')".formatted(blackholeTable));
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE");
 
-        try (TestTable table = newTrinoTable(
-                "test_optimize_during_write_operations",
-                "(int_col INT)")) {
-            String tableName = table.getName();
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 0");
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 0");
 
-            // Testing both situations where a file is fully removed by the delete operation and when a row level delete is required.
-            if (useSmallFiles) {
-                for (int i = 0; i < rows; i++) {
-                    assertUpdate(format("INSERT INTO %s VALUES %s", tableName, i), 1);
-                }
-            }
-            else {
-                String values = IntStream.range(0, rows).mapToObj(String::valueOf).collect(Collectors.joining(", "));
-                assertUpdate(format("INSERT INTO %s VALUES %s", tableName, values), rows);
-            }
-
-            List<Future<List<Boolean>>> deletionFutures = IntStream.range(0, deletionThreads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
-                        barrier.await(10, SECONDS);
-                        List<Boolean> successfulDeletes = new ArrayList<>();
-                        for (int i = 0; i < rowsPerThread; i++) {
-                            try {
-                                int rowNumber = threadNumber * rowsPerThread + i;
-                                getQueryRunner().execute(format("DELETE FROM %s WHERE int_col = %s OR ((SELECT count(*) FROM blackhole.default.%s) > 42)", tableName, rowNumber, blackholeTable));
-                                successfulDeletes.add(true);
-                            }
-                            catch (RuntimeException e) {
-                                successfulDeletes.add(false);
-                            }
-                        }
-                        return successfulDeletes;
-                    }))
-                    .collect(toImmutableList());
-
-            Future<?> optimizeFuture = executor.submit(() -> {
-                try {
-                    barrier.await(10, SECONDS);
-                    // Allow for some deletes to start before running optimize
-                    Thread.sleep(50);
-                    assertUpdate("ALTER TABLE %s EXECUTE optimize".formatted(tableName));
-                }
-                catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-
-            List<String> expectedValues = new ArrayList<>();
-            for (int threadNumber = 0; threadNumber < deletionThreads; threadNumber++) {
-                List<Boolean> deleteOutcomes = deletionFutures.get(threadNumber).get();
-                verify(deleteOutcomes.size() == rowsPerThread);
-                for (int rowNumber = 0; rowNumber < rowsPerThread; rowNumber++) {
-                    boolean successfulDelete = deleteOutcomes.get(rowNumber);
-                    if (!successfulDelete) {
-                        expectedValues.add(String.valueOf(threadNumber * rowsPerThread + rowNumber));
-                    }
-                }
-            }
-
-            optimizeFuture.get();
-            assertThat(expectedValues.size()).isGreaterThan(0).isLessThan(rows);
-            assertQuery("SELECT * FROM " + tableName, "VALUES " + String.join(", ", expectedValues));
-        }
-        finally {
-            executor.shutdownNow();
-            executor.awaitTermination(10, SECONDS);
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1 AND regionkey % 2 = 1");
         }
     }
 
@@ -1298,7 +1216,7 @@ public class TestIcebergV2
         assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
 
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"state.name\"', '\"district.name\"']");
-        Table icebergTable = updateTableToV2(tableName);
+        Table icebergTable = loadTable(tableName);
         assertThat(icebergTable.spec().fields().stream().map(PartitionField::name).toList())
                 .containsExactlyInAnyOrder("state.name", "district.name");
 
@@ -1356,7 +1274,7 @@ public class TestIcebergV2
         assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
 
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"country.state.district.name\"', '\"country.state.name\"']");
-        Table icebergTable = updateTableToV2(tableName);
+        Table icebergTable = loadTable(tableName);
         assertThat(icebergTable.spec().fields().stream().map(PartitionField::name).toList())
                 .containsExactlyInAnyOrder("country.state.district.name", "country.state.name");
 
@@ -1647,6 +1565,7 @@ public class TestIcebergV2
         BaseTable table = loadTable(tableName);
         TableOperations operations = table.operations();
         TableMetadata currentMetadata = operations.current();
+        checkArgument(currentMetadata.formatVersion() != 2, "Format version is already 2: '%s'", tableName);
         operations.commit(currentMetadata, currentMetadata.upgradeToFormatVersion(2));
 
         return table;

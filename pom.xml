@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>470-SNAPSHOT</version>
+    <version>471-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -149,7 +149,7 @@
     <properties>
         <project.build.targetJdk>23</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2025-01-27T23:28:18Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2025-02-06T01:52:24Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
@@ -182,7 +182,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>300</dep.airlift.version>
+        <dep.airlift.version>302</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
@@ -191,7 +191,7 @@
         <dep.confluent.version>7.7.1</dep.confluent.version>
         <dep.docker.images.version>108</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
-        <dep.flyway.version>11.3.0</dep.flyway.version>
+        <dep.flyway.version>11.3.1</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.13.1</dep.frontend-node.version>
         <dep.frontend-npm.version>11.1.0</dep.frontend-npm.version>
@@ -200,7 +200,7 @@
         <dep.httpcore5.version>5.3.3</dep.httpcore5.version>
         <dep.iceberg.version>1.7.1</dep.iceberg.version>
         <dep.jna.version>5.16.0</dep.jna.version>
-        <dep.joda.version>2.13.0</dep.joda.version>
+        <dep.joda.version>2.13.1</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>3.9.0</dep.kafka-clients.version>
@@ -237,7 +237,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.53.0</version>
+                <version>26.54.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -309,7 +309,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.30.10</version>
+                <version>2.30.15</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -486,7 +486,7 @@
             <dependency>
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
-                <version>2.12.0</version>
+                <version>2.12.1</version>
             </dependency>
 
             <dependency>
@@ -564,7 +564,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.21.2</version>
+                <version>11.22</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
@@ -816,7 +816,7 @@
             <dependency>
                 <groupId>io.minio</groupId>
                 <artifactId>minio</artifactId>
-                <version>8.5.15</version>
+                <version>8.5.17</version>
             </dependency>
 
             <dependency>
@@ -903,7 +903,7 @@
             <dependency>
                 <groupId>io.projectreactor.netty</groupId>
                 <artifactId>reactor-netty-core</artifactId>
-                <version>1.1.21</version>
+                <version>1.1.26</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -1896,7 +1896,7 @@
             <dependency>
                 <groupId>org.apache.httpcomponents.client5</groupId>
                 <artifactId>httpclient5</artifactId>
-                <version>5.4.1</version>
+                <version>5.4.2</version>
             </dependency>
 
             <dependency>
@@ -1921,6 +1921,12 @@
                         <artifactId>slf4j-api</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.iceberg</groupId>
+                <artifactId>iceberg-aws</artifactId>
+                <version>${dep.iceberg.version}</version>
             </dependency>
 
             <dependency>
@@ -2166,7 +2172,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.48.4</version>
+                <version>3.49.0</version>
             </dependency>
 
             <dependency>

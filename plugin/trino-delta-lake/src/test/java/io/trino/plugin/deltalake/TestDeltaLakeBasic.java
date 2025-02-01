@@ -125,6 +125,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("no_column_stats", "databricks73/no_column_stats"),
             new ResourceTable("liquid_clustering", "deltalake/liquid_clustering"),
             new ResourceTable("region_91_lts", "databricks91/region"),
+            new ResourceTable("region_104_lts", "databricks104/region"),
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"),
             new ResourceTable("uniform_hudi", "deltalake/uniform_hudi"),
@@ -133,6 +134,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("unsupported_writer_feature", "deltalake/unsupported_writer_feature"),
             new ResourceTable("unsupported_writer_version", "deltalake/unsupported_writer_version"),
             new ResourceTable("variant", "databricks153/variant"),
+            new ResourceTable("variant_types", "databricks153/variant_types"),
             new ResourceTable("type_widening", "databricks153/type_widening"),
             new ResourceTable("type_widening_partition", "databricks153/type_widening_partition"),
             new ResourceTable("type_widening_nested", "databricks153/type_widening_nested"));
@@ -213,6 +215,14 @@ public class TestDeltaLakeBasic
     void testDatabricks91()
     {
         assertThat(query("SELECT * FROM region_91_lts"))
+                .skippingTypesCheck() // name and comment columns are unbounded varchar in Delta Lake and bounded varchar in TPCH
+                .matches("SELECT * FROM tpch.tiny.region");
+    }
+
+    @Test
+    void testDatabricks104()
+    {
+        assertThat(query("SELECT * FROM region_104_lts"))
                 .skippingTypesCheck() // name and comment columns are unbounded varchar in Delta Lake and bounded varchar in TPCH
                 .matches("SELECT * FROM tpch.tiny.region");
     }
@@ -1504,14 +1514,65 @@ public class TestDeltaLakeBasic
     @Test
     public void testVariant()
     {
-        // TODO (https://github.com/trinodb/trino/issues/22309) Add support for variant type
         assertThat(query("DESCRIBE variant")).result().projected("Column", "Type")
                 .skippingTypesCheck()
-                .matches("VALUES ('col_int', 'integer'), ('col_string', 'varchar')");
+                .matches("VALUES " +
+                        "('col_int', 'integer')," +
+                        "('simple_variant', 'json')," +
+                        "('array_variant', 'array(json)')," +
+                        "('map_variant', 'map(varchar, json)')," +
+                        "('struct_variant', 'row(x json)')," +
+                        "('col_string', 'varchar')");
 
-        assertQuery("SELECT * FROM variant", "VALUES (1, 'test data')");
+        assertThat(query("SELECT col_int, simple_variant, array_variant[1], map_variant['key1'], struct_variant.x, col_string FROM variant"))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "(1, JSON '{\"col\":1}', JSON '{\"array\":2}', JSON '{\"map\":3}', JSON '{\"struct\":4}', 'test data')," +
+                        "(2, JSON '{\"col\":null}', JSON '{\"array\":null}', JSON '{\"map\":null}', JSON '{\"struct\":null}', 'test null data')," +
+                        "(3, NULL, NULL, NULL, NULL, 'test null')," +
+                        "(4, JSON '1', JSON '2', JSON '3', JSON '4', 'test without fields')");
 
-        assertQueryFails("INSERT INTO variant VALUES (2, 'new data')", "Unsupported writer features: .*");
+        assertQueryFails("INSERT INTO variant VALUES (2, null, null, null, null, 'new data')", "Unsupported writer features: .*");
+    }
+
+    /**
+     * @see databricks153.variant_types
+     */
+    @Test
+    public void testVariantTypes()
+    {
+        assertThat(query("""
+                SELECT
+                 col_boolean,
+                 col_long,
+                 col_float,
+                 col_double,
+                 col_decimal,
+                 col_string,
+                 col_binary,
+                 col_date,
+                 col_timestamp,
+                 col_timestampntz,
+                 col_array,
+                 col_map,
+                 col_struct
+                FROM variant_types"""))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                        ('true',
+                        '1',
+                        '0.2',
+                        '0.3',
+                        '0.4',
+                        '"test data"',
+                        '"ZWg/"',
+                        '"2021-02-03"',
+                        '"2001-08-21 19:02:03.321-06:00"',
+                        '"2021-01-02 12:34:56.123456"',
+                        '[1]',
+                        '{"key1":1,"key2":2}',
+                        '{"x":1}')""");
     }
 
     @Test

@@ -63,9 +63,11 @@ export const WorkerStatus = () => {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        getWorkerStatus()
-        const intervalId = setInterval(getWorkerStatus, 1000)
-        return () => clearInterval(intervalId)
+        const runLoop = () => {
+            getWorkerStatus()
+            setTimeout(runLoop, 1000)
+        }
+        runLoop()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 

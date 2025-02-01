@@ -139,6 +139,7 @@ import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.SessionProperty;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
@@ -643,6 +644,17 @@ public final class SqlFormatter
         @Override
         protected Void visitQuery(Query node, Integer indent)
         {
+            if (!node.getSessionProperties().isEmpty()) {
+                builder.append("WITH SESSION\n");
+                Iterator<SessionProperty> sessionProperties = node.getSessionProperties().iterator();
+                while (sessionProperties.hasNext()) {
+                    process(sessionProperties.next(), indent + 1);
+                    if (sessionProperties.hasNext()) {
+                        builder.append(',');
+                    }
+                    builder.append('\n');
+                }
+            }
             if (!node.getFunctions().isEmpty()) {
                 builder.append("WITH\n");
                 Iterator<FunctionSpecification> functions = node.getFunctions().iterator();
@@ -2312,6 +2324,15 @@ public final class SqlFormatter
                 append(indent, "AS ");
                 builder.append("$$\n").append(definition).append("$$");
             });
+            return null;
+        }
+
+        @Override
+        protected Void visitSessionProperty(SessionProperty node, Integer indent)
+        {
+            append(indent, formatName(node.getName()))
+                .append(" = ")
+                    .append(formatExpression(node.getValue()));
             return null;
         }
 

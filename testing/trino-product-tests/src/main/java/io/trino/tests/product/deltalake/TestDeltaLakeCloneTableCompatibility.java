@@ -28,7 +28,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_104;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -241,7 +240,7 @@ public class TestDeltaLakeCloneTableCompatibility
         testReadSchemaChangedCloneTable("SHALLOW", false);
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testReadFromSchemaChangedDeepCloneTable()
     {
@@ -378,6 +377,67 @@ public class TestDeltaLakeCloneTableCompatibility
             dropTable(cloneType, clonedTableV3);
             dropTable(cloneType, clonedTableV4);
         }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testReadShallowCloneTableWithSourceDeletionVector()
+    {
+        testReadShallowCloneTableWithSourceDeletionVector(true);
+        testReadShallowCloneTableWithSourceDeletionVector(false);
+    }
+
+    private void testReadShallowCloneTableWithSourceDeletionVector(boolean partitioned)
+    {
+        String baseTable = "test_dv_base_table_" + randomNameSuffix();
+        String clonedTable = "test_dv_clone_table_" + randomNameSuffix();
+        String directoryName = "clone-deletion-vector-compatibility-test-";
+        try {
+            onDelta().executeQuery("CREATE TABLE default." + baseTable +
+                    " (a_int INT, b_string STRING) USING delta " +
+                    (partitioned ? "PARTITIONED BY (b_string) " : "") +
+                    "LOCATION 's3://" + bucketName + "/" + directoryName + baseTable + "'" +
+                    "TBLPROPERTIES ('delta.enableDeletionVectors'='true')");
+
+            onDelta().executeQuery("INSERT INTO " + baseTable + " VALUES (1, 'aaa'), (2, 'aaa'), (3, 'bbb'), (4, 'bbb')");
+            // enforce the rows into one file, so that later is partial delete of the data file instead of remove all rows.
+            // This allows the cloned table to reference the same deletion vector but different offset
+            // and help us to test the read process of 'p' type deletion vector better.
+            onDelta().executeQuery("OPTIMIZE " + baseTable);
+            onDelta().executeQuery("DELETE FROM default." + baseTable + " WHERE a_int IN (2, 3)");
+
+            onDelta().executeQuery("CREATE TABLE default." + clonedTable +
+                    " SHALLOW CLONE default." + baseTable +
+                    " LOCATION 's3://" + bucketName + "/" + directoryName + clonedTable + "'");
+
+            List<Row> expectedRows = ImmutableList.of(row(1, "aaa"), row(4, "bbb"));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable)).containsOnly(expectedRows);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + clonedTable)).containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + baseTable)).containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTable)).containsOnly(expectedRows);
+
+            assertThat(getDeletionVectorType(baseTable)).isNotEqualTo("p");
+            assertThat(getDeletionVectorType(clonedTable)).isEqualTo("p");
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + baseTable);
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + clonedTable);
+        }
+    }
+
+    private static String getDeletionVectorType(String tableName)
+    {
+        return (String) onTrino().executeQuery(
+                """
+                SELECT json_extract_scalar(elem, '$.add.deletionVector.storageType') AS storage_type
+                FROM (
+                    SELECT CAST(transaction AS JSON) AS json_arr
+                    FROM default."%s$transactions"
+                    ORDER BY version
+                ) t, UNNEST(CAST(t.json_arr AS ARRAY(JSON))) AS u(elem)
+                WHERE json_extract_scalar(elem, '$.add.deletionVector.storageType') IS NOT NULL
+                LIMIT 1
+                """.formatted(tableName))
+                .getOnlyValue();
     }
 
     private List<String> getActiveDataFiles(String tableName)

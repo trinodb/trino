@@ -131,14 +131,14 @@ public class FakerConnector
                         SchemaInfo.SEQUENCE_DETECTION_ENABLED,
                         """
                         If true, when creating a table using existing data, columns with the number of distinct values close to
-                        the number of rows will be treated as sequences""",
+                        the number of rows are treated as sequences""",
                         null,
                         false),
                 booleanProperty(
                         SchemaInfo.DICTIONARY_DETECTION_ENABLED,
                         """
                         If true, when creating a table using existing data, columns with a low number of distinct values
-                        will have the allowed_values column property populated with random values""",
+                        are treated as dictionaries, and get the allowed_values column property populated with random values""",
                         null,
                         false));
     }
@@ -163,14 +163,14 @@ public class FakerConnector
                         TableInfo.SEQUENCE_DETECTION_ENABLED,
                         """
                         If true, when creating a table using existing data, columns with the number of distinct values close to
-                        the number of rows will be treated as sequences""",
+                        the number of rows are treated as sequences""",
                         null,
                         false),
                 booleanProperty(
                         TableInfo.DICTIONARY_DETECTION_ENABLED,
                         """
                         If true, when creating a table using existing data, columns with a low number of distinct values
-                        will have the allowed_values column property populated with random values""",
+                        are treated as dictionaries, and get the allowed_values column property populated with random values""",
                         null,
                         false));
     }

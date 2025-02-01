@@ -21,6 +21,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.ThreadCount;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import jakarta.validation.constraints.AssertFalse;
 import jakarta.validation.constraints.DecimalMax;
@@ -488,9 +489,9 @@ public class IcebergConfig
 
     @Config("iceberg.split-manager-threads")
     @ConfigDescription("Number of threads to use for generating splits")
-    public IcebergConfig setSplitManagerThreads(int splitManagerThreads)
+    public IcebergConfig setSplitManagerThreads(String splitManagerThreads)
     {
-        this.splitManagerThreads = splitManagerThreads;
+        this.splitManagerThreads = ThreadCount.valueOf(splitManagerThreads).getThreadCount();
         return this;
     }
 

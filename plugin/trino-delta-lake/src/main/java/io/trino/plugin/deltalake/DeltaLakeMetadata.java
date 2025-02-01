@@ -3282,7 +3282,7 @@ public class DeltaLakeMetadata
         checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
     }
 
-    private static String toUriFormat(String path)
+    public static String toUriFormat(String path)
     {
         verify(!path.startsWith("/") && !path.contains(":/"), "unexpected path: %s", path);
         try {

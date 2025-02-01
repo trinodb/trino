@@ -507,6 +507,10 @@ the property may be configured for:
   - Block [data size](prop-type-data-size) for HDFS storage.
   - `4MB`
   - HDFS
+* - `exchange.hdfs.skip-directory-scheme-validation`
+  - Skip directory scheme validation to support Hadoop-compatible file system.
+  - false
+  - HDFS
 * - `hdfs.config.resources`
   - Comma-separated list of paths to HDFS configuration files, for example
     `/etc/hdfs-site.xml`. The files must exist on all nodes in the Trino
@@ -603,6 +607,15 @@ exchange-manager.name=hdfs
 exchange.base-directories=hadoop-master:9000/exchange-spooling-directory
 hdfs.config.resources=/usr/lib/hadoop/etc/hadoop/core-site.xml
 ```
+
+When you want use Hadoop-compatible file system as the spooling storage location, 
+you should enable `exchange.hdfs.skip-directory-scheme-validation` in `exchange-manager.properties` 
+when configure `exchange.base-directories` with a specific scheme instead of `hdfs` and the following steps 
+may be necessary.
+
+1. Configure the `AbstractFileSystem` implementation in `core-site.xml`.
+2. Add the relevant client JAR files into the directory `${Trino_HOME}/plugin/exchange-hdfs` 
+on all Trino cluster nodes.
 
 (fte-exchange-local-filesystem)=
 #### Local filesystem storage

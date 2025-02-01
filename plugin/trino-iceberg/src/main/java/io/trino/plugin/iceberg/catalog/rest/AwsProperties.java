@@ -11,15 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Box, Typography } from '@mui/material'
+package io.trino.plugin.iceberg.catalog.rest;
 
-export const QueryHistory = () => {
-    return (
-        <>
-            <Box sx={{ pb: 2 }}>
-                <Typography variant="h4">Query History</Typography>
-            </Box>
-            <Typography paragraph>Placeholder for Query History</Typography>
-        </>
-    )
+import java.util.Map;
+
+@FunctionalInterface
+public interface AwsProperties
+{
+    Map<String, String> get();
 }

@@ -758,6 +758,17 @@ EXECUTE <alter-table-execute>`.
 ```{include} optimize.fragment
 ```
 
+(iceberg-optimize-manifests)=
+##### optimize_manifests
+
+Optimize table manifests to speed up planning.
+
+`optimize_manifests` can be run as follows:
+
+```sql
+ALTER TABLE test_table EXECUTE optimize_manifests;
+```
+
 (iceberg-expire-snapshots)=
 ##### expire_snapshots
 
@@ -1917,6 +1928,7 @@ ORDER BY _change_ordinal ASC;
 The connector includes a number of performance improvements, detailed in the
 following sections.
 
+(iceberg-table-statistics)=
 ### Table statistics
 
 The Iceberg connector can collect column statistics using {doc}`/sql/analyze`
