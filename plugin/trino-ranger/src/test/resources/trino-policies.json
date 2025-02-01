@@ -300,6 +300,23 @@
       "policyItems": [
         { "accesses": [ { "type": "select" }, { "type": "insert" }, { "type": "create" }, { "type": "drop" }, { "type": "alter" }, { "type": "show" }, { "type": "grant" }, { "type": "revoke" } ], "users": [ "{USER}" ] }
       ]
+    },
+    {
+      "id":             30,
+      "service":        "dev_trino",
+      "serviceType":    "trino",
+      "name":           "allow access at column-level",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources": {
+          "catalog": { "values": [ "user-catalog" ] },
+          "schema":  { "values": [ "sch1" ] },
+          "table":   { "values": [ "tbl1" ] },
+          "column":  { "values": [ "time" ] }
+      },
+      "policyItems": [
+          { "accesses": [ { "type": "select" } ], "users": [ "bob" ] }
+      ]
     }
   ]
 }

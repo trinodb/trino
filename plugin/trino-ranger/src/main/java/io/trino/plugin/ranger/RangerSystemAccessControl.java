@@ -46,11 +46,13 @@ import java.io.File;
 import java.net.URL;
 import java.security.Principal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -522,10 +524,19 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
+        List<RangerTrinoResource> errorResources = new ArrayList<>();
         for (RangerTrinoResource resource : RangerTrinoResource.forColumns(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), table.getSchemaTableName().getTableName(), columns)) {
             if (!hasPermission(resource, context, SELECT, "SelectFromColumns")) {
-                denySelectColumns(table.getSchemaTableName().getTableName(), columns);
+                errorResources.add(resource);
             }
+        }
+        if (!errorResources.isEmpty()) {
+            List<String> errorColumns = errorResources.stream()
+                    .map(resource -> resource.getAsMap().get(RangerTrinoResource.KEY_COLUMN))
+                    .filter(Objects::nonNull)
+                    .map(Object::toString)
+                    .toList();
+            denySelectColumns(table.getSchemaTableName().getTableName(), errorColumns);
         }
     }
 
