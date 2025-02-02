@@ -263,7 +263,6 @@ import static io.trino.sql.parser.TreeNodes.qualifiedName;
 import static io.trino.sql.parser.TreeNodes.rowType;
 import static io.trino.sql.parser.TreeNodes.simpleType;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
-import static io.trino.sql.tree.ArithmeticUnaryExpression.negative;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.positive;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP;
@@ -689,54 +688,10 @@ public class TestSqlParser
         assertThat(expression("+ 9"))
                 .isEqualTo(positive(location(1, 1), new LongLiteral(location(1, 3), "9")));
 
-        assertThat(expression("++9"))
-                .isEqualTo(positive(location(1, 1), positive(location(1, 2), new LongLiteral(location(1, 3), "9"))));
-        assertThat(expression("+ +9"))
-                .isEqualTo(positive(location(1, 1), positive(location(1, 3), new LongLiteral(location(1, 4), "9"))));
-        assertThat(expression("+ + 9"))
-                .isEqualTo(positive(location(1, 1), positive(location(1, 3), new LongLiteral(location(1, 5), "9"))));
-
-        assertThat(expression("+++9"))
-                .isEqualTo(positive(location(1, 1), positive(location(1, 2), positive(location(1, 3), new LongLiteral(location(1, 4), "9")))));
-        assertThat(expression("+ + +9"))
-                .isEqualTo(positive(location(1, 1), positive(location(1, 3), positive(location(1, 5), new LongLiteral(location(1, 6), "9")))));
-        assertThat(expression("+ + + 9"))
-                .isEqualTo(positive(location(1, 1), positive(location(1, 3), positive(location(1, 5), new LongLiteral(location(1, 7), "9")))));
-
         assertThat(expression("-9"))
                 .isEqualTo(new LongLiteral(location(1, 1), "-9"));
         assertThat(expression("- 9"))
                 .isEqualTo(new LongLiteral(location(1, 1), "-9"));
-
-        assertThat(expression("- + 9"))
-                .isEqualTo(negative(location(1, 1), positive(location(1, 3), new LongLiteral(location(1, 5), "9"))));
-        assertThat(expression("-+9"))
-                .isEqualTo(negative(location(1, 1), positive(location(1, 2), new LongLiteral(location(1, 3), "9"))));
-
-        assertThat(expression("+ - + 9"))
-                .isEqualTo(positive(location(1, 1), negative(location(1, 3), positive(location(1, 5), new LongLiteral(location(1, 7), "9")))));
-        assertThat(expression("+-+9"))
-                .isEqualTo(positive(location(1, 1), negative(location(1, 2), positive(location(1, 3), new LongLiteral(location(1, 4), "9")))));
-
-        assertThat(expression("- -9"))
-                .isEqualTo(negative(location(1, 1), new LongLiteral(location(1, 3), "-9")));
-        assertThat(expression("- - 9"))
-                .isEqualTo(negative(location(1, 1), new LongLiteral(location(1, 3), "-9")));
-
-        assertThat(expression("- + - + 9"))
-                .isEqualTo(negative(location(1, 1), positive(location(1, 3), negative(location(1, 5), positive(location(1, 7), new LongLiteral(location(1, 9), "9"))))));
-        assertThat(expression("-+-+9"))
-                .isEqualTo(negative(location(1, 1), positive(location(1, 2), negative(location(1, 3), positive(location(1, 4), new LongLiteral(location(1, 5), "9"))))));
-
-        assertThat(expression("+ - + - + 9"))
-                .isEqualTo(positive(location(1, 1), negative(location(1, 3), positive(location(1, 5), negative(location(1, 7), positive(location(1, 9), new LongLiteral(location(1, 11), "9")))))));
-        assertThat(expression("+-+-+9"))
-                .isEqualTo(positive(location(1, 1), negative(location(1, 2), positive(location(1, 3), negative(location(1, 4), positive(location(1, 5), new LongLiteral(location(1, 6), "9")))))));
-
-        assertThat(expression("- - -9"))
-                .isEqualTo(negative(location(1, 1), negative(location(1, 3), new LongLiteral(location(1, 5), "-9"))));
-        assertThat(expression("- - - 9"))
-                .isEqualTo(negative(location(1, 1), negative(location(1, 3), new LongLiteral(location(1, 5), "-9"))));
     }
 
     @Test

@@ -2291,7 +2291,7 @@ class AstBuilder
     @Override
     public Node visitArithmeticUnary(SqlBaseParser.ArithmeticUnaryContext context)
     {
-        Expression child = (Expression) visit(context.valueExpression());
+        Expression child = (Expression) visit(context.primaryExpression());
 
         return switch (context.operator.getType()) {
             case SqlBaseLexer.MINUS -> ArithmeticUnaryExpression.negative(getLocation(context), child);

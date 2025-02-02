@@ -24,6 +24,7 @@ import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -83,6 +84,10 @@ public class TestIntegerOperators
 
         assertThat(assertions.expression("+INTEGER '17'"))
                 .isEqualTo(17);
+
+        assertTrinoExceptionThrownBy(assertions.expression("++INTEGER '17'")::evaluate)
+                .hasErrorCode(SYNTAX_ERROR)
+                .hasMessageContaining("mismatched input '+'. Expecting: <expression>");
     }
 
     @Test
@@ -96,6 +101,10 @@ public class TestIntegerOperators
 
         assertTrinoExceptionThrownBy(assertions.expression("INTEGER '-" + Integer.MIN_VALUE + "'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
+
+        assertTrinoExceptionThrownBy(assertions.expression("-++-INTEGER '17'")::evaluate)
+                .hasErrorCode(SYNTAX_ERROR)
+                .hasMessageContaining("mismatched input '+'. Expecting: <expression>, <integer>, DECIMAL_VALUE, DOUBLE_VALUE");
     }
 
     @Test
