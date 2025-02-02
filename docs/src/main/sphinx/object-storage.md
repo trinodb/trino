@@ -79,7 +79,6 @@ with the Hive connector and relevant dedicated pages:
 
 - [](/connector/hive)
 - [](/object-storage/legacy-azure)
-- [](/object-storage/legacy-gcs)
 - [](/object-storage/legacy-s3)
 
 (object-storage-other)=
@@ -102,7 +101,6 @@ storage:
 /object-storage/file-system-s3
 /object-storage/file-system-hdfs
 /object-storage/legacy-azure
-/object-storage/legacy-gcs
 /object-storage/legacy-s3
 /object-storage/file-system-cache
 /object-storage/file-system-alluxio
