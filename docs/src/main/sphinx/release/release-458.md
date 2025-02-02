@@ -20,8 +20,8 @@
   support](file-system-configuration) with
   `fs.native-azure.enabled`,`fs.native-gcs.enabled`, `fs.native-s3.enabled`, or
   `fs.hadoop.enabled` in each catalog. Use the migration guides for [Azure
-  Storage](fs-legacy-azure-migration), [Google Cloud
-  Storage](fs-legacy-gcs-migration), and [S3](fs-legacy-s3-migration) to assist
+  Storage](fs-legacy-azure-migration), Google Cloud
+  Storage, and [S3](fs-legacy-s3-migration) to assist
   if you have not switched from legacy support. ({issue}`23343`)
 * Add JMX monitoring to the [](/object-storage/file-system-s3). ({issue}`23177`)
 * Reduce the number of file system operations when reading from Delta Lake
@@ -39,8 +39,8 @@
   support](file-system-configuration) with
   `fs.native-azure.enabled`,`fs.native-gcs.enabled`, `fs.native-s3.enabled`, or
   `fs.hadoop.enabled` in each catalog. Use the migration guides for [Azure
-  Storage](fs-legacy-azure-migration), [Google Cloud
-  Storage](fs-legacy-gcs-migration), and [S3](fs-legacy-s3-migration) to assist
+  Storage](fs-legacy-azure-migration), Google Cloud
+  Storage, and [S3](fs-legacy-s3-migration) to assist
   if you have not switched from legacy support. ({issue}`23343`)
 * Add JMX monitoring to the native S3 file system support. ({issue}`23177`)
 * Reduce the number of file system operations when reading tables with file system
@@ -57,8 +57,8 @@
   support](file-system-configuration) with
   `fs.native-azure.enabled`,`fs.native-gcs.enabled`, `fs.native-s3.enabled`, or
   `fs.hadoop.enabled` in each catalog. Use the migration guides for [Azure
-  Storage](fs-legacy-azure-migration), [Google Cloud
-  Storage](fs-legacy-gcs-migration), and [S3](fs-legacy-s3-migration) to assist
+  Storage](fs-legacy-azure-migration), Google Cloud
+  Storage, and [S3](fs-legacy-s3-migration) to assist
   if you have not switched from legacy support. ({issue}`23343`)
 * Add JMX monitoring to the native S3 file system support. ({issue}`23177`)
 * Fix rare, long planning times when Hive metastore caching is enabled. ({issue}`23401`)
@@ -70,8 +70,8 @@
   support](file-system-configuration) with
   `fs.native-azure.enabled`,`fs.native-gcs.enabled`, `fs.native-s3.enabled`, or
   `fs.hadoop.enabled` in each catalog. Use the migration guides for [Azure
-  Storage](fs-legacy-azure-migration), [Google Cloud
-  Storage](fs-legacy-gcs-migration), and [S3](fs-legacy-s3-migration) to assist
+  Storage](fs-legacy-azure-migration), Google Cloud
+  Storage, and [S3](fs-legacy-s3-migration) to assist
   if you have not switched from legacy support. ({issue}`23343`)
 * Add JMX monitoring to the native S3 file system support. ({issue}`23177`)
 * Fix rare, long planning times when Hive metastore caching is enabled. ({issue}`23401`)
