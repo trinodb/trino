@@ -76,7 +76,7 @@ public class TestAvroSchemaUrl
     public Object[][] avroSchemaLocations()
     {
         return new Object[][] {
-                {"file:///docker/trino-product-tests/avro/original_schema.avsc"}, // mounted in hadoop and presto containers
+                {"file:///docker/trino-product-tests/avro/original_schema.avsc"}, // mounted in hadoop and trino containers
                 {"hdfs://hadoop-master:9000/user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc"},
                 {"hdfs:///user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc"},
                 {"/user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc"}, // `avro.schema.url` can actually be path on HDFS (not URL)
@@ -149,16 +149,16 @@ public class TestAvroSchemaUrl
 
     @Test(dataProvider = "avroSchemaLocations", groups = STORAGE_FORMATS)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
-    public void testPrestoCreatedTable(String schemaLocation)
+    public void testTrinoCreatedTable(String schemaLocation)
     {
-        onTrino().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_presto");
-        onTrino().executeQuery(format("CREATE TABLE test_avro_schema_url_presto (dummy_col VARCHAR) WITH (format='AVRO', avro_schema_url='%s')", schemaLocation));
-        onTrino().executeQuery("INSERT INTO test_avro_schema_url_presto VALUES ('some text', 123042)");
+        onTrino().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_trino");
+        onTrino().executeQuery(format("CREATE TABLE test_avro_schema_url_trino (dummy_col VARCHAR) WITH (format='AVRO', avro_schema_url='%s')", schemaLocation));
+        onTrino().executeQuery("INSERT INTO test_avro_schema_url_trino VALUES ('some text', 123042)");
 
-        assertThat(onHive().executeQuery("SELECT * FROM test_avro_schema_url_presto")).containsExactlyInOrder(row("some text", 123042));
-        assertThat(onTrino().executeQuery("SELECT * FROM test_avro_schema_url_presto")).containsExactlyInOrder(row("some text", 123042));
+        assertThat(onHive().executeQuery("SELECT * FROM test_avro_schema_url_trino")).containsExactlyInOrder(row("some text", 123042));
+        assertThat(onTrino().executeQuery("SELECT * FROM test_avro_schema_url_trino")).containsExactlyInOrder(row("some text", 123042));
 
-        onTrino().executeQuery("DROP TABLE test_avro_schema_url_presto");
+        onTrino().executeQuery("DROP TABLE test_avro_schema_url_trino");
     }
 
     @Test(groups = STORAGE_FORMATS)

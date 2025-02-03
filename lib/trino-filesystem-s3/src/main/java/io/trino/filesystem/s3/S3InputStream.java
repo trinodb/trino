@@ -29,6 +29,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 
+import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -126,14 +127,10 @@ final class S3InputStream
             throws IOException
     {
         ensureOpen();
-        seekStream(false);
 
-        return reconnectStreamIfNecessary(() -> {
-            long skip = doSkip(n);
-            streamPosition += skip;
-            nextReadPosition += skip;
-            return skip;
-        });
+        long skipSize = clamp(n, 0, length != null ? length - nextReadPosition : Integer.MAX_VALUE);
+        nextReadPosition += skipSize;
+        return skipSize;
     }
 
     @Override

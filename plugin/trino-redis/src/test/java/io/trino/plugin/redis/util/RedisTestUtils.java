@@ -15,7 +15,6 @@ package io.trino.plugin.redis.util;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.redis.RedisTableDescription;
@@ -65,7 +64,7 @@ public final class RedisTestUtils
     {
         RedisTableDescription tpchTemplate;
         try (InputStream data = RedisTestUtils.class.getResourceAsStream(format("/tpch/%s/%s.json", dataFormat, schemaTableName.getTableName()))) {
-            tpchTemplate = tableDescriptionJsonCodec.fromJson(ByteStreams.toByteArray(data));
+            tpchTemplate = tableDescriptionJsonCodec.fromJson(data);
         }
 
         RedisTableDescription tableDescription = new RedisTableDescription(
@@ -91,7 +90,7 @@ public final class RedisTestUtils
     {
         JsonCodec<RedisTableDescription> tableDescriptionJsonCodec = new CodecSupplier<>(RedisTableDescription.class, queryRunner.getPlannerContext().getTypeManager()).get();
         try (InputStream data = RedisTestUtils.class.getResourceAsStream(format("/simple/%s_value_table.json", valueDataFormat))) {
-            return tableDescriptionJsonCodec.fromJson(ByteStreams.toByteArray(data));
+            return tableDescriptionJsonCodec.fromJson(data);
         }
     }
 }

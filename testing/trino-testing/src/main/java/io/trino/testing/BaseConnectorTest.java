@@ -105,6 +105,7 @@ import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_COMMENT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_POSITION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD_IN_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
@@ -355,8 +356,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_char_varchar",
                 "(k, v) AS VALUES" +
                         "   (-1, CAST(NULL AS char(3))), " +
@@ -389,8 +389,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_varchar_char",
                 "(k, v) AS VALUES" +
                         "   (-1, CAST(NULL AS varchar(3))), " +
@@ -589,8 +588,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "varchar_as_date_pred",
                 "(a varchar)",
                 List.of(
@@ -611,8 +609,7 @@ public abstract class BaseConnectorTest
             }
         }
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "varchar_as_date_pred",
                 "(a varchar)",
                 List.of("'2005-06-bad-date'", "'2005-09-10'"))) {
@@ -642,8 +639,7 @@ public abstract class BaseConnectorTest
                     failureAssert -> failureAssert
                             .hasMessage("Value cannot be cast to date: 2005-06-bad-date"));
         }
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "varchar_as_date_pred",
                 "(a varchar)",
                 List.of("'2005-09-10'"))) {
@@ -1300,8 +1296,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_base_table",
                 "AS TABLE region")) {
             Session defaultSession = getSession();
@@ -2277,7 +2272,7 @@ public abstract class BaseConnectorTest
         }
 
         String tableName;
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", tableDefinitionForAddColumn())) {
+        try (TestTable table = newTrinoTable("test_add_column_", tableDefinitionForAddColumn())) {
             tableName = table.getName();
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN x bigint", ".* Column 'x' already exists");
@@ -2337,7 +2332,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_col_desc_", "(a_varchar varchar)")) {
+        try (TestTable table = newTrinoTable("test_add_col_desc_", "(a_varchar varchar)")) {
             String tableName = table.getName();
 
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar COMMENT 'test new column comment'");
@@ -2353,7 +2348,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_to_empty", "(a_varchar varchar)")) {
+        try (TestTable table = newTrinoTable("test_add_nn_to_empty", "(a_varchar varchar)")) {
             String tableName = table.getName();
             String addNonNullColumn = "ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL";
 
@@ -2380,7 +2375,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT)); // covered by testAddNotNullColumnToEmptyTable
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_col", "(a_varchar varchar)")) {
+        try (TestTable table = newTrinoTable("test_add_nn_col", "(a_varchar varchar)")) {
             String tableName = table.getName();
 
             assertUpdate("INSERT INTO " + tableName + " VALUES ('a')", 1);
@@ -2419,12 +2414,46 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testAddColumnWithPosition()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN)); // covered by testAddColumn
+
+        if (!hasBehavior(SUPPORTS_ADD_COLUMN_WITH_POSITION)) {
+            try (TestTable table = newTrinoTable("test_add_column_", "AS SELECT 2 second, 4 fourth")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ADD COLUMN first integer FIRST",
+                        "This connector does not support adding columns with FIRST clause");
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ADD COLUMN third integer AFTER second",
+                        "This connector does not support adding columns with AFTER clause");
+            }
+            return;
+        }
+
+        try (TestTable table = newTrinoTable("test_add_column_", "AS SELECT 2 second, 4 fourth")) {
+            assertTableColumnNames(table.getName(), "second", "fourth");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (2, 4)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN first integer FIRST");
+            assertTableColumnNames(table.getName(), "first", "second", "fourth");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, 4)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN third integer AFTER second");
+            assertTableColumnNames(table.getName(), "first", "second", "third", "fourth");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, null, 4)");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (10, 20, 30, 40)", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (null, 2, null, 4), (10, 20, 30, 40)");
+        }
+    }
+
+    @Test
     public void testAddRowField()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
 
         if (!hasBehavior(SUPPORTS_ADD_FIELD)) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_field_", "AS SELECT CAST(row(1) AS row(x integer)) AS col")) {
+            try (TestTable table = newTrinoTable("test_add_field_", "AS SELECT CAST(row(1) AS row(x integer)) AS col")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " ADD COLUMN col.y integer",
                         "This connector does not support adding fields");
@@ -2432,7 +2461,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_add_field_",
                 "AS SELECT CAST(row(1, row(10)) AS row(a integer, b row(x integer))) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b row(x integer))");
@@ -2462,7 +2491,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
 
         if (!hasBehavior(SUPPORTS_ADD_FIELD_IN_ARRAY)) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_field_in_array_", "AS SELECT CAST(array[row(1)] AS array(row(x integer))) AS col")) {
+            try (TestTable table = newTrinoTable("test_add_field_in_array_", "AS SELECT CAST(array[row(1)] AS array(row(x integer))) AS col")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " ADD COLUMN col.element.y integer",
                         ".*does not support.*");
@@ -2470,7 +2499,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_add_field_in_array_",
                 "AS SELECT CAST(array[row(1, row(10), array[row(11)])] AS array(row(a integer, b row(x integer), c array(row(v integer))))) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b row(x integer), c array(row(v integer))))");
@@ -2506,7 +2535,7 @@ public abstract class BaseConnectorTest
         }
 
         // test row in array of arrays
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_add_field_in_array_nested_",
                 "AS SELECT CAST(array[array[row(1, row(10), array[row(11)])]] AS array(array(row(a integer, b row(x integer), c array(row(v integer)))))) AS col")) {
 
@@ -2537,7 +2566,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
 
         String tableName;
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_column_", "AS SELECT 123 x, 456 y, 111 a")) {
+        try (TestTable table = newTrinoTable("test_drop_column_", "AS SELECT 123 x, 456 y, 111 a")) {
             tableName = table.getName();
             assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN x");
             assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
@@ -2561,7 +2590,7 @@ public abstract class BaseConnectorTest
             if (!hasBehavior(SUPPORTS_DROP_COLUMN) || !hasBehavior(SUPPORTS_ROW_TYPE)) {
                 return;
             }
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_field_", "AS SELECT CAST(row(1, 2) AS row(x integer, y integer)) AS col")) {
+            try (TestTable table = newTrinoTable("test_drop_field_", "AS SELECT CAST(row(1, 2) AS row(x integer, y integer)) AS col")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " DROP COLUMN col.x",
                         "This connector does not support dropping fields");
@@ -2569,7 +2598,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_drop_field_",
                 "AS SELECT CAST(row(1, 2, row(10, 20)) AS row(a integer, b integer, c row(x integer, y integer))) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b integer, c row(x integer, y integer))");
@@ -2610,7 +2639,7 @@ public abstract class BaseConnectorTest
             if (!hasBehavior(SUPPORTS_DROP_COLUMN) || !hasBehavior(SUPPORTS_ROW_TYPE)) {
                 return;
             }
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_field_in_array_", "AS SELECT CAST(array[row(1, 2)] AS array(row(x integer, y integer))) AS col")) {
+            try (TestTable table = newTrinoTable("test_drop_field_in_array_", "AS SELECT CAST(array[row(1, 2)] AS array(row(x integer, y integer))) AS col")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " DROP COLUMN col.element.x",
                         ".*does not support.*");
@@ -2618,7 +2647,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_drop_field_in_array_",
                 "AS SELECT CAST(array[row(1, 2, row(10, 20), array[row(30, 40)])] AS array(row(a integer, b integer, c row(x integer, y integer), d array(row(v integer, w integer))))) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b integer, c row(x integer, y integer), d array(row(v integer, w integer))))");
@@ -2672,7 +2701,7 @@ public abstract class BaseConnectorTest
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer))");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_drop_field_in_array_nested_",
                 "AS SELECT CAST(array[array[row(1, 2, row(10, 20), array[row(30, 40)])]] AS array(array(row(a integer, b integer, c row(x integer, y integer), d array(row(v integer, w integer)))))) AS col")) {
 
@@ -2705,7 +2734,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_DROP_FIELD));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_drop_duplicated_field_",
                 "AS SELECT CAST(row(1, 2, 3) AS row(a integer, a integer, b integer)) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, a integer, b integer)");
@@ -2722,7 +2751,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_DROP_FIELD));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_drop_row_field_case_sensitivity_",
                 "AS SELECT CAST(row(1, 2) AS row(lower integer, \"UPPER\" integer)) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(lower integer, UPPER integer)");
@@ -2745,7 +2774,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_DROP_FIELD));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_drop_row_field_case_sensitivity_",
                 """
                 AS SELECT CAST(row(1, 2, 3, 4, 5) AS
@@ -2771,7 +2800,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_DROP_COLUMN) && hasBehavior(SUPPORTS_ADD_COLUMN));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "AS SELECT 1 x, 2 y, 3 z")) {
+        try (TestTable table = newTrinoTable("test_drop_add_column", "AS SELECT 1 x, 2 y, 3 z")) {
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
 
@@ -2791,7 +2820,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
 
         String tableName;
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_rename_column_", "AS SELECT 'some value' x")) {
+        try (TestTable table = newTrinoTable("test_rename_column_", "AS SELECT 'some value' x")) {
             tableName = table.getName();
             assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO before_y");
             assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS before_y TO y");
@@ -2823,7 +2852,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_RENAME_COLUMN) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_rename_column_", "(col INT COMMENT 'test column comment')")) {
+        try (TestTable table = newTrinoTable("test_rename_column_", "(col INT COMMENT 'test column comment')")) {
             assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test column comment");
 
             assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col TO renamed_col");
@@ -2837,7 +2866,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
 
         if (!hasBehavior(SUPPORTS_RENAME_FIELD)) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_rename_field_", "AS SELECT CAST(row(1) AS row(x integer)) AS col")) {
+            try (TestTable table = newTrinoTable("test_rename_field_", "AS SELECT CAST(row(1) AS row(x integer)) AS col")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " RENAME COLUMN col.x TO x_renamed",
                         "This connector does not support renaming fields");
@@ -2845,7 +2874,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_add_field_",
                 "AS SELECT CAST(row(1, row(10)) AS row(a integer, b row(x integer))) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b row(x integer))");
@@ -2874,7 +2903,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_RENAME_FIELD));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_add_row_field_case_sensitivity_",
                 "AS SELECT CAST(row(1, 2) AS row(lower integer, \"UPPER\" integer)) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(lower integer, UPPER integer)");
@@ -2903,7 +2932,7 @@ public abstract class BaseConnectorTest
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", "AS SELECT CAST(123 AS integer) AS col")) {
+        try (TestTable table = newTrinoTable("test_set_column_type_", "AS SELECT CAST(123 AS integer) AS col")) {
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
 
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("bigint");
@@ -2921,7 +2950,7 @@ public abstract class BaseConnectorTest
         for (SetColumnTypeSetup setup : setColumnTypesDataProvider()) {
             TestTable table;
             try {
-                table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", " AS SELECT CAST(" + setup.sourceValueLiteral + " AS " + setup.sourceColumnType + ") AS col");
+                table = newTrinoTable("test_set_column_type_", " AS SELECT CAST(" + setup.sourceValueLiteral + " AS " + setup.sourceColumnType + ") AS col");
             }
             catch (Exception e) {
                 verifyUnsupportedTypeException(e, setup.sourceColumnType);
@@ -3043,7 +3072,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_null_", "(col int NOT NULL)")) {
+        try (TestTable table = newTrinoTable("test_set_column_type_null_", "(col int NOT NULL)")) {
             assertThat(columnIsNullable(table.getName(), "col")).isFalse();
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
@@ -3056,7 +3085,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_comment_", "(col int COMMENT 'test comment')")) {
+        try (TestTable table = newTrinoTable("test_set_column_type_comment_", "(col int COMMENT 'test comment')")) {
             assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test comment");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
@@ -3082,7 +3111,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_invalid_column_type_", "AS SELECT 'test' AS col")) {
+        try (TestTable table = newTrinoTable("test_set_invalid_column_type_", "AS SELECT 'test' AS col")) {
             assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE integer"))
                     .satisfies(this::verifySetColumnTypeFailurePermissible);
         }
@@ -3093,7 +3122,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_invalid_range_", "AS SELECT CAST(9223372036854775807 AS bigint) AS col")) {
+        try (TestTable table = newTrinoTable("test_set_column_type_invalid_range_", "AS SELECT CAST(9223372036854775807 AS bigint) AS col")) {
             assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE integer"))
                     .satisfies(this::verifySetColumnTypeFailurePermissible);
         }
@@ -3110,7 +3139,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
 
         if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE)) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_", "(col row(field int))")) {
+            try (TestTable table = newTrinoTable("test_set_field_type_", "(col row(field int))")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE bigint",
                         "This connector does not support setting field types");
@@ -3118,7 +3147,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_", "AS SELECT CAST(row(123) AS row(field integer)) AS col")) {
+        try (TestTable table = newTrinoTable("test_set_field_type_", "AS SELECT CAST(row(123) AS row(field integer)) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(field integer)");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE bigint");
@@ -3138,8 +3167,7 @@ public abstract class BaseConnectorTest
         for (SetColumnTypeSetup setup : setFieldTypesDataProvider()) {
             TestTable table;
             try {
-                table = new TestTable(
-                        getQueryRunner()::execute,
+                table = newTrinoTable(
                         "test_set_field_type_",
                         " AS SELECT CAST(row(" + setup.sourceValueLiteral + ") AS row(field " + setup.sourceColumnType + ")) AS col");
             }
@@ -3182,7 +3210,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_case_", " AS SELECT CAST(row(1) AS row(\"UPPER\" integer)) col")) {
+        try (TestTable table = newTrinoTable("test_set_field_type_case_", " AS SELECT CAST(row(1) AS row(\"UPPER\" integer)) col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(UPPER integer)");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.upper SET DATA TYPE bigint");
@@ -3197,7 +3225,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_null_", "(col row(field int) NOT NULL)")) {
+        try (TestTable table = newTrinoTable("test_set_field_type_null_", "(col row(field int) NOT NULL)")) {
             assertThat(columnIsNullable(table.getName(), "col")).isFalse();
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE bigint");
@@ -3210,7 +3238,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_comment_", "(col row(field int) COMMENT 'test comment')")) {
+        try (TestTable table = newTrinoTable("test_set_field_type_comment_", "(col row(field int) COMMENT 'test comment')")) {
             assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test comment");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE bigint");
@@ -3223,8 +3251,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_set_invalid_field_type_",
                 "(row_col row(field varchar), nested_col row(field row(nested int)))")) {
             assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN row_col.field SET DATA TYPE row(nested integer)"))
@@ -3241,8 +3268,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_set_field_type_invalid_range_",
                 "AS SELECT CAST(row(9223372036854775807) AS row(field bigint)) AS col")) {
             assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE integer"))
@@ -3256,7 +3282,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ARRAY) && hasBehavior(SUPPORTS_ROW_TYPE));
 
         if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_ARRAY)) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_array_", "(col array(row(field int)))")) {
+            try (TestTable table = newTrinoTable("test_set_field_type_in_array_", "(col array(row(field int)))")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " ALTER COLUMN col.element.field SET DATA TYPE bigint",
                         ".*does not support.*");
@@ -3264,7 +3290,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_array_", "AS SELECT CAST(array[row(123)] AS array(row(field integer))) AS col")) {
+        try (TestTable table = newTrinoTable("test_set_field_type_in_array_", "AS SELECT CAST(array[row(123)] AS array(row(field integer))) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(field integer))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.element.field SET DATA TYPE bigint");
@@ -3281,7 +3307,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_ARRAY) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ARRAY) && hasBehavior(SUPPORTS_ROW_TYPE));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_nested_array_", "AS SELECT CAST(array[array[row(array[row(123)])]] AS array(array(row(field array(row(a integer)))))) AS col")) {
+        try (TestTable table = newTrinoTable("test_set_field_type_in_nested_array_", "AS SELECT CAST(array[array[row(array[row(123)])]] AS array(array(row(field array(row(a integer)))))) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(field array(row(a integer)))))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.element.element.field.element.a SET DATA TYPE bigint");
@@ -3304,13 +3330,13 @@ public abstract class BaseConnectorTest
 
         String tableDefinition = "AS SELECT CAST(map(array[row(1)], array[2]) AS map(row(field integer), integer)) AS col";
         if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP)) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_map", tableDefinition)) {
+            try (TestTable table = newTrinoTable("test_set_field_type_in_map", tableDefinition)) {
                 assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col.key.field SET DATA TYPE bigint", ".*does not support.*");
             }
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_map", tableDefinition)) {
+        try (TestTable table = newTrinoTable("test_set_field_type_in_map", tableDefinition)) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(row(field integer), integer)");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.key.field SET DATA TYPE bigint");
@@ -3328,13 +3354,13 @@ public abstract class BaseConnectorTest
 
         String tableDefinition = "AS SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(field integer))) AS col";
         if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP)) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_map", tableDefinition)) {
+            try (TestTable table = newTrinoTable("test_set_field_type_in_map", tableDefinition)) {
                 assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col.value.field SET DATA TYPE bigint", ".*does not support.*");
             }
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_in_map", tableDefinition)) {
+        try (TestTable table = newTrinoTable("test_set_field_type_in_map", tableDefinition)) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(integer, row(field integer))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.value.field SET DATA TYPE bigint");
@@ -3350,8 +3376,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_ARRAY) && hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ARRAY) && hasBehavior(SUPPORTS_MAP_TYPE) && hasBehavior(SUPPORTS_ROW_TYPE));
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_set_nested_field_type_in_map",
                 "AS SELECT CAST(array[map(array[row(1)], array[2])] AS array(map(row(field integer), integer))) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(row(field integer), integer))");
@@ -3369,8 +3394,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_ARRAY) && hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ARRAY) && hasBehavior(SUPPORTS_MAP_TYPE) && hasBehavior(SUPPORTS_ROW_TYPE));
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_set_nested_field_type_in_map",
                 "AS SELECT CAST(array[map(array[1], array[row(2)])] AS array(map(integer, row(field integer)))) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(integer, row(field integer)))");
@@ -3401,7 +3425,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
 
         if (!hasBehavior(SUPPORTS_DROP_NOT_NULL_CONSTRAINT)) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_not_null_", "(col integer NOT NULL)")) {
+            try (TestTable table = newTrinoTable("test_drop_not_null_", "(col integer NOT NULL)")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP NOT NULL",
                         "This connector does not support dropping a not null constraint");
@@ -3409,7 +3433,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_not_null_", "(col integer NOT NULL)")) {
+        try (TestTable table = newTrinoTable("test_drop_not_null_", "(col integer NOT NULL)")) {
             assertThat(columnIsNullable(table.getName(), "col")).isFalse();
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP NOT NULL");
@@ -3426,7 +3450,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_DROP_NOT_NULL_CONSTRAINT) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
 
         // Verify DROP NOT NULL preserves the existing column comment
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_not_null_", "(col integer NOT NULL COMMENT 'test comment')")) {
+        try (TestTable table = newTrinoTable("test_drop_not_null_", "(col integer NOT NULL COMMENT 'test comment')")) {
             assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test comment");
             assertThat(columnIsNullable(table.getName(), "col")).isFalse();
 
@@ -3453,7 +3477,7 @@ public abstract class BaseConnectorTest
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
                 .contains(tableName);
         assertTableColumnNames(tableName, "a", "b", "c");
-        assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName)).isNull();
+        assertThat(getTableComment(tableName)).isNull();
 
         assertUpdate("DROP TABLE " + tableName);
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
@@ -3503,11 +3527,15 @@ public abstract class BaseConnectorTest
                 .setIdentity(Identity.ofUser("ADMIN"))
                 .build();
         String schemaName = "test_schema_create_uppercase_owner_name_" + randomNameSuffix();
-        assertUpdate(newSession, createSchemaSql(schemaName));
-        assertThat(query(newSession, "SHOW SCHEMAS"))
-                .skippingTypesCheck()
-                .containsAll(format("VALUES '%s'", schemaName));
-        assertUpdate(newSession, "DROP SCHEMA " + schemaName);
+        try {
+            assertUpdate(newSession, createSchemaSql(schemaName));
+            assertThat(query(newSession, "SHOW SCHEMAS"))
+                    .skippingTypesCheck()
+                    .containsAll(format("VALUES '%s'", schemaName));
+        }
+        finally {
+            assertUpdate(newSession, "DROP SCHEMA IF EXISTS " + schemaName);
+        }
     }
 
     @Test
@@ -3557,7 +3585,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", "AS SELECT CAST(1 AS BIGINT) AS nationkey, 'test' AS name, CAST(2 AS BIGINT) AS regionkey FROM nation LIMIT 1")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", "AS SELECT CAST(1 AS BIGINT) AS nationkey, 'test' AS name, CAST(2 AS BIGINT) AS regionkey FROM nation LIMIT 1")) {
             @Language("SQL") String query = "SELECT nationkey, name, regionkey FROM nation";
             @Language("SQL") String rowCountQuery = "SELECT count(*) FROM nation";
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS " + query, rowCountQuery);
@@ -3574,7 +3602,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT nationkey, name, regionkey FROM nation")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " AS SELECT nationkey, name, regionkey FROM nation")) {
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT nationkey, name, regionkey FROM nation WITH NO DATA", 0L);
             assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
         }
@@ -3589,7 +3617,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT nationkey, name, regionkey FROM nation")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " AS SELECT nationkey, name, regionkey FROM nation")) {
             assertTableColumnNames(table.getName(), "nationkey", "name", "regionkey");
             @Language("SQL") String query = "SELECT nationkey AS nationkey_new, name AS name_new_2, regionkey AS region_key_new FROM nation";
             @Language("SQL") String rowCountQuery = "SELECT count(*) FROM nation";
@@ -3608,7 +3636,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT nationkey, name FROM nation")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " AS SELECT nationkey, name FROM nation")) {
             @Language("SQL") String query = "SELECT name AS nationkey, nationkey AS name FROM nation";
             @Language("SQL") String rowCountQuery = "SELECT count(*) FROM nation";
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS " + query, rowCountQuery);
@@ -3882,7 +3910,7 @@ public abstract class BaseConnectorTest
         }
 
         assertUpdate("CREATE TABLE " + tableName + " (a bigint) COMMENT 'test comment'");
-        assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName)).isEqualTo("test comment");
+        assertThat(getTableComment(tableName)).isEqualTo("test comment");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -3932,7 +3960,7 @@ public abstract class BaseConnectorTest
         }
         assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
         assertTableColumnNames(tableName, "name", "regionkey");
-        assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName)).isNull();
+        assertThat(getTableComment(tableName)).isNull();
         assertUpdate("DROP TABLE " + tableName);
 
         // Some connectors support CREATE TABLE AS but not the ordinary CREATE TABLE. Let's test CTAS IF NOT EXISTS with a table that is guaranteed to exist.
@@ -4009,7 +4037,7 @@ public abstract class BaseConnectorTest
         }
 
         assertUpdate("CREATE TABLE " + tableName + " COMMENT 'test comment' AS SELECT name FROM nation", 25);
-        assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName)).isEqualTo("test comment");
+        assertThat(getTableComment(tableName)).isEqualTo("test comment");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -4218,14 +4246,14 @@ public abstract class BaseConnectorTest
 
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_", "(a integer)")) {
+        try (TestTable table = newTrinoTable("test_comment_", "(a integer)")) {
             // comment initially not set
-            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo(null);
+            assertThat(getTableComment(table.getName())).isEqualTo(null);
 
             // comment set
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'new comment'");
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("COMMENT 'new comment'");
-            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo("new comment");
+            assertThat(getTableComment(table.getName())).isEqualTo("new comment");
             assertThat(query(
                     "SELECT table_name, comment FROM system.metadata.table_comments " +
                             "WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "'")) // without table_name filter
@@ -4234,28 +4262,22 @@ public abstract class BaseConnectorTest
 
             // comment deleted
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS NULL");
-            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo(null);
+            assertThat(getTableComment(table.getName())).isEqualTo(null);
         }
 
         String tableName = "test_comment_" + randomNameSuffix();
         try {
             // comment set when creating a table
             assertUpdate("CREATE TABLE " + tableName + "(key integer) COMMENT 'new table comment'");
-            assertThat(getTableComment(catalogName, schemaName, tableName)).isEqualTo("new table comment");
+            assertThat(getTableComment(tableName)).isEqualTo("new table comment");
 
             // comment set to empty or deleted
             assertUpdate("COMMENT ON TABLE " + tableName + " IS ''");
-            assertThat(getTableComment(catalogName, schemaName, tableName)).isIn("", null); // Some storages do not preserve empty comment
+            assertThat(getTableComment(tableName)).isIn("", null); // Some storages do not preserve empty comment
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
-    }
-
-    protected String getTableComment(String catalogName, String schemaName, String tableName)
-    {
-        String sql = format("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'", catalogName, schemaName, tableName);
-        return (String) computeScalar(sql);
     }
 
     @Test
@@ -4271,32 +4293,30 @@ public abstract class BaseConnectorTest
             abort("Skipping as connector does not support CREATE VIEW");
         }
 
-        String catalogName = getSession().getCatalog().orElseThrow();
-        String schemaName = getSession().getSchema().orElseThrow();
         try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM region")) {
             // comment set
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'new comment'");
             assertThat((String) computeScalar("SHOW CREATE VIEW " + view.getName())).contains("COMMENT 'new comment'");
-            assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo("new comment");
+            assertThat(getTableComment(view.getName())).isEqualTo("new comment");
 
             // comment deleted
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS NULL");
-            assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo(null);
+            assertThat(getTableComment(view.getName())).isEqualTo(null);
 
             // comment set to non-empty value before verifying setting empty comment
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'updated comment'");
-            assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo("updated comment");
+            assertThat(getTableComment(view.getName())).isEqualTo("updated comment");
 
             // comment set to empty
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS ''");
-            assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo("");
+            assertThat(getTableComment(view.getName())).isEqualTo("");
         }
 
         String viewName = "test_comment_view" + randomNameSuffix();
         try {
             // comment set when creating a table
             assertUpdate("CREATE VIEW " + viewName + " COMMENT 'new view comment' AS SELECT * FROM region");
-            assertThat(getTableComment(catalogName, schemaName, viewName)).isEqualTo("new view comment");
+            assertThat(getTableComment(viewName)).isEqualTo("new view comment");
         }
         finally {
             assertUpdate("DROP VIEW IF EXISTS " + viewName);
@@ -4311,7 +4331,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_", "(a integer)")) {
+        try (TestTable table = newTrinoTable("test_comment_column_", "(a integer)")) {
             // comment set
             assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'new comment'");
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("COMMENT 'new comment'");
@@ -4346,7 +4366,7 @@ public abstract class BaseConnectorTest
         String nameInSql = toColumnNameInSql(columnName, delimited);
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column", "(" + nameInSql + " integer)")) {
+        try (TestTable table = newTrinoTable("test_comment_column", "(" + nameInSql + " integer)")) {
             assertUpdate("COMMENT ON COLUMN " + table.getName() + "." + nameInSql + " IS 'test comment'");
             assertThat(getColumnComment(table.getName(), columnName.replace("'", "''").toLowerCase(ENGLISH))).isEqualTo("test comment");
         }
@@ -4416,7 +4436,7 @@ public abstract class BaseConnectorTest
 
         String query = "SELECT name, nationkey, regionkey FROM nation";
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", "AS " + query + " WITH NO DATA")) {
+        try (TestTable table = newTrinoTable("test_insert_", "AS " + query + " WITH NO DATA")) {
             assertQuery("SELECT count(*) FROM " + table.getName() + "", "SELECT 0");
 
             assertUpdate("INSERT INTO " + table.getName() + " " + query, 25);
@@ -4477,13 +4497,13 @@ public abstract class BaseConnectorTest
             throw new AssertionError("Cannot test INSERT without CREATE TABLE, the test needs to be implemented in a connector-specific way");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_", "(test varchar(50))")) {
+        try (TestTable table = newTrinoTable("test_insert_unicode_", "(test varchar(50))")) {
             assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5world\\7F16\\7801' ", 2);
             assertThat(computeActual("SELECT test FROM " + table.getName()).getOnlyColumnAsSet())
                     .containsExactlyInAnyOrder("Hello", "hello测试world编码");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_", "(test varchar(50))")) {
+        try (TestTable table = newTrinoTable("test_insert_unicode_", "(test varchar(50))")) {
             assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'aa', 'bé'", 2);
             assertQuery("SELECT test FROM " + table.getName(), "VALUES 'aa', 'bé'");
             assertQuery("SELECT test FROM " + table.getName() + " WHERE test = 'aa'", "VALUES 'aa'");
@@ -4492,7 +4512,7 @@ public abstract class BaseConnectorTest
             assertQueryReturnsEmptyResult("SELECT test FROM " + table.getName() + " WHERE test = 'ba'");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_", "(test varchar(50))")) {
+        try (TestTable table = newTrinoTable("test_insert_unicode_", "(test varchar(50))")) {
             assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'a', 'é'", 2);
             assertQuery("SELECT test FROM " + table.getName(), "VALUES 'a', 'é'");
             assertQuery("SELECT test FROM " + table.getName() + " WHERE test = 'a'", "VALUES 'a'");
@@ -4510,7 +4530,7 @@ public abstract class BaseConnectorTest
             throw new AssertionError("Cannot test INSERT without CREATE TABLE, the test needs to be implemented in a connector-specific way");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_", "(test varchar(50))")) {
+        try (TestTable table = newTrinoTable("test_insert_unicode_", "(test varchar(50))")) {
             assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
             assertThat(computeActual("SELECT test FROM " + table.getName()).getOnlyColumnAsSet())
                     .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
@@ -4533,7 +4553,7 @@ public abstract class BaseConnectorTest
             abort("not supported");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
+        try (TestTable table = newTrinoTable("test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a) VALUES (ARRAY[null])", 1);
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
             assertQuery("SELECT a[1], b[1] FROM " + table.getName(), "VALUES (null, null), (12.3, 12)");
@@ -4553,7 +4573,7 @@ public abstract class BaseConnectorTest
             abort("not supported");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_map_", "(col map(integer, integer))")) {
+        try (TestTable table = newTrinoTable("test_insert_map_", "(col map(integer, integer))")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES map(ARRAY[1], ARRAY[2])", 1);
             assertThat(query("SELECT * FROM " + table.getName()))
                 .matches("VALUES map(ARRAY[1], ARRAY[2])");
@@ -4566,8 +4586,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_INSERT));
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "insert_same_values",
                 "AS " + join(" UNION ALL ", nCopies(2, "SELECT * FROM region")))) {
             assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 10");
@@ -4585,13 +4604,13 @@ public abstract class BaseConnectorTest
             throw new AssertionError("Cannot test INSERT negative dates without CREATE TABLE, the test needs to be implemented in a connector-specific way");
         }
         if (!hasBehavior(SUPPORTS_NEGATIVE_DATE)) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date", "(dt DATE)")) {
+            try (TestTable table = newTrinoTable("insert_date", "(dt DATE)")) {
                 assertQueryFails(format("INSERT INTO %s VALUES (DATE '-0001-01-01')", table.getName()), errorMessageForInsertNegativeDate("-0001-01-01"));
             }
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date", "(dt DATE)")) {
+        try (TestTable table = newTrinoTable("insert_date", "(dt DATE)")) {
             assertUpdate(format("INSERT INTO %s VALUES (DATE '-0001-01-01')", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES DATE '-0001-01-01'");
             assertQuery(format("SELECT * FROM %s WHERE dt = DATE '-0001-01-01'", table.getName()), "VALUES DATE '-0001-01-01'");
@@ -4616,7 +4635,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+        try (TestTable table = newTrinoTable("insert_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
             assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             // The error message comes from remote databases when ConnectorMetadata.supportsMissingColumnsOnInsert is true
@@ -4628,7 +4647,7 @@ public abstract class BaseConnectorTest
             assertUpdate(format("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation WHERE regionkey < 0", table.getName()), 0);
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "commuted_not_null", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
+        try (TestTable table = newTrinoTable("commuted_not_null", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
             assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             // This is enforced by the engine and not the connector
@@ -4669,8 +4688,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_INSERT));
         skipTestUnless(hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES)); // covered by testWriteNotAllowedInTransaction
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_tx_insert",
                 "(a bigint)")) {
             String tableName = table.getName();
@@ -4688,8 +4706,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_insert_select_",
                 "AS SELECT nationkey, name, regionkey FROM nation WHERE nationkey = 1")) {
             String tableName = table.getName();
@@ -4733,7 +4750,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // delete successive parts of the table
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_", "AS SELECT * FROM orders")) {
+        try (TestTable table = newTrinoTable("test_delete_", "AS SELECT * FROM orders")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE custkey <= 100", "SELECT count(*) FROM orders WHERE custkey <= 100");
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE custkey > 100");
 
@@ -4745,12 +4762,12 @@ public abstract class BaseConnectorTest
         }
 
         // delete without matching any rows
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_", "AS SELECT * FROM orders")) {
+        try (TestTable table = newTrinoTable("test_delete_", "AS SELECT * FROM orders")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey < 0", 0);
         }
 
         // delete with a predicate that optimizes to false
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_", "AS SELECT * FROM orders")) {
+        try (TestTable table = newTrinoTable("test_delete_", "AS SELECT * FROM orders")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey > 5 AND orderkey < 4", 0);
         }
 
@@ -4776,7 +4793,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_with_like_", "AS SELECT * FROM nation")) {
+        try (TestTable table = createTestTableForWrites("test_with_like_", "AS SELECT * FROM nation", "nationkey")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%a%'", "VALUES 0");
             assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%A%'", "SELECT count(*) FROM nation WHERE name LIKE '%A%'");
         }
@@ -4843,12 +4860,12 @@ public abstract class BaseConnectorTest
 
     protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, String primaryKey)
     {
-        return new TestTable(getQueryRunner()::execute, namePrefix, tableDefinition);
+        return newTrinoTable(namePrefix, tableDefinition);
     }
 
     protected TestTable createTestTableForWrites(String namePrefix, String tableDefinition, List<String> rowsToInsert, String primaryKey)
     {
-        return new TestTable(getQueryRunner()::execute, namePrefix, tableDefinition, rowsToInsert);
+        return newTrinoTable(namePrefix, tableDefinition, rowsToInsert);
     }
 
     @Test
@@ -4904,7 +4921,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_with_varchar_predicate_", "AS SELECT * FROM orders")) {
+        try (TestTable table = newTrinoTable("test_delete_with_varchar_predicate_", "AS SELECT * FROM orders")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE orderstatus <> 'O'");
         }
@@ -4919,7 +4936,7 @@ public abstract class BaseConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "(regionkey int)")) {
+        try (TestTable table = newTrinoTable("test_supports_delete", "(regionkey int)")) {
             assertQueryFails("DELETE FROM " + table.getName(), MODIFYING_ROWS_MESSAGE);
         }
     }
@@ -4933,7 +4950,7 @@ public abstract class BaseConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_row_level_delete", "(regionkey int)")) {
+        try (TestTable table = newTrinoTable("test_supports_row_level_delete", "(regionkey int)")) {
             assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
         }
     }
@@ -4942,7 +4959,7 @@ public abstract class BaseConnectorTest
     public void testDeleteAllDataFromTable()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_all_data", "AS SELECT * FROM region")) {
+        try (TestTable table = newTrinoTable("test_delete_all_data", "AS SELECT * FROM region")) {
             // not using assertUpdate as some connectors provide update count and some not
             getQueryRunner().execute("DELETE FROM " + table.getName());
             assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
@@ -4954,7 +4971,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_delete", "AS SELECT * FROM region")) {
+        try (TestTable table = newTrinoTable("test_row_delete", "AS SELECT * FROM region")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
             assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 4");
         }
@@ -4969,7 +4986,7 @@ public abstract class BaseConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
+        try (TestTable table = newTrinoTable("test_supports_update", "AS SELECT * FROM nation")) {
             assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
         }
     }
@@ -4983,7 +5000,7 @@ public abstract class BaseConnectorTest
         }
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
+        try (TestTable table = newTrinoTable("test_supports_update", "AS SELECT * FROM nation")) {
             assertQueryFails("UPDATE " + table.getName() + " SET nationkey = nationkey * 100 WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
         }
     }
@@ -4996,7 +5013,7 @@ public abstract class BaseConnectorTest
             assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", MODIFYING_ROWS_MESSAGE);
             return;
         }
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_update", "AS SELECT * FROM nation")) {
+        try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM nation")) {
             assertUpdate("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", 5);
             assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE nationkey = 100", "VALUES 5");
         }
@@ -5007,9 +5024,43 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_update", "AS SELECT * FROM (VALUES (1, 10), (1, 20), (2, 10)) AS t(a, b)")) {
+        try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM (VALUES (1, 10), (1, 20), (2, 10)) AS t(a, b)")) {
             assertUpdate("UPDATE " + table.getName() + " SET b = 100 WHERE a = 1 AND b = 10", 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 100), (1, 20), (2, 10)");
+        }
+    }
+
+    @Test
+    public void testUpdateWithNullValues()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
+
+        try (TestTable table = newTrinoTable("test_update_nulls", "AS SELECT * FROM nation")) {
+            String tableName = table.getName();
+
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey IS NULL", "VALUES 0");
+            assertUpdate("UPDATE " + tableName + " SET nationkey = NULL WHERE regionkey = 2", 5);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey IS NULL", "VALUES 5");
+        }
+
+        if (!hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT)) {
+            return;
+        }
+
+        try (TestTable table = createTestTableForWrites("test_update_nulls", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL, pk INT)", "pk")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1, 1), (2, 2, 2)", 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1, 1), (2, 2, 2)");
+
+            assertUpdate("UPDATE " + tableName + " SET nullable_col = null WHERE not_null_col = 1", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (null, 1, 1), (2, 2, 2)");
+
+            if (hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
+                // Covered by testUpdateNotNullColumn
+                return;
+            }
+
+            assertQueryFails("UPDATE " + tableName + " SET not_null_col = TRY(1 / 0) WHERE not_null_col = 2", MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -5023,7 +5074,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = createTestTableForWrites("test_update", "AS TABLE tpch.tiny.nation", "name,regionkey")) {
+        try (TestTable table = createTestTableForWrites("test_update", "AS TABLE tpch.tiny.nation", "nationkey,regionkey")) {
             String tableName = table.getName();
             assertUpdate("UPDATE " + tableName + " SET nationkey = 100 + nationkey WHERE regionkey = 2", 5);
             assertThat(query("SELECT * FROM " + tableName))
@@ -5043,7 +5094,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_update", "AS SELECT * FROM nation")) {
+        try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM nation")) {
             assertUpdate("UPDATE " + table.getName() + " SET NATIONKEY = 100 WHERE REGIONKEY = 2", 5);
             assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE nationkey = 100", "VALUES 5");
         }
@@ -5336,7 +5387,7 @@ public abstract class BaseConnectorTest
 
     protected TestTable createTableWithOneIntegerColumn(String namePrefix)
     {
-        return new TestTable(getQueryRunner()::execute, namePrefix, "(col integer)");
+        return newTrinoTable(namePrefix, "(col integer)");
     }
 
     @Test
@@ -5375,7 +5426,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_with_predicates_on_row_types", "(int_t INT, row_t ROW(f1 INT, f2 INT))")) {
+        try (TestTable table = newTrinoTable("test_update_with_predicates_on_row_types", "(int_t INT, row_t ROW(f1 INT, f2 INT))")) {
             String tableName = table.getName();
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(2, 3)), (11, ROW(12, 13)), (21, ROW(22, 23))", 3);
             assertUpdate("UPDATE " + tableName + " SET int_t = int_t - 1 WHERE row_t.f2 = 3", 1);
@@ -5394,7 +5445,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT) && hasBehavior(SUPPORTS_ROW_TYPE));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_predicate_on_row_type_field", "(int_t INT, row_t row(varchar_t VARCHAR, int_t INT))")) {
+        try (TestTable table = newTrinoTable("test_predicate_on_row_type_field", "(int_t INT, row_t row(varchar_t VARCHAR, int_t INT))")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, row('first', 1)), (20, row('second', 10)), (200, row('third', 100))", 3);
             assertQuery("SELECT int_t FROM " + table.getName() + " WHERE row_t.int_t = 1", "VALUES 2");
             assertQuery("SELECT int_t FROM " + table.getName() + " WHERE row_t.int_t > 1", "VALUES 20, 200");
@@ -5449,7 +5500,7 @@ public abstract class BaseConnectorTest
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_truncate", "AS SELECT * FROM region")) {
+        try (TestTable table = newTrinoTable("test_truncate", "AS SELECT * FROM region")) {
             assertUpdate("TRUNCATE TABLE " + table.getName());
             assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
         }
@@ -5798,8 +5849,8 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_", "(a bigint) COMMENT " + varcharLiteral(comment))) {
-            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName())).isEqualTo(comment);
+        try (TestTable table = newTrinoTable("test_create_", "(a bigint) COMMENT " + varcharLiteral(comment))) {
+            assertThat(getTableComment(table.getName())).isEqualTo(comment);
         }
     }
 
@@ -5821,8 +5872,8 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_", " COMMENT " + varcharLiteral(comment) + " AS SELECT 1 a")) {
-            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName())).isEqualTo(comment);
+        try (TestTable table = newTrinoTable("test_create_", " COMMENT " + varcharLiteral(comment) + " AS SELECT 1 a")) {
+            assertThat(getTableComment(table.getName())).isEqualTo(comment);
         }
     }
 
@@ -5844,7 +5895,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_", " (a bigint COMMENT " + varcharLiteral(comment) + ")")) {
+        try (TestTable table = newTrinoTable("test_create_", " (a bigint COMMENT " + varcharLiteral(comment) + ")")) {
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo(comment);
         }
     }
@@ -5867,7 +5918,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN_WITH_COMMENT));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_col_", "(a_varchar varchar)")) {
+        try (TestTable table = newTrinoTable("test_add_col_", "(a_varchar varchar)")) {
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b_varchar varchar COMMENT " + varcharLiteral(comment));
             assertThat(getColumnComment(table.getName(), "b_varchar")).isEqualTo(comment);
         }
@@ -5891,9 +5942,9 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_TABLE));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_table_", "(a integer)")) {
+        try (TestTable table = newTrinoTable("test_comment_table_", "(a integer)")) {
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS " + varcharLiteral(comment));
-            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName())).isEqualTo(comment);
+            assertThat(getTableComment(table.getName())).isEqualTo(comment);
         }
     }
 
@@ -5915,7 +5966,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_COLUMN));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_", "(a integer)")) {
+        try (TestTable table = newTrinoTable("test_comment_column_", "(a integer)")) {
             assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS " + varcharLiteral(comment));
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo(comment);
         }
@@ -6081,8 +6132,7 @@ public abstract class BaseConnectorTest
 
         TestTable table;
         try {
-            table = new TestTable(
-                    getQueryRunner()::execute,
+            table = newTrinoTable(
                     "timestamptz_to_date",
                     // These to timestamps are same local time, but different point in times and also different date at UTC time zone
                     """
@@ -6112,8 +6162,7 @@ public abstract class BaseConnectorTest
 
         TestTable table;
         try {
-            table = new TestTable(
-                    getQueryRunner()::execute,
+            table = newTrinoTable(
                     "timestamptz_to_ts",
                     // These to timestamps are same local time, but different point in times
                     """
@@ -6801,6 +6850,18 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
+    @Test
+    protected void testUpdateWithSubquery()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE));
+
+        try (TestTable table = createTestTableForWrites("test_update_with_subquery", " AS SELECT * FROM orders", "orderkey")) {
+            assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE shippriority = 101 AND custkey = (SELECT min(custkey) FROM customer)", "VALUES 0");
+            assertUpdate("UPDATE " + table.getName() + " SET shippriority = 101 WHERE custkey = (SELECT min(custkey) FROM customer)", 9);
+            assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE shippriority = 101 AND custkey = (SELECT min(custkey) FROM customer)", "VALUES 9");
+        }
+    }
+
     private void verifyUnsupportedTypeException(Throwable exception, String trinoTypeName)
     {
         String typeNameBase = trinoTypeName.replaceFirst("\\(.*", "");
@@ -7026,8 +7087,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
 
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_projection_pushdown_",
                 "(id BIGINT, root ROW(f1 BIGINT, f2 BIGINT))",
                 ImmutableList.of("(1, ROW(1, 2))", "(2, NULl)", "(3, ROW(NULL, 4))"))) {
@@ -7059,8 +7119,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
 
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_projection_with_case_sensitive_field_",
                 "(id BIGINT, a ROW(\"UPPER_CASE\" BIGINT, \"lower_case\" BIGINT, \"MiXeD_cAsE\" BIGINT))",
                 ImmutableList.of("(1, ROW(2, 3, 4))", "(5, ROW(6, 7, 8))"))) {
@@ -7082,8 +7141,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
 
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_projection_pushdown_multiple_rows_",
                 "(id BIGINT, nested1 ROW(child1 BIGINT, child2 VARCHAR, child3 BIGINT), nested2 ROW(child1 DOUBLE, child2 BOOLEAN, child3 DATE))",
                 ImmutableList.of(
@@ -7131,8 +7189,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
 
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_highly_nested_data_",
                 "(id INT, row1_t ROW(f1 INT, f2 INT, row2_t ROW (f1 INT, f2 INT, row3_t ROW(f1 INT, f2 INT))))",
                 ImmutableList.of("(1, ROW(2, 3, ROW(4, 5, ROW(6, 7))))",
@@ -7164,8 +7221,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
 
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_projection_pushdown_reads_less_data_",
                 "AS SELECT val AS id, CAST(ROW(val + 1, val + 2) AS ROW(leaf1 BIGINT, leaf2 BIGINT)) AS root FROM UNNEST(SEQUENCE(1, 10)) AS t(val)")) {
             MaterializedResult expectedResult = computeActual("SELECT val + 2 FROM UNNEST(SEQUENCE(1, 10)) AS t(val)");
@@ -7203,8 +7259,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
 
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_projection_pushdown_physical_input_size_",
                 "AS SELECT val AS id, CAST(ROW(val + 1, val + 2) AS ROW(leaf1 BIGINT, leaf2 BIGINT)) AS root FROM UNNEST(SEQUENCE(1, 10)) AS t(val)")) {
             // Verify that the physical input size is smaller when reading the root.leaf1 field compared to reading the root field

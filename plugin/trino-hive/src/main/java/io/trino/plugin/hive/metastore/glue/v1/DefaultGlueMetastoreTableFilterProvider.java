@@ -20,7 +20,7 @@ import io.trino.plugin.hive.HideDeltaLakeTables;
 
 import java.util.function.Predicate;
 
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static java.util.function.Predicate.not;
 

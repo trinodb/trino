@@ -185,6 +185,16 @@ public interface SystemSecurityMetadata
     Optional<Identity> getFunctionRunAsIdentity(Session session, CatalogSchemaFunctionName functionName);
 
     /**
+     * A function is created
+     */
+    void functionCreated(Session session, CatalogSchemaFunctionName function);
+
+    /**
+     * A function is dropped
+     */
+    void functionDropped(Session session, CatalogSchemaFunctionName function);
+
+    /**
      * A schema was created
      */
     void schemaCreated(Session session, CatalogSchemaName schema);

@@ -64,6 +64,10 @@ Returns a geometry type object from WKT representation.
 Returns a geometry type object from WKB or EWKB representation.
 :::
 
+:::{function} ST_GeomFromKML(varchar) -> Geometry
+Returns a geometry type object from KML representation.
+:::
+
 :::{function} geometry_from_hadoop_shape(varbinary) -> Geometry
 Returns a geometry type object from Spatial Framework for Hadoop representation.
 :::

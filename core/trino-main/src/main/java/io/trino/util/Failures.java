@@ -155,18 +155,12 @@ public final class Failures
     @Nullable
     private static ErrorCode toErrorCode(Throwable throwable)
     {
-        requireNonNull(throwable);
-
-        if (throwable instanceof TrinoException trinoException) {
-            return trinoException.getErrorCode();
-        }
-        if (throwable instanceof Failure failure) {
-            return failure.getFailureInfo().getErrorCode();
-        }
-        if (throwable instanceof ParsingException) {
-            return SYNTAX_ERROR.toErrorCode();
-        }
-        return null;
+        return switch (requireNonNull(throwable)) {
+            case TrinoException trinoException -> trinoException.getErrorCode();
+            case Failure failure -> failure.getFailureInfo().getErrorCode();
+            case ParsingException _ -> SYNTAX_ERROR.toErrorCode();
+            default -> null;
+        };
     }
 
     public static TrinoException internalError(Throwable t)

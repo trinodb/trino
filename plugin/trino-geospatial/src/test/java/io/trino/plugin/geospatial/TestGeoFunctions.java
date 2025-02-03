@@ -112,7 +112,7 @@ public class TestGeoFunctions
                 rectangles.add(new Rectangle(x, y, x + 1, y + 2));
             }
         }
-        return KdbTreeUtils.toJson(buildKdbTree(10, new Rectangle(0, 0, 9, 4), rectangles.build()));
+        return KdbTreeUtils.toJson(buildKdbTree(10, new Rectangle(0, 0, 9, 4), rectangles.build())).toStringUtf8();
     }
 
     private void assertSpatialPartitions(String kdbTreeJson, String wkt, List<Integer> expectedPartitions)
@@ -2324,5 +2324,17 @@ public class TestGeoFunctions
     {
         assertTrinoExceptionThrownBy(assertions.function("from_geojson_geometry", "'%s'".formatted(json))::evaluate)
                 .hasMessage(message);
+    }
+
+    @Test
+    public void testSTGeomFromKML()
+    {
+        assertThat(assertions.expression("ST_AsText(ST_GeomFromKML(geometry))")
+                .binding("geometry", "'<Point><coordinates>-2,2</coordinates></Point>'"))
+                .hasType(VARCHAR)
+                .isEqualTo("POINT (-2 2)");
+
+        assertTrinoExceptionThrownBy(assertions.function("ST_GeomFromKML", "'<Point>'")::evaluate)
+                .hasMessage("Invalid KML: <Point>");
     }
 }

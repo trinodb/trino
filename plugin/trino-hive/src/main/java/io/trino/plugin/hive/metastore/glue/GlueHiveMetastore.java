@@ -35,13 +35,13 @@ import io.trino.metastore.Partition;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.PartitionWithStatistics;
 import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.SchemaAlreadyExistsException;
 import io.trino.metastore.StatisticsUpdateMode;
 import io.trino.metastore.Table;
+import io.trino.metastore.TableAlreadyExistsException;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.PartitionNotFoundException;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
-import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -412,10 +412,21 @@ public class GlueHiveMetastore
     @Override
     public List<TableInfo> getTables(String databaseName)
     {
-        return glueCache.getTables(databaseName, cacheTable -> getTablesInternal(cacheTable, databaseName));
+        return glueCache.getTables(databaseName, cacheTable -> getTablesInternal(cacheTable, databaseName, _ -> true));
     }
 
-    private List<TableInfo> getTablesInternal(Consumer<Table> cacheTable, String databaseName)
+    @Override
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    {
+        return getTablesInternal(
+                _ -> {},
+                databaseName,
+                table -> table.parameters() != null && parameterValues.contains(table.parameters().get(parameterKey))).stream()
+                .map(tableInfo -> tableInfo.tableName().getTableName())
+                .collect(toImmutableList());
+    }
+
+    private List<TableInfo> getTablesInternal(Consumer<Table> cacheTable, String databaseName, Predicate<software.amazon.awssdk.services.glue.model.Table> filter)
     {
         try {
             ImmutableList<software.amazon.awssdk.services.glue.model.Table> glueTables = stats.getGetTables()
@@ -425,6 +436,7 @@ public class GlueHiveMetastore
                             .map(GetTablesResponse::tableList)
                             .flatMap(List::stream))
                     .filter(tableVisibilityFilter)
+                    .filter(filter)
                     .collect(toImmutableList());
 
             // Store only valid tables in cache

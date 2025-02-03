@@ -70,7 +70,7 @@
   `hive.metastore.glue.use-web-identity-token-credentials-provider`
   configuration property. ({issue}`15267`)
 * Fix failure to read Hive tables migrated to Iceberg with Apache Spark. ({issue}`11338`)
-* Fix failure for `CREATE FUNCTION` with SQL routine storage in Glue when
+* Fix failure for `CREATE FUNCTION` with SQL UDF storage in Glue when
   `hive.metastore.glue.catalogid` is set. ({issue}`22717`)
 
 ## Hudi connector

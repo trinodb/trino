@@ -66,8 +66,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 })
 public class HiveConfig
 {
-    public static final String CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED = "hive.partition-projection-enabled";
-
     private boolean singleStatementWritesOnly;
 
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
@@ -1249,7 +1247,7 @@ public class HiveConfig
         return partitionProjectionEnabled;
     }
 
-    @Config(CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED)
+    @Config("hive.partition-projection-enabled")
     @ConfigDescription("Enables AWS Athena partition projection")
     public HiveConfig setPartitionProjectionEnabled(boolean enabledAthenaPartitionProjection)
     {

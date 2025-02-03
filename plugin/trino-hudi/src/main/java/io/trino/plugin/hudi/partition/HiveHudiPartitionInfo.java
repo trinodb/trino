@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.metastore.Partitions.toPartitionValues;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_PARTITION_NOT_FOUND;
 import static io.trino.plugin.hudi.HudiUtil.buildPartitionKeys;
 import static io.trino.plugin.hudi.HudiUtil.partitionMatchesPredicates;
@@ -72,7 +73,7 @@ public class HiveHudiPartitionInfo
     public String getRelativePartitionPath()
     {
         if (relativePartitionPath == null) {
-            loadPartitionInfo(hiveMetastore.getPartition(table, Partition.toPartitionValues(hivePartitionName)));
+            loadPartitionInfo(hiveMetastore.getPartition(table, toPartitionValues(hivePartitionName)));
         }
         return relativePartitionPath;
     }
@@ -81,7 +82,7 @@ public class HiveHudiPartitionInfo
     public List<HivePartitionKey> getHivePartitionKeys()
     {
         if (hivePartitionKeys == null) {
-            loadPartitionInfo(hiveMetastore.getPartition(table, Partition.toPartitionValues(hivePartitionName)));
+            loadPartitionInfo(hiveMetastore.getPartition(table, toPartitionValues(hivePartitionName)));
         }
         return hivePartitionKeys;
     }

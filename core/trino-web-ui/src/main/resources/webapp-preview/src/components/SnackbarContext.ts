@@ -11,19 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { createContext, useContext } from 'react';
-import { SnackbarSeverity } from "./SnackbarProvider";
+import { createContext, useContext } from 'react'
+import { SnackbarSeverity } from './SnackbarProvider'
 
 interface SnackbarContextProps {
-  showSnackbar: (message: string, severity?: SnackbarSeverity) => void;
+    showSnackbar: (message: string, severity?: SnackbarSeverity) => void
 }
 
-export const SnackbarContext = createContext<SnackbarContextProps | undefined>(undefined);
+export const SnackbarContext = createContext<SnackbarContextProps | undefined>(undefined)
 
 export const useSnackbar = (): SnackbarContextProps => {
-  const context = useContext(SnackbarContext);
-  if (context === undefined) {
-    throw new Error('useSnackbar must be used within a SnackbarProvider');
-  }
-  return context;
-};
+    const context = useContext(SnackbarContext)
+    if (context === undefined) {
+        throw new Error('useSnackbar must be used within a SnackbarProvider')
+    }
+    return context
+}

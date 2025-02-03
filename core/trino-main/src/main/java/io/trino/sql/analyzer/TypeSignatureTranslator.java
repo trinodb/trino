@@ -270,11 +270,7 @@ public class TypeSignatureTranslator
             return true;
         }
 
-        if (ReservedIdentifiers.reserved(identifier)) {
-            return true;
-        }
-
-        return false;
+        return ReservedIdentifiers.reserved(identifier);
     }
 
     private static DataTypeParameter toTypeParameter(TypeSignatureParameter parameter)

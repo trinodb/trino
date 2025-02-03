@@ -70,9 +70,9 @@ public class ExchangeOperator
                 ExchangeManagerRegistry exchangeManagerRegistry)
         {
             this.operatorId = operatorId;
-            this.sourceId = sourceId;
-            this.directExchangeClientSupplier = directExchangeClientSupplier;
-            this.serdeFactory = serdeFactory;
+            this.sourceId = requireNonNull(sourceId, "sourceId is null");
+            this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
+            this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
             this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         }

@@ -24,6 +24,7 @@ import io.trino.spi.type.TypeSignature;
 import org.apache.iceberg.Table;
 
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -42,14 +43,15 @@ public class SnapshotsTable
     private static final String MANIFEST_LIST_COLUMN_NAME = "manifest_list";
     private static final String SUMMARY_COLUMN_NAME = "summary";
 
-    public SnapshotsTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable)
+    public SnapshotsTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, ExecutorService executor)
     {
         super(
                 requireNonNull(icebergTable, "icebergTable is null"),
                 createConnectorTableMetadata(
                         requireNonNull(tableName, "tableName is null"),
                         requireNonNull(typeManager, "typeManager is null")),
-                SNAPSHOTS);
+                SNAPSHOTS,
+                executor);
     }
 
     private static ConnectorTableMetadata createConnectorTableMetadata(SchemaTableName tableName, TypeManager typeManager)

@@ -108,6 +108,7 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
                                 .put("iceberg.jdbc-catalog.catalog-name", "tpch")
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
+                                .put("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                                 .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.getAbsolutePath())
                                 .put("iceberg.jdbc-catalog.retryable-status-codes", "57P01,57P05")
                                 .buildOrThrow())

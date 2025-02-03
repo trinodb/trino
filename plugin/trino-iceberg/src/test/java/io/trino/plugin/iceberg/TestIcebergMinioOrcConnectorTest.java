@@ -131,7 +131,7 @@ public class TestIcebergMinioOrcConnectorTest
             throws Exception
     {
         checkArgument(expectedValue != 0);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_as_integer", "(\"_col0\") AS VALUES 0, NULL")) {
+        try (TestTable table = newTrinoTable("test_read_as_integer", "(\"_col0\") AS VALUES 0, NULL")) {
             String orcFilePath = (String) computeScalar(format("SELECT DISTINCT file_path FROM \"%s$files\"", table.getName()));
             byte[] orcFileData = Resources.toByteArray(getResource(orcFileResourceName));
             fileSystem.newOutputFile(Location.of(orcFilePath)).createOrOverwrite(orcFileData);
@@ -150,7 +150,7 @@ public class TestIcebergMinioOrcConnectorTest
     public void testTimeType()
     {
         // Regression test for https://github.com/trinodb/trino/issues/15603
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_time", "(col time(6))")) {
+        try (TestTable table = newTrinoTable("test_time", "(col time(6))")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIME '13:30:00'), (TIME '14:30:00'), (NULL)", 3);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES '13:30:00', '14:30:00', NULL");
             assertQuery(

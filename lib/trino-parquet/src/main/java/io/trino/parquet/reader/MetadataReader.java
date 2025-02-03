@@ -13,57 +13,27 @@
  */
 package io.trino.parquet.reader;
 
-import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetWriteValidation;
-import io.trino.parquet.metadata.BlockMetadata;
-import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import org.apache.parquet.CorruptStatistics;
 import org.apache.parquet.column.statistics.BinaryStatistics;
-import org.apache.parquet.format.ColumnChunk;
-import org.apache.parquet.format.ColumnMetaData;
-import org.apache.parquet.format.Encoding;
 import org.apache.parquet.format.FileMetaData;
-import org.apache.parquet.format.KeyValue;
-import org.apache.parquet.format.RowGroup;
-import org.apache.parquet.format.SchemaElement;
 import org.apache.parquet.format.Statistics;
-import org.apache.parquet.hadoop.metadata.ColumnPath;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
-import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
-import org.apache.parquet.schema.Type.Repetition;
-import org.apache.parquet.schema.Types;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
-import static io.trino.parquet.ParquetMetadataConverter.convertEncodingStats;
 import static io.trino.parquet.ParquetMetadataConverter.fromParquetStatistics;
-import static io.trino.parquet.ParquetMetadataConverter.getEncoding;
-import static io.trino.parquet.ParquetMetadataConverter.getLogicalTypeAnnotation;
-import static io.trino.parquet.ParquetMetadataConverter.getPrimitive;
-import static io.trino.parquet.ParquetMetadataConverter.toColumnIndexReference;
-import static io.trino.parquet.ParquetMetadataConverter.toOffsetIndexReference;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
@@ -73,8 +43,6 @@ import static org.apache.parquet.format.Util.readFileMetaData;
 
 public final class MetadataReader
 {
-    private static final Logger log = Logger.get(MetadataReader.class);
-
     private static final Slice MAGIC = Slices.utf8Slice("PAR1");
     private static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
     // Typical 1GB files produced by Trino were found to have footer size between 30-40KB
@@ -119,142 +87,9 @@ public final class MetadataReader
         InputStream metadataStream = buffer.slice(buffer.length() - completeFooterSize, metadataLength).getInput();
 
         FileMetaData fileMetaData = readFileMetaData(metadataStream);
-        ParquetMetadata parquetMetadata = createParquetMetadata(fileMetaData, dataSource.getId());
+        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, dataSource.getId());
         validateFileMetadata(dataSource.getId(), parquetMetadata.getFileMetaData(), parquetWriteValidation);
         return parquetMetadata;
-    }
-
-    public static ParquetMetadata createParquetMetadata(FileMetaData fileMetaData, ParquetDataSourceId dataSourceId)
-            throws ParquetCorruptionException
-    {
-        List<SchemaElement> schema = fileMetaData.getSchema();
-        validateParquet(!schema.isEmpty(), dataSourceId, "Schema is empty");
-
-        MessageType messageType = readParquetSchema(schema);
-        List<BlockMetadata> blocks = new ArrayList<>();
-        List<RowGroup> rowGroups = fileMetaData.getRow_groups();
-        if (rowGroups != null) {
-            for (RowGroup rowGroup : rowGroups) {
-                List<ColumnChunk> columns = rowGroup.getColumns();
-                validateParquet(!columns.isEmpty(), dataSourceId, "No columns in row group: %s", rowGroup);
-                String filePath = columns.get(0).getFile_path();
-                ImmutableList.Builder<ColumnChunkMetadata> columnMetadataBuilder = ImmutableList.builderWithExpectedSize(columns.size());
-                for (ColumnChunk columnChunk : columns) {
-                    validateParquet(
-                            (filePath == null && columnChunk.getFile_path() == null)
-                                    || (filePath != null && filePath.equals(columnChunk.getFile_path())),
-                            dataSourceId,
-                            "all column chunks of the same row group must be in the same file");
-                    ColumnMetaData metaData = columnChunk.meta_data;
-                    String[] path = metaData.path_in_schema.stream()
-                            .map(value -> value.toLowerCase(Locale.ENGLISH))
-                            .toArray(String[]::new);
-                    ColumnPath columnPath = ColumnPath.get(path);
-                    PrimitiveType primitiveType = messageType.getType(columnPath.toArray()).asPrimitiveType();
-                    ColumnChunkMetadata column = ColumnChunkMetadata.get(
-                            columnPath,
-                            primitiveType,
-                            CompressionCodecName.fromParquet(metaData.codec),
-                            convertEncodingStats(metaData.encoding_stats),
-                            readEncodings(metaData.encodings),
-                            readStats(Optional.ofNullable(fileMetaData.getCreated_by()), Optional.ofNullable(metaData.statistics), primitiveType),
-                            metaData.data_page_offset,
-                            metaData.dictionary_page_offset,
-                            metaData.num_values,
-                            metaData.total_compressed_size,
-                            metaData.total_uncompressed_size);
-                    column.setColumnIndexReference(toColumnIndexReference(columnChunk));
-                    column.setOffsetIndexReference(toOffsetIndexReference(columnChunk));
-                    column.setBloomFilterOffset(metaData.bloom_filter_offset);
-                    columnMetadataBuilder.add(column);
-                }
-                blocks.add(new BlockMetadata(rowGroup.getNum_rows(), columnMetadataBuilder.build()));
-            }
-        }
-
-        Map<String, String> keyValueMetaData = new HashMap<>();
-        List<KeyValue> keyValueList = fileMetaData.getKey_value_metadata();
-        if (keyValueList != null) {
-            for (KeyValue keyValue : keyValueList) {
-                keyValueMetaData.put(keyValue.key, keyValue.value);
-            }
-        }
-        FileMetadata parquetFileMetadata = new FileMetadata(
-                messageType,
-                keyValueMetaData,
-                fileMetaData.getCreated_by());
-        return new ParquetMetadata(parquetFileMetadata, blocks);
-    }
-
-    private static MessageType readParquetSchema(List<SchemaElement> schema)
-    {
-        Iterator<SchemaElement> schemaIterator = schema.iterator();
-        SchemaElement rootSchema = schemaIterator.next();
-        Types.MessageTypeBuilder builder = Types.buildMessage();
-        readTypeSchema(builder, schemaIterator, rootSchema.getNum_children());
-        return builder.named(rootSchema.name);
-    }
-
-    private static void readTypeSchema(Types.GroupBuilder<?> builder, Iterator<SchemaElement> schemaIterator, int typeCount)
-    {
-        for (int i = 0; i < typeCount; i++) {
-            SchemaElement element = schemaIterator.next();
-            Types.Builder<?, ?> typeBuilder;
-            if (element.type == null) {
-                typeBuilder = builder.group(Repetition.valueOf(element.repetition_type.name()));
-                readTypeSchema((Types.GroupBuilder<?>) typeBuilder, schemaIterator, element.num_children);
-            }
-            else {
-                Types.PrimitiveBuilder<?> primitiveBuilder = builder.primitive(getPrimitive(element.type), Repetition.valueOf(element.repetition_type.name()));
-                if (element.isSetType_length()) {
-                    primitiveBuilder.length(element.type_length);
-                }
-                if (element.isSetPrecision()) {
-                    primitiveBuilder.precision(element.precision);
-                }
-                if (element.isSetScale()) {
-                    primitiveBuilder.scale(element.scale);
-                }
-                typeBuilder = primitiveBuilder;
-            }
-
-            // Reading of element.logicalType and element.converted_type corresponds to parquet-mr's code at
-            // https://github.com/apache/parquet-mr/blob/apache-parquet-1.12.0/parquet-hadoop/src/main/java/org/apache/parquet/format/converter/ParquetMetadataConverter.java#L1568-L1582
-            LogicalTypeAnnotation annotationFromLogicalType = null;
-            if (element.isSetLogicalType()) {
-                annotationFromLogicalType = getLogicalTypeAnnotation(element.logicalType);
-                typeBuilder.as(annotationFromLogicalType);
-            }
-            if (element.isSetConverted_type()) {
-                LogicalTypeAnnotation annotationFromConvertedType = getLogicalTypeAnnotation(element.converted_type, element);
-                if (annotationFromLogicalType != null) {
-                    // Both element.logicalType and element.converted_type set
-                    if (annotationFromLogicalType.toOriginalType() == annotationFromConvertedType.toOriginalType()) {
-                        // element.converted_type matches element.logicalType, even though annotationFromLogicalType may differ from annotationFromConvertedType
-                        // Following parquet-mr behavior, we favor LogicalTypeAnnotation derived from element.logicalType, as potentially containing more information.
-                    }
-                    else {
-                        // Following parquet-mr behavior, issue warning and let converted_type take precedence.
-                        log.warn("Converted type and logical type metadata map to different OriginalType (convertedType: %s, logical type: %s). Using value in converted type.",
-                                element.converted_type, element.logicalType);
-                        // parquet-mr reads only OriginalType from converted_type. We retain full LogicalTypeAnnotation
-                        // 1. for compatibility, as previous Trino reader code would read LogicalTypeAnnotation from element.converted_type and some additional fields.
-                        // 2. so that we override LogicalTypeAnnotation annotation read from element.logicalType in case of mismatch detected.
-                        typeBuilder.as(annotationFromConvertedType);
-                    }
-                }
-                else {
-                    // parquet-mr reads only OriginalType from converted_type. We retain full LogicalTypeAnnotation for compatibility, as previous
-                    // Trino reader code would read LogicalTypeAnnotation from element.converted_type and some additional fields.
-                    typeBuilder.as(annotationFromConvertedType);
-                }
-            }
-
-            if (element.isSetField_id()) {
-                typeBuilder.id(element.field_id);
-            }
-            typeBuilder.named(element.name.toLowerCase(Locale.ENGLISH));
-        }
     }
 
     public static org.apache.parquet.column.statistics.Statistics<?> readStats(Optional<String> fileCreatedBy, Optional<Statistics> statisticsFromFile, PrimitiveType type)
@@ -350,15 +185,6 @@ public final class MetadataReader
             commonPrefixLength++;
         }
         return commonPrefixLength;
-    }
-
-    private static Set<org.apache.parquet.column.Encoding> readEncodings(List<Encoding> encodings)
-    {
-        Set<org.apache.parquet.column.Encoding> columnEncodings = new HashSet<>();
-        for (Encoding encoding : encodings) {
-            columnEncodings.add(getEncoding(encoding));
-        }
-        return Collections.unmodifiableSet(columnEncodings);
     }
 
     private static void validateFileMetadata(ParquetDataSourceId dataSourceId, FileMetadata fileMetaData, Optional<ParquetWriteValidation> parquetWriteValidation)

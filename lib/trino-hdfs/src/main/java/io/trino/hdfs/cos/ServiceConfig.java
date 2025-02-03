@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.HashSet;
 import java.util.Map;
@@ -29,6 +29,7 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.nio.file.Files.newInputStream;
 import static java.util.Objects.requireNonNull;
 
 public class ServiceConfig
@@ -83,8 +84,8 @@ public class ServiceConfig
             return ImmutableMap.of();
         }
         Properties properties = new Properties();
-        try {
-            properties.load(new FileInputStream(configFile));
+        try (InputStream inputStream = newInputStream(configFile.toPath())) {
+            properties.load(inputStream);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

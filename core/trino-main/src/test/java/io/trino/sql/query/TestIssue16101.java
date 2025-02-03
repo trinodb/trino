@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,7 +42,7 @@ public class TestIssue16101
 
         QueryRunner runner = new StandaloneQueryRunner(session);
         runner.installPlugin(new TpchPlugin());
-        runner.createCatalog("local", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+        runner.createCatalog("local", "tpch", ImmutableMap.of("tpch.splits-per-node", "1"));
 
         try (QueryAssertions assertions = new QueryAssertions(runner)) {
             assertThat(assertions.query(

@@ -974,4 +974,13 @@ public final class ThriftMetastoreUtil
             default -> throw new IllegalStateException("No metastore operation for ACID operation " + acidOperation);
         };
     }
+
+    public static boolean isAvroTableWithSchemaSet(Table table)
+    {
+        return AVRO.getSerde().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
+                ((table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
+                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null)) ||
+                 (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
+                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
+    }
 }

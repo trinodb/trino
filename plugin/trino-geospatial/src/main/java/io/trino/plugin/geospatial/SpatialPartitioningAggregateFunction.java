@@ -21,7 +21,6 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static io.trino.plugin.geospatial.SpatialPartitioningAggregateFunction.NAME;
 
 @AggregationFunction(value = NAME, decomposable = false)
@@ -32,7 +31,7 @@ public final class SpatialPartitioningAggregateFunction
     private SpatialPartitioningAggregateFunction() {}
 
     @InputFunction
-    public static void input(SpatialPartitioningState state, @SqlType(GEOMETRY_TYPE_NAME) Slice slice)
+    public static void input(SpatialPartitioningState state, @SqlType(StandardTypes.GEOMETRY) Slice slice)
     {
         throw new UnsupportedOperationException("spatial_partitioning(geometry) aggregate function should be re-written into spatial_partitioning(geometry, partitionCount)");
     }

@@ -44,6 +44,7 @@ public final class AwsSdkClientCoreStats
 {
     private final CounterStat awsRequestCount = new CounterStat();
     private final CounterStat awsRetryCount = new CounterStat();
+    private final CounterStat awsHttpClientRetryCount = new CounterStat();
     private final CounterStat awsThrottleExceptions = new CounterStat();
     private final TimeStat awsRequestTime = new TimeStat(MILLISECONDS);
     private final TimeStat awsClientExecuteTime = new TimeStat(MILLISECONDS);
@@ -64,6 +65,13 @@ public final class AwsSdkClientCoreStats
     public CounterStat getAwsRetryCount()
     {
         return awsRetryCount;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAwsHttpClientRetryCount()
+    {
+        return awsHttpClientRetryCount;
     }
 
     @Managed
@@ -134,12 +142,16 @@ public final class AwsSdkClientCoreStats
 
             Number requestCounts = timingInfo.getCounter(RequestCount.name());
             if (requestCounts != null) {
-                stats.awsRequestCount.update(requestCounts.longValue());
+                long count = requestCounts.longValue();
+                stats.awsRequestCount.update(count);
+                if (count > 1) {
+                    stats.awsRetryCount.update(count - 1);
+                }
             }
 
-            Number retryCounts = timingInfo.getCounter(HttpClientRetryCount.name());
-            if (retryCounts != null) {
-                stats.awsRetryCount.update(retryCounts.longValue());
+            Number httpClientRetryCounts = timingInfo.getCounter(HttpClientRetryCount.name());
+            if (httpClientRetryCounts != null) {
+                stats.awsHttpClientRetryCount.update(httpClientRetryCounts.longValue());
             }
 
             Number throttleExceptions = timingInfo.getCounter(ThrottleException.name());

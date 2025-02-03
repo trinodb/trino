@@ -85,19 +85,18 @@ import io.trino.metastore.HiveType;
 import io.trino.metastore.Partition;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.PartitionWithStatistics;
+import io.trino.metastore.Partitions;
 import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.SchemaAlreadyExistsException;
 import io.trino.metastore.StatisticsUpdateMode;
 import io.trino.metastore.Table;
+import io.trino.metastore.TableAlreadyExistsException;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.PartitionNotFoundException;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
-import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
 import io.trino.plugin.hive.metastore.glue.GlueExpressionUtil;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
-import io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter;
-import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter;
-import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.GluePartitionConverter;
+import io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.GluePartitionConverter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -136,7 +135,7 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.metastore.Partition.toPartitionValues;
+import static io.trino.metastore.Partitions.toPartitionValues;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -149,12 +148,12 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter.convertFunction;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter.convertGlueTableToTableInput;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter.convertPartition;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.mappedCopy;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueInputConverter.convertFunction;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueInputConverter.convertGlueTableToTableInput;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueInputConverter.convertPartition;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getTableType;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -363,6 +362,25 @@ public class GlueHiveMetastore
                     .map(table -> new TableInfo(
                             new SchemaTableName(databaseName, table.getName()),
                             TableInfo.ExtendedRelationType.fromTableTypeAndComment(getTableType(table), getTableParameters(table).get(TABLE_COMMENT))))
+                    .collect(toImmutableList());
+        }
+        catch (EntityNotFoundException | AccessDeniedException e) {
+            // database does not exist or permission denied
+            return ImmutableList.of();
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    @Override
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    {
+        try {
+            return getGlueTables(databaseName)
+                    .filter(tableFilter)
+                    .filter(table -> parameterValues.contains(getTableParameters(table).get(parameterKey)))
+                    .map(com.amazonaws.services.glue.model.Table::getName)
                     .collect(toImmutableList());
         }
         catch (EntityNotFoundException | AccessDeniedException e) {
@@ -838,7 +856,7 @@ public class GlueHiveMetastore
         List<Partition> partitions = batchGetPartition(table, partitionNames);
 
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
-                .collect(toMap(identity(), Partition::toPartitionValues));
+                .collect(toMap(identity(), Partitions::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = partitions.stream()
                 .collect(toMap(Partition::getValues, identity()));
 

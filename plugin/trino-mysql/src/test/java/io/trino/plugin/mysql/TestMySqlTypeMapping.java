@@ -93,7 +93,7 @@ public class TestMySqlTypeMapping
     public void setUp()
     {
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1932, 4, 1);
         verify(jvmZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay()).isEmpty());
 
         LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
@@ -1109,8 +1109,8 @@ public class TestMySqlTypeMapping
 
             // Verify Trino writes
             assertQueryFails(
-                    "INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '1970-01-01 00:00:00 UTC')", // min - 1
-                    "Failed to insert data: Data truncation: Incorrect datetime value: '1969-12-31 16:00:00' for column 'data' at row 1");
+                    "INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '1932-04-01 00:00:00 UTC')", // min - 1
+                    "Failed to insert data: Data truncation: Incorrect datetime value: '1932-03-31 17:00:00' for column 'data' at row 1");
             assertQueryFails(
                     "INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '2038-01-19 03:14:08 UTC')", // max + 1
                     "Failed to insert data: Data truncation: Incorrect datetime value: '2038-01-18 21:14:08' for column 'data' at row 1");

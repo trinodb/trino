@@ -745,7 +745,9 @@ public class PlanTester
                 indexManager,
                 nodePartitioningManager,
                 pageSinkManager,
-                null,
+                (_, _, _, _, _, _) -> {
+                    throw new UnsupportedOperationException();
+                },
                 expressionCompiler,
                 pageFunctionCompiler,
                 joinFilterFunctionCompiler,
@@ -753,7 +755,6 @@ public class PlanTester
                 this.taskManagerConfig,
                 new GenericSpillerFactory(unsupportedSingleStreamSpillerFactory()),
                 new QueryDataEncoders(new SpoolingEnabledConfig(), Set.of()),
-                Optional.empty(),
                 Optional.empty(),
                 unsupportedSingleStreamSpillerFactory(),
                 unsupportedPartitioningSpillerFactory(),

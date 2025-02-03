@@ -30,7 +30,6 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static io.trino.geospatial.KdbTree.buildKdbTree;
 import static io.trino.geospatial.serde.GeometrySerde.deserializeEnvelope;
-import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static io.trino.plugin.geospatial.SpatialPartitioningAggregateFunction.NAME;
 import static io.trino.spi.type.StandardTypes.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -44,7 +43,7 @@ public final class SpatialPartitioningInternalAggregateFunction
     private SpatialPartitioningInternalAggregateFunction() {}
 
     @InputFunction
-    public static void input(SpatialPartitioningState state, @SqlType(GEOMETRY_TYPE_NAME) Slice slice, @SqlType(INTEGER) long partitionCount)
+    public static void input(SpatialPartitioningState state, @SqlType(StandardTypes.GEOMETRY) Slice slice, @SqlType(INTEGER) long partitionCount)
     {
         Envelope envelope = deserializeEnvelope(slice);
         if (envelope.isEmpty()) {
@@ -94,6 +93,6 @@ public final class SpatialPartitioningInternalAggregateFunction
         // Add a small buffer on the right and upper sides
         Rectangle paddedExtent = new Rectangle(envelope.getXMin(), envelope.getYMin(), Math.nextUp(envelope.getXMax()), Math.nextUp(envelope.getYMax()));
 
-        VARCHAR.writeString(out, KdbTreeUtils.toJson(buildKdbTree(maxItemsPerNode, paddedExtent, samples)));
+        VARCHAR.writeSlice(out, KdbTreeUtils.toJson(buildKdbTree(maxItemsPerNode, paddedExtent, samples)));
     }
 }

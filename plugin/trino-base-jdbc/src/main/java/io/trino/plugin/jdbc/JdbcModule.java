@@ -15,10 +15,14 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Provider;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
+import com.google.inject.multibindings.ProvidesIntoOptional;
+import dev.failsafe.RetryPolicy;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.mapping.IdentifierMappingModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
@@ -29,6 +33,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
@@ -37,6 +42,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static com.google.inject.multibindings.ProvidesIntoOptional.Type.DEFAULT;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
@@ -142,5 +148,13 @@ public class JdbcModule
     public static void bindTablePropertiesProvider(Binder binder, Class<? extends TablePropertiesProvider> type)
     {
         tablePropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
+    }
+
+    @ProvidesIntoOptional(DEFAULT)
+    @Inject
+    @Singleton
+    ConnectorRecordSetProvider recordSetProvider(JdbcClient jdbcClient, @ForRecordCursor ExecutorService executor, RetryPolicy<Object> policy)
+    {
+        return new JdbcRecordSetProvider(jdbcClient, executor, policy);
     }
 }

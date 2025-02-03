@@ -1241,16 +1241,12 @@ public final class StateCompiler
 
         public BytecodeExpression initialValueExpression()
         {
-            if (initialValue == null) {
-                return defaultValue(type);
-            }
-            if (initialValue instanceof Number) {
-                return constantNumber((Number) initialValue);
-            }
-            if (initialValue instanceof Boolean) {
-                return constantBoolean((boolean) initialValue);
-            }
-            throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
+            return switch (initialValue) {
+                case null -> defaultValue(type);
+                case Number number -> constantNumber(number);
+                case Boolean _ -> constantBoolean((boolean) initialValue);
+                default -> throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
+            };
         }
     }
 }

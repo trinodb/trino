@@ -2,7 +2,7 @@
 
 ## General
 
-* Add support for [](/routines). ({issue}`19308`)
+* Add support for [](/udf/sql). ({issue}`19308`)
 * Add support for [](/sql/create-function) and [](/sql/drop-function) statements. ({issue}`19308`)
 * Add support for the `REPLACE` modifier to the `CREATE TABLE` statement. ({issue}`13180`)
 * Disallow a `null` offset for the {func}`lead` and {func}`lag` functions. ({issue}`19003`)
@@ -27,7 +27,7 @@
 
 ## Hive connector
 
-* Add support for [SQL routine management](sql-routine-management). ({issue}`19308`)
+* Add support for [](udf-management). ({issue}`19308`)
 * Replace the `hive.metastore-timeout` Hive metastore configuration property
   with the `hive.metastore.thrift.client.connect-timeout` and
   `hive.metastore.thrift.client.read-timeout` properties. ({issue}`19390`)
@@ -50,7 +50,7 @@
 
 ## Memory connector
 
-* Add support for [SQL routine management](sql-routine-management). ({issue}`19308`)
+* Add support for [](udf-management). ({issue}`19308`)
 
 ## SPI
 

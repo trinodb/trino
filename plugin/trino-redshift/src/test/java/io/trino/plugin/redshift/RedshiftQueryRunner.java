@@ -56,7 +56,7 @@ public final class RedshiftQueryRunner
     private static final Logger log = Logger.get(RedshiftQueryRunner.class);
 
     private static final String S3_TPCH_TABLES_ROOT = requiredNonEmptySystemProperty("test.redshift.s3.tpch.tables.root");
-    private static final String IAM_ROLE = requiredNonEmptySystemProperty("test.redshift.iam.role");
+    public static final String IAM_ROLE = requiredNonEmptySystemProperty("test.redshift.iam.role");
 
     private static final String TEST_CATALOG = "redshift";
     private static final String CONNECTOR_NAME = "redshift";
@@ -125,8 +125,9 @@ public final class RedshiftQueryRunner
                 provisionTables(runner, initialTables);
 
                 // This step is necessary for product tests
-                executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA %s TO %s", TEST_SCHEMA, GRANTED_USER));
-
+                for (TpchTable<?> table : initialTables) {
+                    executeInRedshiftWithRetry(format("GRANT ALL PRIVILEGES ON TABLE %s.%s TO %s", TEST_SCHEMA, table.getTableName(), GRANTED_USER));
+                }
                 return runner;
             }
             catch (Throwable e) {

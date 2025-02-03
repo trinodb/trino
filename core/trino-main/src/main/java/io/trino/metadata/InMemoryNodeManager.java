@@ -61,7 +61,7 @@ public class InMemoryNodeManager
     {
         return switch (state) {
             case ACTIVE -> ImmutableSet.copyOf(allNodes);
-            case INACTIVE, SHUTTING_DOWN -> ImmutableSet.of();
+            case DRAINING, DRAINED, INACTIVE, SHUTTING_DOWN -> ImmutableSet.of();
         };
     }
 
@@ -82,6 +82,8 @@ public class InMemoryNodeManager
     {
         return new AllNodes(
                 ImmutableSet.copyOf(allNodes),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(CURRENT_NODE));

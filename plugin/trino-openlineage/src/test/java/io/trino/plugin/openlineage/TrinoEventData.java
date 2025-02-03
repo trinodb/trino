@@ -137,6 +137,7 @@ public class TrinoEventData
                 Collections.emptyList(),
                 Collections.emptyList(),
                 Collections.emptyList(),
+                Collections.emptyList(),
                 Optional.empty());
 
         queryCompleteEvent = new QueryCompletedEvent(

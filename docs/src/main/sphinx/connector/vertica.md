@@ -165,13 +165,16 @@ features:
 - [](/sql/create-table)
 - [](/sql/create-table-as)
 - [](/sql/drop-table)
-- [](/sql/alter-table) excluding `DROP COLUMN`
+- [](/sql/alter-table) excluding `DROP COLUMN`, see also [](vertica-alter-table)
 - [](/sql/create-schema)
 - [](/sql/drop-schema)
+- [](vertica-table-functions)
 
+(vertica-alter-table)=
 ```{include} alter-table-limitation.fragment
 ```
 
+(vertica-table-functions)=
 ## Table functions
 
 The connector provides specific [table functions](/functions/table) to

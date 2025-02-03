@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.metastore.Column;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveBucketProperty;
@@ -242,6 +243,12 @@ public class TestHiveMetadataListing
                     .add(new TableInfo(FAILING_SERDE_INFO_TABLE.getSchemaTableName(), TableInfo.ExtendedRelationType.TABLE))
                     .add(new TableInfo(FAILING_GENERAL_TABLE.getSchemaTableName(), TableInfo.ExtendedRelationType.TABLE))
                     .build();
+        }
+
+        @Override
+        public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override

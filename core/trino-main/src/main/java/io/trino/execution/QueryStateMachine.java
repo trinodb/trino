@@ -88,6 +88,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.isSpoolingEnabled;
 import static io.trino.execution.BasicStageStats.EMPTY_STAGE_STATS;
 import static io.trino.execution.QueryState.DISPATCHING;
 import static io.trino.execution.QueryState.FAILED;
@@ -309,7 +310,7 @@ public class QueryStateMachine
             session = session.withExchangeEncryption(serializeAesEncryptionKey(createRandomAesEncryptionKey()));
         }
 
-        if (!queryType.map(SELECT::equals).orElse(false)) {
+        if (!queryType.map(SELECT::equals).orElse(false) || !isSpoolingEnabled(session)) {
             session = session.withoutSpooling();
         }
 
@@ -547,6 +548,7 @@ public class QueryStateMachine
                 stageStats.getSpilledDataSize(),
                 stageStats.getPhysicalInputDataSize(),
                 stageStats.getPhysicalWrittenDataSize(),
+                stageStats.getInternalNetworkInputDataSize(),
 
                 stageStats.getCumulativeUserMemory(),
                 stageStats.getFailedCumulativeUserMemory(),
@@ -555,10 +557,14 @@ public class QueryStateMachine
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
 
+                queryStateTimer.getPlanningTime(),
+                queryStateTimer.getAnalysisTime(),
                 stageStats.getTotalCpuTime(),
                 stageStats.getFailedCpuTime(),
                 stageStats.getTotalScheduledTime(),
                 stageStats.getFailedScheduledTime(),
+                queryStateTimer.getFinishingTime(),
+                stageStats.getPhysicalInputReadTime(),
 
                 stageStats.isFullyBlocked(),
                 stageStats.getBlockedReasons(),

@@ -155,7 +155,7 @@ public class ParquetTestUtils
                 0,
                 input.getEstimatedSize(),
                 input,
-                parquetMetadata.getBlocks(),
+                parquetMetadata,
                 ImmutableList.of(parquetTupleDomain),
                 ImmutableList.of(parquetPredicate),
                 descriptorsByPath,

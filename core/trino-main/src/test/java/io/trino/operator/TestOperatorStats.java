@@ -241,7 +241,8 @@ public class TestOperatorStats
         assertThat(actual.getPeakRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(24));
         assertThat(actual.getPeakTotalMemoryReservation()).isEqualTo(DataSize.ofBytes(25));
         assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(3 * 26));
-        assertThat(actual.getInfo()).isNull();
+        assertThat(actual.getInfo()).isInstanceOf(SplitOperatorInfo.class);
+        assertThat(((SplitOperatorInfo) actual.getInfo()).getSplitInfo().get("some_info")).isEqualTo("some_value (2 more)");
     }
 
     @Test

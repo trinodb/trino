@@ -15,6 +15,8 @@ package io.trino.geospatial;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import static java.util.Objects.requireNonNull;
 
@@ -24,16 +26,16 @@ public final class KdbTreeUtils
 
     private KdbTreeUtils() {}
 
-    public static KdbTree fromJson(String json)
+    public static KdbTree fromJson(Slice json)
     {
         requireNonNull(json, "json is null");
-        return KDB_TREE_CODEC.fromJson(json);
+        return KDB_TREE_CODEC.fromJson(json.getInput());
     }
 
-    public static String toJson(KdbTree kdbTree)
+    public static Slice toJson(KdbTree kdbTree)
     {
         requireNonNull(kdbTree, "kdbTree is null");
-        return KDB_TREE_CODEC.toJson(kdbTree);
+        return Slices.utf8Slice(KDB_TREE_CODEC.toJson(kdbTree));
     }
 
     public static byte[] toJsonBytes(KdbTree kdbTree)

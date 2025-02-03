@@ -73,10 +73,7 @@ public class PlanFragmentMatcher
         if (inputPartitionCount.isPresent() && !inputPartitionCount.equals(fragment.getPartitionCount())) {
             return false;
         }
-        if (outputPartitionCount.isPresent() && !outputPartitionCount.equals(fragment.getOutputPartitioningScheme().getPartitionCount())) {
-            return false;
-        }
-        return true;
+        return outputPartitionCount.isEmpty() || outputPartitionCount.equals(fragment.getOutputPartitioningScheme().getPartitionCount());
     }
 
     @Override

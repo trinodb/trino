@@ -44,6 +44,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -956,12 +957,12 @@ public final class MetadataManager
     }
 
     @Override
-    public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
+    public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column, ColumnPosition position)
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle.getCatalogName().toString());
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
-        metadata.addColumn(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), column);
+        metadata.addColumn(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), column, position);
         if (catalogMetadata.getSecurityManagement() == SYSTEM) {
             systemSecurityMetadata.columnCreated(session, table, column.getName());
         }
@@ -2712,7 +2713,13 @@ public final class MetadataManager
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
-        metadata.createLanguageFunction(session.toConnectorSession(catalogHandle), name.asSchemaFunctionName(), function, replace);
+        SchemaFunctionName schemaFunctionName = name.asSchemaFunctionName();
+        metadata.createLanguageFunction(session.toConnectorSession(catalogHandle), schemaFunctionName, function, replace);
+        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+            systemSecurityMetadata.functionCreated(
+                    session,
+                    new CatalogSchemaFunctionName(catalogHandle.getCatalogName().toString(), schemaFunctionName));
+        }
     }
 
     @Override
@@ -2722,7 +2729,13 @@ public final class MetadataManager
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
-        metadata.dropLanguageFunction(session.toConnectorSession(catalogHandle), name.asSchemaFunctionName(), signatureToken);
+        SchemaFunctionName schemaFunctionName = name.asSchemaFunctionName();
+        metadata.dropLanguageFunction(session.toConnectorSession(catalogHandle), schemaFunctionName, signatureToken);
+        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+            systemSecurityMetadata.functionDropped(
+                    session,
+                    new CatalogSchemaFunctionName(catalogHandle.getCatalogName().toString(), schemaFunctionName));
+        }
     }
 
     @VisibleForTesting

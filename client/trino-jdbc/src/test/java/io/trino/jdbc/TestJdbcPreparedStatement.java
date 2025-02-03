@@ -1093,11 +1093,11 @@ public class TestJdbcPreparedStatement
         assertBind((ps, i) -> ps.setObject(i, date, Types.TIMESTAMP_WITH_TIMEZONE), explicitPrepare)
                 .isInvalid("Cannot convert instance of java.time.LocalDate to timestamp with time zone");
 
-        LocalDate jvmGapDate = LocalDate.of(1970, 1, 1);
+        LocalDate jvmGapDate = LocalDate.of(1932, 4, 1);
         checkIsGap(ZoneId.systemDefault(), jvmGapDate.atTime(LocalTime.MIDNIGHT));
 
         assertBind((ps, i) -> ps.setObject(i, jvmGapDate), explicitPrepare)
-                .resultsIn("date", "DATE '1970-01-01'")
+                .resultsIn("date", "DATE '1932-04-01'")
                 .roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate));
 
         assertBind((ps, i) -> ps.setObject(i, jvmGapDate, Types.DATE), explicitPrepare)

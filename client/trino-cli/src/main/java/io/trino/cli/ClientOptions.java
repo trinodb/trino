@@ -637,7 +637,7 @@ public class ClientOptions
 
         private static void verifyProperty(Optional<String> catalog, String name, String value)
         {
-            checkArgument(!catalog.isPresent() || !catalog.get().isEmpty(), "Invalid session property: %s.%s:%s", catalog, name, value);
+            checkArgument(catalog.isEmpty() || !catalog.get().isEmpty(), "Invalid session property: %s.%s:%s", catalog, name, value);
             checkArgument(!name.isEmpty(), "Session property name is empty");
             checkArgument(catalog.orElse("").indexOf('=') < 0, "Session property catalog must not contain '=': %s", name);
             checkArgument(PRINTABLE_ASCII.matchesAllOf(catalog.orElse("")), "Session property catalog contains spaces or is not ASCII: %s", name);
@@ -664,7 +664,7 @@ public class ClientOptions
         @Override
         public String toString()
         {
-            return (catalog.isPresent() ? catalog.get() + '.' : "") + name + '=' + value;
+            return catalog.map(catalogName -> catalogName + '.').orElse("") + name + '=' + value;
         }
 
         @Override

@@ -21,6 +21,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TimeZoneKey;
 import org.apache.iceberg.Table;
 
+import java.util.concurrent.ExecutorService;
+
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -38,12 +40,13 @@ public class MetadataLogEntriesTable
     private static final String LATEST_SCHEMA_ID_COLUMN_NAME = "latest_schema_id";
     private static final String LATEST_SEQUENCE_NUMBER_COLUMN_NAME = "latest_sequence_number";
 
-    public MetadataLogEntriesTable(SchemaTableName tableName, Table icebergTable)
+    public MetadataLogEntriesTable(SchemaTableName tableName, Table icebergTable, ExecutorService executor)
     {
         super(
                 requireNonNull(icebergTable, "icebergTable is null"),
                 createConnectorTableMetadata(requireNonNull(tableName, "tableName is null")),
-                METADATA_LOG_ENTRIES);
+                METADATA_LOG_ENTRIES,
+                executor);
     }
 
     private static ConnectorTableMetadata createConnectorTableMetadata(SchemaTableName tableName)

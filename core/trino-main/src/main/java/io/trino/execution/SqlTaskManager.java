@@ -136,6 +136,7 @@ public class SqlTaskManager
 
     private final long queryMaxMemoryPerNode;
 
+    private final CounterStat createdTasks = new CounterStat();
     private final CounterStat failedTasks = new CounterStat();
     private final Optional<StuckSplitTasksInterrupter> stuckSplitTasksInterrupter;
     private final LanguageFunctionProvider languageFunctionProvider;
@@ -230,22 +231,25 @@ public class SqlTaskManager
                 queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryMemoryPerNode, maxQuerySpillPerNode)));
 
         tasks = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(
-                taskId -> createSqlTask(
-                        taskId,
-                        locationFactory.createLocalTaskLocation(taskId),
-                        nodeInfo.getNodeId(),
-                        queryContexts.getUnchecked(taskId.getQueryId()),
-                        tracer,
-                        sqlTaskExecutionFactory,
-                        taskNotificationExecutor,
-                        sqlTask -> {
-                            languageFunctionProvider.unregisterTask(taskId);
-                            finishedTaskStats.merge(sqlTask.getIoStats());
-                        },
-                        maxBufferSize,
-                        maxBroadcastBufferSize,
-                        requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null"),
-                        failedTasks)));
+                taskId -> {
+                    createdTasks.update(1);
+                    return createSqlTask(
+                            taskId,
+                            locationFactory.createLocalTaskLocation(taskId),
+                            nodeInfo.getNodeId(),
+                            queryContexts.getUnchecked(taskId.getQueryId()),
+                            tracer,
+                            sqlTaskExecutionFactory,
+                            taskNotificationExecutor,
+                            sqlTask -> {
+                                languageFunctionProvider.unregisterTask(taskId);
+                                finishedTaskStats.merge(sqlTask.getIoStats());
+                            },
+                            maxBufferSize,
+                            maxBroadcastBufferSize,
+                            requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null"),
+                            failedTasks);
+                }));
 
         stuckSplitTasksInterrupter = createStuckSplitTasksInterrupter(
                 config.isInterruptStuckSplitTasksEnabled(),
@@ -353,6 +357,19 @@ public class SqlTaskManager
     public ThreadPoolExecutorMBean getTaskNotificationExecutor()
     {
         return taskNotificationExecutorMBean;
+    }
+
+    @Managed(description = "Tracked tasks count")
+    public long getTrackedTasksCount()
+    {
+        return tasks.size();
+    }
+
+    @Managed(description = "Created tasks counter")
+    @Nested
+    public CounterStat getCreatedTasks()
+    {
+        return createdTasks;
     }
 
     @Managed(description = "Failed tasks counter")

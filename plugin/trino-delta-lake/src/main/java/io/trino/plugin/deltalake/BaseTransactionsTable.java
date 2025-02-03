@@ -14,12 +14,13 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogEntries;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -144,7 +145,7 @@ public abstract class BaseTransactionsTable
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
         try {
             List<Transaction> transactions = loadNewTailBackward(fileSystem, tableLocation, startVersionExclusive, endVersionInclusive.get()).reversed();
-            return new FixedPageSource(buildPages(session, pagesBuilder, transactions));
+            return new FixedPageSource(buildPages(session, pagesBuilder, transactions, fileSystem));
         }
         catch (TrinoException e) {
             throw e;
@@ -170,7 +171,7 @@ public abstract class BaseTransactionsTable
         boolean endOfHead = false;
 
         while (!endOfHead) {
-            Optional<List<DeltaLakeTransactionLogEntry>> results = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem);
+            Optional<TransactionLogEntries> results = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, DataSize.of(0, DataSize.Unit.BYTE));
             if (results.isPresent()) {
                 transactionsBuilder.add(new Transaction(version, results.get()));
                 version = entryNumber;
@@ -187,5 +188,6 @@ public abstract class BaseTransactionsTable
         return transactionsBuilder.build();
     }
 
-    protected abstract List<Page> buildPages(ConnectorSession session, PageListBuilder pagesBuilder, List<Transaction> transactions);
+    protected abstract List<Page> buildPages(ConnectorSession session, PageListBuilder pagesBuilder, List<Transaction> transactions, TrinoFileSystem fileSystem)
+            throws IOException;
 }

@@ -870,6 +870,13 @@ public class TestTrinoDriver
                         .put("assumeLiteralUnderscoreInMetadataCallsForNonConformingClients", "true")
                         .buildOrThrow())))
                 .isNotNull();
+
+        assertThat(DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("validateConnection", "false")
+                        .buildOrThrow())))
+                .isNotNull();
     }
 
     @Test
@@ -996,7 +1003,7 @@ public class TestTrinoDriver
     {
         CountDownLatch queryFinished = new CountDownLatch(1);
         AtomicReference<Throwable> queryFailure = new AtomicReference<>();
-        String queryUuid = "/* " + UUID.randomUUID().toString() + " */";
+        String queryUuid = "/* " + UUID.randomUUID() + " */";
 
         try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement()) {

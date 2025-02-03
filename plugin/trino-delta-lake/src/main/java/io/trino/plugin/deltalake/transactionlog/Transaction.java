@@ -13,18 +13,25 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
-
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
-public record Transaction(long transactionId, List<DeltaLakeTransactionLogEntry> transactionEntries)
+public record Transaction(long transactionId, TransactionLogEntries transactionEntries)
 {
+    private static final int INSTANCE_SIZE = instanceSize(Transaction.class);
+
     public Transaction
     {
         checkArgument(transactionId >= 0, "transactionId must be >= 0");
-        transactionEntries = ImmutableList.copyOf(requireNonNull(transactionEntries, "transactionEntries is null"));
+        requireNonNull(transactionEntries, "transactionEntries is null");
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + SIZE_OF_LONG
+                + transactionEntries.getRetainedSizeInBytes();
     }
 }

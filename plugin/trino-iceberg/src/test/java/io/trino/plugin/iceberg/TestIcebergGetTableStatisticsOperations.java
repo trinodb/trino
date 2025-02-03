@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -32,7 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
-import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -62,9 +61,7 @@ public class TestIcebergGetTableStatisticsOperations
         queryRunner.installPlugin(new TestingIcebergPlugin(metastoreDir));
         queryRunner.createCatalog("iceberg", "iceberg", ImmutableMap.of());
 
-        HiveMetastore metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
-                .getInstance(HiveMetastoreFactory.class)
-                .createMetastore(Optional.empty());
+        HiveMetastore metastore = getHiveMetastore(queryRunner);
 
         Database database = Database.builder()
                 .setDatabaseName("tiny")

@@ -28,8 +28,8 @@ import io.trino.spi.connector.TableNotFoundException;
 import java.util.Optional;
 
 import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.tableMetadataParameters;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter.convertGlueTableToTableInput;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueInputConverter.convertGlueTableToTableInput;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getTableParameters;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeGlueV1MetastoreTableOperations

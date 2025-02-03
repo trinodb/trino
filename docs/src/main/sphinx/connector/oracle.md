@@ -98,9 +98,6 @@ you name the property file `sales.properties`, Trino creates a catalog named
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-```{include} non-transactional-insert.fragment
-```
-
 (oracle-fte-support)=
 ### Fault-tolerant execution support
 
@@ -405,29 +402,39 @@ fails. This is also true for the equivalent `VARCHAR` types.
 ## SQL support
 
 The connector provides read access and write access to data and metadata in
-Oracle. In addition to the {ref}`globally available <sql-globally-available>`
-and {ref}`read operation <sql-read-operations>` statements, the connector
-supports the following statements:
+Oracle. In addition to the [globally available](sql-globally-available) and
+[read operation](sql-read-operations) statements, the connector supports the
+following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {doc}`/sql/create-table`
-- {doc}`/sql/create-table-as`
-- {doc}`/sql/drop-table`
-- {doc}`/sql/alter-table`
-- {doc}`/sql/comment`
+- [](/sql/insert), see also [](oracle-insert)
+- [](/sql/update), see also [](oracle-update)
+- [](/sql/delete), see also [](oracle-delete)
+- [](/sql/truncate)
+- [](/sql/create-table)
+- [](/sql/create-table-as)
+- [](/sql/drop-table)
+- [](/sql/alter-table), see also [](oracle-alter-table)
+- [](/sql/comment)
+- [](oracle-procedures)
+- [](oracle-table-functions)
 
+(oracle-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(oracle-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(oracle-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(oracle-alter-table)=
 ```{include} alter-table-limitation.fragment
 ```
 
+(oracle-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
@@ -435,6 +442,7 @@ supports the following statements:
 ```{include} procedures-execute.fragment
 ```
 
+(oracle-table-functions)=
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to

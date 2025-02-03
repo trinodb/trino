@@ -20,10 +20,10 @@ import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
@@ -39,7 +39,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
+import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetadataFactory
@@ -68,7 +68,6 @@ public class HiveMetadataFactory
     private final Executor updateExecutor;
     private final long maxPartitionDropsPerQuery;
     private final String trinoVersion;
-    private final HiveRedirectionsProvider hiveRedirectionsProvider;
     private final Set<SystemTableProvider> systemTableProviders;
     private final AccessControlMetadataFactory accessControlMetadataFactory;
     private final Optional<Duration> hiveTransactionHeartbeatInterval;
@@ -96,7 +95,6 @@ public class HiveMetadataFactory
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             NodeVersion nodeVersion,
-            HiveRedirectionsProvider hiveRedirectionsProvider,
             Set<SystemTableProvider> systemTableProviders,
             AccessControlMetadataFactory accessControlMetadataFactory,
             DirectoryLister directoryLister,
@@ -130,7 +128,6 @@ public class HiveMetadataFactory
                 executorService,
                 heartbeatService,
                 nodeVersion.toString(),
-                hiveRedirectionsProvider,
                 systemTableProviders,
                 accessControlMetadataFactory,
                 directoryLister,
@@ -168,7 +165,6 @@ public class HiveMetadataFactory
             ExecutorService executorService,
             ScheduledExecutorService heartbeatService,
             String trinoVersion,
-            HiveRedirectionsProvider hiveRedirectionsProvider,
             Set<SystemTableProvider> systemTableProviders,
             AccessControlMetadataFactory accessControlMetadataFactory,
             DirectoryLister directoryLister,
@@ -198,7 +194,6 @@ public class HiveMetadataFactory
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
-        this.hiveRedirectionsProvider = requireNonNull(hiveRedirectionsProvider, "hiveRedirectionsProvider is null");
         this.systemTableProviders = requireNonNull(systemTableProviders, "systemTableProviders is null");
         this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
         this.hiveTransactionHeartbeatInterval = requireNonNull(hiveTransactionHeartbeatInterval, "hiveTransactionHeartbeatInterval is null");
@@ -266,7 +261,6 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 trinoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
-                hiveRedirectionsProvider,
                 systemTableProviders,
                 accessControlMetadataFactory.create(metastore),
                 directoryLister,

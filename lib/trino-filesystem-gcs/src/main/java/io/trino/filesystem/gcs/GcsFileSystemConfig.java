@@ -26,6 +26,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -39,6 +40,7 @@ public class GcsFileSystemConfig
     private int batchSize = 100;
 
     private String projectId;
+    private Optional<String> endpoint = Optional.empty();
 
     private boolean useGcsAccessToken;
     private String jsonKey;
@@ -117,6 +119,19 @@ public class GcsFileSystemConfig
     public GcsFileSystemConfig setProjectId(String projectId)
     {
         this.projectId = projectId;
+        return this;
+    }
+
+    public Optional<String> getEndpoint()
+    {
+        return endpoint;
+    }
+
+    @ConfigDescription("Endpoint to use for GCS requests")
+    @Config("gcs.endpoint")
+    public GcsFileSystemConfig setEndpoint(Optional<String> endpoint)
+    {
+        this.endpoint = endpoint;
         return this;
     }
 

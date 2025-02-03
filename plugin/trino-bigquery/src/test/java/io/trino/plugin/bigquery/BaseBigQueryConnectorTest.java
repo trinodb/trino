@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.cloud.bigquery.FieldValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
@@ -50,6 +51,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.TEST_SCHEMA;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
@@ -62,9 +64,12 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
+import static io.trino.testing.assertions.Assert.assertConsistently;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -78,6 +83,7 @@ public abstract class BaseBigQueryConnectorTest
 {
     protected BigQuerySqlExecutor bigQuerySqlExecutor;
     private String gcpStorageBucket;
+    private String bigQueryConnectionId;
 
     @BeforeAll
     public void initBigQueryExecutor()
@@ -85,6 +91,7 @@ public abstract class BaseBigQueryConnectorTest
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
         // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
         this.gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
+        this.bigQueryConnectionId = requiredNonEmptySystemProperty("testing.bigquery-connection-id");
     }
 
     @Override
@@ -198,7 +205,7 @@ public abstract class BaseBigQueryConnectorTest
     @Test
     public void testCreateTableAlreadyExists()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_already_exists", "(col1 int)")) {
+        try (TestTable table = newTrinoTable("test_create_table_already_exists", "(col1 int)")) {
             assertQueryFails(
                     "CREATE TABLE " + table.getName() + "(col1 int)",
                     "\\Qline 1:1: Table 'bigquery.tpch." + table.getName() + "' already exists\\E");
@@ -346,8 +353,8 @@ public abstract class BaseBigQueryConnectorTest
     public void testStreamCommentTableSpecialCharacter()
     {
         String schemaName = "test_comment" + randomNameSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
         try {
+            assertUpdate("CREATE SCHEMA " + schemaName);
             assertUpdate("CREATE TABLE " + schemaName + ".test_comment_semicolon (a integer) COMMENT " + varcharLiteral("a;semicolon"));
             assertUpdate("CREATE TABLE " + schemaName + ".test_comment_at (a integer) COMMENT " + varcharLiteral("an@at"));
             assertUpdate("CREATE TABLE " + schemaName + ".test_comment_quote (a integer) COMMENT " + varcharLiteral("a\"quote"));
@@ -372,7 +379,7 @@ public abstract class BaseBigQueryConnectorTest
                             "('test_comment_bracket', " + varcharLiteral("[square bracket]") + ")");
         }
         finally {
-            assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName + " CASCADE");
         }
     }
 
@@ -380,7 +387,7 @@ public abstract class BaseBigQueryConnectorTest
     @Override // Override because the base test exceeds rate limits per a table
     public void testCommentColumn()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_", "(a integer)")) {
+        try (TestTable table = newTrinoTable("test_comment_column_", "(a integer)")) {
             // comment set
             assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'new comment'");
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("COMMENT 'new comment'");
@@ -391,7 +398,7 @@ public abstract class BaseBigQueryConnectorTest
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo(null);
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_", "(a integer COMMENT 'test comment')")) {
+        try (TestTable table = newTrinoTable("test_comment_column_", "(a integer COMMENT 'test comment')")) {
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo("test comment");
             // comment set new value
             assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'updated comment'");
@@ -543,7 +550,7 @@ public abstract class BaseBigQueryConnectorTest
     @Test
     public void testColumnPositionMismatch()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test.test_column_position_mismatch", "(c_varchar VARCHAR, c_int INT, c_date DATE)")) {
+        try (TestTable table = newTrinoTable("test.test_column_position_mismatch", "(c_varchar VARCHAR, c_int INT, c_date DATE)")) {
             onBigQuery("INSERT INTO " + table.getName() + " VALUES ('a', 1, '2021-01-01')");
             // Adding a CAST makes BigQuery return columns in a different order
             assertQuery("SELECT c_varchar, CAST(c_int AS SMALLINT), c_date FROM " + table.getName(), "VALUES ('a', 1, '2021-01-01')");
@@ -774,10 +781,73 @@ public abstract class BaseBigQueryConnectorTest
 
             assertUpdate("DROP TABLE test." + externalTable);
             assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + externalTable + "'");
+
+            assertThat(getTableReferenceCountInJob(externalTable)).isEqualTo(1);
         }
         finally {
             onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + externalTable);
         }
+    }
+
+    @Test
+    public void testBigLakeExternalTable()
+    {
+        String biglakeExternalTable = "test_biglake_external" + randomNameSuffix();
+        try {
+            onBigQuery("CREATE EXTERNAL TABLE test." + biglakeExternalTable +
+                    " WITH CONNECTION `" + bigQueryConnectionId + "`" +
+                    " OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+
+            assertThat(query("DESCRIBE test." + biglakeExternalTable)).matches("DESCRIBE tpch.region");
+            assertThat(query("SELECT * FROM test." + biglakeExternalTable)).matches("SELECT * FROM tpch.region");
+
+            assertUpdate("DROP TABLE test." + biglakeExternalTable);
+            assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + biglakeExternalTable + "'");
+
+            // BigLake tables should not run queries, since they are read directly using the storage read API.
+            assertConsistently(
+                    new Duration(3, SECONDS),
+                    new Duration(500, MILLISECONDS),
+                    () -> assertThat(getTableReferenceCountInJob(biglakeExternalTable)).isEqualTo(0));
+        }
+        finally {
+            onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + biglakeExternalTable);
+        }
+    }
+
+    @Test
+    public void testExternalObjectTable()
+    {
+        String objectExternalTable = "test_object_external" + randomNameSuffix();
+
+        try {
+            onBigQuery("CREATE EXTERNAL TABLE test." + objectExternalTable +
+                       " WITH CONNECTION `" + bigQueryConnectionId + "`" +
+                       " OPTIONS (object_metadata = 'SIMPLE', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + objectExternalTable + "'", "VALUES 'BASE TABLE'");
+
+            assertThat(query("SELECT uri FROM test." + objectExternalTable)).succeeds();
+
+            assertUpdate("DROP TABLE test." + objectExternalTable);
+            assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name LIKE '%" + objectExternalTable + "%'");
+
+            assertThat(getTableReferenceCountInJob(objectExternalTable)).isEqualTo(1);
+        }
+        finally {
+            onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + objectExternalTable);
+        }
+    }
+
+    private long getTableReferenceCountInJob(String tableName)
+    {
+        return bigQuerySqlExecutor.executeQuery("""
+                         SELECT count(*) FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
+                             SELECT * FROM UNNEST(referenced_tables) AS referenced_table
+                                 WHERE referenced_table.table_id = '%s')
+                        """.formatted(tableName)).streamValues()
+                .map(List::getFirst)
+                .map(FieldValue::getLongValue)
+                .collect(onlyElement());
     }
 
     @Test
@@ -1388,7 +1458,7 @@ public abstract class BaseBigQueryConnectorTest
     public void testInsertArray()
     {
         // Override because the connector disallows writing a NULL in ARRAY
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
+        try (TestTable table = newTrinoTable("test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
             assertQuery("SELECT a[1], b[1] FROM " + table.getName(), "VALUES (12.3, 12)");
         }
@@ -1460,4 +1530,5 @@ public abstract class BaseBigQueryConnectorTest
     {
         bigQuerySqlExecutor.execute(sql);
     }
+
 }

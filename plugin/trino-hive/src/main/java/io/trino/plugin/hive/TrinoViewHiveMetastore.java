@@ -19,6 +19,7 @@ import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
+import io.trino.metastore.TableAlreadyExistsException;
 import io.trino.metastore.TableInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;

@@ -69,6 +69,12 @@ public class DataDefinitionExecution<T extends Statement>
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.parameters = parameters;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        stateMachine.addStateChangeListener(state -> {
+            if (state.isDone() && stateMachine.getFinalQueryInfo().isEmpty()) {
+                // make sure the final query info is set and listeners are triggered
+                stateMachine.updateQueryInfo(Optional.empty());
+            }
+        });
     }
 
     @Override

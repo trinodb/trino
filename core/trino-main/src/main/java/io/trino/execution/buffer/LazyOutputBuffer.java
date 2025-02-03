@@ -138,6 +138,7 @@ public class LazyOutputBuffer
                     0,
                     Optional.empty(),
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
         }
         return outputBuffer.getInfo();

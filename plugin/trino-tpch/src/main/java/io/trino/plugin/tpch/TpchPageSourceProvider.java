@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.tpch;
 
+import com.google.inject.Inject;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -24,11 +25,19 @@ import io.trino.spi.connector.DynamicFilter;
 
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
+
 public class TpchPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final TpchRecordSetProvider tpchRecordSetProvider;
     private final int maxRowsPerPage;
+
+    @Inject
+    TpchPageSourceProvider(TpchConfig config)
+    {
+        this(requireNonNull(config, "config is null").getMaxRowsPerPage(), config.getDecimalTypeMapping());
+    }
 
     TpchPageSourceProvider(int maxRowsPerPage, DecimalTypeMapping decimalTypeMapping)
     {

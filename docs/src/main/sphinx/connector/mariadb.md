@@ -52,9 +52,6 @@ properties files.
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-```{include} non-transactional-insert.fragment
-```
-
 (mariadb-fte-support)=
 ### Fault-tolerant execution support
 
@@ -283,28 +280,37 @@ Complete list of [MariaDB data types](https://mariadb.com/kb/en/data-types/).
 (mariadb-sql-support)=
 ## SQL support
 
-The connector provides read access and write access to data and metadata in
-a MariaDB database.  In addition to the {ref}`globally available
-<sql-globally-available>` and {ref}`read operation <sql-read-operations>`
+The connector provides read access and write access to data and metadata in a
+MariaDB database. In addition to the [globally
+available](sql-globally-available) and [read operation](sql-read-operations)
 statements, the connector supports the following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {doc}`/sql/create-table`
-- {doc}`/sql/create-table-as`
-- {doc}`/sql/drop-table`
-- {doc}`/sql/alter-table`
-- {doc}`/sql/create-schema`
-- {doc}`/sql/drop-schema`
+- [](/sql/insert), see also [](mariadb-insert)
+- [](/sql/update), see also [](mariadb-update)
+- [](/sql/delete), see also [](mariadb-delete)
+- [](/sql/truncate)
+- [](/sql/create-table)
+- [](/sql/create-table-as)
+- [](/sql/drop-table)
+- [](/sql/alter-table)
+- [](/sql/create-schema)
+- [](/sql/drop-schema)
+- [](mariadb-procedures)
+- [](mariadb-table-functions)
 
+(mariadb-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(mariadb-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(mariadb-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(mariadb-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
@@ -312,6 +318,7 @@ statements, the connector supports the following features:
 ```{include} procedures-execute.fragment
 ```
 
+(mariadb-table-functions)=
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to

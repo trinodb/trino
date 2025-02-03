@@ -298,6 +298,7 @@ public class TestHiveRedirectionToIceberg
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         format("   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/%s-\\E.*\\Q',\n", tableName) +
+                        "   max_commit_retry = 4,\n" +
                         "   partitioning = ARRAY['regionkey']\n" + // 'partitioning' comes from Iceberg
                         ")\\E");
 

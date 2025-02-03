@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static io.trino.plugin.bigquery.BigQueryQueryRunner.BIGQUERY_CREDENTIALS_KEY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,7 +43,7 @@ public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
                 .setConnectorProperties(Map.of("bigquery.project-id", alternateProjectId))
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
-        queryRunner.createCatalog(SERVICE_ACCOUNT_CATALOG, "bigquery", Map.of());
+        queryRunner.createCatalog(SERVICE_ACCOUNT_CATALOG, "bigquery", Map.of("bigquery.credentials-key", BIGQUERY_CREDENTIALS_KEY));
         return queryRunner;
     }
 

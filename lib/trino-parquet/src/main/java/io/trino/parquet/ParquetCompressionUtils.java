@@ -13,7 +13,6 @@
  */
 package io.trino.parquet;
 
-import com.google.common.io.ByteStreams;
 import io.airlift.compress.v3.Decompressor;
 import io.airlift.compress.v3.lz4.Lz4Decompressor;
 import io.airlift.compress.v3.lzo.LzoDecompressor;
@@ -88,7 +87,7 @@ public final class ParquetCompressionUtils
 
         try (GZIPInputStream gzipInputStream = new GZIPInputStream(input.getInput(), min(GZIP_BUFFER_SIZE, input.length()))) {
             byte[] buffer = new byte[uncompressedSize];
-            int bytesRead = ByteStreams.read(gzipInputStream, buffer, 0, buffer.length);
+            int bytesRead = gzipInputStream.readNBytes(buffer, 0, buffer.length);
             if (bytesRead != uncompressedSize) {
                 throw new IllegalArgumentException(format("Invalid uncompressedSize for GZIP input. Expected %s, actual: %s", uncompressedSize, bytesRead));
             }

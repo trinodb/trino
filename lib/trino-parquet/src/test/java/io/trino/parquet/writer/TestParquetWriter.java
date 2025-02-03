@@ -46,6 +46,7 @@ import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
+import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.Util;
 import org.apache.parquet.schema.PrimitiveType;
 import org.assertj.core.data.Percentage;
@@ -376,6 +377,38 @@ public class TestParquetWriter
             for (int i = 0; i < 100; i++) {
                 assertThat(ids[i]).isEqualTo(i);
             }
+        }
+    }
+
+    @Test
+    void testRowGroupOffset()
+            throws IOException
+    {
+        // Write a file with 100 rows per row-group
+        List<String> columnNames = ImmutableList.of("columnA", "columnB");
+        List<Type> types = ImmutableList.of(INTEGER, BIGINT);
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxBlockSize(DataSize.ofBytes(1000))
+                                .build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, 10)),
+                new ParquetReaderOptions());
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        List<BlockMetadata> blocks = parquetMetadata.getBlocks();
+        assertThat(blocks.size()).isGreaterThan(1);
+
+        List<RowGroup> rowGroups = parquetMetadata.getParquetMetadata().getRow_groups();
+        assertThat(rowGroups.size()).isEqualTo(blocks.size());
+        for (int rowGroupIndex = 0; rowGroupIndex < rowGroups.size(); rowGroupIndex++) {
+            RowGroup rowGroup = rowGroups.get(rowGroupIndex);
+            assertThat(rowGroup.isSetFile_offset()).isTrue();
+            BlockMetadata blockMetadata = blocks.get(rowGroupIndex);
+            assertThat(blockMetadata.getStartingPos()).isEqualTo(rowGroup.getFile_offset());
         }
     }
 

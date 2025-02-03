@@ -174,6 +174,9 @@ The security mapping must provide one or more configuration settings:
 - `kmsKeyId`: ID of KMS-managed key to be used for client-side encryption.
 - `allowedKmsKeyIds`: KMS-managed key IDs that are allowed to be specified as an extra
   credential. If list cotains `*`, then any key can be specified via extra credential.
+- `sseCustomerKey`: The customer provided key (SSE-C) for server-side encryption.
+- `allowedSseCustomerKey`: The SSE-C keys that are allowed to be specified as an extra
+  credential. If list cotains `*`, then any key can be specified via extra credential.
 - `endpoint`: The S3 storage endpoint server. This optional property can be used
   to override S3 endpoints on a per-bucket basis.
 - `region`: The S3 region to connect to. This optional property can be used
@@ -262,6 +265,8 @@ Example JSON configuration:
   - The name of the *extra credential* used to provide the IAM role.
 * - `s3.security-mapping.kms-key-id-credential-name`
   - The name of the *extra credential* used to provide the KMS-managed key ID.
+* - `s3.security-mapping.sse-customer-key-credential-name`
+  - The name of the *extra credential* used to provide the server-side encryption with customer-provided keys (SSE-C).
 * - `s3.security-mapping.refresh-period`
   - How often to refresh the security mapping configuration, specified as a
     {ref}`prop-type-duration`. By default, the configuration is not refreshed.

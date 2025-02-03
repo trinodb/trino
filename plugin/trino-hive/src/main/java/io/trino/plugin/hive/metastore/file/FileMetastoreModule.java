@@ -17,9 +17,9 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.trino.metastore.HiveMetastoreFactory;
+import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.hive.AllowHiveTableRename;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 

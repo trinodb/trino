@@ -71,6 +71,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.operator.HashGenerator.INITIAL_HASH_VALUE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
@@ -81,7 +82,6 @@ import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
-import static io.trino.sql.planner.optimizations.HashGenerationOptimizer.INITIAL_HASH_VALUE;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 

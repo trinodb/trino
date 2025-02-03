@@ -14,32 +14,32 @@
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MissingTransactionLogException;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogEntries;
 
-import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.parseJson;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class TransactionLogTail
 {
-    private static final int JSON_LOG_ENTRY_READ_BUFFER_SIZE = 1024 * 1024;
+    private static final int INSTANCE_SIZE = instanceSize(TransactionLogTail.class);
 
     private final List<Transaction> entries;
     private final long version;
@@ -55,7 +55,8 @@ public class TransactionLogTail
             TrinoFileSystem fileSystem,
             String tableLocation,
             Optional<Long> startVersion,
-            Optional<Long> endVersion)
+            Optional<Long> endVersion,
+            DataSize transactionLogMaxCachedFileSize)
             throws IOException
     {
         ImmutableList.Builder<Transaction> entriesBuilder = ImmutableList.builder();
@@ -70,11 +71,10 @@ public class TransactionLogTail
         checkArgument(endVersion.isEmpty() || entryNumber <= endVersion.get(), "Invalid start/end versions: %s, %s", startVersion, endVersion);
 
         String transactionLogDir = getTransactionLogDir(tableLocation);
-        Optional<List<DeltaLakeTransactionLogEntry>> results;
 
         boolean endOfTail = false;
         while (!endOfTail) {
-            results = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem);
+            Optional<TransactionLogEntries> results = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem, transactionLogMaxCachedFileSize);
             if (results.isPresent()) {
                 entriesBuilder.add(new Transaction(entryNumber, results.get()));
                 version = entryNumber;
@@ -95,11 +95,11 @@ public class TransactionLogTail
         return new TransactionLogTail(entriesBuilder.build(), version);
     }
 
-    public Optional<TransactionLogTail> getUpdatedTail(TrinoFileSystem fileSystem, String tableLocation, Optional<Long> endVersion)
+    public Optional<TransactionLogTail> getUpdatedTail(TrinoFileSystem fileSystem, String tableLocation, Optional<Long> endVersion, DataSize transactionLogMaxCachedFileSize)
             throws IOException
     {
         checkArgument(endVersion.isEmpty() || endVersion.get() > version, "Invalid endVersion, expected higher than %s, but got %s", version, endVersion);
-        TransactionLogTail newTail = loadNewTail(fileSystem, tableLocation, Optional.of(version), endVersion);
+        TransactionLogTail newTail = loadNewTail(fileSystem, tableLocation, Optional.of(version), endVersion, transactionLogMaxCachedFileSize);
         if (newTail.version == version) {
             return Optional.empty();
         }
@@ -111,42 +111,32 @@ public class TransactionLogTail
                 newTail.version));
     }
 
-    public static Optional<List<DeltaLakeTransactionLogEntry>> getEntriesFromJson(long entryNumber, String transactionLogDir, TrinoFileSystem fileSystem)
+    public static Optional<TransactionLogEntries> getEntriesFromJson(long entryNumber, String transactionLogDir, TrinoFileSystem fileSystem, DataSize transactionLogMaxCachedFileSize)
             throws IOException
     {
         Location transactionLogFilePath = getTransactionLogJsonEntryPath(transactionLogDir, entryNumber);
         TrinoInputFile inputFile = fileSystem.newInputFile(transactionLogFilePath);
-        return getEntriesFromJson(entryNumber, inputFile);
+        return getEntriesFromJson(entryNumber, inputFile, transactionLogMaxCachedFileSize);
     }
 
-    public static Optional<List<DeltaLakeTransactionLogEntry>> getEntriesFromJson(long entryNumber, TrinoInputFile inputFile)
+    public static Optional<TransactionLogEntries> getEntriesFromJson(long entryNumber, TrinoInputFile inputFile, DataSize transactionLogMaxCachedFileSize)
             throws IOException
     {
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(inputFile.newStream(), UTF_8),
-                JSON_LOG_ENTRY_READ_BUFFER_SIZE)) {
-            ImmutableList.Builder<DeltaLakeTransactionLogEntry> resultsBuilder = ImmutableList.builder();
-            String line = reader.readLine();
-            while (line != null) {
-                DeltaLakeTransactionLogEntry deltaLakeTransactionLogEntry = parseJson(line);
-                if (deltaLakeTransactionLogEntry.getCommitInfo() != null && deltaLakeTransactionLogEntry.getCommitInfo().version() == 0L) {
-                    // In case that the commit info version is missing, use the version from the transaction log file name
-                    deltaLakeTransactionLogEntry = deltaLakeTransactionLogEntry.withCommitInfo(deltaLakeTransactionLogEntry.getCommitInfo().withVersion(entryNumber));
-                }
-                resultsBuilder.add(deltaLakeTransactionLogEntry);
-                line = reader.readLine();
-            }
-
-            return Optional.of(resultsBuilder.build());
+        try {
+            inputFile.length(); // File length is cached and used in TransactionLogEntries
         }
         catch (FileNotFoundException e) {
             return Optional.empty();  // end of tail
         }
+        return Optional.of(new TransactionLogEntries(entryNumber, inputFile, transactionLogMaxCachedFileSize));
     }
 
-    public List<DeltaLakeTransactionLogEntry> getFileEntries()
+    public List<DeltaLakeTransactionLogEntry> getFileEntries(TrinoFileSystem fileSystem)
     {
-        return entries.stream().map(Transaction::transactionEntries).flatMap(Collection::stream).collect(toImmutableList());
+        return entries.stream()
+                .map(Transaction::transactionEntries)
+                .flatMap(logEntries -> logEntries.getEntriesList(fileSystem).stream())
+                .collect(toImmutableList());
     }
 
     public List<Transaction> getTransactions()
@@ -157,5 +147,12 @@ public class TransactionLogTail
     public long getVersion()
     {
         return version;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + SIZE_OF_LONG
+                + estimatedSizeOf(entries, Transaction::getRetainedSizeInBytes);
     }
 }

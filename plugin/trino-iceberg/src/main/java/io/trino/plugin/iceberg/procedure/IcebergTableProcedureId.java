@@ -17,6 +17,7 @@ public enum IcebergTableProcedureId
 {
     OPTIMIZE,
     DROP_EXTENDED_STATS,
+    ROLLBACK_TO_SNAPSHOT,
     EXPIRE_SNAPSHOTS,
     REMOVE_ORPHAN_FILES,
     ADD_FILES,

@@ -88,9 +88,6 @@ catalog named `sales` using the configured connector.
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-```{include} non-transactional-insert.fragment
-```
-
 (redshift-fte-support)=
 ## Fault-tolerant execution support
 
@@ -144,24 +141,37 @@ Redshift. In addition to the {ref}`globally available
 <sql-globally-available>` and {ref}`read operation <sql-read-operations>`
 statements, the connector supports the following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {ref}`sql-schema-table-management`
+- [](/sql/insert), see also [](redshift-insert)
+- [](/sql/update), see also [](redshift-update)
+- [](/sql/delete), see also [](redshift-delete)
+- [](/sql/truncate)
+- [](sql-schema-table-management), see also:
+  - [](redshift-alter-table)
+  - [](redshift-alter-schema)
+- [](redshift-procedures)
+- [](redshift-table-functions)
 
+(redshift-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(redshift-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(redshift-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(redshift-alter-table)=
 ```{include} alter-table-limitation.fragment
 ```
 
+(redshift-alter-schema)=
 ```{include} alter-schema-limitation.fragment
 ```
 
+(redshift-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
@@ -169,6 +179,7 @@ statements, the connector supports the following features:
 ```{include} procedures-execute.fragment
 ```
 
+(redshift-table-functions)=
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
@@ -207,3 +218,47 @@ FROM
 
 ```{include} query-table-function-ordering.fragment
 ```
+
+## Performance
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+### Parallel read via S3
+
+The connector supports the Redshift `UNLOAD` command to transfer data to Parquet
+files on S3. This enables parallel read of the data in Trino instead of the
+default, single-threaded JDBC-based connection to Redshift, used by the
+connector.
+
+Configure the required S3 location with `redshift.unload-location` to enable the
+parallel read. Parquet files are automatically removed with query completion.
+The Redshift cluster and the configured S3 bucket must use the same AWS region.
+
+:::{list-table} Parallel read configuration properties
+:widths: 30, 60
+:header-rows: 1
+
+* - Property value
+  - Description
+* - `redshift.unload-location`
+  - A writeable location in Amazon S3 in the same AWS region as the Redshift
+    cluster. Used for temporary storage during query processing using the
+    `UNLOAD` command from Redshift. To ensure cleanup even for failed automated
+    removal, configure a life cycle policy to auto clean up the bucket
+    regularly.
+* - `redshift.unload-iam-role`
+  - Optional. Fully specified ARN of the IAM Role attached to the Redshift
+    cluster to use for the `UNLOAD` command. The role must have read access to
+    the Redshift cluster and write access to the S3 bucket. Defaults to use the
+    default IAM role attached to the Redshift cluster.
+
+:::
+
+Use the `unload_enabled` [catalog session property](/sql/set-session) to
+deactivate the parallel read during a client session for a specific query, and
+potentially re-activate it again afterwards.
+
+Additionally, define further required [S3 configuration such as IAM key, role,
+or region](/object-storage/file-system-s3), except `fs.native-s3.enabled`,
+

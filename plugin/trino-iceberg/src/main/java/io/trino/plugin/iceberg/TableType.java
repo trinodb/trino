@@ -23,6 +23,8 @@ public enum TableType
     MANIFESTS,
     PARTITIONS,
     FILES,
+    ALL_ENTRIES,
+    ENTRIES,
     PROPERTIES,
     REFS,
     MATERIALIZED_VIEW_STORAGE,

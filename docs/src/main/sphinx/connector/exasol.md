@@ -133,10 +133,15 @@ Exasol does not support longer values.
 (exasol-sql-support)=
 ## SQL support
 
-The connector provides {ref}`globally available <sql-globally-available>` and
-{ref}`read operation <sql-read-operations>` statements to access data and
-metadata in the Exasol database.
+The connector provides read access to data and metadata in Exasol. In addition
+to the [globally available](sql-globally-available) and [read
+operation](sql-read-operations) statements, the connector supports the following
+features:
 
+- [](exasol-procedures)
+- [](exasol-table-functions)
+
+(exasol-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
@@ -144,6 +149,7 @@ metadata in the Exasol database.
 ```{include} procedures-execute.fragment
 ```
 
+(exasol-table-functions)=
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to

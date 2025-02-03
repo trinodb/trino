@@ -23,6 +23,7 @@ import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_HUDI_REDIRECTIONS;
 import static io.trino.tests.product.TestGroups.HUDI;
@@ -30,7 +31,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onHudi;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHudiSparkCompatibility
@@ -44,7 +44,7 @@ public class TestHudiSparkCompatibility
     @BeforeMethodWithContext
     public void setUp()
     {
-        bucketName = requireNonNull(System.getenv("S3_BUCKET"), "Environment variable not set: S3_BUCKET");
+        bucketName = requireEnv("S3_BUCKET");
     }
 
     @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})

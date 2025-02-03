@@ -23,6 +23,7 @@ import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.hive.formats.line.LineSerializer;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
@@ -67,6 +68,7 @@ import static io.trino.hive.formats.FormatTestUtils.readTrinoValues;
 import static io.trino.hive.formats.FormatTestUtils.toSingleRowPage;
 import static io.trino.hive.formats.FormatTestUtils.toSqlTimestamp;
 import static io.trino.hive.formats.HiveFormatUtils.TIMESTAMP_FORMATS_KEY;
+import static io.trino.hive.formats.HiveFormatsErrorCode.HIVE_UNSERIALIZABLE_JSON_VALUE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -595,9 +597,12 @@ public class TestJsonFormat
         assertValue(REAL, "1.5645e33", 1.5645e33f);
 
         assertValueFails(REAL, "NaN", false);
+        assertUnserializableJsonValue(REAL, Float.NaN);
         assertValueFails(REAL, "Infinity", false);
         assertValueFails(REAL, "+Infinity", false);
+        assertUnserializableJsonValue(REAL, Float.POSITIVE_INFINITY);
         assertValueFails(REAL, "-Infinity", false);
+        assertUnserializableJsonValue(REAL, Float.NEGATIVE_INFINITY);
         assertValueFails(REAL, "+Inf");
         assertValueFails(REAL, "-Inf");
         // Map keys support NaN, infinity and negative infinity
@@ -632,9 +637,12 @@ public class TestJsonFormat
         assertValue(DOUBLE, "1.5645e33", 1.5645e33);
 
         assertValueFails(DOUBLE, "NaN", false);
+        assertUnserializableJsonValue(DOUBLE, Double.NaN);
         assertValueFails(DOUBLE, "Infinity", false);
         assertValueFails(DOUBLE, "+Infinity", false);
+        assertUnserializableJsonValue(DOUBLE, Double.POSITIVE_INFINITY);
         assertValueFails(DOUBLE, "-Infinity", false);
+        assertUnserializableJsonValue(DOUBLE, Double.NEGATIVE_INFINITY);
         assertValueFails(DOUBLE, "+Inf");
         assertValueFails(DOUBLE, "-Inf");
         // Map keys support NaN, infinity and negative infinity
@@ -651,6 +659,19 @@ public class TestJsonFormat
 
         assertValueFails(DOUBLE, "[ 42 ]", false);
         assertValueFails(DOUBLE, "{ \"x\" : 42 }", false);
+    }
+
+    private static void assertUnserializableJsonValue(Type type, Object value)
+    {
+        List<Column> columns = ImmutableList.of(new Column("test", type, 33));
+        Page page = toSingleRowPage(columns, singletonList(value));
+
+        // write the data to json
+        LineSerializer serializer = new JsonSerializerFactory().create(columns, ImmutableMap.of());
+        SliceOutput sliceOutput = new DynamicSliceOutput(64);
+        assertThatThrownBy(() -> serializer.write(page, 0, sliceOutput))
+                .isInstanceOf(TrinoException.class)
+                .matches(e -> ((TrinoException) e).getErrorCode() == HIVE_UNSERIALIZABLE_JSON_VALUE.toErrorCode());
     }
 
     @Test

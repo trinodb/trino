@@ -92,6 +92,7 @@ public class TestIcebergAbfsConnectorSmokeTest
                                 .put("azure.access-key", accessKey)
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
+                                .put("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                                 .buildOrThrow())
                 .setSchemaInitializer(
                         SchemaInitializer.builder()

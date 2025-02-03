@@ -6,7 +6,7 @@
   [](jvm-config). ({issue}`20010`)
 * Improve performance by not generating redundant predicates. ({issue}`16520`)
 * Fix query failure when invoking the `json_table` function. ({issue}`20122`)
-* Fix query hang when a [SQL routine](/routines) dereferences a row field. ({issue}`19997`).
+* Fix query hang when a [](/udf/sql) dereferences a row field. ({issue}`19997`).
 * Fix potential incorrect results when using the {func}`ST_Centroid` and
   {func}`ST_Buffer` functions for tiny geometries. ({issue}`20237`)
 

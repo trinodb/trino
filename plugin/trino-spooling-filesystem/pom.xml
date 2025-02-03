@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>468-SNAPSHOT</version>
+        <version>470-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -55,11 +55,6 @@
         <dependency>
             <groupId>io.azam.ulidj</groupId>
             <artifactId>ulidj</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.opentelemetry.semconv</groupId>
-            <artifactId>opentelemetry-semconv</artifactId>
         </dependency>
 
         <dependency>

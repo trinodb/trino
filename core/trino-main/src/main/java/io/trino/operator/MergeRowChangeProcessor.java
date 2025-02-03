@@ -31,6 +31,7 @@ public interface MergeRowChangeProcessor
      * <ul>
      *     <li>All data columns, in table column order</li>
      *     <li>{@link ConnectorMergeSink#storeMergedRows The operation block}</li>
+     *     <li>{@link ConnectorMergeSink#storeMergedRows The merge case number block}</li>
      *     <li>The rowId block</li>
      *     <li>The last column in the resulting page is 1 if the row is an insert
      *         derived from an update, and zero otherwise.</li>

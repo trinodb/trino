@@ -23,7 +23,6 @@ import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.plugin.base.security.UserNameProvider;
-import io.trino.plugin.hive.ForHiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.thrift.TException;

@@ -22,7 +22,7 @@ import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.DecimalTypeMapping;

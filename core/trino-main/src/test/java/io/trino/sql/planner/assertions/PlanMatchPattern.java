@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsProvider;
@@ -523,12 +524,12 @@ public final class PlanMatchPattern
         return spatialJoin(expectedFilter, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern spatialJoin(Expression expectedFilter, Optional<String> kdbTree, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialJoin(Expression expectedFilter, Optional<Slice> kdbTree, PlanMatchPattern left, PlanMatchPattern right)
     {
         return spatialJoin(expectedFilter, kdbTree, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern spatialJoin(Expression filter, Optional<String> kdbTree, Optional<List<String>> outputSymbols, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialJoin(Expression filter, Optional<Slice> kdbTree, Optional<List<String>> outputSymbols, PlanMatchPattern left, PlanMatchPattern right)
     {
         return node(SpatialJoinNode.class, left, right).with(
                 new SpatialJoinMatcher(SpatialJoinNode.Type.INNER, filter, kdbTree, outputSymbols));

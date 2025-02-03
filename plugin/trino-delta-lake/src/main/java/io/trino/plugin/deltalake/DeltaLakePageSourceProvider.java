@@ -216,7 +216,7 @@ public class DeltaLakePageSourceProvider
         ParquetReaderOptions options = parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                 .withSmallFileThreshold(getParquetSmallFileThreshold(session))
-                .withUseColumnIndex(isParquetUseColumnIndex(session))
+                .withUseColumnIndex(split.getDeletionVector().isEmpty() && isParquetUseColumnIndex(session))
                 .withIgnoreStatistics(isParquetIgnoreStatistics(session))
                 .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session));
 

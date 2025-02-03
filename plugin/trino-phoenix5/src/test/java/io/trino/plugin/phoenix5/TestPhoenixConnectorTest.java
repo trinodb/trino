@@ -335,8 +335,7 @@ public class TestPhoenixConnectorTest
     {
         // test overridden because super uses all-space char values ('  ') that are null-out by Phoenix
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_char_varchar",
                 "(k, v) AS VALUES" +
                         "   (-1, CAST(NULL AS char(3))), " +
@@ -359,8 +358,7 @@ public class TestPhoenixConnectorTest
     {
         // test overridden because Phoenix nulls-out '' varchar value, impacting results
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_varchar_char",
                 "(k, v) AS VALUES" +
                         "   (-1, CAST(NULL AS varchar(3))), " +
@@ -409,7 +407,7 @@ public class TestPhoenixConnectorTest
                 .collect(toImmutableList());
         String tableName = "count_distinct_strings" + randomNameSuffix();
 
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, tableName, "(id int, t_char CHAR(5), t_varchar VARCHAR(5)) WITH (ROWKEYS='id')", rows)) {
+        try (TestTable testTable = newTrinoTable(tableName, "(id int, t_char CHAR(5), t_varchar VARCHAR(5)) WITH (ROWKEYS='id')", rows)) {
             assertQuery("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName(), "VALUES 6");
             assertQuery("SELECT count(DISTINCT t_char) FROM " + testTable.getName(), "VALUES 6");
             assertQuery("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(), "VALUES (6, 6)");
@@ -1041,6 +1039,13 @@ public class TestPhoenixConnectorTest
         }
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    @Override
+    public void testMergeTargetWithoutPrimaryKeys()
+    {
+        abort("Phoenix table always has primary key");
     }
 
     private byte[] getActualQualifier(String tableName, String columnName)

@@ -1509,11 +1509,15 @@ public class PostgreSqlClient
             type.writeObject(builder, block);
             Object value = type.getObjectValue(session, builder.build(), 0);
 
+            if (!(value instanceof List<?> list)) {
+                throw new TrinoException(JDBC_ERROR, "Unexpected JSON object value for " + type.getDisplayName() + " expected List, got " + value.getClass().getSimpleName());
+            }
+
             try {
-                return toJsonValue(value);
+                return toJsonValue(list);
             }
             catch (IOException e) {
-                throw new TrinoException(JDBC_ERROR, "Conversion to JSON failed for  " + type.getDisplayName(), e);
+                throw new TrinoException(JDBC_ERROR, "Conversion to JSON failed for " + type.getDisplayName(), e);
             }
         };
     }

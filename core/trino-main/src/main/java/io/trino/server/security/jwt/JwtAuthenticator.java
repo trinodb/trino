@@ -82,22 +82,19 @@ public class JwtAuthenticator
         }
 
         Object tokenAudience = claims.get(AUDIENCE);
-        if (tokenAudience == null) {
-            throw new InvalidClaimException(format("Expected %s claim to be: %s, but was not present in the JWT claims.", AUDIENCE, requiredAudience.get()));
-        }
-
-        if (tokenAudience instanceof String) {
-            if (!requiredAudience.get().equals((String) tokenAudience)) {
-                throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
+        switch (tokenAudience) {
+            case String value -> {
+                if (!requiredAudience.get().equals(value)) {
+                    throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
+                }
             }
-        }
-        else if (tokenAudience instanceof Collection) {
-            if (((Collection<?>) tokenAudience).stream().map(String.class::cast).noneMatch(aud -> requiredAudience.get().equals(aud))) {
-                throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
+            case Collection<?> collection -> {
+                if (collection.stream().noneMatch(aud -> requiredAudience.get().equals(aud))) {
+                    throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
+                }
             }
-        }
-        else {
-            throw new InvalidClaimException(format("Invalid Audience: %s", tokenAudience));
+            case null -> throw new InvalidClaimException(format("Expected %s claim to be: %s, but was not present in the JWT claims.", AUDIENCE, requiredAudience.get()));
+            default -> throw new InvalidClaimException(format("Invalid Audience: %s", tokenAudience));
         }
     }
 

@@ -16,16 +16,14 @@ package io.trino.plugin.iceberg;
 import io.trino.Session;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Table;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
-import java.util.Optional;
 
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,9 +40,7 @@ public class TestIcebergMaterializedView
         QueryRunner queryRunner = IcebergQueryRunner.builder()
                 .build();
         try {
-            metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
-                    .getInstance(HiveMetastoreFactory.class)
-                    .createMetastore(Optional.empty());
+            metastore = getHiveMetastore(queryRunner);
 
             queryRunner.createCatalog("iceberg2", "iceberg", Map.of(
                     "iceberg.catalog.type", "TESTING_FILE_METASTORE",

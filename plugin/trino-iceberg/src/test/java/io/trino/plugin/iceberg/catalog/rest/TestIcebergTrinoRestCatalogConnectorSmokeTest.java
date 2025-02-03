@@ -19,6 +19,7 @@ import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
@@ -102,6 +103,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
                                 .put("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
+                                .put("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
@@ -228,6 +230,10 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingSnapshotFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
+                .isInstanceOf(QueryFailedException.class)
+                .cause()
+                .hasMessageContaining("Failed to drop table")
+                .cause()
                 .hasMessageMatching("Server error: NotFoundException: Failed to open input stream for file: (.*)");
     }
 

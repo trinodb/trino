@@ -646,25 +646,27 @@ public abstract class AbstractTestType
         if (type.getJavaType() == LongTimestampWithTimeZone.class) {
             return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(1, 0, UTC_KEY);
         }
-        if (type instanceof ArrayType arrayType) {
-            Type elementType = arrayType.getElementType();
-            Object elementNonNullValue = getNonNullValueForType(elementType);
-            return arrayBlockOf(elementType, elementNonNullValue);
+        switch (type) {
+            case ArrayType arrayType -> {
+                Type elementType = arrayType.getElementType();
+                Object elementNonNullValue = getNonNullValueForType(elementType);
+                return arrayBlockOf(elementType, elementNonNullValue);
+            }
+            case MapType mapType -> {
+                Type keyType = mapType.getKeyType();
+                Type valueType = mapType.getValueType();
+                Object keyNonNullValue = getNonNullValueForType(keyType);
+                Object valueNonNullValue = getNonNullValueForType(valueType);
+                Map<?, ?> map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
+                return sqlMapOf(keyType, valueType, map);
+            }
+            case RowType rowType -> {
+                List<Type> elementTypes = rowType.getTypeParameters();
+                Object[] elementNonNullValues = elementTypes.stream().map(AbstractTestType::getNonNullValueForType).toArray(Object[]::new);
+                return toRow(elementTypes, elementNonNullValues);
+            }
+            default -> throw new IllegalStateException("Unsupported Java type " + type.getJavaType() + " (for type " + type + ")");
         }
-        if (type instanceof MapType mapType) {
-            Type keyType = mapType.getKeyType();
-            Type valueType = mapType.getValueType();
-            Object keyNonNullValue = getNonNullValueForType(keyType);
-            Object valueNonNullValue = getNonNullValueForType(valueType);
-            Map<?, ?> map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
-            return sqlMapOf(keyType, valueType, map);
-        }
-        if (type instanceof RowType rowType) {
-            List<Type> elementTypes = rowType.getTypeParameters();
-            Object[] elementNonNullValues = elementTypes.stream().map(AbstractTestType::getNonNullValueForType).toArray(Object[]::new);
-            return toRow(elementTypes, elementNonNullValues);
-        }
-        throw new IllegalStateException("Unsupported Java type " + type.getJavaType() + " (for type " + type + ")");
     }
 
     private Block toBlock(Object value)

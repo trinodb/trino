@@ -38,7 +38,7 @@ public class OpaContainer
 
     public OpaContainer()
     {
-        this.container = new GenericContainer<>(DockerImageName.parse("openpolicyagent/opa:latest"))
+        this.container = new GenericContainer<>(DockerImageName.parse("openpolicyagent/opa:0.70.0"))
                 .withCommand("run", "--server", "--addr", ":%d".formatted(OPA_PORT), "--set", "decision_logs.console=true")
                 .withExposedPorts(OPA_PORT)
                 .waitingFor(Wait.forListeningPort());

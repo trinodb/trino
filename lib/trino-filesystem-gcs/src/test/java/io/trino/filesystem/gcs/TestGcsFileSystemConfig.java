@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -44,6 +45,7 @@ public class TestGcsFileSystemConfig
                 .setPageSize(100)
                 .setBatchSize(100)
                 .setProjectId(null)
+                .setEndpoint(Optional.empty())
                 .setUseGcsAccessToken(false)
                 .setJsonKey(null)
                 .setJsonKeyFilePath(null)
@@ -67,6 +69,7 @@ public class TestGcsFileSystemConfig
                 .put("gcs.page-size", "10")
                 .put("gcs.batch-size", "11")
                 .put("gcs.project-id", "project")
+                .put("gcs.endpoint", "http://custom.dns.org:8000")
                 .put("gcs.use-access-token", "true")
                 .put("gcs.json-key", "{}")
                 .put("gcs.json-key-file-path", jsonKeyFile.toString())
@@ -84,6 +87,7 @@ public class TestGcsFileSystemConfig
                 .setPageSize(10)
                 .setBatchSize(11)
                 .setProjectId("project")
+                .setEndpoint(Optional.of("http://custom.dns.org:8000"))
                 .setUseGcsAccessToken(true)
                 .setJsonKey("{}")
                 .setJsonKeyFilePath(jsonKeyFile.toString())

@@ -267,9 +267,14 @@ export class WorkerStatus extends React.Component {
             <div>
                 <table className="table">
                     <tbody>
-                        {Object.keys(queries).map((key) =>
-                            WorkerStatus.renderPoolQuery(key, queries[key][0], queries[key][1], size)
-                        )}
+                        {Object.entries(queries)
+                            .sort(
+                                ([queryA, reservationsA], [queryB, reservationsB]) =>
+                                    reservationsB[0] - reservationsA[0]
+                            )
+                            .map(([query, reservations]) =>
+                                WorkerStatus.renderPoolQuery(query, reservations[0], reservations[1], size)
+                            )}
                     </tbody>
                 </table>
             </div>

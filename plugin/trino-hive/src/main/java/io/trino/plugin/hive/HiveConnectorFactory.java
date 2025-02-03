@@ -55,7 +55,6 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.connector.TableProcedureMetadata;
-import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.procedure.Procedure;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -137,7 +136,6 @@ public class HiveConnectorFactory
             HiveViewProperties hiveViewProperties = injector.getInstance(HiveViewProperties.class);
             HiveColumnProperties hiveColumnProperties = injector.getInstance(HiveColumnProperties.class);
             HiveAnalyzeProperties hiveAnalyzeProperties = injector.getInstance(HiveAnalyzeProperties.class);
-            HiveMaterializedViewPropertiesProvider hiveMaterializedViewPropertiesProvider = injector.getInstance(HiveMaterializedViewPropertiesProvider.class);
             Set<Procedure> procedures = injector.getInstance(new Key<>() {});
             Set<TableProcedureMetadata> tableProcedures = injector.getInstance(new Key<>() {});
             Set<SystemTableProvider> systemTableProviders = injector.getInstance(new Key<>() {});
@@ -161,10 +159,7 @@ public class HiveConnectorFactory
                     hiveViewProperties.getViewProperties(),
                     hiveColumnProperties.getColumnProperties(),
                     hiveAnalyzeProperties.getAnalyzeProperties(),
-                    hiveMaterializedViewPropertiesProvider.getMaterializedViewProperties(),
                     hiveAccessControl,
-                    injector.getInstance(new Key<>() {}),
-                    injector.getInstance(FunctionProvider.class),
                     injector.getInstance(HiveConfig.class).isSingleStatementWritesOnly(),
                     classLoader);
         }

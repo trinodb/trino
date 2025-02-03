@@ -147,7 +147,7 @@ public class CheckpointWriterManager
                 }
             }
 
-            snapshot.getJsonTransactionLogEntries()
+            snapshot.getJsonTransactionLogEntries(fileSystem)
                     .forEach(checkpointBuilder::addLogEntry);
 
             Location transactionLogDir = Location.of(getTransactionLogDir(snapshot.getTableLocation()));

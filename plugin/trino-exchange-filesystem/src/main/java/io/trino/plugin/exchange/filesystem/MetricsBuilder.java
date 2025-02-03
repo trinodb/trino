@@ -28,7 +28,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class MetricsBuilder
 {
-    public static final String SOURCE_FILES_TOTAL = "FileSystemExchangeSource.filesTotal";
     public static final String SOURCE_FILES_PROCESSED = "FileSystemExchangeSource.filesProcessed";
 
     private final ConcurrentMap<String, MetricBuilder> metricBuilders = new ConcurrentHashMap<>();

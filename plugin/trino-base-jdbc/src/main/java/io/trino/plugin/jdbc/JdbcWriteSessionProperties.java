@@ -50,12 +50,12 @@ public class JdbcWriteSessionProperties
                         false))
                 .add(booleanProperty(
                         NON_TRANSACTIONAL_INSERT,
-                        "Enables support for non-transactional MERGE",
+                        "Enables support for non-transactional INSERT",
                         writeConfig.isNonTransactionalInsert(),
                         false))
                 .add(booleanProperty(
                         NON_TRANSACTIONAL_MERGE,
-                        "Do not use temporary table on merge",
+                        "Enables support for non-transactional MERGE",
                         writeConfig.isNonTransactionalMerge(),
                         false))
                 .add(integerProperty(

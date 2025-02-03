@@ -21,7 +21,6 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.authentication.CachingKerberosAuthentication;
 import io.trino.plugin.base.authentication.KerberosAuthentication;
 import io.trino.plugin.base.authentication.KerberosConfiguration;
-import io.trino.plugin.hive.ForHiveMetastore;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;

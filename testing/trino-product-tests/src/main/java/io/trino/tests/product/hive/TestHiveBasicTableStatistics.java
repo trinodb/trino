@@ -43,7 +43,7 @@ public class TestHiveBasicTableStatistics
     @Test
     public void testCreateUnpartitioned()
     {
-        String tableName = "test_basic_statistics_unpartitioned_ctas_presto";
+        String tableName = "test_basic_statistics_unpartitioned_ctas_trino";
 
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM nation", tableName));
@@ -61,7 +61,7 @@ public class TestHiveBasicTableStatistics
     @Test
     public void testCreateExternalUnpartitioned()
     {
-        String tableName = "test_basic_statistics_external_unpartitioned_presto";
+        String tableName = "test_basic_statistics_external_unpartitioned_trino";
 
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
 
@@ -87,7 +87,7 @@ public class TestHiveBasicTableStatistics
     @Test
     public void testCreateTableWithNoData()
     {
-        String tableName = "test_basic_statistics_unpartitioned_ctas_presto_with_no_data";
+        String tableName = "test_basic_statistics_unpartitioned_ctas_trino_with_no_data";
 
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM nation WITH NO DATA", tableName));
@@ -104,7 +104,7 @@ public class TestHiveBasicTableStatistics
     @Test
     public void testInsertUnpartitioned()
     {
-        String tableName = "test_basic_statistics_unpartitioned_insert_presto";
+        String tableName = "test_basic_statistics_unpartitioned_insert_trino";
 
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         onTrino().executeQuery(format("" +
@@ -140,7 +140,7 @@ public class TestHiveBasicTableStatistics
     @Test
     public void testCreatePartitioned()
     {
-        String tableName = "test_basic_statistics_partitioned_ctas_presto";
+        String tableName = "test_basic_statistics_partitioned_ctas_trino";
 
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         onTrino().executeQuery(format("" +
@@ -252,7 +252,7 @@ public class TestHiveBasicTableStatistics
     @Test
     public void testInsertPartitioned()
     {
-        String tableName = "test_basic_statistics_partitioned_insert_presto";
+        String tableName = "test_basic_statistics_partitioned_insert_trino";
 
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         onTrino().executeQuery(format("" +
@@ -294,7 +294,7 @@ public class TestHiveBasicTableStatistics
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testInsertBucketed()
     {
-        String tableName = "test_basic_statistics_bucketed_insert_presto";
+        String tableName = "test_basic_statistics_bucketed_insert_trino";
 
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         onTrino().executeQuery(format("" +
@@ -333,7 +333,7 @@ public class TestHiveBasicTableStatistics
     @Test
     public void testInsertBucketedPartitioned()
     {
-        String tableName = "test_basic_statistics_bucketed_partitioned_insert_presto";
+        String tableName = "test_basic_statistics_bucketed_partitioned_insert_trino";
 
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         onTrino().executeQuery(format("" +

@@ -69,7 +69,7 @@ statements, the connector supports the following features:
 - {doc}`/sql/alter-schema`
 - {doc}`/sql/comment`
 - [](sql-view-management)
-- [](sql-routine-management)
+- [](udf-management)
 
 ### TRUNCATE and DROP TABLE
 

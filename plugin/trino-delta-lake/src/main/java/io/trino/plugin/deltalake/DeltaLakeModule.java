@@ -127,9 +127,6 @@ public class DeltaLakeModule
         binder.bind(NoIsolationSynchronizer.class).in(Scopes.SINGLETON);
         newMapBinder(binder, String.class, TransactionLogSynchronizer.class);
 
-        newOptionalBinder(binder, DeltaLakeRedirectionsProvider.class)
-                .setDefault().toInstance(DeltaLakeRedirectionsProvider.NOOP);
-
         jsonCodecBinder(binder).bindJsonCodec(DataFileInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(DeltaLakeMergeResult.class);
         binder.bind(DeltaLakeWriterStats.class).in(Scopes.SINGLETON);

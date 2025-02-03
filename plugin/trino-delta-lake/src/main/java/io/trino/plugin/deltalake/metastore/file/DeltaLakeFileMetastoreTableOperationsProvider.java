@@ -14,9 +14,9 @@
 package io.trino.plugin.deltalake.metastore.file;
 
 import com.google.inject.Inject;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableOperations;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableOperationsProvider;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;

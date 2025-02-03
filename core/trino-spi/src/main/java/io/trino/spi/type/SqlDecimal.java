@@ -13,8 +13,6 @@
  */
 package io.trino.spi.type;
 
-import com.fasterxml.jackson.annotation.JsonValue;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -81,7 +79,6 @@ public final class SqlDecimal
         return Objects.hash(unscaledValue, precision, scale);
     }
 
-    @JsonValue
     @Override
     public String toString()
     {

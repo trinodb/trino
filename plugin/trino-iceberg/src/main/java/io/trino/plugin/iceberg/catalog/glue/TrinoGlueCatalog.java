@@ -46,8 +46,8 @@ import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.SchemaAlreadyExistsException;
 import io.trino.metastore.TableInfo;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TrinoViewUtil;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.ViewReaderUtil;
@@ -130,11 +130,11 @@ import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getColumnParameters;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getStorageDescriptor;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableTypeNullable;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getColumnParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getStorageDescriptor;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getTableType;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -374,8 +374,25 @@ public class TrinoGlueCatalog
     @Override
     public List<TableInfo> listTables(ConnectorSession session, Optional<String> namespace)
     {
+        return listTables(session, namespace, _ -> true);
+    }
+
+    @Override
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    {
+        return listTables(session, namespace, table -> isIcebergTable(getTableParameters(table))).stream()
+                .map(TableInfo::tableName)
+                .collect(toImmutableList());
+    }
+
+    private List<TableInfo> listTables(
+            ConnectorSession session,
+            Optional<String> namespace,
+            Predicate<com.amazonaws.services.glue.model.Table> tablePredicate)
+    {
         List<Callable<List<TableInfo>>> tasks = listNamespaces(session, namespace).stream()
                 .map(glueNamespace -> (Callable<List<TableInfo>>) () -> getGlueTablesWithExceptionHandling(glueNamespace)
+                        .filter(tablePredicate)
                         .map(table -> mapToTableInfo(glueNamespace, table))
                         .collect(toImmutableList()))
                 .collect(toImmutableList());

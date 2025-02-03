@@ -22,6 +22,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.plugin.deltalake.metastore.file.DeltaLakeFileMetastoreTableOperationsProvider;
@@ -41,7 +42,6 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronize
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.SplitWeight;
@@ -230,7 +230,6 @@ public class TestDeltaLakeSplitManager
                         new TransactionLogSynchronizerManager(ImmutableMap.of(), new NoIsolationSynchronizer(hdfsFileSystemFactory))),
                 new TestingNodeManager(),
                 checkpointWriterManager,
-                DeltaLakeRedirectionsProvider.NOOP,
                 new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(HDFS_FILE_SYSTEM_FACTORY, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class))),
                 true,
                 new NodeVersion("test_version"),

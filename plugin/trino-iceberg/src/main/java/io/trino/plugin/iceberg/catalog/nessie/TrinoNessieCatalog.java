@@ -171,6 +171,14 @@ public class TrinoNessieCatalog
     }
 
     @Override
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    {
+        return listTables(session, namespace).stream()
+                .map(TableInfo::tableName)
+                .collect(toImmutableList());
+    }
+
+    @Override
     public Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
             ConnectorSession session,
             Optional<String> namespace,

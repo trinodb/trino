@@ -19,7 +19,7 @@ PostgreSQL instances.
 
 To connect to PostgreSQL, you need:
 
-- PostgreSQL 11.x or higher.
+- PostgreSQL 12.x or higher.
 - Network access from the Trino coordinator and workers to PostgreSQL.
   Port 5432 is the default port.
 
@@ -111,21 +111,6 @@ catalog named `sales` using the configured connector.
 
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
-
-```{include} non-transactional-insert.fragment
-```
-
-### Non-transactional MERGE
-
-The connector supports adding rows using {doc}`MERGE statements </sql/merge>`.
-However, the connector only support merge modifying directly to the target
-table at current, to use merge you need to set the `merge.non-transactional-merge.enabled` 
-catalog property or the corresponding `non_transactional_merge_enabled` catalog session property to
-`true`.
-
-Note that with this property enabled, data can be corrupted in rare cases where
-exceptions occur during the merge operation. With transactions disabled, no
-rollback can be performed.
 
 (postgresql-fte-support)=
 ### Fault-tolerant execution support
@@ -360,28 +345,46 @@ that catalog name instead of `example` in the above examples.
 ## SQL support
 
 The connector provides read access and write access to data and metadata in
-PostgreSQL.  In addition to the {ref}`globally available
-<sql-globally-available>` and {ref}`read operation <sql-read-operations>`
-statements, the connector supports the following features:
+PostgreSQL. In addition to the [globally available](sql-globally-available) and
+[read operation](sql-read-operations) statements, the connector supports the
+following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {ref}`sql-schema-table-management`
+- [](/sql/insert), see also [](postgresql-insert)
+- [](/sql/update), see also [](postgresql-update)
+- [](/sql/delete), see also [](postgresql-delete)
+- [](/sql/merge), see also [](postgresql-merge)
+- [](/sql/truncate)
+- [](sql-schema-table-management), see also:
+  - [](postgresql-alter-table)
+  - [](postgresql-alter-schema)
+- [](postgresql-procedures)
+- [](postgresql-table-functions)
 
+(postgresql-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(postgresql-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(postgresql-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(postgresql-merge)=
+```{include} non-transactional-merge.fragment
+```
+
+(postgresql-alter-table)=
 ```{include} alter-table-limitation.fragment
 ```
 
+(postgresql-alter-schema)=
 ```{include} alter-schema-limitation.fragment
 ```
 
+(postgresql-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
@@ -389,6 +392,7 @@ statements, the connector supports the following features:
 ```{include} procedures-execute.fragment
 ```
 
+(postgresql-table-functions)=
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to

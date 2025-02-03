@@ -142,11 +142,11 @@ Permissions required for executing functions:
 * - `CREATE FUNCTION`
   - `all`
   - `ownership`
-  -  Not all connectors support [catalog routines](routine-catalog).
+  -  Not all connectors support [](udf-catalog).
 * - `DROP FUNCTION`
   - `all`
   - `ownership`
-  -  Not all connectors support [catalog routines](routine-catalog).
+  -  Not all connectors support [](udf-catalog).
 :::
 
 (system-file-auth-visibility)=

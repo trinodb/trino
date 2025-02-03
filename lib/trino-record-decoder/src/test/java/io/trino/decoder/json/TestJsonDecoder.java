@@ -14,7 +14,6 @@
 package io.trino.decoder.json;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.ByteStreams;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
@@ -63,7 +62,7 @@ public class TestJsonDecoder
     public void testSimple()
             throws Exception
     {
-        byte[] json = ByteStreams.toByteArray(TestJsonDecoder.class.getResourceAsStream("/decoder/json/message.json"));
+        byte[] json = TestJsonDecoder.class.getResourceAsStream("/decoder/json/message.json").readAllBytes();
 
         DecoderTestColumnHandle column1 = new DecoderTestColumnHandle(0, "column1", createVarcharType(100), "source", null, null, false, false, false);
         DecoderTestColumnHandle column2 = new DecoderTestColumnHandle(1, "column2", createVarcharType(10), "user/screen_name", null, null, false, false, false);

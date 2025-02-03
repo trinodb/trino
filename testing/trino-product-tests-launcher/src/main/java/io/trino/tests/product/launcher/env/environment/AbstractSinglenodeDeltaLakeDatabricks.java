@@ -21,6 +21,7 @@ import io.trino.tests.product.launcher.env.common.Standard;
 
 import java.io.File;
 
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
@@ -39,22 +40,22 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
 
     private final DockerFiles dockerFiles;
 
-    abstract String databricksTestJdbcUrl();
-
     public AbstractSinglenodeDeltaLakeDatabricks(Standard standard, DockerFiles dockerFiles)
     {
         super(standard);
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
     }
 
+    abstract String databricksTestJdbcUrl();
+
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
         String databricksTestJdbcUrl = databricksTestJdbcUrl();
-        String databricksTestLogin = requireNonNull(System.getenv("DATABRICKS_LOGIN"), "Environment DATABRICKS_LOGIN was not set");
-        String databricksTestToken = requireNonNull(System.getenv("DATABRICKS_TOKEN"), "Environment DATABRICKS_TOKEN was not set");
-        String awsRegion = requireNonNull(System.getenv("AWS_REGION"), "Environment AWS_REGION was not set");
-        String s3Bucket = requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set");
+        String databricksTestLogin = requireEnv("DATABRICKS_LOGIN");
+        String databricksTestToken = requireEnv("DATABRICKS_TOKEN");
+        String awsRegion = requireEnv("AWS_REGION");
+        String s3Bucket = requireEnv("S3_BUCKET");
         DockerFiles.ResourceProvider configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-delta-lake-databricks");
 
         builder.configureContainer(COORDINATOR, dockerContainer -> exportAWSCredentials(dockerContainer)

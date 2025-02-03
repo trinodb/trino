@@ -139,7 +139,8 @@ If you are running Trino on Amazon EKS, and authenticate using a Kubernetes
 service account, you can set the
 `trino.s3.use-web-identity-token-credentials-provider` to `true`, so Trino does
 not try using different credential providers from the default credential
-provider chain.
+provider chain. The property must be set in the Hadoop configuration files
+referenced by the `hive.config.resources` Hive connector property.
 
 ## Custom S3 credentials provider
 
@@ -341,14 +342,6 @@ Trino includes a [native implementation to access Amazon
 S3](/object-storage/file-system-s3) with a catalog using the Delta Lake, Hive,
 Hudi, or Iceberg connectors. Upgrading existing deployments to the new native
 implementation is recommended. Legacy support will be deprecated and removed.
-
-The following considerations apply to legacy configurations moving to the native
-implementation:
-
-* SSL is always enabled and cannot be disabled.
-* Client-side encryption is not supported. Server-side encryption (SSE) is
-  the recommended alternative.
-* Multipart (non-streaming) writes and upload are not supported.
 
 To migrate a catalog to use the native file system implementation for S3, make
 the following edits to your catalog configuration:

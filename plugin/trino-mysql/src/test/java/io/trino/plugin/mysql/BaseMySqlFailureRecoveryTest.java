@@ -15,6 +15,7 @@ package io.trino.plugin.mysql;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
+import io.trino.Session;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
@@ -27,11 +28,12 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseMySqlFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
 {
+    private TestingMySqlServer mySqlServer;
+
     public BaseMySqlFailureRecoveryTest(RetryPolicy retryPolicy)
     {
         super(retryPolicy);
@@ -45,7 +47,8 @@ public abstract class BaseMySqlFailureRecoveryTest
             Module failureInjectionModule)
             throws Exception
     {
-        return MySqlQueryRunner.builder(closeAfterClass(new TestingMySqlServer()))
+        this.mySqlServer = new TestingMySqlServer();
+        return MySqlQueryRunner.builder(closeAfterClass(mySqlServer))
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setAdditionalSetup(runner -> {
@@ -60,10 +63,23 @@ public abstract class BaseMySqlFailureRecoveryTest
 
     @Test
     @Override
+    protected void testDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("Non-transactional MERGE is disabled");
+    }
+
+    @Test
+    @Override
     protected void testUpdateWithSubquery()
     {
-        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Unexpected Join over for-update table scan");
-        abort("skipped");
+        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Non-transactional MERGE is disabled");
+    }
+
+    @Test
+    @Override
+    protected void testMerge()
+    {
+        assertThatThrownBy(super::testMerge).hasMessageContaining("Non-transactional MERGE is disabled");
     }
 
     @Test
@@ -80,5 +96,11 @@ public abstract class BaseMySqlFailureRecoveryTest
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
                 .isCoordinatorOnly();
+    }
+
+    @Override
+    protected void addPrimaryKeyForMergeTarget(Session session, String tableName, String primaryKey)
+    {
+        mySqlServer.execute("ALTER TABLE %s ADD PRIMARY KEY (%s)".formatted(tableName, primaryKey));
     }
 }

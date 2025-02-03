@@ -53,6 +53,7 @@ import java.util.concurrent.Callable;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
 import static io.trino.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
@@ -155,6 +156,7 @@ public final class TestRun
         private final EnvironmentFactory environmentFactory;
         private final boolean debug;
         private final boolean debugSuspend;
+        private final boolean ipv6;
         private final JdkProvider jdkProvider;
         private final File testJar;
         private final File cliJar;
@@ -185,6 +187,7 @@ public final class TestRun
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
+            this.ipv6 = environmentOptions.ipv6;
             this.debugSuspend = testRunOptions.debugSuspend;
             this.jdkProvider = requireNonNull(jdkProvider, "jdkProvider is null");
             this.testJar = requireNonNull(testRunOptions.testJar, "testRunOptions.testJar is null");
@@ -322,7 +325,8 @@ public final class TestRun
             Environment.Builder builder = environmentFactory.get(environment, printStream, environmentConfig, extraOptions)
                     .setContainerOutputMode(outputMode)
                     .setStartupRetries(startupRetries)
-                    .setLogsBaseDir(logsDirBase);
+                    .setLogsBaseDir(logsDirBase)
+                    .setIpv6(ipv6);
 
             builder.configureContainer(TESTS, this::mountReportsDir);
             builder.configureContainer(TESTS, container -> {
@@ -335,7 +339,7 @@ public final class TestRun
                     unsafelyExposePort(container, 5007); // debug port
                 }
 
-                if (System.getenv("CONTINUOUS_INTEGRATION") != null) {
+                if (isEnvSet("CONTINUOUS_INTEGRATION")) {
                     container.withEnv("CONTINUOUS_INTEGRATION", "true");
                 }
 

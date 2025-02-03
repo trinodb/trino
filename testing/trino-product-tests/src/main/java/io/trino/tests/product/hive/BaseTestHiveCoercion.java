@@ -203,17 +203,17 @@ public abstract class BaseTestHiveCoercion
         Function<Engine, Map<String, List<Object>>> expected = engine -> expectedValuesForEngineProvider(engine, tableName, booleanToVarcharVal);
 
         // For Trino, remove unsupported columns
-        List<String> prestoReadColumns = removeUnsupportedColumnsForTrino(allColumns, tableName);
-        Map<String, List<Object>> expectedPrestoResults = expected.apply(Engine.TRINO);
+        List<String> trinoReadColumns = removeUnsupportedColumnsForTrino(allColumns, tableName);
+        Map<String, List<Object>> expectedTrinoResults = expected.apply(Engine.TRINO);
         // In case of unpartitioned tables we don't support all the column coercion thereby making this assertion conditional
         if (expectedExceptionsWithTrinoContext().isEmpty()) {
-            assertThat(ImmutableSet.copyOf(prestoReadColumns)).isEqualTo(expectedPrestoResults.keySet());
+            assertThat(ImmutableSet.copyOf(trinoReadColumns)).isEqualTo(expectedTrinoResults.keySet());
         }
-        String prestoSelectQuery = format("SELECT %s FROM %s", String.join(", ", prestoReadColumns), tableName);
-        assertQueryResults(Engine.TRINO, prestoSelectQuery, expectedPrestoResults, prestoReadColumns, 2);
+        String trinoSelectQuery = format("SELECT %s FROM %s", String.join(", ", trinoReadColumns), tableName);
+        assertQueryResults(Engine.TRINO, trinoSelectQuery, expectedTrinoResults, trinoReadColumns, 2);
 
         // Additional assertions for VARBINARY coercion
-        if (prestoReadColumns.contains("binary_to_string")) {
+        if (trinoReadColumns.contains("binary_to_string")) {
             List<Object> hexRepresentedValue = ImmutableList.of("58EFBFBDEFBFBDEFBFBDEFBFBD", "58EFBFBDEFBFBDEFBFBDEFBFBD58");
 
             if (tableName.toLowerCase(ENGLISH).contains("orc")) {

@@ -49,9 +49,9 @@ Integer numbers can be expressed as numeric literals in the following formats:
   for decimal `9` or `0b101010` for decimal `42``.
 
 Underscore characters are ignored within literal values, and can be used to
-increase readability. For example, decimal integer `123_456.789_123` is
-equivalent to `123456.789123`. Preceding and trailing underscores are not
-permitted.
+increase readability. For example, decimal integer `123_456` is equivalent to 
+`123456`. Preceding underscores, trailing underscores, and consecutive underscores
+are not permitted.
 
 Integers are supported by the following data types.
 
@@ -83,8 +83,8 @@ Floating-point, fixed-precision numbers can be expressed as numeric literal
 using scientific notation such as `1.03e1` and are cast as `DOUBLE` data type.
 Underscore characters are ignored within literal values, and can be used to
 increase readability. For example, value `123_456.789e4` is equivalent to
-`123456.789e4`. Preceding underscores, trailing underscores, and underscores
-beside the comma (`.`) are not permitted.
+`123456.789e4`. Preceding underscores, trailing underscores, consecutive
+underscores, and underscores beside the comma (`.`) are not permitted.
 
 ### `REAL`
 
@@ -108,8 +108,8 @@ are supported by the `DECIMAL` data type.
 
 Underscore characters are ignored within literal values, and can be used to
 increase readability. For example, decimal `123_456.789_123` is equivalent to
-`123456.789123`. Preceding underscores, trailing underscores, and underscores
-beside the comma (`.`) are not permitted.
+`123456.789123`. Preceding underscores, trailing underscores, consecutive
+underscores, and underscores beside the comma (`.`) are not permitted.
 
 Leading zeros in literal values are permitted and ignored. For example,
 `000123.456` is equivalent to `123.456`.
@@ -154,12 +154,14 @@ Single quotes in string literals can be escaped by using another single quote:
 
 ### `CHAR`
 
-Fixed length character data. A `CHAR` type without length specified has a default length of 1.
-A `CHAR(x)` value always has `x` characters. For example, casting `dog` to `CHAR(7)`
-adds 4 implicit trailing spaces. Leading and trailing spaces are included in comparisons of
-`CHAR` values. As a result, two character values with different lengths (`CHAR(x)` and
-`CHAR(y)` where `x != y`) will never be equal. As with `VARCHAR`, a single quote in a `CHAR` 
-literal can be escaped with another single quote:
+Fixed length character data. A `CHAR` type without length specified has a
+default length of 1. A `CHAR(x)` value always has a fixed length of `x`
+characters. For example, casting `dog` to `CHAR(7)` adds four implicit trailing
+spaces.
+
+As with `VARCHAR`, a single quote in a `CHAR` literal can be escaped with
+another single quote:
+
 ```sql
 SELECT CHAR 'All right, Mr. DeMille, I''m ready for my close-up.'
 ```
@@ -177,6 +179,9 @@ The binary data has to use hexadecimal format. For example, the binary form of
 ```sql
 SELECT from_utf8(x'65683F');
 ```
+
+Binary literals ignore any whitespace characters. For example, the literal
+`X'FFFF 0FFF  3FFF FFFF'` is equivalent to `X'FFFF0FFF3FFFFFFF'`.
 
 :::{note}
 Binary strings with length are not yet supported: `varbinary(n)`

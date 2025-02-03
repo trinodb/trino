@@ -16,15 +16,22 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.SizeOf;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
 import static java.lang.String.format;
 
 public class CdcEntry
 {
+    private static final int INSTANCE_SIZE = instanceSize(CdcEntry.class);
+
     private final String path;
     private final Map<String, String> partitionValues;
     private final Map<String, Optional<String>> canonicalPartitionValues;
@@ -79,5 +86,14 @@ public class CdcEntry
     {
         return format("CdcEntry{path=%s, partitionValues=%s, size=%d, dataChange=%b}",
                 path, partitionValues, size, dataChange);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(path)
+                + estimatedSizeOf(partitionValues, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(canonicalPartitionValues, SizeOf::estimatedSizeOf, value -> sizeOf(value, SizeOf::estimatedSizeOf))
+                + SIZE_OF_LONG;
     }
 }

@@ -302,30 +302,20 @@ public class MaterializedResult
         List<Object> convertedValues = new ArrayList<>();
         for (int field = 0; field < trinoRow.getFieldCount(); field++) {
             Object trinoValue = trinoRow.getField(field);
-            Object convertedValue;
-            if (trinoValue instanceof SqlDate) {
-                convertedValue = LocalDate.ofEpochDay(((SqlDate) trinoValue).getDays());
-            }
-            else if (trinoValue instanceof SqlTime) {
-                convertedValue = DateTimeFormatter.ISO_LOCAL_TIME.parse(trinoValue.toString(), LocalTime::from);
-            }
-            else if (trinoValue instanceof SqlTimeWithTimeZone) {
-                long nanos = roundDiv(((SqlTimeWithTimeZone) trinoValue).getPicos(), PICOSECONDS_PER_NANOSECOND);
-                int offsetMinutes = ((SqlTimeWithTimeZone) trinoValue).getOffsetMinutes();
-                convertedValue = OffsetTime.of(LocalTime.ofNanoOfDay(nanos), ZoneOffset.ofTotalSeconds(offsetMinutes * 60));
-            }
-            else if (trinoValue instanceof SqlTimestamp) {
-                convertedValue = ((SqlTimestamp) trinoValue).toLocalDateTime();
-            }
-            else if (trinoValue instanceof SqlTimestampWithTimeZone) {
-                convertedValue = ((SqlTimestampWithTimeZone) trinoValue).toZonedDateTime();
-            }
-            else if (trinoValue instanceof SqlDecimal) {
-                convertedValue = ((SqlDecimal) trinoValue).toBigDecimal();
-            }
-            else {
-                convertedValue = trinoValue;
-            }
+            Object convertedValue = switch (trinoValue) {
+                case null -> null;
+                case SqlDate sqlDate -> LocalDate.ofEpochDay(sqlDate.getDays());
+                case SqlTime _ -> DateTimeFormatter.ISO_LOCAL_TIME.parse(trinoValue.toString(), LocalTime::from);
+                case SqlTimeWithTimeZone sqlTimeWithTimeZone -> {
+                    long nanos = roundDiv(sqlTimeWithTimeZone.getPicos(), PICOSECONDS_PER_NANOSECOND);
+                    int offsetMinutes = sqlTimeWithTimeZone.getOffsetMinutes();
+                    yield OffsetTime.of(LocalTime.ofNanoOfDay(nanos), ZoneOffset.ofTotalSeconds(offsetMinutes * 60));
+                }
+                case SqlTimestamp sqlTimestamp -> sqlTimestamp.toLocalDateTime();
+                case SqlTimestampWithTimeZone sqlTimestampWithTimeZone -> sqlTimestampWithTimeZone.toZonedDateTime();
+                case SqlDecimal sqlDecimal -> sqlDecimal.toBigDecimal();
+                default -> trinoValue;
+            };
             convertedValues.add(convertedValue);
         }
         return new MaterializedRow(trinoRow.getPrecision(), convertedValues);

@@ -171,10 +171,7 @@ public class DistinctWindowAccumulator
         if (block.isNull(position)) {
             return false;
         }
-        if (!BOOLEAN.getBoolean(block, position)) {
-            return false;
-        }
-        return true;
+        return BOOLEAN.getBoolean(block, position);
     }
 
     @Override

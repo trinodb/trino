@@ -27,6 +27,7 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -38,7 +39,7 @@ import static org.apache.iceberg.MetadataTableType.ALL_MANIFESTS;
 public class AllManifestsTable
         extends BaseSystemTable
 {
-    public AllManifestsTable(SchemaTableName tableName, Table icebergTable)
+    public AllManifestsTable(SchemaTableName tableName, Table icebergTable, ExecutorService executor)
     {
         super(requireNonNull(icebergTable, "icebergTable is null"),
                 new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"), ImmutableList.<ColumnMetadata>builder()
@@ -55,7 +56,8 @@ public class AllManifestsTable
                                 RowType.field("lower_bound", VARCHAR),
                                 RowType.field("upper_bound", VARCHAR)))))
                         .build()),
-                ALL_MANIFESTS);
+                ALL_MANIFESTS,
+                executor);
     }
 
     @Override

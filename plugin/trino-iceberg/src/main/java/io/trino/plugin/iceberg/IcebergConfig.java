@@ -43,6 +43,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES_DEFAULT;
 
 @DefunctConfig({
         "iceberg.allow-legacy-snapshot-syntax",
@@ -60,6 +61,7 @@ public class IcebergConfig
 
     private IcebergFileFormat fileFormat = PARQUET;
     private HiveCompressionCodec compressionCodec = ZSTD;
+    private int maxCommitRetry = COMMIT_NUM_RETRIES_DEFAULT;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation = true;
@@ -130,6 +132,20 @@ public class IcebergConfig
     public IcebergConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxCommitRetry()
+    {
+        return maxCommitRetry;
+    }
+
+    @Config("iceberg.max-commit-retry")
+    @ConfigDescription("Number of times to retry a commit before failing")
+    public IcebergConfig setMaxCommitRetry(int maxCommitRetry)
+    {
+        this.maxCommitRetry = maxCommitRetry;
         return this;
     }
 

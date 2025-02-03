@@ -75,7 +75,7 @@ public class ManifestsTable
                         .add(new ColumnMetadata("existing_rows_count", BIGINT))
                         .add(new ColumnMetadata("deleted_data_files_count", INTEGER))
                         .add(new ColumnMetadata("deleted_rows_count", BIGINT))
-                        .add(new ColumnMetadata("partitions", new ArrayType(RowType.rowType(
+                        .add(new ColumnMetadata("partition_summaries", new ArrayType(RowType.rowType(
                                 RowType.field("contains_null", BOOLEAN),
                                 RowType.field("contains_nan", BOOLEAN),
                                 RowType.field("lower_bound", VARCHAR),

@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import com.google.common.io.ByteStreams;
 import io.trino.spi.Plugin;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
@@ -111,7 +110,7 @@ public class ModuleReader
                     .findFirst()
                     .map(entry -> {
                         try (BufferedInputStream bis = new BufferedInputStream(zipFile.getInputStream(entry))) {
-                            return new String(ByteStreams.toByteArray(bis), UTF_8).trim();
+                            return new String(bis.readAllBytes(), UTF_8).trim();
                         }
                         catch (IOException e) {
                             throw new UncheckedIOException(format("Couldn't read plugin's service descriptor in %s", serviceJar), e);

@@ -19,7 +19,6 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.trino.plugin.base.authentication.CachingKerberosAuthentication;
-import io.trino.plugin.hive.ForHiveMetastore;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;

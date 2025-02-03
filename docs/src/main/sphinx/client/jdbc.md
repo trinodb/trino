@@ -142,7 +142,7 @@ may not be specified using both methods.
   - Client tags for selecting resource groups. Example: `abc,xyz`
 * - `path`
   - Set the default [SQL path](/sql/set-path) for the session. Useful for
-    setting a catalog and schema location for [catalog routines](routine-catalog).
+    setting a catalog and schema location for [](udf-catalog).
 * - `traceToken`
   - Trace token for correlating requests across systems.
 * - `source`
@@ -269,7 +269,9 @@ may not be specified using both methods.
     Valid values are JSON with Zstandard compression, `json+zstd` (recommended),
     JSON with LZ4 compression `json+lz4`, and uncompressed JSON `json`. By
     default, the default encoding configured on the cluster is used.
-
+* - `validateConnection`
+  - Defaults to `false`. If set to `true`, connectivity and credentials are validated 
+    when the connection is created, and when `java.sql.Connection.isValid(int)` is called.
 :::
 
 (jdbc-spooling-protocol)=

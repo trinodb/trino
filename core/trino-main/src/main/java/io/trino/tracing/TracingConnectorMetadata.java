@@ -23,6 +23,7 @@ import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -140,15 +141,6 @@ public class TracingConnectorMetadata
         Span span = startSpan("getTableHandle", tableName);
         try (var _ = scopedSpan(span)) {
             return delegate.getTableHandle(session, tableName, startVersion, endVersion);
-        }
-    }
-
-    @Override
-    public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
-    {
-        Span span = startSpan("getTableHandleForExecute", tableHandle);
-        try (var _ = scopedSpan(span)) {
-            return delegate.getTableHandleForExecute(session, tableHandle, procedureName, executeProperties, retryMode);
         }
     }
 
@@ -479,6 +471,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
+    {
+        Span span = startSpan("addColumn", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            delegate.addColumn(session, tableHandle, column, position);
+        }
+    }
+
+    @Override
     public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
     {
         Span span = startSpan("addField", tableHandle);
@@ -758,15 +759,6 @@ public class TracingConnectorMetadata
         Span span = startSpan("getUpdateLayout", tableHandle);
         try (var _ = scopedSpan(span)) {
             return delegate.getUpdateLayout(session, tableHandle);
-        }
-    }
-
-    @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        Span span = startSpan("beginMerge", tableHandle);
-        try (var _ = scopedSpan(span)) {
-            return delegate.beginMerge(session, tableHandle, retryMode);
         }
     }
 

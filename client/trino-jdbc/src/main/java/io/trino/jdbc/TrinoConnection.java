@@ -26,7 +26,13 @@ import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
+import okhttp3.HttpUrl;
+import okhttp3.Request;
+import okhttp3.Response;
 
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.ProtocolException;
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
 import java.sql.Array;
@@ -56,6 +62,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -66,13 +73,18 @@ import java.util.logging.Logger;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.Maps.fromProperties;
+import static io.airlift.units.Duration.nanosSince;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.jdbc.ClientInfoProperty.APPLICATION_NAME;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_INFO;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_TAGS;
 import static io.trino.jdbc.ClientInfoProperty.TRACE_TOKEN;
 import static java.lang.String.format;
+import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
+import static java.net.HttpURLConnection.HTTP_OK;
+import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
@@ -84,6 +96,8 @@ public class TrinoConnection
         implements Connection
 {
     private static final Logger logger = Logger.getLogger(TrinoConnection.class.getPackage().getName());
+
+    private static final int CONNECTION_TIMEOUT_SECONDS = 30; // Not configurable
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
@@ -119,8 +133,10 @@ public class TrinoConnection
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
     private boolean useExplicitPrepare = true;
     private boolean assumeNullCatalogMeansCurrentCatalog;
+    private final boolean validateConnection;
 
     TrinoConnection(TrinoDriverUri uri, Call.Factory httpCallFactory, Call.Factory segmentHttpCallFactory)
+            throws SQLException
     {
         requireNonNull(uri, "uri is null");
         this.jdbcUri = uri.getUri();
@@ -156,6 +172,67 @@ public class TrinoConnection
 
         uri.getExplicitPrepare().ifPresent(value -> this.useExplicitPrepare = value);
         uri.getAssumeNullCatalogMeansCurrentCatalog().ifPresent(value -> this.assumeNullCatalogMeansCurrentCatalog = value);
+
+        this.validateConnection = uri.isValidateConnection();
+        if (validateConnection) {
+            try {
+                if (!isConnectionValid(CONNECTION_TIMEOUT_SECONDS)) {
+                    throw new SQLException("Invalid authentication to Trino server", "28000");
+                }
+            }
+            catch (UnsupportedOperationException | IOException e) {
+                throw new SQLException("Unable to connect to Trino server", "08001", e);
+            }
+        }
+    }
+
+    private boolean isConnectionValid(int timeout)
+            throws IOException, UnsupportedOperationException
+    {
+        HttpUrl url = HttpUrl.get(httpUri)
+                .newBuilder()
+                .encodedPath("/v1/statement")
+                .build();
+
+        Request headRequest = new Request.Builder()
+                .url(url)
+                .head()
+                .build();
+
+        Exception lastException = null;
+        Duration timeoutDuration = new Duration(timeout, TimeUnit.SECONDS);
+        long start = System.nanoTime();
+
+        while (timeoutDuration.compareTo(nanosSince(start)) > 0) {
+            try (Response response = httpCallFactory.newCall(headRequest).execute()) {
+                switch (response.code()) {
+                    case HTTP_OK:
+                        return true;
+                    case HTTP_UNAUTHORIZED:
+                        return false;
+                    case HTTP_BAD_METHOD:
+                        throw new UnsupportedOperationException("Trino server does not support HEAD /v1/statement");
+                }
+
+                try {
+                    MILLISECONDS.sleep(250);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+            catch (IOException e) {
+                if (getCausalChain(e).stream().anyMatch(TrinoConnection::isTransientConnectionValidationException)) {
+                    lastException = e;
+                }
+                else {
+                    throw e;
+                }
+            }
+        }
+
+        throw new IOException(format("Connection validation timed out after %ss", timeout), lastException);
     }
 
     @Override
@@ -528,7 +605,26 @@ public class TrinoConnection
         if (timeout < 0) {
             throw new SQLException("Timeout is negative");
         }
-        return !isClosed();
+
+        if (isClosed()) {
+            return false;
+        }
+
+        if (!validateConnection) {
+            return true;
+        }
+
+        try {
+            return isConnectionValid(timeout);
+        }
+        catch (UnsupportedOperationException e) {
+            logger.log(Level.FINE, "Trino server does not support connection validation", e);
+            return false;
+        }
+        catch (IOException e) {
+            logger.log(Level.FINE, "Connection validation has failed", e);
+            return false;
+        }
     }
 
     @Override
@@ -899,6 +995,14 @@ public class TrinoConnection
             source = applicationName;
         }
         return source;
+    }
+
+    private static boolean isTransientConnectionValidationException(Throwable e)
+    {
+        if (e instanceof InterruptedIOException && e.getMessage().equals("timeout")) {
+            return true;
+        }
+        return e instanceof ProtocolException;
     }
 
     private static final class SqlExceptionHolder

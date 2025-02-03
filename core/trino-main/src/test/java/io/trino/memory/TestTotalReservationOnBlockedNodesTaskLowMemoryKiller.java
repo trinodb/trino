@@ -258,6 +258,7 @@ public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
                         0,
                         Optional.empty(),
                         Optional.of(new TDigestHistogram(new TDigest())),
+                        Optional.empty(),
                         Optional.empty()),
                 ImmutableSet.of(),
                 new TaskStats(DateTime.now(),

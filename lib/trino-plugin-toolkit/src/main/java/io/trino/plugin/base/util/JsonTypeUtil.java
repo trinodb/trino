@@ -22,10 +22,19 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlDecimal;
+import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.SqlTimeWithTimeZone;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.SqlVarbinary;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.util.List;
+import java.util.StringJoiner;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
@@ -63,10 +72,28 @@ public final class JsonTypeUtil
         }
     }
 
-    public static Slice toJsonValue(Object value)
+    public static Slice toJsonValue(List<?> values)
             throws IOException
     {
-        return Slices.wrappedBuffer(SORTED_MAPPER.writeValueAsBytes(value));
+        if (values == null) {
+            return Slices.utf8Slice("[]");
+        }
+
+        StringJoiner joiner = new StringJoiner(",", "[", "]");
+        for (Object value : values) {
+            joiner.add(switch (value) {
+                case null -> "null";
+                case SqlDate _,
+                     SqlTime _,
+                     SqlVarbinary _,
+                     SqlTimeWithTimeZone _,
+                     SqlDecimal _,
+                     SqlTimestamp _,
+                     SqlTimestampWithTimeZone _ -> SORTED_MAPPER.writeValueAsString(value.toString());
+                default -> SORTED_MAPPER.writeValueAsString(value);
+            });
+        }
+        return Slices.utf8Slice(joiner.toString());
     }
 
     private static JsonParser createJsonParser(JsonFactory factory, Slice json)

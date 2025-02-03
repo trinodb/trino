@@ -24,6 +24,10 @@ Storage file system support:
     all other properties.
 * - `gcs.project-id`
   - Identifier for the project on Google Cloud Storage.
+* - `gcs.endpoint`
+  - Optional URL for the Google Cloud Storage endpoint. Configure this property
+    if your storage is accessed using a custom URL, for example
+    `http://storage.example.com:8000`.
 * - `gcs.client.max-retries`
   - Maximum number of RPC attempts. Defaults to 20.
 * - `gcs.client.backoff-scale-factor`

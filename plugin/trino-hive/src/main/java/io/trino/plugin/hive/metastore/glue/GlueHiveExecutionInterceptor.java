@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import com.google.inject.Inject;
 import software.amazon.awssdk.core.SdkRequest;
 import software.amazon.awssdk.core.interceptor.Context;
 import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
@@ -24,9 +25,10 @@ public class GlueHiveExecutionInterceptor
 {
     private final boolean skipArchive;
 
-    GlueHiveExecutionInterceptor(boolean isSkipArchive)
+    @Inject
+    GlueHiveExecutionInterceptor(GlueHiveMetastoreConfig config)
     {
-        this.skipArchive = isSkipArchive;
+        this.skipArchive = config.isSkipArchive();
     }
 
     @Override

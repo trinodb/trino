@@ -12,12 +12,14 @@
  * limitations under the License.
  */
 import { ReactNode } from 'react'
+import AppsOutlinedIcon from '@mui/icons-material/AppsOutlined'
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined'
 import DnsOutlinedIcon from '@mui/icons-material/DnsOutlined'
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined'
 import { RouteProps } from 'react-router-dom'
 import { Dashboard } from './components/Dashboard'
-import { Workers } from './components/Workers'
+import { DemoComponents } from './components/DemoComponents'
+import { WorkersList } from './components/WorkersList.tsx'
 import { QueryHistory } from './components/QueryHistory'
 import { Texts } from './constant'
 
@@ -46,7 +48,7 @@ export const routers: RouterItems = [
         icon: <DnsOutlinedIcon />,
         routeProps: {
             path: '/workers',
-            element: <Workers />,
+            element: <WorkersList />,
         },
     },
     {
@@ -56,6 +58,15 @@ export const routers: RouterItems = [
         routeProps: {
             path: '/query-history',
             element: <QueryHistory />,
+        },
+    },
+    {
+        itemKey: 'demo-components',
+        text: Texts.Menu.Drawer.DemoComponents,
+        icon: <AppsOutlinedIcon />,
+        routeProps: {
+            path: '/demo-components',
+            element: <DemoComponents />,
         },
     },
 ]

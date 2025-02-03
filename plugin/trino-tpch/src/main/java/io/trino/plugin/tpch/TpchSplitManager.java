@@ -14,6 +14,7 @@
 package io.trino.plugin.tpch;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorSession;
@@ -32,12 +33,19 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
 
 public class TpchSplitManager
         implements ConnectorSplitManager
 {
     private final NodeManager nodeManager;
     private final int splitsPerNode;
+
+    @Inject
+    public TpchSplitManager(NodeManager nodeManager, TpchConfig config)
+    {
+        this(requireNonNull(nodeManager, "nodeManager is null"), requireNonNull(config, "config is null").getSplitsPerNode());
+    }
 
     public TpchSplitManager(NodeManager nodeManager, int splitsPerNode)
     {

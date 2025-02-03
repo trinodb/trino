@@ -15,9 +15,10 @@ following client drivers:
 * [trino-go-client](https://github.com/trinodb/trino-go-client)
 * [trino-js-client](https://github.com/trinodb/trino-js-client)
 * [trino-python-client](https://github.com/trinodb/trino-python-client)
+* [trino-csharp-client](https://github.com/trinodb/trino-csharp-client)
 
 Other communities and vendors provide [other client
-drivers](https://trino.io/ecosystem/client.html).
+drivers](https://trino.io/ecosystem/client-driver#other-client-drivers).
 
 ## Client applications
 
@@ -26,11 +27,12 @@ run queries with Trino. You can inspect the results, perform analytics with
 further queries, and create visualizations. Client applications typically use a
 client driver.
 
-The Trino project maintains the [Trino command line interface](/client/cli) as a
-client application.
+The Trino project maintains the [Trino command line interface](/client/cli) and
+the [Trino Grafana Data Source Plugin](https://github.com/trinodb/grafana-trino)
+as a client application.
 
 Other communities and vendors provide [numerous other client
-applications](https://trino.io/ecosystem/client.html)
+applications](https://trino.io/ecosystem/client-application#other-client-applications)
 
 ## Client protocol
 

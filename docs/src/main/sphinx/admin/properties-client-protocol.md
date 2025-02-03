@@ -12,6 +12,7 @@ The following properties are related to the [](protocol-spooling).
 
 - **Type:** [](prop-type-boolean)
 - **Default value:** `true`
+- **Session property:** `spooling_enabled`
 
 Enable the support for the client [](protocol-spooling). The protocol is used if
 client drivers and applications request usage, otherwise the direct protocol is
@@ -79,14 +80,20 @@ Threshold for enabling compression with larger segments.
 ### `protocol.spooling.initial-segment-size`
 
 - **Type:** [](prop-type-data-size)
-- **Default value:** 8MB
+- **Default value:** `8MB`
+- **Minimum value:** `1KB`
+- **Maximum value:** `128MB`
+- **Session property:** `spooling_initial_segment_size`
 
 Initial size of the spooled segments.
 
-### `protocol.spooling.maximum-segment-size`
+### `protocol.spooling.max-segment-size`
 
 - **Type:** [](prop-type-data-size)
-- **Default value:** 16MB
+- **Default value:** `16MB`
+- **Minimum value:** `1KB`
+- **Maximum value:** `128MB`
+- **Session property:** `spooling_max_segment_size`
 
 Maximum size for each spooled segment.
 
@@ -94,6 +101,7 @@ Maximum size for each spooled segment.
 
 - **Type:** [](prop-type-boolean)
 - **Default value:** `true`
+- **Session property:** `spooling_inlining_enabled`
 
 Allow spooled protocol to inline initial rows to decrease time to return the
 first row.
@@ -101,14 +109,20 @@ first row.
 ### `protocol.spooling.inlining.max-rows`
 
 - **Type:** [](prop-type-integer)
-- **Default value:** 1000
+- **Default value:** `1000`
+- **Minimum value:** `1`
+- **Maximum value:** `1000000`
+- **Session property:** `spooling_inlining_max_rows`
 
 Maximum number of rows to inline per worker.
 
 ### `protocol.spooling.inlining.max-size`
 
 - **Type:** [](prop-type-data-size)
-- **Default value:** 128kB
+- **Default value:** `128kB`
+- **Minimum value:** `1KB`
+- **Maximum value:** `1MB`
+- **Session property:** `spooling_inlining_max_size`
 
 Maximum size of rows to inline per worker.
 
@@ -154,11 +168,14 @@ Examples:
 * `s3://my-spooling-bucket/my-segments/`
 
 :::{caution}
-When using the same object storage for spooling from multiple Trino clusters,
-you must use separate locations for each cluster. For example:
+The specified object storage location must not be used for spooling for another
+Trino cluster or any object storage catalog. When using the same object storage
+for multiple services, you must use separate locations for each one. For
+example:
 
-* `s3://my-spooling-bucket/my-segments/cluster1`
-* `s3://my-spooling-bucket/my-segments/cluster2`
+* `s3://my-spooling-bucket/my-segments/cluster1-spooling`
+* `s3://my-spooling-bucket/my-segments/cluster2-spooling`
+* `s3://my-spooling-bucket/my-segments/iceberg-catalog`
 :::
 
 ### `fs.segment.ttl`
