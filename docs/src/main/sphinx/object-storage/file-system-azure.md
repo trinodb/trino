@@ -1,11 +1,12 @@
 # Azure Storage file system support
 
-Trino includes a native implementation to access [Azure
-Storage](https://learn.microsoft.com/en-us/azure/storage/) with a catalog using
-the Delta Lake, Hive, Hudi, or Iceberg connectors.
+Trino includes a native implementation to access [Azure Data Lake Storage
+Gen2](https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-overview#about-azure-data-lake-storage-gen2)
+with a catalog using the Delta Lake, Hive, Hudi, or Iceberg connectors.
 
 Enable the native implementation with `fs.native-azure.enabled=true` in your
-catalog properties file.
+catalog properties file. Additionally, the Azure storage account must have
+hierarchical namespace enabled.
 
 ## General configuration
 
