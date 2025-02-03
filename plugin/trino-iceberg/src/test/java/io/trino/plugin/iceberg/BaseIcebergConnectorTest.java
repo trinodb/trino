@@ -205,6 +205,7 @@ public abstract class BaseIcebergConnectorTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
+                        .put("iceberg.format-version", "3")
                         // Only allow some extra properties. Add "sorted_by" so that we can test that the property is disallowed by the connector explicitly.
                         .put("iceberg.allowed-extra-properties", "extra.property.one,extra.property.two,extra.property.three,sorted_by")
                         // Allows testing the sorting writer flushing to the file system with smaller tables
@@ -367,7 +368,7 @@ public abstract class BaseIcebergConnectorTest
                         ")\n" +
                         "WITH (\n" +
                         "   format = '" + format.name() + "',\n" +
-                        "   format_version = 2,\n" +
+                        "   format_version = 3,\n" +
                         "   location = '\\E.*/tpch/orders-.*\\Q',\n" +
                         "   max_commit_retry = 4\n" +
                         ")\\E");
@@ -1941,7 +1942,7 @@ public abstract class BaseIcebergConnectorTest
                 """
                         WITH (
                            format = '%s',
-                           format_version = 2,
+                           format_version = 3,
                            location = '%s',
                            max_commit_retry = 4,
                            partitioning = ARRAY['adate']

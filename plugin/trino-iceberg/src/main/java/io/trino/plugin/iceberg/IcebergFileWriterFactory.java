@@ -33,21 +33,35 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
 import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.MetricsConfig;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.TableScan;
+import org.apache.iceberg.deletes.PositionDeleteIndex;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.DeleteFileSet;
 import org.weakref.jmx.Managed;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -81,6 +95,7 @@ import static io.trino.plugin.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE;
 import static org.apache.iceberg.io.DeleteSchemaUtil.pathPosSchema;
 import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
@@ -94,6 +109,7 @@ public class IcebergFileWriterFactory
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
     private final FileFormatDataSourceStats readStats;
+    private final ExecutorService icebergPlanningExecutor;
     private final OrcWriterStats orcWriterStats = new OrcWriterStats();
     private final OrcWriterOptions orcWriterOptions;
 
@@ -102,12 +118,14 @@ public class IcebergFileWriterFactory
             TypeManager typeManager,
             NodeVersion nodeVersion,
             FileFormatDataSourceStats readStats,
+            @ForIcebergScanPlanning ExecutorService icebergPlanningExecutor,
             OrcWriterConfig orcWriterConfig)
     {
         checkArgument(!orcWriterConfig.isUseLegacyVersion(), "the ORC writer shouldn't be configured to use a legacy version");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.readStats = requireNonNull(readStats, "readStats is null");
+        this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
         this.orcWriterOptions = orcWriterConfig.toOrcWriterOptions();
     }
 
@@ -135,17 +153,55 @@ public class IcebergFileWriterFactory
     }
 
     public IcebergFileWriter createPositionDeleteWriter(
+            TrinoCatalog catalog,
+            SchemaTableName tableName,
+            Optional<Long> snapshotId,
             TrinoFileSystem fileSystem,
             Location outputPath,
             ConnectorSession session,
-            IcebergFileFormat fileFormat,
+            String dataFilePath,
+            FileFormat fileFormat,
+            PartitionSpec partitionSpec,
+            Optional<PartitionData> partition,
             Map<String, String> storageProperties)
     {
         return switch (fileFormat) {
+            case PUFFIN -> createDeletionVectorWriter(catalog, tableName, snapshotId, fileSystem, outputPath, session, dataFilePath, partitionSpec, partition);
             case PARQUET -> createParquetWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties);
             case ORC -> createOrcWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties, DataSize.ofBytes(Integer.MAX_VALUE));
             case AVRO -> createAvroWriter(fileSystem, outputPath, POSITION_DELETE_SCHEMA, session);
+            default -> throw new IllegalArgumentException("Unsupported file format: " + fileFormat);
         };
+    }
+
+    private DeletionVectorWriter createDeletionVectorWriter(
+            TrinoCatalog catalog,
+            SchemaTableName tableName,
+            Optional<Long> snapshotId,
+            TrinoFileSystem fileSystem,
+            Location outputPath,
+            ConnectorSession session,
+            String dataFilePath,
+            PartitionSpec partitionSpec,
+            Optional<PartitionData> partition)
+    {
+        // TODO Move this logic to coordinator
+        Table table = catalog.loadTable(session, tableName);
+        ImmutableMap.Builder<String, DeleteFileSet> rewritableDeletes = ImmutableMap.builder();
+        TableScan tableScan = table.newScan().planWith(icebergPlanningExecutor);
+        snapshotId.ifPresent(tableScan::useSnapshot);
+        try (CloseableIterable<FileScanTask> iterator = table.newScan().planFiles()) {
+            for (FileScanTask task : iterator) {
+                rewritableDeletes.put(task.file().location(), DeleteFileSet.of(task.deletes()));
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        Function<CharSequence, PositionDeleteIndex> previousDeleteLoader = DeletionVectorWriter.create(table, rewritableDeletes.buildOrThrow());
+        int positionChannel = POSITION_DELETE_SCHEMA.columns().indexOf(DELETE_FILE_POS);
+        return new DeletionVectorWriter(fileSystem, outputPath, dataFilePath, catalog.loadTable(session, tableName), partitionSpec, partition, previousDeleteLoader::apply, positionChannel);
     }
 
     private IcebergFileWriter createParquetWriter(
@@ -233,6 +289,7 @@ public class IcebergFileWriterFactory
             }
 
             return new IcebergOrcFileWriter(
+                    outputPath,
                     metricsConfig,
                     icebergSchema,
                     orcDataSink,
