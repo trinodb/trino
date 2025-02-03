@@ -28,6 +28,7 @@ import static java.util.Objects.requireNonNull;
 
 public record IcebergWritableTableHandle(
         SchemaTableName name,
+        int formatVersion,
         String schemaAsJson,
         Map<Integer, String> partitionsSpecsAsJson,
         int partitionSpecId,
