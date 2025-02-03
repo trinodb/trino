@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.repository == 'trinodb/trino'
     steps:
-      - uses: actions/stale@v9.0.0
+      - uses: actions/stale@v9.1.0
         with:
           stale-pr-message: 'This pull request has gone a while without any activity. Tagging for triage help: @mosabua'
           days-before-pr-stale: 21
