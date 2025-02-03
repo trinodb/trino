@@ -1917,6 +1917,7 @@ ORDER BY _change_ordinal ASC;
 The connector includes a number of performance improvements, detailed in the
 following sections.
 
+(iceberg-table-statistics)=
 ### Table statistics
 
 The Iceberg connector can collect column statistics using {doc}`/sql/analyze`
