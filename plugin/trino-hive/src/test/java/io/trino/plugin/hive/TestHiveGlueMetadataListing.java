@@ -32,6 +32,7 @@ import software.amazon.awssdk.services.glue.model.CreateTableRequest;
 import software.amazon.awssdk.services.glue.model.TableInput;
 
 import java.nio.file.Path;
+import java.util.Set;
 
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreModule.createGlueClient;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
@@ -98,17 +99,16 @@ public class TestHiveGlueMetadataListing
     @Test
     public void testReadInformationSchema()
     {
-        String expectedTables = format("VALUES '%s', '%s', '%s'", TpchTable.REGION.getTableName(), TpchTable.NATION.getTableName(), FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME);
+        Set<String> expectedTables = ImmutableSet.<String>builder()
+                .add(TpchTable.REGION.getTableName())
+                .add(TpchTable.NATION.getTableName())
+                .add(FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME)
+                .build();
 
-        assertThat(query("SELECT table_name FROM hive.information_schema.tables"))
-                .skippingTypesCheck()
-                .containsAll(expectedTables);
-        assertThat(query("SELECT table_name FROM hive.information_schema.tables WHERE table_schema='" + tpchSchema + "'"))
-                .skippingTypesCheck()
-                .matches(expectedTables);
-        assertThat(query("SELECT table_name FROM hive.information_schema.tables WHERE table_name = 'region' AND table_schema='" + tpchSchema + "'"))
-                .skippingTypesCheck()
-                .matches("VALUES 'region'");
+        assertThat(computeActual("SELECT table_name FROM hive.information_schema.tables").getOnlyColumnAsSet()).containsAll(expectedTables);
+        assertThat(computeActual("SELECT table_name FROM hive.information_schema.tables WHERE table_schema='" + tpchSchema + "'").getOnlyColumnAsSet()).containsAll(expectedTables);
+        assertThat(computeScalar("SELECT table_name FROM hive.information_schema.tables WHERE table_name = 'region' AND table_schema='" + tpchSchema + "'"))
+                .isEqualTo(TpchTable.REGION.getTableName());
         assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME, tpchSchema));
 
         assertQuery("SELECT table_name, column_name from hive.information_schema.columns WHERE table_schema = '" + tpchSchema + "'",
@@ -117,7 +117,7 @@ public class TestHiveGlueMetadataListing
                 "VALUES ('region', 'regionkey'), ('region', 'name'), ('region', 'comment')");
         assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME, tpchSchema));
 
-        assertQuery("SHOW TABLES FROM hive." + tpchSchema, expectedTables);
+        assertThat(computeActual("SHOW TABLES FROM hive." + tpchSchema).getOnlyColumnAsSet()).isEqualTo(expectedTables);
     }
 
     private void createBrokenTable(Path dataDirectory)
