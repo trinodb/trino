@@ -253,7 +253,7 @@ public class IcebergTableProperties
         }
     }
 
-    public static int getMaxComiRetry(Map<String, Object> tableProperties)
+    public static int getMaxCommitRetry(Map<String, Object> tableProperties)
     {
         return (int) tableProperties.getOrDefault(MAX_COMMIT_RETRY, COMMIT_NUM_RETRIES_DEFAULT);
     }
