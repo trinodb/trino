@@ -1799,6 +1799,52 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
+    public void testVacuumWithWhiteSpace()
+            throws Exception
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String tableName = "test_vacuum_white_space_" + randomNameSuffix();
+        String tableLocation = getLocationForTable(bucketName, tableName) + "/";
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "vacuum_min_retention", "0s")
+                .build();
+
+        assertUpdate(format("CREATE TABLE %s (val int, col_white_space timestamp(6)) WITH (location = '%s', partitioned_by = ARRAY['col_white_space'])", tableName, tableLocation));
+
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, TIMESTAMP '2024-12-13 11:00:00.000000'), (2, TIMESTAMP '2024-12-13 12:00:00.000000')", 2);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(2);
+
+            computeActual("UPDATE " + tableName + " SET val = val + 100");
+            Stopwatch timeSinceUpdate = Stopwatch.createStarted();
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles).hasSize(2).doesNotContainAnyElementsOf(initialFiles);
+            assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
+
+            // vacuum with high retention period, nothing should change
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '10m')");
+            assertQuery("SELECT * FROM " + tableName, "VALUES (101, TIMESTAMP '2024-12-13 11:00:00.000000'), (102, TIMESTAMP '2024-12-13 12:00:00.000000')");
+            assertThat(getActiveFiles(tableName)).isEqualTo(updatedFiles);
+            assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
+
+            // vacuum with low retention period
+            MILLISECONDS.sleep(1_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '1s')");
+            // table data shouldn't change
+            assertQuery("SELECT * FROM " + tableName, "VALUES (101, TIMESTAMP '2024-12-13 11:00:00.000000'), (102, TIMESTAMP '2024-12-13 12:00:00.000000')");
+            // active files shouldn't change
+            assertThat(getActiveFiles(tableName)).isEqualTo(updatedFiles);
+            // old files should be cleaned up
+            assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(updatedFiles);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     public void testVacuumParameterValidation()
     {
         String catalog = getSession().getCatalog().orElseThrow();
