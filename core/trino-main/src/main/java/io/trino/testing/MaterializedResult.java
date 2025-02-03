@@ -370,7 +370,6 @@ public class MaterializedResult
         private final ConnectorSession session;
         private final List<Type> types;
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
-        private Optional<String> queryDataEncoding = Optional.empty();
         private Optional<List<String>> columnNames = Optional.empty();
 
         Builder(ConnectorSession session, List<Type> types)
@@ -433,20 +432,14 @@ public class MaterializedResult
             return this;
         }
 
-        public synchronized Builder queryDataEncoding(String encoding)
-        {
-            this.queryDataEncoding = Optional.of(requireNonNull(encoding, "encoding is null"));
-            return this;
-        }
-
         public synchronized MaterializedResult build()
         {
             if ((session instanceof FullConnectorSession fullConnectorSession)) {
-                return new MaterializedResult(Optional.of(fullConnectorSession.getSession()), rows.build(), types, columnNames, queryDataEncoding);
+                return new MaterializedResult(Optional.of(fullConnectorSession.getSession()), rows.build(), types, columnNames, Optional.empty());
             }
 
             // For TestingConnectorSession we are unable to retrieve full Session which makes the effective session empty in that case
-            return new MaterializedResult(Optional.empty(), rows.build(), types, columnNames, queryDataEncoding);
+            return new MaterializedResult(Optional.empty(), rows.build(), types, columnNames, Optional.empty());
         }
     }
 }
