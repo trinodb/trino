@@ -1121,12 +1121,10 @@ class AstBuilder
 
         return new Query(
                 getLocation(context),
-                Optional.ofNullable(context.queryScoped())
-                        .map(SqlBaseParser.QueryScopedContext::sessionProperty)
+                Optional.ofNullable(context.sessionProperty())
                         .map(contexts -> visit(contexts, SessionProperty.class))
                         .orElseGet(ImmutableList::of),
-                Optional.ofNullable(context.queryScoped())
-                        .map(SqlBaseParser.QueryScopedContext::functionSpecification)
+                Optional.ofNullable(context.functionSpecification())
                         .map(contexts -> visit(contexts, FunctionSpecification.class))
                         .orElseGet(ImmutableList::of),
                 query.getWith(),
