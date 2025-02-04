@@ -78,7 +78,6 @@ object storage system as *legacy* support. Additional documentation is available
 with the Hive connector and relevant dedicated pages:
 
 - [](/connector/hive)
-- [](/object-storage/legacy-s3)
 
 (object-storage-other)=
 ## Other object storage support
@@ -99,7 +98,6 @@ storage:
 /object-storage/file-system-gcs
 /object-storage/file-system-s3
 /object-storage/file-system-hdfs
-/object-storage/legacy-s3
 /object-storage/file-system-cache
 /object-storage/file-system-alluxio
 /object-storage/metastores

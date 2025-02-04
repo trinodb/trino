@@ -20,12 +20,14 @@ public class HiveS3TypeConfig
 {
     private S3FileSystemType s3FileSystemType = S3FileSystemType.TRINO;
 
+    @Deprecated
     @NotNull
     public S3FileSystemType getS3FileSystemType()
     {
         return s3FileSystemType;
     }
 
+    @Deprecated
     @Config("hive.s3-file-system-type")
     public HiveS3TypeConfig setS3FileSystemType(S3FileSystemType s3FileSystemType)
     {
