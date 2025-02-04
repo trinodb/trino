@@ -5057,7 +5057,14 @@ public abstract class BaseIcebergConnectorTest
     protected void verifyIcebergTableProperties(MaterializedResult actual)
     {
         assertThat(actual).isNotNull();
+        String tableLocation = getTableLocation("test_iceberg_get_table_props");
+        String currentSnapshot = String.valueOf(getCurrentSnapshotId("test_iceberg_get_table_props"));
         MaterializedResult expected = resultBuilder(getSession())
+                .row("format", "iceberg/" + format.name())
+                .row("provider", "iceberg")
+                .row("location", tableLocation)
+                .row("current-snapshot-id", currentSnapshot)
+                .row("format-version", "2")
                 .row("write.format.default", format.name())
                 .row("write.parquet.compression-codec", "zstd")
                 .row("commit.retry.num-retries", "4")

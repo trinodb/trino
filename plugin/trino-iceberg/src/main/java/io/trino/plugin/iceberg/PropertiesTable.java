@@ -14,6 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
@@ -25,9 +27,14 @@ import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.TableProperties;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -37,6 +44,13 @@ public class PropertiesTable
 {
     private final ConnectorTableMetadata tableMetadata;
     private final Table icebergTable;
+    private static final Set<String> RESERVED_PROPERTIES =
+            ImmutableSet.of(
+                    "provider",
+                    "format",
+                    "current-snapshot-id",
+                    "location",
+                    "format-version");
 
     public PropertiesTable(SchemaTableName tableName, Table icebergTable)
     {
@@ -69,15 +83,32 @@ public class PropertiesTable
 
     private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable)
     {
+        ImmutableMap.Builder<String, String> propsBuilder = ImmutableMap.builder();
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
-
-        icebergTable.properties().entrySet().forEach(prop -> {
+        String currentSnapshotId =
+                icebergTable.currentSnapshot() != null
+                        ? String.valueOf(icebergTable.currentSnapshot().snapshotId())
+                        : "none";
+        //TableOperations ops = ((BaseTable) icebergTable).operations();
+        String fileFormat = icebergTable.properties().getOrDefault(TableProperties.DEFAULT_FILE_FORMAT, TableProperties.DEFAULT_FILE_FORMAT_DEFAULT);
+        propsBuilder.put("format", "iceberg/" + fileFormat);
+        propsBuilder.put("provider", "iceberg");
+        propsBuilder.put("current-snapshot-id", currentSnapshotId);
+        propsBuilder.put("location", icebergTable.location());
+        if (icebergTable instanceof BaseTable) {
+            TableOperations ops = ((BaseTable) icebergTable).operations();
+            propsBuilder.put("format-version", String.valueOf(ops.current().formatVersion()));
+        }
+        icebergTable.properties().entrySet().stream()
+                .filter(entry -> !RESERVED_PROPERTIES.contains(entry.getKey()))
+                .forEach(propsBuilder::put);
+        Map<String, String> properties = propsBuilder.buildOrThrow();
+        properties.entrySet().forEach(prop -> {
             pagesBuilder.beginRow();
             pagesBuilder.appendVarchar(prop.getKey());
             pagesBuilder.appendVarchar(prop.getValue());
             pagesBuilder.endRow();
         });
-
         return pagesBuilder.build();
     }
 }
