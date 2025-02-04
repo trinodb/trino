@@ -13,6 +13,7 @@ connector/kinesis.md connector/removed.md
 object-storage/legacy-cos.md object-storage/file-system-s3.md 
 object-storage/legacy-gcs.md object-storage/file-system-gcs.md
 security/apache-ranger-access-control.md security/ranger-access-control.md
+object-storage/legacy-azure.md object-storage/file-system-azure.md
 routines.md udf.md
 routines/function.md udf/function.md
 routines/introduction.md udf/introduction.md
