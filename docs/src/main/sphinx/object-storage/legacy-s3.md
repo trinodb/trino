@@ -335,7 +335,6 @@ the `org.apache.hadoop.conf.Configurable` interface from the Hadoop Java API, th
 is passed in after the object instance is created, and before it is asked to provision or retrieve any
 encryption keys.
 
-(fs-legacy-s3-migration)=
 ## Migration to S3 file system
 
 Trino includes a [native implementation to access Amazon
