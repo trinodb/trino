@@ -33,12 +33,14 @@ public class HiveAzureConfig
     private String abfsOAuthClientId;
     private String abfsOAuthClientSecret;
 
+    @Deprecated
     public Optional<String> getWasbStorageAccount()
     {
         return Optional.ofNullable(wasbStorageAccount);
     }
 
     @ConfigSecuritySensitive
+    @Deprecated
     @Config("hive.azure.wasb-storage-account")
     public HiveAzureConfig setWasbStorageAccount(String wasbStorageAccount)
     {
@@ -46,12 +48,14 @@ public class HiveAzureConfig
         return this;
     }
 
+    @Deprecated
     public Optional<String> getWasbAccessKey()
     {
         return Optional.ofNullable(wasbAccessKey);
     }
 
     @ConfigSecuritySensitive
+    @Deprecated
     @Config("hive.azure.wasb-access-key")
     public HiveAzureConfig setWasbAccessKey(String wasbAccessKey)
     {
@@ -59,12 +63,14 @@ public class HiveAzureConfig
         return this;
     }
 
+    @Deprecated
     public Optional<String> getAbfsStorageAccount()
     {
         return Optional.ofNullable(abfsStorageAccount);
     }
 
     @ConfigSecuritySensitive
+    @Deprecated
     @Config("hive.azure.abfs-storage-account")
     public HiveAzureConfig setAbfsStorageAccount(String abfsStorageAccount)
     {
@@ -72,12 +78,14 @@ public class HiveAzureConfig
         return this;
     }
 
+    @Deprecated
     public Optional<String> getAbfsAccessKey()
     {
         return Optional.ofNullable(abfsAccessKey);
     }
 
     @ConfigSecuritySensitive
+    @Deprecated
     @Config("hive.azure.abfs-access-key")
     public HiveAzureConfig setAbfsAccessKey(String abfsAccessKey)
     {
@@ -86,6 +94,7 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
+    @Deprecated
     @Config("hive.azure.adl-client-id")
     public HiveAzureConfig setAdlClientId(String adlClientId)
     {
@@ -93,12 +102,14 @@ public class HiveAzureConfig
         return this;
     }
 
+    @Deprecated
     public Optional<String> getAdlClientId()
     {
         return Optional.ofNullable(adlClientId);
     }
 
     @ConfigSecuritySensitive
+    @Deprecated
     @Config("hive.azure.adl-credential")
     public HiveAzureConfig setAdlCredential(String adlCredential)
     {
@@ -106,17 +117,20 @@ public class HiveAzureConfig
         return this;
     }
 
+    @Deprecated
     public Optional<String> getAdlCredential()
     {
         return Optional.ofNullable(adlCredential);
     }
 
+    @Deprecated
     public Optional<String> getAdlRefreshUrl()
     {
         return Optional.ofNullable(adlRefreshUrl);
     }
 
     @ConfigSecuritySensitive
+    @Deprecated
     @Config("hive.azure.adl-refresh-url")
     public HiveAzureConfig setAdlRefreshUrl(String adlRefreshUrl)
     {
@@ -124,6 +138,7 @@ public class HiveAzureConfig
         return this;
     }
 
+    @Deprecated
     @Config("hive.azure.adl-proxy-host")
     public HiveAzureConfig setAdlProxyHost(HostAndPort adlProxyHost)
     {
@@ -131,12 +146,14 @@ public class HiveAzureConfig
         return this;
     }
 
+    @Deprecated
     public Optional<HostAndPort> getAdlProxyHost()
     {
         return Optional.ofNullable(adlProxyHost);
     }
 
     @ConfigSecuritySensitive
+    @Deprecated
     @Config("hive.azure.abfs.oauth.endpoint")
     public HiveAzureConfig setAbfsOAuthClientEndpoint(String endpoint)
     {
@@ -144,12 +161,14 @@ public class HiveAzureConfig
         return this;
     }
 
+    @Deprecated
     public Optional<String> getAbfsOAuthClientEndpoint()
     {
         return Optional.ofNullable(abfsOAuthClientEndpoint);
     }
 
     @ConfigSecuritySensitive
+    @Deprecated
     @Config("hive.azure.abfs.oauth.client-id")
     public HiveAzureConfig setAbfsOAuthClientId(String id)
     {
@@ -157,12 +176,14 @@ public class HiveAzureConfig
         return this;
     }
 
+    @Deprecated
     public Optional<String> getAbfsOAuthClientId()
     {
         return Optional.ofNullable(abfsOAuthClientId);
     }
 
     @ConfigSecuritySensitive
+    @Deprecated
     @Config("hive.azure.abfs.oauth.secret")
     public HiveAzureConfig setAbfsOAuthClientSecret(String secret)
     {
@@ -170,6 +191,7 @@ public class HiveAzureConfig
         return this;
     }
 
+    @Deprecated
     public Optional<String> getAbfsOAuthClientSecret()
     {
         return Optional.ofNullable(abfsOAuthClientSecret);
