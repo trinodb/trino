@@ -277,3 +277,130 @@ Example JSON configuration:
     are converted to a colon.
     Choose a value not used in any of your IAM ARNs.
 :::
+
+
+(fs-legacy-s3-migration)=
+## Migration from legacy S3 file system
+
+Trino includes legacy Amazon S3 support to use with a catalog using the Delta
+Lake, Hive, Hudi, or Iceberg connectors. Upgrading existing deployments to the
+current native implementation is recommended. Legacy support is deprecated and
+will be removed.
+
+To migrate a catalog to use the native file system implementation for S3, make
+the following edits to your catalog configuration:
+
+1. Add the `fs.native-s3.enabled=true` catalog configuration property.
+2. Refer to the following table to rename your existing legacy catalog
+   configuration properties to the corresponding native configuration
+   properties. Supported configuration values are identical unless otherwise
+   noted.
+
+  :::{list-table}
+  :widths: 35, 35, 65
+  :header-rows: 1
+   * - Legacy property
+     - Native property
+     - Notes
+   * - `hive.s3.aws-access-key`
+     - `s3.aws-access-key`
+     -
+   * - `hive.s3.aws-secret-key`
+     - `s3.aws-secret-key`
+     -
+   * - `hive.s3.iam-role`
+     - `s3.iam-role`
+     - Also see `s3.role-session-name` in preceding sections
+       for more role configuration options.
+   * - `hive.s3.external-id`
+     - `s3.external-id`
+     -
+   * - `hive.s3.endpoint`
+     - `s3.endpoint`
+     - Add the `https://` prefix to make the value a correct URL.
+   * - `hive.s3.region`
+     - `s3.region`
+     -
+   * - `hive.s3.sse.enabled`
+     - None
+     - `s3.sse.type` set to the default value of `NONE` is equivalent to
+       `hive.s3.sse.enabled=false`.
+   * - `hive.s3.sse.type`
+     - `s3.sse.type`
+     -
+   * - `hive.s3.sse.kms-key-id`
+     - `s3.sse.kms-key-id`
+     -
+   * - `hive.s3.upload-acl-type`
+     - `s3.canned-acl`
+     - See preceding sections for supported values.
+   * - `hive.s3.streaming.part-size`
+     - `s3.streaming.part-size`
+     -
+   * - `hive.s3.proxy.host`, `hive.s3.proxy.port`
+     - `s3.http-proxy`
+     - Specify the host and port in one URL, for example `localhost:8888`.
+   * - `hive.s3.proxy.protocol`
+     - `s3.http-proxy.secure`
+     - Set to `TRUE` to enable HTTPS.
+   * - `hive.s3.proxy.non-proxy-hosts`
+     - `s3.http-proxy.non-proxy-hosts`
+     -
+   * - `hive.s3.proxy.username`
+     - `s3.http-proxy.username`
+     -
+   * - `hive.s3.proxy.password`
+     - `s3.http-proxy.password`
+     -
+   * - `hive.s3.proxy.preemptive-basic-auth`
+     - `s3.http-proxy.preemptive-basic-auth`
+     -
+   * - `hive.s3.sts.endpoint`
+     - `s3.sts.endpoint`
+     -
+   * - `hive.s3.sts.region`
+     - `s3.sts.region`
+     -
+   * - `hive.s3.max-error-retries`
+     - `s3.max-error-retries`
+     - Also see `s3.retry-mode` in preceding sections for more retry behavior
+       configuration options.
+   * - `hive.s3.connect-timeout`
+     - `s3.connect-timeout`
+     -
+   * - `hive.s3.connect-ttl`
+     - `s3.connection-ttl`
+     - Also see `s3.connection-max-idle-time` in preceding section for more
+       connection keep-alive options.
+   * - `hive.s3.socket-timeout`
+     - `s3.socket-read-timeout`
+     - Also see `s3.tcp-keep-alive` in preceding sections for more socket
+       connection keep-alive options.
+   * - `hive.s3.max-connections`
+     - `s3.max-connections`
+     -
+   * - `hive.s3.path-style-access`
+     - `s3.path-style-access`
+     -
+  :::
+
+1. Remove the following legacy configuration properties if they exist in your
+   catalog configuration:
+
+      * `hive.s3.storage-class`
+      * `hive.s3.signer-type`
+      * `hive.s3.signer-class`
+      * `hive.s3.staging-directory`
+      * `hive.s3.pin-client-to-current-region`
+      * `hive.s3.ssl.enabled`
+      * `hive.s3.sse.enabled`
+      * `hive.s3.kms-key-id`
+      * `hive.s3.encryption-materials-provider`
+      * `hive.s3.streaming.enabled`
+      * `hive.s3.max-client-retries`
+      * `hive.s3.max-backoff-time`
+      * `hive.s3.max-retry-time`
+      * `hive.s3.multipart.min-file-size`
+      * `hive.s3.multipart.min-part-size`
+      * `hive.s3-file-system-type`
+      * `hive.s3.user-agent-prefix`
