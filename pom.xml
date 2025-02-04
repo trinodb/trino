@@ -237,7 +237,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.53.0</version>
+                <version>26.54.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -309,7 +309,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.30.11</version>
+                <version>2.30.12</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -2166,7 +2166,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.48.4</version>
+                <version>3.49.0</version>
             </dependency>
 
             <dependency>
