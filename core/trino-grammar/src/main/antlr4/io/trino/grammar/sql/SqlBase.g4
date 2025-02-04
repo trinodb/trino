@@ -200,13 +200,9 @@ statement
     ;
 
 rootQuery
-    : queryScoped? query
-    ;
-
-queryScoped
-    : WITH
-          (SESSION sessionProperty (',' sessionProperty)*)?
-          (functionSpecification (',' functionSpecification)*)?
+    : (WITH SESSION sessionProperty (',' sessionProperty)*)?
+      (WITH functionSpecification (',' functionSpecification)*)?
+      query
     ;
 
 sessionProperty

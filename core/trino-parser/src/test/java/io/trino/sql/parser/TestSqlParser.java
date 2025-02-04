@@ -6611,33 +6611,55 @@ public class TestSqlParser
     }
 
     @Test
+    public void testInvalidQueryScoped()
+    {
+        // Double WITH
+        assertStatementIsInvalid("WITH WITH SESSION query_max_memory = '1GB' SELECT 1")
+                .withMessage("line 1:6: mismatched input 'WITH'. Expecting: 'FUNCTION', 'RECURSIVE', 'SESSION', <identifier>");
+
+        // Session after function
+        assertStatementIsInvalid("WITH FUNCTION abc() RETURNS int RETURN 42, SESSION query_max_memory = '1GB' SELECT 1")
+            .withMessage("line 1:44: mismatched input 'SESSION'. Expecting: 'FUNCTION'");
+
+        // Session after function
+        assertStatementIsInvalid("WITH SESSION query_max_memory = '1GB', FUNCTION abc() RETURNS int RETURN 42, SESSION query_max_total_memory = '1GB' SELECT 1")
+                .withMessage("line 1:49: mismatched input 'abc'. Expecting: '.', '='");
+
+        // Repeated WITH SESSION
+        assertStatementIsInvalid("WITH SESSION query_max_memory = '1GB', WITH SESSION query_max_total_memory = '1GB' SELECT 1")
+                .withMessage("line 1:40: mismatched input 'WITH'. Expecting: <identifier>");
+    }
+
+    @Test
     public void testWithSessionAndFunction()
     {
-        assertThat( statement("""
+        assertThat(statement("""
+                WITH SESSION
+                   key = 'value'
                 WITH
-                   SESSION key = 'value'
-                   FUNCTION foo() RETURNS bigint RETURN 42
-                SELECT 1
-                """))
+                   FUNCTION foo()
+                   RETURNS bigint
+                   RETURN 42
+                SELECT 1"""))
                 .isEqualTo(new Query(
                         location(1, 1),
                         ImmutableList.of(
                                 new SessionProperty(
-                                        location(2, 12),
-                                        QualifiedName.of(ImmutableList.of(new Identifier(location(2, 12), "key", false))),
-                                        new StringLiteral(location(2, 18), "value"))),
+                                        location(2, 4),
+                                        QualifiedName.of(ImmutableList.of(new Identifier(location(2, 4), "key", false))),
+                                        new StringLiteral(location(2, 10), "value"))),
                         ImmutableList.of(new FunctionSpecification(
-                                location(3, 4),
-                                QualifiedName.of(ImmutableList.of(new Identifier(location(3, 13), "foo", false))),
+                                location(4, 4),
+                                QualifiedName.of(ImmutableList.of(new Identifier(location(4, 13), "foo", false))),
                                 ImmutableList.of(),
-                                new ReturnsClause(location(3, 19), simpleType(location(3, 27), "bigint")),
+                                new ReturnsClause(location(5, 4), simpleType(location(5, 12), "bigint")),
                                 ImmutableList.of(),
-                                Optional.of(new ReturnStatement(location(3, 34), new LongLiteral(location(3, 41), "42"))),
+                                Optional.of(new ReturnStatement(location(6, 4), new LongLiteral(location(6, 11), "42"))),
                                 Optional.empty())),
                         Optional.empty(),
                         new QuerySpecification(
-                                location(4, 1),
-                                new Select(location(4, 1), false, ImmutableList.of(new SingleColumn(location(4, 8), new LongLiteral(location(4, 8),"1"), Optional.empty()))),
+                                location(7, 1),
+                                new Select(location(7, 1), false, ImmutableList.of(new SingleColumn(location(7, 8), new LongLiteral(location(7, 8),"1"), Optional.empty()))),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),

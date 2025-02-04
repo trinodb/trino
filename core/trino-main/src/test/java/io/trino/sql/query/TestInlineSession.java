@@ -95,6 +95,7 @@ public class TestInlineSession
         assertThat(assertions.query("""
                 WITH
                   SESSION time_zone_id = 'Europe/Warsaw'
+                WITH
                   FUNCTION foo() RETURNS varchar RETURN current_timezone()
                 SELECT foo()
                 """))
