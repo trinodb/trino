@@ -48,6 +48,7 @@ public class IcebergRestCatalogConfig
     private SessionType sessionType = SessionType.NONE;
     private boolean vendedCredentialsEnabled;
     private boolean viewEndpointsEnabled = true;
+    private boolean sigV4Enabled;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
 
@@ -157,6 +158,19 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setViewEndpointsEnabled(boolean viewEndpointsEnabled)
     {
         this.viewEndpointsEnabled = viewEndpointsEnabled;
+        return this;
+    }
+
+    public boolean isSigV4Enabled()
+    {
+        return sigV4Enabled;
+    }
+
+    @Config("iceberg.rest-catalog.sigv4-enabled")
+    @ConfigDescription("Enable AWS Signature version 4 (SigV4)")
+    public IcebergRestCatalogConfig setSigV4Enabled(boolean sigV4Enabled)
+    {
+        this.sigV4Enabled = sigV4Enabled;
         return this;
     }
 
