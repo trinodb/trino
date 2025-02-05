@@ -25,6 +25,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
@@ -123,7 +124,6 @@ public class TopNOperator
         }
     }
 
-    private final TopNProcessor topNProcessor;
     private final WorkProcessor<Page> pages;
 
     private TopNOperator(
@@ -135,19 +135,20 @@ public class TopNOperator
             List<SortOrder> sortOrders,
             TypeOperators typeOperators)
     {
-        this.topNProcessor = new TopNProcessor(
-                memoryTrackingContext.aggregateUserMemoryContext(),
-                types,
-                n,
-                sortChannels,
-                sortOrders,
-                typeOperators);
-
         if (n == 0) {
             pages = WorkProcessor.of();
         }
         else {
-            pages = sourcePages.transform(new TopNPages());
+            List<Type> sortTypes = sortChannels.stream()
+                    .map(types::get)
+                    .collect(toImmutableList());
+            pages = sourcePages.transform(
+                    new TopNPages(
+                            new TopNProcessor(
+                                    memoryTrackingContext.aggregateUserMemoryContext(),
+                                    types,
+                                    n,
+                                    new SimplePageWithPositionComparator(sortTypes, sortChannels, sortOrders, typeOperators))));
         }
     }
 
@@ -157,9 +158,16 @@ public class TopNOperator
         return pages;
     }
 
-    private class TopNPages
+    private static final class TopNPages
             implements WorkProcessor.Transformation<Page, Page>
     {
+        private final TopNProcessor topNProcessor;
+
+        private TopNPages(TopNProcessor topNProcessor)
+        {
+            this.topNProcessor = requireNonNull(topNProcessor, "topNProcessor is null");
+        }
+
         @Override
         public TransformationState<Page> process(Page inputPage)
         {
