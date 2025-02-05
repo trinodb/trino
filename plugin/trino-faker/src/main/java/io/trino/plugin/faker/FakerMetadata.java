@@ -398,9 +398,9 @@ public class FakerMetadata
         return new FakerOutputTableHandle(tableName);
     }
 
-    private static boolean isNotRangeType(Type type)
+    private static boolean isRangeType(Type type)
     {
-        return type instanceof CharType || type instanceof VarcharType || type instanceof VarbinaryType;
+        return !(type instanceof CharType || type instanceof VarcharType || type instanceof VarbinaryType);
     }
 
     private static boolean isSequenceType(Type type)
@@ -516,7 +516,7 @@ public class FakerMetadata
 
     private static ColumnInfo createColumnInfoFromStats(ColumnInfo column, Object min, Object max, long distinctValues, Optional<Long> nonNullValues, long rowCount, boolean isSequenceDetectionEnabled, List<Object> allowedValues)
     {
-        if (isNotRangeType(column.type())) {
+        if (!isRangeType(column.type())) {
             return column;
         }
         FakerColumnHandle handle = column.handle();
@@ -563,6 +563,7 @@ public class FakerMetadata
                 .filter(entry -> entry.getValue() <= MAX_DICTIONARY_SIZE)
                 .map(entry -> columnHandles.get(entry.getKey()))
                 .filter(Objects::nonNull)
+                .filter(column -> isRangeType(column.type()))
                 .map(column -> !minimums.containsKey(column.name()) ? column : column.withDomain(Domain.create(ValueSet.ofRanges(Range.range(
                         column.type(),
                         minimums.get(column.name()),
@@ -570,6 +571,9 @@ public class FakerMetadata
                         maximums.get(column.name()),
                         true)), false)))
                 .collect(toImmutableList());
+        if (dictionaryColumns.isEmpty()) {
+            return ImmutableMap.of();
+        }
         ImmutableMap.Builder<String, List<Object>> columnValues = ImmutableMap.builder();
         try (FakerPageSource pageSource = new FakerPageSource(faker, random, dictionaryColumns, 0, MAX_DICTIONARY_SIZE * 2)) {
             Page page = null;

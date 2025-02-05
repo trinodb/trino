@@ -592,4 +592,24 @@ final class TestFakerQueries
             assertThat(createTable).containsPattern("nullable integer WITH \\(null_probability = 1E0\\)");
         }
     }
+
+    @Test
+    void testCreateTableAsSelectVarchar()
+    {
+        String source = """
+                        SELECT * FROM tpch.tiny.orders
+                        """;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "varchars", "AS " + source)) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("orderkey bigint WITH \\(max = '60000', min = '1', null_probability = 0E0, step = '1'\\)");
+            assertThat(createTable).containsPattern("custkey bigint WITH \\(allowed_values = ARRAY\\['.*'], null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("orderstatus varchar\\(1\\)");
+            assertThat(createTable).containsPattern("totalprice double WITH \\(max = '.*', min = '.*', null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("orderdate date WITH \\(max = '1998-08-02', min = '1992-01-01', null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("orderpriority varchar\\(15\\)");
+            assertThat(createTable).containsPattern("clerk varchar\\(15\\)");
+            assertThat(createTable).containsPattern("shippriority integer WITH \\(allowed_values = ARRAY\\['0'], null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("comment varchar\\(79\\)");
+        }
+    }
 }
