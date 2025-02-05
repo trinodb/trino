@@ -26,6 +26,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -79,6 +80,16 @@ public class RelationType
     public Field getFieldByIndex(int fieldIndex)
     {
         return allFields.get(fieldIndex);
+    }
+
+    /**
+     * Gets the field at the specified name.
+     */
+    public Optional<Field> getFieldByName(String name)
+    {
+        return allFields.stream()
+                .filter(field -> field.getName().isPresent() && field.getName().get().equals(name))
+                .collect(toOptional());
     }
 
     /**

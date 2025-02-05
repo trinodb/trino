@@ -1383,11 +1383,12 @@ class AstBuilder
         QueryBody right = (QueryBody) visit(context.right);
 
         boolean distinct = context.setQuantifier() == null || context.setQuantifier().DISTINCT() != null;
+        boolean corresponding = context.CORRESPONDING() != null;
 
         return switch (context.operator.getType()) {
-            case SqlBaseLexer.UNION -> new Union(getLocation(context.UNION()), ImmutableList.of(left, right), distinct);
-            case SqlBaseLexer.INTERSECT -> new Intersect(getLocation(context.INTERSECT()), ImmutableList.of(left, right), distinct);
-            case SqlBaseLexer.EXCEPT -> new Except(getLocation(context.EXCEPT()), left, right, distinct);
+            case SqlBaseLexer.UNION -> new Union(getLocation(context.UNION()), ImmutableList.of(left, right), distinct, corresponding);
+            case SqlBaseLexer.INTERSECT -> new Intersect(getLocation(context.INTERSECT()), ImmutableList.of(left, right), distinct, corresponding);
+            case SqlBaseLexer.EXCEPT -> new Except(getLocation(context.EXCEPT()), left, right, distinct, corresponding);
             default -> throw new IllegalArgumentException("Unsupported set operation: " + context.operator.getText());
         };
     }

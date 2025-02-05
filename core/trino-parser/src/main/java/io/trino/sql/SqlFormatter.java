@@ -1034,6 +1034,9 @@ public final class SqlFormatter
                     if (!node.isDistinct()) {
                         builder.append("ALL ");
                     }
+                    if (node.isCorresponding()) {
+                        builder.append("CORRESPONDING ");
+                    }
                 }
             }
 
@@ -1048,6 +1051,9 @@ public final class SqlFormatter
             builder.append("EXCEPT ");
             if (!node.isDistinct()) {
                 builder.append("ALL ");
+            }
+            if (node.isCorresponding()) {
+                builder.append("CORRESPONDING ");
             }
 
             processRelation(node.getRight(), indent);
@@ -1067,6 +1073,9 @@ public final class SqlFormatter
                     builder.append("INTERSECT ");
                     if (!node.isDistinct()) {
                         builder.append("ALL ");
+                    }
+                    if (node.isCorresponding()) {
+                        builder.append("CORRESPONDING ");
                     }
                 }
             }
