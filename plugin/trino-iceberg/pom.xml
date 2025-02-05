@@ -748,6 +748,7 @@
                                 <exclude>**/TestIcebergGlueTableOperationsInsertFailure.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogSkipArchive.java</exclude>
                                 <exclude>**/TestIcebergS3AndGlueMetastoreTest.java</exclude>
+                                <exclude>**/TestIcebergS3TablesConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
@@ -813,6 +814,7 @@
                                 <include>**/TestIcebergGlueTableOperationsInsertFailure.java</include>
                                 <include>**/TestIcebergGlueCatalogSkipArchive.java</include>
                                 <include>**/TestIcebergS3AndGlueMetastoreTest.java</include>
+                                <include>**/TestIcebergS3TablesConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include>
