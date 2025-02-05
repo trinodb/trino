@@ -18,18 +18,18 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 
-import static io.trino.client.JsonCodec.jsonCodec;
+import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestJsonCodec
+public class TestTrinoJsonCodec
 {
     @Test
     public void testTrailingContent()
             throws Exception
     {
-        JsonCodec<ClientTypeSignature> codec = jsonCodec(ClientTypeSignature.class);
+        TrinoJsonCodec<ClientTypeSignature> codec = jsonCodec(ClientTypeSignature.class);
 
         String json = "{\"rawType\":\"bigint\",\"arguments\":[]}";
         assertThat(codec.fromJson(json).getRawType()).isEqualTo("bigint");

@@ -18,9 +18,9 @@ import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
-import io.trino.client.JsonCodec;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
+import io.trino.client.TrinoJsonCodec;
 import io.trino.client.TypedQueryData;
 import io.trino.client.uri.PropertyName;
 import io.trino.client.uri.TrinoUri;
@@ -46,7 +46,7 @@ import static com.google.common.net.HttpHeaders.SET_COOKIE;
 import static io.trino.cli.ClientOptions.OutputFormat.CSV;
 import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.ClientStandardTypes.BIGINT;
-import static io.trino.client.JsonCodec.jsonCodec;
+import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static io.trino.client.auth.external.ExternalRedirectStrategy.PRINT;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,7 +55,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 @TestInstance(PER_METHOD)
 public class TestQueryRunner
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
     private MockWebServer server;
 
     @BeforeEach

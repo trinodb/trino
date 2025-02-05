@@ -19,7 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.errorprone.annotations.DoNotCall;
 import io.airlift.slice.Slice;
-import io.trino.client.JsonCodec;
+import io.trino.client.TrinoJsonCodec;
 import io.trino.spi.Plugin;
 import io.trino.spi.spool.SpooledLocation;
 import io.trino.spi.spool.SpooledLocation.DirectLocation;
@@ -47,14 +47,14 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.client.JsonCodec.jsonCodec;
+import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.util.Objects.requireNonNull;
 
 public class LocalSpoolingManager
         implements SpoolingManager
 {
-    private static final JsonCodec<LocalSpooledSegmentHandle> HANDLE_CODEC = jsonCodec(LocalSpooledSegmentHandle.class);
+    private static final TrinoJsonCodec<LocalSpooledSegmentHandle> HANDLE_CODEC = jsonCodec(LocalSpooledSegmentHandle.class);
     private final Path rootPath;
     private final AtomicLong segmentId = new AtomicLong();
 
