@@ -48,6 +48,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
+import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Objects.requireNonNull;
 
 public class LocalSpoolingManager
@@ -176,7 +177,7 @@ public class LocalSpoolingManager
         @Override
         public Instant expirationTime()
         {
-            return Instant.MAX;
+            return Instant.now().plus(5, MINUTES);
         }
 
         @JsonIgnore

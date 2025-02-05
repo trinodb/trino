@@ -28,7 +28,9 @@ public enum DataAttribute
     // Size of the segment in bytes after decompression, added only to compressed segments
     UNCOMPRESSED_SIZE("uncompressedSize", Integer.class),
     // Placeholder for future encoder-specific schema
-    SCHEMA("schema", String.class);
+    SCHEMA("schema", String.class),
+    // Segment expiration time
+    EXPIRES_AT("expiresAt", String.class);
 
     private final String name;
     private final Class<?> javaClass;
