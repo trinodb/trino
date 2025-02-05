@@ -47,6 +47,7 @@ public class IcebergRestCatalogConfig
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
     private boolean vendedCredentialsEnabled;
+    private boolean viewEndpointsEnabled = true;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
 
@@ -143,6 +144,19 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setVendedCredentialsEnabled(boolean vendedCredentialsEnabled)
     {
         this.vendedCredentialsEnabled = vendedCredentialsEnabled;
+        return this;
+    }
+
+    public boolean isViewEndpointsEnabled()
+    {
+        return viewEndpointsEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.view-endpoints-enabled")
+    @ConfigDescription("Enable view endpoints")
+    public IcebergRestCatalogConfig setViewEndpointsEnabled(boolean viewEndpointsEnabled)
+    {
+        this.viewEndpointsEnabled = viewEndpointsEnabled;
         return this;
     }
 

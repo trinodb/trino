@@ -57,6 +57,7 @@ public class TrinoIcebergRestCatalogFactory
     private final boolean nestedNamespaceEnabled;
     private final SessionType sessionType;
     private final boolean vendedCredentialsEnabled;
+    private final boolean viewEndpointsEnabled;
     private final SecurityProperties securityProperties;
     private final boolean uniqueTableLocation;
     private final TypeManager typeManager;
@@ -87,6 +88,7 @@ public class TrinoIcebergRestCatalogFactory
         this.nestedNamespaceEnabled = restConfig.isNestedNamespaceEnabled();
         this.sessionType = restConfig.getSessionType();
         this.vendedCredentialsEnabled = restConfig.isVendedCredentialsEnabled();
+        this.viewEndpointsEnabled = restConfig.isViewEndpointsEnabled();
         this.securityProperties = requireNonNull(securityProperties, "securityProperties is null");
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.uniqueTableLocation = icebergConfig.isUniqueTableLocation();
@@ -112,7 +114,7 @@ public class TrinoIcebergRestCatalogFactory
             properties.put(CatalogProperties.URI, serverUri.toString());
             warehouse.ifPresent(location -> properties.put(CatalogProperties.WAREHOUSE_LOCATION, location));
             prefix.ifPresent(prefix -> properties.put("prefix", prefix));
-            properties.put("view-endpoints-supported", "true");
+            properties.put("view-endpoints-supported", Boolean.toString(viewEndpointsEnabled));
             properties.put("trino-version", trinoVersion);
             properties.putAll(securityProperties.get());
 
