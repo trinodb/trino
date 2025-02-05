@@ -34,7 +34,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class JsonCodec<T>
+public class TrinoJsonCodec<T>
 {
     // copy of https://github.com/airlift/airlift/blob/master/json/src/main/java/io/airlift/json/ObjectMapperProvider.java
     static final Supplier<ObjectMapper> OBJECT_MAPPER_SUPPLIER = () -> {
@@ -64,16 +64,16 @@ public class JsonCodec<T>
                 .build();
     };
 
-    public static <T> JsonCodec<T> jsonCodec(Class<T> type)
+    public static <T> TrinoJsonCodec<T> jsonCodec(Class<T> type)
     {
-        return new JsonCodec<>(OBJECT_MAPPER_SUPPLIER.get(), type);
+        return new TrinoJsonCodec<>(OBJECT_MAPPER_SUPPLIER.get(), type);
     }
 
     private final ObjectMapper mapper;
     private final Type type;
     private final JavaType javaType;
 
-    private JsonCodec(ObjectMapper mapper, Type type)
+    private TrinoJsonCodec(ObjectMapper mapper, Type type)
     {
         this.mapper = requireNonNull(mapper, "mapper is null");
         this.type = requireNonNull(type, "type is null");
