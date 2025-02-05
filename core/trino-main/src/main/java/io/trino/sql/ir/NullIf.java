@@ -33,7 +33,9 @@ public record NullIf(Expression first, Expression second)
         requireNonNull(first, "first is null");
         requireNonNull(second, "second is null");
 
-        // TODO: verify that first and second can be coerced to the same type
+        if (!first.type().equals(second.type())) {
+        throw new IllegalArgumentException("first and second must be of the same type");
+        }
     }
 
     @Override
