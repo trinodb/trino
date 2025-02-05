@@ -32,7 +32,7 @@ public final class FakerFunctions
         faker = new Faker();
     }
 
-    @ScalarFunction(deterministic = false)
+    @ScalarFunction(schema = "default", deterministic = false)
     @Description("Generate a random string based on the Faker expression")
     @SqlType(VARCHAR)
     public Slice randomString(@SqlType(VARCHAR) Slice fakerExpression)
