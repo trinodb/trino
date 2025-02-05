@@ -554,6 +554,8 @@
                                 <exclude>**/TestBigQueryCaseInsensitiveMappingWithCache.java</exclude>
                                 <exclude>**/TestBigQuery*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestBigQueryWithProxyTest.java</exclude>
+                                <exclude>**/TestBigQueryParentProjectId.java</exclude>
+                                <exclude>**/TestBigQueryWithBothProjectIdsSet.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -574,6 +576,8 @@
                         <configuration>
                             <includes>
                                 <include>**/TestBigQueryAvroConnectorTest.java</include>
+                                <include>**/TestBigQueryParentProjectId.java</include>
+                                <include>**/TestBigQueryWithBothProjectIdsSet.java</include>
                             </includes>
                         </configuration>
                     </plugin>
