@@ -29,6 +29,7 @@ import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
 
 import javax.management.Attribute;
+import javax.management.InstanceNotFoundException;
 import javax.management.JMException;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -228,7 +229,12 @@ public class JmxRecordSetProvider
     {
         ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
         for (String objectName : tableHandle.objectNames()) {
-            rows.add(getLiveRow(objectName, columns, 0));
+            try {
+                rows.add(getLiveRow(objectName, columns, 0));
+            }
+            catch (InstanceNotFoundException _) {
+                // Ignore if the object doesn't exist. This might happen when it exists on the coordinator but has not yet been created on the worker.
+            }
         }
         return rows.build();
     }
