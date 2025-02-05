@@ -29,13 +29,13 @@ public class S3SecurityMappingConfig
     private Duration refreshPeriod;
     private String colonReplacement;
 
-    @Deprecated
+    @Deprecated(forRemoval = true, since = "470")
     public Optional<String> getConfigFilePath()
     {
         return Optional.ofNullable(configFilePath);
     }
 
-    @Deprecated
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.security-mapping.config-file")
     @ConfigDescription("JSON configuration file containing security mappings")
     public S3SecurityMappingConfig setConfigFilePath(String configFilePath)
@@ -44,14 +44,14 @@ public class S3SecurityMappingConfig
         return this;
     }
 
-    @Deprecated
+    @Deprecated(forRemoval = true, since = "470")
     @NotNull
     public String getJsonPointer()
     {
         return jsonPointer;
     }
 
-    @Deprecated
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.security-mapping.json-pointer")
     @ConfigDescription("JSON pointer (RFC 6901) to mappings inside JSON config")
     public S3SecurityMappingConfig setJsonPointer(String jsonPointer)
@@ -60,13 +60,13 @@ public class S3SecurityMappingConfig
         return this;
     }
 
-    @Deprecated
+    @Deprecated(forRemoval = true, since = "470")
     public Optional<String> getRoleCredentialName()
     {
         return Optional.ofNullable(roleCredentialName);
     }
 
-    @Deprecated
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.security-mapping.iam-role-credential-name")
     @ConfigDescription("Name of the extra credential used to provide IAM role")
     public S3SecurityMappingConfig setRoleCredentialName(String roleCredentialName)
@@ -75,13 +75,13 @@ public class S3SecurityMappingConfig
         return this;
     }
 
-    @Deprecated
+    @Deprecated(forRemoval = true, since = "470")
     public Optional<String> getKmsKeyIdCredentialName()
     {
         return Optional.ofNullable(kmsKeyIdCredentialName);
     }
 
-    @Deprecated
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.security-mapping.kms-key-id-credential-name")
     @ConfigDescription("Name of the extra credential used to provide KMS Key ID")
     public S3SecurityMappingConfig setKmsKeyIdCredentialName(String kmsKeyIdCredentialName)
@@ -90,13 +90,13 @@ public class S3SecurityMappingConfig
         return this;
     }
 
-    @Deprecated
+    @Deprecated(forRemoval = true, since = "470")
     public Optional<Duration> getRefreshPeriod()
     {
         return Optional.ofNullable(refreshPeriod);
     }
 
-    @Deprecated
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.security-mapping.refresh-period")
     @ConfigDescription("How often to refresh the security mapping configuration")
     public S3SecurityMappingConfig setRefreshPeriod(Duration refreshPeriod)
@@ -105,13 +105,13 @@ public class S3SecurityMappingConfig
         return this;
     }
 
-    @Deprecated
+    @Deprecated(forRemoval = true, since = "470")
     public Optional<String> getColonReplacement()
     {
         return Optional.ofNullable(colonReplacement);
     }
 
-    @Deprecated
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.security-mapping.colon-replacement")
     @ConfigDescription("Value used in place of colon for IAM role name in extra credentials")
     public S3SecurityMappingConfig setColonReplacement(String colonReplacement)
