@@ -16,17 +16,13 @@ package io.trino.operator;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
-import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
-import jakarta.annotation.Nullable;
 
 import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 
@@ -37,41 +33,30 @@ public class TopNProcessor
 {
     private final LocalMemoryContext localUserMemoryContext;
 
-    @Nullable
-    private GroupedTopNBuilder topNBuilder;
+    private final GroupedTopNRowNumberBuilder topNBuilder;
     private Iterator<Page> outputIterator;
 
     public TopNProcessor(
             AggregatedMemoryContext aggregatedMemoryContext,
             List<Type> types,
             int n,
-            List<Integer> sortChannels,
-            List<SortOrder> sortOrders, TypeOperators typeOperators)
+            PageWithPositionComparator comparator)
     {
         requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null");
+        checkArgument(n > 0, "n must be > 0, found: %s", n);
         this.localUserMemoryContext = aggregatedMemoryContext.newLocalMemoryContext(TopNProcessor.class.getSimpleName());
-        checkArgument(n >= 0, "n must be positive");
 
-        if (n == 0) {
-            outputIterator = emptyIterator();
-        }
-        else {
-            List<Type> sortTypes = sortChannels.stream()
-                    .map(types::get)
-                    .collect(toImmutableList());
-            topNBuilder = new GroupedTopNRowNumberBuilder(
-                    types,
-                    new SimplePageWithPositionComparator(sortTypes, sortChannels, sortOrders, typeOperators),
-                    n,
-                    false,
-                    new int[0],
-                    new NoChannelGroupByHash());
-        }
+        topNBuilder = new GroupedTopNRowNumberBuilder(
+                types,
+                comparator,
+                n,
+                false,
+                new int[0],
+                new NoChannelGroupByHash());
     }
 
     public void addInput(Page page)
     {
-        requireNonNull(topNBuilder, "topNBuilder is null");
         boolean done = topNBuilder.processPage(requireNonNull(page, "page is null")).process();
         // there is no grouping so work will always be done
         verify(done);
@@ -103,7 +88,6 @@ public class TopNProcessor
 
     private void updateMemoryReservation()
     {
-        requireNonNull(topNBuilder, "topNBuilder is null");
         localUserMemoryContext.setBytes(topNBuilder.getEstimatedSizeInBytes());
     }
 }
